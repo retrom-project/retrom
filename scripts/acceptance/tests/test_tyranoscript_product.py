@@ -48,7 +48,7 @@ class TyranoScriptProductAcceptanceTests(unittest.TestCase):
 
     def test_driver_keeps_operator_input_private_and_checks_product_boundaries(self) -> None:
         contract_path = DRIVER_PATH.with_name("tyranoscript_product_contract.mjs")
-        contents = DRIVER_PATH.read_text(encoding="utf-8") + contract_path.read_text(encoding="utf-8")
+        contents = DRIVER_PATH.read_text(encoding="utf-8") + contract_path.read_text(encoding="utf-8") + DRIVER_PATH.with_name("tyranoscript_input.mjs").read_text(encoding="utf-8")
         self.assertNotIn("/data/game", contents)
         for contract in (
             "RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE", "TYRANOSCRIPT_PROJECT",

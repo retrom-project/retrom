@@ -16,6 +16,7 @@
         "butterscotch",
         "tyranoscript",
         "j2me-web",
+        "ruffle",
         "vice-libretro",
         "virtualjaguar-libretro",
         "wasm4",
@@ -24,8 +25,20 @@
         "fake08",
         "play",
         "flycast-wasm",
+        "webmsx",
+        "px68k",
         "openbor"
       ]
+    },
+    {
+      "id": "ruffle",
+      "path": "project/retrom-core/ruffle",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/ruffle.git",
+      "defaultBranch": "retrom/ge46d1642fb67",
+      "submodules": false,
+      "shallowClone": true,
+      "dependsOn": []
     },
     {
       "id": "player",
@@ -189,11 +202,29 @@
       "dependsOn": []
     },
     {
+      "id": "px68k",
+      "path": "project/retrom-core/px68k-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/px68k-libretro.git",
+      "defaultBranch": "retrom/g561dcba6b11d",
+      "dependsOn": [],
+      "submodules": false
+    },
+    {
       "id": "flycast-wasm",
       "path": "project/retrom-core/flycast-wasm",
       "role": "core",
       "gitlink": "git@github.com:retrom-project/flycast-wasm.git",
       "defaultBranch": "retrom/1.0",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "webmsx",
+      "path": "project/retrom-core/WebMSX",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/WebMSX.git",
+      "defaultBranch": "retrom/6.0.8",
       "submodules": false,
       "dependsOn": []
     },
