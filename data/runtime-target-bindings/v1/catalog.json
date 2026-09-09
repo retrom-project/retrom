@@ -524,6 +524,16 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-flash-ruffle",
+      "coreId": "ruffle",
+      "providerId": "retrom-runtime",
+      "targetId": "flash-ruffle",
+      "platformIds": ["flash"],
+      "acceptedContentKinds": ["SINGLE_FILE"],
+      "detectorProfile": "FLASH_SWF",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-j2me",
       "coreId": "j2me",
       "providerId": "retrom-runtime",
@@ -768,6 +778,12 @@
         "id": "fds",
         "name": "Famicom Disk System",
         "sortOrder": 20,
+        "enabled": true
+      },
+      {
+        "id": "flash",
+        "name": "Flash",
+        "sortOrder": 86,
         "enabled": true
       },
       {
@@ -1117,6 +1133,11 @@
       {
         "id": "rpgmaker",
         "name": "RPG Maker",
+        "enabled": true
+      },
+      {
+        "id": "ruffle",
+        "name": "Ruffle",
         "enabled": true
       },
       {

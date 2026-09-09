@@ -110,9 +110,13 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	waitForWASM4Job(t, database.SQL, jobID)
 
 	importService := libraryimport.New(database.SQL, time.Now)
+	template := input.platform + "/" + input.target
+	if input.platform == "flash" {
+		template = "flash/ruffle"
+	}
 	createdImport, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
-		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, input.platform+"/"+input.target),
+		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, template),
 		MetadataProvider:         "NONE",
 	})
 	if err != nil {

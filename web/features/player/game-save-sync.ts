@@ -93,6 +93,10 @@ export class GameSaveSync {
       Boolean(this.runtime.getCheckpointAvailability().save?.captureAvailable);
   }
 
+  isStorageContainer(): boolean {
+    return this.runtime.getCheckpointAvailability().save?.dataKind === "STORAGE";
+  }
+
   async capture(): Promise<boolean> {
     if (this.stopped || this.ended || this.pending || this.committing || this.conflict ||
       !this.runtime.getCheckpointAvailability().save?.captureAvailable) {return false;}

@@ -2949,6 +2949,7 @@
       <section class="rt-page" data-page="play">
         <details class="rt-card" aria-label="原生存档交互状态评审">
           <summary>原生游戏存档与本地草稿</summary>
+          <fieldset><legend>退出时：持久存储容器</legend><p>游戏原生数据已发生变化，是否保存到存档容器？</p><p>存档是游戏原生数据的存储容器，可能仅包含设置、统计等内容，不是即时快照，也不保证恢复关卡进度。从某个存档启动后，后续保存会更新同一个存档；只有不选存档、重新开始游戏时才使用新的空容器。</p><button class="rt-button">返回游戏</button><button class="rt-button">直接退出</button><button class="rt-button">存档并退出</button></fieldset>
           <section aria-label="平台主动创建原生存档"><h3>当前游戏支持创建存档</h3><p>点击“创建存档”可保存当前游戏进度。平台保存游戏原生存档。选择这次创建的存档启动后，会自动恢复到其记录的位置。不选存档启动会干净重开。</p><button type="button" class="rt-button rt-button-primary">创建存档</button></section>
           <section aria-label="当前场景暂不可保存"><h3>当前场景暂不可保存</h3><p>当前场景暂时无法创建存档，请继续游戏后重试。需要游戏菜单读档的存档显示独立恢复说明。</p><button type="button" class="rt-button" disabled>创建存档</button></section>
           <p>请先在游戏内保存，再在退出时选择“存档并退出”。平台只提交游戏已写入的存档数据，不保存当前画面的即时进度；未在游戏内保存时，恢复位置可能与当前画面不同。</p>

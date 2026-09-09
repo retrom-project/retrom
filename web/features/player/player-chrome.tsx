@@ -189,6 +189,14 @@ export function PlayerChrome({
   });
   const warningCopy = warningCopyFor(warnings);
 
+  function resumeFromPauseOverlay() {
+    // A read-only debug panel pins visibility, but does not own game interaction.
+    if (exitOpen || emulatorToolbarOpen || discBusy) {return;}
+    setMenuOpen(false);
+    setDiscMenuOpen(false);
+    onGameSurface();
+  }
+
   function requestExit() {
     setMenuOpen(false);
     if (checkpointSemantics === "GAME_SAVE") {onExit(); return;}
@@ -250,7 +258,7 @@ export function PlayerChrome({
     <PlayerDebugPanel open={debugOpen} metrics={debugMetrics} runtime={debugRuntime} runtimeState={runtimeState} paused={paused} netplayPaused={netplayPaused} coreName={coreName} playerNo={netplayPlayerNo} discSet={discSet} discState={discState} onClose={onToggleDebug} />
 
     <CheckpointHelp save={nativeSave} semantics={checkpointSemantics} visible={controlsVisible} retryAvailable={nativeRetryAvailable} onRetry={onRetrySync} />
-    <PauseOverlay isNetplay={isNetplay} netplayPaused={netplayPaused} paused={paused} onGameSurface={onGameSurface} />
+    <PauseOverlay isNetplay={isNetplay} netplayPaused={netplayPaused} paused={paused} onGameSurface={resumeFromPauseOverlay} />
 
     {!isNetplay ? <EmulatorToolbar open={emulatorToolbarOpen} volume={emulatorVolume} muted={emulatorMuted} renderingMode={videoRenderingMode} onHold={onHoldControls} onOpenPanel={onOpenEmulatorPanel} onVolume={onChangeEmulatorVolume} onRenderingMode={onChangeVideoRenderingMode} onMute={onToggleEmulatorMute} onClose={onCloseEmulatorSettings} /> : null}
 
