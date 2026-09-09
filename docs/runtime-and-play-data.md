@@ -241,6 +241,20 @@ Provider 在恢复及原生存档持久化确认前有界解压。核心 adapter
 压缩前后均受 Target 大小限制，截断、损坏、取消或解压超限均拒绝。旧存档不做后台重写。PX68K 新存档的 ZIP 语义容器使用 STORE 条目，仅公共层压缩；旧 deflate ZIP 保留读取。
 验收入口为 `ACC-SAVE-004`，具体步骤只在项目验收专题维护。
 
+### OpenBOR 原生进度
+
+`retrom-runtime/openbor` 使用独立 `openbor-host-v1` 浏览器核心。不可变 PAK 在启动前完整物化，
+提供确定字节进度，并以 4 MiB 分块写入浏览器持久缓存；跨实例复用前校验准确长度和整包摘要。
+存储不可用时回退到网络。当前单包上限为 512 MiB，不声明线程、联机或即时快照。
+
+核心原生 checkpoint 为 `openbor-game-save-v1`，公共层写入 `openbor-game-save-v1-storage-v1`，最大 16 MiB，声明 `GAME_SAVE`、`capture=IN_GAME`、
+`restore=IN_GAME`。它携带游戏内容摘要和核心原生的进度、脚本变量与高分文件，排除按键、显示等配置。
+OpenBOR 在游戏的关卡边界保存；退出时同步的是最近的原生存档点，不能恢复关卡中途的逐帧状态。
+新 Launch 在引擎启动前导入文件，再由玩家通过游戏内 Load Game 读取；未选存档的启动使用空存档目录。
+暂停、截图与标准手柄由同一 Provider adapter 提供，退出释放输入、音频和核心资源。
+
+OpenBOR 的产品通过标准与证据入口见 [ACC-OPENBOR-001](./project-acceptance.md#acc-openbor-001openbor-原生进度与真实产品链)。
+
 ### MSX / WebMSX 即时快照
 
 `webmsx` Core 使用 `retrom-runtime/msx-webmsx` Target 与单个 `game: ROM_BLOB`。
