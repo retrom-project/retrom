@@ -2091,8 +2091,12 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 通过标准：状态格式 `fake08-state-v1`、INSTANT 语义；新 Launch ID 不同；有可见游戏画面，无浏览器异常。核心构建测试另外验证连续 120 帧的长按/重复按键与 RNG 状态，以及截断/损坏数据拒绝。
 - 证据：`fantasy-product.json`、项目自有卡带和各阶段截图。自动化使用标准映射虚拟手柄，并观察真实 Web Audio 调度缓冲中存在非零音频；不替换音频播放或核心导出。实体手柄、听觉质量与未编译输入设备不在本 Case 证据范围内。
 
-## Play! PS2 开发候选验证
+### ACC-PS2-001：Play! PS2 按需光盘与即时状态
 
-本节是开发候选的人工验证流程，尚未登记为 `acceptance-case` 自动化 Case。通过真实 Retrom 产品链验证 `retrom-runtime/play-ps2`：单光盘导入、Review Preview、批准发布、Product Launch、标准手柄方向/确认/取消、非空截图、暂停/继续、即时存档、不同 Launch 恢复和恢复后输入。记录核心基线、Provider 身份、浏览器环境、两个 Launch ID、checkpoint 格式/字节数、操作前后画面和有界 Range 请求证据。存档必须恢复执行状态及两张虚拟记忆卡；仅重新开机或恢复游戏原生存档不能算即时恢复通过。
+硬超时 600 秒。执行 `make acceptance-case CASE=ACC-PS2-001`，或等价的 `timeout 600 env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs`。
 
-单元/领域集成测试使用自有确定性 bytes，浏览器的操作者游戏只来自显式配置路径，不提交或自动下载私有游戏。跨实例缓存测试须证明已读光盘块复用，冷启动不得整盘下载；缓存不可用必须仍能正常按需读取。未完成这些证据前只保留开发候选，不发布稳定版本或声称核心通过准入。
+输入为 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`，以及显式授权的 `RETROM_PLAY_PREVIEW_DISC`、`RETROM_PLAY_GAME_ID`、`RETROM_PLAY_SAVE_ID`。先手动创建 PS2/Play! 游戏目录；预览光盘使用尚未发布的 ICO CHD，以免触发已发布内容去重。Product Launch 使用已通过普通导入/批准建立的 Ridge Racer V 游戏和对应的种子存档；种子位于 TEAMNAME ENTRY，名称为空、光标选中 O。种子只用于到达确定的交互状态，测试必须再创建新存档并在不同 Launch 恢复，不能把种子恢复当成保存验证。游戏与存档不进入仓库或发布包。
+
+步骤：上传 ICO CHD、导入并创建新的审核预览，验证帧推进和非空画面，保持该审核项未发布以支持重复验收；已有 Ridge Racer V 游戏用于 Product Launch。种子恢复后通过标准手柄右方向选 P、确认写入 P、取消删除 P，再写入 P；暂停两秒验证帧计数不变，通过公共 Player 创建即时存档。在新 Launch 恢复 P 后取消删除，证明恢复执行状态且输入继续生效。两次无存档启动分别推进至少 900 和 300 帧，第二次不得新增已读光盘块的 Range 请求。记录非零音频调度、截图、Launch ID、存档格式与缓存请求差值。
+
+通过标准：无浏览器异常，`play-state-v1` 新存档在不同 Launch 精确恢复命名状态，方向/确认/取消、暂停、截图、音频与缓存断言通过。证据为 `play-product.json` 与各阶段 PNG。自动化使用标准映射虚拟手柄；实体设备、完整比赛、跨游戏图形兼容性与声音质量不属于该 Case 的通过结论。《Ridge Racer V》上下跳动及三维场景缺失作为已知图形兼容性问题记录，不更改正常核心绑定与启动行为。
