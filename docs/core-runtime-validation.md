@@ -73,7 +73,8 @@ Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏
 ## 5. retrom-runtime 特殊边界
 
 Flash 使用独立 `flash-ruffle` Target。只接收原始单 SWF，SharedObject 是游戏原生存档（`GAME_SAVE`），
-不承诺即时执行快照。按 `ACC-FLASH-001` 验证自有确定性程序的原生保存、新 Launch 恢复、继续输入与空启动，
+不承诺即时执行快照。`dataKind: STORAGE` 表明其为原生数据容器，可能只有设置或计数，不保证可恢复进度。
+按 `ACC-FLASH-001` 验证自有确定性程序的原生保存、新 Launch 恢复、继续输入与空启动，
 并通过真实公开游戏的导入/预览/发布/启动检查兼容性。GPU 画布截图必须走核心重绘捕获接口，页面截图不能替代
 存档截图能力。未验证的 Stage3D、外部资源、联网和其他 Flash API 不纳入兼容性声明。
 

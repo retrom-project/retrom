@@ -38,7 +38,7 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 `emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 44 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
-`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08 和 Play! 在内的 17 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08、Play! 和 Ruffle 在内的 18 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
 ## 4. Retrom binding catalog
 
@@ -150,15 +150,15 @@ Retrom:
 
 Provider archive 必须连续构建两次并比较digest。PFB另执行`pfb-validate/build/up/verify`、loose boundary与`ACC-PROVIDER-001..008`。任何schema、Target数量、binding、digest、许可、来源、PFB/production隔离或只前进规则失败都属于阻断错误。
 
-### Ruffle 开发候选
+### Ruffle 发布与开发候选
 
 Ruffle fork 为 `retrom-project/ruffle`，上游基线固定为
 `e46d1642fb67a53b56ffa4b1871cb7c57589e36d`，维护分支为 `retrom/ge46d1642fb67`，`master` 保留上游镜像。
 源码边和维护分支由当前 Retrom `workspace/manifest.yaml` 管理，不进入 workspace 根引导清单。
 fork 显式构建 `ruffle.js`、`core.ruffle.js`、`ruffle.wasm` 和原始许可，输出有界 candidate 文件清单和逐文件 SHA-256。
-runtime 的 `developmentInputs` 只聚合该候选，不编译核心、不虚构 Release tag；普通/正式构建拒绝未发布来源。
+runtime 固定消费 fork 的已发布 `retrom-core-ge46d1642fb67-r2` 资产，不编译核心；未发布的本地覆盖只允许用于显式 PFB 候选构建。
 PFB 将完整、已验证 Provider 候选作为不可变基座导入，后续 adapter 修改走 loose watcher；核心字节变化必须显式重建
-并通过更高的 Provider 候选版本重新导入。production lock 保持不变，正式发布仍需授权、固定 fork Release 和完整门禁。
+并通过更高的 Provider 候选版本重新导入。production lock 只引用正式 runtime Release，发布前仍需固定 fork Release 和完整门禁。
 
 ## 11. 追溯与日志
 
