@@ -2,6 +2,7 @@ import {createHash} from "node:crypto";
 import {mkdir, readFile, writeFile} from "node:fs/promises";
 import {resolve} from "node:path";
 import {chromium} from "playwright";
+import {requestValidatedLaunch} from "./emulatorjs-launch.mjs";
 
 // Operator-only product smoke. The scenario contains existing, authorized game IDs;
 // it never imports private ROMs into the ordinary automated test fixture set.
@@ -32,6 +33,7 @@ for (const item of scenarios) {
 }
 await mkdir(output, {recursive: true});
 const browser = await chromium.launch({executablePath: process.env.RETROM_CHROME_EXECUTABLE,
+  headless: process.env.RETROM_SMOKE_HEADED !== "1",
   args: ["--enable-unsafe-swiftshader"]});
 try {
   for (const scenario of scenarios) {await runScenario(scenario);}
@@ -114,17 +116,17 @@ async function unobscuredScreenshot(page, path) {
 }
 
 async function launch(page, scenario, csrf, saveStateId, evidence) {
-  const response = await page.request.post("/api/v1/launches", {
+  const created = await requestValidatedLaunch(() => page.request.post("/api/v1/launches", {
     data: {gameId: scenario.gameId, coreId: scenario.coreId, saveStateId, dosEntry: null,
       returnTo: `/games/${scenario.gameId}`,
       clientCapabilities: {secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true}},
     headers: {Origin: origin, "X-Retrom-Csrf": csrf, "Idempotency-Key": crypto.randomUUID()},
-  });
-  if (!response.ok()) {throw new Error(`SMOKE_LAUNCH_FAILED:${response.status()}`);}
-  const created = await response.json();
-  const configured = page.waitForResponse((item) => /\/runtime\/launches\/[^/]+\/config$/u.test(item.url()));
-  await page.goto(created.playUrl);
-  const config = await (await configured).json();
+  }), (milliseconds) => page.waitForTimeout(milliseconds));
+  const [configured] = await Promise.all([
+    page.waitForResponse((item) => /\/runtime\/launches\/[^/]+\/config$/u.test(item.url())),
+    page.goto(created.playUrl),
+  ]);
+  const config = await configured.json();
   const game = config.resources.filter((resource) => resource.role === "game");
   if (game.length !== 1 || game[0].kind !== "ROM_BLOB") {throw new Error("SMOKE_SINGLE_FILE_REQUIRED");}
   await page.locator(".player-loading").waitFor({state: "hidden", timeout: 90_000});

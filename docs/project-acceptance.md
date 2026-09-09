@@ -1016,13 +1016,15 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 通过标准：复核本次连续截图中方向、确认、取消的游戏响应，以及从 C 恢复到 B 的可见位置/菜单/变量。浏览器看见手柄、帧数增长、状态哈希变化均不能单独作为输入成功。脚本只有在跨 Launch 链路通过后输出 `REVIEW_REQUIRED`；执行者完成画面复核并记录明确的游戏状态变化后才能将该 Target 记为 PASS。缺少游戏内响应、恢复位置错误、恢复后输入失效或原生错误均失败。
 - 证据：逐核 `result.json`、A/B/C/恢复 B 与逐次输入截图、导入/审核/发布记录；记录当前 Provider/Bundle/module digest 与游戏文件 size/SHA。八个候选的 PASS 不替代尚未执行的其他 Target 回归，也不自动授权稳定发布。
 
-### ACC-RUN-014：剩余 EmulatorJS 核心与 PC Engine CD 产品验证
+### ACC-RUN-015：剩余 EmulatorJS 核心与 PC Engine CD 产品验证
 
 - 上限：每项 240 秒，八项独立记录。入口和 scenario schema 沿用 `web/smoke/emulatorjs-single-file.mjs`；执行环境与隐私边界同 ACC-RUN-013。
 - 范围：`81/cap32/crocods/vice_xpet/vice_xplus4/same_cdi/vice_x64` 和 PC Engine CD 的 `mednafen_pce`；CPC 两个核心分别验证同平台游戏，C64 原有 `vice_x64sc` 保持可选。
 - 前置：游戏通过正常上传、导入、审核预览及发布。PC Engine CD 使用单文件 CHD，先证明缺少 `syscard3.pce` 时验证阻断，再通过 BIOS 管理安装后继续同一审核；CD-i 按已声明的各项 BIOS 完成相同缺失/满足检查。PCE 卡带无需 CD BIOS，另覆盖现有 `.pce` 内容回归。
 - 流程与通过标准：每项均保存 A、标准手柄输入后的 B、保存 B 后继续输入的 C，关闭旧 Launch 并在不同 Launch 恢复 B，继续输入和退出。必须复核方向、确认、取消的可见游戏响应及恢复位置；非空状态、帧数增长、网络 200 或静止截图不能替代。脚本 `REVIEW_REQUIRED` 只有经本次画面复核后才可记 PASS；原生读档错误、重新开局冒充恢复、输入无效均失败。
 - 证据：八项分别保留导入/审核/发布、BIOS 缺失/安装/冻结身份、Provider/module 与内容 digest、A/B/C/恢复 B/恢复后输入截图和结果。游戏与 BIOS 不进入普通自动测试夹具；产品证据只覆盖当次样本，不代表全部盘格式或游戏兼容。
+
+无头 Chrome 无法推进动画帧的环境可使用 `RETROM_SMOKE_HEADED=1 xvfb-run -a node web/smoke/emulatorjs-single-file.mjs`，其余输入、截图和超时门禁保持一致，证据记录浏览器版本与软件渲染器。
 
 ### ACC-SAVE-001：手动状态存档与截图
 
