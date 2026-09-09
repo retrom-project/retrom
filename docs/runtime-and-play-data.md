@@ -217,6 +217,16 @@ Provider 使用 `scummvm-save-bundle-v1`（`GAME_SAVE`，上限 64 MiB），原�
 各 Launch 创建独立 WASM heap；退出或取消加载移除帧循环、输入监听及音频节点，不选存档启动不会读取旧游戏状态。
 具体产品通过标准与证据入口只在 [核心验收 Case](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链) 维护。
 
+### MSX / WebMSX 即时快照
+
+`webmsx` Core 使用 `retrom-runtime/msx-webmsx` Target 与单个 `game: ROM_BLOB`。
+Provider 校验准确长度及 SHA-256，按内容摘要复用浏览器持久缓存；首次下载报告确定进度，缓存不可用时走正常读取。
+`webmsx-state-v1` 是最大 32 MiB 的 `INSTANT` 快照，包括 CPU、内存、视频、声音与可写媒体的机器状态，
+并绑定游戏摘要。恢复在新机器启动前读取显式快照；不选存档启动不读取 WebMSX 的历史 localStorage。
+暂停、截图、创建存档、退出继续使用共享 Player 和 Provider dispatcher。核心在 iframe 内自行保持 4:3 物理画面，
+响应横竖屏尺寸变化；公共 Provider 不暴露帧计数、音量、联机或多盘能力。固定机器为 MSX2PJ。
+真实产品证据与适用范围见 `ACC-MSX-001`；本地候选不修改正式生产 lock。
+
 ## PX68K 单磁盘运行
 
 手柄方向移动与确认按核心最低能力验证，取消可选。同一映射配置内每个手柄按钮仅有一个目标输入，规则见[共享验证规则](./core-runtime-validation.md#3-共享验证规则)。宿主菜单 B 返回与游戏内操作分开处理。

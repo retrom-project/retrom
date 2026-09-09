@@ -75,6 +75,11 @@ Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏
 
 ## 5. retrom-runtime 特殊边界
 
+WebMSX 使用独立 `msx-webmsx` Target，固定 MSX2+ 日本机器，接收单媒体 Blob。
+`webmsx-state-v1` 是绑定游戏摘要的有界即时快照，须通过 `ACC-MSX-001` 的新 Launch 恢复、
+位置/形状保持与恢复后输入断言。截图、审核预览、发布和运行复用公共路径。
+本次先验证所选 MSX1/MSX2 卡带；单个样本不能证明全部磁盘、磁带、turbo R 或多盘软件兼容。
+
 Flash 使用独立 `flash-ruffle` Target。只接收原始单 SWF，SharedObject 是游戏原生存档（`GAME_SAVE`），
 不承诺即时执行快照。`dataKind: STORAGE` 表明其为原生数据容器，可能只有设置或计数，不保证可恢复进度。
 按 `ACC-FLASH-001` 验证自有确定性程序的原生保存、新 Launch 恢复、继续输入与空启动，

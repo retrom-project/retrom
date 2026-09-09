@@ -35,8 +35,9 @@ TYRANOSCRIPT_CASES = {"ACC-TYRANOSCRIPT-001"}
 PROVIDER_CASES = {f"ACC-PROVIDER-{number:03d}" for number in range(1, 9)}
 FANTASY_CASES = {"ACC-TIC-001", "ACC-PICO-001"}
 FLASH_CASES = {"ACC-FLASH-001"}
+MSX_CASES = {"ACC-MSX-001"}
 PS2_CASES = {"ACC-PS2-001"}
-PRODUCT_CASES = FLASH_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
+PRODUCT_CASES = MSX_CASES | FLASH_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -480,6 +481,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         for case_id in RPG_CASES
     },
     "ACC-TIC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs tic80"),
+    "ACC-MSX-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/msx_product.mjs"),
     "ACC-FLASH-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ruffle_product.mjs"),
     "ACC-PS2-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs"),
     "ACC-PICO-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs fake08"),
@@ -992,6 +994,8 @@ def execute_case(case_id: str) -> int:
                 product_filename = "play-product.json"
             elif case_id in FANTASY_CASES:
                 product_filename = "fantasy-product.json"
+            elif case_id in MSX_CASES:
+                product_filename = "msx-product.json"
             elif case_id in FLASH_CASES:
                 product_filename = "ruffle-product.json"
             elif case_id in ONS_CASES:
