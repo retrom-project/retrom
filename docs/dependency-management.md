@@ -38,7 +38,7 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 `emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 44 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
-`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80 和 FAKE-08 在内的 16 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08 和 Play! 在内的 17 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
 ## 4. Retrom binding catalog
 
@@ -156,10 +156,12 @@ Provider archive 必须连续构建两次并比较digest。PFB另执行`pfb-vali
 
 Launch、Preview 与 Netplay session 必须用 `bundleSha256` 追溯到精确 Provider 字节；Validation 与 Variant 使用稳定 Provider/Target 和各自真实输入证据；Save 只保存 checkpoint format，并由恢复时的当前 Target `readFormats` 判定兼容性。
 
-### Flycast 开发候选输入
+### Flycast 核心与开发候选
 
 Flycast 的 workspace 依赖由 Retrom catalog 指向 `retrom-project/flycast-wasm` 的
-`retrom/1.0` 维护分支。PFB 中显式 `pfb-core-build CORE=flycast`，再由 runtime
+`retrom/1.0` 维护分支。正式输入固定 `retrom-core-1.0-r1` Release，其 commit、
+资产摘要、大小和 ABI 由 runtime 的 `src/providers/emulatorjs/source-catalog.ts` 声明。
+PFB 中显式 `pfb-core-build CORE=flycast`，再由 runtime
 `candidate:build` 消费同一 PFB 的闭合 candidate descriptor。Provider 校验仓库、ABI、
 源码身份、成员集合和每个文件的大小/SHA-256，并将核心、report 和许可合入 EmulatorJS
 4.2.3 的独立 Bundle。普通 release 构建拒绝未发布的 development input；候选构建不能
@@ -169,7 +171,7 @@ Flycast 的 workspace 依赖由 Retrom catalog 指向 `retrom-project/flycast-wa
 构建固定 nasomers v1.0 补丁、Flycast/RetroArch commit 和 Emscripten 镜像 digest。
 源码桥接替代预编译 stub，链接拒绝未解析符号并核验 WASM JIT 所需 HEAP 导出；
 核心归档与 Bundle 均携带对应许可。具体源码锁定值以 fork 的构建脚本及 runtime 的
-`provider-sources.json` 为准，BIOS 和游戏不进入候选归档。
+`src/providers/emulatorjs/source-catalog.ts` 为准，BIOS 和游戏不进入核心或 Provider 归档。
 
 ### Play! PS2 核心
 
