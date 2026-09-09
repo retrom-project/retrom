@@ -90,8 +90,9 @@ var registry = map[string]Profile{
 		"amiga", ".adf", ".adz", ".dms", ".fdi", ".ipf", ".raw",
 		".hdf", ".hdz", ".lha", ".chd", ".nrg", ".iso",
 	),
-	"tic80": single("tic80", ".tic"),
-	"pico8": single("pico8", ".p8", ".p8.png"),
+	"openbor": single("openbor", ".pak"),
+	"tic80":   single("tic80", ".tic"),
+	"pico8":   single("pico8", ".p8", ".p8.png"),
 
 	"scummvm":      project("scummvm", ContentKindScummVMProject),
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),

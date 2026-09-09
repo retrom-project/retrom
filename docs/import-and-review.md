@@ -488,3 +488,11 @@ TIC-80 只接受二进制 `.tic`，编译语言能力见核心 `RETROM.md`；不
 `ps2` 平台的 `play` Core 绑定 `retrom-runtime/play-ps2`，接收单个 `.iso` 或 `.chd` 文件，内容类型为 `SINGLE_FILE`。`OPTICAL_DISC` profile 不接收 BIN/CUE、M3U、多盘包或 ELF，也不创建 BIOS 依赖。导入只确认可交付的文件形状，不等同于 Play! 对该游戏的兼容性保证；管理员通过统一审核预览检查实际运行。推荐模板为“PlayStation 2 游戏”。
 
 Preview 与 Product Launch 都把冻结 Blob 的 SHA-256、准确字节数和不可变内容 URL 放入 `SEEKABLE_BLOB`，声明 `rangeRequired=true`。运行时按需读取光盘，不在启动前完整下载。发布、截图和存档继续走公共产品流程。
+
+## OpenBOR 游戏包
+
+OpenBOR 平台与核心均为 `openbor`，对应 `retrom-runtime/openbor`。导入采用普通单文件路径，
+接受 `.pak`（扩展名不区分大小写）；审核预览和正式启动共用 `OPENBOR_PAK` binding 与 `ROM_BLOB`。
+当前浏览器构建接受 PAK32 格式 0，完整校验资源长度和摘要，单包上限 512 MiB。
+包格式与游戏脚本兼容性由核心实际加载判断；扩展名匹配不等于已经通过游戏兼容性验证。
+存档沿用 GAME_SAVE 产品流程，规则见[运行与游玩数据](./runtime-and-play-data.md#openbor-原生进度)。

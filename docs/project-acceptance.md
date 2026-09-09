@@ -2131,3 +2131,14 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 步骤：上传 ICO CHD、导入并创建新的审核预览，验证帧推进和非空画面，保持该审核项未发布以支持重复验收；已有 Ridge Racer V 游戏用于 Product Launch。种子恢复后通过标准手柄右方向选 P、确认写入 P、取消删除 P，再写入 P；暂停两秒验证帧计数不变，通过公共 Player 创建即时存档。在新 Launch 恢复 P 后取消删除，证明恢复执行状态且输入继续生效。两次无存档启动分别推进至少 900 和 300 帧，第二次不得新增已读光盘块的 Range 请求。记录非零音频调度、截图、Launch ID、存档格式与缓存请求差值。
 
 通过标准：无浏览器异常，`play-state-v1` 新存档在不同 Launch 精确恢复命名状态，方向/确认/取消、暂停、截图、音频与缓存断言通过。证据为 `play-product.json` 与各阶段 PNG。自动化使用标准映射虚拟手柄；实体设备、完整比赛、跨游戏图形兼容性与声音质量不属于该 Case 的通过结论。《Ridge Racer V》上下跳动及三维场景缺失作为已知图形兼容性问题记录，不更改正常核心绑定与启动行为。
+
+
+### ACC-OPENBOR-001：OpenBOR 原生进度与真实产品链
+
+- 类型：操作者授权 PAK 的手动语料验收；不加入默认 CI 下载，游戏文件不进入 Git 或发布包。
+- 硬超时：600 秒。等价命令为 `timeout 600 env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/openbor_product.mjs`。
+- 输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`、`RETROM_OPENBOR_GAME`。使用独立 PFB；当前动作序列针对 8MAN 的 Robo_Rumble 模式，不能套用于任意 PAK 后声称通过。
+- 步骤：通过普通上传、导入和审核预览验证画面与输入，批准后创建 Product Launch；进入 Robo_Rumble 的实际关卡；通过原生 Options → System → Cheat Options 启用 Implacable March、Infinite Health、Touch of Death，以普通按键跨过首关，由游戏在下一关生成原生进度。首个实际关卡受引擎 `nosave` 保护，不应以刚进入第一关作为存档通过依据。在 Player 选择“存档并退出”，记录保存的难度与关卡；创建不同 Launch 并显式指定该存档，通过游戏内 Load Game 恢复，验证原生进度和继续输入。不选择存档的新 Launch 必须从空存档目录启动。
+- 重跑：可显式提供 `RETROM_OPENBOR_REVIEW_ID` 和 `RETROM_OPENBOR_GAME_ID`，复用同一 PFB 的待审预览及已发布游戏，证据标记 `seeded=true`；此模式不声称重新完成发布，必须保留首次导入和发布的证据，且其 gameId 与续跑一致，汇总时说明分段验证。
+- 通过标准：无浏览器异常；标准手柄方向与确认、独立键盘输入、暂停和截图可用。新保存格式为 `openbor-game-save-v1`，非空且与游戏摘要绑定，真实关卡进度在不同 Launch 中恢复。保存的是游戏原生关卡存档点，不要求保留关卡中途的位置。只报告实际样本的兼容性。
+- 证据：`openbor-product.json`、各阶段 PNG、非秘密 Launch/Save ID、游戏与保存摘要、Provider Bundle/Target 和浏览器版本。证据不保存 cookie、授权 URL、游戏字节或本机源路径。

@@ -23,7 +23,8 @@
         "tic80",
         "fake08",
         "play",
-        "flycast-wasm"
+        "flycast-wasm",
+        "openbor"
       ]
     },
     {
@@ -193,6 +194,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/flycast-wasm.git",
       "defaultBranch": "retrom/1.0",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "openbor",
+      "path": "project/retrom-core/openbor",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/openbor.git",
+      "defaultBranch": "retrom/g9d81480f8481",
       "submodules": false,
       "dependsOn": []
     }
