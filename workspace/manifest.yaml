@@ -24,7 +24,8 @@
         "tic80",
         "fake08",
         "play",
-        "flycast-wasm"
+        "flycast-wasm",
+        "webmsx"
       ]
     },
     {
@@ -204,6 +205,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/flycast-wasm.git",
       "defaultBranch": "retrom/1.0",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "webmsx",
+      "path": "project/retrom-core/WebMSX",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/WebMSX.git",
+      "defaultBranch": "retrom/6.0.8",
       "submodules": false,
       "dependsOn": []
     }

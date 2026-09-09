@@ -38,7 +38,7 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 `emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 44 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
-`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08、Play! 和 Ruffle 在内的 18 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08、Play! 和 Ruffle 在内的 19 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
 ## 4. Retrom binding catalog
 
@@ -188,3 +188,15 @@ PFB 中显式 `pfb-core-build CORE=flycast`，再由 runtime
 Play! 的核心源码与构建归属为 `retrom-project/Play-`，维护基线为上游 `83700b2c31e593bc94e845b4b31b797be84dda59`，维护分支 `retrom/g83700b2c31e5`。Retrom workspace catalog 将其登记为 runtime 的 `play` 核心依赖。固定 Emscripten 工具链、ABI `play-host-v1`、闭合资产与许可由 fork 管理，annotated `retrom-core-g83700b2c31e5-rN` tag 的工作流发布正式资产。
 
 runtime 通过普通 `upstreamReleases` 固定 Play! tag、commit、metadata 与资产；Retrom 通过正常 Provider Release 锁文件消费它。PS2 核心保持启用，手动创建目录、导入与启动遵循普通核心流程，无实验开关或专用禁用状态；因运行不稳定，不提供推荐目录，具体行为见[游戏目录契约](./platform-instance.md#release-推荐目录-catalog)。候选与本机路径不进入 production lock；后续更新沿用 core → Provider → Host 的正常发布顺序。产品验证见 [ACC-PS2-001](./project-acceptance.md#acc-ps2-001play-ps2-按需光盘与即时状态)。
+
+### WebMSX 发布与开发候选
+
+MSX 接入使用 `retrom-project/WebMSX`，上游基线 v6.0.8 固定为
+`4f4009e86d3e0bb9be7dcd7f0a582b0cd411d660`，维护分支 `retrom/6.0.8`，ABI `webmsx-host-v1`。
+runtime 通过普通 `upstreamReleases` 固定 `retrom-core-6.0.8-r1` 的 commit、ABI、
+`webmsx.js` 和 `UPSTREAM-NOTICE.txt` 的准确大小与 SHA-256，并核对发布元数据。
+Retrom 通过 production lock 消费正式 Provider；`msx-webmsx` Target 对应 `msx`/`webmsx` binding。
+后续核心修改仍在同一 PFB 的 core worktree 显式执行 `pfb-core-build CORE=webmsx`，
+由 fork 输出封闭 candidate 清单；本地覆盖只允许用于 PFB，不能进入正式聚合与锁文件。
+上游固定提交未提供源码头部所指的 `license.txt`，不能标注为 MIT 或 GPL。
+专用 notice 与核心发布元数据保留源码许可和嵌入系统 ROM 分发状态 `UNRESOLVED`；发布不构成授权声明。
