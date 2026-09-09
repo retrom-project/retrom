@@ -12,9 +12,10 @@ import {waitForPreviewReady, revealPreviewToolbar} from "./rpgmaker_preview_acti
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/flycast-storage");
 mkdirSync(directory, {recursive: true});
-const evidence = {caseId: "ACC-FLYCAST-001", status: "FAIL", stages: [], errors: [], runtimes: []};
+const evidence = {caseId: "ACC-FLYCAST-001", status: "FAIL", stages: [], errors: [], runtimes: [], diskRequests: 0, biosWarnings: []};
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 let browser, proxy;
+const requests = [];
 async function prepare(client) {
   const file = join(directory, "product-input.json");
   const progress = existsSync(file) ? JSON.parse(readFileSync(file)) : {};
@@ -22,7 +23,10 @@ async function prepare(client) {
   if (progress.digest) {assert.equal(progress.digest, digest);}
   const requirements = (await client.json("GET", "/api/v1/admin/bios?scope=FULL_CATALOG&coreId=flycast&limit=100")).items;
   for (const item of requirements.filter(item => item.coreId === "flycast")) {
-    if (item.status === "MATCHED") {continue;}
+    if (["MATCHED", "HASH_WARNING"].includes(item.status)) {
+      if (item.status === "HASH_WARNING") {evidence.biosWarnings.push(item.logicalName);}
+      continue;
+    }
     assert.equal(item.activeInstallation, null);
     const uploadId = await client.upload(singleFile(join(env.RETROM_FLYCAST_BIOS_DIR, item.logicalName)), "FILES", "GENERAL");
     const upload = await client.json("GET", `/api/v1/admin/uploads/${uploadId}`);
@@ -50,6 +54,7 @@ async function prepare(client) {
   return progress;
 }
 async function open(launch) {
+  const requestStart = requests.length;
   const page = await browser.contexts()[0].newPage();
   page.on("pageerror", error => evidence.errors.push(error.message.slice(0, 200)));
   await page.goto(base + launch.playUrl, {waitUntil: "domcontentloaded"});
@@ -61,6 +66,9 @@ async function open(launch) {
   assert.ok(frame, "FLYCAST_NATIVE_INSTANCE_MISSING");
   const config = await page.evaluate(async id => (await fetch(`/runtime/launches/${id}/config`)).json(), launch.launchId ?? launch.previewId);
   assert.equal(config.runtime.targetId, "flycast");
+  const disk = config.resources.find(resource => resource.kind === "ROM_BLOB");
+  assert.equal(disk.sha256, hash(readFileSync(env.RETROM_FLYCAST_CHD)));
+  evidence.diskRequests += requests.slice(requestStart).filter(url => url === new URL(disk.url, base).href).length;
   evidence.runtimes.push({providerVersion: config.runtime.providerVersion, bundleSha256: config.runtime.bundleSha256,
     moduleSha256: config.runtime.moduleSha256});
   return {page, frame, config, canvas: frame.locator("canvas").first()};
@@ -104,6 +112,7 @@ try {
   browser = await chromium.launch({executablePath: env.RETROM_CHROME_EXECUTABLE, headless: true,
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
+  context.on("request", request => requests.push(request.url()));
   context.setDefaultTimeout(30000); await installVirtualStandardGamepad(context);
   const client = await fantasyClient(context, base), progress = await prepare(client);
   evidence.gameId = progress.gameId; evidence.gameSha256 = progress.digest;
@@ -129,6 +138,7 @@ try {
   assert.equal(fresh.config.restore, null); await fresh.canvas.screenshot({path: join(directory, "fresh.png")}); await fresh.page.close();
   evidence.checkpoint = {storedBytes: bytes.length, rawBytes: raw.length, rawSha256: hash(raw), storedSha256: hash(bytes)};
   evidence.launches = {original: original.launchId, restored: restored.launchId};
+  assert.equal(evidence.diskRequests, 1, "FLYCAST_DISC_CACHE_MISS");
   assert.deepEqual(evidence.errors, []); evidence.status = "AWAITING_VISUAL_REVIEW";
 } catch (error) {evidence.error = error.message.slice(0, 500); process.exitCode = 1;}
 finally {
