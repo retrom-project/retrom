@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Browser, type Page, type TestInfo } from "@playwright/test";
 import {
-  checkpointMismatches, checkpointPair, diagnosticEvents, matchingCheckpoint, verifySNESNoOpHashRecovery,
+  checkpointMismatches, checkpointPair, diagnosticEvents, matchingCheckpoint, verifySNESNoOpHashRecovery, waitForNetplayStartup,
   type DiagnosticEvent,
 } from "./netplay-checkpoints";
 import {
@@ -280,13 +280,6 @@ async function createSession(
   for (const page of [hostPage, guestPage]) {page.on("response", async (response) => {
     if (/\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.ok()) {configResponses.push(await response.json() as RuntimeEnvelope);}
   });}
-  await Promise.all([hostPage.goto(hostLaunch.playUrl), guestPage.goto(guestLaunch.playUrl)]);
-  await Promise.all([
-    expect(hostPage.locator(".player-loading")).toBeHidden({ timeout: 45_000 }),
-    expect(guestPage.locator(".player-loading")).toBeHidden({ timeout: 45_000 }),
-  ]);
-  await expect.poll(async () => (await diagnosticEvents(hostPage)).filter((event) => event.kind === "epoch").length, { timeout: 45_000 }).toBeGreaterThan(0);
-  await expect.poll(async () => (await diagnosticEvents(guestPage)).filter((event) => event.kind === "epoch").length, { timeout: 45_000 }).toBeGreaterThan(0);
   const cleanup = async () => {
     const [hostEvents, guestEvents] = await Promise.all([
       diagnosticEvents(hostPage).catch(() => []), diagnosticEvents(guestPage).catch(() => []),
@@ -312,6 +305,13 @@ async function createSession(
     }
     await Promise.all([host.close(), guest.close()]);
   };
+  try {
+    await Promise.all([hostPage.goto(hostLaunch.playUrl), guestPage.goto(guestLaunch.playUrl)]);
+    await waitForNetplayStartup({ hostPage, guestPage });
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
   return { ...contexts, hostPage, guestPage, roomId: room.roomId, sessionId: sessionId!, hostLaunch, guestLaunch, configResponses, consoleErrors, cleanup };
 }
 
