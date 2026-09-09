@@ -55,7 +55,7 @@ export async function immersiveScummvm(context, gameId, directory) {
     await page.goto(`/immersive/library/saves?gameId=${gameId}&saveStateId=${saved.saveStateId}`);
     const restoredLaunchId = await activate(page); assert.notEqual(restoredLaunchId, originalLaunchId);
     const config = await (await context.request.get(`/runtime/launches/${restoredLaunchId}/config`)).json();
-    assert.equal(config.restore?.format, "scummvm-save-bundle-v1");
+    assert.equal(config.restore?.format, "scummvm-save-bundle-v1-storage-v1");
     await connectVirtualStandardGamepad(page);
     const restoredInput = await skyGamepadProof(page, directory, "immersive-restored");
     await exit(page, await menu(page));

@@ -27,6 +27,7 @@
         "flycast-wasm",
         "webmsx",
         "px68k",
+        "np2kai",
         "openbor"
       ]
     },
@@ -225,6 +226,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/WebMSX.git",
       "defaultBranch": "retrom/6.0.8",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "np2kai",
+      "path": "project/retrom-core/NP2kai",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/NP2kai.git",
+      "defaultBranch": "retrom/g5939e0c6d598",
       "submodules": false,
       "dependsOn": []
     },

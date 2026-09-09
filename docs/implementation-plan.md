@@ -277,3 +277,12 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 - 自测、验收和评审发现的 bug 都有回归用例；
 - 第三方 payload 仍由 manifest 物化且未进入 Git，运行数据只写配置的数据根；
 - 交付报告包含目标 commit、环境、命令/Case、证据位置、未执行项与剩余风险。
+
+
+## PC-98 接入试点
+
+NP2kai 在独立 PFB 中接入，核心由 `retrom-project/NP2kai` 固定上游基线构建，
+Retrom 的 workspace catalog 声明依赖，运行时新增 `np2kai-pc98` Target。
+首批范围为单 HDI/D88、标准手柄、暂停截图、OPFS 缓存与有界即时状态。
+退出门禁为 `ACC-PC98-001` 的真实导入、审核预览、发布、Launch、存档、不同 Launch 恢复与输入。
+候选通过后仍须单独完成正式核心发布、Provider 发布和 production lock 固定；本次 PFB 不替代发布授权。

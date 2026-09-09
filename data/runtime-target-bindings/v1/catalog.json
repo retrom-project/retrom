@@ -654,8 +654,12 @@
       "coreId": "ruffle",
       "providerId": "retrom-runtime",
       "targetId": "flash-ruffle",
-      "platformIds": ["flash"],
-      "acceptedContentKinds": ["SINGLE_FILE"],
+      "platformIds": [
+        "flash"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
       "detectorProfile": "FLASH_SWF",
       "launchPolicy": "SUPPORTED"
     },
@@ -699,6 +703,20 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "MSX_MEDIA",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-np2kai",
+      "coreId": "np2kai",
+      "providerId": "retrom-runtime",
+      "targetId": "np2kai-pc98",
+      "platformIds": [
+        "pc98"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "PC98_DISK",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -1101,6 +1119,12 @@
         "enabled": true
       },
       {
+        "id": "pc98",
+        "name": "NEC PC-98",
+        "sortOrder": 460,
+        "enabled": true
+      },
+      {
         "id": "pce",
         "name": "PC Engine",
         "sortOrder": 140,
@@ -1368,6 +1392,11 @@
       {
         "id": "nestopia",
         "name": "Nestopia UE",
+        "enabled": true
+      },
+      {
+        "id": "np2kai",
+        "name": "Neko Project II Kai",
         "enabled": true
       },
       {

@@ -5,11 +5,25 @@ import {observeCheckpointUpload, readCheckpointMultipart} from "./rpgmaker_check
 
 export async function pad(page, button, duration = 220, delay = 700) {
   for (const pressed of [true, false]) {
-    await Promise.all(page.frames().map(frame => frame.evaluate(({button, pressed}) => {
-      globalThis.__retromTestGamepad?.button(button, pressed);
-    }, {button, pressed})));
+    await setButton(page, button, pressed);
     await page.waitForTimeout(pressed ? duration : delay);
   }
+}
+
+async function setButton(page, button, pressed) {
+  await Promise.all(page.frames().map(frame => frame.evaluate(({button, pressed}) => {
+    globalThis.__retromTestGamepad?.button(button, pressed);
+  }, {button, pressed})));
+}
+
+async function fightSweep(page, direction) {
+  await setButton(page, direction, true);
+  try {
+    for (let hit = 0; hit < 4; hit++) {
+      await page.waitForTimeout(450);
+      await pad(page, 0, 120, 350);
+    }
+  } finally {await setButton(page, direction, false);}
 }
 
 export async function enterRobo(page, canvas, restore = false) {
@@ -87,12 +101,12 @@ export async function advanceToNativeSave(page, canvas, output) {
   for (let i = 0; i < 64; i++) {
     const state = await nativeState(page); console.log("native advance", i, state);
     if (state.saveBytes > 0) return state;
-    if (i < 8) {
+    if (i < 4) {
       await pad(page, 15, 5000, 100);
     } else {
-      await pad(page, i % 2 ? 15 : 14, 500, 100);
       await pad(page, 5, 150, 500);
-      for (let hit = 0; hit < 6; hit++) await pad(page, 0, 120, 300);
+      // Sweep the screen while striking so enemies left behind the camera edge are reached.
+      await fightSweep(page, i % 2 ? 15 : 14);
       await pad(page, i % 4 < 2 ? 12 : 13, 300, 100);
       if (i % 4 === 3) await pad(page, 15, 2000, 100);
     }

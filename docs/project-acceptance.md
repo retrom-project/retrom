@@ -938,6 +938,12 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 通过标准：启动真实 Player 后开启诊断，短按键盘和标准手柄均留下按下/松开与输入投递记录，核心帧继续推进；背景 alpha 为 0.62，无 backdrop blur，观察区点击穿透到游戏。蒙层无关闭按钮；顶部按钮重复点击关闭后原 getGamepads 和 simulateInput 函数身份恢复。窄视口仍有顶部入口；更多菜单没有重复调试和快捷键项。核心读取始终显示未接入。
 - 证据：当次 Playwright 报告、蒙层截图、输入记录和失败 trace。纯逻辑另覆盖 observer 不追加轮询、精确调用次数/参数/返回值、异常传播、64 条记录上限和退出清理；隔离 MV/MZ 在最近的 bridge 边界验证按需启停与原输入不变。
 
+PSP 退出补充场景：`scripts/acceptance/psp_exit_product.mjs` 使用普通验收登录、Chrome、输出目录变量，
+以及 `RETROM_PSP_GAME_ID`、`RETROM_PSP_SAVE_ID`，外层硬超时 180 秒。通过真实 Product Launch 恢复已有
+PSP 存档，进入全屏后从更多菜单打开退出确认，再直接退出。观测固定 EmulatorJS 的实际 native 调用：不能调用
+restart；必须停止 main loop、卸载文件系统并执行延迟清理，最后销毁 iframe、完成 finish 并返回游戏详情。
+不能新建 Launch、重新 start 或产生 SaveState。保存退出前后截图及 `psp-exit-product.json`。
+
 ### ACC-RUN-003：全屏拒绝与深链接恢复
 
 - 上限：180 秒。
@@ -2144,7 +2150,7 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 准备：安装 `dc_boot.bin` 和 `dc_flash.bin`，选择 Dreamcast 推荐目录；上传单文件 CHD，
   进入审核并启动 Review Preview。记录内容摘要、Provider Bundle/Target 和依赖快照。
 - 流程：验证真实游戏画面和标准 Gamepad API 的 Start、方向及 A/B；保存审核截图并发布。
-  创建普通 Product Launch，在可辨认场景创建非空 `flycast-state-gzip-v1` 即时存档，记录大小/摘要。
+  创建普通 Product Launch，在可辨认场景创建非空 `flycast-state-v1-storage-v1` 即时存档，记录大小/摘要。
   退出后创建不同 Launch，显式指定该 SaveState；核对恢复到保存场景且方向、确认仍可操作。
   再创建不指定存档的 Launch，确认正常启动而非隐式恢复。
 - 缓存：同一浏览器上下文第二次启动应命中按内容摘要命名的 OPFS CHD，长度正确，
@@ -2152,15 +2158,22 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 证据：本次预览、保存、恢复、恢复后输入截图，非秘密 Launch/Save ID、内容/存档摘要、
   精确 Bundle/Target 和浏览器/GPU。私有游戏、BIOS、授权 URL 与 cookie 不进入 Git 或结构化证据。
 - 通过标准：所有上述步骤完成；只报告所用样本和浏览器。软件 GPU 的帧数只证明运行，不推断实体显卡性能。
+- 压缩专项驱动为 `scripts/acceptance/flycast_storage_product.mjs`，外层硬超时 600 秒；需要普通验收登录变量、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_FLYCAST_CHD`、`RETROM_FLYCAST_BIOS_DIR` 和 `RETROM_ACCEPTANCE_CASE_DIR`。
+  WSL 无头运行取消 DISPLAY/WAYLAND_DISPLAY。驱动保留上传/发布进度，记录复用情况；单次 gunzip 后的摘要
+  必须等于实际核心保存边界观测到的原始状态摘要，存档体积至少减半。输出 `flycast-storage-product.json`，
+  自动阶段标记 `AWAITING_VISUAL_REVIEW`；检查当次保存、恢复及恢复后输入截图，确认同一场景和可操作状态后才标记 PASS。
+  重跑可提供 `RETROM_FLYCAST_SEED_SAVE_ID`，从已验证的菜单存档开始；仍须移动选项、创建新存档，并在不同 Launch
+  恢复相同选项，检查方向、A 确认及 B 取消的当次截图，不能把恢复种子当作新存档通过证据。
 
 
 ### ACC-FLYCAST-002：暂停截图与压缩存档回归
 
-- 输入：操作者提供的旧 `flycast-state-v1` 存档及其原游戏，使用同一 PFB 的普通 Product Launch。
+- 输入：操作者提供的旧 `flycast-state-v1` 或 `flycast-state-gzip-v1` 存档及其原游戏，使用同一 PFB 的普通 Product Launch。
 - 上限：600 秒。通过正常详情页恢复旧存档，确认可辨认游戏场景和标准手柄输入。
 - 暂停后等待至少两个浏览器呈现周期再创建存档；在同一可辨认场景重复 5 次正常保存，
   下载服务端缩略图并核对画面，不得把真实黑色游戏场景当成截图失效。
-- 新存档的 envelope format 必须是 `flycast-state-gzip-v1`，记录实际存储字节数与解压字节数，
+- 新存档的 envelope format 必须是 `flycast-state-v1-storage-v1`，记录实际存储字节数与解压字节数，
   对同一份 bytes 计算压缩收益；解压后完整摘要与核心原始状态相同。
 - 选择一份新压缩存档创建不同 Launch，验证恢复场景及恢复后输入；旧存档仍可恢复。
 - 单元回归覆盖上下文保留属性与清理、旧格式读取、无损往返、gzip 损坏/截断及解压大小上限。
@@ -2177,14 +2190,55 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 通过标准：无浏览器异常，`play-state-v1` 新存档在不同 Launch 精确恢复命名状态，方向/确认/取消、暂停、截图、音频与缓存断言通过。证据为 `play-product.json` 与各阶段 PNG。自动化使用标准映射虚拟手柄；实体设备、完整比赛、跨游戏图形兼容性与声音质量不属于该 Case 的通过结论。《Ridge Racer V》上下跳动及三维场景缺失作为已知图形兼容性问题记录，不更改正常核心绑定与启动行为。
 
 
+### ACC-PC98-001：NP2kai PC-98 磁盘与即时状态
+
+以作者公开发布的《囚人へのペル・エム・フル》2025-12-31 HDI 为外部语料，使用
+`scripts/acceptance/pc98_product.mjs` 完成真实上传、导入、审核预览、发布、Product Launch、
+标准手柄方向/确认/取消、暂停截图、创建即时存档、不同 Launch 恢复及恢复后输入。
+菜单图像必须保留所选位置，比较时等待闪烁光标可见，不能将重新开机或仅返回成功状态视为恢复。暂停画面不得为空，
+音频须有非零采样；首次加载须显示确定进度，三个实例的同一磁盘只能请求一次。
+
+运行需要 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、
+`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_PC98_DISC`。
+驱动固定校验 HDI SHA-256 `3bc33e01942b253cef0e19ab2ce6cf4c27befe49a0f4c1e5a021711480c100da`，
+不下载或提交游戏。目标实例中不能已有同平台同内容的已发布游戏；失败后可用
+`RETROM_PC98_REVIEW_ID` 继续同一待审核项，仍完整执行预览至恢复链路。
+硬超时为 600 秒；无输入时输出 BLOCKED。WSL 无头 Chrome 须取消 DISPLAY/WAYLAND_DISPLAY。
+输出 `pc98-product.json` 与普通游戏截图，记录 Provider/模块摘要、内容摘要、会话和存档 ID。
+PFB 候选结果只证明该组合，不代表正式 Release 或实体手柄兼容性。
+
+
+### ACC-SAVE-004：公共 gzip 存档与旧格式恢复
+
+硬超时 300 秒。运行 `scripts/acceptance/checkpoint_storage_product.mjs`，使用已通过
+`ACC-PC98-001` 的同一游戏和旧 `np2kai-state-v1` 存档。需要普通验收登录变量、
+`RETROM_CHROME_EXECUTABLE`、`RETROM_PC98_GAME_ID` 和 `RETROM_PC98_LEGACY_SAVE_ID`。
+缺少输入输出 BLOCKED；WSL 无头环境取消 DISPLAY/WAYLAND_DISPLAY。
+
+从旧存档创建 Product Launch，验证菜单恢复和方向输入，通过普通 Player 暂停并创建新存档。
+从该新存档创建不同 Launch，验证 `np2kai-state-v1-storage-v1`、相同菜单选中位置与恢复后输入。
+读取普通恢复端点，验证服务端记录的压缩字节大小和 SHA-256；一次标准 gzip 解压后必须直接得到
+`NP2STATE` 原生语义封包，避免双重压缩。该游戏存档须减少至少一半体积。
+保存上传截图与 `checkpoint-storage-product.json`，记录原始/压缩字节数、会话和存档 ID。
+不删除或改写原来的存档；所有新存档统一压缩，不设小文件阈值。PSP gzip 与 mkxp compact 的
+历史编解码、微小存档和有界解压错误由运行时公共边界回归覆盖。
+
+PSP 补充场景：同一 Case 的 `scripts/acceptance/psp_checkpoint_storage_product.mjs` 使用
+`RETROM_PSP_GAME_ID` 与 `RETROM_PSP_SAVE_ID`（真实导入并发布的 Sky Force / 傲气雄鹰及其菜单存档），
+其余登录、Chrome 和输出目录变量同上，外层硬超时仍为 300 秒。从该 gzip 存档恢复后移动菜单选项，
+通过 Player 新建存档，再在不同 Launch 恢复到同一选项并继续输入。必须记录公共层保存一次 gzip、
+恢复一次 gunzip；普通恢复端点的大小与 SHA-256 匹配，一次解压即为 `RASTATE` v1 / `MEM ` 原生封包，
+体积至少减少一半。保留原存档、上传截图、前后菜单截图及 `psp-checkpoint-storage-product.json`。
+PSP 原生加载完成回执必须启用，不能用取消超时检查或放行未完成恢复代替。
+
 ### ACC-OPENBOR-001：OpenBOR 原生进度与真实产品链
 
 - 类型：操作者授权 PAK 的手动语料验收；不加入默认 CI 下载，游戏文件不进入 Git 或发布包。
 - 硬超时：600 秒。等价命令为 `timeout 600 env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/openbor_product.mjs`。
 - 输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`、`RETROM_OPENBOR_GAME`。使用独立 PFB；当前动作序列针对 8MAN 的 Robo_Rumble 模式，不能套用于任意 PAK 后声称通过。
 - 步骤：通过普通上传、导入和审核预览验证画面与输入，批准后创建 Product Launch；进入 Robo_Rumble 的实际关卡；通过原生 Options → System → Cheat Options 启用 Implacable March、Infinite Health、Touch of Death，以普通按键跨过首关，由游戏在下一关生成原生进度。首个实际关卡受引擎 `nosave` 保护，不应以刚进入第一关作为存档通过依据。在 Player 选择“存档并退出”，记录保存的难度与关卡；创建不同 Launch 并显式指定该存档，通过游戏内 Load Game 恢复，验证原生进度和继续输入。不选择存档的新 Launch 必须从空存档目录启动。
-- 重跑：可显式提供 `RETROM_OPENBOR_REVIEW_ID` 和 `RETROM_OPENBOR_GAME_ID`，复用同一 PFB 的待审预览及已发布游戏，证据标记 `seeded=true`；此模式不声称重新完成发布，必须保留首次导入和发布的证据，且其 gameId 与续跑一致，汇总时说明分段验证。
-- 通过标准：无浏览器异常；标准手柄方向与确认、独立键盘输入、暂停和截图可用。新保存格式为 `openbor-game-save-v1`，非空且与游戏摘要绑定，真实关卡进度在不同 Launch 中恢复。保存的是游戏原生关卡存档点，不要求保留关卡中途的位置。只报告实际样本的兼容性。
+- 重跑：可显式提供 `RETROM_OPENBOR_REVIEW_ID` 和 `RETROM_OPENBOR_GAME_ID`，复用同一 PFB 的待审预览及已发布游戏；仅提供 GAME_ID 时复用已发布游戏并跳过已不存在的审核项，证据标记 `seeded=true`；此模式不声称重新完成发布，必须保留首次导入和发布的证据，且其 gameId 与续跑一致，汇总时说明分段验证。
+- 通过标准：无浏览器异常；标准手柄方向与确认、独立键盘输入、暂停和截图可用。新保存格式为 `openbor-game-save-v1-storage-v1`，一次有界 gzip 解压后为原生 JSON 封包，非空且与游戏摘要绑定，真实关卡进度在不同 Launch 中恢复。保存的是游戏原生关卡存档点，不要求保留关卡中途的位置。只报告实际样本的兼容性。
 - 证据：`openbor-product.json`、各阶段 PNG、非秘密 Launch/Save ID、游戏与保存摘要、Provider Bundle/Target 和浏览器版本。证据不保存 cookie、授权 URL、游戏字节或本机源路径。
 
 ### ACC-MSX-001：WebMSX 单媒体与即时存档产品闭环
@@ -2198,7 +2252,7 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 自有卡带由 `python3 scripts/acceptance/build_msx_fixture.py <输出路径.rom>` 确定性生成；不提交生成物。
   它只含项目自有 Z80 程序，用可见标记的位置与形状验证输入和恢复，不含 BIOS 或第三方片段。
 - 自有卡带经过上传、导入、审核预览、批准和 Product Launch，标准虚拟手柄方向改变位置、
-  A 改变形状，保留的 B/Escape 操作重置位置。即时存档必须为非空 `webmsx-state-v1`；
+  A 改变形状，保留的 B/Escape 操作重置位置。即时存档必须为非空 `webmsx-state-v1-storage-v1`；
   关闭后以不同 Launch ID 恢复时位置、形状保持一致并继续响应方向。不选存档启动须回到初始状态。
 - 操作者游戏同样经过导入、审核预览、批准和 Launch，等待开机/标题动画后执行真实按键并保存截图。
   首份游戏另建即时存档，在新的 Launch 中恢复并继续输入。
@@ -2223,6 +2277,8 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 通过产品上传安装尚未安装的两项 BIOS；不得替换已有 installation。上传单磁盘、进入审核预览，
   验证有色画面，然后发布并创建普通 Launch。以标准手柄启动并操作游戏，验证持续帧变化和非零音频。
 - 通过 Player 创建即时存档，在不同 Launch 恢复，再操作并创建另一份存档。
+  新存档格式为 `px68k-state-v1-storage-v1`；下载恢复端点字节并核验大小与摘要，解压一次得到原生 ZIP，
+  确认内部条目使用 STORE，避免再次 deflate。记录传输/原生大小与条目名。
   保存 `preview.png`、`gameplay.png`、`restored.png` 和 `px68k-product.json`，记录准确 Target/Bundle、
   内容摘要、游戏/存档 ID、音频与阶段结果。截图需要确认确为可操作游戏场景，不能仅以启动画面通过。
 - 原生 bridge 的日志/帧调度、像素、输入与状态回归运行 core fork 的 `retrom/check.sh`；

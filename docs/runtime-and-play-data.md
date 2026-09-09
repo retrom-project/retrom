@@ -217,13 +217,37 @@ Provider 使用 `scummvm-save-bundle-v1`（`GAME_SAVE`，上限 64 MiB），原�
 各 Launch 创建独立 WASM heap；退出或取消加载移除帧循环、输入监听及音频节点，不选存档启动不会读取旧游戏状态。
 具体产品通过标准与证据入口只在 [核心验收 Case](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链) 维护。
 
+## PC-98 / NP2kai
+
+平台 `pc98`、核心 `np2kai` 绑定 `retrom-runtime/np2kai-pc98`。`PC98_DISK` 策略只接受
+单个 `.hdi` 或 `.d88`，按 `SINGLE_FILE` 保留字节，以 `ROM_BLOB` 交付；Target 不接收私有 options。
+Provider 验证 HDI 几何与 D88 长度，首次完整下载报告进度，并按稳定内容 URL 在 OPFS 复用经过大小和
+SHA-256 校验的不可变镜像。游戏写入只改变本次实例的内存副本。
+
+核心原生封包 `np2kai-state-v1` 为即时快照，包含原生执行状态和相对原盘的 64 KiB 块增量；总量上限 384 MiB，
+绑定原盘 SHA-256。不同 Launch 显式恢复时先安装磁盘增量，再加载执行状态。Host 通过公共 checkpoint
+与 Player 控件提供保存、暂停、截图及恢复，不理解 NP2kai 状态。标准手柄覆盖方向、Space 确认、Escape 取消。
+当前实现不开放联机、换盘、音量设置或外置 BIOS。核心固定为 `retrom-core-g5939e0c6d598-r1`，Provider 统一管理存储格式与压缩。
+
+真实产品检查入口为 `ACC-PC98-001`；通过单个游戏不代表全部 PC-98 软件兼容。
+
+
+### 公共存档压缩
+
+Provider 在交给 Host 前对所有新 checkpoint 执行一次 gzip 压缩，不设大小阈值。
+当前公共格式为原生格式加 `-storage-v1`；Host 对压缩后的字节计算摘要、传输并保存，
+Provider 在恢复及原生存档持久化确认前有界解压。核心 adapter 接收和返回未压缩语义数据。
+旧未压缩、PSP/Flycast gzip 和 mkxp compact 由 Provider 的显式 `readFormats` 兼容读取，不继续写入私有压缩格式。
+压缩前后均受 Target 大小限制，截断、损坏、取消或解压超限均拒绝。旧存档不做后台重写。PX68K 新存档的 ZIP 语义容器使用 STORE 条目，仅公共层压缩；旧 deflate ZIP 保留读取。
+验收入口为 `ACC-SAVE-004`，具体步骤只在项目验收专题维护。
+
 ### OpenBOR 原生进度
 
 `retrom-runtime/openbor` 使用独立 `openbor-host-v1` 浏览器核心。不可变 PAK 在启动前完整物化，
 提供确定字节进度，并以 4 MiB 分块写入浏览器持久缓存；跨实例复用前校验准确长度和整包摘要。
 存储不可用时回退到网络。当前单包上限为 512 MiB，不声明线程、联机或即时快照。
 
-checkpoint 为 `openbor-game-save-v1`，最大 16 MiB，声明 `GAME_SAVE`、`capture=IN_GAME`、
+核心原生 checkpoint 为 `openbor-game-save-v1`，公共层写入 `openbor-game-save-v1-storage-v1`，最大 16 MiB，声明 `GAME_SAVE`、`capture=IN_GAME`、
 `restore=IN_GAME`。它携带游戏内容摘要和核心原生的进度、脚本变量与高分文件，排除按键、显示等配置。
 OpenBOR 在游戏的关卡边界保存；退出时同步的是最近的原生存档点，不能恢复关卡中途的逐帧状态。
 新 Launch 在引擎启动前导入文件，再由玩家通过游戏内 Load Game 读取；未选存档的启动使用空存档目录。
