@@ -22,7 +22,8 @@
         "scummvm",
         "tic80",
         "fake08",
-        "play"
+        "play",
+        "np2kai"
       ]
     },
     {
@@ -184,6 +185,15 @@
       "gitlink": "git@github.com:retrom-project/Play-.git",
       "defaultBranch": "retrom/g83700b2c31e5",
       "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "np2kai",
+      "path": "project/retrom-core/NP2kai",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/NP2kai.git",
+      "defaultBranch": "retrom/g5939e0c6d598",
+      "submodules": false,
       "dependsOn": []
     }
   ]
