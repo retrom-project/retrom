@@ -117,11 +117,14 @@ try {
   context.setDefaultTimeout(30000); await installVirtualStandardGamepad(context);
   const client = await fantasyClient(context, base), progress = await prepare(client);
   evidence.gameId = progress.gameId; evidence.gameSha256 = progress.digest;
-  const original = await launchCart(client, progress.gameId), first = await open(original);
-  await first.page.waitForTimeout(45000);
-  for (let i = 0; i < 8; i++) {await gamepad(first.page, 9, 200); await first.page.waitForTimeout(3000);}
-  await gamepad(first.page, 13, 180); await gamepad(first.page, 0, 200);
-  await first.page.waitForTimeout(5000);
+  const original = await launchCart(client, progress.gameId, env.RETROM_FLYCAST_SEED_SAVE_ID ?? null), first = await open(original);
+  if (!env.RETROM_FLYCAST_SEED_SAVE_ID) {
+    await first.page.waitForTimeout(45000);
+    for (let i = 0; i < 8; i++) {await gamepad(first.page, 9, 200); await first.page.waitForTimeout(3000);}
+  }
+  await first.canvas.screenshot({path: join(directory, "before-direction.png")});
+  await gamepad(first.page, 13, 100); await first.page.waitForTimeout(500);
+  await first.canvas.screenshot({path: join(directory, "after-direction.png")});
   const saved = await save(first, client, progress.gameId, original.launchId);
   evidence.saveStateId = saved.saveStateId; await first.page.close();
   const restored = await launchCart(client, progress.gameId, saved.saveStateId), next = await open(restored);
@@ -133,8 +136,12 @@ try {
   assert.equal(hash(raw), saved.rawSha256); assert.equal(raw.subarray(0, 7).toString(), "RASTATE");
   assert.ok(bytes.length < raw.length / 2);
   await next.canvas.screenshot({path: join(directory, "restored.png")});
-  await gamepad(next.page, 15, 600); await gamepad(next.page, 0, 300);
-  await next.canvas.screenshot({path: join(directory, "restored-input.png")}); await next.page.close();
+  await gamepad(next.page, 13, 100); await next.page.waitForTimeout(500);
+  await next.canvas.screenshot({path: join(directory, "restored-direction.png")});
+  await gamepad(next.page, 0, 150); await next.page.waitForTimeout(3000);
+  await next.canvas.screenshot({path: join(directory, "restored-input.png")});
+  await gamepad(next.page, 1, 150); await next.page.waitForTimeout(1000);
+  await next.canvas.screenshot({path: join(directory, "restored-cancel.png")}); await next.page.close();
   const fresh = await open(await launchCart(client, progress.gameId));
   assert.equal(fresh.config.restore, null); await fresh.canvas.screenshot({path: join(directory, "fresh.png")}); await fresh.page.close();
   evidence.checkpoint = {storedBytes: bytes.length, rawBytes: raw.length, rawSha256: hash(raw), storedSha256: hash(bytes)};
