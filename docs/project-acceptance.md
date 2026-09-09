@@ -2163,6 +2163,8 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
   WSL 无头运行取消 DISPLAY/WAYLAND_DISPLAY。驱动保留上传/发布进度，记录复用情况；单次 gunzip 后的摘要
   必须等于实际核心保存边界观测到的原始状态摘要，存档体积至少减半。输出 `flycast-storage-product.json`，
   自动阶段标记 `AWAITING_VISUAL_REVIEW`；检查当次保存、恢复及恢复后输入截图，确认同一场景和可操作状态后才标记 PASS。
+  重跑可提供 `RETROM_FLYCAST_SEED_SAVE_ID`，从已验证的菜单存档开始；仍须移动选项、创建新存档，并在不同 Launch
+  恢复相同选项，检查方向、A 确认及 B 取消的当次截图，不能把恢复种子当作新存档通过证据。
 
 
 ### ACC-FLYCAST-002：暂停截图与压缩存档回归
