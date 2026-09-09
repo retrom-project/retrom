@@ -216,6 +216,7 @@ describe("PlayerChrome", () => {
     await user.click(screen.getByRole("button", { name: "更多操作" }));
     expect(screen.getByRole("button", { name: "更多操作" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.queryByRole("menuitem", { name: /创建存档/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /调试信息|查看快捷键/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建存档" })).toBeVisible();
     await user.click(screen.getByRole("menuitem", { name: "模拟器设置" }));
     expect(values.onOpenEmulatorSettings).toHaveBeenCalledOnce();
@@ -247,12 +248,14 @@ describe("PlayerChrome", () => {
     expect(within(panel).getByText("4,210")).toBeVisible();
     expect(within(panel).getByText("384 × 224")).toBeVisible();
     expect(within(panel).getByText("画布分辨率")).toBeVisible();
+    await user.click(within(panel).getByText("运行环境与显示"));
     expect(within(panel).getByText("COOP/COEP + SAB")).toBeVisible();
-    await user.click(within(panel).getByRole("button", { name: "关闭调试信息面板" }));
+    expect(within(panel).queryByRole("button", { name: "关闭调试信息面板" })).not.toBeInTheDocument();
+    await user.click(trigger);
     expect(values.onToggleDebug).toHaveBeenCalledTimes(2);
   });
 
-  it("hides Provider implementation identity from ordinary RPG Maker diagnostics", () => {
+  it("hides Provider implementation identity from ordinary RPG Maker diagnostics", async () => {
     render(<PlayerChrome {...props({
       coreName: "RPG Maker XP",
       debugOpen: true,
@@ -264,6 +267,7 @@ describe("PlayerChrome", () => {
     })} />);
 
     const panel = screen.getByRole("complementary", { name: "运行调试信息" });
+    await userEvent.click(within(panel).getByText("运行环境与显示"));
     expect(within(panel).getByText("RPG Maker XP")).toBeVisible();
     expect(within(panel).queryByText("retrom-runtime")).not.toBeInTheDocument();
     expect(within(panel).queryByText("rpgmaker-xp")).not.toBeInTheDocument();
@@ -272,7 +276,7 @@ describe("PlayerChrome", () => {
     expect(within(panel).queryByText(/^Contract/u)).not.toBeInTheDocument();
   });
 
-  it("identifies a standalone ONS Target by Provider identity", () => {
+  it("identifies a standalone ONS Target by Provider identity", async () => {
     render(<PlayerChrome {...props({
       coreName: "ONScripterYuri",
       debugOpen: true,
@@ -282,6 +286,7 @@ describe("PlayerChrome", () => {
       },
     })} />);
     const panel = screen.getByRole("complementary", { name: "运行调试信息" });
+    await userEvent.click(within(panel).getByText("运行环境与显示"));
     expect(within(panel).getByText("ONScripterYuri")).toBeVisible();
     expect(within(panel).getByText("retrom-runtime")).toBeVisible();
     expect(within(panel).getByText("0.12.0")).toBeVisible();
