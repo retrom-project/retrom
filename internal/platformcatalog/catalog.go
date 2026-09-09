@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 11
+const Version = 12
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -75,6 +75,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{Key: "pcfx/mednafen_pcfx", PlatformID: "pcfx", DefaultCoreID: "mednafen_pcfx", Name: "PC-FX 游戏", CatalogOrder: 210},
 	{Key: "3do/opera", PlatformID: "3do", DefaultCoreID: "opera", Name: "3DO 游戏", CatalogOrder: 220},
 	{Key: "psp/ppsspp", PlatformID: "psp", DefaultCoreID: "ppsspp", Name: "PSP 游戏", CatalogOrder: 230},
+	{Key: "ps2/play", PlatformID: "ps2", DefaultCoreID: "play", Name: "PlayStation 2 游戏", CatalogOrder: 235},
 	{
 		Key: "virtualboy/beetle_vb", PlatformID: "virtualboy", DefaultCoreID: "beetle_vb",
 		Name: "Virtual Boy 游戏", CatalogOrder: 240,

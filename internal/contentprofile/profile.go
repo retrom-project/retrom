@@ -71,6 +71,7 @@ var registry = map[string]Profile{
 	"pcfx":         raw("pcfx", ".chd"),
 	"ngpc":         single("ngpc", ".ngp"),
 	"psp":          raw("psp", ".iso", ".cso"),
+	"ps2":          raw("ps2", ".iso", ".chd"),
 	"virtualboy":   single("virtualboy", ".vb"),
 	"wonderswan":   single("wonderswan", ".ws", ".wsc"),
 	"mastersystem": single("mastersystem", ".sms"),

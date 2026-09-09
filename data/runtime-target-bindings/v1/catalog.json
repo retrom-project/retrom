@@ -566,6 +566,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-play",
+      "coreId": "play",
+      "providerId": "retrom-runtime",
+      "targetId": "play-ps2",
+      "platformIds": [
+        "ps2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "OPTICAL_DISC",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-rpgmaker-2000",
       "coreId": "rpgmaker",
       "providerId": "retrom-runtime",
@@ -867,6 +881,12 @@
         "enabled": true
       },
       {
+        "id": "ps2",
+        "name": "PlayStation 2",
+        "sortOrder": 205,
+        "enabled": true
+      },
+      {
         "id": "psp",
         "name": "PlayStation Portable",
         "sortOrder": 210,
@@ -1102,6 +1122,11 @@
       {
         "id": "picodrive",
         "name": "PicoDrive",
+        "enabled": true
+      },
+      {
+        "id": "play",
+        "name": "Play!",
         "enabled": true
       },
       {
