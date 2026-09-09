@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { currentEmulatorBrightRatio, evidencePath, noPageOverflow } from "./acceptance-support";
 import { verifyCompactFeaturedHome, verifyMobileSavedFeaturedHome } from "./acceptance-user-layout";
+import {verifyPlayerSurfaceResume} from "./player-pause-resume";
 import {
   exitRuntimePlayer, runtimeFrameCount, runtimeResource, runtimeResourceURL, runtimeResourceURLs,
   type RuntimeEnvelope,
@@ -101,6 +102,7 @@ function registerRun002(): void {
     await expect(debugPanel.getByText("运行中", { exact: true })).toBeVisible();
     await expect(page.locator(".player-pause-overlay")).not.toHaveClass(/is-visible/);
     await page.screenshot({ path: evidencePath(testInfo, "player-debug.png"), fullPage: true });
+    await verifyPlayerSurfaceResume(page);
     await expect(debugPanel.getByRole("button", { name: "关闭调试信息面板" })).toHaveCount(0);
     await debugButton.click();
     await expect(page.locator("#player-debug-panel")).toHaveAttribute("aria-hidden", "true");

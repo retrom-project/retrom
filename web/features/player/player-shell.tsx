@@ -182,8 +182,8 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     }).catch(() => showToast("无法暂停游戏", 3_000)).finally(() => {pausePending.current = false;});
   }, [clearControlsTimer, showToast]);
 
-  const handleGameSurfaceInteraction = useCallback(() => {
-    if (!canResumeFromGameSurface({mode: playerMode.current, running: running.current, paused: pausedRef.current, chromePinned: chromePinned.current})) {return;}
+  const resumeFromSurface = useCallback((source: "runtime" | "pause-overlay") => {
+    if (!canResumeFromGameSurface({mode: playerMode.current, running: running.current, paused: pausedRef.current, chromePinned: chromePinned.current, source})) {return;}
     const active = runtime.current;
     if (!active?.getCapabilities().pause) {return;}
     void active.resume().then(() => {
@@ -193,6 +193,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
       showControls();
     }).catch(() => showToast("无法继续游戏", 3_000));
   }, [showControls, showToast]);
+  const handleGameSurfaceInteraction = useCallback(() => resumeFromSurface("runtime"), [resumeFromSurface]);
   const sessionParams = useMemo(() => ({
     launchId, runtime, envelope, playerMode, sequence, started, finishing, heartbeat, playEventQueue, saveUploadQueue,
     orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
@@ -284,7 +285,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     onChangeEmulatorVolume: actions.changeEmulatorVolume, onToggleEmulatorMute: actions.toggleEmulatorMute,
     onChangeVideoRenderingMode: actions.changeVideoRenderingMode, onSelectDisc: actions.selectDisc,
     onToggleNetplayPause: () => void actions.toggleNetplayPause(), onToggleDebug: toggleDebug,
-    onGameSurface: handleGameSurfaceInteraction, onExit: () => void exitRuntime(),
+    onGameSurface: () => resumeFromSurface("pause-overlay"), onExit: () => void exitRuntime(),
   };
   return <PlayerShellView nativeExitDialog={nativeExit.dialog} experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
     chromeProps={chromeProps} stage={stage} state={state} message={message} loadProgress={loadProgress}

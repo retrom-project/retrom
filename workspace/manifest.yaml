@@ -16,6 +16,7 @@
         "butterscotch",
         "tyranoscript",
         "j2me-web",
+        "ruffle",
         "vice-libretro",
         "virtualjaguar-libretro",
         "wasm4",
@@ -25,6 +26,16 @@
         "play",
         "flycast-wasm"
       ]
+    },
+    {
+      "id": "ruffle",
+      "path": "project/retrom-core/ruffle",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/ruffle.git",
+      "defaultBranch": "retrom/ge46d1642fb67",
+      "submodules": false,
+      "shallowClone": true,
+      "dependsOn": []
     },
     {
       "id": "player",
