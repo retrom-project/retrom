@@ -61,6 +61,21 @@ describe("provider runtime controller", () => {
     await vi.waitFor(() => expect(runtime.exit).toHaveBeenCalledOnce());
   });
 
+  it("cleans up a runtime created after startup cancellation without mounting it", async () => {
+    const abort = new AbortController(); const runtime = fixtureRuntime();
+    let resolveImport!: (value: ReturnType<typeof fixtureModule>) => void;
+    const importer = vi.fn(() => new Promise<ReturnType<typeof fixtureModule>>((resolve) => {resolveImport = resolve;}));
+    const mounting = mountProviderRuntime(envelope(), document.createElement("div"), {
+      dispatcher: verifiedDispatcher(), importer, signal: abort.signal,
+    });
+    const settled = mounting.catch(error => error);
+    await vi.waitFor(() => expect(importer).toHaveBeenCalledOnce());
+    abort.abort(); resolveImport(fixtureModule(runtime));
+    expect(await settled).toMatchObject({name: "AbortError"});
+    expect(runtime.mount).not.toHaveBeenCalled();
+    expect(runtime.exit).toHaveBeenCalledOnce();
+  });
+
   it("keeps Host resources alive until Provider exit cleanup settles", async () => {
     let releaseExit!: () => void;
     const runtime = fixtureRuntime();

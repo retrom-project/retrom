@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type PlayerBootstrapLifecycle = {
   tail: Promise<void>;
@@ -51,7 +51,8 @@ export function useSerializedPlayerBootstrap<Params, Resources>(
   bootstrap: (params: Params, resources: Resources, controller: AbortController) => Promise<void>,
   cleanup: (params: Params, resources: Resources, controller: AbortController) => Promise<void>,
   handleError: (error: unknown, controller: AbortController, params: Params) => void,
-): void {
+): () => Promise<void> {
+  const cancellation = useRef<(() => Promise<void>) | null>(null);
   const [lifecycle] = useState(createPlayerBootstrapLifecycle);
   const latestParams = useRef(params);
   useEffect(() => {latestParams.current = params;}, [params]);
@@ -62,9 +63,13 @@ export function useSerializedPlayerBootstrap<Params, Resources>(
     const scheduled = schedulePlayerBootstrap(
       lifecycle, controller.signal, () => bootstrap(activeParams, resources, controller),
     );
+    const cancel = () => {controller.abort(); return scheduled.catch(() => undefined);};
+    cancellation.current = cancel;
     void scheduled.catch((error: unknown) => handleError(error, controller, activeParams));
     return () => {
+      if (cancellation.current === cancel) {cancellation.current = null;}
       joinPlayerBootstrapCleanup(lifecycle, cleanup(activeParams, resources, controller));
     };
   }, [bootstrap, bootstrapKey, cleanup, createResources, handleError, lifecycle]);
+  return useCallback(async () => {await cancellation.current?.();}, []);
 }

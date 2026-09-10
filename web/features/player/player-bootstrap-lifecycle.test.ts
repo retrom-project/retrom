@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   createPlayerBootstrapLifecycle,
@@ -71,6 +71,25 @@ describe("player bootstrap lifecycle", () => {
       actions.push("mounted");
     });
     expect(actions).toEqual(["mounted"]);
+  });
+
+  it("cancels an in-flight bootstrap before navigation without waiting for unmount", async () => {
+    let signal: AbortSignal | undefined;
+    const bootstrap = vi.fn(async (_params, _resources, controller: AbortController) => {
+      signal = controller.signal;
+      await new Promise<void>((resolve) => controller.signal.addEventListener("abort", () => resolve(), {once: true}));
+    });
+    const cleanup = vi.fn(async () => undefined);
+    const {result, unmount} = renderHook(() => useSerializedPlayerBootstrap(
+      "loading-launch", {}, () => ({}), bootstrap, cleanup, vi.fn(),
+    ));
+    await waitFor(() => expect(bootstrap).toHaveBeenCalledOnce());
+    expect(result.current).toBeTypeOf("function");
+    await act(async () => {await result.current();});
+    expect(signal?.aborted).toBe(true);
+    expect(cleanup).not.toHaveBeenCalled();
+    unmount();
+    expect(cleanup).toHaveBeenCalledOnce();
   });
 
   it("does not restart an active launch when render callbacks change", async () => {

@@ -10,11 +10,12 @@ function fixture(nativeEnabled = true) {
   {put: vi.fn(), remove: vi.fn()});
   const flush = vi.spyOn(native, "flush"), stop = vi.spyOn(native, "stop");
   const controllerExit = vi.fn(async () => undefined), pause = vi.fn(async () => undefined), resume = vi.fn(async () => undefined);
-  const controller = {current: {exit: controllerExit, runtime: {pause, resume}} as unknown as RuntimeController};
+  const controller: {current: RuntimeController | null} = {current: {exit: controllerExit, runtime: {pause, resume}} as unknown as RuntimeController};
   const exit = vi.fn(async () => undefined), strict = vi.fn(async () => undefined), after = vi.fn(async () => undefined);
   const toast = vi.fn(), decide = vi.fn(async () => true);
-  const hook = renderHook(() => usePlayerRuntimeExit(controller, {current: nativeEnabled ? native : null}, exit, strict, after, toast, decide));
-  return {...hook, native, flush, stop, controllerExit, exit, strict, after, toast, decide, pause, resume};
+  const cancelBootstrap = vi.fn(async (): Promise<void> => undefined);
+  const hook = renderHook(() => usePlayerRuntimeExit(controller, {current: nativeEnabled ? native : null}, exit, strict, after, toast, decide, {current: cancelBootstrap}));
+  return {...hook, native, flush, stop, controller, cancelBootstrap, controllerExit, exit, strict, after, toast, decide, pause, resume};
 }
 
 describe("native save exit decisions", () => {
@@ -24,6 +25,16 @@ describe("native save exit decisions", () => {
     expect(f.decide).not.toHaveBeenCalled(); expect(f.pause).not.toHaveBeenCalled();
     expect(f.flush).not.toHaveBeenCalled(); expect(f.stop).not.toHaveBeenCalled();
     expect(f.controllerExit).toHaveBeenCalledOnce();
+    expect(action === "exitRuntime" ? f.exit : f.strict).toHaveBeenCalledOnce();
+  });
+  it.each(["exitRuntime", "exitImmersiveRuntimeStrict"] as const)("cancels pending startup before %s finishes the session", async (action) => {
+    const f = fixture(false); f.controller.current = null;
+    let release!: () => void;
+    f.cancelBootstrap.mockImplementationOnce(() => new Promise<void>((resolve) => {release = resolve;}));
+    const exiting = f.result.current[action]();
+    await vi.waitFor(() => expect(f.cancelBootstrap).toHaveBeenCalledOnce());
+    expect(f.exit).not.toHaveBeenCalled(); expect(f.strict).not.toHaveBeenCalled();
+    release(); await act(async () => {await exiting;});
     expect(action === "exitRuntime" ? f.exit : f.strict).toHaveBeenCalledOnce();
   });
   it("pauses and drains local writes before asking, then continues on cancel", async () => {

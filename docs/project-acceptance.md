@@ -957,7 +957,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-004`。
 - 流程：分别以缺少必需 BIOS、静态 BIOS hash mismatch、Arcade BIOS/base entry 名齐全但 hash mismatch，以及可选 BIOS 缺失启动。
-- 通过标准：Blocker 不创建可用 launch、退出全屏并回来源上下文显示修复入口；Warning 不增加确认步骤且继续自动启动；状态文案不只靠颜色。
+- 通过标准：Blocker 不创建可用 launch、退出全屏并回来源上下文显示修复入口；Warning 不增加确认步骤且继续自动启动；必须先观察 Player 挂载，再等待加载结束，不能以加载提示尚未出现代替启动完成。另在合法 Provider 模块请求被延迟时主动退出，先取消加载再发送 finish，在既有导航超时内返回来源且不发送 start；状态文案不只靠颜色。
 - 证据：两次启动状态、UI 截图和 launch 记录。
 
 ### ACC-RUN-005：DOS 启动程序
