@@ -49,6 +49,10 @@ export async function mountProviderRuntime(
   options.signal?.addEventListener("abort", externalAbort, {once: true});
   try {
     runtime = await loadProviderRuntime(envelope, host, options.importer, options.dispatcher);
+    if (abort.signal.aborted) {
+      await runtime.exit();
+      throw abort.signal.reason;
+    }
     unsubscribe = runtime.subscribe((event) => {
       options.onRuntimeEvent?.(event);
       if (terminalEventHandled || event.type !== "EXIT_REQUESTED" && event.type !== "FATAL_ERROR") {return;}
