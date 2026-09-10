@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -26,10 +27,26 @@ class MobileRuntimeAcceptanceRegistrationTests(unittest.TestCase):
 
     def test_ui_driver_routes_mobile_runtime_cases_to_the_mobile_matrix(self) -> None:
         source = (ROOT / "scripts/acceptance/ui-case.sh").read_text(encoding="utf-8")
-        self.assertIn("ACC-MOB-00[5-7]", source)
-        self.assertIn('specification="e2e/mobile.spec.ts"', source)
-        self.assertIn('case_id" =~ ^ACC-MOB-00[56]$', source)
-        self.assertIn('case_id" == "ACC-MOB-007"', source)
+        # Execute only the pure argument-selection block, never server/data setup.
+        start = source.index('specification="e2e/acceptance.spec.ts"')
+        end = source.index("core_expansion_results='[]'", start)
+        selection = source[start:end]
+        for number in range(1, 8):
+            case_id = f"ACC-MOB-{number:03d}"
+            with self.subTest(case_id=case_id):
+                result = subprocess.run(
+                    ["bash", "-eu", "-c", 'case_id="$1"\n' + selection +
+                     '\nprintf "%s\\0" "${playwright_args[@]}"', "mobile-routing", case_id],
+                    check=True, capture_output=True, text=True, timeout=5,
+                )
+                expected = ["playwright", "test", "e2e/mobile.spec.ts"]
+                if number == 7:
+                    expected += ["e2e/acceptance.spec.ts", "e2e/immersive.spec.ts", "--grep",
+                                 "ACC-MOB-007|ACC-UI-005|ACC-UI-006|ACC-UI-007|ACC-IMM-007",
+                                 "--workers=1"]
+                else:
+                    expected += ["--grep", case_id, "--project=chrome-mobile"]
+                self.assertEqual(result.stdout.removesuffix("\0").split("\0"), expected)
 
     def test_mobile_accessibility_regressions_are_fixed_at_the_source(self) -> None:
         primitives = (ROOT / "web/styles/primitives.css").read_text(encoding="utf-8")

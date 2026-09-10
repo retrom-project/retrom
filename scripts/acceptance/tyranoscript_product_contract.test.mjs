@@ -12,7 +12,10 @@ const state = (marker) => ({marker, order: 10, scenario: "first.ks"});
 function evidence() {
   return {
     schemaVersion: 1, caseId: "ACC-TYRANOSCRIPT-001", status: "PASS",
-    stages: [...tyranoScriptProductStages],
+    stages: [...tyranoScriptProductStages], reusedReview: false,
+    input: {original:{gamepad:["B"], keyboard:[]}, restored:{gamepad:["B"], keyboard:[]},
+      originalKeyboard:[{type:"keydown", key:"Escape"}, {type:"keyup", key:"Escape"}],
+      restoredKeyboard:[{type:"keydown", key:"Escape"}, {type:"keyup", key:"Escape"}]},
     ids: {
       importItemId: "01a05123-1234-7123-8123-123456789abc",
       gameId: "01a05123-1234-7123-8123-223456789abc",
@@ -20,7 +23,7 @@ function evidence() {
       originalLaunchId: "01a05123-1234-7123-8123-423456789abc",
       restoreLaunchId: "01a05123-1234-7123-8123-523456789abc",
     },
-    checkpoint: {format: "tyranoscript-snapshot-v1", sizeBytes: 1024},
+    checkpoint: {format: "tyranoscript-snapshot-v1-storage-v1", sizeBytes: 1024},
     state: {b: state("B"), c: state("C"), restoredB: state("B")},
     resources: {contentDigest: "b".repeat(64), engineAsset200Count: 1, failedResponseCount: 0},
     screenshots: {preview: screenshot, product: screenshot, restored: screenshot},
@@ -31,17 +34,19 @@ function evidence() {
 test("accepts the complete TyranoScript product chain", () => {
   assert.doesNotThrow(() => assertTyranoScriptProductEvidence(evidence()));
   assert.doesNotThrow(() => assertTyranoScriptProductEvidence({
-    ...evidence(), checkpoint: {format: "tyranoscript-snapshot-v1", sizeBytes: 32 * 1024 * 1024},
+    ...evidence(), checkpoint: {format: "tyranoscript-snapshot-v1-storage-v1", sizeBytes: 32 * 1024 * 1024},
   }));
 });
 
 test("rejects restore, resource, screenshot and browser regressions", () => {
   const invalid = [
+    {...evidence(), input:{...evidence().input, original:{gamepad:["B"], keyboard:evidence().input.originalKeyboard}}},
+    {...evidence(), input:{...evidence().input, restoredKeyboard:[]}},
     {...evidence(), state: {...evidence().state, restoredB: state("C")}},
     {...evidence(), resources: {...evidence().resources, engineAsset200Count: 0}},
     {...evidence(), screenshots: {...evidence().screenshots, restored: {...screenshot, nonBlackPixels: 0}}},
     {...evidence(), browser: {...evidence().browser, consoleErrorCount: 1}},
-    {...evidence(), checkpoint: {format: "tyranoscript-snapshot-v1", sizeBytes: 32 * 1024 * 1024 + 1}},
+    {...evidence(), checkpoint: {format: "tyranoscript-snapshot-v1-storage-v1", sizeBytes: 32 * 1024 * 1024 + 1}},
   ];
   for (const value of invalid) {
     assert.throws(() => assertTyranoScriptProductEvidence(value), /TYRANOSCRIPT_ACCEPTANCE_/u);

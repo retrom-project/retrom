@@ -14,7 +14,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 67)
+        self.assertEqual(len(catalog["bindings"]), 73)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -28,6 +28,12 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
                 },
             )
         by_target = {(item["providerId"], item["targetId"]): item for item in catalog["bindings"]}
+        openbor = by_target[("retrom-runtime", "openbor")]
+        self.assertEqual(openbor["platformIds"], ["openbor"])
+        self.assertEqual(openbor["detectorProfile"], "OPENBOR_PAK")
+        self.assertEqual(openbor["acceptedContentKinds"], ["SINGLE_FILE"])
+        self.assertEqual(by_target[("emulatorjs", "flycast")]["platformIds"], ["dreamcast"])
+        self.assertEqual(by_target[("emulatorjs", "flycast")]["acceptedContentKinds"], ["SINGLE_FILE"])
         self.assertEqual(by_target[("emulatorjs", "gambatte")]["coreId"], "gambatte")
         self.assertEqual(by_target[("emulatorjs", "desmume2015")]["coreId"], "desmume2015")
         expected_single_file_targets = {
@@ -59,6 +65,17 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["detectorProfile"], "SCUMMVM_PROJECT")
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["acceptedContentKinds"], ["SCUMMVM_PROJECT"])
         self.assertEqual(by_target[("retrom-runtime", "j2me")]["acceptedContentKinds"], ["SINGLE_FILE"])
+        pc98 = by_target[("retrom-runtime", "np2kai-pc98")]
+        self.assertEqual(pc98["coreId"], "np2kai")
+        self.assertEqual(pc98["platformIds"], ["pc98"])
+        self.assertEqual(pc98["detectorProfile"], "PC98_DISK")
+        self.assertEqual(pc98["acceptedContentKinds"], ["SINGLE_FILE"])
+        msx = by_target[("retrom-runtime", "msx-webmsx")]
+        self.assertEqual(msx["coreId"], "webmsx")
+        self.assertEqual(msx["platformIds"], ["msx"])
+        self.assertEqual(msx["detectorProfile"], "MSX_MEDIA")
+        self.assertEqual(msx["acceptedContentKinds"], ["SINGLE_FILE"])
+        self.assertEqual(msx["launchPolicy"], "SUPPORTED")
         play = by_target[("retrom-runtime", "play-ps2")]
         self.assertEqual(play["coreId"], "play")
         self.assertEqual(play["platformIds"], ["ps2"])

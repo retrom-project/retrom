@@ -1,3 +1,4 @@
+import {gunzipSync} from "node:zlib";
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 
@@ -9,13 +10,14 @@ export async function scummvmSaveProof(context, launchId, automatic) {
   assert.equal(response.status(), 200);
   const config = await response.json();
   const restore = config.restore;
-  assert.equal(restore?.format, "scummvm-save-bundle-v1");
+  assert.ok(["scummvm-save-bundle-v1", "scummvm-save-bundle-v1-storage-v1"].includes(restore?.format));
   assert(restore.sizeBytes > 12 && restore.sizeBytes <= 64 * 1024 * 1024);
   const downloaded = await context.request.get(restore.url);
   assert.equal(downloaded.status(), 200);
-  const bytes = await downloaded.body();
-  assert.equal(bytes.length, restore.sizeBytes);
-  assert.equal(sha256(bytes), restore.sha256);
+  const stored = await downloaded.body();
+  assert.equal(stored.length, restore.sizeBytes);
+  assert.equal(sha256(stored), restore.sha256);
+  const bytes = restore.format.endsWith("-storage-v1") ? gunzipSync(stored, {maxOutputLength: 64 * 1024 * 1024}) : stored;
   assert.equal(bytes.subarray(0, 8).toString(), "RTSCUMV1");
   const start = 12 + bytes.readUInt32BE(8);
   assert(start > 12 && start < bytes.length);
@@ -28,6 +30,6 @@ export async function scummvmSaveProof(context, launchId, automatic) {
     const data = bytes.subarray(start + file.offset, start + file.offset + file.size);
     assert.equal(data.length, file.size); assert.equal(sha256(data), file.sha256);
   }
-  return {format: restore.format, sizeBytes: bytes.length, sha256: restore.sha256,
+  return {format: restore.format, sizeBytes: stored.length, sha256: restore.sha256,
     resumeSlot: manifest.resumeSlot, fileCount: manifest.files.length};
 }
