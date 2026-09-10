@@ -8,7 +8,6 @@ import { newUuid } from "@/lib/crypto";
 import {
   canReorderPlatformDirectories,
   filterPlatformDirectories,
-  platformDirectorySummary,
   summarizeRecommendations,
   type Platform,
   type PlatformDirectoryFilters,
@@ -55,7 +54,6 @@ export function PlatformManager({ instances, platforms, recommendations = null, 
   const busyRef = useRef(busy);
 
   const visibleRows = useMemo(() => filterPlatformDirectories(rows, filters), [rows, filters]);
-  const summary = useMemo(() => platformDirectorySummary(rows), [rows]);
   const reorderEnabled = canReorderPlatformDirectories(filters);
   const selectedCreatePlatform = platforms.find((platform) => platform.id === createPlatformID);
   const selectedCreateCore = selectedCreatePlatform?.cores.find((core) => core.id === createCoreID);
@@ -264,6 +262,6 @@ export function PlatformManager({ instances, platforms, recommendations = null, 
     onSortHelp={setSortHelpOpen} onStartDrag={startDrag} onSubmitInline={(event, instance, field) => void submitInline(event, instance, field)}
     onToastDismiss={() => setToast(null)} openMenuId={openMenuId} pending={pending} platforms={platforms}
     recommendationState={recommendationState} reorderEnabled={reorderEnabled} rows={rows} selectedCreateCore={selectedCreateCore}
-    selectedCreatePlatform={selectedCreatePlatform} sortHelpOpen={sortHelpOpen} summary={summary} toast={toast} visibleRows={visibleRows}
+    selectedCreatePlatform={selectedCreatePlatform} sortHelpOpen={sortHelpOpen} toast={toast} visibleRows={visibleRows}
   />;
 }

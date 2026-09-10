@@ -129,10 +129,6 @@
 .import-workflow-search > span:last-child:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
 .import-workflow-search svg { width: 17px; height: 17px; color: #7e8799; }
 .import-workflow-search input { min-width: 0; width: 100%; height: 100%; padding: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 12px; }
-.import-workflow-chips { min-height: 40px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; overflow-x: auto; }
-.import-workflow-chips button, .import-workflow-chips > span, .import-workflow-chips > a { min-height: 30px; padding: 5px 11px; flex: 0 0 auto; display: inline-flex; align-items: center; color: #606a7c; border: 1px solid var(--line); border-radius: 999px; background: white; font-size: 11px; font-weight: 700; }
-.import-workflow-chips button, .import-workflow-chips > a { cursor: pointer; }
-.import-workflow-chips .is-active { color: var(--purple-dark); border-color: #c9bff4; background: var(--purple-soft); }
 .import-task-list, .review-workflow-list, .review-history-list { overflow-x: auto; display: grid; gap: 10px; }
 .import-task-entry { min-width: 1120px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
 .import-task-card { min-height: 92px; padding: 14px 16px; display: grid; grid-template-columns: minmax(220px, 1.4fr) 92px minmax(180px, .95fr) minmax(130px, .65fr) 264px; align-items: center; gap: 18px; }

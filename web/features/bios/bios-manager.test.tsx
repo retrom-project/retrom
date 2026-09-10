@@ -44,6 +44,25 @@ describe("BIOSManager", () => {
   beforeEach(() => window.history.replaceState({ marker: "keep" }, "", "/admin/bios"));
   afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+  it("keeps dependency filters in the toolbar dropdown and URL", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => jsonResponse(page([item("optional", { requirementMode: "OPTIONAL" })])));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BIOSManager initialResponse={page([item("required")])} />);
+    expect(screen.queryByLabelText("BIOS 快速筛选")).not.toBeInTheDocument();
+    const filter = screen.getByRole("combobox", { name: "依赖筛选" });
+    await user.selectOptions(filter, "OPTIONAL");
+    expect(await screen.findByText("optional.bin")).toBeVisible();
+    expect(filter).toHaveValue("OPTIONAL");
+    expect(requestedURL(fetchMock.mock.calls[0])).toContain("quick=OPTIONAL");
+    expect(window.location.search).toContain("quick=OPTIONAL");
+    await user.selectOptions(filter, "ALL");
+    await screen.findByText("optional.bin");
+    expect(filter).toHaveValue("ALL");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(window.location.search).not.toContain("quick=");
+  });
+
   it("switches scope with one server request and keeps server aggregate counts", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page([item("catalog")], { scope: "FULL_CATALOG", total: 286 })));
