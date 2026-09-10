@@ -81,7 +81,7 @@
     linear-gradient(145deg, rgb(var(--platform-rgb) / 0.18), transparent 48%),
     var(--immersive-panel);
   border: 2px solid rgb(255 255 255 / 0.1);
-  border-radius: 28px;
+  border-radius: var(--radius-panel);
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.35);
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
@@ -166,7 +166,7 @@
   overflow: hidden;
   background: #101522;
   border: 1px solid rgb(255 255 255 / 0.2);
-  border-radius: clamp(10px, 1vw, 18px);
+  border-radius: var(--radius-cover);
   box-shadow: 0 22px 58px rgb(0 0 0 / 0.52);
   transform-origin: 50% 82%;
   transition: transform 420ms cubic-bezier(0.2, 0.78, 0.2, 1), opacity 260ms ease;

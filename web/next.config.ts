@@ -9,6 +9,7 @@ export const backendProxyLimits = {
 } as const;
 
 const nextConfig: NextConfig = {
+  devIndicators: { position: "bottom-right" },
   allowedDevOrigins: localDevOrigins(),
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   experimental: {

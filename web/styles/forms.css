@@ -15,16 +15,16 @@
 .field.full { grid-column: 1 / -1; }
 .field label { color: #4d586c; font-size: 12px; font-weight: 750; }
 .field-label { color: #4d586c; font-size: 12px; font-weight: 750; }
-.field input, .field select, .field textarea { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; color: var(--ink); background: white; }
+.field input, .field select, .field textarea { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 10px 12px; color: var(--ink); background: white; }
 .field textarea { min-height: 104px; resize: vertical; }
 .field small { color: var(--muted); font-size: 12px; }
-.advanced-form-options { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-subtle); }
+.advanced-form-options { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); }
 .advanced-form-options > summary { width: fit-content; color: var(--purple-dark); font-size: 13px; font-weight: 750; }
 .advanced-form-options > .form-grid, .advanced-form-options > .stack { margin-top: 12px; }
 .stack { display: grid; gap: 16px; }
 summary { cursor: pointer; }
 .panel > summary.panel-head { list-style: none; }
 .panel > summary.panel-head::-webkit-details-marker { display: none; }
-.inline-editor { width: min(520px, 70vw); margin-top: 12px; padding: 18px; display: grid; gap: 12px; border: 1px solid var(--line); border-radius: 12px; background: #faf9f6; }
+.inline-editor { width: min(520px, 70vw); margin-top: 12px; padding: 18px; display: grid; gap: 12px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: #faf9f6; }
 .inline-editor label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
-.inline-editor input:not([type="checkbox"]), .inline-editor select, .inline-editor textarea { width: 100%; min-height: 42px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.inline-editor input:not([type="checkbox"]), .inline-editor select, .inline-editor textarea { width: 100%; min-height: 42px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-control); background: white; }

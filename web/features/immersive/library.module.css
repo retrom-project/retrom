@@ -10,7 +10,7 @@
   aspect-ratio: 1;
   place-items: center;
   border: 1px solid rgb(255 255 255 / 14%);
-  border-radius: 32px;
+  border-radius: var(--radius-control);
   color: #7ce9d8;
   background: linear-gradient(145deg, #202940, #111625);
   box-shadow: 0 28px 70px rgb(0 0 0 / 32%);
@@ -105,7 +105,7 @@
   overflow: hidden;
   background: linear-gradient(145deg, #26314d, #111827);
   border: 2px solid rgb(255 255 255 / 18%);
-  border-radius: 12px;
+  border-radius: var(--radius-cover);
   box-shadow: 0 12px 32px rgb(0 0 0 / 30%);
 }
 
@@ -150,7 +150,7 @@
 .saveCard:focus-visible {
   outline: 4px solid #50d6ca;
   outline-offset: 7px;
-  border-radius: 18px;
+  border-radius: var(--radius-cover);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -174,7 +174,7 @@
   margin: 0;
   padding: 14px 18px;
   border: 1px solid rgb(255 255 255 / 16%);
-  border-radius: 14px;
+  border-radius: var(--radius-panel);
   color: #f7f5f0;
   background: rgb(13 18 31 / 94%);
   box-shadow: 0 20px 50px rgb(0 0 0 / 32%);

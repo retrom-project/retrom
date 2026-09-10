@@ -63,7 +63,7 @@
   font-size: 23px;
   font-weight: 900;
   background: linear-gradient(145deg, #806dff, #5339ce);
-  border-radius: 15px;
+  border-radius: var(--radius-panel);
   box-shadow: 0 10px 30px rgb(77 55 197 / 0.42);
 }
 
@@ -106,7 +106,7 @@
   text-align: center;
   background: linear-gradient(145deg, rgb(28 31 49 / 0.98), rgb(15 17 29 / 0.98));
   border: 1px solid rgb(255 255 255 / 0.14);
-  border-radius: 30px;
+  border-radius: var(--radius-dialog);
   box-shadow: 0 34px 120px rgb(0 0 0 / 0.58);
   outline: none;
 }
@@ -149,7 +149,7 @@
   font-weight: 850;
   background: rgb(255 255 255 / 0.06);
   border: 2px solid rgb(255 255 255 / 0.16);
-  border-radius: 18px;
+  border-radius: var(--radius-control);
 }
 
 .entryActions button:disabled {cursor: wait;opacity: 0.5;}
@@ -185,6 +185,6 @@
   color: #172036;
   background: #e4faf8;
   border: 1px solid #a9e5df;
-  border-radius: 13px;
+  border-radius: var(--radius-panel);
   box-shadow: 0 16px 46px rgb(11 18 31 / 0.18);
 }
