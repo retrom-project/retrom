@@ -791,10 +791,6 @@
     #retrom-ui-review .rt-disc-row code { color: var(--retrom-muted); font-size: 9px; }
 
     #retrom-ui-review .rt-task-layout { display: grid; gap: 12px; }
-    #retrom-ui-review .rt-workflow-chips { display: flex; gap: 7px; margin: 10px 0 12px; }
-    #retrom-ui-review .rt-workflow-chips :is(span, button) { padding: 5px 10px; border: 1px solid var(--retrom-line); border-radius: 999px; color: var(--retrom-muted); background: var(--retrom-panel); font-size: 10px; }
-    #retrom-ui-review .rt-workflow-chips button { cursor: pointer; }
-    #retrom-ui-review .rt-workflow-chips :is(span, button).is-active { border-color: color-mix(in srgb, var(--retrom-purple) 42%, var(--retrom-line)); color: var(--retrom-purple); background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-stage-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--retrom-line); }
     #retrom-ui-review .rt-stage-strip span { padding: 7px; border-radius: var(--radius-panel); color: var(--retrom-muted); background: var(--retrom-panel-raised); font-size: 9px; }
     #retrom-ui-review .rt-stage-strip span.is-done { color: var(--retrom-green); background: var(--retrom-green-soft); }
@@ -1187,19 +1183,13 @@
       #retrom-ui-review .rt-favorite-tools { grid-template-columns: 1fr 160px auto; }
     }
     #retrom-ui-review .rt-directory-page { width: 100%; }
-    #retrom-ui-review .rt-directory-toolbar { padding: 14px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
+    #retrom-ui-review .rt-directory-toolbar { margin-bottom: 14px; padding: 14px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
     #retrom-ui-review .rt-directory-filters { display: grid; grid-template-columns: minmax(320px, 1.8fr) 180px 170px 170px; gap: 10px; align-items: end; }
     #retrom-ui-review .rt-directory-filters label { min-width: 0; display: grid; gap: 6px; color: var(--retrom-muted); font-size: 11px; font-weight: 760; }
     #retrom-ui-review .rt-directory-filters input, #retrom-ui-review .rt-directory-filters select { width: 100%; height: 42px; min-width: 0; }
     #retrom-ui-review .rt-directory-search { position: relative; }
     #retrom-ui-review .rt-directory-search i { position: absolute; left: 11px; bottom: 12px; width: 16px; height: 16px; color: var(--retrom-muted); }
     #retrom-ui-review .rt-directory-search input { padding-left: 34px; background: var(--retrom-panel-raised); }
-    #retrom-ui-review .rt-directory-quick { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-    #retrom-ui-review .rt-directory-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-    #retrom-ui-review .rt-directory-chip { padding: 7px 10px; color: var(--retrom-muted); border-radius: 999px; background: var(--retrom-panel-raised); font-size: 12px; font-weight: 700; }
-    #retrom-ui-review .rt-directory-chip.is-active { color: var(--retrom-purple); border: 1px solid color-mix(in srgb, var(--retrom-purple) 28%, var(--retrom-line)); background: var(--retrom-purple-soft); }
-    #retrom-ui-review .rt-directory-hint { color: var(--retrom-muted); font-size: 12px; }
-    #retrom-ui-review .rt-directory-hint strong { color: var(--retrom-text); }
     #retrom-ui-review .rt-directory-table { overflow: hidden; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
     #retrom-ui-review .rt-directory-head, #retrom-ui-review .rt-directory-row { display: grid; grid-template-columns: 70px minmax(230px, 1.1fr) minmax(160px, .75fr) 72px minmax(140px, .55fr) 90px minmax(210px, .9fr) 115px 60px; gap: 12px; align-items: center; }
     #retrom-ui-review .rt-directory-head { min-height: 42px; padding: 0 18px; color: var(--retrom-muted); border-bottom: 1px solid var(--retrom-line); background: var(--retrom-panel-raised); font-size: 11px; font-weight: 800; }
@@ -1347,12 +1337,9 @@
     #retrom-ui-review .rt-runtime-kpis span, #retrom-ui-review .rt-runtime-kpis small { color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-runtime-kpis strong { margin-top: 1px; font-size: 23px; }
     #retrom-ui-review .rt-runtime-kpis small { margin-top: 5px; }
-    #retrom-ui-review .rt-runtime-toolbar { margin-bottom: 10px; padding: 11px; display: grid; grid-template-columns: minmax(280px, 1.7fr) 180px 180px; gap: 9px; align-items: end; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
+    #retrom-ui-review .rt-runtime-toolbar { margin-bottom: 10px; padding: 11px; display: grid; grid-template-columns: minmax(280px, 1.7fr) 180px 180px 150px; gap: 9px; align-items: end; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
     #retrom-ui-review .rt-runtime-toolbar label { display: grid; gap: 4px; color: var(--retrom-muted); font-size: 9px; font-weight: 650; }
     #retrom-ui-review .rt-runtime-toolbar .rt-input, #retrom-ui-review .rt-runtime-toolbar .rt-select { min-width: 0; width: 100%; height: 36px; }
-    #retrom-ui-review .rt-runtime-chips { min-height: 28px; margin-bottom: 11px; display: flex; flex-wrap: wrap; gap: 6px; }
-    #retrom-ui-review .rt-runtime-chips button { min-height: 27px; padding: 0 9px; color: var(--retrom-muted); border: 1px solid transparent; border-radius: 999px; background: var(--retrom-panel-raised); cursor: pointer; font-size: 9px; }
-    #retrom-ui-review .rt-runtime-chips button.is-active { color: var(--retrom-purple); border-color: #d4ccf6; background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-runtime-section-head { margin: 13px 0 8px; display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
     #retrom-ui-review .rt-runtime-section-head h2 { margin: 0; font-size: 15px; }
     #retrom-ui-review .rt-runtime-section-head p, #retrom-ui-review .rt-runtime-section-head > span { margin: 3px 0 0; color: var(--retrom-muted); font-size: 9px; }
@@ -3141,7 +3128,6 @@
           <select class="rt-select rt-filter-select" aria-label="目标目录"><option>所有目录</option><option>FBNeo 游戏</option><option>DOS 经典游戏</option><option>NES 游戏</option></select>
           <select class="rt-select rt-filter-select" aria-label="任务状态"><option>所有状态</option><option>运行中</option><option>排队中</option><option>需要处理</option><option>等待审核</option><option>已完成</option></select>
         </div>
-        <div class="rt-workflow-chips"><button type="button" class="is-active">全部 4</button><button type="button">运行中 1</button><button type="button">需要处理 1</button><button type="button">等待审核 1</button><button type="button">已完成 1</button></div>
         <div class="rt-task-layout">
           <div class="rt-panel rt-job-list">
             <article class="rt-job-row is-selected">
@@ -3199,7 +3185,6 @@
               <select class="rt-select" aria-label="审核状态"><option>所有兼容性状态</option><option>可以发布</option><option>需要处理</option><option>无游戏信息候选</option></select>
             </div>
             <div class="rt-review-queue-context" data-review-scope-context>这里只显示当前 Pegasus 任务已交接的审核事项；清除搜索或状态仍保留批次。快速审批会检查这个范围的全部分页结果，需人工判断的项目仍逐条确认。</div>
-            <div class="rt-workflow-chips"><button type="button" class="is-active">当前已加载 5</button><button type="button">可以发布 3</button><button type="button">运行异常 1</button><button type="button">未找到信息 1</button></div>
             <div class="rt-review-queue-list">
               <button type="button" class="rt-review-item is-selected" aria-current="true" data-review-item data-review-position-value="已选 1 / 4" data-review-file="NOeL 3/game.m3u" data-review-preview="NOeL 3" data-review-title="NOeL 3" data-review-year="" data-review-developer="" data-review-players="1" data-review-description="" data-review-candidate="NOeL 3" data-review-candidate-meta="Saturn · 管理员确认" data-review-candidate-badge="手动" data-review-validation-status="BLOCKED" data-review-validation="! 当前缺少光盘 3；可补齐后重新验证，或运行游戏取得审核截图后人工确认">
                 <span class="rt-review-thumb">NOeL 3</span><span><span class="rt-review-item-title">NOeL 3</span><span class="rt-tag-list"><span class="rt-tag-pill">剧情</span><span class="rt-tag-pill">多盘</span></span><span class="rt-review-item-source">NOeL 3/game.m3u</span><span class="rt-review-item-meta"><span>2 / 3 张光盘 · M3U</span></span></span><span>Saturn 游戏</span><span class="rt-badge rt-badge-amber">缺少光盘</span><span>手动信息</span><span>2 分钟前</span>
@@ -3265,7 +3250,6 @@
           <select class="rt-select rt-filter-select" aria-label="游戏目录"><option>全部游戏目录</option><option>FBNeo 游戏列表</option><option>MAME 游戏列表</option><option>DOS 经典游戏</option></select>
           <select class="rt-select rt-filter-select" aria-label="时间范围"><option>最近 30 天</option><option>最近 7 天</option><option>全部时间</option></select>
         </div>
-        <div class="rt-workflow-chips"><span class="is-active">当前已加载 4</span><span>已发布 3</span><span>已丢弃 1</span></div>
         <div class="rt-history-layout">
           <div class="rt-review-queue-list">
             <button class="rt-review-item" type="button" data-open-history><span><span class="rt-review-item-title">打击者1945加强版</span><span class="rt-review-item-source">Pegasus 导入 · 文字与结构化审计信息</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>8 月 5 日 22:09</span><span>查看决定</span></button>
@@ -3328,7 +3312,6 @@
       <section class="rt-page rt-directory-page" data-page="admin-platform-instances">
         <div class="rt-page-head"><div><div class="rt-eyebrow">管理后台</div><h1>游戏目录</h1><p class="rt-subtitle">维护游戏集合及其推荐运行方式。一键创建只会补充缺失的推荐目录，不会修改已有目录。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button">排序说明</button><button type="button" class="rt-button">一键创建推荐目录 21</button><button type="button" class="rt-button rt-button-primary" data-open-platform-drawer><i data-lucide="plus" aria-hidden="true"></i>新建游戏目录</button></div></div>
         <div class="rt-directory-toolbar"><div class="rt-directory-filters"><label class="rt-directory-search">搜索目录<i data-lucide="search" aria-hidden="true"></i><input class="rt-input" placeholder="输入目录名称、平台或说明"></label><label>游戏平台<select class="rt-select"><option>所有平台</option><option>Arcade</option><option>NES / Famicom</option><option>SNES</option></select></label><label>启用状态<select class="rt-select"><option>全部状态</option><option>已启用</option><option>已停用</option></select></label><label>排序方式<select class="rt-select"><option>展示顺序</option><option>名称 A-Z</option><option>游戏数</option></select></label></div></div>
-        <div class="rt-directory-quick"><div class="rt-directory-chips"><span class="rt-directory-chip is-active">全部 7</span><span class="rt-directory-chip">已启用 6</span><span class="rt-directory-chip">已停用 1</span></div><span class="rt-directory-hint"><strong>拖动左侧手柄</strong>调整用户侧目录展示顺序</span></div>
         <div class="rt-directory-table"><div class="rt-directory-head"><span>顺序</span><span>游戏目录</span><span>游戏平台</span><span>联机 <i class="rt-directory-info">i</i></span><span>扩展名</span><span>游戏数</span><span>推荐运行方式 <i class="rt-directory-info">i</i></span><span>启用状态</span><span>操作</span></div>
           <div class="rt-directory-row"><span class="rt-directory-order"><button type="button" class="rt-directory-grip"><i data-lucide="grip-vertical" aria-hidden="true"></i></button>01</span><span class="rt-directory-copy"><h3>FBNeo 游戏</h3><p>收录兼容 FBNeo 的街机游戏。</p></span><span class="rt-directory-cell"><strong>Arcade</strong><small>平台实例</small></span><span class="rt-directory-netplay is-supported" aria-label="支持联机"><i data-lucide="gamepad-2" aria-hidden="true"></i></span><span class="rt-directory-extensions"><code>.zip</code></span><span class="rt-directory-cell"><strong>3 款</strong></span><select class="rt-select" data-preview-core aria-label="FBNeo 游戏推荐运行方式"><option>FinalBurn Neo</option><option>MAME 2003 Plus</option></select><span class="rt-directory-toggle"><i>✓</i>已启用</span><button type="button" class="rt-button rt-directory-more">•••</button></div>
           <div class="rt-directory-row"><span class="rt-directory-order"><button type="button" class="rt-directory-grip"><i data-lucide="grip-vertical" aria-hidden="true"></i></button>02</span><span class="rt-directory-copy"><h3>MAME 2003 Plus 游戏</h3><p>适用于 MAME 2003 Plus 的街机集合。</p></span><span class="rt-directory-cell"><strong>Arcade</strong><small>平台实例</small></span><span class="rt-directory-netplay is-supported" aria-label="支持联机"><i data-lucide="gamepad-2" aria-hidden="true"></i></span><span class="rt-directory-extensions"><code>.zip</code></span><span class="rt-directory-cell"><strong>0 款</strong><small>空目录</small></span><select class="rt-select"><option>MAME 2003 Plus</option><option>FinalBurn Neo</option></select><span class="rt-directory-toggle"><i>✓</i>已启用</span><button type="button" class="rt-button rt-directory-more">•••</button></div>
@@ -3404,8 +3387,7 @@
           <div data-runtime-panel="bios" role="tabpanel">
           <div class="rt-runtime-scope"><button type="button" class="is-active">当前游戏库需要 <strong>12</strong></button><button type="button">完整 BIOS 目录 <strong>27</strong></button></div>
           <div class="rt-runtime-kpis"><article><span>当前范围</span><strong>12</strong><small>游戏库实际引用的依赖</small></article><article><span>缺失 / 阻断</span><strong>2</strong><small>必需文件缺失会阻断相关游戏</small></article><article><span>需要核对</span><strong>1</strong><small>哈希不同仍可启动，建议替换</small></article><article><span>已就绪</span><strong>9</strong><small>已经安装并通过当前校验</small></article></div>
-          <div class="rt-runtime-toolbar"><label>搜索文件或运行方式<input class="rt-input" placeholder="例如 gba_bios.bin 或 mGBA"></label><label>运行方式<select class="rt-select"><option>全部运行方式</option><option>FinalBurn Neo</option><option>mGBA</option></select></label><label>文件状态<select class="rt-select"><option>所有状态</option><option>缺少文件</option><option>校验值不一致</option><option>已安装并匹配</option></select></label></div>
-          <div class="rt-runtime-chips"><button type="button" class="is-active">全部 12</button><button type="button">需要处理 3</button><button type="button">必需 7</button><button type="button">可选 5</button></div>
+          <div class="rt-runtime-toolbar"><label>搜索文件或运行方式<input class="rt-input" placeholder="例如 gba_bios.bin 或 mGBA"></label><label>运行方式<select class="rt-select"><option>全部运行方式</option><option>FinalBurn Neo</option><option>mGBA</option></select></label><label>文件状态<select class="rt-select"><option>所有状态</option><option>缺少文件</option><option>校验值不一致</option><option>已安装并匹配</option></select></label><label>依赖筛选<select class="rt-select"><option>全部依赖</option><option>需要处理</option><option>必需</option><option>可选</option></select></label></div>
           <div class="rt-runtime-section-head"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>3 项</span></div>
           <div class="rt-runtime-list">
             <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><strong>neogeo.zip</strong><small>必需 · 启动前按当前目录检查</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003</strong><small>mame2003</small></div><span class="rt-badge rt-badge-red">缺少文件</span><div class="rt-runtime-cell"><strong>当前游戏库需要处理</strong><small>缺少必需依赖会阻断相关游戏</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button rt-button-primary">选择 BIOS 文件</button></div></div>

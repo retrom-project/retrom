@@ -344,9 +344,7 @@
   .admin-game-cover-slot { min-width: 0; min-height: 330px; }
   .admin-game-media { contain: none; }
 
-  .platform-directory-quick,
   .platform-directory-footer { align-items: flex-start; flex-direction: column; }
-  .platform-directory-quick p { white-space: normal; }
   .platform-directory-table-scroll { overflow: visible; border: 0; background: transparent; }
   .platform-directory-table { min-width: 0; }
   .platform-directory-table-head { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

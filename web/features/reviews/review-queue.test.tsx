@@ -1,7 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
-import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReviewQueue, ReviewQueueRecovery, type ReviewQueueItem } from "./review-queue";
 
@@ -65,18 +64,13 @@ describe("ReviewQueue", () => {
     expect(screen.getByRole("link", { name: "审核条目" })).toHaveAttribute("data-prefetch", "false");
   });
 
-  it("uses the summary chips as real filters over the loaded queue", async () => {
-    const user = userEvent.setup();
+  it("shows all server-filtered results without a second local filter row", () => {
     const blocked = { ...item, itemId: "item-2", draftTitle: "Blocked game", validationStatus: "BLOCKED", blockerCodes: ["LAUNCH_BIOS_MISSING"], candidateCount: 0 };
     render(<ReviewQueue initial={{ items: [item, blocked], nextCursor: null }} values={{}} />);
-
-    await user.click(screen.getByRole("button", { name: "运行异常 1" }));
+    expect(screen.queryByLabelText("筛选已加载的审核条目")).not.toBeInTheDocument();
     expect(screen.getByText("Blocked game")).toBeVisible();
-    expect(screen.queryByText(item.draftTitle)).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "未找到信息 1" }));
-    expect(screen.getByText("Blocked game")).toBeVisible();
-    expect(screen.getByText("当前筛选显示 1 / 已加载 2 条")).toBeVisible();
+    expect(screen.getByText(item.draftTitle)).toBeVisible();
+    expect(screen.getByText("已加载 2 条")).toBeVisible();
   });
 
   it("treats Pegasus metadata as reviewable source information instead of a scrape miss", () => {
@@ -85,7 +79,7 @@ describe("ReviewQueue", () => {
 
     expect(screen.getByText("已读取 Pegasus 信息")).toBeVisible();
     expect(screen.getByText("等待管理员核对")).toBeVisible();
-    expect(screen.getByRole("button", { name: "未找到信息 0" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "审核条目" })).toBeVisible();
   });
 
   it("identifies EmulationStation metadata and keeps its zero-candidate items reviewable", () => {
@@ -101,7 +95,7 @@ describe("ReviewQueue", () => {
     expect(screen.getByText("已读取 Gamelist 信息")).toBeVisible();
     expect(screen.getByText("EmulationStation · NES gamelist.xml")).toBeVisible();
     expect(screen.getByText("等待管理员核对来源标记与媒体")).toBeVisible();
-    expect(screen.getByRole("button", { name: "未找到信息 0" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "审核条目" })).toBeVisible();
   });
 
   it("ignores a persisted queue after a stale review link is recovered", async () => {

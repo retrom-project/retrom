@@ -16,14 +16,11 @@
 .runtime-kpis small { color: var(--muted); font-size: 11px; }
 .runtime-kpis strong { margin-top: 1px; font-size: 29px; line-height: 1.2; }
 .runtime-kpis p { margin: 7px 0 0; color: #667085; font-size: 10px; }
-.runtime-toolbar { min-height: 76px; margin-bottom: 12px; padding: 13px 14px; display: grid; grid-template-columns: minmax(300px, 1.7fr) minmax(150px, .55fr) minmax(170px, .55fr); gap: 10px; align-items: end; }
+.runtime-toolbar { min-height: 76px; margin-bottom: 12px; padding: 13px 14px; display: grid; grid-template-columns: minmax(300px, 1.7fr) minmax(150px, .55fr) minmax(170px, .55fr) minmax(140px, .45fr); gap: 10px; align-items: end; }
 .runtime-toolbar label { min-width: 0; display: grid; gap: 5px; color: #596477; font-size: 11px; font-weight: 760; }
 .runtime-toolbar .select { width: 100%; min-width: 0; }
 .runtime-search .search { height: 42px; }
 .runtime-search .search svg { width: 17px; height: 17px; }
-.runtime-chips { min-height: 34px; margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 7px; }
-.runtime-chips button { min-height: 30px; padding: 0 10px; color: #606b7d; border: 1px solid transparent; border-radius: 999px; background: #eceff3; cursor: pointer; font-size: 11px; font-weight: 720; }
-.runtime-chips button.is-active { color: var(--purple-dark); border-color: #d7cff5; background: #f3f0ff; }
 .runtime-section { margin-top: 17px; }
 .runtime-section-heading { min-height: 43px; margin-bottom: 9px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .runtime-section-heading h2 { margin: 0; font-size: 17px; }
