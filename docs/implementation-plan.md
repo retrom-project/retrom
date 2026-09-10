@@ -216,7 +216,7 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 
 该里程碑以红—绿 TDD 完成，不允许旧、新运行链并存：
 
-1. 冻结 Provider contract、canonical JSON、Bundle layout、Target declarations 和 Product Core bindings；EmulatorJS 43 个 Target 与 retrom-runtime 13 个 Target 只有各 Provider declaration 一份映射事实源。
+1. 冻结 Provider contract、canonical JSON、Bundle layout、Target declarations 和 Product Core bindings；EmulatorJS 44 个 Target 与 retrom-runtime 17 个 Target 只有各 Provider declaration 一份映射事实源。
 2. 建立确定性 candidate/release Bundle、安装器、active descriptor 与只向前升级验证；candidate 与 production 目录、锁和镜像输入完全分离。
 3. 将最终 Provider/Target current-state schema 直接整合到 001–010，并同步 OpenAPI、Go catalog/launch/save/netplay 和全部领域引用；旧开发数据归档重建，不实现转换、降级、回滚或双读路径。
 4. 所有运行入口只返回 Launch Envelope V1；Web 只经共享 dispatcher 加载 Provider module 并操作 `PlayerRuntimeV1`，不保留第二个 registry 或 family factory。
@@ -277,3 +277,12 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 - 自测、验收和评审发现的 bug 都有回归用例；
 - 第三方 payload 仍由 manifest 物化且未进入 Git，运行数据只写配置的数据根；
 - 交付报告包含目标 commit、环境、命令/Case、证据位置、未执行项与剩余风险。
+
+
+## PC-98 接入试点
+
+NP2kai 在独立 PFB 中接入，核心由 `retrom-project/NP2kai` 固定上游基线构建，
+Retrom 的 workspace catalog 声明依赖，运行时新增 `np2kai-pc98` Target。
+首批范围为单 HDI/D88、标准手柄、暂停截图、OPFS 缓存与有界即时状态。
+退出门禁为 `ACC-PC98-001` 的真实导入、审核预览、发布、Launch、存档、不同 Launch 恢复与输入。
+候选通过后仍须单独完成正式核心发布、Provider 发布和 production lock 固定；本次 PFB 不替代发布授权。

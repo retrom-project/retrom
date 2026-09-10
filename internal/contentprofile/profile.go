@@ -52,6 +52,7 @@ type Profile struct {
 }
 
 var registry = map[string]Profile{
+	"x68000":       single("x68000", ".dim", ".xdf", ".hdf"),
 	"nes":          single("nes", ".nes", ".unf", ".unif", ".fds"),
 	"fds":          single("fds", ".fds"),
 	"snes":         single("snes", ".sfc", ".smc", ".swc", ".fig"),
@@ -61,6 +62,7 @@ var registry = map[string]Profile{
 	"atari5200":    single("atari5200", ".a52"),
 	"psx":          raw("psx", ".chd"),
 	"lynx":         single("lynx", ".lnx"),
+	"dreamcast":    raw("dreamcast", ".chd"),
 	"saturn":       withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDisc),
 	"megadrive":    single("megadrive", ".md", ".smd", ".bin"),
 	"n64":          single("n64", ".z64"),
@@ -77,12 +79,15 @@ var registry = map[string]Profile{
 	"pcfx":         raw("pcfx", ".chd"),
 	"ngpc":         single("ngpc", ".ngp", ".ngc"),
 	"psp":          raw("psp", ".iso", ".cso"),
+	"pc98":         raw("pc98", ".hdi", ".d88"),
 	"ps2":          raw("ps2", ".iso", ".chd"),
 	"virtualboy":   single("virtualboy", ".vb"),
 	"wonderswan":   single("wonderswan", ".ws", ".wsc"),
 	"mastersystem": single("mastersystem", ".sms"),
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
 	"j2me":         raw("j2me", ".jar"),
+	"flash":        raw("flash", ".swf"),
+	"msx":          single("msx", ".rom", ".mx1", ".mx2", ".dsk", ".cas"),
 	"wasm4":        single("wasm4", ".wasm"),
 	"zxspectrum":   single("zxspectrum", ".tzx", ".tap", ".z80", ".rzx", ".scl", ".trd"),
 	"c64":          single("c64", viceSingleFileExtensions...),
@@ -95,8 +100,9 @@ var registry = map[string]Profile{
 		"amiga", ".adf", ".adz", ".dms", ".fdi", ".ipf", ".raw",
 		".hdf", ".hdz", ".lha", ".chd", ".nrg", ".iso",
 	),
-	"tic80": single("tic80", ".tic"),
-	"pico8": single("pico8", ".p8", ".p8.png"),
+	"openbor": single("openbor", ".pak"),
+	"tic80":   single("tic80", ".tic"),
+	"pico8":   single("pico8", ".p8", ".p8.png"),
 
 	"scummvm":      project("scummvm", ContentKindScummVMProject),
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),

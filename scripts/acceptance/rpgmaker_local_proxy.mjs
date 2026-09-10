@@ -52,6 +52,7 @@ function proxyTunnel(request, socket, head, sockets) {
     upstream.pipe(socket);
   });
   trackSocket(sockets, upstream);
+  socket.once("close", () => upstream.destroy());
   upstream.on("error", () => socket.destroy());
 }
 
@@ -70,10 +71,12 @@ function parseTarget(value) {
 }
 
 function isRpgLocalhost(hostname) {
-  return hostname === "rpg.localhost" || hostname.endsWith(".rpg.localhost");
+  return hostname === "rpg.localhost" || hostname.endsWith(".rpg.localhost") ||
+    /^(?:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.rpg\.)?[a-z0-9][a-z0-9-]*-[0-9a-f]{12}\.localhost$/u.test(hostname);
 }
 
 function trackSocket(sockets, socket) {
   sockets.add(socket);
+  socket.on("error", () => socket.destroy());
   socket.once("close", () => sockets.delete(socket));
 }

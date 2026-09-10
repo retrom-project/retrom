@@ -488,3 +488,20 @@ TIC-80 只接受二进制 `.tic`，编译语言能力见核心 `RETROM.md`；不
 `ps2` 平台的 `play` Core 绑定 `retrom-runtime/play-ps2`，接收单个 `.iso` 或 `.chd` 文件，内容类型为 `SINGLE_FILE`。`OPTICAL_DISC` profile 不接收 BIN/CUE、M3U、多盘包或 ELF，也不创建 BIOS 依赖。导入只确认可交付的文件形状，不等同于 Play! 对该游戏的兼容性保证；管理员通过统一审核预览检查实际运行。推荐模板为“PlayStation 2 游戏”。
 
 Preview 与 Product Launch 都把冻结 Blob 的 SHA-256、准确字节数和不可变内容 URL 放入 `SEEKABLE_BLOB`，声明 `rangeRequired=true`。运行时按需读取光盘，不在启动前完整下载。发布、截图和存档继续走公共产品流程。
+
+## OpenBOR 游戏包
+
+OpenBOR 平台与核心均为 `openbor`，对应 `retrom-runtime/openbor`。导入采用普通单文件路径，
+接受 `.pak`（扩展名不区分大小写）；审核预览和正式启动共用 `OPENBOR_PAK` binding 与 `ROM_BLOB`。
+当前浏览器构建接受 PAK32 格式 0，完整校验资源长度和摘要，单包上限 512 MiB。
+包格式与游戏脚本兼容性由核心实际加载判断；扩展名匹配不等于已经通过游戏兼容性验证。
+存档沿用 GAME_SAVE 产品流程，规则见[运行与游玩数据](./runtime-and-play-data.md#openbor-原生进度)。
+
+### MSX 单媒体导入
+
+`msx` 平台的 `webmsx` Core 绑定 `retrom-runtime/msx-webmsx`，使用普通 `SINGLE_FILE` 审核和
+`MSX_MEDIA` 策略。接受大小写不敏感的 `.rom`、`.mx1`、`.mx2`、`.dsk`、`.cas`；ZIP/7z 只作为
+单个匹配媒体的运输格式，不展开为游戏项目或多盘集合。Extension 只决定候选，真实可运行性由核心预览检查。
+Preview 和 Product Launch 均以 `ROM_BLOB` 交付冻结的媒体 URL、准确字节数与 SHA-256；运行时最大 16 MiB。
+本次固定为 MSX2+ 日本机器，不增加用户 BIOS 安装或新内容类型。存档与截图走现有公共产品路径。
+初始兼容性证据只覆盖所选卡带，磁盘/磁带软件的启动命令和兼容性须逐项验证；不声明多盘、turbo R 或联机。

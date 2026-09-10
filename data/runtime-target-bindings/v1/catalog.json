@@ -185,6 +185,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-flycast",
+      "coreId": "flycast",
+      "providerId": "emulatorjs",
+      "targetId": "flycast",
+      "platformIds": [
+        "dreamcast"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-fuse",
       "coreId": "fuse",
       "providerId": "emulatorjs",
@@ -735,6 +749,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-flash-ruffle",
+      "coreId": "ruffle",
+      "providerId": "retrom-runtime",
+      "targetId": "flash-ruffle",
+      "platformIds": [
+        "flash"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "FLASH_SWF",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-j2me",
       "coreId": "j2me",
       "providerId": "retrom-runtime",
@@ -763,6 +791,34 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-msx-webmsx",
+      "coreId": "webmsx",
+      "providerId": "retrom-runtime",
+      "targetId": "msx-webmsx",
+      "platformIds": [
+        "msx"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "MSX_MEDIA",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-np2kai",
+      "coreId": "np2kai",
+      "providerId": "retrom-runtime",
+      "targetId": "np2kai-pc98",
+      "platformIds": [
+        "pc98"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "PC98_DISK",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-onscripter-yuri",
       "coreId": "onscripter_yuri",
       "providerId": "retrom-runtime",
@@ -777,6 +833,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-openbor",
+      "coreId": "openbor",
+      "providerId": "retrom-runtime",
+      "targetId": "openbor",
+      "platformIds": [
+        "openbor"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "OPENBOR_PAK",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-play",
       "coreId": "play",
       "providerId": "retrom-runtime",
@@ -788,6 +858,20 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "OPTICAL_DISC",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-px68k",
+      "coreId": "px68k",
+      "providerId": "retrom-runtime",
+      "targetId": "px68k",
+      "platformIds": [
+        "x68000"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "PX68K_DISK",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -1038,9 +1122,21 @@
         "enabled": true
       },
       {
+        "id": "dreamcast",
+        "name": "Sega Dreamcast",
+        "sortOrder": 185,
+        "enabled": true
+      },
+      {
         "id": "fds",
         "name": "Famicom Disk System",
         "sortOrder": 20,
+        "enabled": true
+      },
+      {
+        "id": "flash",
+        "name": "Flash",
+        "sortOrder": 86,
         "enabled": true
       },
       {
@@ -1086,6 +1182,12 @@
         "enabled": true
       },
       {
+        "id": "msx",
+        "name": "MSX",
+        "sortOrder": 87,
+        "enabled": true
+      },
+      {
         "id": "n64",
         "name": "Nintendo 64",
         "sortOrder": 160,
@@ -1119,6 +1221,18 @@
         "id": "ons",
         "name": "ONScripter",
         "sortOrder": 76,
+        "enabled": true
+      },
+      {
+        "id": "openbor",
+        "name": "OpenBOR",
+        "sortOrder": 85,
+        "enabled": true
+      },
+      {
+        "id": "pc98",
+        "name": "NEC PC-98",
+        "sortOrder": 460,
         "enabled": true
       },
       {
@@ -1236,6 +1350,12 @@
         "enabled": true
       },
       {
+        "id": "x68000",
+        "name": "Sharp X68000",
+        "sortOrder": 550,
+        "enabled": true
+      },
+      {
         "id": "zx81",
         "name": "Sinclair ZX81",
         "sortOrder": 500,
@@ -1322,6 +1442,11 @@
       {
         "id": "fceumm",
         "name": "FCEUmm",
+        "enabled": true
+      },
+      {
+        "id": "flycast",
+        "name": "Flycast",
         "enabled": true
       },
       {
@@ -1420,8 +1545,18 @@
         "enabled": true
       },
       {
+        "id": "np2kai",
+        "name": "Neko Project II Kai",
+        "enabled": true
+      },
+      {
         "id": "onscripter_yuri",
         "name": "ONScripter Yuri",
+        "enabled": true
+      },
+      {
+        "id": "openbor",
+        "name": "OpenBOR",
         "enabled": true
       },
       {
@@ -1470,8 +1605,18 @@
         "enabled": true
       },
       {
+        "id": "px68k",
+        "name": "PX68K",
+        "enabled": true
+      },
+      {
         "id": "rpgmaker",
         "name": "RPG Maker",
+        "enabled": true
+      },
+      {
+        "id": "ruffle",
+        "name": "Ruffle",
         "enabled": true
       },
       {
@@ -1547,6 +1692,11 @@
       {
         "id": "wasm4",
         "name": "WASM-4",
+        "enabled": true
+      },
+      {
+        "id": "webmsx",
+        "name": "WebMSX",
         "enabled": true
       },
       {

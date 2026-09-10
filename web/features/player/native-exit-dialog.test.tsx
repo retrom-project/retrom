@@ -5,8 +5,8 @@ import {useNativeExitDecision} from "./native-exit-dialog";
 
 afterEach(() => {cleanup(); vi.useRealTimers(); vi.unstubAllGlobals();});
 
-function fixture(restored = true, dirty = true, canResume = true, canCapture = false) {
-  const native = {canCapture: () => canCapture, capture: vi.fn(async () => true), retry: vi.fn(async () => true), hasChanges: () => dirty, save: vi.fn(async () => true), discard: vi.fn(async () => undefined)};
+function fixture(restored = true, dirty = true, canResume = true, canCapture = false, storage = false) {
+  const native = {isStorageContainer: () => storage, canCapture: () => canCapture, capture: vi.fn(async () => true), retry: vi.fn(async () => true), hasChanges: () => dirty, save: vi.fn(async () => true), discard: vi.fn(async () => undefined)};
   const completed = vi.fn();
   function Harness() {
     const exit = useNativeExitDecision(() => restored);
@@ -30,6 +30,18 @@ it("warns about overwriting changed data and defaults to returning to the game w
   await f.user.click(screen.getByRole("button", {name: "返回游戏"}));
   expect(f.completed).toHaveBeenCalledWith(false);
   expect(f.native.save).not.toHaveBeenCalled(); expect(f.native.discard).not.toHaveBeenCalled();
+});
+
+it("keeps storage containers writable without promising progress recovery", async () => {
+  const f = fixture(true, true, true, false, true);
+  await f.user.click(screen.getByText("请求退出"));
+  expect(screen.getByRole("alertdialog")).toHaveTextContent("后续保存会更新同一个存档");
+  expect(screen.getByRole("alertdialog")).toHaveTextContent("不保证恢复关卡进度");
+  const save = screen.getByRole("button", {name: "存档并退出"});
+  expect(save).toBeEnabled();
+  await f.user.click(save);
+  expect(f.native.save).toHaveBeenCalledOnce();
+  expect(f.completed).toHaveBeenCalledWith(true);
 });
 
 it("waits for successful save before exiting and retains the dialog on failure", async () => {

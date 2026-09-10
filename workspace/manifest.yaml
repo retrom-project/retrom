@@ -16,6 +16,7 @@
         "butterscotch",
         "tyranoscript",
         "j2me-web",
+        "ruffle",
         "vice-libretro",
         "virtualjaguar-libretro",
         "wasm4",
@@ -23,10 +24,25 @@
         "tic80",
         "fake08",
         "play",
+        "flycast-wasm",
+        "webmsx",
+        "px68k",
+        "np2kai",
+        "openbor",
         "cap32",
         "crocods",
         "81"
       ]
+    },
+    {
+      "id": "ruffle",
+      "path": "project/retrom-core/ruffle",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/ruffle.git",
+      "defaultBranch": "retrom/ge46d1642fb67",
+      "submodules": false,
+      "shallowClone": true,
+      "dependsOn": []
     },
     {
       "id": "player",
@@ -187,6 +203,51 @@
       "gitlink": "git@github.com:retrom-project/Play-.git",
       "defaultBranch": "retrom/g83700b2c31e5",
       "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "px68k",
+      "path": "project/retrom-core/px68k-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/px68k-libretro.git",
+      "defaultBranch": "retrom/g561dcba6b11d",
+      "dependsOn": [],
+      "submodules": false
+    },
+    {
+      "id": "flycast-wasm",
+      "path": "project/retrom-core/flycast-wasm",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/flycast-wasm.git",
+      "defaultBranch": "retrom/1.0",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "webmsx",
+      "path": "project/retrom-core/WebMSX",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/WebMSX.git",
+      "defaultBranch": "retrom/6.0.8",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "np2kai",
+      "path": "project/retrom-core/NP2kai",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/NP2kai.git",
+      "defaultBranch": "retrom/g5939e0c6d598",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "openbor",
+      "path": "project/retrom-core/openbor",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/openbor.git",
+      "defaultBranch": "retrom/g9d81480f8481",
+      "submodules": false,
       "dependsOn": []
     },
     {
