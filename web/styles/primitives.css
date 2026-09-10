@@ -12,7 +12,7 @@
 .button.danger { background: var(--danger); }
 .button:disabled { cursor: not-allowed; background: #c7cbd4; box-shadow: none; }
 .status { width: fit-content; min-height: 25px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; color: #5f687b; background: #eef1f5; font-size: 12px; font-weight: 720; white-space: nowrap; }
-.status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.status i { display: none; }
 .status.good { color: #0f737c; background: var(--cyan-soft); }
 .status.warn { color: #8a580c; background: var(--amber-soft); }
 .status.bad { color: #b6404e; background: var(--danger-soft); }
