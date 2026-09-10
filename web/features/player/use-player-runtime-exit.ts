@@ -13,6 +13,7 @@ export function usePlayerRuntimeExit(
   exitAfterRuntime: () => Promise<void>,
   showToast: (message: string, timeout?: number) => void,
   decide: (native: GameSaveSync, options?: {canResume: boolean}) => Promise<boolean>,
+  cancelBootstrap: {current: (() => Promise<void>) | null},
 ) {
   const exitRuntime = useCallback(async () => {
     try {
@@ -20,28 +21,32 @@ export function usePlayerRuntimeExit(
         await controller.current?.runtime.resume(); return;
       }
     } catch {showToast("退出准备失败，游戏数据仍保留，请重试。", 5000); return;}
+    if (!controller.current) {await cancelBootstrap.current?.();}
     await nativeSave.current?.stop();
     await controller.current?.exit().catch(() => undefined);
     await exit();
-  }, [controller, nativeSave, exit, showToast, decide]);
+  }, [cancelBootstrap, controller, nativeSave, exit, showToast, decide]);
   const exitImmersiveRuntimeStrict = useCallback(async () => {
     if (!await prepareNativeExit(controller, nativeSave, decide)) {return false;}
+    if (!controller.current) {await cancelBootstrap.current?.();}
     await nativeSave.current?.stop();
     await controller.current?.exit();
     await exitStrict();
-  }, [controller, nativeSave, exitStrict, decide]);
+  }, [cancelBootstrap, controller, nativeSave, exitStrict, decide]);
   const exitAfterProviderExit = useCallback(async (snapshot?: RuntimeFinalSnapshotV1) => {
     if (!await finishNativeExit(nativeSave, snapshot, decide)) {return;}
+    if (!controller.current) {await cancelBootstrap.current?.();}
     await nativeSave.current?.stop();
     await controller.current?.exit().catch(() => undefined);
     await exit();
-  }, [controller, nativeSave, exit, decide]);
+  }, [cancelBootstrap, controller, nativeSave, exit, decide]);
   const exitImmersiveAfterProviderExit = useCallback(async (snapshot?: RuntimeFinalSnapshotV1) => {
     if (!await finishNativeExit(nativeSave, snapshot, decide)) {return;}
+    if (!controller.current) {await cancelBootstrap.current?.();}
     await nativeSave.current?.stop();
     await controller.current?.exit().catch(() => undefined);
     await exitAfterRuntime();
-  }, [controller, nativeSave, exitAfterRuntime, decide]);
+  }, [cancelBootstrap, controller, nativeSave, exitAfterRuntime, decide]);
   return {exitRuntime, exitImmersiveRuntimeStrict, exitImmersiveAfterProviderExit, exitAfterProviderExit};
 }
 

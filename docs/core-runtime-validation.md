@@ -44,7 +44,10 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 44 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 51 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+
+原始画面与锐利像素使用显式颜色直通、无滤波的 `retrom-passthrough` shader，避开 4.2.3 关闭 shader 后在原生分辨率切换时出现纯色/裁切的 GL fallback。浏览器画面必须与核心截图保持完整内容，启动和跨 Launch 恢复均需覆盖；不能用切换画面模式的人工操作替代默认模式验收。
+
 
 新增 `fuse`、`gearcoleco`、`prboom`、`puae`、`vice-x128`、`vice-x64sc`、`vice-xvic` 与 `virtualjaguar` 只声明 `SINGLE_FILE`，`discSwitch=false` 且不开放 netplay。逐核产品验收按 [ACC-RUN-013](./project-acceptance.md#acc-run-013八个-emulatorjs-单文件候选的逐核产品验证) 执行；首次验收可从产品白名单任选一种扩展名，一个 Target 的结果不能替代另一个 Target。
 
@@ -58,6 +61,8 @@ Provider 私有的 PSP 存档读取必须等待原生异步序列化结束，期
 
 指定存档不能在首帧盲目自动加载；Provider 必须等待目标核心可序列化，再执行原生 load 并以明确失败 fail closed。普通开始必须清理浏览器遗留的隐式目录存档，只有用户点击“创建存档”才上传显式 checkpoint。
 
+新增七个核心和 PC Engine CD 的逐项验收使用 [ACC-RUN-015](./project-acceptance.md#acc-run-015剩余-emulatorjs-核心与-pc-engine-cd-产品验证)。候选声明不代替真实浏览器兼容性证据。
+
 Dreamcast 通过 `emulatorjs/flycast` Target 接入 nasomers/flycast-wasm 的 WASM JIT，由
 `retrom-project/flycast-wasm` 固定源码构建。首期只接受单文件 `.chd`，使用 WebGL2、
 640×480、无 pthreads；Windows CE/MMU、NAOMI、Atomiswave、多盘与联机不在支持范围。
@@ -67,8 +72,8 @@ BIOS 使用安装快照中的 `/dc/dc_boot.bin` 与 `/dc/dc_flash.bin`，关闭 
 Provider 在 OPFS 按完整 SHA-256 缓存 CHD，每次命中重新流式校验长度和摘要；不支持 OPFS
 或写入配额不足时回退到经过同样校验的内存 Blob。缓存只保存游戏字节，不保存 Launch URL
 或授权信息。新 Launch 仍须取得当前 envelope grant；清除站点存储会重新下载。
-即时存档写入独立的 `flycast-state-gzip-v1` 格式，完整状态无损压缩后上传；恢复时按声明格式解压，
-压缩前后均遵守 Provider 的大小上限，并继续读取旧 `flycast-state-v1` 存档。恢复等待核心启动完成。
+即时存档由公共 Provider 边界统一压缩一次，写入 `flycast-state-v1-storage-v1`；恢复时按声明格式有界解压，
+压缩前后均遵守 Provider 的大小上限，并继续读取旧 `flycast-state-v1` 和 `flycast-state-gzip-v1` 存档。恢复等待核心启动完成。
 Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏览器呈现后清空缓冲区，
 使暂停后的 Canvas 截图仍可读取最后画面；退出时恢复该 iframe 的上下文创建方法。
 操作者语料的验收规则见 `ACC-FLYCAST-001`；单个样本结果不能外推为 Dreamcast 全库兼容。

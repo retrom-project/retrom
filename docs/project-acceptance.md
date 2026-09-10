@@ -927,7 +927,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-002`。
 - 流程：先用 `testdata/public-roms/gba-smoke/gba-smoke.gba` 经过真实上传、导入、审核和发布建立 mGBA 游戏；在详情点击一次“开始游戏”，记录原始点击、Fullscreen 调用、launch/config 请求、iframe 配置、EmulatorJS network 和 start 事件；运行后读取实际 controls，按 `P` 暂停并再次按 `P` 继续；打开右侧“调试信息”面板并等待两次采样；打开模拟器设置，依次切换画面模式以及 Core/显示面板；再用 `mame2003` override 执行一次短流程。`make web-e2e` 另在物理 4K 150% 项目重复真实 mGBA Player 链路并校验截图像素尺寸。
-- 通过标准：对始终存在的 `document.documentElement` 的 Fullscreen 请求仍在用户激活链且发生于第一个 await 前；同一 Player Shell 显示加载并自动开始；没有 Retrom 第二个 Start 或 EmulatorJS `Play Now`；进入有效帧画面。实际 controls 只含运行时专题规定的键盘绑定，所有未列键盘 control 为未绑定；共享投币键 `5` 只命中 P1 control 2，P2 control 2 未绑定，确保一次物理按键只注入一路 coin；P1 的全部 gamepad `value2` 与上游默认逐项相同且 P2/P3/P4 gamepad 默认不变；`P` 不成为游戏 control，能停止并恢复核心帧推进，同时正确投影 Player/heartbeat 的暂停状态。默认“锐利像素”关闭 shader 且 canvas 计算样式为 `image-rendering: pixelated`；“清晰增强”启用 `retrom-sharp-bilinear`，增强锐化、原始画面与返回默认模式即时更新当前 EJS shader/CSS，原始画面关闭 shader 并恢复浏览器默认缩放。顶部栏保留唯一常驻“创建存档”，更多菜单不重复该动作；Core 设置切到显示设置后 Graphics Settings 与 shader 入口可见。`make web-e2e` 的物理 4K 150% Player 截图必须为 3840×2160。点击“调试信息”不暂停 main loop，右侧面板显示从核心帧计数按相邻单调时钟采样计算的一位小数 FPS、累计帧数、真实 canvas 分辨率、Core/EmulatorJS/adapter、输入模式、隔离能力、viewport/DPR 和非秘密 Bundle digest，蒙层背景半透明且无关闭按钮，再次点击顶部调试按钮收起，更多菜单不含重复调试入口或仅介绍 Esc 的快捷键项；关闭后不残留可聚焦控件。支持输入诊断的 Provider 显示短按的按下/松开与投递位置，开启前后核心继续推进且无重复输入，关闭恢复原观察函数；未支持时明确未接入。进入游玩页与退出返回均替换当前浏览器历史项，退出后浏览器后退不得重新进入 Player Shell。config 严格符合 HTTP 契约且不含 secret/Blob/宿主路径；`emulatorGameId` 为 `1..9007199254740991` 的 JSON number、`gameName` 为其稳定十进制派生，Arcade `gameUrl` basename 精确为 DAT machine 的 `<machine>.zip`。iframe 先设置 `player/pathtodata/gameName/gameID/paths/defaultControls` 及 Target 明确要求的输入布局再加载固定 loader；Mega Drive 必须保留 Start 与六键映射，启动前已连接的手柄应自动分配空闲玩家且不覆盖既有分配，`typeof EJS_gameID === "number"`。EJS 配置固定 `language=zh-CN`、`disableAutoLang=false`（按 v4.2.3 的反向 sentinel 语义），网络只请求 manifest 中的 `zh-CN.json`，不得按系统 locale 或 CDN fallback；普通 core artifact 来自 config 的 basename 映射，`mame2003-wasm.data` 精确请求固定 4.2.1 override，未请求 4.2.3 同名 artifact 或外部 CDN。
+- 通过标准：对始终存在的 `document.documentElement` 的 Fullscreen 请求仍在用户激活链且发生于第一个 await 前；同一 Player Shell 显示加载并自动开始；没有 Retrom 第二个 Start 或 EmulatorJS `Play Now`；进入有效帧画面。实际 controls 只含运行时专题规定的键盘绑定，所有未列键盘 control 为未绑定；共享投币键 `5` 只命中 P1 control 2，P2 control 2 未绑定，确保一次物理按键只注入一路 coin；P1 的全部 gamepad `value2` 与上游默认逐项相同且 P2/P3/P4 gamepad 默认不变；`P` 不成为游戏 control，能停止并恢复核心帧推进，同时正确投影 Player/heartbeat 的暂停状态。默认“锐利像素”使用无滤波、颜色直通的 `retrom-passthrough` shader 且 canvas 计算样式为 `image-rendering: pixelated`；“清晰增强”启用 `retrom-sharp-bilinear`，增强锐化、原始画面与返回默认模式即时更新当前 EJS shader/CSS，原始画面使用同一颜色直通 shader 并恢复浏览器默认缩放；核心启动或读档切换原生分辨率后不得出现纯色或裁切。顶部栏保留唯一常驻“创建存档”，更多菜单不重复该动作；Core 设置切到显示设置后 Graphics Settings 与 shader 入口可见。`make web-e2e` 的物理 4K 150% Player 截图必须为 3840×2160。点击“调试信息”不暂停 main loop，右侧面板显示从核心帧计数按相邻单调时钟采样计算的一位小数 FPS、累计帧数、真实 canvas 分辨率、Core/EmulatorJS/adapter、输入模式、隔离能力、viewport/DPR 和非秘密 Bundle digest，蒙层背景半透明且无关闭按钮，再次点击顶部调试按钮收起，更多菜单不含重复调试入口或仅介绍 Esc 的快捷键项；关闭后不残留可聚焦控件。支持输入诊断的 Provider 显示短按的按下/松开与投递位置，开启前后核心继续推进且无重复输入，关闭恢复原观察函数；未支持时明确未接入。进入游玩页与退出返回均替换当前浏览器历史项，退出后浏览器后退不得重新进入 Player Shell。config 严格符合 HTTP 契约且不含 secret/Blob/宿主路径；`emulatorGameId` 为 `1..9007199254740991` 的 JSON number、`gameName` 为其稳定十进制派生，Arcade `gameUrl` basename 精确为 DAT machine 的 `<machine>.zip`。iframe 先设置 `player/pathtodata/gameName/gameID/paths/defaultControls` 及 Target 明确要求的输入布局再加载固定 loader；Mega Drive 必须保留 Start 与六键映射，启动前已连接的手柄应自动分配空闲玩家且不覆盖既有分配，`typeof EJS_gameID === "number"`。EJS 配置固定 `language=zh-CN`、`disableAutoLang=false`（按 v4.2.3 的反向 sentinel 语义），网络只请求 manifest 中的 `zh-CN.json`，不得按系统 locale 或 CDN fallback；普通 core artifact 来自 config 的 basename 映射，`mame2003-wasm.data` 精确请求固定 4.2.1 override，未请求 4.2.3 同名 artifact 或外部 CDN。
 - 证据：Playwright trace、两份 config/network 摘要、事件顺序、Player/调试信息截图和按钮断言。
 
 ### ACC-RUN-014：输入诊断旁路与透明蒙层
@@ -957,7 +957,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-004`。
 - 流程：分别以缺少必需 BIOS、静态 BIOS hash mismatch、Arcade BIOS/base entry 名齐全但 hash mismatch，以及可选 BIOS 缺失启动。
-- 通过标准：Blocker 不创建可用 launch、退出全屏并回来源上下文显示修复入口；Warning 不增加确认步骤且继续自动启动；状态文案不只靠颜色。
+- 通过标准：Blocker 不创建可用 launch、退出全屏并回来源上下文显示修复入口；Warning 不增加确认步骤且继续自动启动；必须先观察 Player 挂载，再等待加载结束，不能以加载提示尚未出现代替启动完成。另在合法 Provider 模块请求被延迟时主动退出，先取消加载再发送 finish，在既有导航超时内返回来源且不发送 start；状态文案不只靠颜色。
 - 证据：两次启动状态、UI 截图和 launch 记录。
 
 ### ACC-RUN-005：DOS 启动程序
@@ -1027,6 +1027,16 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 流程：对 `fuse/vice_x64sc/gearcoleco/virtualjaguar/prboom/vice_x128/vice_xvic/puae` 分别保存初始 A、输入后的 B、继续输入后的 C；显式保存 B，退出并关闭旧页面后创建不同 Launch 恢复 B，再验证后续输入及退出。检查唯一 game resource 是 `ROM_BLOB`，状态格式、大小、内容 SHA 和 Provider 身份一致。
 - 通过标准：复核本次连续截图中方向、确认和已实现的可选取消的游戏响应，以及从 C 恢复到 B 的可见位置/菜单/变量。未实现取消不影响准入。浏览器看见手柄、帧数增长、状态哈希变化均不能单独作为输入成功。脚本只有在跨 Launch 链路通过后输出 `REVIEW_REQUIRED`；执行者完成画面复核并记录明确的游戏状态变化后才能将该 Target 记为 PASS。缺少必需游戏内响应、恢复位置错误、恢复后输入失效或原生错误均失败。
 - 证据：逐核 `result.json`、A/B/C/恢复 B 与逐次输入截图、导入/审核/发布记录；记录当前 Provider/Bundle/module digest 与游戏文件 size/SHA。八个候选的 PASS 不替代尚未执行的其他 Target 回归，也不自动授权稳定发布。
+
+### ACC-RUN-015：剩余 EmulatorJS 核心与 PC Engine CD 产品验证
+
+- 上限：每项 240 秒，八项独立记录。入口和 scenario schema 沿用 `web/smoke/emulatorjs-single-file.mjs`；执行环境与隐私边界同 ACC-RUN-013。
+- 范围：`81/cap32/crocods/vice_xpet/vice_xplus4/same_cdi/vice_x64` 和 PC Engine CD 的 `mednafen_pce`；CPC 两个核心分别验证同平台游戏，C64 原有 `vice_x64sc` 保持可选。
+- 前置：游戏通过正常上传、导入、审核预览及发布。PC Engine CD 使用单文件 CHD，先证明缺少 `syscard3.pce` 时验证阻断，再通过 BIOS 管理安装后继续同一审核；CD-i 按已声明的各项 BIOS 完成相同缺失/满足检查。PCE 卡带无需 CD BIOS，另覆盖现有 `.pce` 内容回归。
+- 流程与通过标准：每项均保存 A、标准手柄输入后的 B、保存 B 后继续输入的 C，关闭旧 Launch 并在不同 Launch 恢复 B，继续输入和退出。必须复核方向、确认及已支持的取消操作的可见游戏响应和恢复位置；游戏内取消为可选能力；非空状态、帧数增长、网络 200 或静止截图不能替代。脚本 `REVIEW_REQUIRED` 只有经本次画面复核后才可记 PASS；原生读档错误、重新开局冒充恢复、输入无效均失败。
+- 证据：八项分别保留导入/审核/发布、BIOS 缺失/安装/冻结身份、Provider/module 与内容 digest、A/B/C/恢复 B/恢复后输入截图和结果。游戏与 BIOS 不进入普通自动测试夹具；产品证据只覆盖当次样本，不代表全部盘格式或游戏兼容。
+
+无头 Chrome 无法推进动画帧的环境可使用 `RETROM_SMOKE_HEADED=1 xvfb-run -a node web/smoke/emulatorjs-single-file.mjs`，其余输入、截图和超时门禁保持一致，证据记录浏览器版本与软件渲染器。
 
 ### ACC-SAVE-001：手动状态存档与截图
 

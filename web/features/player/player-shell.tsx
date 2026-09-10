@@ -97,6 +97,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const sequence = useRef(0);
   const started = useRef(false);
   const finishing = useRef(false);
+  const cancelBootstrap = useRef<(() => Promise<void>) | null>(null);
   const heartbeat = useRef<number | null>(null);
   const playEventQueue = useRef(Promise.resolve());
   const saveUploadQueue = useRef(Promise.resolve());
@@ -208,7 +209,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const selectedNativeRestore = useCallback(() => Boolean(envelope.current?.restore), []);
   const nativeExit = useNativeExitDecision(selectedNativeRestore);
   const {exitRuntime, exitImmersiveRuntimeStrict, exitImmersiveAfterProviderExit, exitAfterProviderExit} = usePlayerRuntimeExit(
-    runtimeController, gameSaveSync, exit, exitStrict, exitImmersiveAfterRuntimeExit, showToast, nativeExit.decide);
+    runtimeController, gameSaveSync, exit, exitStrict, exitImmersiveAfterRuntimeExit, showToast, nativeExit.decide, cancelBootstrap);
   const handleRuntimeExitRequested = useRuntimeExitHandler(
     manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone,
     experience, exitAfterProviderExit, exitImmersiveAfterProviderExit,
@@ -239,7 +240,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     onExitRequested: handleRuntimeExitRequested, sendEvent,
   }), [experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
     immersive.requestMenu, launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls]);
-  usePlayerBootstrap(bootstrapParams);
+  usePlayerBootstrap(bootstrapParams, cancelBootstrap);
   const runtimeEffectParams = useMemo(() => ({
     state, debugOpen, orientationBlocked: orientationState.phase === "orientation-blocked", runtime,
     orientationButtonRef, running, pausedRef, chromePinned, controlsTimer, playerMode, netplayController,
