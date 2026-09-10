@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { currentEmulatorBrightRatio, evidencePath, noPageOverflow } from "./acceptance-support";
 import { verifyCompactFeaturedHome, verifyMobileSavedFeaturedHome } from "./acceptance-user-layout";
+import {verifyExitDuringProviderLoading} from "./player-loading-exit";
 import {verifyPlayerSurfaceResume} from "./player-pause-resume";
 import {
   exitRuntimePlayer, runtimeFrameCount, runtimeResource, runtimeResourceURL, runtimeResourceURLs,
@@ -194,6 +195,7 @@ function registerRun004(): void {
     await page.locator(".library-game-card").filter({ hasText: "Sudoku" }).getByRole("link").first().click();
     await page.getByRole("button", { name: "开始游戏" }).click();
     await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+    await expect(page.locator(".player-shell")).toBeVisible();
     await expect(page.locator(".player-loading")).toBeHidden({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: "开始游戏" })).toHaveCount(0);
     await page.mouse.move(20, 20);
@@ -209,6 +211,7 @@ function registerRun004(): void {
     await page.goBack();
     await expect(page).toHaveURL(/\/library$/);
     await expect(page.locator(".player-shell")).toHaveCount(0);
+    await verifyExitDuringProviderLoading(page);
   
     await page.goto("/library");
     await page.locator(".library-game-card").filter({ hasText: "Acceptance Missing FDS BIOS" }).getByRole("link").first().click();

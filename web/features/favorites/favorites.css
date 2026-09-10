@@ -16,7 +16,7 @@
 .favorite-rail nav button.is-active { color: var(--purple-dark); background: var(--purple-soft); font-weight: 800; }
 .favorite-rail nav button > span:first-child { color: #8a83bd; text-align: center; }
 .favorite-rail nav button > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.favorite-rail nav button strong { min-width: 24px; color: #657084; text-align: right; font-size: 11px; }
+.favorite-rail nav button strong { min-width: 24px; color: #596375; text-align: right; font-size: 11px; }
 .favorite-rail-label { margin: 10px 8px 3px; color: #687386; font-size: 11px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
 .favorite-new-folder { width: calc(100% - 16px); min-height: 42px; margin: 8px; color: var(--purple-dark); border: 1px dashed #b7ace9; border-radius: 9px; background: #faf8ff; cursor: pointer; font-size: 12px; font-weight: 800; }
 .favorite-new-folder:hover { border-style: solid; background: var(--purple-soft); }

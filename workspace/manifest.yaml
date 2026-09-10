@@ -28,7 +28,11 @@
         "webmsx",
         "px68k",
         "np2kai",
-        "openbor"
+        "openbor",
+        "cap32",
+        "crocods",
+        "81",
+        "same_cdi"
       ]
     },
     {
@@ -244,6 +248,42 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/openbor.git",
       "defaultBranch": "retrom/g9d81480f8481",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "cap32",
+      "path": "project/retrom-core/libretro-cap32",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/libretro-cap32.git",
+      "defaultBranch": "retrom/g310cc579b79b",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "crocods",
+      "path": "project/retrom-core/libretro-crocods",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/libretro-crocods.git",
+      "defaultBranch": "retrom/gbe00fb904da0",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "81",
+      "path": "project/retrom-core/81-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/81-libretro.git",
+      "defaultBranch": "retrom/g86decf3ee61e",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "same_cdi",
+      "path": "project/retrom-core/same_cdi",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/same_cdi.git",
+      "defaultBranch": "retrom/gcfb05d803f54",
       "submodules": false,
       "dependsOn": []
     }

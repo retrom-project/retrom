@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { FavoriteFolder } from "./favorite-api";
 
@@ -14,33 +14,28 @@ function DialogFrame({
   const titleId = useId();
   const descriptionId = useId();
   const panel = useRef<HTMLElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) {return;}
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const frame = window.requestAnimationFrame(() => {
-      if (!modal && anchor && panel.current) {
-        const anchorRect = anchor.getBoundingClientRect();
-        const width = panel.current.offsetWidth;
-        const height = panel.current.offsetHeight;
-        const left = Math.max(16, Math.min(anchorRect.right - width, window.innerWidth - width - 16));
-        const preferredTop = anchorRect.bottom + 8;
-        const top = preferredTop + height <= window.innerHeight - 16
-          ? preferredTop
-          : Math.max(16, anchorRect.top - height - 8);
-        panel.current.style.left = `${left}px`;
-        panel.current.style.top = `${top}px`;
-      }
-      const target = panel.current?.querySelector<HTMLElement>("[data-dialog-autofocus]") ??
-        panel.current?.querySelector<HTMLElement>("input:not(:disabled), button:not(:disabled)");
-      target?.focus();
-    });
+    if (!modal && anchor && panel.current) {
+      const anchorRect = anchor.getBoundingClientRect();
+      const width = panel.current.offsetWidth;
+      const height = panel.current.offsetHeight;
+      const left = Math.max(16, Math.min(anchorRect.right - width, window.innerWidth - width - 16));
+      const preferredTop = anchorRect.bottom + 8;
+      const top = preferredTop + height <= window.innerHeight - 16
+        ? preferredTop
+        : Math.max(16, anchorRect.top - height - 8);
+      panel.current.style.left = `${left}px`;
+      panel.current.style.top = `${top}px`;
+    }
+    const target = panel.current?.querySelector<HTMLElement>("[data-dialog-autofocus]") ??
+      panel.current?.querySelector<HTMLElement>("input:not(:disabled), button:not(:disabled)");
+    target?.focus();
     return () => {
-      window.cancelAnimationFrame(frame);
-      window.requestAnimationFrame(() => {
-        const resolved = resolveReturnFocus?.();
-        const returnTarget = resolved?.isConnected ? resolved : anchor?.isConnected ? anchor : previous;
-        returnTarget?.focus({ preventScroll: true });
-      });
+      const resolved = resolveReturnFocus?.();
+      const returnTarget = resolved?.isConnected ? resolved : anchor?.isConnected ? anchor : previous;
+      returnTarget?.focus({ preventScroll: true });
     };
   }, [anchor, modal, open, resolveReturnFocus]);
   useEffect(() => {

@@ -2,7 +2,7 @@
 
 import type {CheckpointSemantics} from "./checkpoint-semantics";
 
-import type {Dispatch, RefObject, SetStateAction} from "react";
+import {useEffect, type Dispatch, type RefObject, type SetStateAction} from "react";
 import {getImmersiveAudioPreferences} from "@/features/immersive/immersive-audio-preferences";
 import {sha256} from "@/lib/crypto";
 import type {ImmersiveGamepadFilter} from "./immersive-gamepad-filter";
@@ -86,10 +86,14 @@ type BootstrapResources = {
   e2eDiagnosticsCleanup?: () => void;
 };
 
-export function usePlayerBootstrap(params: PlayerBootstrapParams) {
-  useSerializedPlayerBootstrap(`${params.launchId}:${params.experience}`, params,
+export function usePlayerBootstrap(params: PlayerBootstrapParams, cancellationRef: Mutable<(() => Promise<void>) | null>) {
+  const cancel = useSerializedPlayerBootstrap(`${params.launchId}:${params.experience}`, params,
     createBootstrapResources, bootstrapPlayer, cleanupBootstrap, handleBootstrapError,
   );
+  useEffect(() => {
+    cancellationRef.current = cancel;
+    return () => {if (cancellationRef.current === cancel) {cancellationRef.current = null;}};
+  }, [cancel, cancellationRef]);
 }
 
 function createBootstrapResources(): BootstrapResources {return {};}

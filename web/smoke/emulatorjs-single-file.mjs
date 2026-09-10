@@ -2,6 +2,7 @@ import {createHash} from "node:crypto";
 import {mkdir, readFile, writeFile} from "node:fs/promises";
 import {resolve} from "node:path";
 import {chromium} from "playwright";
+import {requestValidatedLaunch} from "./emulatorjs-launch.mjs";
 
 // Operator-only product smoke. The scenario contains existing, authorized game IDs;
 // it never imports private ROMs into the ordinary automated test fixture set.
@@ -14,7 +15,8 @@ if (!scenarioPath || !origin || !username || !password || !output) {
   throw new Error("SMOKE_SCENARIO_OR_ENVIRONMENT_REQUIRED");
 }
 const scenarios = JSON.parse(await readFile(scenarioPath, "utf8"));
-const allowed = ["fuse", "vice_x64sc", "gearcoleco", "virtualjaguar", "prboom", "vice_x128", "vice_xvic", "puae"];
+const allowed = ["fuse", "vice_x64sc", "gearcoleco", "virtualjaguar", "prboom", "vice_x128", "vice_xvic", "puae",
+  "81", "cap32", "crocods", "vice_xpet", "vice_xplus4", "same_cdi", "vice_x64", "mednafen_pce"];
 if (!Array.isArray(scenarios) || !scenarios.length || scenarios.some((item) =>
   !allowed.includes(item.coreId) || !/^[0-9a-f-]{36}$/u.test(item.gameId) ||
   !Array.isArray(item.beforeSave) || !Array.isArray(item.afterSave) || !Array.isArray(item.afterRestore))) {
@@ -24,13 +26,16 @@ for (const item of scenarios) {
   for (const value of [item.startupMs ?? 1000, item.restoreSettleMs ?? 1000]) {
     if (!Number.isInteger(value) || value < 0 || value > 90_000) {throw new Error("SMOKE_WAIT_INVALID");}
   }
-  if (item.coreOptions && (typeof item.coreOptions !== "object" || Array.isArray(item.coreOptions) ||
-    Object.entries(item.coreOptions).some(([key, value]) => !/^[a-z0-9_]+$/u.test(key) || typeof value !== "string"))) {
-    throw new Error("SMOKE_CORE_OPTIONS_INVALID");
+  for (const options of [item.coreOptions, item.restoreCoreOptions]) {
+    if (options && (typeof options !== "object" || Array.isArray(options) ||
+      Object.entries(options).some(([key, value]) => !/^[A-Za-z0-9_]+$/u.test(key) || typeof value !== "string"))) {
+      throw new Error("SMOKE_CORE_OPTIONS_INVALID");
+    }
   }
 }
 await mkdir(output, {recursive: true});
 const browser = await chromium.launch({executablePath: process.env.RETROM_CHROME_EXECUTABLE,
+  headless: process.env.RETROM_SMOKE_HEADED !== "1",
   args: ["--enable-unsafe-swiftshader"]});
 try {
   for (const scenario of scenarios) {await runScenario(scenario);}
@@ -87,6 +92,9 @@ async function execute(context, scenario, directory, evidence) {
   await page.close();
   page = await context.newPage();
   await launch(page, scenario, csrf, saved, evidence);
+  // Native controller preferences are not part of a game's checkpoint. Apply
+  // only explicitly requested restore settings, without resetting the game.
+  await configureCore(page, {coreOptions: scenario.restoreCoreOptions});
   await page.waitForTimeout(scenario.restoreSettleMs ?? 1000);
   await page.screenshot({path: resolve(directory, "B-restored.png")});
   await inputs(page, scenario.afterRestore, directory, "after-restore");
@@ -113,17 +121,17 @@ async function unobscuredScreenshot(page, path) {
 }
 
 async function launch(page, scenario, csrf, saveStateId, evidence) {
-  const response = await page.request.post("/api/v1/launches", {
+  const created = await requestValidatedLaunch(() => page.request.post("/api/v1/launches", {
     data: {gameId: scenario.gameId, coreId: scenario.coreId, saveStateId, dosEntry: null,
       returnTo: `/games/${scenario.gameId}`,
       clientCapabilities: {secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true}},
     headers: {Origin: origin, "X-Retrom-Csrf": csrf, "Idempotency-Key": crypto.randomUUID()},
-  });
-  if (!response.ok()) {throw new Error(`SMOKE_LAUNCH_FAILED:${response.status()}`);}
-  const created = await response.json();
-  const configured = page.waitForResponse((item) => /\/runtime\/launches\/[^/]+\/config$/u.test(item.url()));
-  await page.goto(created.playUrl);
-  const config = await (await configured).json();
+  }), (milliseconds) => page.waitForTimeout(milliseconds));
+  const [configured] = await Promise.all([
+    page.waitForResponse((item) => /\/runtime\/launches\/[^/]+\/config$/u.test(item.url())),
+    page.goto(created.playUrl),
+  ]);
+  const config = await configured.json();
   const game = config.resources.filter((resource) => resource.role === "game");
   if (game.length !== 1 || game[0].kind !== "ROM_BLOB") {throw new Error("SMOKE_SINGLE_FILE_REQUIRED");}
   await page.locator(".player-loading").waitFor({state: "hidden", timeout: 90_000});
@@ -159,12 +167,25 @@ async function installPad(context) {
   });
 }
 
-async function inputs(page, sequence, directory, prefix) {
-  for (const [index, step] of sequence.entries()) {
+function validateInputStep(step) {
     if (!Array.isArray(step.buttons) || step.buttons.some((button) => !Number.isInteger(button) || button < 0 || button > 16) ||
       !Number.isInteger(step.holdMs) || step.holdMs < 1 || step.holdMs > 10_000 ||
       !Number.isInteger(step.settleMs) || step.settleMs < 0 || step.settleMs > 30_000) {
       throw new Error("SMOKE_INPUT_INVALID");
+    }
+    if (step.keys !== undefined && (!Array.isArray(step.keys) || step.buttons.length ||
+      step.keys.length > 4 || step.keys.some((key) => typeof key !== "string" || !/^[A-Za-z0-9 /]+$/u.test(key)))) {
+      throw new Error("SMOKE_KEYBOARD_INPUT_INVALID");
+    }
+    return step.keys ?? [];
+}
+
+async function inputs(page, sequence, directory, prefix) {
+  for (const [index, step] of sequence.entries()) {
+    const keys = validateInputStep(step);
+    if (keys.length) {
+      await page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas").click();
+      for (const key of keys) {await page.keyboard.down(key);}
     }
     await page.evaluate((buttons) => {
       const pad = window.__retromE2EGamepads[0];
@@ -174,6 +195,7 @@ async function inputs(page, sequence, directory, prefix) {
       pad.timestamp += 1;
     }, step.buttons);
     await page.waitForTimeout(step.holdMs);
+    for (const key of keys) {await page.keyboard.up(key);}
     await page.evaluate(() => {
       const pad = window.__retromE2EGamepads[0];
       pad.buttons.forEach((button) => {button.pressed = false; button.touched = false; button.value = 0;});
@@ -199,8 +221,10 @@ async function save(page) {
 async function exit(page) {
   await page.mouse.move(20, 20);
   await page.getByRole("button", {name: "返回并退出游戏"}).click();
-  const finished = page.waitForResponse((item) => /\/finish$/u.test(item.url()) && item.request().method() === "POST");
-  await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();
-  if (!(await finished).ok()) {throw new Error("SMOKE_EXIT_FAILED");}
+  const [finished] = await Promise.all([
+    page.waitForResponse((item) => /\/finish$/u.test(item.url()) && item.request().method() === "POST"),
+    page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click(),
+  ]);
+  if (!finished.ok()) {throw new Error("SMOKE_EXIT_FAILED");}
   await page.locator(".player-shell").waitFor({state: "detached"});
 }

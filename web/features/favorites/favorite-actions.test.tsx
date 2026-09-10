@@ -153,6 +153,25 @@ describe("FavoriteActions", () => {
 describe("favorite dialogs", () => {
   afterEach(cleanup);
 
+  it("accepts Escape as soon as the picker is visible, before another animation frame", () => {
+    const frame = vi.spyOn(window, "requestAnimationFrame").mockReturnValue(0);
+    const trigger = document.createElement("button");
+    try {
+      const close = vi.fn();
+      document.body.append(trigger);
+      trigger.focus();
+      const { unmount } = render(<FolderPickerDialog open title="管理收藏夹" folders={page().folders} selectedFolderIds={[]} busy={false} anchor={trigger} onSave={vi.fn()} onCreate={vi.fn()} onClose={close} />);
+      expect(screen.getByRole("searchbox", { name: "搜索收藏夹" })).toHaveFocus();
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      expect(close).toHaveBeenCalledOnce();
+      unmount();
+      expect(trigger).toHaveFocus();
+    } finally {
+      trigger.remove();
+      frame.mockRestore();
+    }
+  });
+
   it("exposes names, traps focus, closes with Escape, and restores prior focus", async () => {
     const close = vi.fn();
     const { rerender } = render(<><button type="button">打开</button><FolderNameDialog open={false} title="新建收藏夹" busy={false} onSubmit={vi.fn()} onClose={close} /></>);

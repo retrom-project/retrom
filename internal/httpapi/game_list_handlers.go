@@ -303,6 +303,9 @@ c.id
 		case variantID.Valid && status.String == "READY":
 			projectedStatus = "READY"
 			reasons = []map[string]any{}
+		case variantID.Valid && status.String == "BLOCKED" && compatibility.String == "VALIDATION_PENDING":
+			projectedStatus = "NEEDS_VALIDATION"
+			reasons = []map[string]any{{"code": "VARIANT_VALIDATION_REQUIRED", "level": "INFO"}}
 		case variantID.Valid && status.String == "BLOCKED":
 			projectedStatus = "DEPENDENCY_MISSING"
 			reasons = []map[string]any{{"code": compatibility.String, "level": "BLOCKING"}}
