@@ -606,9 +606,7 @@ func (server *Server) netplaySocket(writer http.ResponseWriter, request *http.Re
 		server.writeNetplayError(writer, request, err)
 		return
 	}
-	connection, err := websocket.Accept(writer, request, &websocket.AcceptOptions{
-		Subprotocols: []string{netplay.WebSocketSubprotocol}, CompressionMode: websocket.CompressionDisabled,
-	})
+	connection, err := server.acceptNetplaySocket(writer, request)
 	if err != nil {
 		return
 	}
@@ -642,4 +640,16 @@ func (server *Server) validNetplaySocketRequest(request *http.Request) bool {
 	return len(origins) == 1 && origins[0] == server.config.PublicOrigin.String() &&
 		(len(fetchSites) == 0 || len(fetchSites) == 1 && fetchSites[0] == "same-origin") &&
 		len(protocols) == 1 && protocols[0] == netplay.WebSocketSubprotocol
+}
+
+func (server *Server) acceptNetplaySocket(writer http.ResponseWriter, request *http.Request) (*websocket.Conn, error) {
+	connection, err := websocket.Accept(writer, request, &websocket.AcceptOptions{
+		// Reverse proxies may replace Host; the request has already passed the exact public-origin check.
+		OriginPatterns: []string{server.config.PublicOrigin.String()},
+		Subprotocols:   []string{netplay.WebSocketSubprotocol}, CompressionMode: websocket.CompressionDisabled,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("accept netplay socket: %w", err)
+	}
+	return connection, nil
 }
