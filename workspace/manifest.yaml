@@ -31,7 +31,8 @@
         "openbor",
         "cap32",
         "crocods",
-        "81"
+        "81",
+        "same_cdi"
       ]
     },
     {
@@ -273,6 +274,15 @@
       "path": "project/retrom-core/81-libretro",
       "role": "core",
       "gitlink": "https://github.com/EmulatorJS/81-libretro.git",
+      "defaultBranch": "master",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "same_cdi",
+      "path": "project/retrom-core/same_cdi",
+      "role": "core",
+      "gitlink": "https://github.com/EmulatorJS/same_cdi.git",
       "defaultBranch": "master",
       "submodules": false,
       "dependsOn": []
