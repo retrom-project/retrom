@@ -97,7 +97,7 @@ EmulatorJS 4.2.3 manifest 另声明下列 14 个静态 Requirement；精确 size
 | `gearcoleco` | `colecovision.rom` | `REQUIRED` | `BIOS_BUNDLE` |
 | `prboom` | `prboom.wad` | `REQUIRED` | `BIOS_BUNDLE` |
 
-MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 是显式破坏性边界：事务撤销依赖旧 Installation 的 Launch/Play/Netplay，删除其运行 payload 与存档，再释放旧 Installation Blob；新 Launch 必须先以新 BIOS 重验为 READY Variant。外部文件不得在仍运行的 Launch 内静默漂移。
+MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 只影响后续启动；已有 Launch/Play/Netplay 保留冻结的旧文件，存档保留。新 Launch（包括存档恢复）发现 BIOS 已变化时先按当前安装重验；替换与创建并发时，创建事务必须拒绝混合快照和文件。旧安装与过时 Variant BIOS 文件引用由后台分批释放，Launch 文件引用直到会话结束或过期后才释放，最后由常规 GC 回收无引用文件。外部文件不得在仍运行的 Launch 内静默漂移。
 
 ### 3.6 Arcade Core
 
@@ -296,4 +296,4 @@ Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、L
 
 STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。ARCHIVE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
 
-`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement/catalog 未变时保持当前态；Requirement 改变时相同 bytes 仍重新校验。提交前重新检查完整 catalog digest、Requirement/稳定 Provider Target、DAT 和 source bytes；漂移分别以稳定条目结果收口。真正替换时，旧 Installation payload 单向释放并只保留来源审计；依赖它的已物化运行资源和旧 `BIOS_BUNDLE` VariantFile 被清理，活动 Launch/Play/Netplay 终止。SaveState 仍按 Game 保留，其可恢复性由当前 READY Target 的 `readFormats` 决定；受影响 GameVariant 转为需要重新校验，下一次 Launch 先复用或创建异步重校验 Job，并原子更新当前依赖与 VariantFiles。
+`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement/catalog 未变时保持当前态；Requirement 改变时相同 bytes 仍重新校验。提交前重新检查完整 catalog digest、Requirement/稳定 Provider Target、DAT 和 source bytes；漂移分别以稳定条目结果收口。真正替换时仅原子切换活动安装，不扫描依赖 JSON、不终止已有 Launch/Play/Netplay，也不删除 SaveState。旧 Installation、VariantFile 与会话 payload 按[数据模型](./data-model.md#bios-与-launch-延迟回收)的索引和分批排期释放；新的启动按需重校验，未替换分支不产生回收副作用。

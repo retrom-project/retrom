@@ -41,7 +41,7 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 
 `providerId` 与 `targetId` 是跨升级稳定的语义身份。Provider 当前版本和 manifest 投影可以前移，但已创建的 `launch_sessions` 会冻结当次 `bundleSha256`、内容文件、外部依赖文件、Target、options 和恢复输入。Bundle 升级不会让现有审核结果或已发布 Variant 自动 stale；只有来源内容、Core/Target、DAT、依赖闭包、项目证据或其他真实验证输入改变时才需要重新检查。
 
-内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch/Netplay、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换只撤销使用旧 BIOS 的运行并阻断相应 Variant 等待重验，game-scoped 存档继续保留。
+内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch/Netplay、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换仅原子切换当前安装；已创建的 Launch/Play/Netplay 保留冻结的旧 BIOS 文件与授权直到各自结束或过期，game-scoped 存档继续保留。新启动（包括从存档继续）按需核对当前 BIOS，变化时先重验；创建事务再次核对快照，避免并发替换混用版本。人工截图放行的 Variant 保留放行状态，在新 Launch 事务中只刷新已安装的受管 BIOS；不清除手动提供的无关 Arcade 文件。
 
 ## 3. Launch Envelope V1
 

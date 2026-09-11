@@ -68,6 +68,7 @@ flowchart LR
 11. `011_import_batch_discard.sql`：兼容增加批次当前处置、内部上传归属与停止后发布/重试围栏；数据释放复用现有 PayloadRelease/GC。
 
 12. `012_game_save_sync.sql`：原生游戏数据的可覆盖存档、会话绑定、数据版本、最近同步时间与冻结恢复输入；兼容升级保留既有存档。
+13. `013_bios_session_retirement.sql`：BIOS 延迟回收索引、Launch 回收排期与状态/心跳 trigger；保留现有游戏、安装、会话与存档。
 
 循环 current state 使用数据模型规定的 deferred FK；所有 migration 始终保持 `foreign_keys=ON`，建库后执行 `foreign_key_check` 与 schema introspection。每条 migration 都在事务中应用并记录 name/checksum；运行时代码不按 migration 数字分支，不在业务请求中关闭外键、回填数据或动态修补 schema。
 

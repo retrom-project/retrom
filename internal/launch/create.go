@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"slices"
 	"strings"
 	"time"
 
@@ -35,6 +34,13 @@ func (service *Service) Create(ctx context.Context, profileID string, request Cr
 	}
 	if result.retry != nil {
 		return *result.retry, nil
+	}
+	fresh, err := service.currentBIOSMatchesDependencySnapshot(ctx, service.database, result.selection)
+	if err != nil {
+		return Created{}, ErrBlocked
+	}
+	if !fresh {
+		return service.ensureVariant(ctx, profileID, request, result.selection.selectedCore, true)
 	}
 	preparation, err := service.prepareLaunch(ctx, request, result.selection)
 	if err != nil {
@@ -330,98 +336,7 @@ LIMIT 1`
 		}
 		return launchSelectionResult{}, ErrBlocked
 	}
-	fresh, err := service.currentBIOSMatchesDependencySnapshot(ctx, selection)
-	if err != nil {
-		return launchSelectionResult{}, ErrBlocked
-	}
-	if !fresh {
-		created, ensureErr := service.ensureVariant(ctx, profileID, request, coreID, true)
-		return launchSelectionResult{retry: &created}, ensureErr
-	}
 	return launchSelectionResult{selection: selection}, nil
-}
-
-func (service *Service) currentBIOSMatchesDependencySnapshot(
-	ctx context.Context,
-	selection launchSelection,
-) (bool, error) {
-	if selection.compatibilityCode == reviewScreenshotOverrideCode {
-		return true, nil
-	}
-	// DAT-backed variants are invalidated by the transactional DAT/BIOS
-	// replacement flows; their typed Arcade closure is not a static BIOS snapshot.
-	if selection.datID.Valid {
-		return service.currentDATBIOSMatchesLockedFiles(ctx, selection)
-	}
-	current, _, _, err := corevalidation.ResolveBIOS(
-		ctx, service.database, selection.providerID, selection.targetID, selection.contentLogicalName,
-	)
-	if err != nil {
-		return false, fmt.Errorf("launch/resolve current BIOS: %w", err)
-	}
-	locked, err := corevalidation.ParseRuntimeBIOSDependencies(selection.dependencySnapshotJSON)
-	if err != nil {
-		// Provider-only project targets can legitimately carry an opaque empty
-		// dependency snapshot. They are fresh when the Host has no BIOS facts.
-		if len(current.BIOS) == 0 {
-			return true, nil
-		}
-		return false, fmt.Errorf("launch/parse locked BIOS dependencies: %w", err)
-	}
-	current.BIOS = append([]corevalidation.BIOSDependency(nil), current.BIOS...)
-	lockedSnapshot := corevalidation.Snapshot{
-		SchemaVersion: corevalidation.SnapshotSchemaVersion, Kind: corevalidation.SnapshotKindStatic,
-		BIOS: append([]corevalidation.BIOSDependency(nil), locked...),
-	}
-	currentDigest, err := corevalidation.BIOSDependencyDigest(current)
-	if err != nil {
-		return false, fmt.Errorf("launch/digest current BIOS dependencies: %w", err)
-	}
-	lockedDigest, err := corevalidation.BIOSDependencyDigest(lockedSnapshot)
-	if err != nil {
-		return false, fmt.Errorf("launch/digest locked BIOS dependencies: %w", err)
-	}
-	return currentDigest == lockedDigest, nil
-}
-
-func (service *Service) currentDATBIOSMatchesLockedFiles(
-	ctx context.Context,
-	selection launchSelection,
-) (bool, error) {
-	current, _, _, err := service.resolveVariantBIOS(
-		ctx, service.database, selection.variantID, selection.gameID,
-		selection.providerID, selection.targetID, selection.contentLogicalName, selection.datID,
-	)
-	if err != nil {
-		return false, err
-	}
-	type lockedBIOS struct{ logicalName, blobID string }
-	wanted := make([]lockedBIOS, 0, len(current.BIOS))
-	for _, dependency := range current.BIOS {
-		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
-			wanted = append(wanted, lockedBIOS{dependency.LogicalName, *dependency.BlobID})
-		}
-	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT logical_name,blob_id FROM variant_files
-WHERE game_variant_id=? AND role='BIOS_BUNDLE' ORDER BY sort_order,logical_name
-`, selection.variantID)
-	if err != nil {
-		return false, fmt.Errorf("launch/query locked DAT BIOS files: %w", err)
-	}
-	defer func() { cleanup.Error("close current DAT BIOS files", rows.Close()) }()
-	locked := make([]lockedBIOS, 0, len(wanted))
-	for rows.Next() {
-		var file lockedBIOS
-		if err := rows.Scan(&file.logicalName, &file.blobID); err != nil {
-			return false, fmt.Errorf("launch/scan locked DAT BIOS file: %w", err)
-		}
-		locked = append(locked, file)
-	}
-	if err := rows.Err(); err != nil {
-		return false, fmt.Errorf("launch/iterate locked DAT BIOS files: %w", err)
-	}
-	return slices.Equal(wanted, locked), nil
 }
 
 func (service *Service) validateDOSEntry(
@@ -491,6 +406,10 @@ func (service *Service) persistLaunch(
 		return Created{}, fmt.Errorf("launch/service: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
+	selection, err = service.prepareCurrentBIOS(ctx, transaction, selection)
+	if err != nil {
+		return Created{}, err
+	}
 	if _, err = transaction.ExecContext(ctx, `
 INSERT INTO launch_sessions(
  id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,

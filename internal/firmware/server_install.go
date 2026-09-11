@@ -223,10 +223,9 @@ func (service *Service) persistServerInstallation(
 			return ServerInstallResult{}, err
 		}
 	}
-	retired, err := payloadrelease.RetireSupersededBIOS(
+	if err := payloadrelease.SupersedeBIOS(
 		ctx, transaction, request.RequirementID, now,
-	)
-	if err != nil {
+	); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server retire: %w", err)
 	}
 	details := request.Details
@@ -247,11 +246,6 @@ INSERT INTO bios_installations(
 		request.Metadata.Size, request.Metadata.MD5, request.Metadata.SHA1, request.Metadata.SHA256,
 		version, request.Status, string(detailsJSON), now, now, request.CandidateID); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server persist installation: %w", err)
-	}
-	if service.releases != nil {
-		if err := service.releases.StageCandidates(ctx, transaction, retired.BlobIDs); err != nil {
-			return ServerInstallResult{}, fmt.Errorf("firmware/server stage retired: %w", err)
-		}
 	}
 	result.NewInstallationID = installationID.String()
 	switch request.Status {

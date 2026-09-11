@@ -475,7 +475,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `PUT /api/v1/admin/platform-instances/order` | 以全部目录的 ID/version 原子替换显示顺序，供拖拽和键盘排序。 |
 | `POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview`、`POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core` | 默认核心影响 digest 与提交。 |
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |
-| `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 替换当前 installation。同 Requirement 的替换是破坏性边界，旧 Installation payload 被释放且只保留结构化审计；一期没有独立删除 Installation API。 |
+| `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 替换当前 installation。同 Requirement 的替换原子切换当前安装，新 BIOS 对后续启动生效；已有会话与存档保留，旧 Installation payload 延迟释放，结构化审计保留；一期没有独立删除 Installation API。 |
 | `GET /api/v1/admin/diagnostics` | 下载不含内容标识与路径的封闭 JSON 诊断摘要；只读、无需 Idempotency-Key，但仍受全局 readiness 门禁。 |
 | `GET /api/v1/admin/storage-analysis` | ADMIN-only、`private, no-store` 的已登记 CAS payload 容量快照；无 query，不返回 Blob ID、hash、文件名、路径或 capability。 |
 | `POST /api/v1/admin/storage-cleanups` | ADMIN-only 立即回收请求；无 query/body，要求 CSRF 与 UUID `Idempotency-Key`，202 返回被推进到立即执行的 Blob 数、byte 与接受时刻；不返回 Blob/Job 标识。 |
