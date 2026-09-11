@@ -297,18 +297,10 @@
 .review-rpg-gates li[data-status="FAILED"] strong { color: #a02f2f; }
 .review-rpg-roundtrip { padding: 10px; display: grid; gap: 4px; border: 1px solid #d8d1f6; border-radius: var(--radius-panel); background: #fbfaff; }
 .review-rpg-roundtrip strong { font-size: 12px; }
-.review-rpg-pack-controls { padding: 11px; display: grid; gap: 10px; border: 1px solid #d8d1f6; border-radius: var(--radius-panel); background: #fbfaff; }
-.review-rpg-pack-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
-.review-rpg-pack-heading strong { font-size: 12px; }
-.review-rpg-pack-heading p { margin: 3px 0 0; color: var(--muted); font-size: 9px; }
-.review-rpg-pack-heading a { color: var(--purple-dark); font-size: 10px; font-weight: 760; }
 .review-rpg-self-contained { padding: 9px; display: flex; align-items: start; gap: 8px; border-radius: var(--radius-panel); background: white; }
 .review-rpg-self-contained span { display: grid; gap: 2px; }
 .review-rpg-self-contained strong { font-size: 10px; }
 .review-rpg-self-contained small { color: var(--muted); font-size: 9px; }
-.review-rpg-pack-select { display: grid; gap: 5px; color: #596477; font-size: 10px; font-weight: 720; }
-.review-rpg-pack-select select { width: 100%; min-width: 0; height: 38px; padding: 0 9px; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-control); background: white; }
-.review-rpg-pack-error { margin: 0; color: var(--danger); font-size: 10px; }
 .review-multidisc-card .panel-head small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
 .review-multidisc-list { margin: 0; padding: 0; display: grid; gap: 7px; list-style: none; }
 .review-multidisc-list li { min-width: 0; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: var(--radius-panel); }
@@ -716,3 +708,5 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
 @media (min-width: 2600px) and (min-height: 1600px) {
   .launch-runtime-choice strong, .launch-runtime-row button, .launch-runtime-status .status { font-size: 13px; }
 }
+
+.review-rpg-resource-notice { margin: 12px 0; padding: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: var(--radius-panel); font-size: 11px; line-height: 1.7; }

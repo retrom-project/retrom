@@ -21,6 +21,7 @@ export type ReviewDependencySnapshot = {
 
 const compatibilityLabels: Record<string, string> = {
   READY: "运行检查已通过",
+  RPG_EXTERNAL_RTP_REQUIRED: "项目声明了外部 RTP",
   LAUNCH_BIOS_MISSING: "缺少必需 BIOS 文件",
   LAUNCH_PARENT_MISSING: "缺少街机父级或依赖文件",
   ARCADE_DAT_UNAVAILABLE: "街机数据目录不可用",
@@ -49,6 +50,10 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot }
     .filter((item) => item.kind === "BIOS_OR_BASE" && item.state === "MISSING" && item.machine)
     .map((item) => `${item.machine}.zip`);
   const title = reviewCompatibilityLabel(compatibilityCode, status);
+
+  if (compatibilityCode === "RPG_EXTERNAL_RTP_REQUIRED") {
+    return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance"><strong>{title}</strong><p>请补齐游戏素材后重新导入；如果已确认项目可以独立运行，可在项目检查中勾选“确认项目自包含 RTP”放行。</p></div></FeedbackBanner>;
+  }
 
   if (compatibilityCode === "LAUNCH_BIOS_MISSING") {
     return <MissingBIOSGuidance {...{ compatibilityCode, missingArcadeArchives, missingBIOS, missingEntries, title }} />;

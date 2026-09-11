@@ -159,13 +159,13 @@ func validateRGSSLibrary(library string, generation Generation) error {
 
 func rgssRTPDependencies(values map[string]string) []RTPDependency {
 	dependencies := make([]RTPDependency, 0, 3)
-	for position, key := range []string{"rtp1", "rtp2", "rtp3"} {
+	for position, key := range []string{"rtp", "rtp1", "rtp2", "rtp3"} {
 		name := strings.TrimSpace(values[key])
 		if name == "" {
 			continue
 		}
 		dependencies = append(dependencies, RTPDependency{
-			Slot: position + 1, DeclaredName: name,
+			Slot: position, DeclaredName: name,
 			NormalizedName: cases.Fold().String(norm.NFKC.String(name)),
 		})
 	}

@@ -124,7 +124,7 @@ INSERT INTO import_item_core_validations(id,import_item_id,target_platform_insta
  source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,
  dependency_snapshot_json,created_at_ms)
 VALUES('rpg-core-validation',?,'rpg-platform',1,'rpgmaker',?,?,?,
- 'rpg-snapshot',?,'READY','READY','{"bindings":[],"schemaVersion":1}',?)`, fixture.itemID,
+ 'rpg-snapshot',?,'READY','READY','{"externalRTP":[{"slot":0,"declaredName":"RPG2000_RTP","normalizedName":""}],"policy":"PROJECT_RESOURCES_ONLY","schemaVersion":2,"selfContainedOverride":true}',?)`, fixture.itemID,
 		target.ProviderID, target.TargetID,
 		strings.Repeat("d", 64), strings.Repeat("e", 64), now)
 	mustRPGLaunchSQL(t, database, `
@@ -135,7 +135,7 @@ VALUES('rpg-core-validation','RPG_EASYRPG_INDEX','index.json',?,0,?)`, fixture.i
 UPDATE review_drafts SET version=version+1,updated_at_ms=?
 WHERE id='01980000-0000-7000-8000-000000000901'`, now)
 	projectFingerprint := strings.Repeat("c", 64)
-	dependency := fmt.Sprintf("%x", sha256.Sum256([]byte(`{"bindings":[],"schemaVersion":1}`)))
+	dependency := fmt.Sprintf("%x", sha256.Sum256([]byte(`{"externalRTP":[{"slot":0,"declaredName":"RPG2000_RTP","normalizedName":""}],"policy":"PROJECT_RESOURCES_ONLY","schemaVersion":2,"selfContainedOverride":true}`)))
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO rpgmaker_review_profiles(
  review_draft_id,generation,evidence_family,evidence_generation,evidence_confidence,

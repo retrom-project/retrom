@@ -17,7 +17,7 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestRPGReviewRechecksRealPackDependenciesWithoutRuntimeProof(t *testing.T) {
+func TestRPGReviewRejectsExternalRTPEvenWithInstalledPack(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
@@ -34,41 +34,38 @@ func TestRPGReviewRechecksRealPackDependenciesWithoutRuntimeProof(t *testing.T) 
 	if err := database.SQL.QueryRowContext(ctx, "SELECT id FROM import_items WHERE import_job_id=?", created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
-	assertRPGDependencyStatus(t, database.SQL, itemID, "BLOCKED", "RPG_RUNTIME_PACK_MISSING")
+	assertRPGDependencyStatus(t, database.SQL, itemID, "BLOCKED", "RPG_EXTERNAL_RTP_REQUIRED")
 	current := refreshRPGDraft(t, importer, itemID, 1)
 	seedReadyRPGDependency(t, database.SQL, blobs)
 	current = refreshRPGDraft(t, importer, itemID, current.Version)
-	validationID := assertRPGDependencyStatus(t, database.SQL, itemID, "READY", "READY")
-	var selected int
-	if err := database.SQL.QueryRowContext(ctx, "SELECT count(*) FROM review_draft_runtime_pack_selections").Scan(&selected); err != nil || selected != 1 {
-		t.Fatalf("recheck did not bind the available RTP: %d %v", selected, err)
-	}
-	setRPGDependencyEnabled(t, database.SQL, false)
-	fresh, err := importer.ReviewValidationCurrent(ctx, validationID)
-	if err != nil || fresh {
-		t.Fatalf("disabled required RTP left the review current: %t %v", fresh, err)
-	}
+	assertRPGDependencyStatus(t, database.SQL, itemID, "BLOCKED", "RPG_EXTERNAL_RTP_REQUIRED")
 	if _, err := importer.Approve(ctx, itemID, current.Version); err == nil {
-		t.Fatal("publication bypassed a disabled required RTP")
+		t.Fatal("external RTP installation bypassed self-contained project policy")
 	}
-	current = refreshRPGDraft(t, importer, itemID, current.Version)
-	assertRPGDependencyStatus(t, database.SQL, itemID, "BLOCKED", "RPG_RUNTIME_PACK_MISSING")
-	setRPGDependencyEnabled(t, database.SQL, true)
-	current = refreshRPGDraft(t, importer, itemID, current.Version)
-	validationID = assertRPGDependencyStatus(t, database.SQL, itemID, "READY", "READY")
-	current = refreshRPGDraft(t, importer, itemID, current.Version)
-	if repeated := assertRPGDependencyStatus(t, database.SQL, itemID, "READY", "READY"); repeated != validationID {
-		t.Fatal("unchanged dependencies created a redundant validation")
+	confirmed := true
+	current, err = importer.PatchDraft(ctx, itemID, current.Version, DraftPatch{RPGSelfContainedOverride: &confirmed, TagIDs: []string{}})
+	if err != nil {
+		t.Fatal(err)
 	}
-	var derived int
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT count(*) FROM import_item_validation_files
-WHERE import_item_core_validation_id=? AND role='RPG_EASYRPG_INDEX'`, validationID).Scan(&derived); err != nil || derived != 1 {
-		t.Fatalf("recheck lost the actual EasyRPG index: %d %v", derived, err)
+	assertRPGDependencyStatus(t, database.SQL, itemID, "READY", "READY")
+	confirmed = false
+	current, err = importer.PatchDraft(ctx, itemID, current.Version, DraftPatch{RPGSelfContainedOverride: &confirmed, TagIDs: []string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRPGDependencyStatus(t, database.SQL, itemID, "BLOCKED", "RPG_EXTERNAL_RTP_REQUIRED")
+	confirmed = true
+	current, err = importer.PatchDraft(ctx, itemID, current.Version, DraftPatch{RPGSelfContainedOverride: &confirmed, TagIDs: []string{}})
+	if err != nil {
+		t.Fatal(err)
 	}
 	approved, err := importer.Approve(ctx, itemID, current.Version)
 	if err != nil || approved.GameID == "" {
-		t.Fatalf("valid RPG project required a proof session: %+v %v", approved, err)
+		t.Fatalf("explicit administrator confirmation cannot publish: %+v %v", approved, err)
+	}
+	var bindings int
+	if err := database.SQL.QueryRowContext(ctx, "SELECT count(*) FROM game_variant_runtime_packs").Scan(&bindings); err != nil || bindings != 0 {
+		t.Fatalf("publication mounted retired RTP: %d %v", bindings, err)
 	}
 }
 
@@ -127,6 +124,9 @@ func requiredRPGPackArchive(t *testing.T) []byte {
 
 func seedReadyRPGDependency(t *testing.T, database *sql.DB, blobs *blobstore.Store) {
 	t.Helper()
+	if _, err := database.ExecContext(t.Context(), `INSERT INTO runtime_asset_pack_definitions(id,kind,generation,declared_name,normalized_declared_name,display_name,required_layout_version,origin,enabled,created_at_ms) VALUES('rpg2000_rtp','RPG2000_RTP','RPG2000','RPG2000_RTP','rpg2000_rtp','Historical RTP','easy-rtp-layout-v1','BUILTIN',1,0)`); err != nil {
+		t.Fatal(err)
+	}
 	blob, err := blobs.Put(bytes.NewReader([]byte("RTP metadata test payload")))
 	if err != nil {
 		t.Fatal(err)
@@ -161,14 +161,6 @@ VALUES(?,'Music/theme.wav',0,?,?,?)`, installationID, blobID, blob.Size, blob.SH
 	}
 	if _, err := database.ExecContext(t.Context(), `
 UPDATE runtime_asset_pack_installations SET status='READY',validated_at_ms=?,version=version+1 WHERE id=?`, now, installationID); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func setRPGDependencyEnabled(t *testing.T, database *sql.DB, enabled bool) {
-	t.Helper()
-	if _, err := database.ExecContext(t.Context(), `
-UPDATE runtime_asset_pack_definitions SET enabled=? WHERE id='rpg2000_rtp'`, enabled); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -310,9 +310,9 @@ AND v.dat_version_id IS (
 func (run *approvalRun) loadRPGProfile() error {
 	profile, resolution, state, err := loadReviewRPGDependencies(run.ctx, run.transaction, run.draftID)
 	if err != nil || state.status != "READY" || state.snapshotJSON != run.dependencySnapshotJSON ||
-		profile.dependencySHA256 != resolution.DependencySHA256 {
+		profile.dependencySHA256 != resolution {
 		return ErrInvalid
 	}
-	run.rpgGeneration, run.rpgDependencySnapshotSHA = profile.generation, resolution.DependencySHA256
+	run.rpgGeneration, run.rpgDependencySnapshotSHA = profile.generation, resolution
 	return nil
 }

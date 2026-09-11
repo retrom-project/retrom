@@ -90,9 +90,9 @@ type Profile struct {
 }
 
 type RTPDependency struct {
-	Slot           int
-	DeclaredName   string
-	NormalizedName string
+	Slot           int    `json:"slot"`
+	DeclaredName   string `json:"declaredName"`
+	NormalizedName string `json:"normalizedName"`
 }
 
 type Error struct {

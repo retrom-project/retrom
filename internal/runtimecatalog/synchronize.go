@@ -39,38 +39,7 @@ INSERT INTO content_kinds(id) VALUES(?) ON CONFLICT(id) DO NOTHING
 			return fmt.Errorf("reconcile product content kind: %w", err)
 		}
 	}
-	if err := writePackDefinitions(ctx, transaction, catalog, now); err != nil {
-		return err
-	}
 	return writeProductRelations(ctx, transaction, catalog)
-}
-
-func writePackDefinitions(ctx context.Context, transaction *sql.Tx, catalog Catalog, now int64) error {
-	for _, pack := range catalog.Definitions.AssetPacks {
-		result, err := transaction.ExecContext(ctx, `
-INSERT INTO runtime_asset_pack_definitions(id,kind,generation,declared_name,normalized_declared_name,
-display_name,required_layout_version,origin,enabled,created_by_user_id,created_at_ms)
-VALUES(?,?,?,?,?,?,?,'BUILTIN',?,NULL,?)
-ON CONFLICT(id) DO UPDATE SET kind=excluded.kind,generation=excluded.generation,
-declared_name=excluded.declared_name,normalized_declared_name=excluded.normalized_declared_name,
-display_name=excluded.display_name,required_layout_version=excluded.required_layout_version,enabled=excluded.enabled
-WHERE runtime_asset_pack_definitions.origin='BUILTIN' AND (
- NOT EXISTS(SELECT 1 FROM runtime_asset_pack_installations installed WHERE installed.definition_id=excluded.id)
- OR runtime_asset_pack_definitions.kind=excluded.kind
- AND runtime_asset_pack_definitions.generation=excluded.generation
- AND runtime_asset_pack_definitions.normalized_declared_name=excluded.normalized_declared_name
- AND runtime_asset_pack_definitions.required_layout_version=excluded.required_layout_version
-)
-`, pack.ID, pack.Kind, pack.Generation, pack.DeclaredName, pack.NormalizedDeclaredName, pack.DisplayName,
-			pack.RequiredLayoutVersion, pack.Enabled, now)
-		if err != nil {
-			return fmt.Errorf("reconcile product asset pack: %w", err)
-		}
-		if count, err := result.RowsAffected(); err != nil || count != 1 {
-			return fmt.Errorf("reconcile product asset pack: %w", ErrCatalogInvalid)
-		}
-	}
-	return nil
 }
 
 func writeProductRelations(ctx context.Context, transaction *sql.Tx, catalog Catalog) error {
@@ -122,9 +91,6 @@ func pruneUnreferencedDefinitions(ctx context.Context, transaction *sql.Tx, defi
     WHERE json_extract(declared.value,'$.id')=platforms.id)`,
 		`DELETE FROM content_kinds WHERE NOT EXISTS(SELECT 1 FROM json_each(?1,'$.contentKinds') declared
     WHERE declared.value=content_kinds.id)`,
-		`DELETE FROM runtime_asset_pack_definitions WHERE origin='BUILTIN' AND NOT EXISTS(
-   SELECT 1 FROM json_each(?1,'$.assetPacks') declared
-    WHERE json_extract(declared.value,'$.id')=runtime_asset_pack_definitions.id)`,
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement, string(encoded)); err != nil {

@@ -143,13 +143,3 @@ class AcceptanceProvenanceTests(unittest.TestCase):
             self.assertEqual("cases/acc-rpg-012/attempts/002/result.json", defect["successfulResult"])
             self.assertTrue(defect["greenEvidence"].startswith("cases/acc-rpg-012/attempts/002/"))
             self.assertTrue((run_dir / defect["greenEvidence"]).is_file())
-
-
-class RPGDedicatedProvenanceContractTests(unittest.TestCase):
-    def test_pack_provisioning_identity_is_required_by_the_final_inspector(self) -> None:
-        provisioner = (ROOT / "scripts/acceptance/rpgmaker_pack_provision.mjs").read_text()
-        inspector = (ROOT / "scripts/acceptance/rpgmaker_pack_inspect.py").read_text()
-        self.assertIn('"--evidence"', provisioner)
-        self.assertIn("writeProvisionEvidence", provisioner)
-        self.assertIn("RETROM_ACC_RPG_009_PROVISION_EVIDENCE", inspector)
-        self.assertIn('"provisioningEvidence"', inspector)

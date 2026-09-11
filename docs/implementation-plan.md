@@ -230,7 +230,7 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 
 1. 删除旧 manifest reader、归一化 fallback、revision 目录和审核算法代际；只保留当前公开 schema、内容摘要、真实业务版本及会话冻结证据。
 2. 将平台、核心、内容分类与资源包定义从 migrations 移入现有 Host catalog；启动先验证全部声明和受限策略，再用一个事务同步产品定义、Provider/Target、关联、摘要与审计。禁止覆盖用户目录配置或级联删除被引用产品定义。
-3. 上传目的采用 `GENERAL/PROJECT/RUNTIME_ASSET_PACK`，文件/目录/压缩包统一归一化；资源包安装按声明身份选择已有布局策略，不以新增引擎枚举扩展 DDL。
+3. 上传目的采用 `GENERAL/PROJECT`，文件/目录/压缩包统一归一化；RPG Maker 资源随游戏上传，不提供独立 RTP 安装。
 4. 审核有效性只比较来源、Core/Target、DAT、依赖和相关规则；普通展示编辑及无关 Provider 变化不失效。静态/Arcade 依赖使用明确类型，Launch options 使用有界策略；审核临时 checkpoint 按会话期限或 payload 生命周期释放，不参与升级门槛，升级只保护持久用户存档。
 5. 红—绿测试先证明上述旧行为，再实现；最终 schema 确定后只重建指定 PFB 的数据根。随后在同一份已含游戏、审核、配置和存档的数据库上验证核心/Target、接入及资源包扩展，记录 schema/migration 指纹、原 ID/数据与外键检查，不再通过清库绕过失败。
 6. 执行真实 ZIP/目录、Pegasus/gamelist 导入及各核心生命周期回归，明确区分用户样本、公开 fixture 与未覆盖项。工程检查通过后可保留功能/修复开发提交，使真实验收绑定精确源码；完整自验后再推送功能分支，保持最终 PFB 运行供二次验收；不提前创建 PR、合入 master 或打 tag。

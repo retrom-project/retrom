@@ -4,7 +4,7 @@ import { evidencePath, expectNoTextArrowsInInteractiveControls, noPageOverflow, 
 import { registerRuntimeAcceptanceTests } from "./acceptance-runtime-cases";
 import { registerCoreExpansionAcceptanceTests } from "./acceptance-core-expansion-cases";
 import { verifyUserDesktopLayouts } from "./acceptance-user-layout";
-import { verifyRuntimePackInstallLayout } from "./runtime-pack-layout";
+import { verifyBIOSOnlyDependencies } from "./bios-only-dependencies";
 
 test.beforeEach(async ({ page }, testInfo) => {
   const multiViewport = /^ACC-UI-00[56]\b/.test(testInfo.title);
@@ -230,7 +230,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
       sharedPageGaps = gaps;
     }
   }
-  await verifyRuntimePackInstallLayout(page);
+  await verifyBIOSOnlyDependencies(page);
   await page.goto("/admin/imports/new");
   const dropzoneAlignment = await page.locator(".dropzone").evaluate((dropzone) => {
     const dropzoneBox = dropzone.getBoundingClientRect();

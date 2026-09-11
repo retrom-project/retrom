@@ -17,7 +17,6 @@ import (
 	"retrom/internal/corevalidation"
 	"retrom/internal/importing"
 	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/packs"
 )
 
 var (
@@ -126,7 +125,6 @@ type preparedGroup struct {
 	multiDependency     *corevalidation.MultiDiscSnapshot
 	canonicalPlaylist   *blobstore.Metadata
 	rpgProfile          *detector.Profile
-	rpgPackBindings     []packs.Binding
 	rpgProjectRoot      string
 	rpgRemovedFiles     []string
 }

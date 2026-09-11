@@ -30,7 +30,6 @@ import (
 	"retrom/internal/pegasusimport"
 	"retrom/internal/platforminstance"
 	"retrom/internal/rpgmaker/isolation"
-	"retrom/internal/rpgmaker/packs"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimecatalog"
 	"retrom/internal/runtimelaunch"
@@ -92,7 +91,6 @@ type Server struct {
 	gameContent             *gamecontent.Service
 	saveService             *saves.Service
 	rpgIsolation            *isolation.Service
-	runtimePacks            *packs.Service
 	favoriteService         *favorites.Service
 	tagService              *tagging.Service
 	serverImports           *serverimport.Service
@@ -183,8 +181,6 @@ func New(
 	importer.ResumeReviewBulkJobs(context.Background())
 	firmwareService := firmware.New(database, now).WithBlobStore(blobs).
 		WithPayloadRelease(payloadReleaseService)
-	runtimePackService := packs.New(database, blobs, payloadReleaseService, now)
-	runtimePackService.ResumeQueuedJobs(context.Background())
 	serverImportService := serverimport.New(
 		database,
 		blobs,
@@ -227,7 +223,6 @@ func New(
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(database, blobs, credentials, now),
 		rpgIsolation:     isolation.New(database, config.RPGRuntimeOriginTemplate, now),
-		runtimePacks:     runtimePackService,
 		favoriteService:  favorites.New(database, now),
 		tagService:       tagging.New(database, now),
 		now:              now,
@@ -345,15 +340,6 @@ func (server *Server) registerAdminAccountRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/bios", server.bios)
 	mux.HandleFunc("GET /api/v1/admin/bios/{requirementId}/entries", server.biosEntries)
 	mux.HandleFunc("POST /api/v1/admin/bios/{requirementId}/installations", server.installBIOS)
-	mux.HandleFunc("GET /api/v1/admin/runtime-asset-packs", server.runtimeAssetPacks)
-	mux.HandleFunc(
-		"POST /api/v1/admin/runtime-asset-packs/installations",
-		server.installRuntimeAssetPack,
-	)
-	mux.HandleFunc(
-		"DELETE /api/v1/admin/runtime-asset-packs/installations/{installationId}",
-		server.deleteRuntimeAssetPack,
-	)
 }
 
 func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
