@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FavoriteActions } from "@/features/favorites/favorite-actions";
 import type { FavoriteReference } from "@/features/favorites/favorite-api";
 import { GameDetailSaves } from "@/features/games/game-detail-saves";
+import { ScrollableGameDescription } from "@/features/games/scrollable-game-description";
 import { GameDetailMedia } from "@/features/games/game-detail-media";
 import { LaunchControls, type CoreOption, type DOSEntry } from "@/features/player/launch-controls";
 import { collectSavePages, latestAvailableSave, type SavePage } from "@/features/saves/save-library";
@@ -58,15 +59,16 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
       <section className="game-detail-hero">
         <div className="game-detail-poster-shell">
           <GameDetailMedia title={game.title} coverUrl={game.coverUrl} videoUrl={game.videoUrl} />
-          <div className="game-detail-poster-caption"><span>{game.platform.name}</span><span>{game.releaseYear ?? "年份未知"}</span></div>
         </div>
         <div className="game-detail-main">
           <p className="game-detail-eyebrow">{game.platform.name} · {game.platformInstance.name}</p>
-          <h1>{game.title}</h1>
+          <div className="game-detail-title-row">
+            <FavoriteActions gameId={game.gameId} title={game.title} initialFavorite={game.favorite} variant="detail" showManageButton={false} />
+            <h1>{game.title}</h1>
+          </div>
           <TagChips tags={game.tags ?? []} linked />
-          <FavoriteActions gameId={game.gameId} title={game.title} initialFavorite={game.favorite} variant="detail" />
           <div className="game-detail-meta">{game.releaseYear ? <span>{game.releaseYear}</span> : null}{game.publisher ? <span>{game.publisher}</span> : null}{game.genre ? <span>{game.genre}</span> : null}</div>
-          <PhoneDisclosure title="游戏简介"><p className="game-detail-description">{game.description || "尚未填写游戏简介。"}</p></PhoneDisclosure>
+          <PhoneDisclosure title="游戏简介"><ScrollableGameDescription description={game.description} /></PhoneDisclosure>
           <div className="game-detail-playtime"><strong>累计游玩</strong><span>{formatPlayTime(game.activeDurationMs)}</span></div>
         </div>
         <LaunchControls

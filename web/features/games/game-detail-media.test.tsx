@@ -61,11 +61,11 @@ describe("GameDetailMedia", () => {
     expect(play).not.toHaveBeenCalled();
     await act(async () => { vi.advanceTimersByTime(1); });
     expect(play).toHaveBeenCalledOnce();
-    expect(screen.getByText("正在载入视频预览")).toBeVisible();
+    expect(screen.getByText("正在载入视频预览")).toHaveClass("sr-only");
     const video = screen.getByLabelText("重装机兵 视频预览");
     fireEvent.playing(video);
     expect(video).toHaveClass("is-playing");
-    expect(screen.getByText("正在循环播放视频预览")).toBeVisible();
+    expect(screen.getByText("正在循环播放视频预览")).toHaveClass("sr-only");
   });
 
   it("does not autoplay with reduced motion and exposes manual play and pause controls", async () => {
@@ -75,12 +75,12 @@ describe("GameDetailMedia", () => {
     act(enterViewport);
     act(() => { vi.advanceTimersByTime(10_000); });
     expect(play).not.toHaveBeenCalled();
-    expect(screen.getByText("已减少动态效果，可手动播放视频预览")).toBeVisible();
+    expect(screen.getByText("已减少动态效果，可手动播放视频预览")).toHaveClass("sr-only");
     fireEvent.click(screen.getByRole("button", { name: "播放视频预览" }));
     expect(play).toHaveBeenCalledOnce();
     fireEvent.playing(screen.getByLabelText("重装机兵 视频预览"));
     fireEvent.click(screen.getByRole("button", { name: "暂停预览" }));
-    expect(screen.getByText("视频预览已暂停")).toBeVisible();
+    expect(screen.getByText("视频预览已暂停")).toHaveClass("sr-only");
     act(() => { vi.advanceTimersByTime(10_000); });
     expect(play).toHaveBeenCalledOnce();
   });
@@ -90,7 +90,7 @@ describe("GameDetailMedia", () => {
     render(<GameDetailMedia title="重装机兵" coverUrl="/cover.png" videoUrl="/video.mp4" />);
     act(enterViewport);
     await act(async () => { vi.advanceTimersByTime(2_000); });
-    expect(screen.getByText("此视频无法在当前浏览器播放，已恢复封面")).toBeVisible();
+    expect(screen.getByText("此视频无法在当前浏览器播放，已恢复封面")).toHaveClass("sr-only");
     expect(screen.getByAltText("重装机兵 封面")).toBeVisible();
   });
 });

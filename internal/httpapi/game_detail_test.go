@@ -204,6 +204,7 @@ func assertGameHomeAndActivity(
 	var homeResponse struct {
 		FeaturedGame *struct {
 			GameID          string `json:"gameId"`
+			Description     string `json:"description"`
 			HasSaveStates   bool   `json:"hasSaveStates"`
 			LastSessionSave *struct {
 				SaveStateID string `json:"saveStateId"`
@@ -221,6 +222,9 @@ func assertGameHomeAndActivity(
 		QuickPlatforms []homePlatform `json:"quickPlatforms"`
 	}
 	mustDecodeHTTPTest(t, home.Body.Bytes(), &homeResponse)
+	if homeResponse.FeaturedGame == nil || homeResponse.FeaturedGame.Description != "首页游戏简介\n保留当前元信息。" {
+		t.Fatal("home must include the current game description")
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return homeResponse.FeaturedGame == nil }, func() bool { return homeResponse.FeaturedGame.GameID != gameID }, func() bool { return !homeResponse.FeaturedGame.HasSaveStates }, func() bool { return homeResponse.FeaturedGame.LastSessionSave != nil }, func() bool { return len(homeResponse.RecentGames) != 1 }, func() bool { return homeResponse.RecentGames[0].SessionCount != 2 }, func() bool { return len(homeResponse.LatestGames) != 1 }, func() bool { return homeResponse.LatestGames[0].GameID != gameID }, func() bool { return homeResponse.LatestGames[0].CreatedAtMS != now }, func() bool { return len(homeResponse.QuickPlatforms) != 4 }, func() bool { return homeResponse.QuickPlatforms[0].ID != "dos" }, func() bool { return homeResponse.QuickPlatforms[0].PlayCount != 2 }), "home projection = %#v", homeResponse)
 	sessionSaveID := uuid.NewString()
 	payloadDigest := sha256.Sum256(screenshot)
@@ -651,10 +655,10 @@ INSERT INTO games(
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(
  ?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),
- 'Doom','D','','','','',1,1993,'IMPORT_REVIEW','review','SINGLE_FILE','IMPORT_REVIEW','review',
+ 'Doom','D',?,'','','',1,1993,'IMPORT_REVIEW','review','SINGLE_FILE','IMPORT_REVIEW','review',
  '{}',?,'PUBLISHED','doom',1,?,?
 )
-`, gameID, strings.Repeat("0", 64), now, now)
+`, gameID, "首页游戏简介\n保留当前元信息。", strings.Repeat("0", 64), now, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO blobs(id,
 sha256,

@@ -20,13 +20,13 @@
 .library-section-head p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .library-section-head > span { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
 .library-section-head kbd { padding: 2px 5px; color: #596273; border: 1px solid #d9dce3; border-bottom-width: 2px; border-radius: 5px; background: white; font-size: 10px; }
-.library-game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 280px)); gap: 18px; align-items: start; }
+.library-game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 280px)); gap: 18px; align-items: stretch; grid-auto-rows: 1fr; }
 .library-loading { min-height: 180px; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
 .library-pagination { min-height: 52px; margin-top: 18px; padding: 10px 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--muted); font-size: 12px; }
-.library-game-card { position: relative; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-cover); background: white; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.library-game-card { display: flex; flex-direction: column; position: relative; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-cover); background: white; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
 .library-game-card:hover { z-index: 3; border-color: #d9d1f7; box-shadow: var(--shadow); transform: translateY(-3px); }
 .library-game-card:has([aria-expanded="true"]) { z-index: 5; }
-.library-game-cover { position: relative; overflow: hidden; aspect-ratio: 3 / 4; display: grid; place-items: center; border-radius: calc(var(--radius-cover) - 1px) calc(var(--radius-cover) - 1px) 0 0; background: #171d30; }
+.library-game-cover { flex-shrink: 0; position: relative; overflow: hidden; aspect-ratio: 3 / 4; display: grid; place-items: center; border-radius: calc(var(--radius-cover) - 1px) calc(var(--radius-cover) - 1px) 0 0; background: #171d30; }
 .library-game-cover > a { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; }
 .library-game-cover img { object-fit: cover; background: #171d30; }
 .library-poster { position: absolute; inset: 0; padding: 20px; display: grid; place-content: center; justify-items: center; text-align: center; color: white; background: radial-gradient(circle at 78% 17%, rgb(67 208 218 / 34%), transparent 19%), radial-gradient(circle at 20% 78%, rgb(98 80 210 / 15%), transparent 28%), linear-gradient(150deg, #36415f 0%, #192137 54%, #111829 100%); }
@@ -41,7 +41,8 @@
 .library-game-card:hover .library-card-hover, .library-game-cover:focus-within .library-card-hover { opacity: 1; }
 .library-game-hidden { position: absolute; z-index: 5; right: 12px; top: 12px; width: 34px; height: 34px; display: grid; place-items: center; color: white; border: 1px solid rgb(255 255 255 / 25%); border-radius: var(--radius-panel); background: rgb(181 45 59 / 88%); }
 .library-game-hidden svg { width: 18px; height: 18px; }
-.library-game-body { padding: 14px 15px 15px; }
+.library-game-body { flex: 1; display: flex; flex-direction: column; padding: 14px 15px 15px; }
+.library-game-body > :has(+ .library-game-played) { margin-bottom: 12px; }
 .library-game-title-row { position: relative; min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .library-game-title-row > a { min-width: 0; }
 .library-game-title-row h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; line-height: 1.35; }
@@ -53,5 +54,5 @@
 .library-game-body > p { margin: 7px 0 0; display: flex; gap: 7px; overflow: hidden; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .library-game-body > p span { overflow: hidden; text-overflow: ellipsis; }
 .library-game-body > p span + span::before { content: "·"; margin-right: 7px; color: #a6adba; }
-.library-game-played { margin-top: 12px; padding-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); border-top: 1px solid #efede8; font-size: 11px; }
+.library-game-played { margin-top: auto; padding-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); border-top: 1px solid #efede8; font-size: 11px; }
 .library-game-played strong { overflow: hidden; color: #465064; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }

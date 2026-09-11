@@ -270,7 +270,7 @@ function DesktopSidebar({ accountMenuRef, administrator, health, logout, navigat
             <span className="account-copy"><strong>{user?.displayName}</strong><small>@{user?.username}</small></span>
           </summary>
           <div className="account-menu-popover">
-            <Link href="/account">账户设置</Link>
+            <Link href="/account"><AppIcon name="settings" />账户设置</Link>
             <button type="button" onClick={() => void logout()}><AppIcon name="log-out" />退出登录</button>
           </div>
         </details>

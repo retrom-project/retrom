@@ -82,8 +82,8 @@ database/sql + 既有 authn/cursor/idempotency
 ## 5. 页面接入与设计源
 
 - 一级导航顺序固定为首页、游戏库、我的存档、我的收藏、最近游玩；收藏页路由为 `/favorites`。
-- 普通游戏库卡片、游戏详情和收藏页共享服务端 Favorite 投影；普通首页、最近游玩、存档页和普通 Player
-  不新增首批收藏入口。独立沉浸 Shell 是例外消费者：固定“收藏游戏” destination 可浏览当前 Profile 的
+- 普通游戏库卡片、游戏详情和收藏页共享服务端 Favorite 投影；普通首页复用私有收藏列表展示最近收藏的最多 3 款可访问游戏，不提供收藏写操作；最近游玩、存档页和普通 Player
+  不新增收藏入口。独立沉浸 Shell 是例外消费者：固定“收藏游戏” destination 可浏览当前 Profile 的
   Folder，任意沉浸游戏列表以 Y 调用默认收藏切换；新增 Favorite 不自动加入 Folder，取消 Favorite 原子移除
   全部 Membership。它复用既有 API/隔离/事务，不建立第二套收藏状态。
 - 收藏页的 Rail、筛选、卡片、Folder 管理、批量栏、状态与无障碍细节见 [`ui-specification.md`](./ui-specification.md)。

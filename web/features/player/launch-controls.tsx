@@ -88,7 +88,7 @@ function DOSProgramPicker({ defaultDosEntry, dosEntries, onChange, value }: {
 function LatestSaveCard({ gameId, latestSave, nowMs, requiresThreads }: { gameId: string; latestSave: LatestSave; nowMs: number | undefined; requiresThreads: boolean }) {
   const formatTime = useSaveTimeFormatter();
   return <div className="launch-quick-save">
-    <div><SaveScreenshot screenshotUrl={latestSave.screenshotUrl} alt="最近存档" sizes="126px" /><SaveSizeLabel sizeBytes={latestSave.sizeBytes} /></div>
+    <div><SaveScreenshot screenshotUrl={latestSave.screenshotUrl} alt="最近存档" sizes="189px" /><SaveSizeLabel sizeBytes={latestSave.sizeBytes} /></div>
     <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}{latestSave.discLabel ? ` · ${latestSave.discLabel}` : ""}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={requiresThreads} label="从存档继续" /></div>
   </div>;
 }
@@ -120,13 +120,23 @@ type LaunchViewProps = {
 
 function DesktopLaunchPanel(props: LaunchViewProps) {
   return <aside className="launch-panel" aria-label="启动游戏">
-    <span className="launch-kicker">{props.latestSave ? "继续游戏" : "开始游戏"}</span>
+    <div className="launch-panel-head">
+      <span className="launch-kicker">{props.latestSave ? "继续游戏" : "开始游戏"}</span>
+      <div className="launch-runtime-status"><RuntimeStatus blocked={props.blocked} selectedCore={props.selectedCore} /></div>
+    </div>
     <h2>{props.latestSave ? "接着最近的存档继续" : "从游戏开头开始"}</h2>
-    <div className="launch-runtime-status"><RuntimeStatus blocked={props.blocked} selectedCore={props.selectedCore} /></div>
     {props.isDOS ? <DOSProgramPicker defaultDosEntry={props.defaultDosEntry} dosEntries={props.dosEntries} onChange={props.onDOSChange} value={props.dosEntry} /> : null}
-    {props.latestSave ? <LatestSaveCard gameId={props.gameId} latestSave={props.latestSave} nowMs={props.nowMs} requiresThreads={props.latestSaveRequiresThreads} /> : null}
+    {props.latestSave ? <LatestSaveCard gameId={props.gameId} latestSave={props.latestSave} nowMs={props.nowMs} requiresThreads={props.latestSaveRequiresThreads} /> : <div className="launch-empty-save">
+      <AppIcon name="gamepad" />
+      <strong>还没有可继续的存档</strong>
+      <p>本次将从游戏开头启动。可用存档会显示在这里，方便下次继续。</p>
+    </div>}
     <LaunchButton gameId={props.gameId} coreId={props.coreId || null} dosEntry={props.isDOS ? props.dosEntry : null} requiresThreads={props.selectedCore?.requiresThreads} disabled={props.blocked} label={props.latestSave ? "重新开始游戏" : undefined} onLaunchCreated={props.onLaunchCreated} />
-    <div className="launch-runtime-row"><div><small>运行方式</small><strong>{props.selectedCore?.name ?? "尚未配置"}</strong>{props.usesOverride ? <span className="launch-core-override">（未采用默认核心）</span> : null}</div><button type="button" onClick={props.onAdvancedOpen}>更换 ›</button></div>
+    <div className="launch-runtime-row">
+      <small>运行方式</small>
+      <div className="launch-runtime-choice"><strong>{props.selectedCore?.name ?? "尚未配置"}</strong><button type="button" onClick={props.onAdvancedOpen}>更换</button></div>
+      {props.usesOverride ? <span className="launch-core-override">（未采用默认核心）</span> : null}
+    </div>
     <ConfirmDialog open={props.advancedOpen} title="更换运行方式" description="重新开始时使用此运行方式；恢复某份存档时，仍采用该存档保存时的 Core。" confirmLabel="应用" onCancel={props.onAdvancedClose} onConfirm={props.onCoreApply}>
       <label className="launch-core-field" htmlFor="core"><span>运行引擎</span><select id="core" name="core" value={props.stagedCoreId} onChange={(event) => props.onStagedCoreChange(event.target.value)}>{props.coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 推荐" : ""} · {coreStatusLabels[core.status]}</option>)}</select></label>
     </ConfirmDialog>
