@@ -79,6 +79,9 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   await page.keyboard.press("Tab");
   await expectFocusedControl(page, "保存标签");
   await createSave.press("Enter");
+  await expect(createSheet.getByRole("textbox", { name: "标签名称" })).toHaveValue("");
+  await expect(createSheet).toBeVisible();
+  await createSheet.getByRole("button", { name: "取消" }).click();
   const createdRow = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: tagName }) });
   await expect(createdRow).toBeVisible();
 
@@ -142,7 +145,7 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   await expect(page.getByRole("searchbox", { name: "搜索游戏" })).toHaveValue(renamedTagName);
   const card = page.locator(".library-game-card").filter({ hasText: game.title }).first();
   await expect(card).toBeVisible();
-  await expect(card.getByText(renamedTagName, { exact: true })).toBeVisible();
+  await expect(card.locator(".tag-chips")).toHaveCount(0);
   // Server-rendered filters can be visible before their client handlers are ready.
   await page.keyboard.press("/");
   await expect(page.getByRole("searchbox", { name: "搜索游戏" })).toBeFocused();

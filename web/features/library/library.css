@@ -29,11 +29,11 @@
 .library-game-cover { flex-shrink: 0; position: relative; overflow: hidden; aspect-ratio: 3 / 4; display: grid; place-items: center; border-radius: calc(var(--radius-cover) - 1px) calc(var(--radius-cover) - 1px) 0 0; background: #171d30; }
 .library-game-cover > a { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; }
 .library-game-cover img { object-fit: cover; background: #171d30; }
-.library-poster { position: absolute; inset: 0; padding: 20px; display: grid; place-content: center; justify-items: center; text-align: center; color: white; background: radial-gradient(circle at 78% 17%, rgb(67 208 218 / 34%), transparent 19%), radial-gradient(circle at 20% 78%, rgb(98 80 210 / 15%), transparent 28%), linear-gradient(150deg, #36415f 0%, #192137 54%, #111829 100%); }
+.library-poster { position: absolute; inset: 0; padding: 64px 20px 24px; display: grid; grid-template-rows: 12px minmax(0, 1fr) 22px; gap: 12px; align-items: center; justify-items: center; text-align: center; color: white; background: radial-gradient(circle at 78% 17%, rgb(67 208 218 / 34%), transparent 19%), radial-gradient(circle at 20% 78%, rgb(98 80 210 / 15%), transparent 28%), linear-gradient(150deg, #36415f 0%, #192137 54%, #111829 100%); }
 .library-poster::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgb(255 255 255 / 2.5%) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 2.5%) 1px, transparent 1px); background-size: 20px 20px; mask-image: linear-gradient(to bottom, transparent, black 30%, black 70%, transparent); }
 .library-poster small, .library-poster strong, .library-poster > span { position: relative; z-index: 1; max-width: 100%; }
 .library-poster small { color: #adb8cb; font: 800 10px/1.2 ui-monospace, monospace; letter-spacing: .24em; }
-.library-poster strong { margin: 16px 0 13px; overflow: hidden; text-overflow: ellipsis; color: white; font: 900 clamp(26px, 2.1vw, 42px)/1 ui-monospace, monospace; letter-spacing: -.05em; text-shadow: 0 6px 20px rgb(0 0 0 / 32%); }
+.library-poster strong { min-height: 0; max-height: 100%; margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow-wrap: anywhere; overflow: hidden; text-overflow: ellipsis; color: white; font: 900 clamp(26px, 2.1vw, 42px)/1.1 ui-monospace, monospace; letter-spacing: -.05em; text-shadow: 0 6px 20px rgb(0 0 0 / 32%); }
 .library-poster > span { padding: 5px 9px; overflow: hidden; color: #c9d2e2; border: 1px solid rgb(255 255 255 / 14%); border-radius: 999px; background: rgb(255 255 255 / 6%); font: 700 10px/1 ui-monospace, monospace; letter-spacing: .08em; text-overflow: ellipsis; white-space: nowrap; }
 .library-platform-tag { position: absolute; z-index: 3; left: 12px; top: 12px; min-height: 26px; padding: 4px 9px; color: #eef1f7; border: 1px solid rgb(255 255 255 / 12%); border-radius: 999px; background: rgb(15 19 32 / 72%); backdrop-filter: blur(8px); font-size: 11px; font-weight: 750; text-transform: uppercase; }
 .library-card-hover { position: absolute; z-index: 4; inset: 0; padding: 16px; display: flex; align-items: flex-end; opacity: 0; background: linear-gradient(180deg, transparent 44%, rgb(8 12 22 / 72%) 100%); transition: opacity .18s ease; }
@@ -42,7 +42,6 @@
 .library-game-hidden { position: absolute; z-index: 5; right: 12px; top: 12px; width: 34px; height: 34px; display: grid; place-items: center; color: white; border: 1px solid rgb(255 255 255 / 25%); border-radius: var(--radius-panel); background: rgb(181 45 59 / 88%); }
 .library-game-hidden svg { width: 18px; height: 18px; }
 .library-game-body { flex: 1; display: flex; flex-direction: column; padding: 14px 15px 15px; }
-.library-game-body > :has(+ .library-game-played) { margin-bottom: 12px; }
 .library-game-title-row { position: relative; min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .library-game-title-row > a { min-width: 0; }
 .library-game-title-row h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; line-height: 1.35; }
@@ -51,7 +50,7 @@
 .library-game-menu { position: absolute; z-index: 10; right: 0; top: 29px; min-width: 142px; padding: 5px; display: grid; gap: 2px; border: 1px solid #ddd8ce; border-radius: var(--radius-panel); background: white; box-shadow: 0 12px 28px rgb(17 23 39 / 18%); }
 .library-game-menu a, .library-game-menu button { min-height: 32px; padding: 0 9px; display: flex; align-items: center; color: #3f495c; border: 0; border-radius: var(--radius-control); background: transparent; cursor: pointer; font-size: 11px; text-align: left; }
 .library-game-menu a:hover, .library-game-menu button:hover { color: var(--purple-dark); background: var(--surface-subtle); }
-.library-game-body > p { margin: 7px 0 0; display: flex; gap: 7px; overflow: hidden; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.library-game-body > p { margin: 7px 0 12px; display: flex; gap: 7px; overflow: hidden; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .library-game-body > p span { overflow: hidden; text-overflow: ellipsis; }
 .library-game-body > p span + span::before { content: "·"; margin-right: 7px; color: #a6adba; }
 .library-game-played { margin-top: auto; padding-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); border-top: 1px solid #efede8; font-size: 11px; }

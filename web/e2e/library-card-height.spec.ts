@@ -1,21 +1,21 @@
 import { expect, test } from "@playwright/test";
 
-test("ACC-UI-005 library cards align with mixed tag counts", async ({ page }, testInfo) => {
+test("ACC-UI-005 library cards align without exposing filter tags", async ({ page }, testInfo) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const login = await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } });
   expect(login.ok()).toBe(true);
   await page.goto("/library");
   const cards = page.locator(".library-game-card");
   await expect(cards.nth(1)).toBeVisible();
-  // Layout-only variation of rendered fixture metadata; never writes user data.
-  await cards.first().locator(".library-game-body > .tag-chips").evaluateAll((tags) => tags.forEach((tag) => tag.remove()));
-  await cards.nth(1).locator(".library-game-body").evaluate((body) => {
-    body.querySelector(".tag-chips")?.remove();
-    const tags = document.createElement("div");
-    tags.className = "tag-chips";
-    tags.textContent = "掌机精选 · 长标签布局回归";
-    body.querySelector(".library-game-played")!.before(tags);
-  });
+  await expect(cards.locator(".tag-chips")).toHaveCount(0);
+  const poster = page.locator(".library-poster").first();
+  await expect(poster).toBeVisible();
+  await poster.locator("strong").evaluate((element) => {element.textContent = "短标题";});
+  const before = await poster.locator("small, :scope > span").evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().y));
+  await poster.locator("strong").evaluate((element) => {element.textContent = "过长的游戏标题用于验证固定位置".repeat(30);});
+  const after = await poster.locator("small, :scope > span").evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().y));
+  expect(after).toEqual(before);
+  await expect(poster.locator("strong")).toHaveCSS("-webkit-line-clamp", "3");
   await page.mouse.move(0, 0);
   const sizes = testInfo.project.name === "chrome-1280" ? [[1280, 800], [1920, 950]] : [[2560, 1360], [2560, 1440]];
   for (const [width, height] of sizes) {

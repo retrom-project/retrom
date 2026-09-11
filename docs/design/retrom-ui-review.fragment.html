@@ -116,7 +116,7 @@
       align-items: center;
       gap: 10px;
       width: 100%;
-      min-height: 40px;
+      min-height: 44px;
       padding: 9px 10px;
       border: 0;
       border-radius: var(--radius-control);
@@ -170,11 +170,11 @@
     #retrom-ui-review .rt-mode-button svg { width: 16px; height: 16px; flex: none; }
     #retrom-ui-review .rt-nav-spacer { flex: 1; min-height: 16px; }
     #retrom-ui-review .rt-sidebar-footer { display: grid; gap: 10px; }
-    #retrom-ui-review .rt-sidebar-account-row { display: flex; align-items: center; min-width: 0; min-height: 54px; border: 1px solid rgb(255 255 255 / .1); border-radius: var(--radius-control); }
+    #retrom-ui-review .rt-sidebar-account-row { display: flex; align-items: center; min-width: 0; height: 44px; min-height: 44px; border: 1px solid rgb(255 255 255 / .1); border-radius: var(--radius-control); }
     #retrom-ui-review .rt-sidebar-account-row .rt-account-menu { flex: 1; min-width: 0; }
-    #retrom-ui-review .rt-sidebar-account-row .rt-account-card { min-height: 52px; border: 0; border-radius: var(--radius-control); }
-    #retrom-ui-review .rt-sidebar-account-row .rt-health { width: 34px; height: 52px; margin-right: 4px; border: 0; border-radius: var(--radius-control); }
-    #retrom-ui-review .rt-sidebar-footer .rt-mode-button { min-height: 54px; border: 1px solid rgb(255 255 255 / 0.1); color: #d4d2df; }
+    #retrom-ui-review .rt-sidebar-account-row .rt-account-card { height: 42px; min-height: 42px; padding-block: 0; border: 0; border-radius: var(--radius-control); }
+    #retrom-ui-review .rt-sidebar-account-row .rt-health { width: 34px; height: 42px; margin-right: 4px; border: 0; border-radius: var(--radius-control); }
+    #retrom-ui-review .rt-sidebar-footer .rt-mode-button { height: 44px; min-height: 44px; border: 1px solid rgb(255 255 255 / 0.1); color: #d4d2df; }
     #retrom-ui-review .rt-health { position: relative; display: grid; place-items: center; width: 40px; height: 40px; flex: none; border: 1px solid rgb(255 255 255 / 0.1); border-radius: var(--radius-panel); background: transparent; cursor: help; }
     #retrom-ui-review .rt-status-dot { width: 8px; height: 8px; border-radius: 50%; background: #62d89b; box-shadow: 0 0 0 4px rgb(98 216 155 / 0.13); }
     #retrom-ui-review .rt-health-tip { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 12; width: 230px; padding: 10px 12px; border: 1px solid #30323f; border-radius: var(--radius-panel); background: #181a24; color: #f3f2fa; box-shadow: 0 14px 40px rgb(0 0 0 / 0.38); font-size: 11px; line-height: 1.5; opacity: 0; pointer-events: none; transform: translateY(4px); transition: 120ms ease; }
@@ -346,7 +346,10 @@
     #retrom-ui-review .rt-home-recent-copy { min-width: 0; padding: 13px; display: flex; flex: 1 1 auto; flex-direction: column; }
     #retrom-ui-review .rt-home-recent-copy strong, #retrom-ui-review .rt-home-recent-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-home-recent-copy > small { margin-top: 5px; color: var(--retrom-muted); font-size: 9px; line-height: 1.6; }
-    #retrom-ui-review .rt-home-recent-copy span { margin-top: auto; padding-top: 9px; display: flex; justify-content: space-between;  font-size: 10px; }
+    #retrom-ui-review .rt-home-recent-bottom { margin-top: auto; padding-top: 9px; display: grid; gap: 8px; }
+    #retrom-ui-review .rt-home-recent-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 10px; }
+    #retrom-ui-review .rt-home-featured-details > .rt-tag-list { margin-top: 12px; }
+    #retrom-ui-review .rt-home-featured-details > .rt-tag-list, #retrom-ui-review .rt-home-recent-bottom > .rt-tag-list { flex-wrap: nowrap; }
     #retrom-ui-review .rt-home-platform-layer { padding: 9px 0; }
     #retrom-ui-review .rt-home-platform-layer .rt-home-layer-head { min-height: 30px; margin-bottom: 5px; align-items: center; }
     #retrom-ui-review .rt-home-platform-rail { grid-auto-columns: minmax(220px, 1fr); gap: 9px; }
@@ -1056,9 +1059,9 @@
     #retrom-ui-review .rt-library-card:hover { border-color: color-mix(in srgb, var(--retrom-purple) 28%, var(--retrom-line)); box-shadow: 0 14px 36px rgb(24 32 51 / .08); transform: translateY(-3px); }
     #retrom-ui-review .rt-library-cover { flex-shrink: 0; position: relative; width: 100%; aspect-ratio: 3 / 4; padding: 0; overflow: hidden; display: grid; place-items: center; color: inherit; border: 0; background: #171d30; }
     #retrom-ui-review .rt-library-cover::before { position: absolute; inset: 0; background-image: linear-gradient(rgb(255 255 255 / .025) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .025) 1px, transparent 1px); background-size: 20px 20px; content: ""; mask-image: linear-gradient(to bottom, transparent, black 30%, black 70%, transparent); }
-    #retrom-ui-review .rt-library-poster { position: relative; z-index: 1; padding: 20px; color: #fff; text-align: center; }
+    #retrom-ui-review .rt-library-poster { position: absolute; inset: 0; z-index: 1; padding: 64px 20px 24px; display: grid; grid-template-rows: 12px minmax(0, 1fr) 22px; gap: 12px; align-items: center; justify-items: center; color: #fff; text-align: center; }
     #retrom-ui-review .rt-library-poster small { display: block; color: #adb8cb; font: 700 9px/1.2 ui-monospace, monospace; letter-spacing: .24em; }
-    #retrom-ui-review .rt-library-poster strong { display: block; margin: 16px 0 13px; font: 800 37px/1 ui-monospace, monospace; letter-spacing: -.05em; }
+    #retrom-ui-review .rt-library-poster strong { min-height: 0; max-height: 100%; margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; font: 800 37px/1.1 ui-monospace, monospace; letter-spacing: -.05em; }
     #retrom-ui-review .rt-library-poster span { display: inline-flex; padding: 5px 9px; color: #c9d2e2; border: 1px solid rgb(255 255 255 / .14); border-radius: 999px; background: rgb(255 255 255 / .06); font: 600 9px/1 ui-monospace, monospace; letter-spacing: .1em; }
     #retrom-ui-review .rt-library-platform-tag { position: absolute; z-index: 3; left: 12px; top: 12px; padding: 5px 9px; color: #eef1f7; border: 1px solid rgb(255 255 255 / .12); border-radius: 999px; background: rgb(15 19 32 / .72); font-size: 10px; font-weight: 600; text-transform: uppercase; }
     #retrom-ui-review .rt-library-hover { position: absolute; z-index: 4; inset: 0; padding: 16px; display: flex; align-items: flex-end; opacity: 0; background: linear-gradient(180deg, transparent 44%, rgb(8 12 22 / .72)); transition: opacity .18s ease; }
@@ -1079,6 +1082,13 @@
     #retrom-ui-review .rt-library-played { margin-top: auto; padding-top: 11px; display: flex; justify-content: space-between; color: var(--retrom-muted); border-top: 1px solid var(--retrom-line); font-size: 10px; }
     #retrom-ui-review .rt-library-played strong { color: var(--retrom-text); }
 
+    #retrom-ui-review .rt-favorite-rail-head button { min-height: 38px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--retrom-text); }
+    #retrom-ui-review .rt-favorite-drag { flex: 1; display: flex; align-items: center; gap: 8px; text-align: left; font-size: 13px; cursor: grab; touch-action: none; user-select: none; }
+    #retrom-ui-review .rt-favorite-drag svg { width: 16px; height: 16px; }
+    #retrom-ui-review .rt-favorite-collapse { width: 38px; cursor: pointer; }
+    #retrom-ui-review .rt-favorite-rail.is-collapsed > :not(.rt-favorite-rail-head) { display: none; }
+    #retrom-ui-review .rt-favorite-rail > button { flex-shrink: 0; }
+
     /* Favorites · merged into the shared review system */
     #retrom-ui-review .rt-favorite-head-summary { display: flex; gap: 9px; }
     #retrom-ui-review .rt-favorite-head-summary > div { min-width: 104px; padding: 9px 12px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--retrom-panel) 86%, transparent); }
@@ -1086,13 +1096,13 @@
     #retrom-ui-review .rt-favorite-head-summary strong { display: block; }
     #retrom-ui-review .rt-favorite-head-summary span { color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-favorite-head-summary strong { margin-top: 2px; font-size: 17px; }
-    #retrom-ui-review .rt-favorite-workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 18px; align-items: start; }
-    #retrom-ui-review .rt-favorite-rail { position: sticky; top: 18px; max-height: calc(100vh - 68px); overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
-    #retrom-ui-review .rt-favorite-rail-head { padding: 15px 15px 12px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-favorite-workspace { position: relative; display: block; }
+    #retrom-ui-review .rt-favorite-rail { position: fixed; z-index: 30; width: min(250px, calc(100vw - 16px)); max-height: min(480px, calc(100dvh - 16px)); overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 12px 36px rgb(24 32 51 / .16); border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
+    #retrom-ui-review .rt-favorite-rail-head { padding: 6px; display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--retrom-line); }
     #retrom-ui-review .rt-favorite-rail-head strong,
     #retrom-ui-review .rt-favorite-rail-head small { display: block; }
     #retrom-ui-review .rt-favorite-rail-head small { margin-top: 3px; color: var(--retrom-muted); font-size: 9px; }
-    #retrom-ui-review .rt-favorite-rail-list { padding: 8px; overflow-y: auto; }
+    #retrom-ui-review .rt-favorite-rail-list { min-height: 0; padding: 8px; overflow-y: auto; }
     #retrom-ui-review .rt-favorite-rail-label { padding: 11px 8px 5px; color: var(--retrom-muted); font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
     #retrom-ui-review .rt-favorite-scope { width: 100%; min-height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 9px; color: var(--retrom-muted); border: 0; border-radius: var(--radius-panel); background: transparent; text-align: left; }
     #retrom-ui-review .rt-favorite-scope:hover { color: var(--retrom-text); background: var(--retrom-panel-raised); }
@@ -1129,26 +1139,22 @@
     #retrom-ui-review .rt-favorite-cover.is-green { background: linear-gradient(155deg, #214d34, #4b8a52 55%, #15231f); }
     #retrom-ui-review .rt-favorite-cover.is-blue { background: linear-gradient(155deg, #273f7c, #536fc1 55%, #151c31); }
     #retrom-ui-review .rt-favorite-cover::before { position: absolute; inset: 0; background: radial-gradient(circle at 72% 18%, rgb(72 224 228 / .36), transparent 20%), linear-gradient(rgb(255 255 255 / .028) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .028) 1px, transparent 1px); background-size: auto, 20px 20px, 20px 20px; content: ""; }
-    #retrom-ui-review .rt-favorite-poster { position: relative; z-index: 1; padding: 18px; text-align: center; }
-    #retrom-ui-review .rt-favorite-poster small,
-    #retrom-ui-review .rt-favorite-poster strong,
-    #retrom-ui-review .rt-favorite-poster span { display: block; }
-    #retrom-ui-review .rt-favorite-poster small { color: #d3d9e6; font: 700 8px/1.2 ui-monospace, monospace; letter-spacing: .22em; }
-    #retrom-ui-review .rt-favorite-poster strong { margin: 15px 0 11px; font: 800 30px/1 ui-monospace, monospace; letter-spacing: -.05em; }
-    #retrom-ui-review .rt-favorite-poster span { color: #d7dceb; font: 650 8px/1 ui-monospace, monospace; letter-spacing: .11em; }
-    #retrom-ui-review .rt-favorite-heart { position: absolute; z-index: 5; top: 9px; right: 9px; width: 38px; min-height: 38px; padding: 0; display: grid; place-items: center; color: #dc4257; border: 1px solid rgb(239 192 199 / .92); border-radius: 50%; background: rgb(255 247 248 / .94); backdrop-filter: blur(8px); }
+    #retrom-ui-review .rt-favorite-poster { position: absolute; inset: 0; z-index: 1; padding: 64px 20px 24px; display: grid; grid-template-rows: 12px minmax(0, 1fr) 22px; gap: 12px; align-items: center; justify-items: center; color: #fff; text-align: center; }
+    #retrom-ui-review .rt-favorite-poster small { display: block; color: #adb8cb; font: 700 9px/1.2 ui-monospace, monospace; letter-spacing: .24em; }
+    #retrom-ui-review .rt-favorite-poster strong { min-height: 0; max-height: 100%; margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; font: 800 37px/1.1 ui-monospace, monospace; letter-spacing: -.05em; }
+    #retrom-ui-review .rt-favorite-poster span { display: inline-flex; padding: 5px 9px; color: #c9d2e2; border: 1px solid rgb(255 255 255 / .14); border-radius: 999px; background: rgb(255 255 255 / .06); font: 600 9px/1 ui-monospace, monospace; letter-spacing: .1em; }
+    #retrom-ui-review .rt-favorite-heart { position: absolute; z-index: 5; top: 9px; left: 9px; width: 38px; min-height: 38px; padding: 0; display: grid; place-items: center; color: #dc4257; border: 1px solid rgb(239 192 199 / .92); border-radius: 50%; background: rgb(255 247 248 / .94); backdrop-filter: blur(8px); }
     #retrom-ui-review .rt-favorite-heart svg { width: 17px; height: 17px; fill: currentColor; }
     #retrom-ui-review .rt-favorite-heart[aria-pressed="false"] { color: #d7dbea; border-color: rgb(255 255 255 / .28); background: rgb(16 22 34 / .64); }
     #retrom-ui-review .rt-favorite-heart[aria-pressed="false"] svg { fill: none; }
     #retrom-ui-review .rt-favorite-select { position: absolute; z-index: 5; top: 9px; left: 9px; width: 38px; min-height: 38px; padding: 0; display: none; place-items: center; color: #fff; border: 1px solid rgb(255 255 255 / .34); border-radius: var(--radius-control); background: rgb(16 22 34 / .82); }
     #retrom-ui-review .rt-favorites-page.is-batching .rt-favorite-select { display: grid; }
+    #retrom-ui-review .rt-favorites-page.is-batching .rt-favorite-heart { display: none; }
     #retrom-ui-review .rt-favorite-select.is-selected { border-color: #9e91ef; background: var(--retrom-purple); }
-    #retrom-ui-review .rt-favorite-card-body { min-height: 96px; padding: 12px 50px 13px 12px; }
+    #retrom-ui-review .rt-favorite-card-body { min-height: 64px; padding: 12px 12px 13px; }
     #retrom-ui-review .rt-favorite-card-body h3 { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-favorite-meta { margin-top: 5px; display: flex; justify-content: space-between; gap: 9px; color: var(--retrom-muted); font-size: 10px; }
-    #retrom-ui-review .rt-favorite-tags { min-height: 24px; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
-    #retrom-ui-review .rt-favorite-tag { padding: 3px 6px; color: var(--retrom-purple); border-radius: 999px; background: var(--retrom-purple-soft); font-size: 9px; font-weight: 650; }
-    #retrom-ui-review .rt-favorite-manage { position: absolute; z-index: 5; right: 9px; bottom: 9px; width: 34px; min-height: 34px; padding: 0; display: grid; place-items: center; color: var(--retrom-muted); border: 1px solid var(--retrom-line); border-radius: var(--radius-control); background: var(--retrom-panel); }
+    #retrom-ui-review .rt-favorite-manage { position: absolute; z-index: 5; right: 9px; top: 9px; width: 38px; min-height: 38px; padding: 0; display: grid; place-items: center; color: var(--retrom-muted); border: 1px solid var(--retrom-line); border-radius: 50%; background: var(--retrom-panel); }
     #retrom-ui-review .rt-favorite-manage:hover { color: var(--retrom-purple); background: var(--retrom-panel-raised); }
     #retrom-ui-review .rt-favorite-popover { position: fixed; z-index: 42; top: 172px; right: 42px; width: 320px; padding: 13px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); box-shadow: 0 22px 58px rgb(24 32 51 / .2); }
     #retrom-ui-review .rt-favorite-popover-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -1195,7 +1201,6 @@
     @media (max-width: 1000px) {
       #retrom-ui-review .rt-favorite-workspace { grid-template-columns: 1fr; }
       #retrom-ui-review .rt-favorite-rail { position: static; max-height: none; }
-      #retrom-ui-review .rt-favorite-rail-list { display: flex; gap: 5px; overflow-x: auto; }
       #retrom-ui-review .rt-favorite-rail-label { display: none; }
       #retrom-ui-review .rt-favorite-scope { width: auto; flex: none; }
       #retrom-ui-review .rt-favorite-new-folder { margin-top: 0; }
@@ -1682,7 +1687,7 @@
       #retrom-ui-review .rt-home-recent-card .rt-cover { height: 100%; }
       #retrom-ui-review .rt-home-recent-copy { padding: 10px; }
       #retrom-ui-review .rt-home-recent-copy > small { margin-top: 3px; line-height: 1.45; }
-      #retrom-ui-review .rt-home-recent-copy span { padding-top: 7px; }
+      #retrom-ui-review .rt-home-recent-bottom { padding-top: 7px; }
       #retrom-ui-review .rt-home-platform-layer { padding: 7px 0; display: grid; grid-template-rows: 29px minmax(0, 1fr); }
       #retrom-ui-review .rt-home-platform-layer .rt-home-layer-head { min-height: 29px; margin: 0; }
       #retrom-ui-review .rt-home-platform { height: 100%; min-height: 0; padding-block: 5px; }
@@ -1730,7 +1735,7 @@
       #retrom-ui-review .rt-home-recent-copy { padding: 20px; }
       #retrom-ui-review .rt-home-recent-copy strong { font-size: 17px; }
       #retrom-ui-review .rt-home-recent-copy > small { margin-top: 8px; font-size: 12px; line-height: 1.6; }
-      #retrom-ui-review .rt-home-recent-copy span { padding-top: 14px; font-size: 12px; }
+      #retrom-ui-review .rt-home-recent-bottom { padding-top: 14px; font-size: 12px; }
       #retrom-ui-review .rt-home-platform-layer { padding: 10px 0; display: grid; grid-template-rows: 44px minmax(0, 1fr); }
       #retrom-ui-review .rt-home-platform-layer .rt-home-layer-head { min-height: 44px; margin: 0; }
       #retrom-ui-review .rt-home-platform-rail { padding-bottom: 8px; }
@@ -1927,6 +1932,7 @@
     #retrom-ui-review .rt-account-menu > summary::-webkit-details-marker { display: none; }
     #retrom-ui-review .rt-account-card { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px; border: 1px solid rgb(255 255 255 / .1); border-radius: var(--radius-panel); background: rgb(255 255 255 / .035); color: #fff; cursor: pointer; text-align: left; }
     #retrom-ui-review .rt-account-avatar, #retrom-ui-review .rt-user-avatar { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: var(--radius-panel); background: rgb(155 134 255 / .2); color: #c9bcff; font-weight: 700; }
+    #retrom-ui-review .rt-account-avatar { width: 26px; height: 26px; border-radius: 50%; font-size: 12px; }
     #retrom-ui-review .rt-account-card span:last-child { min-width: 0; display: grid; gap: 2px; }
     #retrom-ui-review .rt-account-card strong, #retrom-ui-review .rt-account-card small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-account-card strong { font-size: 11px; }
@@ -1981,9 +1987,17 @@
     #retrom-ui-review .rt-tag-list { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
     #retrom-ui-review .rt-tag-pill { max-width: 150px; padding: 3px 8px; overflow: hidden; color: var(--retrom-purple); border: 1px solid color-mix(in srgb, var(--retrom-purple) 25%, var(--retrom-line)); border-radius: 999px; background: color-mix(in srgb, var(--retrom-purple-soft) 64%, var(--retrom-panel)); font-size: 9px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-tag-pill.is-count { color: var(--retrom-muted); border-color: var(--retrom-line); background: var(--retrom-panel-raised); }
-    #retrom-ui-review .rt-library-body > .rt-tag-list, #retrom-ui-review .rt-management-title + .rt-tag-list { margin-top: 6px; }
+    #retrom-ui-review .rt-management-title + .rt-tag-list { margin-top: 6px; }
     #retrom-ui-review .rt-tag-picker { padding: 10px; display: grid; gap: 8px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel-raised); }
     #retrom-ui-review .rt-tag-picker .rt-input { background: var(--retrom-panel); }
+    #retrom-ui-review .rt-tag-drawer footer { flex-wrap: wrap; }
+    #retrom-ui-review .rt-tag-table .rt-button { min-height: 32px; padding: 0 12px; font-size: 12px; }
+    #retrom-ui-review [data-open-tag-delete] { color: #a63745; border-color: #efcbd0; background: #fff7f8; }
+    #retrom-ui-review .rt-tag-mobile-card .rt-button { min-height: 44px; }
+    #retrom-ui-review .rt-tag-editor-feedback { flex-basis: 100%; height: 36px; overflow-y: auto; margin: 0; color: #247561; text-align: right; font-size: 12px; }
+    #retrom-ui-review .rt-detail-tag-options { max-height: 240px; overflow-y: auto; border: 1px solid var(--retrom-line); border-radius: var(--radius-control); background: var(--retrom-panel); }
+    #retrom-ui-review .rt-detail-tag-options button { display: block; width: 100%; min-height: 38px; padding: 8px 12px; border: 0; text-align: left; background: transparent; color: var(--retrom-text); cursor: pointer; }
+    #retrom-ui-review .rt-detail-tag-options button:hover { background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-tag-picker small { color: var(--retrom-muted); }
     #retrom-ui-review .rt-tag-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 13px; }
     #retrom-ui-review .rt-tag-kpis article { padding: 14px 16px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
@@ -2462,6 +2476,10 @@
       #retrom-ui-review .rt-phone-games strong { display: block; margin-top: 9px; font-size: 14px; }
       #retrom-ui-review .rt-phone-games small { display: block; margin-top: 3px; color: var(--retrom-muted); }
       #retrom-ui-review .rt-page-head .rt-subtitle, #retrom-ui-review .rt-library-section-head,
+      #retrom-ui-review .rt-library-poster, #retrom-ui-review .rt-favorite-poster { padding: 54px 10px 14px; gap: 8px; }
+      #retrom-ui-review .rt-library-poster small, #retrom-ui-review .rt-favorite-poster small { font-size: 8px; letter-spacing: .12em; white-space: nowrap; }
+      #retrom-ui-review .rt-library-poster strong, #retrom-ui-review .rt-favorite-poster strong { font-size: clamp(16px, 5vw, 24px); -webkit-line-clamp: 2; }
+      #retrom-ui-review .rt-favorite-heart, #retrom-ui-review .rt-favorite-manage, #retrom-ui-review .rt-favorite-select { width: 44px; min-height: 44px; }
       #retrom-ui-review .rt-library-meta, #retrom-ui-review .rt-library-played, #retrom-ui-review .rt-library-body > .rt-tag-list,
       #retrom-ui-review .rt-library-platform-tag, #retrom-ui-review .rt-library-platforms > span,
       #retrom-ui-review .rt-library-tool-row > select { display: none; }
@@ -2524,15 +2542,9 @@
 
     @media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
       #retrom-ui-review .rt-favorite-layout { grid-template-columns: minmax(0,1fr); }
-      #retrom-ui-review .rt-favorite-view-head > div, #retrom-ui-review .rt-favorite-rail-head,
-      #retrom-ui-review .rt-favorite-result, #retrom-ui-review .rt-recent-stats,
-      #retrom-ui-review .rt-favorite-rail-label { display: none; }
+      #retrom-ui-review .rt-favorite-result, #retrom-ui-review .rt-recent-stats { display: none; }
       #retrom-ui-review .rt-favorite-view-head { min-height: 0; margin: 0; }
-      #retrom-ui-review .rt-favorite-rail { display: flex; position: static; align-items: center; gap: 8px; border: 0; background: transparent; }
-      #retrom-ui-review .rt-favorite-rail-list { display: flex; flex: 1; min-width: 0; overflow-x: auto; gap: 8px; padding: 0; }
       #retrom-ui-review .rt-favorite-scope { min-height: 44px; flex-shrink: 0; }
-      #retrom-ui-review .rt-favorite-new-folder { width: 44px; min-width: 44px; min-height: 44px; margin: 0; font-size: 0; }
-      #retrom-ui-review .rt-favorite-new-folder::after { content: '+'; font-size: 22px; }
       #retrom-ui-review .rt-favorite-tools, #retrom-ui-review .rt-save-toolbar, #retrom-ui-review .rt-recent-filters { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; padding: 0; border: 0; background: transparent; box-shadow: none; }
       #retrom-ui-review .rt-phone-filter-fields > div { display: grid; gap: 12px; padding-bottom: 12px; }
       #retrom-ui-review .rt-phone-filter-fields { margin: 0; }
@@ -2814,7 +2826,7 @@
       <div class="rt-sidebar-footer">
         <div class="rt-sidebar-account-row">
           <details class="rt-account-menu">
-            <summary class="rt-account-card"><span class="rt-account-avatar" aria-hidden="true">站</span><span><strong>站点管理员</strong><small>@admin · 管理员</small></span></summary>
+            <summary class="rt-account-card"><span class="rt-account-avatar" aria-hidden="true">站</span><span><strong>站点管理员</strong></span></summary>
             <div class="rt-account-popover"><button type="button" data-page-link="account"><i data-lucide="settings" aria-hidden="true"></i>账户设置</button><button type="button" data-logout-scene><i data-lucide="log-out" aria-hidden="true"></i>退出登录</button></div>
           </details>
           <button type="button" class="rt-health" aria-label="服务状态：正常"><span class="rt-status-dot" aria-hidden="true"></span><span class="rt-health-tip" role="tooltip"><strong>服务正常</strong><br>数据库、依赖索引和后台任务均可用。</span></button>
@@ -2897,10 +2909,10 @@
       </section>
 
       <section class="rt-page rt-favorites-page" data-page="favorites">
-        <div class="rt-page-head"><div><div class="rt-eyebrow">我的游戏</div><h1>我的收藏</h1><p class="rt-subtitle">快速保存喜欢的游戏，需要时再用收藏夹整理。同一款游戏可以加入多个收藏夹。</p></div><div class="rt-favorite-head-summary"><div><span>收藏</span><strong>36 款</strong></div><div><span>收藏夹</span><strong>4 个</strong></div></div></div>
+        <div class="rt-page-head"><div><div class="rt-eyebrow">我的游戏</div><h1>我的收藏</h1></div><div class="rt-favorite-head-summary"><div><span>收藏</span><strong>36 款</strong></div><div><span>收藏夹</span><strong>4 个</strong></div></div></div>
         <div class="rt-favorite-workspace">
           <aside class="rt-favorite-rail" aria-label="收藏导航">
-            <div class="rt-favorite-rail-head"><strong>收藏导航</strong><small>全部收藏与自定义收藏夹</small></div>
+            <div class="rt-favorite-rail-head"><button class="rt-favorite-drag" type="button" aria-label="移动收藏导航" title="拖动移动；方向键移动"><i data-lucide="grip-vertical" aria-hidden="true"></i>收藏导航</button><button class="rt-favorite-collapse" type="button" aria-label="折叠收藏导航" aria-expanded="true">−</button></div>
             <div class="rt-favorite-rail-list">
               <button type="button" class="rt-favorite-scope is-active" data-favorite-scope="all" data-favorite-title="全部收藏" data-favorite-description="你收藏的全部可见游戏。" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i><span>全部收藏</span><b>36</b></button>
               <button type="button" class="rt-favorite-scope" data-favorite-scope="uncategorized" data-favorite-title="未分类" data-favorite-description="还没有加入任何收藏夹的游戏。" aria-pressed="false"><i data-lucide="circle" aria-hidden="true"></i><span>未分类</span><b>12</b></button>
@@ -2910,19 +2922,20 @@
               <button type="button" class="rt-favorite-scope" data-favorite-scope="folder" data-favorite-title="双人游戏" data-favorite-description="“双人游戏”收藏夹，共 6 款。" aria-pressed="false"><i data-lucide="folder" aria-hidden="true"></i><span>双人游戏</span><b>6</b></button>
               <button type="button" class="rt-favorite-scope" data-favorite-scope="folder" data-favorite-title="Capcom" data-favorite-description="“Capcom”收藏夹，共 9 款。" aria-pressed="false"><i data-lucide="folder" aria-hidden="true"></i><span>Capcom</span><b>9</b></button>
             </div>
+            <button type="button" class="rt-button" data-edit-favorite-folder hidden>编辑收藏夹</button>
             <button type="button" class="rt-favorite-new-folder" data-open-favorite-form>＋ 新建收藏夹</button>
           </aside>
           <section class="rt-favorite-content">
-            <header class="rt-favorite-view-head"><div><h2 data-favorite-view-title>全部收藏</h2><p data-favorite-view-description>你收藏的全部可见游戏。</p></div><button type="button" class="rt-button" data-edit-favorite-folder hidden>编辑收藏夹</button></header>
+
             <section class="rt-favorite-tools" aria-label="筛选收藏"><label class="rt-favorite-filter"><span>搜索收藏</span><span class="rt-favorite-search"><i data-lucide="search" aria-hidden="true"></i><input class="rt-input" type="search" placeholder="输入游戏标题"></span></label><label class="rt-favorite-filter"><span>排序方式</span><select class="rt-select"><option>最近收藏</option><option>最近游玩</option><option>标题 A–Z</option><option>发行年份</option></select></label><button type="button" class="rt-button" data-toggle-favorite-batch aria-pressed="false">批量整理</button></section>
             <div class="rt-favorite-summary"><div class="rt-favorite-chips" role="group" aria-label="按游戏平台筛选"><span>游戏平台</span><button type="button" class="rt-favorite-chip is-active">全部 36</button><button type="button" class="rt-favorite-chip">Arcade 18</button><button type="button" class="rt-favorite-chip">GBA 7</button></div><div class="rt-favorite-result"><span>当前显示 <strong>36</strong> 款</span><button type="button" class="rt-text-link">整理未分类游戏</button></div></div>
             <div class="rt-favorite-grid">
-              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover" data-open-game="metal" aria-label="查看 1943: The Battle of Midway 详情"><span class="rt-favorite-poster"><small>THE BATTLE OF MIDWAY</small><strong>1943</strong><span>FINALBURN NEO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 1943: The Battle of Midway" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 1943: The Battle of Midway" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>1943: The Battle of Midway</h3><div class="rt-favorite-meta"><span>Arcade</span><span>1987</span></div><div class="rt-favorite-tags"><span class="rt-favorite-tag">街机精选</span><span class="rt-favorite-tag">Capcom</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 1943: The Battle of Midway 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
-              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-red" data-open-game="metal" aria-label="查看 Metal Slug 详情"><span class="rt-favorite-poster"><small>NEO GEO CLASSICS</small><strong>METAL SLUG</strong><span>FINALBURN NEO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 Metal Slug" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 Metal Slug" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>Metal Slug</h3><div class="rt-favorite-meta"><span>Arcade</span><span>1996</span></div><div class="rt-favorite-tags"><span class="rt-favorite-tag">街机精选</span><span class="rt-favorite-tag">双人游戏</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 Metal Slug 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
-              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-cyan" data-open-game="zelda" aria-label="查看 Zelda no Densetsu 详情"><span class="rt-favorite-poster"><small>FAMICOM DISK SYSTEM</small><strong>ZELDA</strong><span>NINTENDO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 Zelda no Densetsu" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 Zelda no Densetsu" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>Zelda no Densetsu</h3><div class="rt-favorite-meta"><span>Famicom Disk</span><span>1986</span></div><div class="rt-favorite-tags"><span class="rt-favorite-tag">想玩的</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 Zelda no Densetsu 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
-              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-amber" data-open-game="doom" aria-label="查看 DOOM 详情"><span class="rt-favorite-poster"><small>MS-DOS CLASSICS</small><strong>DOOM</strong><span>DOSBOX PURE</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 DOOM" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 DOOM" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>DOOM</h3><div class="rt-favorite-meta"><span>MS-DOS</span><span>1993</span></div><div class="rt-favorite-tags"><span class="rt-favorite-tag">想玩的</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 DOOM 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
-              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-green" data-open-game="doom" aria-label="查看 1941 详情"><span class="rt-favorite-poster"><small>RETROM CLASSICS</small><strong>1941</strong><span>FINALBURN NEO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 1941" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 1941" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>1941</h3><div class="rt-favorite-meta"><span>Arcade</span><span>1990</span></div><div class="rt-favorite-tags"><span class="rt-favorite-tag">Capcom</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 1941 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
-              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-blue" data-open-game="zelda" aria-label="查看 1945kiii 详情"><span class="rt-favorite-poster"><small>RETROM CLASSICS</small><strong>1945 KIII</strong><span>FINALBURN NEO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 1945kiii" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 1945kiii" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>1945kiii</h3><div class="rt-favorite-meta"><span>Arcade</span><span>2000</span></div><div class="rt-favorite-tags"><span class="rt-favorite-tag">街机精选</span><span class="rt-favorite-tag">想玩的</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 1945kiii 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
+              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover" data-open-game="metal" aria-label="查看 1943: The Battle of Midway 详情"><span class="rt-favorite-poster"><small>THE BATTLE OF MIDWAY</small><strong>1943</strong><span>FINALBURN NEO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 1943: The Battle of Midway" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 1943: The Battle of Midway" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>1943: The Battle of Midway</h3><div class="rt-favorite-meta"><span>Arcade</span><span>1987</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 1943: The Battle of Midway 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
+              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-red" data-open-game="metal" aria-label="查看 Metal Slug 详情"><span class="rt-favorite-poster"><small>NEO GEO CLASSICS</small><strong>METAL SLUG</strong><span>FINALBURN NEO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 Metal Slug" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 Metal Slug" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>Metal Slug</h3><div class="rt-favorite-meta"><span>Arcade</span><span>1996</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 Metal Slug 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
+              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-cyan" data-open-game="zelda" aria-label="查看 Zelda no Densetsu 详情"><span class="rt-favorite-poster"><small>FAMICOM DISK SYSTEM</small><strong>ZELDA</strong><span>NINTENDO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 Zelda no Densetsu" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 Zelda no Densetsu" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>Zelda no Densetsu</h3><div class="rt-favorite-meta"><span>Famicom Disk</span><span>1986</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 Zelda no Densetsu 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
+              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-amber" data-open-game="doom" aria-label="查看 DOOM 详情"><span class="rt-favorite-poster"><small>MS-DOS CLASSICS</small><strong>DOOM</strong><span>DOSBOX PURE</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 DOOM" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 DOOM" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>DOOM</h3><div class="rt-favorite-meta"><span>MS-DOS</span><span>1993</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 DOOM 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
+              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-green" data-open-game="doom" aria-label="查看 1941 详情"><span class="rt-favorite-poster"><small>RETROM CLASSICS</small><strong>1941</strong><span>FINALBURN NEO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 1941" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 1941" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>1941</h3><div class="rt-favorite-meta"><span>Arcade</span><span>1990</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 1941 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
+              <article class="rt-favorite-card" data-favorite-card><button type="button" class="rt-favorite-cover is-blue" data-open-game="zelda" aria-label="查看 1945kiii 详情"><span class="rt-favorite-poster"><small>RETROM CLASSICS</small><strong>1945 KIII</strong><span>FINALBURN NEO</span></span></button><button type="button" class="rt-favorite-heart" data-favorite-heart aria-label="取消收藏 1945kiii" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><button type="button" class="rt-favorite-select" data-favorite-select aria-label="选择 1945kiii" aria-pressed="false"><i data-lucide="check" aria-hidden="true"></i></button><div class="rt-favorite-card-body"><h3>1945kiii</h3><div class="rt-favorite-meta"><span>Arcade</span><span>2000</span></div></div><button type="button" class="rt-favorite-manage" data-favorite-manage aria-label="管理 1945kiii 的收藏夹" aria-haspopup="dialog"><i data-lucide="ellipsis" aria-hidden="true"></i></button></article>
             </div>
           </section>
         </div>
@@ -3591,9 +3604,59 @@
       const modeLabel = root.querySelector('#rt-mode-label');
       let mode = 'user';
       const reviewTagSets = [['清版动作', '高难度'], ['双人', '适合聚会'], ['高难度'], ['双人', '清版动作'], ['适合聚会', '清版动作']];
-      root.querySelectorAll('[data-page="library"] .rt-library-meta').forEach((meta, index) => meta.insertAdjacentHTML('afterend', `<span class="rt-tag-list" aria-label="游戏标签">${reviewTagSets[index].map((tag) => `<span class="rt-tag-pill">${tag}</span>`).join('')}</span>`));
-      root.querySelectorAll('[data-page="admin-games"] .rt-management-title').forEach((title, index) => title.insertAdjacentHTML('afterend', `<span class="rt-tag-list" aria-label="游戏标签">${reviewTagSets[index % reviewTagSets.length].slice(0, 3).map((tag) => `<span class="rt-tag-pill">${tag}</span>`).join('')}</span>`));
 
+
+
+      root.querySelector('.rt-home-featured-details h2').insertAdjacentHTML('afterend', '<span class="rt-tag-list" aria-label="游戏标签"><span class="rt-tag-pill">双人</span><span class="rt-tag-pill">清版动作</span></span>');
+      root.querySelectorAll('.rt-home-recent-copy').forEach((copy, index) => {
+        const meta = copy.lastElementChild;
+        meta.classList.add('rt-home-recent-meta');
+        const bottom = document.createElement('span');
+        bottom.className = 'rt-home-recent-bottom';
+        bottom.innerHTML = `<span class="rt-tag-list" aria-label="游戏标签">${reviewTagSets[index % reviewTagSets.length].map((tag) => `<span class="rt-tag-pill">${tag}</span>`).join('')}</span>`;
+        bottom.append(meta); copy.append(bottom);
+      });
+
+      const floatingRail = root.querySelector('.rt-favorite-rail');
+      const floatingAnchor = root.querySelector('.rt-favorite-tools');
+      let floatingPosition = null;
+      let floatingDrag = null;
+      const placeFloatingRail = () => {
+        if (!floatingAnchor.getBoundingClientRect().width) return;
+        const base = floatingAnchor.getBoundingClientRect();
+        const rect = floatingRail.getBoundingClientRect();
+        const point = floatingPosition || { x: base.right - rect.width, y: base.bottom + 12 };
+        const next = { x: Math.max(8, Math.min(point.x, innerWidth - rect.width - 8)), y: Math.max(8, Math.min(point.y, innerHeight - rect.height - 8)) };
+        if (floatingPosition) floatingPosition = next;
+        floatingRail.style.left = `${next.x}px`; floatingRail.style.top = `${next.y}px`;
+      };
+      const floatingHandle = root.querySelector('.rt-favorite-drag');
+      floatingHandle.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        const rect = floatingRail.getBoundingClientRect();
+        floatingDrag = { x: event.clientX - rect.x, y: event.clientY - rect.y };
+        floatingHandle.setPointerCapture(event.pointerId);
+      });
+      floatingHandle.addEventListener('pointermove', (event) => {
+        if (!floatingDrag) return;
+        floatingPosition = { x: event.clientX - floatingDrag.x, y: event.clientY - floatingDrag.y }; placeFloatingRail();
+      });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((name) => floatingHandle.addEventListener(name, () => { floatingDrag = null; }));
+      floatingHandle.addEventListener('keydown', (event) => {
+        const offset = { ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20] }[event.key];
+        if (!offset) return;
+        event.preventDefault(); const rect = floatingRail.getBoundingClientRect();
+        floatingPosition = { x: rect.x + offset[0], y: rect.y + offset[1] }; placeFloatingRail();
+      });
+      root.querySelector('.rt-favorite-collapse').addEventListener('click', (event) => {
+        const collapsed = floatingRail.classList.toggle('is-collapsed');
+        event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+        event.currentTarget.setAttribute('aria-label', collapsed ? '展开收藏导航' : '折叠收藏导航');
+        event.currentTarget.textContent = collapsed ? '+' : '−'; placeFloatingRail();
+      });
+      new ResizeObserver(placeFloatingRail).observe(root.querySelector('.rt-favorite-content'));
+      window.addEventListener('resize', placeFloatingRail);
+      window.addEventListener('scroll', placeFloatingRail, true);
 
       const phoneQuery = matchMedia('(max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px)');
       const disclosed = [['.rt-detail-description', '游戏简介'], ['.rt-detail-info-strip', '游戏信息']].map(([selector, title]) => {
@@ -3808,6 +3871,44 @@
       root.querySelectorAll('[data-open-tag-drawer]').forEach((button) => button.addEventListener('click', () => { tagDrawer.hidden = false; tagDrawerBackdrop.hidden = false; root.querySelector('[data-tag-name-input]').focus(); }));
       root.querySelectorAll('[data-close-tag-drawer]').forEach((button) => button.addEventListener('click', closeTagDrawer));
       tagDrawerBackdrop.addEventListener('click', closeTagDrawer);
+      const tagNameInput = root.querySelector('[data-tag-name-input]');
+      const tagCreateNotice = document.createElement('p');
+      tagCreateNotice.className = 'rt-tag-editor-feedback'; tagCreateNotice.setAttribute('role', 'status');
+      tagDrawer.querySelector('footer').append(tagCreateNotice);
+      const createdReviewTags = new Set(['双人', '清版动作', '适合聚会', '掌机', '高难度']);
+      tagDrawer.querySelector('footer .rt-button-primary').addEventListener('click', () => {
+        const name = tagNameInput.value.trim();
+        if (!name) return;
+        if (createdReviewTags.has(name)) { tagCreateNotice.setAttribute('role', 'alert'); tagCreateNotice.style.color = '#a63745'; tagCreateNotice.textContent = '已存在同名活动标签'; return; }
+        createdReviewTags.add(name); tagCreateNotice.setAttribute('role', 'status'); tagCreateNotice.style.color = '#247561';
+        tagCreateNotice.textContent = `已创建“${name}”，可继续添加。`;
+        tagNameInput.value = ''; tagNameInput.focus();
+      });
+      const detailTagPicker = root.querySelector('.rt-admin-detail-tags .rt-tag-picker');
+      const detailTagInput = detailTagPicker.querySelector('input');
+      const detailTagOptions = document.createElement('div');
+      detailTagOptions.className = 'rt-detail-tag-options'; detailTagOptions.setAttribute('role', 'listbox'); detailTagOptions.hidden = true;
+      detailTagInput.setAttribute('role', 'combobox'); detailTagInput.setAttribute('aria-expanded', 'false');
+      const availableDetailTags = ['双人', '清版动作', '适合聚会', '掌机精选', '高难度'];
+      const selectedDetailTags = new Set();
+      detailTagInput.after(detailTagOptions);
+      const closeDetailTags = () => { detailTagOptions.hidden = true; detailTagInput.setAttribute('aria-expanded', 'false'); };
+      const renderDetailTags = () => {
+        detailTagOptions.replaceChildren(); detailTagOptions.hidden = false; detailTagInput.setAttribute('aria-expanded', 'true');
+        availableDetailTags.filter((tag) => !selectedDetailTags.has(tag) && tag.includes(detailTagInput.value.trim())).forEach((tag) => {
+          const option = document.createElement('button'); option.type = 'button'; option.setAttribute('role', 'option'); option.textContent = tag;
+          option.addEventListener('pointerdown', (event) => event.preventDefault());
+          option.addEventListener('click', () => {
+            selectedDetailTags.add(tag); const chip = document.createElement('span'); chip.className = 'rt-tag-pill'; chip.textContent = tag;
+            detailTagPicker.querySelector('.rt-tag-list').append(chip); detailTagInput.value = ''; renderDetailTags(); detailTagInput.focus();
+          }); detailTagOptions.append(option);
+        });
+      };
+      detailTagInput.addEventListener('focus', renderDetailTags); detailTagInput.addEventListener('click', renderDetailTags); detailTagInput.addEventListener('input', renderDetailTags);
+      detailTagInput.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDetailTags(); });
+      root.addEventListener('pointerdown', (event) => { if (!detailTagPicker.contains(event.target)) closeDetailTags(); });
+      root.addEventListener('focusin', (event) => { if (!detailTagPicker.contains(event.target)) closeDetailTags(); });
+
       const rpgPackDrawer = root.querySelector('[data-rpg-pack-drawer]');
       const rpgPackDrawerBackdrop = root.querySelector('[data-rpg-pack-drawer-backdrop]');
       let rpgPackDrawerTrigger = null;
@@ -4028,8 +4129,6 @@
           candidate.classList.toggle('is-active', active);
           candidate.setAttribute('aria-pressed', String(active));
         });
-        root.querySelector('[data-favorite-view-title]').textContent = button.dataset.favoriteTitle;
-        root.querySelector('[data-favorite-view-description]').textContent = button.dataset.favoriteDescription;
         root.querySelector('[data-edit-favorite-folder]').hidden = button.dataset.favoriteScope !== 'folder';
       }));
 
@@ -4099,7 +4198,7 @@
         favoriteFormDialog.querySelector('h2').textContent = '编辑收藏夹';
         favoriteFormDialog.hidden = false;
         const input = favoriteFormDialog.querySelector('input');
-        input.value = root.querySelector('[data-favorite-view-title]').textContent;
+        input.value = root.querySelector('[data-favorite-scope].is-active').dataset.favoriteTitle;
         input.focus();
       });
       root.querySelectorAll('[data-close-favorite-form]').forEach((button) => button.addEventListener('click', () => { favoriteFormDialog.hidden = true; }));

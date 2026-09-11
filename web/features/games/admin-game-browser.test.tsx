@@ -31,6 +31,13 @@ describe("AdminGameBrowser", () => {
   beforeEach(() => window.history.replaceState({ marker: "keep" }, "", "/admin/games"));
   afterEach(cleanup);
 
+  it("keeps tags available for filtering without displaying them in game rows", () => {
+    const { container } = render(<AdminGameBrowser games={[game(1, { tags: [{ tagId: "tag", name: "掌机精选" }] })]} nowMs={500} initialFilters={filters} />);
+    const row = screen.getByRole("link", { name: "Game 1" }).closest("tr")!;
+    expect(within(row).queryByText("掌机精选")).not.toBeInTheDocument();
+    expect(container.querySelector(".admin-game-identity .tag-chips")).toBeNull();
+  });
+
   it("filters immediately without replacing the document and preserves URL history state", async () => {
     const user = userEvent.setup();
     render(<AdminGameBrowser games={[game(1), game(2, { title: "Metal Slug" })]} nowMs={500} initialFilters={filters} />);
