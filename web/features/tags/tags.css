@@ -11,21 +11,21 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-picker-selected:empty { display: none; }
 .tag-picker-selected { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag-picker-combobox { position: relative; }
-.tag-picker-combobox input { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; background: white; }
-.tag-picker-list { z-index: 180; overflow-y: auto; padding: 6px; border: 1px solid #d8d3e6; border-radius: 11px; background: white; box-shadow: 0 14px 34px rgb(35 27 61 / 18%); }
+.tag-picker-combobox input { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-control); background: white; }
+.tag-picker-list { z-index: 180; overflow-y: auto; padding: 6px; border: 1px solid #d8d3e6; border-radius: var(--radius-panel); background: white; box-shadow: 0 14px 34px rgb(35 27 61 / 18%); }
 .tag-picker-list-floating { position: fixed; }
 .tag-picker-list-floating.is-above { transform: translateY(-100%); }
-.tag-picker-list button { width: 100%; min-height: 38px; padding: 8px 10px; display: block; color: var(--ink); border: 0; border-radius: 7px; background: transparent; text-align: left; cursor: pointer; }
+.tag-picker-list button { width: 100%; min-height: 38px; padding: 8px 10px; display: block; color: var(--ink); border: 0; border-radius: var(--radius-control); background: transparent; text-align: left; cursor: pointer; }
 .tag-picker-list button:hover, .tag-picker-list button.is-active { color: var(--purple-dark); background: #f2edff; }
 .tag-picker-empty { padding: 14px 10px; display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
 .tag-picker-empty a { color: var(--purple-dark); font-weight: 800; }
 .tag-picker-limit { color: var(--muted); font-size: 11px; }
 .tag-manager { display: grid; gap: 18px; }
 .tag-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.tag-kpis article { min-height: 112px; padding: 19px 21px; display: grid; align-content: center; gap: 5px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.tag-kpis article { min-height: 112px; padding: 19px 21px; display: grid; align-content: center; gap: 5px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
 .tag-kpis span, .tag-kpis small { color: var(--muted); font-size: 12px; }
 .tag-kpis strong { color: var(--ink); font-size: 28px; line-height: 1; }
-.tag-manager-toolbar { min-height: 82px; padding: 14px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.tag-manager-toolbar { min-height: 82px; padding: 14px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
 .tag-manager-toolbar form { flex: 1; display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
 .tag-manager-toolbar .select { width: 100%; }
 .tag-manager-toolbar .button { flex: 0 0 auto; white-space: nowrap; }
@@ -33,7 +33,7 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-manager-toolbar label:first-child { flex: 1; max-width: 380px; }
 .tag-manager-toolbar label span, .tag-name-field > span, .tag-delete-impact label span { color: var(--muted); font-size: 11px; font-weight: 800; }
 .tag-manager-actions { display: flex; align-items: center; gap: 8px; }
-.tag-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.tag-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
 .tag-table { width: 100%; min-width: 980px; border-collapse: collapse; }
 .tag-table th, .tag-table td { height: 58px; padding: 10px 14px; border-bottom: 1px solid #eceef2; color: var(--muted); font-size: 12px; text-align: left; }
 .tag-table thead th { height: 44px; color: #646d7b; background: #f8f9fb; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
@@ -43,28 +43,35 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-table thead th:last-child { background: #f8f9fb; }
 .tag-table a { color: var(--purple-dark); font-weight: 800; }
 .tag-row-actions { display: flex; gap: 8px; }
-.tag-row-actions button { padding: 4px; color: var(--purple-dark); border: 0; background: transparent; font-weight: 800; cursor: pointer; }
-.tag-row-actions .danger-link { color: var(--danger); }
-.tag-row-actions button:disabled { color: #a8adb6; cursor: default; }
+.tag-row-actions .button { min-height: 32px; padding: 0 12px; font-size: 12px; font-weight: 650; }
+.tag-row-actions .tag-delete-button { color: var(--danger); border-color: #efcbd0; background: #fff7f8; }
+.tag-row-actions .tag-delete-button:hover:not(:disabled) { color: var(--danger); border-color: #dba0aa; background: #ffedf0; }
+.tag-row-actions .button:disabled { color: #a8adb6; border-color: var(--line); background: #f7f8fa; cursor: default; }
 .tag-load-more { justify-self: center; }
 .tag-editor-sheet { width: min(520px, 100vw); }
 .tag-name-field, .tag-delete-impact label { display: grid; gap: 7px; }
+.tag-name-field .select { width: 100%; min-width: 0; padding-inline: 12px; }
+.tag-editor-footer-content { width: 100%; display: grid; gap: 8px; }
+.tag-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.tag-editor-feedback { height: 36px; overflow-y: auto; margin: 0; color: #247561; font-size: 12px; line-height: 1.5; text-align: right; overflow-wrap: anywhere; }
+.tag-editor-feedback[data-tone="bad"] { color: var(--danger); }
 .tag-name-field small { justify-self: end; color: var(--muted); }
-.tag-normalized-preview { margin-top: 16px; padding: 14px; display: grid; gap: 5px; border: 1px solid #e2dafa; border-radius: 10px; background: #faf8ff; }
+.tag-normalized-preview { margin-top: 16px; padding: 14px; display: grid; gap: 5px; border: 1px solid #e2dafa; border-radius: var(--radius-panel); background: #faf8ff; }
 .tag-normalized-preview span { color: var(--muted); font-size: 11px; }
 .tag-normalized-preview strong { overflow-wrap: anywhere; }
 .tag-editor-help { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .tag-delete-impact { display: grid; gap: 13px; }
-.import-tag-config { margin-top: 18px; padding: 16px; border: 1px solid #e2dafa; border-radius: 12px; background: #fcfbff; }
+.import-tag-config { margin-top: 18px; padding: 16px; border: 1px solid #e2dafa; border-radius: var(--radius-panel); background: #fcfbff; }
 .import-tag-summary { margin-top: 12px; display: grid; gap: 7px; }
 .import-tag-summary > small { color: var(--muted); font-weight: 760; }
-.review-tag-editor { margin: 0; padding: 15px; border: 1px solid #e2dafa; border-radius: 12px; background: #fcfbff; }
-.admin-game-tags { margin-bottom: 18px; }
+.review-tag-editor { margin: 0; padding: 15px; border: 1px solid #e2dafa; border-radius: var(--radius-panel); background: #fcfbff; }
+.admin-game-tags { margin-bottom: 0; }
 .admin-game-tags .panel-head { align-items: center; }
 .admin-game-tags .panel-head p { margin-top: 4px; color: var(--muted); font-size: 12px; }
 .admin-game-empty-tags { color: var(--muted); font-size: 12px; }
 .pegasus-collection-tags { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--line); }
 @media (max-width: 760px) {
+  .tag-row-actions .button { min-height: 44px; }
   .tag-kpis { grid-template-columns: 1fr; }
   .tag-manager-toolbar, .tag-manager-toolbar form { align-items: stretch; flex-direction: column; }
   .tag-manager-toolbar label, .tag-manager-toolbar label:first-child { width: 100%; max-width: none; }
@@ -72,7 +79,7 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
   .tag-table { min-width: 0; }
   .tag-table thead { display: none; }
   .tag-table tbody { padding: 10px; display: grid; gap: 10px; }
-  .tag-table tr { padding: 13px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; border: 1px solid var(--line); border-radius: 11px; }
+  .tag-table tr { padding: 13px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; border: 1px solid var(--line); border-radius: var(--radius-panel); }
   .tag-table th, .tag-table td, .tag-table tbody th, .tag-table td:last-child { height: auto; padding: 0; position: static; border: 0; box-shadow: none; background: transparent; }
   .tag-table tbody th, .tag-table td:last-child { grid-column: 1 / -1; }
 }

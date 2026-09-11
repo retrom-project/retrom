@@ -18,12 +18,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-if __name__ == "__main__":
-    from rpgmaker_pack_observed_resume import prepare_observed_resume, finish_inspection, validate_inspection_resume
-else:
-    from scripts.acceptance.rpgmaker_pack_observed_resume import prepare_observed_resume, finish_inspection, validate_inspection_resume
-
-
 ROOT = Path(__file__).resolve().parents[2]
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -75,13 +69,13 @@ GENERATION_CASES = {
     "ACC-RPG-007": GenerationCase(USER_CORE_ID, "RPGMV", "RPGMV", "MATCHED", "rpgmaker-mv", "rpgmv"),
     "ACC-RPG-008": GenerationCase(USER_CORE_ID, "RPGMZ", "RPGMZ", "MATCHED", "rpgmaker-mz", None),
 }
-PACK_CASE = "ACC-RPG-009"
+RESOURCE_POLICY_CASE = "ACC-RPG-009"
 COMPATIBILITY_CASE = "ACC-RPG-012"
 SECURITY_CASES = {"ACC-RPG-010", "ACC-RPG-011"}
 DEFERRED_CASES = {
     COMPATIBILITY_CASE: "RPG_SECOND_RUNTIME_RELEASE_REQUIRED",
 }
-MINIMAL_CLOSURE_CASES = {PACK_CASE, "ACC-RPG-010", "ACC-RPG-011"}
+MINIMAL_CLOSURE_CASES = { "ACC-RPG-010", "ACC-RPG-011"}
 ISOLATION_TARGETS = {
     "RPGMV": "rpgmaker-mv",
     "RPGMZ": "rpgmaker-mz",
@@ -106,29 +100,6 @@ SECURITY_UNSAFE = {
     "referenced-native": (False, 422, "RPG_NATIVE_DEPENDENCY_UNSUPPORTED"),
     "opaque-native": (True, 202, None),
 }
-PACK_SOURCE_NOTE = "Retrom-owned ACC-RPG-009 deterministic fixture; no vendor RTP bytes"
-PACK_UPLOAD_ROLES = {
-    "rpg2000Rtp": ("rpg2000_rtp", None, None),
-    "rpg2003Rtp": ("rpg2003_rtp", None, None),
-    "rgss1StandardV1": ("rgss1_standard", None, None),
-    "rgss1StandardV2": ("rgss1_standard", None, None),
-    "rgss1Custom": (None, "RPGXP", "RetromCustomXP"),
-    "rgss2StandardV1": ("rgss2_rpgvx", None, None),
-    "rgss2StandardV2": ("rgss2_rpgvx", None, None),
-    "rgss2Custom": (None, "RPGVX", "RetromCustomVX"),
-    "rgss3StandardV1": ("rgss3_rpgvxace", None, None),
-    "rgss3StandardV2": ("rgss3_rpgvxace", None, None),
-    "rgss3Custom": (None, "RPGVXACE", "RetromCustomVXAce"),
-    "zeroReference": (None, "RPGXP", "RetromZeroReference"),
-}
-PACK_REVIEW_ROLES = {
-    "rpg2000SelfContained", "rpg2000Missing", "rpg2003SelfContained", "rpg2003Missing",
-    "rpgxpNoRtp", "rpgxpStandardAmbiguous", "rpgxpCustom",
-    "rpgvxNoRtp", "rpgvxStandardAmbiguous", "rpgvxCustom",
-    "rpgvxaceNoRtp", "rpgvxaceStandardAmbiguous", "rpgvxaceCustom",
-}
-
-
 class ContractError(RuntimeError):
     """A product observation failed the formal acceptance contract."""
 
@@ -947,7 +918,7 @@ def validate_checkpoint(trial: dict[str, Any]) -> None:
 
 def required_environment(case_id: str) -> list[str]:
     common = ["RETROM_ACCEPTANCE_BASE_URL", "RETROM_ACCEPTANCE_USERNAME", "RETROM_ACCEPTANCE_PASSWORD"]
-    browser_cases = {"ACC-RPG-001", PACK_CASE, *SECURITY_CASES, *GENERATION_CASES}
+    browser_cases = {"ACC-RPG-001", RESOURCE_POLICY_CASE, *SECURITY_CASES, *GENERATION_CASES}
     if case_id in browser_cases:
         common.append("RETROM_CHROME_EXECUTABLE")
     if case_id in GENERATION_CASES:
@@ -955,324 +926,30 @@ def required_environment(case_id: str) -> list[str]:
         common.extend(f"RETROM_{prefix}_{suffix}" for suffix in ("IMPORT_ITEM_ID", "TRIAL_EVIDENCE", "GAME_ID"))
     if case_id == "ACC-RPG-008":
         common.extend(("RPG_MZ_SMOKE_ROOT", "RPG_MZ_SMOKE_PROVENANCE"))
-    if case_id == PACK_CASE:
-        common.extend((
-            "RETROM_ACC_RPG_009_PLAN", "RETROM_ACC_RPG_009_DATABASE",
-            "RETROM_ACC_RPG_009_PROVISION_EVIDENCE",
-        ))
     return common
 
 
 
-def pack_plan(path: Path) -> dict[str, Any]:
-    if not path.is_absolute() or not path.is_file() or path.is_symlink():
-        raise ContractError("RPG_ACCEPTANCE_PACK_PLAN_INVALID")
-    plan = json.loads(path.read_text(encoding="utf-8"))
-    expected_keys = {"schemaVersion", "uploads", "reviewIds", "protectedReferences"}
-    if not isinstance(plan, dict) or set(plan) != expected_keys or plan.get("schemaVersion") != 2:
-        raise ContractError("RPG_ACCEPTANCE_PACK_PLAN_SCHEMA_INVALID")
-    uploads = plan.get("uploads")
-    if not isinstance(uploads, dict) or set(uploads) != set(PACK_UPLOAD_ROLES):
-        raise ContractError("RPG_ACCEPTANCE_PACK_UPLOAD_MATRIX_INCOMPLETE")
-    source_types, suffixes = set(), set()
-    upload_keys = {
-        "sourcePath", "sourceType", "definitionId", "generation", "declaredName", "sourceNote",
-        "sourceFileCount", "sourceSizeBytes", "sourceSha256",
-    }
-    for role, expected_identity in PACK_UPLOAD_ROLES.items():
-        upload = uploads[role]
-        if not isinstance(upload, dict) or set(upload) != upload_keys:
-            raise ContractError("RPG_ACCEPTANCE_PACK_UPLOAD_SCHEMA_INVALID")
-        source = Path(str(upload["sourcePath"]))
-        if not source.is_absolute() or not source.exists() or source.is_symlink():
-            raise ContractError("RPG_ACCEPTANCE_PACK_SOURCE_INVALID")
-        if upload["sourceType"] not in {"DIRECTORY", "FILES"}:
-            raise ContractError("RPG_ACCEPTANCE_PACK_SOURCE_TYPE_INVALID")
-        if upload["sourceType"] == "DIRECTORY" and not source.is_dir() or \
-                upload["sourceType"] == "FILES" and not source.is_file():
-            raise ContractError("RPG_ACCEPTANCE_PACK_SOURCE_TYPE_INVALID")
-        if (upload["definitionId"], upload["generation"], upload["declaredName"]) != expected_identity:
-            raise ContractError("RPG_ACCEPTANCE_PACK_UPLOAD_ROLE_INVALID")
-        note = upload["sourceNote"]
-        if note != PACK_SOURCE_NOTE:
-            raise ContractError("RPG_ACCEPTANCE_PACK_SOURCE_NOTE_INVALID")
-        if pack_source_identity(source, upload["sourceType"]) != (
-            upload["sourceFileCount"], upload["sourceSizeBytes"], upload["sourceSha256"],
-        ):
-            raise ContractError("RPG_ACCEPTANCE_PACK_SOURCE_IDENTITY_INVALID")
-        source_types.add(upload["sourceType"])
-        suffixes.add(source.suffix.lower())
-    if source_types != {"DIRECTORY", "FILES"} or not {".zip", ".7z"} <= suffixes:
-        raise ContractError("RPG_ACCEPTANCE_PACK_INPUT_COVERAGE_INCOMPLETE")
-    review_ids = plan.get("reviewIds")
-    if not isinstance(review_ids, dict) or set(review_ids) != PACK_REVIEW_ROLES or \
-            len(set(review_ids.values())) != len(PACK_REVIEW_ROLES) or \
-            any(not UUID.fullmatch(str(value)) for value in review_ids.values()):
-        raise ContractError("RPG_ACCEPTANCE_PACK_REVIEW_IDS_INVALID")
-    protected = plan.get("protectedReferences")
-    if not isinstance(protected, dict) or set(protected) != {"publishedVariant", "restorableCheckpoint"}:
-        raise ContractError("RPG_ACCEPTANCE_PACK_PROTECTED_REFERENCES_INVALID")
-    expected_reference_keys = {
-        "publishedVariant": {"installationId", "gameId"},
-        "restorableCheckpoint": {"installationId", "gameId", "saveStateId"},
-    }
-    for role, keys in expected_reference_keys.items():
-        reference = protected[role]
-        if not isinstance(reference, dict) or set(reference) != keys or \
-                any(not UUID.fullmatch(str(value)) for value in reference.values()):
-            raise ContractError("RPG_ACCEPTANCE_PACK_PROTECTED_REFERENCES_INVALID")
-    if protected["publishedVariant"]["installationId"] == protected["restorableCheckpoint"]["installationId"]:
-        raise ContractError("RPG_ACCEPTANCE_PACK_PROTECTED_REFERENCES_INVALID")
-    return plan
-
-
-def pack_source_identity(source: Path, source_type: str) -> tuple[int, int, str]:
-    if source_type == "FILES":
-        contents = source.read_bytes()
-        return 1, len(contents), hashlib.sha256(contents).hexdigest()
-    entries = list(source.rglob("*"))
-    if any(path.is_symlink() for path in entries):
-        raise ContractError("RPG_ACCEPTANCE_PACK_SOURCE_SYMLINK")
-    files = sorted(path for path in entries if path.is_file())
-    digest = hashlib.sha256(b"RETROM_ACC_RPG_009_INPUT_V1\0")
-    total = 0
-    for file in files:
-        name = file.relative_to(source).as_posix().encode("utf-8")
-        contents = file.read_bytes()
-        total += len(contents)
-        digest.update(len(name).to_bytes(4, "big"))
-        digest.update(name)
-        digest.update(hashlib.sha256(contents).digest())
-        digest.update(len(contents).to_bytes(8, "big"))
-    return len(files), total, digest.hexdigest()
-
-
-def pack_database(path: Path) -> Path:
-    if not path.is_absolute() or not path.is_file() or path.is_symlink():
-        raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_INVALID")
-    return path
-
-
-def inspect_pack_evidence(plan: Path, database: Path, evidence: Path) -> dict[str, Any]:
-    completed = subprocess.run(
-        [
-            sys.executable, str(ROOT / "scripts" / "acceptance" / "rpgmaker_pack_inspect.py"),
-            "--database", str(database), "--plan", str(plan), "--evidence", str(evidence),
-        ],
-        cwd=ROOT, text=True, check=False, capture_output=True, timeout=60,
-    )
-    if completed.returncode != 0:
-        raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_INSPECT_FAILED")
-    try:
-        result = json.loads(completed.stdout)
-    except json.JSONDecodeError as error:
-        raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_INSPECT_INVALID") from error
-    if not isinstance(result, dict):
-        raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_INSPECT_INVALID")
-    return result
-
-
-def valid_pack_job(value: Any, kind: str) -> bool:
-    events = value.get("events") if isinstance(value, dict) else None
-    required_events = {"SUCCEEDED"} if kind == "UPLOAD_FINALIZE" else {"QUEUED", "STARTED", "SUCCEEDED"}
-    return isinstance(value, dict) and isinstance(events, list) and value.get("kind") == kind and \
-        value.get("state") == "SUCCEEDED" and UUID.fullmatch(str(value.get("jobId"))) is not None and \
-        required_events <= set(events)
-
-
-def validate_pack_upload_evidence(payload: dict[str, Any]) -> None:
-    uploads, installations = payload.get("uploads"), payload.get("installations")
-    if not isinstance(uploads, dict) or set(uploads) != set(PACK_UPLOAD_ROLES) or \
-            not isinstance(installations, dict) or set(installations) != set(PACK_UPLOAD_ROLES):
-        raise ContractError("RPG_ACCEPTANCE_PACK_INSTALL_EVIDENCE_INCOMPLETE")
-    for role, item in uploads.items():
-        catalog = installations[role]
-        if not isinstance(item, dict) or item.get("role") != role or \
-                not UUID.fullmatch(str(item.get("uploadId"))) or \
-                not UUID.fullmatch(str(item.get("installationId"))) or \
-                not UUID.fullmatch(str(item.get("jobId"))) or \
-                item.get("jobId") != item.get("validationJob", {}).get("jobId") or \
-                not valid_pack_job(item.get("finalizeJob"), "UPLOAD_FINALIZE") or \
-                not valid_pack_job(item.get("validationJob"), "RUNTIME_ASSET_PACK_VALIDATE"):
-            raise ContractError("RPG_ACCEPTANCE_PACK_INSTALL_IDS_INVALID")
-        if not isinstance(catalog, dict) or catalog.get("installationId") != item.get("installationId") or \
-                catalog.get("status") != "READY" or not SHA256.fullmatch(str(catalog.get("filesDigest", ""))) or \
-                not SHA256.fullmatch(str(catalog.get("bundleSha256", ""))):
-            raise ContractError("RPG_ACCEPTANCE_PACK_READY_EVIDENCE_INVALID")
-
-
-def validate_pack_review_evidence(payload: dict[str, Any]) -> None:
-    reviews = payload.get("reviews")
-    if not isinstance(reviews, dict) or set(reviews) != {"published", "matcherRejections"}:
-        raise ContractError("RPG_ACCEPTANCE_PACK_REVIEW_EVIDENCE_INCOMPLETE")
-    published = reviews["published"]
-    published_roles = {
-        "rpg2000SelfContained", "rpg2003SelfContained", "rpgxpNoRtp", "rpgvxNoRtp", "rpgvxaceNoRtp",
-    }
-    if not isinstance(published, list) or any(not isinstance(item, dict) for item in published):
-        raise ContractError("RPG_ACCEPTANCE_PACK_REVIEW_EVIDENCE_INCOMPLETE")
-    if len(published) != len(published_roles) or {item.get("role") for item in published} != published_roles or any(
-        item.get("status") != 201 or not UUID.fullmatch(str(item.get("itemId"))) or
-        not UUID.fullmatch(str(item.get("gameId")))
-        for item in published
-    ):
-        raise ContractError("RPG_ACCEPTANCE_PACK_REVIEW_EVIDENCE_INCOMPLETE")
-    outcomes = reviews["matcherRejections"]
-    expected = {
-        "MISSING": {"rpg2000Missing", "rpg2003Missing", "rpgxpCustom", "rpgvxCustom", "rpgvxaceCustom"},
-        "SELECTED": {"rpg2000Missing", "rpg2003Missing", "rpgxpCustom", "rpgvxCustom", "rpgvxaceCustom"},
-        "AMBIGUOUS": {"rpgxpStandardAmbiguous", "rpgvxStandardAmbiguous", "rpgvxaceStandardAmbiguous"},
-    }
-    if not isinstance(outcomes, list) or any(not isinstance(item, dict) for item in outcomes):
-        raise ContractError("RPG_ACCEPTANCE_PACK_MATCHER_EVIDENCE_INCOMPLETE")
-    for matcher, roles in expected.items():
-        matching = [item for item in outcomes if item.get("matcher") == matcher]
-        if {item.get("role") for item in matching} != roles or len(matching) != len(roles):
-            raise ContractError("RPG_ACCEPTANCE_PACK_MATCHER_EVIDENCE_INCOMPLETE")
-        if matcher == "MISSING" and any(item.get("publish", {}).get("status") != 409 or
-               item.get("publish", {}).get("code") != "REVIEW_VALIDATION_STALE" for item in matching):
-            raise ContractError("RPG_ACCEPTANCE_PACK_PUBLISH_REJECTION_INVALID")
-        if matcher != "MISSING" and any(
-            item.get("publishReadiness") != {"canApprove": True, "current": True, "status": "READY"} or
-            not UUID.fullmatch(str(item.get("itemId"))) or not UUID.fullmatch(str(item.get("installationId")))
-            for item in matching
-        ):
-            raise ContractError("RPG_ACCEPTANCE_PACK_PUBLISH_READINESS_INVALID")
-        if matcher == "MISSING" and any(
-            item.get("patchStatus") != 422 or item.get("patchCode") != "REVIEW_DRAFT_INVALID" for item in matching
-        ):
-            raise ContractError("RPG_ACCEPTANCE_PACK_MATCHER_REJECTION_INVALID")
-        if matcher == "AMBIGUOUS" and any(
-            item.get("rejectionStatus") != 422 or item.get("rejectionCode") != "REVIEW_DRAFT_INVALID"
-            or item.get("patchStatus") != 200 for item in matching
-        ):
-            raise ContractError("RPG_ACCEPTANCE_PACK_MATCHER_REJECTION_INVALID")
-        if matcher == "SELECTED" and any(item.get("patchStatus") != 200 for item in matching):
-            raise ContractError("RPG_ACCEPTANCE_PACK_EXPLICIT_SELECTION_INVALID")
-
-
-def validate_pack_database_evidence(payload: dict[str, Any]) -> None:
-    database = payload.get("databaseEvidence")
-    if not isinstance(database, dict):
-        raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_EVIDENCE_INCOMPLETE")
-    uploads = database.get("uploads")
-    published = database.get("publishedReviews")
-    selected = database.get("selectedReviews")
-    if database.get("schemaVersion") != 1 or not isinstance(uploads, dict) or \
-            set(uploads) != set(PACK_UPLOAD_ROLES) or not isinstance(published, list) or len(published) != 5 or \
-            not isinstance(selected, list) or len(selected) != 8:
-        raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_EVIDENCE_INCOMPLETE")
-    for role, item in uploads.items():
-        observed = payload["uploads"][role]
-        if not isinstance(item, dict) or item.get("uploadId") != observed.get("uploadId") or \
-                item.get("installationId") != observed.get("installationId") or \
-                not UUID.fullmatch(str(item.get("consumptionId"))) or item.get("sessionState") != "COMPLETE" or \
-                not valid_pack_job(item.get("finalizeJob"), "UPLOAD_FINALIZE") or \
-                not valid_pack_job(item.get("validationJob"), "RUNTIME_ASSET_PACK_VALIDATE") or \
-                not SHA256.fullmatch(str(item.get("validationJob", {}).get("inputDigest", ""))):
-            raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_UPLOAD_EVIDENCE_INVALID")
-        released = item.get("consumptionReleasedAtMs")
-        reason = item.get("consumptionReleaseReason")
-        if role == "zeroReference" and (not isinstance(released, int) or reason != "UPLOAD_CONSUMED") or \
-                role != "zeroReference" and (released is not None or reason is not None):
-            raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_CONSUMPTION_EVIDENCE_INVALID")
-    protected = database.get("protectedReferences")
-    if not isinstance(protected, dict) or set(protected) != {"publishedVariant", "restorableCheckpoint"} or \
-            protected["publishedVariant"].get("definitionId") != "rgss1_standard" or \
-            protected["restorableCheckpoint"].get("definitionId") != "rgss2_rpgvx" or \
-            protected["publishedVariant"].get("availableForLaunch") is not True or \
-            protected["restorableCheckpoint"].get("availableForLaunch") is not True or any(
-                item.get("providerId") != "retrom-runtime" or item.get("targetId") != target_id or
-                not SHA256.fullmatch(str(item.get("bundleSha256", "")))
-                for item, target_id in (
-                    (protected["publishedVariant"], "rpgmaker-xp"),
-                    (protected["restorableCheckpoint"], "rpgmaker-vx"),
-                )
-            ):
-        raise ContractError("RPG_ACCEPTANCE_PACK_PROTECTED_REFERENCE_EVIDENCE_INVALID")
-    for role, item in protected.items():
-        planned = payload["protectedReferences"][role]
-        if item.get("installationId") != planned.get("installationId") or item.get("gameId") != planned.get("gameId") or \
-                role == "restorableCheckpoint" and item.get("saveStateId") != planned.get("saveStateId"):
-            raise ContractError("RPG_ACCEPTANCE_PACK_PROTECTED_REFERENCE_RELATION_INVALID")
-    expected_published = {
-        (item["role"], item["itemId"], item["gameId"]) for item in payload["reviews"]["published"]
-    }
-    if any(not isinstance(item, dict) for item in published) or {
-        (item.get("role"), item.get("itemId"), item.get("gameId")) for item in published
-    } != expected_published:
-        raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_PUBLISHED_EVIDENCE_INVALID")
-    expected_selected = {
-        (item["role"], item["itemId"], item["installationId"])
-        for item in payload["reviews"]["matcherRejections"] if item.get("matcher") in {"SELECTED", "AMBIGUOUS"}
-    }
-    if any(not isinstance(item, dict) for item in selected) or {
-        (item.get("role"), item.get("itemId"), item.get("installationId")) for item in selected
-    } != expected_selected or any(
-        item.get("validationStatus") != "READY" or item.get("dependencyInstallationId") != item.get("installationId")
-        for item in selected
-    ):
-        raise ContractError("RPG_ACCEPTANCE_PACK_DATABASE_SELECTION_EVIDENCE_INVALID")
-    released = database.get("zeroReferenceRelease")
-    if not isinstance(released, dict) or released.get("releaseReason") != "UPLOAD_CONSUMED" or \
-            released.get("purgedFileCount") != released.get("uploadFileCount") or \
-            released.get("completionAuditCount") != 1 or \
-            released.get("gcScheduledAtMs", 0) <= released.get("gcFirstUnreferencedAtMs", 0) or \
-            released.get("consumptionId") != uploads["zeroReference"].get("consumptionId") or \
-            released.get("bundleSha256") != payload["installations"]["zeroReference"].get("bundleSha256") or \
-            not SHA256.fullmatch(str(released.get("job", {}).get("inputDigest", ""))) or \
-            not valid_pack_job(released.get("job"), "PAYLOAD_RELEASE"):
-        raise ContractError("RPG_ACCEPTANCE_PACK_PAYLOAD_RELEASE_EVIDENCE_INVALID")
-
-
-def validate_pack_evidence(payload: dict[str, Any]) -> None:
-    expected_keys = {
-        "schemaVersion", "caseId", "status", "installations", "reviews", "protectedReferences",
-        "protectedDeletes", "zeroReferenceDelete", "uploads", "screenshots", "databaseEvidence",
-        "populationPreservation",
-    }
-    if set(payload) not in (expected_keys, expected_keys | {"inspectionResume"}) or payload.get("schemaVersion") != 1 or \
-            payload.get("caseId") != PACK_CASE or payload.get("status") != "PASS":
-        raise ContractError("RPG_ACCEPTANCE_PACK_EVIDENCE_HEADER_INVALID")
-    if "inspectionResume" in payload:
-        validate_inspection_resume(payload["inspectionResume"])
-        if payload["inspectionResume"]["provisionSha256"] != payload.get("databaseEvidence", {}).get(
-                "provisioningEvidence", {}).get("documentSha256"):
-            raise ContractError("RPG_ACCEPTANCE_PACK_OBSERVED_RESUME_INVALID")
-    validate_pack_upload_evidence(payload)
-    validate_pack_review_evidence(payload)
-    validate_pack_database_evidence(payload)
-    population = payload.get("populationPreservation")
-    recorded = payload["databaseEvidence"].get("provisioningEvidence", {}).get("payload", {}).get("populationPreservation")
-    if not isinstance(population, dict) or set(population) != {"before", "after"} or \
-            population["before"] != population["after"] or population != recorded:
-        raise ContractError("RPG_ACCEPTANCE_PACK_POPULATION_PRESERVATION_INVALID")
-    protected = payload.get("protectedDeletes")
-    deleted = payload.get("zeroReferenceDelete")
-    if not isinstance(protected, list) or any(not isinstance(item, dict) for item in protected):
-        raise ContractError("RPG_ACCEPTANCE_PACK_PROTECTED_DELETE_EVIDENCE_INVALID")
-    if {item.get("role") for item in protected} != {
-        "publishedVariant", "restorableCheckpoint",
-    } or any(item.get("status") != 409 or item.get("code") != "RPG_RUNTIME_PACK_IN_USE" for item in protected):
-        raise ContractError("RPG_ACCEPTANCE_PACK_PROTECTED_DELETE_EVIDENCE_INVALID")
-    if not isinstance(deleted, dict) or deleted.get("staleStatus") != 412 or deleted.get("currentStatus") != 204 or \
-            deleted.get("finalStatus") != "DELETED" or not deleted.get("deletedAtMs"):
-        raise ContractError("RPG_ACCEPTANCE_PACK_ZERO_DELETE_EVIDENCE_INVALID")
-    if payload.get("screenshots") != [
-        "screenshots/rpgmaker-pack-catalog.png", "screenshots/rpgmaker-pack-review-binding.png",
-    ]:
-        raise ContractError("RPG_ACCEPTANCE_PACK_SCREENSHOT_EVIDENCE_INVALID")
-    forbidden = {"sourcePath", "password", "csrfToken", "capability", "cookie"}
-    stack: list[Any] = [payload]
-    while stack:
-        value = stack.pop()
-        if isinstance(value, dict):
-            if forbidden.intersection(value):
-                raise ContractError("RPG_ACCEPTANCE_PACK_EVIDENCE_CONTAINS_SECRET_OR_PATH")
-            stack.extend(value.values())
-        elif isinstance(value, list):
-            stack.extend(value)
-
+def validate_resource_policy_evidence(payload: dict[str, Any]) -> None:
+    if payload.get("schemaVersion") != 1 or payload.get("caseId") != RESOURCE_POLICY_CASE or payload.get("status") != "PASS":
+        raise ContractError("RPG_RESOURCE_POLICY_HEADER_INVALID")
+    retired = payload.get("retired", {})
+    if retired.get("routes") != [{"method": method, "status": 404} for method in ("GET", "POST", "DELETE")] or retired.get("uploadStatus") not in (400, 422):
+        raise ContractError("RPG_RESOURCE_POLICY_INSTALL_CAPABILITY_REMAINS")
+    projects = payload.get("projects", [])
+    if len(projects) != 5 or {item.get("generation") for item in projects} != {"RPG2000", "RPG2003", "RPGXP", "RPGVX", "RPGVXACE"}:
+        raise ContractError("RPG_RESOURCE_POLICY_GENERATIONS_MISSING")
+    identities: set[str] = set()
+    for project in projects:
+        for key in ("selfContainedGameId", "externalItemId", "confirmedGameId"):
+            value = project.get(key, "")
+            if not UUID.fullmatch(value) or value in identities:
+                raise ContractError("RPG_RESOURCE_POLICY_IDENTITY_INVALID")
+            identities.add(value)
+        if project.get("rejectedStatus") != 409 or project.get("rejectedCode") != "REVIEW_VALIDATION_STALE" or project.get("confirmed") is not True or project.get("clearedBlocked") is not True:
+            raise ContractError("RPG_RESOURCE_POLICY_CONFIRMATION_INVALID")
+    if payload.get("screenshots") != ["screenshots/rpgmaker-bios-only.png", "screenshots/rpgmaker-self-contained-confirmation.png"]:
+        raise ContractError("RPG_RESOURCE_POLICY_SCREENSHOTS_MISSING")
 
 
 def validate_security_evidence(payload: dict[str, Any], case_id: str) -> None:
@@ -1587,18 +1264,14 @@ def run(case_id: str, case_dir: Path) -> int:
             value = os.environ[f"RETROM_{prefix}_{suffix}"]
             if not UUID.fullmatch(value):
                 raise ContractError(f"RPG_ACCEPTANCE_{suffix}_INVALID")
-    if case_id == PACK_CASE:
-        pack_plan(Path(os.environ["RETROM_ACC_RPG_009_PLAN"]))
-        pack_database(Path(os.environ["RETROM_ACC_RPG_009_DATABASE"]))
     environment = os.environ.copy()
     environment.update({
         "RETROM_RPG_CASE_ID": case_id,
         "RETROM_RPG_CASE_DIR": str(case_dir),
         "RETROM_RPG_EXPECTED_PROJECT_DIGEST": expected_digest,
     })
-    inspection_resume = prepare_observed_resume(case_dir) if case_id == PACK_CASE else None
     browser_driver = {
-        PACK_CASE: "rpgmaker_pack_reinspect.mjs" if inspection_resume else "rpgmaker_pack.mjs",
+        RESOURCE_POLICY_CASE: "rpgmaker_dependencies.mjs",
         **{case: "rpgmaker_security.mjs" for case in SECURITY_CASES},
     }.get(case_id, "rpgmaker_browser.mjs")
     completed = subprocess.run(
@@ -1614,20 +1287,8 @@ def run(case_id: str, case_dir: Path) -> int:
         (case_dir / "rpgmaker-product.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
         )
-    if case_id == PACK_CASE:
-        evidence_path = case_dir / "rpgmaker-product.json"
-        payload["databaseEvidence"] = inspect_pack_evidence(
-            Path(os.environ["RETROM_ACC_RPG_009_PLAN"]),
-            Path(os.environ["RETROM_ACC_RPG_009_DATABASE"]),
-            evidence_path,
-        )
-        if inspection_resume:
-            payload["inspectionResume"] = finish_inspection(inspection_resume)
-        payload["status"] = "PASS"
-        validate_pack_evidence(payload)
-        evidence_path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
-        )
+    if case_id == RESOURCE_POLICY_CASE:
+        validate_resource_policy_evidence(payload)
     if spec:
         assert input_provenance is not None
         restored_logical = payload["screenshots"][0]
@@ -1668,7 +1329,7 @@ def run(case_id: str, case_dir: Path) -> int:
 
 def main() -> int:
     if len(sys.argv) != 2 or sys.argv[1] not in {
-        "ACC-RPG-001", PACK_CASE, COMPATIBILITY_CASE, *GENERATION_CASES, *SECURITY_CASES, *DEFERRED_CASES,
+        "ACC-RPG-001", RESOURCE_POLICY_CASE, COMPATIBILITY_CASE, *GENERATION_CASES, *SECURITY_CASES, *DEFERRED_CASES,
     }:
         print("usage: rpgmaker_case.py ACC-RPG-001..012", file=sys.stderr)
         return 2

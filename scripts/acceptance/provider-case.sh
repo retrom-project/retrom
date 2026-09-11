@@ -55,7 +55,6 @@ case "$CASE_ID" in
     ;;
   ACC-PROVIDER-005)
     (cd "$ROOT" && "$GO" test ./internal/runtimeprovider -count=1)
-    (cd "$ROOT" && "$GO" test -tags=integration ./internal/rpgmaker/packs -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/launch \
       -run 'TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC|TestPublishingReviewReleasesAllTemporaryPreviewOwners' -count=1)
@@ -78,7 +77,7 @@ case "$CASE_ID" in
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/launch ./internal/httpapi \
       -run 'RPG|Review|Provider|UniqueOrigin|Isolation' -count=1)
     web_test features/reviews/review-preview-provider-authority.test.ts \
-      features/reviews/review-rpg-actions.test.tsx features/reviews/review-rpg-packs.test.tsx \
+      features/reviews/review-rpg-actions.test.tsx features/reviews/review-rpg-dependencies.test.tsx \
       features/player/review-preview-receipt.test.ts features/player/review-preview-screenshot.test.ts
     ;;
   *)

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
+import { BIOSFileButton } from "./bios-file-button";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Toast } from "@/components/flash-toast";
@@ -102,11 +103,11 @@ function BIOSFileCell({ installed, item, onInspect }: {
   item: BIOSRequirement;
   onInspect: BIOSRowProps["onInspect"];
 }) {
-  const name = item.sourceKind === "DAT_MACHINE" && installed
+  const name = item.fileKind === "ARCHIVE" && installed
     ? <button className="runtime-bios-inspect" type="button" onClick={() => onInspect(item)}>{item.logicalName}</button>
     : item.logicalName;
   return <div className="runtime-bios-file" role="cell">
-    <span className="runtime-file-mark" aria-hidden="true">{item.logicalName.toLowerCase().endsWith(".zip") ? "ZIP" : "BIOS"}</span>
+    <span className="runtime-file-mark" aria-hidden="true">{item.fileKind === "ARCHIVE" ? "ZIP" : "BIOS"}</span>
     <div><h3>{name}</h3><p>{requirementLabels[item.requirementMode] ?? item.requirementMode}{item.conditionCode ? " · 按游戏内容决定是否需要" : ""}</p>
       {(item.expectedMd5 || installed?.md5) ? <dl className="runtime-technical">
         {item.expectedMd5 ? <><dt>期望 MD5</dt><dd><code>{item.expectedMd5}</code></dd></> : null}
@@ -139,8 +140,7 @@ function BIOSRowAction({ busy, inputRef, installed, item, onInstall }: {
   };
   return <div className="runtime-row-actions" role="cell">
     <input ref={inputRef} hidden id={`bios-${item.id}`} type="file" disabled={busy !== null} onChange={chooseFile} />
-    <button className={`button ${isBIOSAttention(item) ? "" : "secondary"} compact`} type="button" disabled={busy !== null} onClick={() => document.getElementById(`bios-${item.id}`)?.click()}>{busy === item.id ? "验证中…" : installed ? "替换文件" : "选择 BIOS 文件"}</button>
-    {installed ? <small>替换会清理依赖旧 BIOS 的存档与运行会话</small> : null}
+    <BIOSFileButton installed={Boolean(installed)} attention={isBIOSAttention(item)} busy={busy === item.id} disabled={busy !== null} onClick={() => document.getElementById(`bios-${item.id}`)?.click()} />
   </div>;
 }
 
@@ -235,7 +235,7 @@ function ArchiveInspectionDialog({ archiveDialog, onClose }: {
   return <ConfirmDialog
     open={archiveDialog !== null}
     title={`${archiveDialog?.item.logicalName ?? "BIOS"} 内容对比`}
-    description="左侧为当前 DAT 要求，右侧为已安装 ZIP 内容；name、size、crc 表头统一位于列表上方。行背景表示状态，悬停可查看说明。"
+    description="左侧为当前 固件要求，右侧为已安装 ZIP 内容；name、size、crc 表头统一位于列表上方。行背景表示状态，悬停可查看说明。"
     confirmLabel="关闭"
     hideCancel
     wide
@@ -398,12 +398,6 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
     }
   }
 
-  const quickFilters: Array<[BIOSQuickFilter, string, number]> = [
-    ["ALL", "全部", response.summary.totalCount],
-    ["ATTENTION", "需要处理", response.summary.attentionCount],
-    ["REQUIRED", "必需", response.summary.requiredCount],
-    ["OPTIONAL", "可选", response.summary.optionalCount],
-  ];
 
   return <div className="runtime-dependency-page">
     <div className="runtime-segment" role="group" aria-label="BIOS 查看范围">
@@ -422,9 +416,9 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
       <label className="runtime-search"><span>搜索文件或运行方式</span><span className="search"><AppIcon name="search" /><input type="search" aria-label="搜索 BIOS 文件" placeholder="例如 gba_bios.bin 或 mGBA" value={filters.query} onChange={(event) => patchFilters({ query: event.target.value })} /></span></label>
       <label><span>运行方式</span><select className="select" aria-label="运行方式" value={filters.coreId} onChange={(event) => patchFilters({ coreId: event.target.value })}><option value="">全部运行方式</option>{cores.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label>
       <label><span>文件状态</span><select className="select" aria-label="文件状态" value={filters.status} onChange={(event) => patchFilters({ status: event.target.value })}><option value="">所有状态</option><option value="MISSING">缺少文件</option><option value="MISSING_ENTRY">归档不完整</option><option value="HASH_WARNING">校验值不一致</option><option value="MATCHED">已安装并匹配</option><option value="OPTIONAL_MISSING">可选文件未安装</option></select></label>
+      <label><span>依赖筛选</span><select className="select" aria-label="依赖筛选" value={filters.quick} onChange={(event) => patchFilters({ quick: event.target.value as BIOSQuickFilter })}><option value="ALL">全部依赖</option><option value="ATTENTION">需要处理</option><option value="REQUIRED">必需</option><option value="OPTIONAL">可选</option></select></label>
     </section>
 
-    <div className="runtime-chips" aria-label="BIOS 快速筛选">{quickFilters.map(([value, label, count]) => <button type="button" className={filters.quick === value ? "is-active" : ""} aria-pressed={filters.quick === value} onClick={() => patchFilters({ quick: value })} key={value}>{label} {count}</button>)}</div>
 
     <BIOSResults
       announcement={announcement}
@@ -455,7 +449,7 @@ function ArchiveComparisonLists({ inspection }: { inspection: ArchiveInspection 
   const expectedEntries = inspection.entries.filter((entry): entry is ArchiveEntryComparison & { expected: ArchiveEntryFacts } => entry.expected !== null);
   const actualEntries = inspection.entries.filter((entry): entry is ArchiveEntryComparison & { actual: ArchiveEntryFacts } => entry.actual !== null);
   return <div className="bios-entry-comparison">
-    <ArchiveEntryList title="DAT 要求" ariaLabel="DAT 要求列表" entries={expectedEntries.map((entry) => ({ facts: entry.expected, status: entry.status }))} />
+    <ArchiveEntryList title="固件要求" ariaLabel="固件要求列表" entries={expectedEntries.map((entry) => ({ facts: entry.expected, status: entry.status }))} />
     <ArchiveEntryList title="当前 ZIP 内容" ariaLabel="当前 ZIP 内容列表" entries={actualEntries.map((entry) => ({ facts: entry.actual, status: entry.status }))} />
   </div>;
 }

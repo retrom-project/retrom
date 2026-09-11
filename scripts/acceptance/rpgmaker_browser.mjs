@@ -18,7 +18,7 @@ const productReadyTimeoutMs = 180_000;
 mkdirSync(screenshotDir, { recursive: true });
 
 const localProxy = await localRpgAcceptanceProxy(baseUrl);
-const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
+const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: process.env.RETROM_ACCEPTANCE_HEADED !== "1" });
 const chromeVersion = browser.version();
 try {
   const context = await browser.newContext({
@@ -225,6 +225,7 @@ async function generationCase(context, writeHeaders) {
   await debugControl.click();
   const diagnostics = page.getByRole("complementary", { name: "运行调试信息" });
   await diagnostics.waitFor({ state: "visible" });
+  await diagnostics.getByText("运行环境与显示", { exact: true }).click();
   const diagnosticText = await diagnostics.innerText();
   if (!diagnosticText.includes("RPG Maker")) {
     throw new Error("RPG_ACCEPTANCE_PLAYER_DIAGNOSTIC_BINDING_MISMATCH");
@@ -233,7 +234,7 @@ async function generationCase(context, writeHeaders) {
   if (internalValues.some((value) => diagnosticText.includes(value))) {
     throw new Error("RPG_ACCEPTANCE_PLAYER_DIAGNOSTIC_IMPLEMENTATION_LEAK");
   }
-  await page.getByRole("button", { name: "关闭调试信息面板" }).click();
+  await debugControl.click();
   await diagnostics.waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "继续游戏" }).click();
   await page.waitForTimeout(500);

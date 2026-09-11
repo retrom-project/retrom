@@ -48,6 +48,7 @@ func TestRuntimePackFilesAreStagedContiguouslyBeforeReady(t *testing.T) {
 	database := openRPGMakerSchemaDatabase(t)
 	defer func() { cleanup.Error("close", database.Close()) }()
 	insertSchemaIdentity(t, database)
+	mustExecRPGSchema(t, database, `INSERT INTO runtime_asset_pack_definitions(id,kind,generation,declared_name,normalized_declared_name,display_name,required_layout_version,origin,enabled,created_at_ms) VALUES('rpg2000_rtp','RPG2000_RTP','RPG2000','RPG2000_RTP','rpg2000_rtp','Historical RTP','easy-rtp-layout-v1','BUILTIN',1,0)`)
 	insertSchemaBlob(t, database, "pack-blob", "b", 10)
 	mustExecRPGSchema(t, database, `
 INSERT INTO runtime_asset_pack_installations(

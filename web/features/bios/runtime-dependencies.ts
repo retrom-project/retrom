@@ -15,6 +15,7 @@ export type BIOSRequirement = {
   targetId: string;
   logicalName: string;
   sourceKind: string;
+  fileKind: "FILE" | "ARCHIVE";
   requirementMode: string;
   conditionCode?: string | null;
   enabled: boolean;

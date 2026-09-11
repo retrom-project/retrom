@@ -437,7 +437,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /health/live`、`GET /health/ready` | 不需要 cookie。live 成功固定返回 `200 {"status":"ok"}`；ready 成功返回 `200 {"status":"ready"}`，失败返回 `503 {"status":"not_ready","reasonCode":"DATABASE_UNAVAILABLE|CAS_UNAVAILABLE|DEPENDENCY_INVALID|DEPENDENCY_DAT_PARSE_FAILED|DEPENDENCY_INDEXING"}`，多原因时按此枚举顺序选第一项。响应禁止暴露宿主路径、hash 或秘密，两条路径都进入 OpenAPI。 |
 | `GET /api/v1/auth/context`、`POST /api/v1/auth/initialize`、`POST /api/v1/auth/login|logout|change-password` | 实例/会话 bootstrap、安全初始化、登录退出和密码轮换；精确 schema、错误码与安全 header 以 OpenAPI 和第 2 节为准。旧 `/api/v1/session` 不存在。 |
 | `POST /api/v1/auth/account-links/inspect`、`POST /api/v1/auth/invitations/accept`、`POST /api/v1/auth/password-resets/complete` | fragment capability检查、邀请注册与密码重置。 |
-| `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
+| `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`featuredGame.description` 为当前 Game 的完整简介字符串，未填写时为空字符串；字符与行数截断属于 UI 展示，不改写原始内容。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
 | `GET /api/v1/recent-games` | 返回启用目录中全部有游玩记录的已发布游戏，不截断为固定 50 款；按最新 PlaySession 的 `started_at_ms` 降序聚合 `lastPlayedAtMs/activeDurationMs/sessionCount` 与可空封面 URL。每款游戏只占一行，接口不接受 `limit`；响应级 `generatedAtMs` 是页面分组与 7/30 天滚动窗口的统一时钟。 |
 | `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 Game 当前元信息字段 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`；列表按 `RECENT_DESC/ADDED_DESC/TITLE_ASC` 的服务端稳定 cursor 分页，每页默认 50。无 cursor 的首分页额外返回 `filteredCount` 与 `facets={totalCount,platforms,platformInstances,tags}`；facet 覆盖完整可见游戏库并带真实 count，续页不重复返回。响应级 `generatedAtMs` 作为相对时间的统一时钟。 |
 | `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；`availability=AVAILABLE` 只返回当前可恢复存档，`ALL` 还保留 RPG Maker/ONS 的 `SAVE_RUNTIME_INCOMPATIBLE` 与 EmulatorJS 的 `SAVE_CORE_UNAVAILABLE` 阻断项。列表项包含基础平台、游戏目录、锁定 Core、payload `sizeBytes`、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露 payload/screenshot Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
@@ -475,7 +475,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `PUT /api/v1/admin/platform-instances/order` | 以全部目录的 ID/version 原子替换显示顺序，供拖拽和键盘排序。 |
 | `POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview`、`POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core` | 默认核心影响 digest 与提交。 |
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |
-| `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 替换当前 installation。同 Requirement 的替换是破坏性边界，旧 Installation payload 被释放且只保留结构化审计；一期没有独立删除 Installation API。 |
+| `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 替换当前 installation。同 Requirement 的替换原子切换当前安装，新 BIOS 对后续启动生效；已有会话与存档保留，旧 Installation payload 延迟释放，结构化审计保留；一期没有独立删除 Installation API。 |
 | `GET /api/v1/admin/diagnostics` | 下载不含内容标识与路径的封闭 JSON 诊断摘要；只读、无需 Idempotency-Key，但仍受全局 readiness 门禁。 |
 | `GET /api/v1/admin/storage-analysis` | ADMIN-only、`private, no-store` 的已登记 CAS payload 容量快照；无 query，不返回 Blob ID、hash、文件名、路径或 capability。 |
 | `POST /api/v1/admin/storage-cleanups` | ADMIN-only 立即回收请求；无 query/body，要求 CSRF 与 UUID `Idempotency-Key`，202 返回被推进到立即执行的 Blob 数、byte 与接受时刻；不返回 Blob/Job 标识。 |
@@ -621,6 +621,8 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 精确机器 schema 以 [`../api/openapi.yaml`](../api/openapi.yaml) 为入口的领域文件集为准；人类可读契约与 schema 发生漂移时必须在同一变更修正，验收见 `ACC-FAV-002`。
 
 ## 11. 服务器 BIOS 导入 API
+
+BIOS 列表的 `BIOSRequirementSummary.fileKind` 必填，值为 `FILE | ARCHIVE`；客户端按该字段展示压缩包内部对比入口，不能由 sourceKind 推断。STATIC archive 和 DAT_MACHINE 均支持现有安装归档对比接口。源码固件包成员校验失败返回 422 `BIOS_INSTALLATION_INVALID`，details 带 missingEntries、mismatchedEntries、warnings，且不替换原安装。服务器 BIOS 导入条目增加 `INVALID_ARCHIVE`，表示包可读取但必要成员不满足，并计入失败数。
 
 所有下列 route 都要求 ADMIN；匿名返回 401，USER 返回 403。写请求继续执行 Origin/Fetch Metadata/CSRF、Idempotency-Key 与 `If-Match` 规则。目录路径相对服务器 `/`，管理员可据此浏览完整可读文件系统；DTO 不包含 root digest、CAS path 或 source inode。
 
@@ -835,17 +837,13 @@ Game 一旦 DELETED，公共 `GET /api/v1/games/{gameId}`、Launch 创建、Game
 
 ### 16.1 管理与审核 API
 
-上传 transport 仍只用 `sourceType=FILES|DIRECTORY`；`upload_sessions.purpose` 新增 `RPG_MAKER_PROJECT|RUNTIME_ASSET_PACK`，Import create 的 `contentMode` 新增 `RPG_MAKER_PROJECT`。项目 mode 只接受一个 DIRECTORY，或 FILES 中恰好一个 `.zip/.7z`；不得新增含混的传输枚举。Pegasus、EmulationStation 和通用 server import 向 `rpgmaker` 目标创建项目时固定返回 `422 RPG_SERVER_IMPORT_UNSUPPORTED`。
+上传 transport 仍只用 `sourceType=FILES|DIRECTORY`；`upload_sessions.purpose` 只接受 `GENERAL|PROJECT`，Import create 的 `contentMode` 新增 `RPG_MAKER_PROJECT`。项目 mode 只接受一个 DIRECTORY，或 FILES 中恰好一个 `.zip/.7z`；不得新增含混的传输枚举。Pegasus、EmulationStation 和通用 server import 向 `rpgmaker` 目标创建项目时固定返回 `422 RPG_SERVER_IMPORT_UNSUPPORTED`。
 
-RPG 条目的 Review detail 额外返回可空 `rpgMaker`，包含 `selectedCoreId/generation/evidenceGeneration/evidenceConfidence/selfContained/selfContainedOverride/runtimePackRequirements/runtimePackSelections`。要求和选择按 slot 排序，规范名由服务端 Unicode NFKC full case-fold 生成，客户端使用该名称精确匹配。所有引擎共用普通 `validation/canApprove/runtimeScreenshot` 投影和 Preview Player；RPG 就绪由真实文件、当前 Target 和资源包依赖决定，不以打开过 Player 或完成位置/帧/音频证明作为条件。
+RPG 条目的 Review detail 额外返回可空 `rpgMaker`，包含 `selectedCoreId/generation/evidenceGeneration/evidenceConfidence/selfContained/selfContainedOverride/externalRTPRequirements`。外部声明以 `{slot,declaredName}` 表示，供管理员判断，不再返回可选安装实例。所有引擎共用普通 `validation/canApprove/runtimeScreenshot` 投影和 Preview Player。
 
-| 方法与路径 | 固定契约 |
-| --- | --- |
-| `GET /api/v1/admin/runtime-asset-packs` | 返回 definition、installation、引用计数与验证状态；definition 同时返回服务端生成的 `normalizedDeclaredName` 作为 exact matching key，不返回宿主路径。 |
-| `POST /api/v1/admin/runtime-asset-packs/installations` | 携带 `Idempotency-Key`；严格 body `{uploadId,definitionId,sourceNote?}`，或互斥的自定义 RGSS 请求 `{uploadId,generation,declaredName,sourceNote?}`（不接受 kind）；只消费 COMPLETE 且未使用的单目录/单归档 `RUNTIME_ASSET_PACK` upload，返回 202 Job 与 installation `ETag`；重复 upload/相同 definition + files digest 返回 409，超 10,000 文件或 512 MiB 返回 413；隔离 archive worker 因进程/资源边界暂不可用时返回 `503 RPG_RUNTIME_PACK_UNAVAILABLE`，不得误报成内容无效，客户端只可对该稳定码使用新幂等键做有界重试。 |
-| `DELETE /api/v1/admin/runtime-asset-packs/installations/{installationId}` | 携带 installation `If-Match` 与 `Idempotency-Key`；只删除 READY/FAILED 且未引用 installation；有 Variant/Save 引用时 `409 RPG_RUNTIME_PACK_IN_USE`，版本漂移返回 412；成功 204 并进入既有 payload release 保留期。 |
-| `PATCH /api/v1/admin/reviews/{importItemId}` | RPG 依赖字段可以同时省略；修改依赖时必须完整提交最多三项且 slot 唯一的 `runtimePackSelections:[{slot,installationId}]` 与显式布尔 `rpgSelfContainedOverride`，并携带 `If-Match`。任何草稿更新递增 Review version；只有来源、目标或 RPG 运行输入变化才使既有验证失效，metadata-only 编辑继续匹配原验证的真实输入摘要。 |
-| `GET /runtime/launches/{launchId}/checkpoint-status` | 返回冻结的 `checkpointFormat` 和最近受序 availability `{available,sequence,reason}`；即时 UI 仍以 Provider event 为准。 |
+`PATCH /api/v1/admin/reviews/{importItemId}` 保留可选布尔 `rpgSelfContainedOverride` 与现有 `If-Match/tagIds` 契约。2000/2003/XP/VX/VX Ace 可显式确认自包含并忽略外部 RTP 声明，false 撤销确认；非 RPG 不接受此字段，MV/MZ 不接受 true。确认变化原子更新当前校验和依赖摘要；安全校验、来源与引擎匹配仍不可绕过。原有 `runtimePackSelections` 字段不再接受。
+
+运行包列表、安装和删除路由已移除，原 `/api/v1/admin/runtime-asset-packs` 路由族返回 404；上传不再接受 `RUNTIME_ASSET_PACK` purpose。未人工确认的外部声明以 `BLOCKED/RPG_EXTERNAL_RTP_REQUIRED` 显示，approve 继续使用 `409 REVIEW_VALIDATION_STALE` 表示当前不可发布。预览保持尽可能启动的诊断用途。`GET /runtime/launches/{launchId}/checkpoint-status` 的冻结格式与 availability 契约保持有效。
 
 所有 Launch config 都是 `LaunchEnvelopeV1`，Provider 行为由 `runtime.providerId + runtime.targetId + runtime.bundleSha256 + runtime.moduleSha256` 唯一选择。Host 只做 envelope、模块 URL/hash 和能力边界校验，然后调用 Provider Module V1 的 `mount(request)`；它不得认识 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、WASM-4 或任意 EmulatorJS core。Provider Target 私有选项位于 `targetOptions`，内容位于有序 `resources[]`，恢复输入位于 `restore`，联机输入位于 `netplay`。`session.coreName` 是 Host 产品目录冻结的显示名，仅用于界面；它不得替代 `runtime.targetId` 或影响 Provider 选择。PRODUCT 与 REVIEW_PREVIEW 共用同一 envelope，以 `session.purpose` 区分来源 owner，不能产生第二套 config schema。
 
@@ -858,7 +856,7 @@ ONS/KiriKiri/Butterscotch 的 `index.json` 逐项必须包含准确 `path/sizeBy
 Butterscotch core 需要本地文件路径，因此 adapter 必须先把冻结索引的每个项目文件流式写入按 content digest 分区的 OPFS，再启动 worker；下载过程按总字节上报进度。缓存文件长度与索引一致时跨 Launch 复用，长度漂移则删除并重新下载；恢复 Launch 仍重新读取 `index.json` 和 grant，但不重复获取已完整缓存的 `data.win`。
 
 - `GET|HEAD /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 只允许命中已激活 Provider Bundle 的逐文件 allowlist，本地逐字节复核 size/hash 后返回不可变公共响应；未知 Provider、摘要、路径或 MIME 返回 404；
-- `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生 bundle 和所选 runtime pack 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件或 pack 必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri/Butterscotch adapter 使用的保留虚拟索引；EasyRPG RTP 另投影为 `__retrom__/packs/{slot}/index.json` 和 `__retrom__/packs/{slot}/files/{path}`。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、当前可变 GameFiles 或 ReviewDraft。
+- `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生索引与 bundle 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri/Butterscotch adapter 使用的保留虚拟索引，不提供外部 RTP 索引或文件端点。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、当前可变 GameFiles 或 ReviewDraft。
 
 两条路径都必须以 `x-retrom-router-template` 保留含 `/` 的尾部路径。OpenAPI 中间件必须先识别它们再进入内容 handler；否则即使文件已物化也会被错误地提前映射为 404。
 
@@ -896,8 +894,7 @@ RPG 错误沿用全局 error envelope，`code` 与 HTTP 状态固定分组如下
 - `408`：`RPG_RUNTIME_TIMEOUT`；
 - `410`：`RPG_RUNTIME_BOOTSTRAP_EXPIRED`；
 - `413`：`RPG_RGSS_CONTENT_TOO_LARGE`（multipart 超过 route 总上限继续使用通用 body-too-large code）；
-- `503`：`RPG_RUNTIME_PACK_UNAVAILABLE`（仅表示隔离 archive worker 的瞬时进程/资源不足，客户端只可对该稳定码使用新幂等键做有界重试）；
-- `409`：`RPG_PROJECT_ROOT_AMBIGUOUS/RPG_GENERATION_AMBIGUOUS/RPG_RUNTIME_PACK_MISSING/RPG_RUNTIME_PACK_AMBIGUOUS/RPG_RUNTIME_PACK_IN_USE/RPG_RUNTIME_ROUTE_UNAVAILABLE/RPG_RUNTIME_THREADS_UNAVAILABLE/RPG_RUNTIME_OPFS_UNAVAILABLE/RPG_RUNTIME_INVALID_STATE/RPG_RUNTIME_PROTOCOL_VIOLATION/RPG_RUNTIME_CONTENT_MISMATCH/RPG_CHECKPOINT_UNAVAILABLE/RPG_CHECKPOINT_INCOMPATIBLE`；
+- `409`：`RPG_PROJECT_ROOT_AMBIGUOUS/RPG_GENERATION_AMBIGUOUS/RPG_RUNTIME_ROUTE_UNAVAILABLE/RPG_RUNTIME_THREADS_UNAVAILABLE/RPG_RUNTIME_OPFS_UNAVAILABLE/RPG_RUNTIME_INVALID_STATE/RPG_RUNTIME_PROTOCOL_VIOLATION/RPG_RUNTIME_CONTENT_MISMATCH/RPG_CHECKPOINT_UNAVAILABLE/RPG_CHECKPOINT_INCOMPATIBLE`；
 - `422`：`RPG_CORE_UNSUPPORTED/RPG_GENERATION_UNSUPPORTED/RPG_SELECTED_CORE_MISMATCH/RPG_SERVER_IMPORT_UNSUPPORTED/RPG_LCF_INVALID/RPG_LCF_GENERATION_UNKNOWN/RPG_LMT_INVALID/RPG_INI_INVALID/RPG_INI_ENCODING_UNSUPPORTED/RPG_RGSS_GENERATION_CONFLICT/RPG_WEB_FORMAT_INVALID/RPG_PATH_COLLISION/RPG_NATIVE_DEPENDENCY_UNSUPPORTED/RPG_NATIVE_BRIDGE_UNSUPPORTED/RPG_RUNTIME_SCREENSHOT_INVALID/RPG_CHECKPOINT_INVALID/RPG_CHECKPOINT_RESTORE_FAILED`。
 
 `RPG_CORE_UNSUPPORTED` 表示请求的用户 Core 不是 `rpgmaker`，或检测世代不能映射到当前 binding 允许的七个 Provider Target；`RPG_WEB_FORMAT_INVALID` 表示 MV/MZ 的 `System.json`、入口 HTML 或固定项目 JavaScript shape 无法安全解析。两者是 detector 对外稳定映射，不得折叠成通用 500 或按错误字符串分支。`RPG_GENERATION_AMBIGUOUS` 表示同一项目存在多个完整世代证据或无法唯一裁决，必须拒绝而不是要求用户猜测 Target。

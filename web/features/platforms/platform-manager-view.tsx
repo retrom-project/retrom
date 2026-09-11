@@ -8,8 +8,6 @@ import { EmptyState, PageHeader } from "@/components/ui";
 import type { EditTarget, PendingAction } from "./platform-manager";
 import type { Platform, PlatformDirectoryFilters, PlatformInstance, PlatformRecommendations } from "./platform-directory-list";
 
-type Summary = { total: number; enabled: number; disabled: number };
-
 export type PlatformManagerViewProps = {
   busy: string | null;
   createCoreID: string;
@@ -52,7 +50,6 @@ export type PlatformManagerViewProps = {
   selectedCreateCore: { id: string; name: string } | undefined;
   selectedCreatePlatform: Platform | undefined;
   sortHelpOpen: boolean;
-  summary: Summary;
   toast: ToastMessage | null;
   visibleRows: PlatformInstance[];
 };
@@ -68,7 +65,7 @@ function RecommendationButton({ busy, onApply, recommendations }: { busy: string
   return <button className="button secondary" type="button" disabled={busy !== null} aria-busy={busy === "recommendations"} title="只创建尚未覆盖的推荐游戏平台与运行方式组合，不修改已有目录。" onClick={onApply}>{busy === "recommendations" ? <><span className="button-spinner" aria-hidden="true" />正在创建…</> : `一键创建推荐目录 ${recommendations.summary.missingCount}`}</button>;
 }
 
-function DirectoryToolbar({ filters, onFilters, platforms, summary }: Pick<PlatformManagerViewProps, "filters" | "onFilters" | "platforms" | "summary">) {
+function DirectoryToolbar({ filters, onFilters, platforms }: Pick<PlatformManagerViewProps, "filters" | "onFilters" | "platforms">) {
   return <>
     <section className="platform-directory-toolbar" aria-label="筛选游戏目录">
       <label className="platform-directory-search"><span>搜索目录</span><span><AppIcon name="search" /><input type="search" value={filters.query} placeholder="输入目录名称、平台或说明" onChange={(event) => onFilters({ query: event.target.value })} /></span></label>
@@ -76,7 +73,6 @@ function DirectoryToolbar({ filters, onFilters, platforms, summary }: Pick<Platf
       <label><span>启用状态</span><select value={filters.status} onChange={(event) => onFilters({ status: event.target.value as PlatformDirectoryFilters["status"] })}><option value="ALL">全部状态</option><option value="ENABLED">已启用</option><option value="DISABLED">已停用</option></select></label>
       <label><span>排序方式</span><select value={filters.sort} onChange={(event) => onFilters({ sort: event.target.value as PlatformDirectoryFilters["sort"] })}><option value="ORDER">展示顺序</option><option value="NAME">名称 A-Z</option><option value="GAME_COUNT">游戏数</option></select></label>
     </section>
-    <div className="platform-directory-quick"><div className="platform-directory-chips" aria-label="游戏目录快速筛选"><button type="button" className={filters.status === "ALL" ? "active" : ""} aria-pressed={filters.status === "ALL"} onClick={() => onFilters({ status: "ALL" })}>全部 {summary.total}</button><button type="button" className={filters.status === "ENABLED" ? "active" : ""} aria-pressed={filters.status === "ENABLED"} onClick={() => onFilters({ status: "ENABLED" })}>已启用 {summary.enabled}</button><button type="button" className={filters.status === "DISABLED" ? "active" : ""} aria-pressed={filters.status === "DISABLED"} onClick={() => onFilters({ status: "DISABLED" })}>已停用 {summary.disabled}</button></div><p><strong>拖动左侧手柄</strong>调整用户侧目录展示顺序</p></div>
   </>;
 }
 
@@ -148,9 +144,9 @@ export function PlatformManagerView(props: PlatformManagerViewProps) {
   return <div className="platform-directory-manager">
     <PageHeader eyebrow="管理后台" title="游戏目录" description="维护游戏集合及其推荐运行方式。一键创建只会补充缺失项，不会修改已有目录。" actions={<><button className="button secondary" type="button" disabled={props.busy !== null} onClick={() => props.onSortHelp(true)}>排序说明</button><RecommendationButton busy={props.busy} onApply={props.onApplyRecommendations} recommendations={props.recommendationState} /><button className="button" type="button" disabled={props.busy !== null} onClick={() => props.onDrawer(true)}><AppIcon name="plus" />新建游戏目录</button></>} />
     <Toast toast={props.toast} onDismiss={props.onToastDismiss} /><p className="sr-only" role="status" aria-live="polite">{announcement}</p>
-    <DirectoryToolbar filters={props.filters} onFilters={props.onFilters} platforms={props.platforms} summary={props.summary} />
+    <DirectoryToolbar filters={props.filters} onFilters={props.onFilters} platforms={props.platforms} />
     <DirectoryTable {...props} />
-    <footer className="platform-directory-footer"><span>当前显示 {props.visibleRows.length} / {props.rows.length} 个目录</span><span>{props.reorderEnabled ? "当前可调整全局展示顺序" : "筛选状态下仅查看；清除筛选后可调整全局展示顺序"}</span></footer>
+    <footer className="platform-directory-footer"><span>当前显示 {props.visibleRows.length} / {props.rows.length} 个目录</span><span>{props.reorderEnabled ? "拖动左侧手柄调整全局展示顺序" : "筛选状态下仅查看；清除筛选后可调整全局展示顺序"}</span></footer>
     <CreateDrawer {...props} />
     <PendingDialog busy={props.busy} onClose={props.onPendingClose} onConfirm={props.onConfirmPending} pending={props.pending} />
     <ConfirmDialog open={props.sortHelpOpen} title="目录排序说明" description="展示顺序决定用户侧目录筛选中的先后位置。" confirmLabel="知道了" hideCancel onCancel={() => props.onSortHelp(false)} onConfirm={() => props.onSortHelp(false)}><ul><li>清除搜索和筛选，并选择“展示顺序”后可以拖动排序</li><li>键盘聚焦拖动手柄后，可使用上下方向键移动</li><li>排序会一次性保存全部目录，失败时恢复原顺序</li></ul></ConfirmDialog>

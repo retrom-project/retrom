@@ -14,6 +14,7 @@ export type RecentGame = {
 };
 
 export type FeaturedGame = RecentGame & {
+  description: string;
   hasSaveStates: boolean;
   lastSessionSave: null | {
     saveStateId: string;

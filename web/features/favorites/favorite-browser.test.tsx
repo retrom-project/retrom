@@ -40,8 +40,23 @@ function json(value: unknown, status = 200) {
 }
 
 describe("FavoriteBrowser", () => {
-  beforeEach(() => { auth.fetch.mockReset(); window.history.replaceState({ keep: true }, "", "/favorites"); });
-  afterEach(cleanup);
+  beforeEach(() => { vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} }); auth.fetch.mockReset(); window.history.replaceState({ keep: true }, "", "/favorites"); });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  it("hides card tags and collapses navigation without losing the selected folder", async () => {
+    const initialPage = page();
+    initialPage.items[0]!.tags = [{ tagId: "tag", name: "掌机精选" }];
+    render(<FavoriteBrowser initialPage={initialPage} initialQuery={{ ...query, scope: "FOLDER", folderId }} />);
+    const card = screen.getByRole("heading", { name: "Game 1" }).closest("article")!;
+    expect(within(card).queryByText("掌机精选")).not.toBeInTheDocument();
+    expect(within(card).queryByText("想玩")).not.toBeInTheDocument();
+    expect(screen.queryByText(/你收藏的所有游戏/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "折叠收藏导航" }));
+    expect(screen.queryByRole("button", { name: "编辑收藏夹" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "展开收藏导航" }));
+    expect(screen.getByRole("button", { name: "编辑收藏夹" })).toBeVisible();
+    expect(screen.getByRole("button", { name: /想玩/ })).toHaveAttribute("aria-current", "page");
+  });
 
   it("renders complete, scope-empty, filtered-empty and retryable error states", async () => {
     const empty = page({ summary: { favoriteCount: 0, uncategorizedCount: 0, folderCount: 0 }, folders: [], platforms: [], totalCount: 0, items: [] });

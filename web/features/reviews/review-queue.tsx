@@ -40,10 +40,6 @@ function queryString(values: Record<string, string>) {
 
 const validationLabels: Record<string, string> = { READY: "可以发布", BLOCKED: "缺少依赖", DEPENDENCY_MISSING: "缺少依赖", INCOMPATIBLE: "不兼容", NEEDS_VALIDATION: "等待检查" };
 
-function hasReviewMetadata(item: ReviewQueueItem) {
-  return item.candidateCount > 0 || item.sourceKind === "PEGASUS" || item.sourceKind === "EMULATIONSTATION";
-}
-
 function formatBytes(value: number) {
   if (value < 1024) {return `${value} B`;}
   if (value < 1024 ** 2) {return `${(value / 1024).toFixed(1)} KiB`;}
@@ -78,22 +74,10 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
   const [nextCursor, setNextCursor] = useState(initial.nextCursor);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [summaryFilter, setSummaryFilter] = useState<"ALL" | "READY" | "ABNORMAL" | "MISSING">("ALL");
   const persistenceReady = useRef(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const loadMoreRequest = useRef(false);
   const autoLoadArmed = useRef(true);
-  const counts = useMemo(() => ({
-    ready: items.filter((item) => item.validationStatus === "READY" && item.blockerCodes.length === 0).length,
-    abnormal: items.filter((item) => item.validationStatus !== "READY" || item.blockerCodes.length > 0).length,
-    missing: items.filter((item) => !hasReviewMetadata(item)).length,
-  }), [items]);
-  const visibleItems = useMemo(() => items.filter((item) => {
-    if (summaryFilter === "READY") {return item.validationStatus === "READY" && item.blockerCodes.length === 0;}
-    if (summaryFilter === "ABNORMAL") {return item.validationStatus !== "READY" || item.blockerCodes.length > 0;}
-    if (summaryFilter === "MISSING") {return !hasReviewMetadata(item);}
-    return true;
-  }), [items, summaryFilter]);
 
   useEffect(() => {
     if (resetPersisted) {
@@ -174,22 +158,16 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
   }, [loadMore, nextCursor]);
 
   return <section className="review-workflow-queue" aria-label="待审核队列">
-    <div className="import-workflow-chips review-workflow-chips" aria-label="筛选已加载的审核条目">
-      <button type="button" className={summaryFilter === "ALL" ? "is-active" : ""} onClick={() => setSummaryFilter("ALL")}>当前已加载 {items.length}</button>
-      <button type="button" className={summaryFilter === "READY" ? "is-active" : ""} onClick={() => setSummaryFilter("READY")}>可以发布 {counts.ready}</button>
-      <button type="button" className={summaryFilter === "ABNORMAL" ? "is-active" : ""} onClick={() => setSummaryFilter("ABNORMAL")}>运行异常 {counts.abnormal}</button>
-      <button type="button" className={summaryFilter === "MISSING" ? "is-active" : ""} onClick={() => setSummaryFilter("MISSING")}>未找到信息 {counts.missing}</button>
-    </div>
-    <div className="review-workflow-list">{visibleItems.map((item) => <ReviewQueueRow
+    <div className="review-workflow-list">{items.map((item) => <ReviewQueueRow
       item={item}
       key={item.itemId}
       listURL={listURL}
       onRemember={remember}
       timeZone={timeZone}
     />)}</div>
-    {!visibleItems.length ? <div className="import-workflow-empty"><h2>已加载条目中没有匹配项</h2><p>继续向下滚动会加载下一页，或切换上方筛选。</p></div> : null}
+    {!items.length ? <div className="import-workflow-empty"><h2>当前没有待审核条目</h2><p>继续向下滚动会加载下一页，或切换上方筛选。</p></div> : null}
     <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
-    <div className="queue-footer"><span>当前筛选显示 {visibleItems.length} / 已加载 {items.length} 条</span>{nextCursor ? <button type="button" className="button secondary" disabled={loading} onClick={() => void loadMore()}>{loading ? "正在加载下一页…" : "继续加载"}</button> : <span className="status good"><i />已加载当前搜索条件的全部条目</span>}{error ? <span role="alert" className="status bad"><i />{error}</span> : null}</div>
+    <div className="queue-footer"><span>已加载 {items.length} 条</span>{nextCursor ? <button type="button" className="button secondary" disabled={loading} onClick={() => void loadMore()}>{loading ? "正在加载下一页…" : "继续加载"}</button> : <span className="status good"><i />已加载当前搜索条件的全部条目</span>}{error ? <span role="alert" className="status bad"><i />{error}</span> : null}</div>
   </section>;
 }
 

@@ -21,6 +21,12 @@ const game: GameSummary = {
 };
 
 describe("GameGrid", () => {
+  it("keeps tags as filter data without exposing them on the card", () => {
+    const { container } = render(<GameGrid games={[{ ...game, tags: [{ tagId: "handheld", name: "掌机精选" }] }]} nowMs={0} />);
+    expect(screen.queryByText("掌机精选")).not.toBeInTheDocument();
+    expect(container.querySelector(".tag-chips")).toBeNull();
+  });
+
   it("renders an actionable empty state", () => {
     render(<GameGrid games={[]} nowMs={new Date(2026, 7, 8, 12).getTime()} />);
     expect(screen.getByRole("heading", { name: "游戏库还是空的" })).toBeInTheDocument();

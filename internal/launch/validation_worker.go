@@ -164,6 +164,9 @@ SELECT version,source_manifest_digest FROM games WHERE id=? AND status='PUBLISHE
 	if currentVersion != inputs.GameVersion || currentManifest != inputs.SourceManifestDigest {
 		return errValidationGameChanged
 	}
+	if err := service.checkValidationBIOS(ctx, transaction, inputs, datID); err != nil {
+		return err
+	}
 	defaultDOSEntry, emulatorGameID, err := service.validationDefaults(
 		ctx, transaction, inputs.GameVariantID, inputs.GameID, outcome.status,
 	)

@@ -111,6 +111,7 @@ build: prepare-go api-generate-go
 	@go build ./cmd/retrom
 
 test: prepare-go api-generate-go
+	@python3 scripts/test_firmware_catalog.py
 	@go test $(GO_PACKAGES)
 
 lint-go: api-generate-go install-golangci-lint

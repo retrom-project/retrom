@@ -227,7 +227,7 @@ function FavoriteActionsView(props: FavoriteActionsViewProps) {
         title={favorite ? "取消收藏" : "收藏"}
         disabled={busy}
         onClick={favorite ? onStartRemove : onAdd}
-      ><AppIcon name="heart" />{variant === "detail" ? <span>{favorite ? "已收藏" : "收藏"}</span> : null}</button>
+      ><AppIcon name="heart" /></button>
       {showManageButton ? <button
         ref={internalManageButton}
         className="favorite-manage"

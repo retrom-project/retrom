@@ -71,7 +71,8 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 	query := `
 SELECT requirement.id,requirement.core_id,core.name,requirement.provider_id,requirement.target_id,
 requirement.logical_name,
-requirement.source_kind,requirement.requirement_mode,requirement.condition_code,requirement.md5,requirement.enabled,
+requirement.source_kind,requirement.file_kind,requirement.requirement_mode,
+requirement.condition_code,requirement.md5,requirement.enabled,
 requirement.version,` + biosStatusExpression + `,installation.id,installation.md5,installation.sha1,installation.sha256,
 installation.validated_requirement_version,installation.created_at_ms
 FROM bios_requirements requirement JOIN cores core ON core.id=requirement.core_id
@@ -89,14 +90,14 @@ requirement.logical_name COLLATE BINARY,requirement.id COLLATE BINARY LIMIT ?`
 	sortNames := make([][3]string, 0, parsed.limit+1)
 	for rows.Next() {
 		var id, coreID, coreName, providerID, targetID string
-		var logicalName, sourceKind, mode, itemStatus string
+		var logicalName, sourceKind, fileKind, mode, itemStatus string
 		var condition, expectedMD5, installationID, installedMD5, installedSHA1, installedSHA256 sql.NullString
 		var validatedVersion, installedAt sql.NullInt64
 		var enabled int
 		var version int64
 		if err := rows.Scan(
 			&id, &coreID, &coreName, &providerID, &targetID,
-			&logicalName, &sourceKind, &mode, &condition,
+			&logicalName, &sourceKind, &fileKind, &mode, &condition,
 			&expectedMD5, &enabled, &version, &itemStatus, &installationID, &installedMD5,
 			&installedSHA1, &installedSHA256, &validatedVersion, &installedAt,
 		); err != nil {
@@ -113,6 +114,7 @@ requirement.logical_name COLLATE BINARY,requirement.id COLLATE BINARY LIMIT ?`
 				"targetId":        targetID,
 				"logicalName":     logicalName,
 				"sourceKind":      sourceKind,
+				"fileKind":        fileKind,
 				"requirementMode": mode,
 				"conditionCode":   nullableString(condition),
 				"expectedMd5":     nullableString(expectedMD5),

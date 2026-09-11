@@ -9,6 +9,21 @@ import { ImportTaskBoard } from "./import-task-board";
 describe("ImportTaskBoard", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+  it("filters tasks through the dropdown without summary buttons", async () => {
+    const user = userEvent.setup();
+    const base = { metadataProvider: "NONE", totalItemCount: 1, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0, version: 1, createdAtMs: 1, updatedAtMs: 2 };
+    render(<ImportTaskBoard initial={{ items: [
+      { ...base, id: "done", state: "COMPLETED", platformInstanceName: "完成目录" },
+      { ...base, id: "failed", state: "FAILED", platformInstanceName: "失败目录" },
+    ], nextCursor: null }} />);
+    expect(screen.queryByLabelText("任务摘要")).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "任务状态" }), "COMPLETED");
+    expect(screen.getByRole("heading", { name: /完成目录/ })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: /失败目录/ })).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "任务状态" }), "");
+    expect(screen.getByRole("heading", { name: /失败目录/ })).toBeVisible();
+  });
+
   it("hydrates across server and browser time zones before showing browser-local time", async () => {
     const previousTimeZone = process.env.TZ;
     const timestamp = Date.UTC(2026, 8, 2, 12, 43);

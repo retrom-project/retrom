@@ -53,7 +53,7 @@ Pegasus 在 Collection 映射步骤逐项选择默认标签，可用批量辅助
 
 游戏关键字 `q` 在 SQL 分页之前匹配既有游戏搜索文本或任一活动 Tag 名；`GET /games`、`GET /admin/games` 和 `GET /admin/reviews` 另接受一个精确 `tagId`。`q`、`tagId`、平台、目录和既有状态条件取交集，cursor digest 绑定 `tagId`，不能跨筛选复用。不存在或已删除 `tagId` 得到合法空页，格式非法仍是 `400 INVALID_REQUEST`。
 
-用户列表只投影 PUBLISHED 且目录可见 Game 的活动标签；管理列表可投影 PUBLISHED/DELETED Game 的活动标签。标签随 Game summary/detail 进入游戏库、首页、最近、收藏、存档、联机选择、管理游戏和审核；数组始终为 `[]` 或按稳定顺序排列的引用，不得为 null。列表通常显示前 2–3 个和可访问的 `+N`，详情显示全部；Player 和运行时响应不携带标签。
+用户列表只投影 PUBLISHED 且目录可见 Game 的活动标签；管理列表可投影 PUBLISHED/DELETED Game 的活动标签。标签随 Game summary/detail 进入游戏库、首页、最近、收藏、存档、联机选择、管理游戏和审核；数组始终为 `[]` 或按稳定顺序排列的引用，不得为 null。游戏库、收藏卡片、我的存档分组和管理游戏列表不外露标签，仍保留数据投影和筛选能力；其他列表通常显示前 2–3 个和可访问的 `+N`，详情显示全部；Player 和运行时响应不携带标签。
 
 标签管理页可读取 ACTIVE/DELETED 列表、summary 与 usage。DELETED 行只读且保留历史 usage；普通 USER 没有列出全实例 taxonomy 的端点，以免暴露不可见游戏使用的分类。
 
@@ -63,7 +63,7 @@ Pegasus 在 Collection 映射步骤逐项选择默认标签，可用批量辅助
 - 通用 TagPicker 使用 combobox/listbox 语义，支持 ArrowUp/Down、Enter、Escape、带完整名称的移除按钮、20 个上限朗读和空 taxonomy 管理链接；listbox 通过顶层浮动层呈现并随输入位置更新，按视口剩余空间向下或向上展开，不能被 Drawer、列表或其他滚动容器裁剪；它只管理受控选择，业务 feature 负责读取与提交。
 - 游戏库搜索提示明确包含标签，并用 `tagId` 单选筛选写入 URL；游戏详情的每个 chip 链接回 `/library?tagId=...`。genre 与 Tag 始终分开展示。
 - 普通导入、Pegasus Collection、ReviewDraft 和管理员游戏详情均使用同一活动 TagPicker；成功写入后必须采用响应的新 owner version，冲突时刷新真实聚合，不能在客户端猜测 rename/delete 结果。
-- 收藏夹 chip 和实例标签有不同区域与可访问名称，避免把 Profile 私有集合误认为共享 taxonomy。
+- 收藏卡片不显示游戏标签或收藏夹 chip；我的存档也不显示游戏标签；私有收藏夹归类通过导航与管理菜单查看，避免和共享 taxonomy 混淆。
 
 响应式基线为 390×844、1280×800、2560×1440，以及物理 3840×2160、系统缩放 150%（CSS viewport 2560×1440、DPR 1.5）的 4K 场景。chip 可换行、长名称截断但保留 title，不得制造页面级横向溢出；Drawer/Dialog 遵守焦点圈定、Esc 关闭和关闭后焦点恢复。
 

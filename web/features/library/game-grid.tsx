@@ -9,13 +9,12 @@ import { ButtonLink, EmptyState } from "@/components/ui";
 import { FavoriteActions, type FavoriteActionsHandle } from "@/features/favorites/favorite-actions";
 import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import { formatLibraryPlayedAt, type GameSummary } from "./game-library";
-import { TagChips } from "@/components/tag-picker";
 
 export type { GameSummary } from "./game-library";
 
 function GamePoster({ game }: { game: GameSummary }) {
   if (game.coverUrl) {return <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="(min-width: 2600px) 280px, 270px" unoptimized />;}
-  return <span className="library-poster" role="img" aria-label={`${game.title} 暂无封面`}><small>RETROM CLASSICS</small><strong>{game.title}</strong><span>{game.defaultCore.name}</span></span>;
+  return <span className="library-poster" role="img" aria-label={`${game.title} 暂无封面`}><small>RETROM CLASSICS</small><strong title={game.title}>{game.title}</strong><span>{game.defaultCore.name}</span></span>;
 }
 
 export function GameGrid({ games, nowMs, filtered = false }: { games: GameSummary[]; nowMs: number; filtered?: boolean }) {
@@ -62,7 +61,6 @@ export function GameGrid({ games, nowMs, filtered = false }: { games: GameSummar
       <div className="library-game-body">
         <div className="library-game-title-row"><Link href={`/games/${game.gameId}`}><h2>{game.title}</h2></Link><button ref={(button) => { if (button) {moreButtons.current.set(game.gameId, button);} else {moreButtons.current.delete(game.gameId);} }} type="button" aria-label={`游戏“${game.title}”的更多操作`} aria-haspopup="menu" aria-expanded={menuId === game.gameId} onClick={() => setMenuId((current) => current === game.gameId ? null : game.gameId)}>•••</button>{menuId === game.gameId ? <div className="library-game-menu" role="menu"><Link role="menuitem" href={`/games/${game.gameId}`}>查看游戏详情</Link><Link role="menuitem" href={`/saves?gameId=${encodeURIComponent(game.gameId)}`}>查看相关存档</Link><button role="menuitem" type="button" aria-haspopup="dialog" onClick={() => { const anchor = moreButtons.current.get(game.gameId); if (anchor) {favoriteManagers.current.get(game.gameId)?.openFolderPicker(anchor, () => moreButtons.current.get(game.gameId) ?? null);} setMenuId(null); }}>管理收藏夹</button></div> : null}</div>
         <p className={(titleCounts.get(game.title) ?? 0) > 1 ? "phone-disambiguation" : undefined}><span>{game.platform.name}</span><span>{game.platformInstance.name}</span></p>
-        <TagChips tags={game.tags ?? []} limit={2} label={`${game.title} 的标签`} />
         <div className="library-game-played"><span>最近游玩</span><strong>{formatLibraryPlayedAt(game.lastPlayedAtMs, nowMs, timeZone)}</strong></div>
       </div>
     </article>)}

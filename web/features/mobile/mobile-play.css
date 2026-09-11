@@ -5,7 +5,7 @@
 .phone-app-header { min-height: calc(56px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .phone-brand, .phone-back { min-height: 44px; display: flex; align-items: center; gap: 10px; }
 .phone-brand strong { font-size: 19px; letter-spacing: -.5px; }
-.phone-brand .brand-mark { width: 28px; height: 28px; font-size: 18px; border-radius: 8px; }
+.phone-brand .brand-mark { width: 28px; height: 28px; font-size: 18px; border-radius: var(--radius-control); }
 .phone-back { font-size: 15px; font-weight: 700; }
 .phone-back svg { width: 22px; height: 22px; }
 .phone-avatar { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
@@ -16,7 +16,7 @@
 .phone-bottom-nav a { min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--muted); font-size: 12px; font-weight: 650; }
 .phone-bottom-nav svg { width: 23px; height: 23px; }
 .phone-bottom-nav a[aria-current="page"] { color: var(--purple-dark); }
-.phone-bottom-nav a[aria-current="page"] svg { background: var(--purple-soft); outline: 5px solid var(--purple-soft); border-radius: 6px; }
+.phone-bottom-nav a[aria-current="page"] svg { background: var(--purple-soft); outline: 5px solid var(--purple-soft); border-radius: var(--radius-panel); }
 .phone-app-frame .page-header { margin: 0 0 16px; min-height: 0; }
 .phone-app-frame .page-header h1, .phone-home h1, .phone-profile h1 { margin: 0; font-size: 24px; line-height: 1.35; }
 .phone-app-frame .page-header .eyebrow, .phone-app-frame .page-header p { display: none; }
@@ -25,14 +25,14 @@
 
 /* Home has three tasks: search, continue, and choose a recent game. */
 .phone-home { display: grid; gap: 26px; }
-.phone-home-search { min-width: 0; min-height: 50px; padding: 0 5px 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.phone-home-search { min-width: 0; min-height: 50px; padding: 0 5px 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: var(--radius-control); background: white; }
 .phone-home-search:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
 .phone-home-search > svg { width: 20px; height: 20px; flex-shrink: 0; color: var(--muted); }
 .phone-home-search input { width: 100%; min-width: 0; padding: 8px 0; border: 0; outline: 0; background: transparent; }
-.phone-home-search button { min-width: 48px; min-height: 44px; border: 0; border-radius: 10px; color: var(--purple-dark); background: var(--purple-soft); font-weight: 750; }
+.phone-home-search button { min-width: 48px; min-height: 44px; border: 0; border-radius: var(--radius-control); color: var(--purple-dark); background: var(--purple-soft); font-weight: 750; }
 .phone-continue h1 { margin-bottom: 14px; }
 .phone-continue-card { display: grid; grid-template-columns: minmax(76px, 31%) minmax(0, 1fr); align-items: start; gap: 16px; }
-.phone-game-poster { position: relative; width: 100%; aspect-ratio: 5 / 7; overflow: hidden; display: grid; place-items: center; border-radius: 12px; background: #222c43; color: #eef1f7; }
+.phone-game-poster { position: relative; width: 100%; aspect-ratio: 5 / 7; overflow: hidden; display: grid; place-items: center; border-radius: var(--radius-cover); background: #222c43; color: #eef1f7; }
 .phone-game-poster > span { padding: 12px; text-align: center; overflow-wrap: anywhere; font-size: 16px; font-weight: 750; }
 .phone-game-poster img { object-fit: cover; object-position: center; }
 .phone-continue-copy, .phone-continue-info, .phone-continue-actions { min-width: 0; }
@@ -55,9 +55,9 @@
 /* Search remains visible; metadata stays in the game detail. */
 .phone-app-frame .library-toolbar { position: relative; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .phone-app-frame .library-tool-row { display: flex; flex-wrap: nowrap; gap: 8px; }
-.phone-app-frame .library-search { flex: 1; min-width: 0; height: 48px; background: white; border-radius: 12px; }
+.phone-app-frame .library-search { flex: 1; min-width: 0; height: 48px; background: white; border-radius: var(--radius-control); }
 .phone-app-frame .library-desktop-filter { display: none; }
-.phone-app-frame .library-mobile-filter-trigger { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; min-width: 48px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: 12px; box-shadow: none; }
+.phone-app-frame .library-mobile-filter-trigger { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; min-width: 48px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: var(--radius-control); box-shadow: none; }
 .phone-app-frame .library-mobile-filter-trigger svg { width: 20px; height: 20px; }
 .phone-app-frame .library-platform-row { margin-top: 12px; padding: 0 0 6px; flex-wrap: nowrap; overflow-x: auto; border: 0; scrollbar-width: none; }
 .phone-platform-scrollbar { display: none; }
@@ -68,7 +68,7 @@
 .phone-app-frame .library-platform-label, .phone-app-frame .library-result-count, .phone-app-frame .library-section-head { display: none; }
 .phone-app-frame .library-game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; margin-top: 16px; }
 .phone-app-frame .library-game-card { min-width: 0; width: auto; overflow: visible; border: 0; background: transparent; box-shadow: none; }
-.phone-app-frame .library-game-cover { overflow: hidden; border-radius: 12px; }
+.phone-app-frame .library-game-cover { overflow: hidden; border-radius: var(--radius-cover); }
 .phone-app-frame .library-game-body { min-height: 0; padding: 8px 0 0; }
 .phone-app-frame .library-game-title-row { min-height: 44px; align-items: flex-start; }
 .phone-app-frame .library-game-title-row > a { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; }
@@ -82,7 +82,8 @@
 
 /* Detail keeps launch and saves close; optional information is disclosed. */
 .phone-app-frame .game-detail-page { padding-bottom: 96px; }
-.phone-app-frame .game-detail-breadcrumb, .phone-app-frame .game-detail-poster-caption, .phone-app-frame .game-detail-playtime, .phone-app-frame .game-detail-meta, .phone-app-frame .game-detail-main > .tag-chips { display: none; }
+.phone-app-frame .game-detail-breadcrumb, .phone-app-frame .game-detail-playtime, .phone-app-frame .game-detail-meta, .phone-app-frame .game-detail-main > .tag-chips { display: none; }
+.phone-app-frame .game-detail-poster-shell { align-self: start; }
 .phone-app-frame .game-detail-hero { padding: 0; display: grid; grid-template-columns: minmax(88px, 34%) minmax(0, 1fr); gap: 16px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .phone-app-frame .game-detail-main { min-width: 0; }
 .phone-app-frame .game-detail-main h1 { margin: 0 0 8px; font-size: 24px; line-height: 1.3; overflow-wrap: anywhere; }
@@ -119,7 +120,7 @@
 .phone-profile-identity > span { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: var(--purple-dark); background: var(--purple-soft); font-size: 22px; font-weight: 800; }
 .phone-profile-identity strong { font-size: 18px; overflow-wrap: anywhere; }
 .phone-profile-identity p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
-.phone-profile-links { display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.phone-profile-links { display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
 .phone-profile-links > a, .phone-profile-links > button { min-height: 60px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 15px; text-align: left; }
 .phone-profile-links > :last-child { border-bottom: 0; }
 .phone-profile-links svg { width: 22px; height: 22px; color: var(--purple-dark); }
@@ -148,18 +149,13 @@
 .phone-launch-fields p { margin: 0; color: var(--muted); font-size: 14px; }
 .phone-launch-fields .button { min-height: 48px; }
 
-.phone-app-frame .library-platform-tag, .phone-app-frame .game-detail-media-status { display: none; }
+.phone-app-frame .library-platform-tag { display: none; }
 .phone-app-frame .library-pagination > span:last-child:not(:first-child) { display: none; }
 .phone-app-frame .library-mobile-filter-trigger { position: relative; }
 .phone-app-frame .library-mobile-filter-trigger[data-filter-count]::after { content: attr(data-filter-count); position: absolute; inset: -5px -5px auto auto; min-width: 19px; height: 19px; padding-inline: 3px; display: grid; place-items: center; border-radius: 12px; background: var(--purple-dark); color: white; font-size: 11px; }
 
 .phone-app-frame .favorite-head-summary, .phone-app-frame .favorite-view-head > div,
 .phone-app-frame .favorite-result-count, .phone-app-frame .favorite-organize-uncategorized { display: none; }
-.phone-app-frame .favorite-rail { display: flex; align-items: center; gap: 8px; }
-.phone-app-frame .favorite-rail > nav { flex: 1; min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
-.phone-app-frame .favorite-rail > nav > button { min-height: 44px; flex-shrink: 0; }
-.phone-app-frame .favorite-new-folder { width: 44px; min-width: 44px; min-height: 44px; margin: 0; font-size: 0; }
-.phone-app-frame .favorite-new-folder::after { content: "+"; font-size: 22px; }
 .phone-app-frame .favorite-toolbar, .phone-app-frame .save-library-toolbar, .phone-app-frame .recent-filter-panel { padding: 0; border: 0; background: transparent; box-shadow: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .phone-app-frame :is(.favorite-toolbar, .save-library-toolbar, .recent-filter-panel) > .phone-disclosure { margin: 0; }
 .phone-app-frame :is(.favorite-toolbar, .save-library-toolbar, .recent-filter-panel) .phone-disclosure > div { display: grid; gap: 12px; }
@@ -170,13 +166,12 @@
 .phone-app-frame .save-library-group-main .tag-chips, .phone-app-frame .recent-history-fact:not(:first-child) { display: none; }
 .phone-app-frame .recent-history-facts { grid-template-columns: minmax(0,1fr); }
 .phone-app-frame .favorite-layout { grid-template-columns: minmax(0,1fr); }
-.phone-app-frame .favorite-rail > header, .phone-app-frame .favorite-rail-label,
 .phone-app-frame .favorite-game-cover > a > span:last-child:not(.favorite-poster),
 .phone-app-frame .favorite-game-body > .tag-chips, .phone-app-frame .favorite-game-body > p > span:last-child,
 .phone-app-frame .save-latest-section { display: none; }
 .phone-app-frame .favorite-game-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 14px; }
 .phone-app-frame .favorite-game-card { border: 0; background: transparent; box-shadow: none; }
-.phone-app-frame .favorite-game-cover { border-radius: 12px; }
+.phone-app-frame .favorite-game-cover { border-radius: var(--radius-cover); }
 .phone-app-frame .favorite-game-body { padding: 8px 0; }
 .phone-app-frame .favorite-game-body h3 { font-size: 14px; line-height: 1.4; }
 .phone-app-frame .favorite-batch, .phone-app-frame .favorite-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }

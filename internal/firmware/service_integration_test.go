@@ -125,26 +125,8 @@ WHERE f.id=?
 	)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, replaced.InstallationID == result.InstallationID, "replacement reused installation %s", replaced.InstallationID)
-	deadline = time.Now().Add(3 * time.Second)
-	for {
-		var releasedAt sql.NullInt64
-		var oldBlob sql.NullString
-		var candidates int
-		if err := database.SQL.QueryRowContext(ctx, `
-SELECT installation.blob_id,installation.payload_released_at_ms,
- (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)
-FROM bios_installations installation WHERE installation.id=?
-`, oldBlobID, result.InstallationID).Scan(&oldBlob, &releasedAt, &candidates); err != nil {
-			t.Fatal(err)
-		}
-		if !oldBlob.Valid && releasedAt.Valid && candidates == 1 {
-			break
-		}
-		testassert.Falsef(t, time.Now().After(deadline),
-			"retired BIOS = blob %v, released %v, candidates %d", oldBlob, releasedAt, candidates)
-		time.Sleep(10 * time.Millisecond)
-	}
 	assertFirmwareReplacementLifecycle(t, ctx, database.SQL, lifecycle)
+	assertDeferredBIOSRelease(t, ctx, database.SQL, releases, lifecycle, oldBlobID, result.InstallationID)
 }
 
 type firmwareReplacementLifecycle struct {
@@ -215,6 +197,8 @@ VALUES('firmware-launch','firmware-profile','firmware-game','mgba',?,?,?,
 		}},
 		{`INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
 VALUES('firmware-launch','firmware.gba',?,'SOURCE_V1',?)`, []any{contentBlobID, now}},
+		{`INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
+VALUES('firmware-launch','/bios/gba_bios.bin','gba_bios.bin',?,?,'BIOS_BUNDLE')`, []any{biosBlobID, now}},
 		{
 			`INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,
 payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
@@ -270,8 +254,8 @@ func assertFirmwareReplacementLifecycle(
 	).Scan(&variantStatus, &compatibilityCode); err != nil {
 		t.Fatal(err)
 	}
-	if variantStatus != "BLOCKED" || compatibilityCode != "VALIDATION_PENDING" {
-		t.Fatalf("replaced BIOS must allow launch revalidation: %s/%s", variantStatus, compatibilityCode)
+	if variantStatus != "READY" || compatibilityCode != "READY" {
+		t.Fatalf("BIOS replacement must preserve current validation until next launch: %s/%s", variantStatus, compatibilityCode)
 	}
 	var variantFiles, saves, launchFiles int
 	var launchState string
@@ -285,7 +269,7 @@ SELECT
 		Scan(&variantFiles, &saves, &launchState, &launchFiles); err != nil {
 		t.Fatal(err)
 	}
-	if variantFiles != 0 || saves != 1 || launchState != "REVOKED" || launchFiles != 0 {
+	if variantFiles != 1 || saves != 1 || launchState != "ACTIVE" || launchFiles != 1 {
 		t.Fatalf(
 			"BIOS replacement lifecycle = variant files %d, saves %d, launch %s, launch files %d",
 			variantFiles, saves, launchState, launchFiles,

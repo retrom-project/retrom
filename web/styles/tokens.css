@@ -1,4 +1,8 @@
 :root {
+  --radius-cover: 4px;
+  --radius-control: 6px;
+  --radius-panel: 8px;
+  --radius-dialog: 12px;
   --navy-950: #111727;
   --navy-900: #171e31;
   --navy-800: #222b42;

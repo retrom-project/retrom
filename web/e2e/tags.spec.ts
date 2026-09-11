@@ -4,8 +4,8 @@ import path from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import axe from "axe-core";
 
-const tagName = "掌机精选";
-const renamedTagName = "掌机典藏";
+const tagName = "标签验收 · 掌机精选";
+const renamedTagName = "标签验收 · 掌机典藏";
 
 test.beforeEach(async ({ page }) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
@@ -79,6 +79,9 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   await page.keyboard.press("Tab");
   await expectFocusedControl(page, "保存标签");
   await createSave.press("Enter");
+  await expect(createSheet.getByRole("textbox", { name: "标签名称" })).toHaveValue("");
+  await expect(createSheet).toBeVisible();
+  await createSheet.getByRole("button", { name: "取消" }).click();
   const createdRow = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: tagName }) });
   await expect(createdRow).toBeVisible();
 
@@ -108,7 +111,7 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
     borderWidth: 1,
   });
   expect(pickerControlStyle.height).toBeGreaterThanOrEqual(44);
-  expect(pickerControlStyle.borderRadius).toBeGreaterThanOrEqual(9);
+  expect(pickerControlStyle.borderRadius).toBe(6);
   expect(pickerControlStyle.paddingLeft).toBeGreaterThanOrEqual(12);
   await picker.focus();
   await picker.fill(tagName);
@@ -116,6 +119,17 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   await expect(page.getByRole("button", { name: `移除标签“${tagName}”` })).toBeVisible();
   await page.getByRole("button", { name: "更新标签" }).click();
   await expect(page.getByText("游戏标签已更新。", { exact: true })).toBeVisible();
+  const detailSpacing = await page.evaluate(() => {
+    const chips = document.querySelector(".admin-game-hero-copy > .tag-chips");
+    const tags = document.querySelector(".admin-game-tags");
+    const primary = document.querySelector(".admin-game-primary-grid");
+    if (!chips?.nextElementSibling || !tags || !primary) {return null;}
+    return {
+      statusGap: chips.nextElementSibling.getBoundingClientRect().top - chips.getBoundingClientRect().bottom,
+      sectionGap: primary.getBoundingClientRect().top - tags.getBoundingClientRect().bottom,
+    };
+  });
+  expect(detailSpacing).toEqual({ statusGap: 8, sectionGap: 14 });
 
   await page.goto("/admin/tags");
   const assignedRow = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: tagName }) });
@@ -131,7 +145,10 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   await expect(page.getByRole("searchbox", { name: "搜索游戏" })).toHaveValue(renamedTagName);
   const card = page.locator(".library-game-card").filter({ hasText: game.title }).first();
   await expect(card).toBeVisible();
-  await expect(card.getByText(renamedTagName, { exact: true })).toBeVisible();
+  await expect(card.locator(".tag-chips")).toHaveCount(0);
+  // Server-rendered filters can be visible before their client handlers are ready.
+  await page.keyboard.press("/");
+  await expect(page.getByRole("searchbox", { name: "搜索游戏" })).toBeFocused();
   const exactTag = await page.getByRole("combobox", { name: "标签" }).locator("option", { hasText: renamedTagName }).getAttribute("value");
   expect(exactTag).toBeTruthy();
   await page.getByRole("combobox", { name: "标签" }).selectOption(exactTag!);

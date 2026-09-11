@@ -30,6 +30,7 @@ type TagPickerProps = {
   onChange: (tags: TagReference[]) => void;
   disabled?: boolean;
   description?: string;
+  keepOpenOnSelect?: boolean;
 };
 
 export function TagPicker(input: TagPickerProps) {
@@ -40,16 +41,18 @@ export function TagPicker(input: TagPickerProps) {
     onChange={input.onChange}
     disabled={input.disabled ?? false}
     description={input.description}
+    keepOpenOnSelect={input.keepOpenOnSelect ?? false}
   />;
 }
 
-function TagPickerContent({ label, options, selected, onChange, disabled, description }: {
+function TagPickerContent({ label, options, selected, onChange, disabled, description, keepOpenOnSelect }: {
   label: string;
   options: TagReference[];
   selected: TagReference[];
   onChange: (tags: TagReference[]) => void;
   disabled: boolean;
   description: string | undefined;
+  keepOpenOnSelect: boolean;
 }) {
   const inputId = useId();
   const listId = useId();
@@ -137,7 +140,8 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
     onChange([...selected, tag].sort((left, right) => left.name.localeCompare(right.name, "zh-CN")));
     setQuery("");
     setActiveIndex(0);
-    closeList();
+    if (keepOpenOnSelect && selected.length < 19) {openList();}
+    else {closeList();}
     inputRef.current?.focus();
   }
 
@@ -167,6 +171,7 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
         value={query}
         onBlur={deferClose}
         onFocus={openList}
+        onClick={openList}
         onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); openList(); }}
         onKeyDown={(event) => {
           if (event.key === "Escape") { event.stopPropagation(); closeList(); return; }

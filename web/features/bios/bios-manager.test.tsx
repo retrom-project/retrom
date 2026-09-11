@@ -6,7 +6,7 @@ import { BIOSManager, type BIOSListResponse, type BIOSRequirement } from "./bios
 const item = (id: string, overrides: Partial<BIOSRequirement> = {}): BIOSRequirement => ({
   id, coreId: "mgba", coreName: "mGBA", providerId: "emulatorjs", targetId: "mgba",
   logicalName: `${id}.bin`,
-  sourceKind: "STATIC", requirementMode: "REQUIRED", conditionCode: null, expectedMd5: null,
+  sourceKind: "STATIC", fileKind: "FILE", requirementMode: "REQUIRED", conditionCode: null, expectedMd5: null,
   enabled: true, version: 1, status: "MATCHED", activeInstallation: null, ...overrides,
 });
 
@@ -43,6 +43,25 @@ function requestedURL(call: unknown[] | undefined) {
 describe("BIOSManager", () => {
   beforeEach(() => window.history.replaceState({ marker: "keep" }, "", "/admin/bios"));
   afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it("keeps dependency filters in the toolbar dropdown and URL", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => jsonResponse(page([item("optional", { requirementMode: "OPTIONAL" })])));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BIOSManager initialResponse={page([item("required")])} />);
+    expect(screen.queryByLabelText("BIOS 快速筛选")).not.toBeInTheDocument();
+    const filter = screen.getByRole("combobox", { name: "依赖筛选" });
+    await user.selectOptions(filter, "OPTIONAL");
+    expect(await screen.findByText("optional.bin")).toBeVisible();
+    expect(filter).toHaveValue("OPTIONAL");
+    expect(requestedURL(fetchMock.mock.calls[0])).toContain("quick=OPTIONAL");
+    expect(window.location.search).toContain("quick=OPTIONAL");
+    await user.selectOptions(filter, "ALL");
+    await screen.findByText("optional.bin");
+    expect(filter).toHaveValue("ALL");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(window.location.search).not.toContain("quick=");
+  });
 
   it("switches scope with one server request and keeps server aggregate counts", async () => {
     const user = userEvent.setup();
@@ -113,7 +132,7 @@ describe("BIOSManager", () => {
     expect(screen.getAllByText("a860e8c0b6d573d191e4ec7db1b1e4f6")).toHaveLength(2);
   });
 
-  it("opens a DAT-to-ZIP entry comparison", async () => {
+  it.each<"STATIC" | "DAT_MACHINE">(["STATIC", "DAT_MACHINE"])("opens a %s archive entry comparison", async (sourceKind) => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       requirementId: "stvbios", logicalName: "stvbios.zip", installationId: "installation", installationStatus: "MATCHED",
@@ -124,12 +143,12 @@ describe("BIOSManager", () => {
       ],
     }));
     vi.stubGlobal("fetch", fetchMock);
-    const bios = item("stvbios", { coreId: "mame2003_plus", coreName: "MAME 2003-Plus", logicalName: "stvbios.zip", sourceKind: "DAT_MACHINE", activeInstallation: { id: "installation", md5: "a".repeat(32), sha1: "b".repeat(40), sha256: "f".repeat(64), validatedRequirementVersion: 1, createdAtMs: 1 } });
+    const bios = item("stvbios", { coreId: "mame2003_plus", coreName: "MAME 2003-Plus", logicalName: "stvbios.zip", sourceKind, fileKind: "ARCHIVE", activeInstallation: { id: "installation", md5: "a".repeat(32), sha1: "b".repeat(40), sha256: "f".repeat(64), validatedRequirementVersion: 1, createdAtMs: 1 } });
     render(<BIOSManager initialResponse={page([bios])} />);
 
     await user.click(screen.getByRole("button", { name: "stvbios.zip" }));
     const dialog = await screen.findByRole("alertdialog", { name: "stvbios.zip 内容对比" });
-    const expectedList = within(dialog).getByRole("list", { name: "DAT 要求列表" });
+    const expectedList = within(dialog).getByRole("list", { name: "固件要求列表" });
     const actualList = within(dialog).getByRole("list", { name: "当前 ZIP 内容列表" });
     expect(expectedList.querySelectorAll(":scope > li")).toHaveLength(2);
     expect(actualList.querySelectorAll(":scope > li")).toHaveLength(2);

@@ -311,7 +311,8 @@ func (service *Service) installCandidate(
 	}
 	eligible := rankCandidates(candidates)
 	if len(eligible) == 0 {
-		service.completeItem(ctx, unit, item.RequirementID, "READ_FAILED", nil, "SERVER_IMPORT_SOURCE_UNREADABLE")
+		state, code := rejectedArchiveOutcome(candidates)
+		service.completeItem(ctx, unit, item.RequirementID, state, nil, code)
 		return true
 	}
 	selected, err := service.verifySelected(ctx, unit, root, eligible[0])
@@ -343,7 +344,7 @@ func (service *Service) commitCandidate(
 		ServerImportID: unit.ImportID, JobID: unit.JobID,
 		CandidateID: selected.ID, RequirementID: item.RequirementID, RequirementVersion: item.RequirementVersion,
 		ProviderID: item.ProviderID, TargetID: item.TargetID,
-		SourceVersion: item.SourceVersion,
+		SourceVersion: item.SourceVersion, ArchiveMembersJSON: item.ArchiveMembersJSON,
 		CatalogDigest: item.CatalogDigest, SourceKind: item.SourceKind, LogicalName: item.LogicalName,
 		OriginalFilename: selected.File.Basename,
 		Metadata:         selected.Metadata, Status: status, MatchMethod: method, Details: selected.Details,
