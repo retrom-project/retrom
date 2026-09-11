@@ -1375,7 +1375,8 @@
     #retrom-ui-review .rt-runtime-file strong, #retrom-ui-review .rt-runtime-cell strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
     #retrom-ui-review .rt-runtime-entry-button { max-width: 100%; overflow: hidden; padding: 0; color: var(--retrom-purple); border: 0; background: transparent; font: inherit; font-weight: 700; text-align: left; text-decoration: underline; text-underline-offset: 2px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
     #retrom-ui-review .rt-runtime-file small, #retrom-ui-review .rt-runtime-cell small { display: block; margin-top: 2px; color: var(--retrom-muted); font-size: 8px; }
-    #retrom-ui-review .rt-runtime-actions { display: flex; justify-content: flex-end; gap: 5px; }
+    #retrom-ui-review .rt-runtime-actions { display: flex; justify-content: center; align-items: center; gap: 5px; }
+    #retrom-ui-review .rt-bios-replacement-hint { position: fixed; z-index: 220; width: min(280px, calc(100vw - 24px)); padding: 9px 12px; color: #f1f3f8; border: 1px solid #3b455e; border-radius: var(--radius-control); background: #20283b; box-shadow: 0 6px 20px rgb(0 0 0 / 18%); font-size: 12px; line-height: 1.5; text-align: center; pointer-events: none; }
     #retrom-ui-review .rt-runtime-actions .rt-button { min-height: 30px; padding: 0 9px; font-size: 8px; }
     #retrom-ui-review .rt-runtime-active-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     #retrom-ui-review .rt-runtime-active { padding: 13px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
@@ -3469,11 +3470,11 @@
           <div class="rt-runtime-section-head"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>3 项</span></div>
           <div class="rt-runtime-list">
             <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><strong>neogeo.zip</strong><small>必需 · 启动前按当前目录检查</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003</strong><small>mame2003</small></div><span class="rt-badge rt-badge-red">缺少文件</span><div class="rt-runtime-cell"><strong>当前游戏库需要处理</strong><small>缺少必需依赖会阻断相关游戏</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button rt-button-primary">选择 BIOS 文件</button></div></div>
-            <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><strong>pgm.zip</strong><small>必需 · 启动前按当前目录检查</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>mame2003_plus</small></div><span class="rt-badge rt-badge-red">归档内缺少文件</span><div class="rt-runtime-cell"><strong>当前游戏库需要处理</strong><small>上传完整归档后重新验证</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button rt-button-primary">替换文件</button></div></div>
-            <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>BIOS</i><div><strong>gba_bios.bin</strong><small>可选 · 按游戏内容决定是否需要</small></div></div><div class="rt-runtime-cell"><strong>mGBA</strong><small>mgba</small></div><span class="rt-badge rt-badge-amber">校验值不一致</span><div class="rt-runtime-cell"><strong>当前游戏库需要核对</strong><small>校验警告允许启动，但建议替换</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div>
+            <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><strong>pgm.zip</strong><small>必需 · 启动前按当前目录检查</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>mame2003_plus</small></div><span class="rt-badge rt-badge-red">归档内缺少文件</span><div class="rt-runtime-cell"><strong>当前游戏库需要处理</strong><small>上传完整归档后重新验证</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button rt-button-primary" data-bios-replacement-hint>替换文件</button></div></div>
+            <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>BIOS</i><div><strong>gba_bios.bin</strong><small>可选 · 按游戏内容决定是否需要</small></div></div><div class="rt-runtime-cell"><strong>mGBA</strong><small>mgba</small></div><span class="rt-badge rt-badge-amber">校验值不一致</span><div class="rt-runtime-cell"><strong>当前游戏库需要核对</strong><small>校验警告允许启动，但建议替换</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button" data-bios-replacement-hint>替换文件</button></div></div>
           </div>
           <div class="rt-runtime-section-head"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>9 项</span></div>
-          <div class="rt-runtime-list"><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><button type="button" class="rt-runtime-entry-button" data-open-bios-entries>stvbios.zip</button><small>必需 · 点击文件名核对 ZIP 内容</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>mame2003_plus</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>DAT 条目级校验已通过</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>BIOS</i><div><strong>gb_bios.bin</strong><small>可选 · 按游戏内容决定是否需要</small></div></div><div class="rt-runtime-cell"><strong>Gambatte</strong><small>gambatte</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>未安装可选项不会作为必需依赖阻断</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div></div>
+          <div class="rt-runtime-list"><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><button type="button" class="rt-runtime-entry-button" data-open-bios-entries>stvbios.zip</button><small>必需 · 点击文件名核对 ZIP 内容</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>mame2003_plus</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>DAT 条目级校验已通过</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button" data-bios-replacement-hint>替换文件</button></div></div><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>BIOS</i><div><strong>gb_bios.bin</strong><small>可选 · 按游戏内容决定是否需要</small></div></div><div class="rt-runtime-cell"><strong>Gambatte</strong><small>gambatte</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>未安装可选项不会作为必需依赖阻断</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button" data-bios-replacement-hint>替换文件</button></div></div></div>
           </div>
           <details><summary>RPG Maker 核心诊断</summary>
             <div class="rt-rpg-core-grid">
@@ -3571,6 +3572,29 @@
   <script>
     (() => {
       const root = document.getElementById('retrom-ui-review');
+      const biosHint = document.createElement('span');
+      biosHint.className = 'rt-bios-replacement-hint';
+      biosHint.setAttribute('role', 'tooltip');
+      biosHint.textContent = '替换会清理依赖旧 BIOS 的存档与运行会话';
+      const hideBIOSHint = () => biosHint.remove();
+      root.querySelectorAll('[data-bios-replacement-hint]').forEach(button => {
+        const show = () => {
+          const rect = button.getBoundingClientRect();
+          const halfWidth = Math.min(280, window.innerWidth - 24) / 2;
+          biosHint.style.left = Math.max(halfWidth + 12, Math.min(rect.left + rect.width / 2, window.innerWidth - halfWidth - 12)) + 'px';
+          biosHint.style.top = (rect.top < 80 ? rect.bottom + 8 : rect.top - 8) + 'px';
+          biosHint.style.transform = rect.top < 80 ? 'translateX(-50%)' : 'translate(-50%, -100%)';
+          root.append(biosHint);
+        };
+        button.addEventListener('pointerenter', show);
+        button.addEventListener('focus', show);
+        button.addEventListener('pointerleave', hideBIOSHint);
+        button.addEventListener('blur', hideBIOSHint);
+        button.addEventListener('keydown', event => { if (event.key === 'Escape') hideBIOSHint(); });
+      });
+      window.addEventListener('scroll', hideBIOSHint, true);
+      window.addEventListener('resize', hideBIOSHint);
+
       const app = root.querySelector('.rt-app');
       const modeButton = root.querySelector('#rt-mode-button');
       const modeLabel = root.querySelector('#rt-mode-label');
