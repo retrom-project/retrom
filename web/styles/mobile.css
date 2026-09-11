@@ -482,7 +482,6 @@
   .home-featured-media.has-session-save .home-featured-cover { position: relative; z-index: 2; grid-column: 1; grid-row: 1; left: auto; top: auto; width: 100%; }
   .home-featured-media.has-session-save .home-featured-copy { position: relative; z-index: 3; grid-column: 2; grid-row: 1; left: auto; right: auto; top: auto; min-width: 0; }
   .home-featured-copy h2 { overflow: visible; font-size: 22px; text-overflow: clip; white-space: normal; }
-  .home-featured-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
   .home-featured-facts { margin-top: 10px; gap: 7px 10px; }
   .home-featured-actions { margin-top: 12px; display: grid; }
   .home-featured-actions .button { width: 100%; min-height: 48px; }
@@ -492,15 +491,13 @@
   .home-featured-bottom { gap: 12px; flex-direction: column; }
   .home-quick-links { padding: 8px 10px; }
   .home-quick-link { min-height: 58px; }
-  .home-quick-platform-grid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(150px, 68%); overflow-x: auto; scroll-snap-type: x proximity; }
-  .home-quick-platform-grid a { scroll-snap-align: start; }
   .home-section-head { min-height: 0; align-items: flex-start; }
   .home-section-head h2 { font-size: 18px; }
   .home-section-head p { font-size: 12px; }
   .home-recent-rail { grid-auto-columns: 78%; gap: 12px; scroll-snap-type: x proximity; }
   .home-recent-card { height: 132px; min-height: 0; scroll-snap-align: start; }
   .home-recent-copy { padding: 11px; }
-  .home-platform-section { padding: 12px; }
+  .home-platform-section { padding: 12px 0; }
   .home-platform-rail { grid-auto-columns: 68%; scroll-snap-type: x proximity; }
   .home-platform-card { scroll-snap-align: start; }
   .home-summary { min-height: 58px; padding: 10px 12px; flex-wrap: wrap; gap: 6px 0; }
@@ -542,7 +539,6 @@
   .game-detail-breadcrumb a { min-height: 44px; }
   .game-detail-hero { padding: 14px; grid-template-columns: minmax(0, 42%) minmax(0, 1fr); gap: 14px; align-items: start; }
   .game-detail-poster-shell { width: 100%; }
-  .game-detail-poster-caption { flex-direction: column; gap: 2px; }
   .game-detail-main h1 { margin-top: 4px; font-size: 24px; overflow-wrap: anywhere; }
   .game-detail-description { font-size: 14px; line-height: 1.6; }
   .game-detail-playtime { align-items: flex-start; flex-direction: column; }

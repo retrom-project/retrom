@@ -82,7 +82,8 @@
 
 /* Detail keeps launch and saves close; optional information is disclosed. */
 .phone-app-frame .game-detail-page { padding-bottom: 96px; }
-.phone-app-frame .game-detail-breadcrumb, .phone-app-frame .game-detail-poster-caption, .phone-app-frame .game-detail-playtime, .phone-app-frame .game-detail-meta, .phone-app-frame .game-detail-main > .tag-chips { display: none; }
+.phone-app-frame .game-detail-breadcrumb, .phone-app-frame .game-detail-playtime, .phone-app-frame .game-detail-meta, .phone-app-frame .game-detail-main > .tag-chips { display: none; }
+.phone-app-frame .game-detail-poster-shell { align-self: start; }
 .phone-app-frame .game-detail-hero { padding: 0; display: grid; grid-template-columns: minmax(88px, 34%) minmax(0, 1fr); gap: 16px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .phone-app-frame .game-detail-main { min-width: 0; }
 .phone-app-frame .game-detail-main h1 { margin: 0 0 8px; font-size: 24px; line-height: 1.3; overflow-wrap: anywhere; }
@@ -148,7 +149,7 @@
 .phone-launch-fields p { margin: 0; color: var(--muted); font-size: 14px; }
 .phone-launch-fields .button { min-height: 48px; }
 
-.phone-app-frame .library-platform-tag, .phone-app-frame .game-detail-media-status { display: none; }
+.phone-app-frame .library-platform-tag { display: none; }
 .phone-app-frame .library-pagination > span:last-child:not(:first-child) { display: none; }
 .phone-app-frame .library-mobile-filter-trigger { position: relative; }
 .phone-app-frame .library-mobile-filter-trigger[data-filter-count]::after { content: attr(data-filter-count); position: absolute; inset: -5px -5px auto auto; min-width: 19px; height: 19px; padding-inline: 3px; display: grid; place-items: center; border-radius: 12px; background: var(--purple-dark); color: white; font-size: 11px; }
