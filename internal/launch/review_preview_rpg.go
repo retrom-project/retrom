@@ -18,14 +18,8 @@ SELECT file.blob_id,file.logical_name,file.role
 FROM import_item_validation_files file
 WHERE file.import_item_core_validation_id=?
  AND file.role IN ('RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE')
-UNION ALL
-SELECT installation.bundle_blob_id,selection.declared_name,'RPG_RUNTIME_PACK:' || selection.slot
-FROM review_drafts draft
-JOIN review_draft_runtime_pack_selections selection ON selection.review_draft_id=draft.id
-JOIN runtime_asset_pack_installations installation ON installation.id=selection.installation_id
-WHERE draft.effective_source_snapshot_id=? AND installation.status='READY'
 ORDER BY 2
-`, source.SourceSnapshotID, source.ValidationID, source.SourceSnapshotID)
+`, source.SourceSnapshotID, source.ValidationID)
 	if err != nil {
 		return reviewPreviewContentSet{}, err
 	}

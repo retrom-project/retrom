@@ -35,13 +35,8 @@ SELECT file.blob_id,file.logical_name,file.role
 FROM variant_files file
 WHERE file.game_variant_id=?
   AND file.role IN ('RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE')
-UNION ALL
-SELECT installation.bundle_blob_id,selection.declared_name,'RPG_RUNTIME_PACK:' || selection.slot
-FROM game_variant_runtime_packs selection
-JOIN runtime_asset_pack_installations installation ON installation.id=selection.installation_id
-WHERE selection.game_variant_id=? AND installation.status='READY'
 ORDER BY 2
-`, selection.gameID, selection.variantID, selection.variantID)
+`, selection.gameID, selection.variantID)
 	if err != nil {
 		return launchContentPlan{}, err
 	}
@@ -186,19 +181,8 @@ func rpgLockedLogicalName(file rpgLockedFile) (string, bool, bool) {
 	case "RPG_MAKER_LAUNCH_BUNDLE":
 		return rpgMKXPArchiveName, false, true
 	default:
-		return rpgPackLogicalName(file.role)
-	}
-}
-
-func rpgPackLogicalName(role string) (string, bool, bool) {
-	if !strings.HasPrefix(role, "RPG_RUNTIME_PACK:") {
 		return "", false, false
 	}
-	slot := strings.TrimPrefix(role, "RPG_RUNTIME_PACK:")
-	if len(slot) != 1 || slot < "0" || slot > "3" {
-		return "", false, false
-	}
-	return "__retrom__/pack-" + slot + ".zip", false, true
 }
 
 func validRPGProjectPath(value string) bool {

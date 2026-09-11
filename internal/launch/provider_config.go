@@ -562,62 +562,6 @@ ORDER BY 1
 	}, nil
 }
 
-func (service *Service) providerRuntimePackResources(
-	ctx context.Context,
-	launchID, capability, resourceKind string,
-) ([]map[string]any, error) {
-	identity, err := service.ProjectContentIdentity(ctx, launchID, capability)
-	if err != nil {
-		return nil, err
-	}
-	root, err := RuntimeProjectContentRoot(identity)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT file.logical_name,blob.sha256,blob.size_bytes FROM launch_content_files file
-JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.launch_session_id=? AND file.logical_name GLOB '__retrom__/pack-?.zip'
-UNION ALL
-SELECT file.logical_name,blob.sha256,blob.size_bytes FROM review_preview_files file
-JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.preview_session_id=? AND file.role='RUNTIME_FILE'
- AND file.logical_name GLOB '__retrom__/pack-?.zip'
-ORDER BY 1
-	`, launchID, launchID)
-	if err != nil {
-		return nil, fmt.Errorf("load Provider runtime packs: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	resources := make([]map[string]any, 0, 4)
-	for rows.Next() {
-		var logicalName, digest string
-		var size int64
-		if err := rows.Scan(&logicalName, &digest, &size); err != nil {
-			return nil, fmt.Errorf("scan Provider runtime pack: %w", err)
-		}
-		switch resourceKind {
-		case "SEEKABLE_BLOB":
-			resources = append(resources, map[string]any{
-				"kind": resourceKind, "url": root + logicalName, "sha256": digest,
-				"sizeBytes": size, "rangeRequired": true,
-			})
-		case "FILE_TREE":
-			slot := strings.TrimSuffix(strings.TrimPrefix(logicalName, "__retrom__/pack-"), ".zip")
-			resources = append(resources, map[string]any{
-				"kind": resourceKind, "indexUrl": root + "__retrom__/packs/" + slot + "/index.json",
-				"contentDigest": digest,
-			})
-		default:
-			return nil, ErrCredential
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate Provider runtime packs: %w", err)
-	}
-	return resources, nil
-}
-
 func (service *Service) providerRestore(
 	ctx context.Context,
 	launchID string,

@@ -52,9 +52,11 @@ Upload、Archive、ImportJob、ImportItem、来源快照、Validation、ReviewDr
 
 来源快照是不可变的输入证据，不是业务版本树：不分配 revision 序号；每个 Item 最多一份 `created_by=IDENTIFICATION` 初始来源，当前来源只由 `ReviewDraft.effective_source_snapshot_id` 选择，不按创建时间或最大序号猜测。
 
-Upload 的业务用途只区分 `GENERAL/PROJECT/RUNTIME_ASSET_PACK`，并独立记录文件/目录形态；项目引擎由归一化后的真实内容检测。审核不存储算法 generation；目录展示变化和不相关能力变化不参与有效性摘要。
+Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录形态；项目引擎由归一化后的真实内容检测。审核不存储算法 generation；目录展示变化和不相关能力变化不参与有效性摘要。
 
-检查摘要不设跨历史记录的唯一约束：依赖从缺失变为可用、再变回缺失，是新的检查结果，即使输入摘要与较早记录相同也必须能正常保存。未变化的重复检查复用当前结果，不新增记录。RPG 的导入、重新检查和发布共用现有 pack resolver；可用 RTP 的选择随校验冻结，发布事务重新核对真实依赖，不以是否打开过 Player 作为就绪条件。
+检查摘要不设跨历史记录的唯一约束：依赖从缺失变为可用、再变回缺失，是新的检查结果，即使输入摘要与较早记录相同也必须能正常保存。未变化的重复检查复用当前结果，不新增记录。RPG 的导入、重新检查和发布共用项目资源策略；外部 RTP 声明默认阻断，管理员的显式自包含确认与声明一起写入依赖快照并参与摘要，发布事务重新核对，不以是否打开过 Player 作为就绪条件。
+
+运行包安装、选包与运行挂载已退出产品。冻结的历史 migrations 及既存 Blob 引用保护仍保留，避免改写 checksum 或误回收已有 payload；它们不再接受应用创建新的安装或绑定。该调整不重建开发库，也不转换、删除已有游戏及存档。
 
 发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 

@@ -27,13 +27,6 @@ class RuntimeTrialRetirementTests(unittest.TestCase):
         self.assertNotIn('"VALIDATION_ID"', source)
         self.assertIn('"TRIAL_EVIDENCE"', source)
 
-    def test_resource_pack_browser_requires_real_readiness_after_selection(self):
-        source = (ROOT / "rpgmaker_pack.mjs").read_text()
-        for retired in ("runtimeValidation", "validationId:", "selectBindingAndRejectStaleApproval"):
-            self.assertNotIn(retired, source)
-        for retained in ("publishReadiness", "REVIEW_VALIDATION_STALE", "REVIEW_DRAFT_INVALID",
-                         "RPG_RUNTIME_PACK_IN_USE", "RPG_ACCEPTANCE_PACK_PATCH_RESULT_INVALID"):
-            self.assertIn(retained, source)
 
     def test_security_trials_use_ordinary_preview_and_preserve_content_and_browser_boundaries(self):
         source = (ROOT / "rpgmaker_security.mjs").read_text()

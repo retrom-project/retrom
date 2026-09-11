@@ -25,9 +25,9 @@
 
 ### 1.2 最终模型与接入策略
 
-`platforms`、`cores`、`platform_cores`、`content_kinds`、`runtime_asset_pack_definitions` 是当前声明的关系投影，不在 migrations 写入具体引擎/RTP seed。SQL 只维护外键、owner、唯一性、生命周期、路径、大小与结构边界；引擎名单、布局映射和识别规则由受限策略处理。
+`platforms`、`cores`、`platform_cores`、`content_kinds` 是当前声明的关系投影，不在 migrations 写入具体引擎/RTP seed。SQL 只维护外键、owner、唯一性、生命周期、路径、大小与结构边界；引擎名单、布局映射和识别规则由受限策略处理。
 
-上传用途统一描述普通导入、项目导入或资源包安装，不用每个引擎名称扩展 DDL。文件、目录与压缩包事实保持明确；普通 ZIP 和目录归一化后进入同一检测与导入链路。策略是显式注册的普通代码，不建立动态插件执行或万能 JSON/EAV 数据库。
+上传用途统一描述普通导入或项目导入，不用每个引擎名称扩展 DDL。文件、目录与压缩包事实保持明确；普通 ZIP 和目录归一化后进入同一检测与导入链路。策略是显式注册的普通代码，不建立动态插件执行或万能 JSON/EAV 数据库。
 
 Binding 只选择接入策略、产品允许的内容子集和独立的启用策略；固定 delivery、review 和 options 行为从 `runtimecatalog` 的同一策略派生，不能在 JSON binding 中重复声明后再比较是否相等。现有数据库列是派生投影，不是第二份声明权威。
 
@@ -71,11 +71,13 @@ Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者
 
 ## 5. 资源与项目运行时
 
-Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。游戏、BIOS、parent、多盘、项目文件、运行包和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
+Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。游戏、BIOS、parent、多盘、项目文件和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 
 `retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。`EXIT_REQUESTED` 是可选生命周期事件，不构成 Provider/Target 准入条件；能够可靠观察游戏自身退出的 Provider 可以发出该事件，使 Player 页面同步关闭，其他会话由 Host 调用 `exit()` 结束。
 
 独立 origin 的项目按 Launch 使用不同 Host。一次性 bootstrap ticket 和 HttpOnly capability 只授权当前 Launch 的封闭资源；项目脚本不能取得应用 Cookie、普通 API 或其他 Launch 内容。cleanup 撤销 capability、过期 Cookie 并清理对应存储。
+
+Retrom 不再生成 RTP resources、安装文件索引或包下载地址，审核预览与正式启动只冻结项目自身文件及其派生索引/归档。Provider 的通用 RTP 可选输入与已发布声明仍属于其独立 SDK 契约，Retrom 不再向它提供资源，且不再把声明投影为可安装的产品目录。
 
 ## 6. Checkpoint 与存档
 

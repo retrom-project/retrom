@@ -11,14 +11,14 @@ const review: ReviewWorkspace = {
   itemId: "item-1", version: 1, canApprove: false,
   platformInstance: { id: "rpg-directory", name: "RPG Maker MV" },
   metadata: { title: "Manual", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
-  validation: { id: "static-validation", status: "BLOCKED", compatibilityCode: "RPG_RUNTIME_PACK_MISSING" },
+  validation: { id: "static-validation", status: "BLOCKED", compatibilityCode: "RPG_EXTERNAL_RTP_REQUIRED" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
   selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
   rpgMaker: {
     selectedCoreId: "rpgmaker", generation: "RPGMV", evidenceGeneration: "RPGMV",
     evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
-    runtimePackRequirements: [], runtimePackSelections: [],
+    externalRTPRequirements: [],
   },
 };
 

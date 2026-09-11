@@ -258,23 +258,6 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
 components:
   schemas:
-    RpgRuntimePackSelectionRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - slot
-        - installationId
-      properties:
-        slot:
-          type: integer
-          enum:
-            - 0
-            - 1
-            - 2
-            - 3
-        installationId:
-          type: string
-          format: uuid
     ApprovalReasonRequest:
       type: object
       additionalProperties: false
@@ -553,15 +536,9 @@ components:
         defaultDosEntry:
           type: string
           nullable: true
-        runtimePackSelections:
-          type: array
-          maxItems: 3
-          description: Required as a complete replacement for RPG Maker reviews and forbidden for other reviews; slot and installationId must each be unique.
-          items:
-            $ref: '#/components/schemas/RpgRuntimePackSelectionRequest'
         rpgSelfContainedOverride:
           type: boolean
-          description: Required for RPG Maker reviews; legal only for RPG2000/RPG2003 and false explicitly clears the override.
+          description: Optional explicit administrator confirmation that a 2000/2003/XP/VX/VX Ace project is self-contained. Allows approval despite external RTP declarations without supplying runtime resources. False clears the confirmation; forbidden on non-RPG reviews and true is invalid for MV/MZ.
         tagIds:
           type: array
           maxItems: 20

@@ -13,13 +13,6 @@ func (service *Service) providerInputResources(
 	input runtimebundle.Input,
 	files []lockedProviderFile,
 ) ([]map[string]any, error) {
-	if input.Role == "rtp" {
-		values, err := service.providerRuntimePackResources(ctx, sessionID, capability, input.Kind)
-		if err != nil || !input.Optional && len(values) == 0 {
-			return nil, ErrCredential
-		}
-		return values, nil
-	}
 	value, err := service.providerSingleInputResource(ctx, sessionID, capability, source, input, files)
 	if err != nil {
 		if input.Optional {

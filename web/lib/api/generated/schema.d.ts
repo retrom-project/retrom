@@ -1161,59 +1161,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/runtime-asset-packs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Lists immutable RPG Maker runtime-pack definitions and their installations without exposing host paths or Blob identifiers. */
-        get: operations["getAdminRuntimeAssetPacks"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/runtime-asset-packs/installations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Consumes one completed RUNTIME_ASSET_PACK upload and schedules bounded validation of one immutable installation. */
-        post: operations["postAdminRuntimeAssetPackInstallation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/runtime-asset-packs/installations/{installationId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                installationId: components["parameters"]["RuntimeAssetPackInstallationID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** @description Deletes only an installation with zero variant and checkpoint references; referenced immutable installations cannot be removed. */
-        delete: operations["deleteAdminRuntimeAssetPackInstallation"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/reviews": {
         parameters: {
             query?: never;
@@ -3735,8 +3682,6 @@ export interface components {
             sequence: number;
             reason: components["schemas"]["CheckpointUnavailableReason"] | null;
         };
-        /** @description Product-defined classification; installation selects a stable definitionId, not this label. */
-        RuntimeAssetPackKind: string;
         RuntimeTargetAdminItem: {
             providerId: string;
             providerVersion: string;
@@ -3753,82 +3698,6 @@ export interface components {
         RuntimeTargetList: {
             items: components["schemas"]["RuntimeTargetAdminItem"][];
             nextCursor: string | null;
-        };
-        RuntimeAssetPackDefinition: {
-            definitionId: string;
-            kind: components["schemas"]["RuntimeAssetPackKind"];
-            generation: components["schemas"]["RpgGeneration"];
-            declaredName: string;
-            /** @description Server-computed Unicode NFKC full case-fold key used for exact runtime-pack matching. */
-            normalizedDeclaredName: string;
-            displayName: string;
-            requiredLayoutVersion: string;
-            /** @enum {string} */
-            origin: "BUILTIN" | "CUSTOM";
-            enabled: boolean;
-        };
-        RuntimeAssetPackReferenceCounts: {
-            /** Format: int64 */
-            gameCount: number;
-            /** Format: int64 */
-            checkpointCount: number;
-        };
-        RuntimeAssetPackDiagnostic: {
-            code: string;
-            /** @enum {string} */
-            level: "INFO" | "WARNING" | "ERROR";
-            message: string;
-        };
-        RuntimeAssetPackInstallation: {
-            /** Format: uuid */
-            installationId: string;
-            definitionId: string;
-            filesDigest: string;
-            fileCount: number;
-            /** Format: int64 */
-            totalBytes: number;
-            bundleSha256: string | null;
-            /** @enum {string} */
-            status: "VALIDATING" | "READY" | "FAILED" | "DELETE_PENDING" | "DELETED";
-            diagnostics: components["schemas"]["RuntimeAssetPackDiagnostic"][];
-            sourceNote: string | null;
-            references: components["schemas"]["RuntimeAssetPackReferenceCounts"];
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            validatedAtMs: number | null;
-            /** Format: int64 */
-            deletedAtMs: number | null;
-        };
-        RuntimeAssetPackList: {
-            definitions: components["schemas"]["RuntimeAssetPackDefinition"][];
-            installations: components["schemas"]["RuntimeAssetPackInstallation"][];
-        };
-        /** @description Select an enabled definitionId, or create a custom RGSS definition with generation and declaredName. The two forms are mutually exclusive. No engine-specific pack kind is accepted. */
-        InstallRuntimeAssetPackRequest: {
-            /** Format: uuid */
-            uploadId: string;
-            definitionId?: string;
-            generation?: components["schemas"]["RpgGeneration"];
-            declaredName?: string;
-            /** @description The server also enforces NFC, at most 2,000 UTF-8 bytes, Unicode-whitespace trim and the validation-note control-character denylist; an empty value is allowed. */
-            sourceNote?: string;
-        } & (unknown | unknown);
-        RuntimeAssetPackInstallAccepted: {
-            /** Format: uuid */
-            installationId: string;
-            /** Format: uuid */
-            jobId: string;
-            /** @enum {string} */
-            status: "VALIDATING";
-        };
-        RpgRuntimePackSelectionRequest: {
-            /** @enum {integer} */
-            slot: 0 | 1 | 2 | 3;
-            /** Format: uuid */
-            installationId: string;
         };
         /** @description PRODUCT requires name after trim to contain 1..120 Unicode code points; runtime validation omits name. discIndex is required and in range only for a multi-disc PRODUCT Launch and otherwise omitted or null. The format must be declared readable by the Launch Target. */
         RuntimeCheckpointMetadata: {
@@ -3868,11 +3737,11 @@ export interface components {
         };
         CreateUploadRequest: {
             /**
-             * @description GENERAL is an ordinary import, PROJECT is an engine-independent project input, and RUNTIME_ASSET_PACK is reserved for pack installation. Engine and archive validation occurs in the selected import strategy, not the upload transport.
+             * @description GENERAL is an ordinary import and PROJECT is an engine-independent project input. Engine and archive validation occurs in the selected import strategy, not the upload transport.
              * @default GENERAL
              * @enum {string}
              */
-            purpose: "GENERAL" | "PROJECT" | "RUNTIME_ASSET_PACK";
+            purpose: "GENERAL" | "PROJECT";
             /** @enum {string} */
             sourceType: "FILES" | "DIRECTORY";
             files: {
@@ -4032,9 +3901,7 @@ export interface components {
             selectedCandidateId?: string | null;
             selectedAssets?: components["schemas"]["ReviewSelectedAssetsRequest"];
             defaultDosEntry?: string | null;
-            /** @description Required as a complete replacement for RPG Maker reviews and forbidden for other reviews; slot and installationId must each be unique. */
-            runtimePackSelections?: components["schemas"]["RpgRuntimePackSelectionRequest"][];
-            /** @description Required for RPG Maker reviews; legal only for RPG2000/RPG2003 and false explicitly clears the override. */
+            /** @description Optional explicit administrator confirmation that a 2000/2003/XP/VX/VX Ace project is self-contained. Allows approval despite external RTP declarations without supplying runtime resources. False clears the confirmation; forbidden on non-RPG reviews and true is invalid for MV/MZ. */
             rpgSelfContainedOverride?: boolean;
             tagIds: string[];
         };
@@ -5444,7 +5311,7 @@ export interface components {
             year?: unknown;
         };
         /** @enum {string} */
-        RpgErrorCode: "RPG_CORE_UNSUPPORTED" | "RPG_PROJECT_NOT_FOUND" | "RPG_PROJECT_ROOT_AMBIGUOUS" | "RPG_GENERATION_AMBIGUOUS" | "RPG_GENERATION_UNSUPPORTED" | "RPG_SELECTED_CORE_MISMATCH" | "RPG_SERVER_IMPORT_UNSUPPORTED" | "RPG_LCF_INVALID" | "RPG_LCF_GENERATION_UNKNOWN" | "RPG_LMT_INVALID" | "RPG_INI_INVALID" | "RPG_INI_ENCODING_UNSUPPORTED" | "RPG_RGSS_GENERATION_CONFLICT" | "RPG_WEB_FORMAT_INVALID" | "RPG_RGSS_CONTENT_TOO_LARGE" | "RPG_PATH_COLLISION" | "RPG_NATIVE_DEPENDENCY_UNSUPPORTED" | "RPG_RUNTIME_PACK_MISSING" | "RPG_RUNTIME_PACK_AMBIGUOUS" | "RPG_RUNTIME_PACK_IN_USE" | "RPG_RUNTIME_PACK_INVALID" | "RPG_RUNTIME_PACK_CONFLICT" | "RPG_RUNTIME_PACK_NOT_FOUND" | "RPG_RUNTIME_PACK_TOO_LARGE" | "RPG_RUNTIME_PACK_UNAVAILABLE" | "RPG_RUNTIME_PACK_VERSION_CONFLICT" | "RPG_RUNTIME_ROUTE_UNAVAILABLE" | "RPG_RUNTIME_THREADS_UNAVAILABLE" | "RPG_RUNTIME_OPFS_UNAVAILABLE" | "RPG_NATIVE_BRIDGE_UNSUPPORTED" | "RPG_RUNTIME_INVALID_STATE" | "RPG_RUNTIME_PROTOCOL_VIOLATION" | "RPG_RUNTIME_TIMEOUT" | "RPG_RUNTIME_CONTENT_MISMATCH" | "SAVE_SYNC_CONFLICT" | "RPG_CHECKPOINT_UNAVAILABLE" | "RPG_CHECKPOINT_INVALID" | "RPG_CHECKPOINT_INCOMPATIBLE" | "RPG_CHECKPOINT_RESTORE_FAILED" | "RPG_RUNTIME_BOOTSTRAP_EXPIRED" | "RPG_RUNTIME_SCREENSHOT_INVALID";
+        RpgErrorCode: "RPG_CORE_UNSUPPORTED" | "RPG_PROJECT_NOT_FOUND" | "RPG_PROJECT_ROOT_AMBIGUOUS" | "RPG_GENERATION_AMBIGUOUS" | "RPG_GENERATION_UNSUPPORTED" | "RPG_SELECTED_CORE_MISMATCH" | "RPG_SERVER_IMPORT_UNSUPPORTED" | "RPG_LCF_INVALID" | "RPG_LCF_GENERATION_UNKNOWN" | "RPG_LMT_INVALID" | "RPG_INI_INVALID" | "RPG_INI_ENCODING_UNSUPPORTED" | "RPG_RGSS_GENERATION_CONFLICT" | "RPG_WEB_FORMAT_INVALID" | "RPG_RGSS_CONTENT_TOO_LARGE" | "RPG_PATH_COLLISION" | "RPG_NATIVE_DEPENDENCY_UNSUPPORTED" | "RPG_EXTERNAL_RTP_REQUIRED" | "RPG_RUNTIME_ROUTE_UNAVAILABLE" | "RPG_RUNTIME_THREADS_UNAVAILABLE" | "RPG_RUNTIME_OPFS_UNAVAILABLE" | "RPG_NATIVE_BRIDGE_UNSUPPORTED" | "RPG_RUNTIME_INVALID_STATE" | "RPG_RUNTIME_PROTOCOL_VIOLATION" | "RPG_RUNTIME_TIMEOUT" | "RPG_RUNTIME_CONTENT_MISMATCH" | "SAVE_SYNC_CONFLICT" | "RPG_CHECKPOINT_UNAVAILABLE" | "RPG_CHECKPOINT_INVALID" | "RPG_CHECKPOINT_INCOMPATIBLE" | "RPG_CHECKPOINT_RESTORE_FAILED" | "RPG_RUNTIME_BOOTSTRAP_EXPIRED" | "RPG_RUNTIME_SCREENSHOT_INVALID";
         RpgError: {
             code: components["schemas"]["RpgErrorCode"];
             message: string;
@@ -5488,15 +5355,6 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description RPG Maker runtime-pack definitions and installations */
-        RuntimeAssetPackListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RuntimeAssetPackList"];
-            };
-        };
         /** @description Administrative immutable Runtime Target catalog */
         RuntimeTargetListResponse: {
             headers: {
@@ -5504,17 +5362,6 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["RuntimeTargetList"];
-            };
-        };
-        /** @description Runtime-pack installation validation accepted */
-        RuntimeAssetPackInstallResponse: {
-            headers: {
-                Location?: string;
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RuntimeAssetPackInstallAccepted"];
             };
         };
         /** @description Product save-state or temporary ordinary review-preview checkpoint */
@@ -5571,7 +5418,7 @@ export interface components {
                 "application/json": components["schemas"]["RpgErrorEnvelope"];
             };
         };
-        /** @description RPG_RGSS_CONTENT_TOO_LARGE or RPG_RUNTIME_PACK_TOO_LARGE (413) */
+        /** @description RPG_RGSS_CONTENT_TOO_LARGE (413) */
         RpgPayloadTooLargeResponse: {
             headers: {
                 [name: string]: unknown;
@@ -5600,15 +5447,6 @@ export interface components {
         };
         /** @description Unsupported core/generation, selected-core mismatch, invalid LCF/LMT/INI/Web project, unsafe dependency/path, unsupported native bridge, invalid checkpoint, or failed engine restore (422) */
         RpgUnprocessableResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RpgErrorEnvelope"];
-            };
-        };
-        /** @description RPG_RUNTIME_PACK_UNAVAILABLE; the isolated archive worker temporarily lacks process or resource capacity (503) */
-        RpgServiceUnavailableResponse: {
             headers: {
                 [name: string]: unknown;
             };
@@ -6215,7 +6053,6 @@ export interface components {
         PartNo: number;
         ImportJobID: string;
         ImportItemID: string;
-        RuntimeAssetPackInstallationID: string;
         BulkApprovalID: string;
         JobID: string;
         ReviewEventID: string;
@@ -6411,11 +6248,6 @@ export interface components {
         ReviewDraft: {
             content: {
                 "application/json": components["schemas"]["ReviewDraftRequest"];
-            };
-        };
-        InstallRuntimeAssetPack: {
-            content: {
-                "application/json": components["schemas"]["InstallRuntimeAssetPackRequest"];
             };
         };
         MetadataProvider: {
@@ -7907,65 +7739,6 @@ export interface operations {
         requestBody: components["requestBodies"]["Empty"];
         responses: {
             202: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminRuntimeAssetPacks: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["RuntimeAssetPackListResponse"];
-        };
-    };
-    postAdminRuntimeAssetPackInstallation: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["InstallRuntimeAssetPack"];
-        responses: {
-            202: components["responses"]["RuntimeAssetPackInstallResponse"];
-            400: components["responses"]["BadRequestResponse"];
-            409: components["responses"]["RpgConflictResponse"];
-            413: components["responses"]["RpgPayloadTooLargeResponse"];
-            422: components["responses"]["RpgUnprocessableResponse"];
-            503: components["responses"]["RpgServiceUnavailableResponse"];
-        };
-    };
-    deleteAdminRuntimeAssetPackInstallation: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                installationId: components["parameters"]["RuntimeAssetPackInstallationID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Runtime asset pack installation scheduled for payload release */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequestResponse"];
-            404: components["responses"]["RpgNotFoundResponse"];
-            409: components["responses"]["RpgConflictResponse"];
-            412: components["responses"]["RpgPreconditionFailedResponse"];
-            428: components["responses"]["PreconditionRequiredResponse"];
         };
     };
     getAdminReviews: {

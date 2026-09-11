@@ -71,21 +71,15 @@ type SelectedAssets struct {
 }
 
 type DraftPatch struct {
-	ScummVMCandidateID       *string                      `json:"scummvmCandidateId,omitempty"`
-	TargetPlatformInstanceID *string                      `json:"targetPlatformInstanceId,omitempty"`
-	Metadata                 *MetadataPatch               `json:"metadata,omitempty"`
-	SelectedValidationID     *string                      `json:"selectedValidationId,omitempty"`
-	SelectedCandidateID      optionalNullableString       `json:"selectedCandidateId,omitempty"`
-	SelectedAssets           *SelectedAssets              `json:"selectedAssets,omitempty"`
-	DefaultDOSEntry          optionalNullableString       `json:"defaultDosEntry,omitempty"`
-	TagIDs                   []string                     `json:"tagIds"`
-	RuntimePackSelections    *[]RuntimePackSelectionPatch `json:"runtimePackSelections,omitempty"`
-	RPGSelfContainedOverride *bool                        `json:"rpgSelfContainedOverride,omitempty"`
-}
-
-type RuntimePackSelectionPatch struct {
-	Slot           int    `json:"slot"`
-	InstallationID string `json:"installationId"`
+	ScummVMCandidateID       *string                `json:"scummvmCandidateId,omitempty"`
+	TargetPlatformInstanceID *string                `json:"targetPlatformInstanceId,omitempty"`
+	Metadata                 *MetadataPatch         `json:"metadata,omitempty"`
+	SelectedValidationID     *string                `json:"selectedValidationId,omitempty"`
+	SelectedCandidateID      optionalNullableString `json:"selectedCandidateId,omitempty"`
+	SelectedAssets           *SelectedAssets        `json:"selectedAssets,omitempty"`
+	DefaultDOSEntry          optionalNullableString `json:"defaultDosEntry,omitempty"`
+	TagIDs                   []string               `json:"tagIds"`
+	RPGSelfContainedOverride *bool                  `json:"rpgSelfContainedOverride,omitempty"`
 }
 
 type DraftResult struct {
@@ -164,7 +158,7 @@ func invalidDraftPatch(patch DraftPatch) bool {
 	noChange := patch.TargetPlatformInstanceID == nil && patch.Metadata == nil &&
 		patch.SelectedValidationID == nil && !patch.SelectedCandidateID.present &&
 		patch.SelectedAssets == nil && !patch.DefaultDOSEntry.present && len(patch.TagIDs) == 0 &&
-		patch.RuntimePackSelections == nil && patch.RPGSelfContainedOverride == nil && patch.ScummVMCandidateID == nil
+		patch.RPGSelfContainedOverride == nil && patch.ScummVMCandidateID == nil
 	return patch.TagIDs == nil || noChange
 }
 
