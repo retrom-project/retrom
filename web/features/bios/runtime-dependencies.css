@@ -62,7 +62,7 @@ html:has(.runtime-dependency-page) { scrollbar-gutter: stable; }
 .runtime-core strong, .runtime-core small, .runtime-usage strong, .runtime-usage small, .runtime-dat-content strong, .runtime-dat-content small { display: block; }
 .runtime-core strong, .runtime-usage strong, .runtime-dat-content strong { font-size: 12px; }
 .runtime-core small, .runtime-usage small, .runtime-dat-content small { margin-top: 3px; color: var(--muted); font-size: 10px; }
-.runtime-row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; }
+.runtime-row-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
 .runtime-row-actions .button { min-height: 34px; padding-inline: 11px; box-shadow: none; font-size: 11px; white-space: nowrap; }
 .runtime-no-action { color: var(--muted); font-size: 11px; }
 .runtime-inline-empty { min-height: 220px; padding: 30px; display: grid; place-items: center; align-content: center; text-align: center; border: 1px dashed #cfd5df; border-radius: var(--radius-panel); background: rgb(255 255 255 / 58%); }
@@ -141,3 +141,6 @@ html:has(.runtime-dependency-page) { scrollbar-gutter: stable; }
 .runtime-pagination-error { color: var(--danger); }
 .runtime-server-import-link { margin: 16px 0 0; text-align: right; font-size: 11px; font-weight: 760; }
 .runtime-server-import-link a { color: var(--purple-dark); }
+
+.runtime-replacement-hint { position: fixed; z-index: 220; width: min(280px, calc(100vw - 24px)); padding: 9px 12px; transform: translate(-50%, -100%); pointer-events: none; color: #f1f3f8; border: 1px solid #3b455e; border-radius: var(--radius-control); background: #20283b; box-shadow: 0 6px 20px rgb(0 0 0 / 18%); font-size: 12px; line-height: 1.5; text-align: center; }
+.runtime-replacement-hint.is-below { transform: translateX(-50%); }
