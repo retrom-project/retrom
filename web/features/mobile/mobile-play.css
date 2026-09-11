@@ -156,11 +156,6 @@
 
 .phone-app-frame .favorite-head-summary, .phone-app-frame .favorite-view-head > div,
 .phone-app-frame .favorite-result-count, .phone-app-frame .favorite-organize-uncategorized { display: none; }
-.phone-app-frame .favorite-rail { display: flex; align-items: center; gap: 8px; }
-.phone-app-frame .favorite-rail > nav { flex: 1; min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
-.phone-app-frame .favorite-rail > nav > button { min-height: 44px; flex-shrink: 0; }
-.phone-app-frame .favorite-new-folder { width: 44px; min-width: 44px; min-height: 44px; margin: 0; font-size: 0; }
-.phone-app-frame .favorite-new-folder::after { content: "+"; font-size: 22px; }
 .phone-app-frame .favorite-toolbar, .phone-app-frame .save-library-toolbar, .phone-app-frame .recent-filter-panel { padding: 0; border: 0; background: transparent; box-shadow: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .phone-app-frame :is(.favorite-toolbar, .save-library-toolbar, .recent-filter-panel) > .phone-disclosure { margin: 0; }
 .phone-app-frame :is(.favorite-toolbar, .save-library-toolbar, .recent-filter-panel) .phone-disclosure > div { display: grid; gap: 12px; }
@@ -171,7 +166,6 @@
 .phone-app-frame .save-library-group-main .tag-chips, .phone-app-frame .recent-history-fact:not(:first-child) { display: none; }
 .phone-app-frame .recent-history-facts { grid-template-columns: minmax(0,1fr); }
 .phone-app-frame .favorite-layout { grid-template-columns: minmax(0,1fr); }
-.phone-app-frame .favorite-rail > header, .phone-app-frame .favorite-rail-label,
 .phone-app-frame .favorite-game-cover > a > span:last-child:not(.favorite-poster),
 .phone-app-frame .favorite-game-body > .tag-chips, .phone-app-frame .favorite-game-body > p > span:last-child,
 .phone-app-frame .save-latest-section { display: none; }

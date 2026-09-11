@@ -84,7 +84,7 @@ export default async function HomePage() {
       {home.recentGames.length === 0 ? <div className="home-inline-empty">游玩过的游戏会出现在这里。</div> : <HorizontalRail className="home-recent-rail" label="最近游玩的游戏">
         {home.recentGames.map((game) => <Link className="home-recent-card" href={`/games/${game.gameId}`} key={game.gameId}>
           <span className="home-recent-cover">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="160px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span>}</span>
-          <span className="home-recent-copy"><strong>{game.title}</strong><TagChips tags={game.tags ?? []} limit={2} /><small>{game.platform.name} · {game.platformInstance.name}<br />{formatTime(game.lastPlayedAtMs)} 玩过</small><span><small>累计游玩</small><b>{duration(game.activeDurationMs)}</b></span></span>
+          <div className="home-recent-copy"><strong>{game.title}</strong><small>{game.platform.name} · {game.platformInstance.name}<br />{formatTime(game.lastPlayedAtMs)} 玩过</small><div className="home-recent-bottom"><TagChips tags={game.tags ?? []} limit={2} /><div className="home-recent-meta"><small>累计游玩</small><b>{duration(game.activeDurationMs)}</b></div></div></div>
         </Link>)}
       </HorizontalRail>}
     </section>
@@ -94,7 +94,7 @@ export default async function HomePage() {
       {home.latestGames.length === 0 ? <div className="home-inline-empty">新发布的游戏会出现在这里。</div> : <HorizontalRail className="home-recent-rail" label="最新添加的游戏">
         {home.latestGames.map((game) => <Link className="home-recent-card" href={`/games/${game.gameId}`} key={game.gameId}>
           <span className="home-recent-cover">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="160px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span>}</span>
-          <span className="home-recent-copy"><strong>{game.title}</strong><TagChips tags={game.tags ?? []} limit={2} /><small>{game.platform.name} · {game.platformInstance.name}<br />新加入资料库</small><span><small>添加时间</small><b>{formatTime(game.createdAtMs)}</b></span></span>
+          <div className="home-recent-copy"><strong>{game.title}</strong><small>{game.platform.name} · {game.platformInstance.name}<br />新加入资料库</small><div className="home-recent-bottom"><TagChips tags={game.tags ?? []} limit={2} /><div className="home-recent-meta"><small>添加时间</small><b>{formatTime(game.createdAtMs)}</b></div></div></div>
         </Link>)}
       </HorizontalRail>}
     </section>

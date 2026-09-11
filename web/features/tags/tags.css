@@ -43,12 +43,18 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-table thead th:last-child { background: #f8f9fb; }
 .tag-table a { color: var(--purple-dark); font-weight: 800; }
 .tag-row-actions { display: flex; gap: 8px; }
-.tag-row-actions button { padding: 4px; color: var(--purple-dark); border: 0; background: transparent; font-weight: 800; cursor: pointer; }
-.tag-row-actions .danger-link { color: var(--danger); }
-.tag-row-actions button:disabled { color: #a8adb6; cursor: default; }
+.tag-row-actions .button { min-height: 32px; padding: 0 12px; font-size: 12px; font-weight: 650; }
+.tag-row-actions .tag-delete-button { color: var(--danger); border-color: #efcbd0; background: #fff7f8; }
+.tag-row-actions .tag-delete-button:hover:not(:disabled) { color: var(--danger); border-color: #dba0aa; background: #ffedf0; }
+.tag-row-actions .button:disabled { color: #a8adb6; border-color: var(--line); background: #f7f8fa; cursor: default; }
 .tag-load-more { justify-self: center; }
 .tag-editor-sheet { width: min(520px, 100vw); }
 .tag-name-field, .tag-delete-impact label { display: grid; gap: 7px; }
+.tag-name-field .select { width: 100%; min-width: 0; padding-inline: 12px; }
+.tag-editor-footer-content { width: 100%; display: grid; gap: 8px; }
+.tag-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.tag-editor-feedback { height: 36px; overflow-y: auto; margin: 0; color: #247561; font-size: 12px; line-height: 1.5; text-align: right; overflow-wrap: anywhere; }
+.tag-editor-feedback[data-tone="bad"] { color: var(--danger); }
 .tag-name-field small { justify-self: end; color: var(--muted); }
 .tag-normalized-preview { margin-top: 16px; padding: 14px; display: grid; gap: 5px; border: 1px solid #e2dafa; border-radius: var(--radius-panel); background: #faf8ff; }
 .tag-normalized-preview span { color: var(--muted); font-size: 11px; }
@@ -65,6 +71,7 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .admin-game-empty-tags { color: var(--muted); font-size: 12px; }
 .pegasus-collection-tags { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--line); }
 @media (max-width: 760px) {
+  .tag-row-actions .button { min-height: 44px; }
   .tag-kpis { grid-template-columns: 1fr; }
   .tag-manager-toolbar, .tag-manager-toolbar form { align-items: stretch; flex-direction: column; }
   .tag-manager-toolbar label, .tag-manager-toolbar label:first-child { width: 100%; max-width: none; }

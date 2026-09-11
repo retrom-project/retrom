@@ -56,7 +56,7 @@
   .home-recent-copy { padding: 10px; }
   .home-recent-copy > strong { font-size: 13px; }
   .home-recent-copy > small { margin-top: 3px; font-size: 9px; line-height: 1.45; }
-  .home-recent-copy > span { padding-top: 7px; }
+  .home-recent-bottom { padding-top: 7px; }
   .home-platform-section { padding: 7px 0; }
   .home-platform-section .home-section-head { min-height: 26px; margin-bottom: 3px; }
   .home-platform-rail { padding-bottom: 4px; }
@@ -101,9 +101,9 @@
   .home-recent-copy { padding: 20px; }
   .home-recent-copy > strong { font-size: 17px; }
   .home-recent-copy > small { margin-top: 8px; font-size: 12px; line-height: 1.6; }
-  .home-recent-copy > span { padding-top: 14px; }
-  .home-recent-copy > span small { font-size: 12px; }
-  .home-recent-copy > span b { font-size: 14px; }
+  .home-recent-bottom { padding-top: 14px; }
+  .home-recent-meta small { font-size: 12px; }
+  .home-recent-meta b { font-size: 14px; }
   .home-platform-section { min-height: 0; padding: 10px 0; display: grid; grid-template-rows: 44px minmax(0, 1fr); }
   .home-platform-section .home-section-head { min-height: 44px; margin: 0; }
   .home-platform-rail { min-height: 0; height: 100%; padding-bottom: 8px; }

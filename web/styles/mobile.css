@@ -529,10 +529,9 @@
   .library-game-played { font-size: 10px; }
   .library-game-menu { position: fixed; z-index: 230; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); top: auto; left: 16px; min-width: 0; padding: 8px; border-radius: var(--radius-panel); }
   .library-game-menu a { min-height: 48px; }
-  .library-poster,
-  .favorite-poster { padding: 10px; }
-  .library-poster strong,
-  .favorite-poster strong { margin-block: 10px; font-size: clamp(20px, 8vw, 30px); }
+  .library-poster, .favorite-poster { padding: 54px 10px 14px; gap: 8px; }
+  .library-poster small, .favorite-poster small { font-size: 8px; letter-spacing: .12em; white-space: nowrap; }
+  .library-poster strong, .favorite-poster strong { margin: 0; font-size: clamp(16px, 5vw, 24px); -webkit-line-clamp: 2; }
 
   /* Game detail and fixed launch dock */
   .game-detail-page { padding-bottom: 82px; }
@@ -605,21 +604,15 @@
   /* Favorites */
   .favorite-page { padding-bottom: 92px; }
   .favorite-page > .page-header h1 { font-size: 24px; }
-  .favorite-layout { grid-template-columns: minmax(0, 1fr); }
-  .favorite-rail { position: static; max-height: none; display: block; border: 0; background: transparent; }
-  .favorite-rail header { display: none; }
-  .favorite-rail nav { padding: 0 0 8px; overflow-x: auto; display: flex; gap: 8px; scroll-snap-type: x proximity; }
-  .favorite-rail nav button { min-width: max-content; min-height: 44px; grid-template-columns: auto auto auto; border: 1px solid var(--line); background: white; scroll-snap-align: start; }
-  .favorite-rail-label { display: none; }
-  .favorite-new-folder { width: 100%; min-height: 48px; margin: 4px 0 14px; }
-  .favorite-view-head { align-items: flex-start; flex-direction: column; }
-  .favorite-view-head .button { width: 100%; min-height: 48px; }
+  .favorite-navigation-drag, .favorite-navigation-collapse { min-height: 44px; }
+  .favorite-rail nav button { min-height: 44px; }
+  .favorite-new-folder { min-height: 44px; }
   .favorite-toolbar { grid-template-columns: minmax(0, 1fr); }
   .favorite-platforms { overflow-x: auto; flex-wrap: nowrap; scroll-snap-type: x proximity; }
   .favorite-platforms button { min-height: 44px; scroll-snap-align: start; }
   .favorite-platforms .favorite-result-count { margin-left: 0; }
   .favorite-game-cover > a > span:last-child:not(.favorite-poster) { opacity: 1; padding: 9px; justify-content: flex-start; background: linear-gradient(transparent 72%, rgb(7 10 18 / 82%)); }
-  .favorite-game-body { min-height: 98px; }
+  .favorite-game-body { min-height: 78px; }
   .favorite-actions-favorite-card .favorite-heart,
   .favorite-actions-favorite-card .favorite-manage,
   .favorite-select { width: 44px; height: 44px; min-height: 44px; }

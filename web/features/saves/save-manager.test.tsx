@@ -44,6 +44,13 @@ describe("SaveManager", () => {
     vi.unstubAllGlobals();
   });
 
+  it("keeps game tags out of save group headings", () => {
+    const { container } = render(<SaveManager saves={[makeSave({ tags: [{ tagId: "tag", name: "掌机精选" }] })]} nowMs={nowMs} />);
+    expect(screen.getAllByRole("heading", { name: "Metal Slug" })).toHaveLength(2);
+    expect(screen.queryByText("掌机精选")).not.toBeInTheDocument();
+    expect(container.querySelector(".tag-chips")).toBeNull();
+  });
+
   it("keeps card action menus outside the game-group clipping boundary", () => {
     const source = readFileSync(resolve(process.cwd(), "features/imports/import-review-workflow.css"), "utf8");
     const rule = source.match(/\.save-library-group\s*\{([^}]*)\}/)?.[1] ?? "";

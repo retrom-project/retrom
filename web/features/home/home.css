@@ -87,9 +87,10 @@
 .home-recent-copy { min-width: 0; padding: 13px; display: flex; flex: 1 1 auto; flex-direction: column; }
 .home-recent-copy > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .home-recent-copy > small { margin-top: 5px; overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.55; text-overflow: ellipsis; }
-.home-recent-copy > span { margin-top: auto; padding-top: 9px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.home-recent-copy > span small { color: var(--muted); font-size: 10px; }
-.home-recent-copy > span b { font-size: 11px; }
+.home-recent-bottom { margin-top: auto; padding-top: 9px; display: grid; gap: 8px; }
+.home-recent-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.home-recent-meta small { color: var(--muted); font-size: 10px; }
+.home-recent-meta b { font-size: 11px; }
 .home-inline-empty { min-height: 94px; display: grid; place-items: center; border: 1px dashed #cfd5df; border-radius: var(--radius-panel); color: var(--muted); background: rgb(255 255 255 / 55%); font-size: 13px; }
 .home-platform-section { padding: 9px 0 8px; }
 .home-platform-section .home-section-head { min-height: 30px; margin-bottom: 5px; align-items: center; }
@@ -117,6 +118,10 @@
 
 .home-featured-copy h2 { font-weight: 750; }
 .home-featured-details { flex: 0 0 auto; }
+.home-featured-details > .tag-chips { margin-top: 12px; }
+.home-featured-details > .tag-chips, .home-recent-bottom > .tag-chips { flex-wrap: nowrap; }
+.home-featured-details .tag-chip, .home-recent-bottom .tag-chip { min-width: 0; }
+.home-featured-details .tag-chip-more, .home-recent-bottom .tag-chip-more { flex-shrink: 0; }
 .home-featured-description { flex: 1; min-height: 0; margin: 12px 0; container: home-description / size; overflow: hidden; overflow-wrap: anywhere; color: #c0c7d7; font-size: 13px; line-height: 1.7; }
 .home-featured-description p { margin: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
 @container home-description (height < 88.4px) { .home-featured-description p { -webkit-line-clamp: 3; } }

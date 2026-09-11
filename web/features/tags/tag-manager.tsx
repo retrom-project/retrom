@@ -47,7 +47,7 @@ export function TagManager({ initial, filters }: { initial: TagAdminPage; filter
 
   async function save() {
     if (!editor || !name.trim()) {return;}
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setNotice("");
     try {
       const creating = editor.mode === "create";
       const response = await fetch(creating ? "/api/v1/admin/tags" : `/api/v1/admin/tags/${editor.item?.tagId}`, {
@@ -59,7 +59,11 @@ export function TagManager({ initial, filters }: { initial: TagAdminPage; filter
       const saved = await response.json() as TagAdminItem;
       setItems((current) => creating ? [saved, ...current].sort((left, right) => left.name.localeCompare(right.name, "zh-CN")) : current.map((item) => item.tagId === saved.tagId ? saved : item));
       if (creating) {setSummary((current) => ({ ...current, activeTagCount: current.activeTagCount + 1 }));}
-      setEditor(null);
+      if (creating) {
+        setName("");
+        setNotice(`已创建“${saved.name}”，可继续添加。`);
+        nameRef.current?.focus();
+      } else {setEditor(null);}
     } catch (caught) { setError(caught instanceof Error ? caught.message : "标签保存失败"); }
     finally { setBusy(false); }
   }
@@ -117,7 +121,7 @@ export function TagManager({ initial, filters }: { initial: TagAdminPage; filter
 
   return <TagManagerView {...{
     addCommonTags, busy, confirmName, deleteItem, editor, error, filters, items, name, nameRef, nextCursor,
-    notice, openEditor, remove, save, setConfirmName, setDeleteItem, setEditor, setError, setName, summary, triggerRef,
+    notice, openEditor, remove, save, setConfirmName, setDeleteItem, setEditor, setError, setName, setNotice, summary, triggerRef,
   }} onLoadMore={() => void loadMore()} />;
 }
 
@@ -143,13 +147,14 @@ type TagManagerViewProps = {
   setEditor: Dispatch<SetStateAction<Editor | null>>;
   setError: Dispatch<SetStateAction<string>>;
   setName: Dispatch<SetStateAction<string>>;
+  setNotice: Dispatch<SetStateAction<string>>;
   summary: TagAdminPage["summary"];
   triggerRef: RefObject<HTMLButtonElement | null>;
 };
 
 function TagManagerView({
   addCommonTags, busy, confirmName, deleteItem, editor, error, filters, items, name, nameRef, nextCursor,
-  notice, onLoadMore, openEditor, remove, save, setConfirmName, setDeleteItem, setEditor, setError, setName,
+  notice, onLoadMore, openEditor, remove, save, setConfirmName, setDeleteItem, setEditor, setError, setName, setNotice,
   summary, triggerRef,
 }: TagManagerViewProps) {
   return <div className="tag-manager">
@@ -159,7 +164,7 @@ function TagManagerView({
     {notice && !editor && !deleteItem ? <FeedbackBanner tone="good">{notice}</FeedbackBanner> : null}
     <TagItems {...{ filters, items, openEditor, setConfirmName, setDeleteItem, setError }} />
     {nextCursor ? <button className="button secondary tag-load-more" type="button" disabled={busy} onClick={onLoadMore}>{busy ? "正在加载…" : "加载更多"}</button> : null}
-    <TagEditorSheet {...{ busy, editor, error, name, nameRef, save, setEditor, setName, triggerRef }} />
+    <TagEditorSheet {...{ busy, editor, error, name, nameRef, notice, save, setEditor, setError, setName, setNotice, triggerRef }} />
     <TagDeleteDialog {...{ busy, confirmName, deleteItem, error, remove, setConfirmName, setDeleteItem }} />
   </div>;
 }
@@ -199,17 +204,17 @@ function TagItems({ filters, items, openEditor, setConfirmName, setDeleteItem, s
 function TagRow({ item, onDelete, onEdit }: { item: TagAdminItem; onDelete: () => void; onEdit: () => void }) {
   const timeZone = useBrowserTimeZone();
   const active = item.status === "ACTIVE";
-  return <tr><th scope="row"><strong title={item.name}>{item.name}</strong></th><td><StatusBadge tone={active ? "good" : "neutral"}>{active ? "活动" : "已删除"}</StatusBadge></td><td><Link href={`/admin/games?tagId=${encodeURIComponent(item.tagId)}&status=ALL`}>{item.usage.publishedGameCount} / {item.usage.deletedGameCount}</Link></td><td><Link href={`/admin/reviews?tagId=${encodeURIComponent(item.tagId)}`}>{item.usage.reviewDraftCount}</Link></td><td>{item.usage.pegasusCollectionCount}</td><td><time dateTime={new Date(item.updatedAtMs).toISOString()}>{formatTime(item.updatedAtMs, timeZone)}</time></td><td><div className="tag-row-actions"><button type="button" disabled={!active} onClick={onEdit}>编辑</button><button type="button" className="danger-link" disabled={!active} onClick={onDelete}>删除</button></div></td></tr>;
+  return <tr><th scope="row"><strong title={item.name}>{item.name}</strong></th><td><StatusBadge tone={active ? "good" : "neutral"}>{active ? "活动" : "已删除"}</StatusBadge></td><td><Link href={`/admin/games?tagId=${encodeURIComponent(item.tagId)}&status=ALL`}>{item.usage.publishedGameCount} / {item.usage.deletedGameCount}</Link></td><td><Link href={`/admin/reviews?tagId=${encodeURIComponent(item.tagId)}`}>{item.usage.reviewDraftCount}</Link></td><td>{item.usage.pegasusCollectionCount}</td><td><time dateTime={new Date(item.updatedAtMs).toISOString()}>{formatTime(item.updatedAtMs, timeZone)}</time></td><td><div className="tag-row-actions"><button type="button" className="button secondary" disabled={!active} onClick={onEdit}>编辑</button><button type="button" className="button secondary tag-delete-button" disabled={!active} onClick={onDelete}>删除</button></div></td></tr>;
 }
 
-function TagEditorSheet({ busy, editor, error, name, nameRef, save, setEditor, setName, triggerRef }: Pick<
+function TagEditorSheet({ busy, editor, error, name, nameRef, notice, save, setEditor, setError, setName, setNotice, triggerRef }: Pick<
   TagManagerViewProps, "busy" | "editor" | "error" | "name" | "nameRef" | "save" | "setEditor" | "setName" |
-  "triggerRef"
+  "triggerRef" | "notice" | "setNotice" | "setError"
 >) {
-  const close = () => setEditor(null);
+  const close = () => {setEditor(null); setNotice(""); setError("");};
   const validName = Boolean(name.trim()) && [...name].length <= 40;
-  return <ResponsiveSheet open={Boolean(editor)} title={editor?.mode === "create" ? "新建标签" : "编辑标签"} description="名称会进行 Unicode 规范化、空白折叠和不区分大小写的唯一性检查。" placement="right" onClose={() => {if (!busy) {close();}}} returnFocusRef={triggerRef} initialFocusRef={nameRef} className="tag-editor-sheet" footer={<><button className="button secondary" type="button" disabled={busy} onClick={close}>取消</button><button className="button" type="button" disabled={busy || !validName} onClick={() => void save()}>{busy ? "正在保存…" : "保存标签"}</button></>}>
-    <label className="tag-name-field"><span>标签名称</span><input ref={nameRef} aria-label="标签名称" maxLength={160} value={name} onChange={(event) => setName(event.target.value)} /><small>{[...name].length}/40 个字符</small></label><div className="tag-normalized-preview"><span>规范化预览</span><strong>{name.trim().replace(/\s+/gu, " ") || "—"}</strong></div>{error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}<p className="tag-editor-help">活动标签最多 1000 个；同名标签删除后可重新建立，但不会继承旧关系。</p>
+  return <ResponsiveSheet open={Boolean(editor)} title={editor?.mode === "create" ? "新建标签" : "编辑标签"} description="名称会进行 Unicode 规范化、空白折叠和不区分大小写的唯一性检查。" placement="right" onClose={() => {if (!busy) {close();}}} returnFocusRef={triggerRef} initialFocusRef={nameRef} className="tag-editor-sheet" footer={<div className="tag-editor-footer-content"><div className="tag-editor-actions"><button className="button secondary" type="button" disabled={busy} onClick={close}>取消</button><button className="button" type="button" disabled={busy || !validName} onClick={() => void save()}>{busy ? "正在保存…" : "保存标签"}</button></div><p className="tag-editor-feedback" role={error ? "alert" : "status"} data-tone={error ? "bad" : "good"}>{error || notice}</p></div>}>
+    <label className="tag-name-field"><span>标签名称</span><input className="select" ref={nameRef} aria-label="标签名称" maxLength={160} value={name} onChange={(event) => setName(event.target.value)} /><small>{[...name].length}/40 个字符</small></label><div className="tag-normalized-preview"><span>规范化预览</span><strong>{name.trim().replace(/\s+/gu, " ") || "—"}</strong></div><p className="tag-editor-help">活动标签最多 1000 个；同名标签删除后可重新建立，但不会继承旧关系。</p>
   </ResponsiveSheet>;
 }
 

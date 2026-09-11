@@ -21,6 +21,27 @@ function json(value: unknown, status = 200) {
 }
 
 describe("TagManager", () => {
+  it("keeps the create drawer open for repeated additions and restores input focus", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (_url, init) => json({ ...initialTag, tagId: JSON.parse(init.body).name, name: JSON.parse(init.body).name }, 201));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<TagManager initial={initial} filters={{ q: "", status: "ACTIVE", sort: "NAME_ASC" }} />);
+    await user.click(screen.getByRole("button", { name: "新建标签" }));
+    const sheet = screen.getByRole("dialog", { name: "新建标签" });
+    const input = within(sheet).getByRole("textbox", { name: "标签名称" });
+    for (const name of ["双人", "精选"]) {
+      await user.type(input, name);
+      await user.click(within(sheet).getByRole("button", { name: "保存标签" }));
+      await waitFor(() => expect(input).toHaveValue(""));
+      expect(sheet).toBeVisible(); expect(input).toHaveFocus();
+      expect(within(sheet).getByText(`已创建“${name}”，可继续添加。`)).toBeVisible();
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await user.click(within(sheet).getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("rowheader", { name: "精选" })).toBeVisible();
+  });
+
   it("atomically adds the common tag template and reports existing items", async () => {
     const createdItems = [
       { ...initialTag, tagId: "01980000-0000-7000-8000-000000000910", name: "动作冒险", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, pegasusCollectionCount: 0 } },
@@ -67,6 +88,7 @@ describe("TagManager", () => {
     expect(await screen.findByText("双人")).toBeVisible();
     expect(container.querySelector(".tag-kpis article:first-child strong")).toHaveTextContent("2");
 
+    await user.click(within(createSheet).getByRole("button", { name: "取消" }));
     const actionRow = screen.getByRole("rowheader", { name: "动作" }).closest("tr");
     if (!actionRow) {throw new Error("action row missing");}
     await user.click(within(actionRow).getByRole("button", { name: "编辑" }));
