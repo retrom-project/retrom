@@ -39,7 +39,8 @@ func selectedStatus(candidate *evaluatedCandidate) (string, string) {
 func (service *Service) loadItems(ctx context.Context, importID string) ([]catalogItem, error) {
 	rows, err := service.database.QueryContext(ctx, `
 SELECT requirement_id,requirement_version,core_id,core_name_snapshot,provider_id,target_id,
-source_kind,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,catalog_digest,
+source_kind,archive_members_json,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,
+catalog_digest,
 	activation_options_json,source_version,dat_version_id,dat_machine_name,expected_size_bytes,
 	expected_md5,expected_sha1,expected_sha256,
 active_installation_id_snapshot,active_installation_version_snapshot,active_blob_sha256_snapshot,
@@ -54,7 +55,7 @@ FROM server_bios_import_items WHERE server_import_id=? ORDER BY requirement_id C
 		var item catalogItem
 		if err := rows.Scan(
 			&item.RequirementID, &item.RequirementVersion, &item.CoreID, &item.CoreName,
-			&item.ProviderID, &item.TargetID, &item.SourceKind, &item.LogicalName,
+			&item.ProviderID, &item.TargetID, &item.SourceKind, &item.ArchiveMembersJSON, &item.LogicalName,
 			&item.RequirementMode, &item.ConditionCode, &item.DeliveryKind, &item.EmulatorPath,
 			&item.CatalogDigest, &item.ActivationOptionsJSON, &item.SourceVersion, &item.DATVersionID,
 			&item.DATMachineName, &item.ExpectedSize, &item.ExpectedMD5, &item.ExpectedSHA1,
@@ -149,13 +150,13 @@ ORDER BY requirement_id COLLATE BINARY,COALESCE(rank_ordinal,9223372036854775807
 			SHA256: candidate.Metadata.SHA256, CRC32: candidate.Metadata.CRC32,
 		}
 		switch {
-		case item.SourceKind == "STATIC" && exactHash.Valid:
+		case !item.isArchive() && exactHash.Valid:
 			candidate.Static = &firmware.StaticEvaluation{
 				Facts: facts, ExactHash: exactHash.Int64 == 1, ExpectedSizeMatched: expectedSize.Int64 == 1,
 				ExactBasename: exactName.Int64 == 1,
 			}
 			candidate.Static.Status, candidate.Static.Method = staticStatusMethod(*candidate.Static)
-		case item.SourceKind == "DAT_MACHINE" && safeArchive.Valid:
+		case item.isArchive() && safeArchive.Valid:
 			candidate.DAT = &firmware.DATEvaluation{
 				Facts: facts, SafeArchive: safeArchive.Int64 == 1, Launchable: launchable.Int64 == 1,
 				MatchedCount: int(matched.Int64), AliasedCount: int(aliased.Int64),
@@ -163,6 +164,7 @@ ORDER BY requirement_id COLLATE BINARY,COALESCE(rank_ordinal,9223372036854775807
 				ExtraCount: int(extra.Int64), ExactBasename: exactName.Int64 == 1,
 			}
 			candidate.DAT.Status, candidate.DAT.Method = datStatusMethod(*candidate.DAT)
+			item.applyArchivePolicy(candidate.DAT)
 			expected, exists := datExpected[requirementID]
 			if !exists {
 				expected, err = service.expectedDATEntries(ctx, item)

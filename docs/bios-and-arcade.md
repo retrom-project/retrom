@@ -32,8 +32,9 @@ MD5/CRC 只用于身份识别，不作为安全机制。
 
 - 流式写入 CAS 并计算全部支持 hash。
 - 保存原始文件名用于审计，挂载时使用 Requirement 的逻辑文件名。
-- 文件存在但 hash 与期望不同：保存并显示 Warning，不强制拒绝。
-- Archive 内部缺少目录列出的 entry：保留 `MISSING_ENTRY` 警告；entry 名存在但 size/hash 与 DAT 不同则为 `HASH_WARNING`。两者均保存、装入并允许启动，目录校验只提示用户可能存在问题。
+- 单文件存在但 hash 与期望不同：保存并显示 Warning，不强制拒绝。
+- DAT archive 内部缺少目录列出的 entry：保留 `MISSING_ENTRY` 警告；entry 名存在但 size/hash 与 DAT 不同则为 `HASH_WARNING`。两者均保存、装入并允许启动，目录校验只提示用户可能存在问题。
+- 源码派生固件包按第 3.8 节严格校验必要成员；失败不替换现有安装。
 
 ## 3. 静态 BIOS 目录
 
@@ -106,7 +107,7 @@ MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bun
 
 MAME 2003 和 MAME 2003-Plus 的旧 List XML 没有显式 `isbios` 属性；当前真实基线各有 17 个由 `romof != cloneof` 推导的 base dependency target。名称、entry 和 hash 必须从活动 DAT 解析，不能复制 FBNeo 列表。
 
-数据库中的 BIOS Requirement 是 Provider Target 内的稳定逻辑安装槽，而不是把某份 DAT entry 复制成永不变化的手工表：静态固件 slot 的 `source_kind=STATIC`，condition/activation 按第 3.8 节；Arcade BIOS/base archive 的 slot 为 `DAT_MACHINE`，logical name 固定 `<machine>.zip`，`catalog_digest` 来自活动 DAT 的规范必需 entry 集，外层 ZIP 本身没有 DAT 规定的唯一 hash。切换 DAT 时按 logical slot upsert/disable 并递增发生变化的 requirement version，旧安装 Blob 不复制；随后针对新 catalog 重验证 active installation。
+数据库中的 BIOS Requirement 是 Provider Target 内的稳定逻辑安装槽，而不是把某份 DAT entry 复制成永不变化的手工表：静态固件 slot 的 `source_kind=STATIC`，condition/activation 按第 3.9 节；Arcade BIOS/base archive 的 slot 为 `DAT_MACHINE`，logical name 固定 `<machine>.zip`，`catalog_digest` 来自活动 DAT 的规范必需 entry 集，外层 ZIP 本身没有 DAT 规定的唯一 hash。切换 DAT 时按 logical slot upsert/disable 并递增发生变化的 requirement version，旧安装 Blob 不复制；随后针对新 catalog 重验证 active installation。
 
 Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 active installation 暗中复制成新安装；既有审计快照继续引用旧槽身份，新 Target 在 BIOS 页明确显示未安装。用户再次选择同一文件安装时 CAS 会按 SHA-256 去重，但会创建归属新 Requirement 的独立 Installation 并重新校验。这样不会把旧 Target 的“已匹配”结论冒充新 Target 的证据，也没有未建模的跨 Target 自动迁移。
 
@@ -114,7 +115,25 @@ Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 act
 
 普通 DOS 游戏没有统一固定 BIOS。可执行程序和目录内容属于 GameFiles，`dosbox.conf`/启动 ZIP 属于 GameVariant 的派生文件；ISO/CUE/IMG/VHD 等磁盘镜像一期不接收，不能因 Core 未来可能支持而展示成已支持 BIOS/内容类型。
 
-### 3.8 条件与 core option 的精确规则
+### 3.8 固件上传单元与源码成员清单
+
+Requirement 对应用户交付给核心的文件。`source_kind` 只表示来源（STATIC 或 DAT_MACHINE），`file_kind` 表示 FILE 或 ARCHIVE，与运行交付的 `delivery_kind` 独立。压缩包内部 ROM 是校验成员，不是独立上传槽，不允许用前端文件名隐藏规则修正错误建模。
+
+优先使用锁定核心的 `.info`、ROM 声明或权威 DAT 生成目录。`scripts/firmware_catalog.py` 从 `internal/firmwaremanifest/source.json` 指定且校验 SHA-256 的源码归档读取 firmware 路径、必需性及对应 ROM set，产出 `catalog.json`。条件编译、未解析宏、未知默认 BIOS、缺少可信哈希或不安全路径均使生成失败，不能输出部分需求。确实无法从核心来源得到必要信息时，才评审有来源依据的人工例外。
+
+当前 SAME CD-i 的来源是 `retrom-core-gcfb05d803f54-r1` 的锁定源码：`same_cdi_libretro.info` 与 `src/mame/drivers/cdi.cpp`。生成的上传槽为：
+
+| 上传项 | 必需性 | 交付路径 |
+| --- | --- | --- |
+| `cdimono1.zip` | REQUIRED | `/same_cdi/bios/cdimono1.zip` |
+| `cdimono2.zip` | OPTIONAL | `/same_cdi/bios/cdimono2.zip` |
+| `cdibios.zip` | OPTIONAL | `/same_cdi/bios/cdibios.zip` |
+
+三项通过 EXTERNAL_FILE 保留完整 ZIP bytes；缺失且无 active Installation 的 OPTIONAL 外部文件不进入 Launch，不阻断已就绪 Variant。当前核心入口固定使用 cdimono1，另两项不是可替代的必需 BIOS。Mono-I 的默认 cdi200.rom、servo/slave MCU ROM 仅为该 ZIP 的必要成员；非默认 BIOS 版本保留为非必需成员。来源 SHA、parser version 和生成成员共同进入 catalog digest。
+
+源码固件包必须通过安全 ZIP 扫描，默认 BIOS 与公共 ROM 的名称、大小和 SHA-1 必须满足。缺失、哈希不符或仅改名匹配均拒绝安装，诊断通过 BIOS_INSTALLATION_INVALID 返回，原 active Installation 保留。额外成员不替代必要成员，不要求外层 ZIP 固定哈希。服务器导入复用相同规则，不完整包记为 INVALID_ARCHIVE，不安装并计入失败。现有 47 个 DAT archive 的 advisory 策略与其他 29 个单文件槽的策略保持原有定义。
+
+### 3.9 条件与 core option 的精确规则
 
 静态目录不能只保存文件名/hash：Gambatte 和 mGBA 的上游都要求 core option 开启后才会使用可选启动 BIOS。每个 Provider Target 的 seed 因此还要写入下表的稳定 `condition_code` 与 canonical `activation_options_json`；它们属于 Requirement/catalog digest，不允许前端按 core display name 特判：
 
@@ -133,18 +152,18 @@ Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 act
 
 primary content 指 GameFiles 中唯一 `CONTENT` 文件；host-console 原 ZIP 已在验证阶段物化成保留真实后缀的唯一可运行 member，因此不能用上传 archive 的 `.zip` 后缀判断。逻辑名按 ASCII lower-case 比较最后一个后缀，不读标题或刮削平台猜类型。FDS/GB/GBC/GBA 按表中后缀判定；一期对 BS-X/Sufami 没有足够可靠的独立 classifier，所以这两项“已安装则对全部 Snes9x Variant 装入并进入 digest、未安装则只在完整目录显示且不产生逐游戏 Warning”，由 core 决定是否实际读取。`GAME_GENIE_ADDON_MODE/MGBA_SGB_MODEL` 一期恒不适用。其余 STATIC requirement 的适用集合与 active installation/status/options 一并进入 `validation_input_digest/dependency_snapshot_json`；不适用项不装入本次 bundle，也不触发本游戏重校验。
 
-适用的 REQUIRED/CONDITIONAL 项缺失时阻断；适用 OPTIONAL 缺失时仅 Warning 且不加 activation option。存在 `MATCHED`、`HASH_WARNING` 或 `MISSING_ENTRY` active installation 时按逻辑名装入 BIOS bundle并合并其 activation options；对 DAT_MACHINE，全部必需 entry 名存在但 size/hash 有差异也属于 `HASH_WARNING`。错误 hash 和内部缺项都遵循“提示但允许”的产品要求；不可读的 `INVALID` 不装入。每次 EmulatorJS 实例都是新配置，所以无需发送反向的 `disabled/OFF`，也不能让浏览器上一次设置成为事实源。上游依据分别是 [Gambatte BIOS/core option](https://docs.libretro.com/library/gambatte/) 与 [mGBA BIOS/core option](https://docs.libretro.com/library/mgba/)。
+适用的 REQUIRED/CONDITIONAL 项缺失时阻断；适用 OPTIONAL 缺失时仅 Warning 且不加 activation option。存在 `MATCHED`、`HASH_WARNING` 或 `MISSING_ENTRY` active installation 时按逻辑名装入 BIOS bundle并合并其 activation options；对 DAT_MACHINE，全部必需 entry 名存在但 size/hash 有差异也属于 `HASH_WARNING`。单文件与 DAT archive 的错误 hash 和内部缺项遵循“提示但允许”的产品要求；不可读的 `INVALID` 不装入。每次 EmulatorJS 实例都是新配置，所以无需发送反向的 `disabled/OFF`，也不能让浏览器上一次设置成为事实源。上游依据分别是 [Gambatte BIOS/core option](https://docs.libretro.com/library/gambatte/) 与 [mGBA BIOS/core option](https://docs.libretro.com/library/mgba/)。
 
 ## 4. BIOS 状态
 
 | 条件 | 状态 | 可启动 |
 | --- | --- | --- |
 | 必需逻辑文件不存在 | `MISSING` | 否 |
-| 已上传 archive 内部 entry 缺失 | `MISSING_ENTRY` | 是，带 Warning |
+| DAT archive 内部 entry 缺失 | `MISSING_ENTRY` | 是，带 Warning |
 | 文件/全部必需 entry 与期望 size/hash 匹配 | `MATCHED` | 是 |
 | 文件或已存在的必需 entry 的 size/hash 不同 | `HASH_WARNING` | 是，带 Warning |
 | 可选文件不存在 | `OPTIONAL_MISSING` | 是 |
-| 文件不可读或 archive 损坏 | `INVALID` | 否 |
+| 文件不可读、archive 损坏或源码固件包必要成员不满足 | `INVALID` | 否 |
 | parent/BIOS entry 已内含于游戏 archive | `SATISFIED_BY_CONTENT` | 是 |
 
 BIOS 页面默认只统计当前游戏库各 GameVariant 当前 GameVariant 实际引用的 Requirement；核心完整目录中的未使用项标记“未使用”，不进入红色缺失计数。
@@ -253,7 +272,7 @@ CPS1 测试 DAT 把 `1941` 表示为无 parent/BIOS 的完整根集合。锁定�
 - “当前游戏库需要”与“完整 BIOS 目录”在客户端切换，不做整页导航；URL 保留范围、关键字、Core 和状态，便于从启动阻断处返回。
 - 页首摘要固定展示当前范围、缺失/阻断、需要核对和已就绪；可选文件未安装不计入阻断。
 - 先按“需要处理”和“已就绪与可选项”分区，再展示逻辑文件/ROMset、Core、状态和可证明的使用语义。当前列表接口没有使用数量时，不显示虚构计数。
-- 支持上传、替换；STATIC 文件 hash 不同明确警告但保留，期望/实际 MD5 直接展示。Arcade `DAT_MACHINE` 没有可信的整个 ZIP 期望 MD5，它以条目级 name/size/CRC/SHA-1 校验为准。
+- 支持上传、替换；STATIC 单文件 hash 不同明确警告但保留，期望/实际 MD5 直接展示。Arcade `DAT_MACHINE` 没有可信的整个 ZIP 期望 MD5，它以条目级 name/size/CRC/SHA-1 校验为准。
 - 已安装的 `DAT_MACHINE` ZIP 文件名可点击；对比弹窗左右列出锁定 DAT 版本要求和安装时落库的实际归档条目 name/size/CRC，并区分 `MATCHED/ALIASED/MISMATCHED/MISSING/EXTRA`。`ALIASED` 只在 size 与 SHA-1（无 SHA-1 时 CRC32）同时命中时成立；弹窗读取持久化 ArchiveEntry，不重新打开或解压 Blob。
 
 - 页面明确说明 Arcade DAT 由 release/core manifest 自动准备。`ARCADE_DAT_UNAVAILABLE` 是部署依赖/Ready 故障，界面提示检查 `make prepare-deps`、服务日志和 `/health/ready`，不引导用户上传另一份目录。
@@ -275,6 +294,6 @@ Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、L
 
 任务创建时直接从数据库冻结当前 Provider catalog 中、被产品 Core binding 引用的全部 enabled Requirement：STATIC 与活动 DAT 的 DAT_MACHINE 均包含，REQUIRED/OPTIONAL/CONDITIONAL 均包含；不在当前 catalog/binding 闭包内的旧 Target、历史 DAT slot 和当前游戏库范围不参与。一个 Blob 可分别满足多个 Requirement，但 Installation 不跨 Requirement 共享。
 
-STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。DAT_MACHINE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
+STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。ARCHIVE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
 
 `replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement/catalog 未变时保持当前态；Requirement 改变时相同 bytes 仍重新校验。提交前重新检查完整 catalog digest、Requirement/稳定 Provider Target、DAT 和 source bytes；漂移分别以稳定条目结果收口。真正替换时，旧 Installation payload 单向释放并只保留来源审计；依赖它的已物化运行资源和旧 `BIOS_BUNDLE` VariantFile 被清理，活动 Launch/Play/Netplay 终止。SaveState 仍按 Game 保留，其可恢复性由当前 READY Target 的 `readFormats` 决定；受影响 GameVariant 转为需要重新校验，下一次 Launch 先复用或创建异步重校验 Job，并原子更新当前依赖与 VariantFiles。

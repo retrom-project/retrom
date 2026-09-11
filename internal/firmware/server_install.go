@@ -28,6 +28,7 @@ type ServerInstallRequest struct {
 	SourceVersion      string
 	CatalogDigest      string
 	SourceKind         string
+	ArchiveMembersJSON *string
 	LogicalName        string
 	OriginalFilename   string
 	Metadata           blobstore.Metadata
@@ -217,7 +218,7 @@ func (service *Service) persistServerInstallation(
 	if err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server register blob: %w", err)
 	}
-	if request.SourceKind == "DAT_MACHINE" {
+	if request.SourceKind == "DAT_MACHINE" || request.ArchiveMembersJSON != nil {
 		if err := persistArchiveEntries(ctx, transaction, blobID, request.ArchiveEntries, now); err != nil {
 			return ServerInstallResult{}, err
 		}
@@ -332,7 +333,7 @@ func candidateStrictlyBetter(
 	activeBlobID string,
 	activeFacts FileFacts,
 ) (bool, bool, error) {
-	if request.SourceKind == "STATIC" {
+	if request.SourceKind == "STATIC" && request.ArchiveMembersJSON == nil {
 		if request.StaticExpectation == nil || request.StaticEvaluation == nil {
 			return false, false, nil
 		}
@@ -350,6 +351,9 @@ func candidateStrictlyBetter(
 		return false, false, nil
 	}
 	active := EvaluateDAT(request.LogicalName, request.DATExpectedEntries, activeFacts, entries)
+	if request.ArchiveMembersJSON != nil {
+		RequireCompleteArchive(&active)
+	}
 	return CompareDATQuality(*request.DATEvaluation, active) < 0, true, nil
 }
 

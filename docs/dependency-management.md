@@ -118,6 +118,8 @@ EmulatorJS DAT 的 binding 使用稳定 `(providerId,targetId)`。`data-check` �
 - 平台/Core/Target 映射唯一；
 - 内置 DAT 更新不会删除仍被锁定 Variant 使用的事实。
 
+源码固件目录维护：使用 `python3 scripts/firmware_catalog.py --recipe internal/firmwaremanifest/source.json --source-archive <已物化且锁定的source.tar.gz> --output internal/firmwaremanifest/catalog.json` 生成；增加 `--check` 只验证生成物与来源一致。启动仅消费内嵌目录，不联网或读取开发者源码路径。更新核心 pin 时需同时核对来源配方、生成物及 [BIOS 专题](./bios-and-arcade.md) 的上传/交付契约，不能把压缩包成员提升为上传槽。
+
 BIOS Requirement 同样从 Target binding 和 DAT 生成，不从前端或 Provider 私有 registry 推断。安装内容按逻辑名、大小与摘要校验；游戏 Launch 冻结实际 installation/dependency snapshot。
 
 ## 9. Runtime asset pack

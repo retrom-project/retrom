@@ -25,6 +25,10 @@ type staticBIOS struct {
 	sourceURL    string
 	delivery     string
 	emulatorPath string
+	members      string
+	sourceDigest string
+	providerID   string
+	targetID     string
 }
 
 var staticBIOSCatalog = []staticBIOS{
@@ -52,28 +56,6 @@ var staticBIOSCatalog = []staticBIOS{
 		coreID: "flycast", logical: "dc_flash.bin", mode: "REQUIRED", size: 131072,
 		sourceURL: "https://github.com/nasomers/flycast-wasm/tree/v1.0",
 		delivery:  "EXTERNAL_FILE", emulatorPath: "/dc/dc_flash.bin",
-	},
-	{
-		coreID: "same_cdi", logical: "cdi200.rom", mode: "REQUIRED", size: 524288,
-		md5: "2969341396aa61e0143dc2351aaa6ef6", sha256: "24e388c72df21237a89d8d775d41a90208af24c4112c61429b8e47f190ac18c6",
-		sourceURL: "https://docs.libretro.com/library/same_cdi/", delivery: "EXTERNAL_FILE",
-		emulatorPath: "/same_cdi/bios/cdimono1/cdi200.rom",
-	},
-	{
-		coreID:  "same_cdi",
-		logical: "zx405037p__cdi_servo_2.1__b43t__llek9215.mc68hc705c8a_withtestrom.7201", mode: "REQUIRED", size: 8192,
-		md5: "3e59b8a9a423d3ecd612a32fe4e2d748", sha256: "b467fb3e9bb9e38d195c55116aecd6bc4c8023cdfe4b4d50fd9699139f221b9b",
-		sourceURL: "https://docs.libretro.com/library/same_cdi/", delivery: "EXTERNAL_FILE",
-		emulatorPath: "/same_cdi/bios/cdimono1/" +
-			"zx405037p__cdi_servo_2.1__b43t__llek9215.mc68hc705c8a_withtestrom.7201",
-	},
-	{
-		coreID:  "same_cdi",
-		logical: "zx405042p__cdi_slave_2.0__b43t__zzmk9213.mc68hc705c8a_withtestrom.7206", mode: "REQUIRED", size: 8192,
-		md5: "3d20cf7550f1b723158b42a1fd5bac62", sha256: "15794460f2ad630f6dd483a02ef958818c7a5c65f8afe76364bc9ffb7ccad3cc",
-		sourceURL: "https://docs.libretro.com/library/same_cdi/", delivery: "EXTERNAL_FILE",
-		emulatorPath: "/same_cdi/bios/cdimono1/" +
-			"zx405042p__cdi_slave_2.0__b43t__zzmk9213.mc68hc705c8a_withtestrom.7206",
 	},
 	{
 		coreID: "mednafen_pce", logical: "syscard3.pce", mode: "CONDITIONAL", condition: "PCE_CD_CONTENT", size: 262144,
@@ -270,13 +252,21 @@ func bootstrapStaticBIOS(
 	selectedTargets map[string]runtimeTarget,
 	now time.Time,
 ) error {
-	if err := validateBIOSActivationOptions(staticBIOSCatalog); err != nil {
+	catalog, err := completeStaticBIOSCatalog()
+	if err != nil {
 		return err
 	}
-	for _, requirement := range staticBIOSCatalog {
+	if err := validateBIOSActivationOptions(catalog); err != nil {
+		return err
+	}
+	for _, requirement := range catalog {
 		target, selected := selectedTargets[requirement.coreID]
 		if !selected {
 			continue
+		}
+		if requirement.providerID != "" &&
+			(target.providerID != requirement.providerID || target.targetID != requirement.targetID) {
+			return fmt.Errorf("%w: firmware target %s", errBIOSOptions, requirement.coreID)
 		}
 		delivery := requirement.delivery
 		if delivery == "" {
@@ -289,6 +279,8 @@ func bootstrapStaticBIOS(
 				"deliveryKind":      delivery,
 				"emulatorPath":      nullableStringValue(requirement.emulatorPath),
 				"logicalName":       requirement.logical,
+				"archiveMembers":    json.RawMessage(nullableJSON(requirement.members)),
+				"sourceDigest":      requirement.sourceDigest,
 				"md5":               requirement.md5,
 				"mode":              requirement.mode,
 				"sha256":            nullableStringValue(requirement.sha256),
@@ -324,7 +316,7 @@ version,
 created_at_ms,
 updated_at_ms,
 delivery_kind,
-emulator_path) VALUES(?,
+emulator_path,archive_members_json) VALUES(?,
 ?,
 ?,
 ?,
@@ -346,7 +338,7 @@ NULL,
 ?,
 ?,
 ?,
-?) ON CONFLICT(provider_id,target_id,
+?,?) ON CONFLICT(provider_id,target_id,
 logical_name)
 DO UPDATE SET requirement_mode=excluded.requirement_mode,
 condition_code=excluded.condition_code,
@@ -359,6 +351,7 @@ source_url=excluded.source_url,
 source_version=excluded.source_version,
 delivery_kind=excluded.delivery_kind,
 emulator_path=excluded.emulator_path,
+archive_members_json=excluded.archive_members_json,
 enabled=1,
 version=CASE WHEN bios_requirements.catalog_digest!=excluded.catalog_digest
   THEN bios_requirements.version+1 ELSE bios_requirements.version END,
@@ -382,6 +375,7 @@ updated_at_ms=excluded.updated_at_ms
 			now.UnixMilli(),
 			delivery,
 			nullableStringValue(requirement.emulatorPath),
+			nullableStringValue(requirement.members),
 		)
 		if err != nil {
 			return fmt.Errorf("seed BIOS requirement: %w", err)

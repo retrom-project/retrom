@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "parserVersion": "LIBRETRO_ROM_SETS_V1",
+  "source": {
+    "coreId": "same_cdi",
+    "providerId": "emulatorjs",
+    "targetId": "same-cdi",
+    "repository": "https://github.com/retrom-project/same_cdi",
+    "release": "retrom-core-gcfb05d803f54-r1",
+    "sourceUrl": "https://github.com/retrom-project/same_cdi/releases/download/retrom-core-gcfb05d803f54-r1/source.tar.gz",
+    "sourceSha256": "773f489b8b826f2311c85fbded7326d8ffd632fb2972256f679997bdaab7a537",
+    "infoPath": "same_cdi_libretro.info",
+    "romSourcePath": "src/mame/drivers/cdi.cpp"
+  },
+  "items": [
+    {
+      "logicalName": "cdimono1.zip",
+      "emulatorPath": "/same_cdi/bios/cdimono1.zip",
+      "mode": "REQUIRED",
+      "members": [
+        {
+          "name": "cdi200.rom",
+          "sizeBytes": 524288,
+          "crc32": "40c4e6b9",
+          "sha1": "d961de803c89b3d1902d656ceb9ce7c02dccb40a",
+          "required": true
+        },
+        {
+          "name": "cdi220b.rom",
+          "sizeBytes": 524288,
+          "crc32": "279683ca",
+          "sha1": "53360a1f21ddac952e95306ced64186a3fc0b93e",
+          "required": false
+        },
+        {
+          "name": "cdi220.rom",
+          "sizeBytes": 524288,
+          "crc32": "584c0af8",
+          "sha1": "5d757ab46b8c8fc36361555d978d7af768342d47",
+          "required": false
+        },
+        {
+          "name": "zx405037p__cdi_servo_2.1__b43t__llek9215.mc68hc705c8a_withtestrom.7201",
+          "sizeBytes": 8192,
+          "crc32": "7a3af407",
+          "sha1": "fdf8d78d6a0df4a56b5b963d72eabd39fcec163f",
+          "required": true
+        },
+        {
+          "name": "zx405042p__cdi_slave_2.0__b43t__zzmk9213.mc68hc705c8a_withtestrom.7206",
+          "sizeBytes": 8192,
+          "crc32": "688cda63",
+          "sha1": "56d0acd7caad51c7de703247cd6d842b36173079",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "cdimono2.zip",
+      "emulatorPath": "/same_cdi/bios/cdimono2.zip",
+      "mode": "OPTIONAL",
+      "members": [
+        {
+          "name": "philips__cdi-220_ph3_r1.2__mb834200b-15__02f_aa__9402_z04.tc574200-le._1.7211",
+          "sizeBytes": 524288,
+          "crc32": "17d723e7",
+          "sha1": "6c317a82e35d60ca5e7a74fc99f665055693169d",
+          "required": true
+        },
+        {
+          "name": "zc405351p__servo_cdi_4.1__0d67p__lluk9404.mc68hc705c8a.7490",
+          "sizeBytes": 8192,
+          "crc32": "2bc8e4e9",
+          "sha1": "8cd052b532fc052d6b0077261c12f800e8655bb1",
+          "required": true
+        },
+        {
+          "name": "zc405352p__slave_cdi_4.1__0d67p__lltr9403.mc68hc705c8a.7206",
+          "sizeBytes": 8192,
+          "crc32": "5b19da07",
+          "sha1": "cf02d84977050c71e87a38f1249e83c43a93949b",
+          "required": true
+        }
+      ]
+    },
+    {
+      "logicalName": "cdibios.zip",
+      "emulatorPath": "/same_cdi/bios/cdibios.zip",
+      "mode": "OPTIONAL",
+      "members": [
+        {
+          "name": "cdi200.rom",
+          "sizeBytes": 524288,
+          "crc32": "40c4e6b9",
+          "sha1": "d961de803c89b3d1902d656ceb9ce7c02dccb40a",
+          "required": true
+        },
+        {
+          "name": "cdi220b.rom",
+          "sizeBytes": 524288,
+          "crc32": "279683ca",
+          "sha1": "53360a1f21ddac952e95306ced64186a3fc0b93e",
+          "required": false
+        },
+        {
+          "name": "zx405042p__cdi_slave_2.0__b43t__zzmk9213.mc68hc705c8a_withtestrom.7206",
+          "sizeBytes": 8192,
+          "crc32": "688cda63",
+          "sha1": "56d0acd7caad51c7de703247cd6d842b36173079",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

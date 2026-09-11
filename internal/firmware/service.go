@@ -101,6 +101,9 @@ func (service *Service) Install(
 	if err != nil {
 		return Installation{}, err
 	}
+	if status == "INVALID" {
+		return Installation{}, &ArchiveContentError{Details: details}
+	}
 	return persistInstallation(
 		ctx, transaction, requirementID, request.UploadFileID, snapshot, status, details, service.now(),
 		service.releases,
@@ -108,7 +111,7 @@ func (service *Service) Install(
 }
 
 type installSnapshot struct {
-	sourceKind, logicalName                string
+	sourceKind, logicalName, fileKind      string
 	uploadID, originalName, blobID         string
 	md5, sha1, sha256                      string
 	size, version                          int64
@@ -126,7 +129,7 @@ func validateInstallSnapshot(
 ) (installSnapshot, error) {
 	var snapshot installSnapshot
 	if err := transaction.QueryRowContext(ctx, `
-SELECT source_kind,
+SELECT source_kind,file_kind,
 logical_name,
 size_bytes,
 md5,
@@ -137,7 +140,7 @@ FROM bios_requirements
 WHERE id=?
 AND enabled=1
 `, requirementID).Scan(
-		&snapshot.sourceKind,
+		&snapshot.sourceKind, &snapshot.fileKind,
 		&snapshot.logicalName,
 		&snapshot.expectedSize,
 		&snapshot.expectedMD5,
@@ -171,7 +174,8 @@ AND f.state='COMPLETE'
 	); err != nil {
 		return installSnapshot{}, ErrInvalid
 	}
-	if snapshot.sourceKind != prepared.sourceKind || snapshot.blobID != prepared.blobID ||
+	if snapshot.sourceKind != prepared.sourceKind || snapshot.fileKind != prepared.fileKind ||
+		snapshot.blobID != prepared.blobID ||
 		snapshot.sha256 != prepared.sha256 {
 		return installSnapshot{}, ErrInvalid
 	}
@@ -198,7 +202,7 @@ func (service *Service) evaluateInstall(
 		details["sha256Matched"] == false {
 		status = "HASH_WARNING"
 	}
-	if snapshot.sourceKind == "DAT_MACHINE" {
+	if snapshot.fileKind == "ARCHIVE" {
 		if err := persistArchiveEntries(
 			ctx, transaction, snapshot.blobID, prepared.archiveEntries, service.now().UnixMilli(),
 		); err != nil {
@@ -317,6 +321,7 @@ created_at_ms) VALUES(?,
 
 type preparedInstall struct {
 	sourceKind     string
+	fileKind       string
 	blobID         string
 	sha256         string
 	archiveEntries []importing.ArchiveEntry
@@ -330,7 +335,7 @@ func (service *Service) prepareInstall(
 ) (preparedInstall, error) {
 	var prepared preparedInstall
 	if err := service.database.QueryRowContext(ctx, `
-SELECT q.source_kind,
+SELECT q.source_kind,q.file_kind,
 b.id,
 b.sha256
 FROM bios_requirements q
@@ -340,13 +345,13 @@ WHERE q.id=?
 AND q.enabled=1
 AND q.version=?
 `, uploadFileID, requirementID, expectedVersion).Scan(
-		&prepared.sourceKind,
+		&prepared.sourceKind, &prepared.fileKind,
 		&prepared.blobID,
 		&prepared.sha256,
 	); err != nil {
 		return preparedInstall{}, ErrInvalid
 	}
-	if prepared.sourceKind == "DAT_MACHINE" {
+	if prepared.fileKind == "ARCHIVE" {
 		if service.blobs == nil {
 			return preparedInstall{}, ErrInvalid
 		}
@@ -372,6 +377,7 @@ type expectedArchiveEntry struct {
 
 type archiveQueryer interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
 func persistArchiveEntries(
@@ -420,11 +426,18 @@ func validateDATMachineArchive(
 		return "", nil, err
 	}
 	comparisons, missing, mismatched, warnings := compareArchiveEntries(expected, actual)
+	strict, err := isStaticArchive(ctx, transaction, requirementID)
+	if err != nil {
+		return "", nil, err
+	}
 	details := map[string]any{
 		"schemaVersion":     1,
 		"missingEntries":    missing,
 		"mismatchedEntries": mismatched,
 		"warnings":          warnings,
+	}
+	if strict && (len(missing) > 0 || len(mismatched) > 0 || len(warnings) > 0) {
+		return "INVALID", details, nil
 	}
 	if len(comparisons) == 0 || len(expected) == 0 || len(missing) > 0 {
 		return "MISSING_ENTRY", details, nil
@@ -440,6 +453,9 @@ func loadExpectedArchiveEntries(
 	queryer archiveQueryer,
 	requirementID string,
 ) ([]expectedArchiveEntry, error) {
+	if members, declared, err := loadStaticArchiveMembers(ctx, queryer, requirementID); declared || err != nil {
+		return members, err
+	}
 	rows, err := queryer.QueryContext(ctx, `
 SELECT r.name,
 r.size_bytes,
@@ -559,7 +575,7 @@ func (service *Service) InspectArchive(ctx context.Context, requirementID string
 	if err := service.database.QueryRowContext(ctx, `
 SELECT q.id,
 q.logical_name,
-q.source_kind,
+q.file_kind,
 i.id,
 i.status,
 i.blob_id
@@ -581,7 +597,7 @@ AND q.enabled=1
 		}
 		return ArchiveInspection{}, fmt.Errorf("firmware/archive inspection: %w", err)
 	}
-	if sourceKind != "DAT_MACHINE" {
+	if sourceKind != "ARCHIVE" {
 		return ArchiveInspection{}, ErrArchiveFactsNotFound
 	}
 	expected, err := loadExpectedArchiveEntries(ctx, service.database, requirementID)

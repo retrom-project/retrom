@@ -2406,7 +2406,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Compare the active DAT-backed BIOS archive catalog with the exact DAT requirement version. */
+        /** @description Compare the active BIOS archive with its pinned requirement members, from core source metadata or DAT. */
         get: operations["getAdminBIOSEntries"];
         put?: never;
         post?: never;
@@ -4347,7 +4347,7 @@ export interface components {
             /** @enum {string} */
             sourceKind: "STATIC" | "DAT_MACHINE";
             /** @enum {string} */
-            state: "PENDING" | "EVALUATING" | "IMPORTED_MATCHED" | "IMPORTED_WARNING" | "IMPORTED_MISSING_ENTRY" | "NOT_FOUND" | "SKIPPED_EXISTING" | "SKIPPED_NOT_BETTER" | "ALREADY_SAME_BYTES" | "SOURCE_CHANGED" | "CATALOG_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
+            state: "PENDING" | "EVALUATING" | "IMPORTED_MATCHED" | "IMPORTED_WARNING" | "IMPORTED_MISSING_ENTRY" | "NOT_FOUND" | "SKIPPED_EXISTING" | "SKIPPED_NOT_BETTER" | "ALREADY_SAME_BYTES" | "SOURCE_CHANGED" | "CATALOG_CHANGED" | "INVALID_ARCHIVE" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
             /** Format: int64 */
             candidateCount: number;
             /** @enum {string|null} */
@@ -4836,6 +4836,8 @@ export interface components {
             logicalName: string;
             /** @enum {string} */
             sourceKind: "STATIC" | "DAT_MACHINE";
+            /** @enum {string} */
+            fileKind: "FILE" | "ARCHIVE";
             /** @enum {string} */
             requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
             conditionCode: string | null;

@@ -4,7 +4,7 @@ import { filterBIOS, isBIOSBlocking, summarizeBIOS, type BIOSRequirement } from 
 const bios = (id: string, overrides: Partial<BIOSRequirement> = {}): BIOSRequirement => ({
   id, coreId: "mgba", coreName: "mGBA", providerId: "emulatorjs", targetId: "mgba",
   logicalName: `${id}.bin`,
-  sourceKind: "STATIC", requirementMode: "REQUIRED", enabled: true, version: 1, status: "MATCHED", ...overrides,
+  sourceKind: "STATIC", fileKind: "FILE", requirementMode: "REQUIRED", enabled: true, version: 1, status: "MATCHED", ...overrides,
 });
 
 describe("runtime dependency presentation", () => {

@@ -1,0 +1,11 @@
+{
+  "coreId": "same_cdi",
+  "providerId": "emulatorjs",
+  "targetId": "same-cdi",
+  "repository": "https://github.com/retrom-project/same_cdi",
+  "release": "retrom-core-gcfb05d803f54-r1",
+  "sourceUrl": "https://github.com/retrom-project/same_cdi/releases/download/retrom-core-gcfb05d803f54-r1/source.tar.gz",
+  "sourceSha256": "773f489b8b826f2311c85fbded7326d8ffd632fb2972256f679997bdaab7a537",
+  "infoPath": "same_cdi_libretro.info",
+  "romSourcePath": "src/mame/drivers/cdi.cpp"
+}

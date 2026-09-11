@@ -115,7 +115,7 @@ paths:
       - $ref: '#/components/parameters/RequirementID'
     get:
       operationId: getAdminBIOSEntries
-      description: Compare the active DAT-backed BIOS archive catalog with the exact DAT requirement version.
+      description: Compare the active BIOS archive with its pinned requirement members, from core source metadata or DAT.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
@@ -458,6 +458,7 @@ components:
             - ALREADY_SAME_BYTES
             - SOURCE_CHANGED
             - CATALOG_CHANGED
+            - INVALID_ARCHIVE
             - READ_FAILED
             - COMMIT_FAILED
             - CANCELLED

@@ -39,7 +39,7 @@ const itemLabels: Record<ImportItem["state"], string> = {
   PENDING: "等待处理", EVALUATING: "正在评估", IMPORTED_MATCHED: "已导入·匹配", IMPORTED_WARNING: "已导入·警告",
   IMPORTED_MISSING_ENTRY: "已导入·缺少条目", NOT_FOUND: "未找到", SKIPPED_EXISTING: "保留已有 BIOS",
   SKIPPED_NOT_BETTER: "候选不更优", ALREADY_SAME_BYTES: "内容相同", SOURCE_CHANGED: "源文件已变化",
-  CATALOG_CHANGED: "目录版本已变化", READ_FAILED: "读取失败", COMMIT_FAILED: "提交失败", CANCELLED: "已取消",
+  CATALOG_CHANGED: "目录版本已变化", READ_FAILED: "读取失败", INVALID_ARCHIVE: "固件内容不完整或不匹配", COMMIT_FAILED: "提交失败", CANCELLED: "已取消",
 };
 
 function stateTone(state: ServerImportSummary["state"]): "good" | "warn" | "bad" | "info" {
@@ -342,7 +342,7 @@ export function ServerImportManager({ initialRoots, initialImports, initialPegas
 type DetailFilters = { query: string; outcome: string; matchMethod: string };
 
 function ImportResultRow({ item, onInspect }: { item: ImportItem; onInspect: (item: ImportItem) => void }) {
-  const failed = ["SOURCE_CHANGED", "CATALOG_CHANGED", "READ_FAILED", "COMMIT_FAILED"].includes(item.state);
+  const failed = ["SOURCE_CHANGED", "CATALOG_CHANGED", "READ_FAILED", "INVALID_ARCHIVE", "COMMIT_FAILED"].includes(item.state);
   const tone = item.state.startsWith("IMPORTED") ? "good" : failed ? "bad" : "warn";
   return <article role="row"><div role="cell"><strong>{item.logicalName}</strong><small>{item.coreName} · {item.providerId}/{item.targetId} · {item.requirementMode}</small>{item.selectedRelativePath ? <small title={item.selectedRelativePath}>候选：{item.selectedRelativePath}</small> : null}</div><div role="cell"><StatusBadge tone={tone}>{itemLabels[item.state]}</StatusBadge><small>{item.replaced ? "已替换现有安装" : "未替换现有安装"}</small></div><div role="cell"><strong>{item.matchMethod ?? "—"}</strong><small>{item.outcomeCode ?? "尚无结果码"}</small><small>{item.previousInstallationStatus ?? "无旧安装"} → {item.newInstallationStatus ?? "无新安装"}</small></div><div role="cell"><button type="button" className="button secondary compact" disabled={item.candidateCount === 0} onClick={() => onInspect(item)}>查看候选（{item.candidateCount}）</button></div></article>;
 }

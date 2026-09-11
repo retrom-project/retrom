@@ -42,8 +42,11 @@ func TestCDRequirementsDoNotBlockPCECartridges(t *testing.T) {
 				t.Fatalf("BIOS resolution = %#v, %s, %s, %v", snapshot, status, blocker, err)
 			}
 			for _, bios := range snapshot.BIOS {
+				if test.target == "same-cdi" && !strings.HasSuffix(bios.LogicalName, ".zip") {
+					t.Errorf("CD-i must expose firmware archives, got member %q", bios.LogicalName)
+				}
 				if test.target == "same-cdi" && (bios.DeliveryKind != "EXTERNAL_FILE" || bios.EmulatorPath == nil ||
-					!strings.HasPrefix(*bios.EmulatorPath, "/same_cdi/bios/cdimono1/")) {
+					!strings.HasPrefix(*bios.EmulatorPath, "/same_cdi/bios/")) {
 					t.Errorf("CD-i BIOS must retain its native firmware path: %#v", bios)
 				}
 			}

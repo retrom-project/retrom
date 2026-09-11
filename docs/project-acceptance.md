@@ -1032,7 +1032,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：每项 240 秒，八项独立记录。入口和 scenario schema 沿用 `web/smoke/emulatorjs-single-file.mjs`；执行环境与隐私边界同 ACC-RUN-013。
 - 范围：`81/cap32/crocods/vice_xpet/vice_xplus4/same_cdi/vice_x64` 和 PC Engine CD 的 `mednafen_pce`；CPC 两个核心分别验证同平台游戏，C64 原有 `vice_x64sc` 保持可选。
-- 前置：游戏通过正常上传、导入、审核预览及发布。PC Engine CD 使用单文件 CHD，先证明缺少 `syscard3.pce` 时验证阻断，再通过 BIOS 管理安装后继续同一审核；CD-i 按已声明的各项 BIOS 完成相同缺失/满足检查。PCE 卡带无需 CD BIOS，另覆盖现有 `.pce` 内容回归。
+- 前置：游戏通过正常上传、导入、审核预览及发布。PC Engine CD 使用单文件 CHD，先证明缺少 `syscard3.pce` 时验证阻断，再通过 BIOS 管理安装后继续同一审核；CD-i 目录只显示 cdimono1.zip（必需）、cdimono2.zip 和 cdibios.zip（可选）；检查缺少必需包时阻断、仅安装完整必需包即可满足、不完整包被拒绝且保留已有安装。通过内部成员对比确认 ROM 没有成为独立上传项，再完成实际启动、输入、checkpoint 与恢复。PCE 卡带无需 CD BIOS，另覆盖现有 `.pce` 内容回归。
 - 流程与通过标准：每项均保存 A、标准手柄输入后的 B、保存 B 后继续输入的 C，关闭旧 Launch 并在不同 Launch 恢复 B，继续输入和退出。必须复核方向、确认及已支持的取消操作的可见游戏响应和恢复位置；游戏内取消为可选能力；非空状态、帧数增长、网络 200 或静止截图不能替代。脚本 `REVIEW_REQUIRED` 只有经本次画面复核后才可记 PASS；原生读档错误、重新开局冒充恢复、输入无效均失败。
 - 证据：八项分别保留导入/审核/发布、BIOS 缺失/安装/冻结身份、Provider/module 与内容 digest、A/B/C/恢复 B/恢复后输入截图和结果。游戏与 BIOS 不进入普通自动测试夹具；产品证据只覆盖当次样本，不代表全部盘格式或游戏兼容。
 
