@@ -38,6 +38,8 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 ## 4. 依赖与 DAT
 
+`bios_requirements` 与冻结的 `server_bios_import_items` 以 `archive_members_json` 保存源码派生的成员数组（name、sizeBytes、CRC32、SHA1、required）；该字段仅用于 STATIC archive。生成列 `file_kind` 在 DAT_MACHINE 或成员声明非 NULL 时为 ARCHIVE，其余为 FILE。成员不得成为独立 Requirement；服务器任务冻结成员声明并随 catalog digest 校验漂移。未发布的初始 schema 直接收口，不提供散文件槽到归档槽的历史转换。
+
 `bios_requirements`、`dat_versions` 和服务器 BIOS 导入项引用稳定 Provider/Target。当前 active DAT 可以前移；已创建 Launch 只消费其冻结的依赖文件。BIOS 安装替换会撤销受影响的活动运行并把当前 Variant 置为待重验，但不会删除仍可由当前 Target 读取的 Game 存档。
 
 依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base、多盘或 runtime pack 的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并锁定实际 Blob 边。

@@ -95,6 +95,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 	for index := range requirements {
 		requirements[index].oldDigest = install(&requirements[index], "old", 1)
 	}
+	seedOptionalExternalBIOS(t, ctx, database.SQL, target.ProviderID, target.TargetID)
 	gameMetadata, err := blobs.Put(bytes.NewReader([]byte("nds-content")))
 	testassert.False(t, err != nil, err)
 	gameBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, gameMetadata, "application/octet-stream", time.Now().UnixMilli())

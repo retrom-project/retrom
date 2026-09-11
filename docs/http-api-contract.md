@@ -622,6 +622,8 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 
 ## 11. 服务器 BIOS 导入 API
 
+BIOS 列表的 `BIOSRequirementSummary.fileKind` 必填，值为 `FILE | ARCHIVE`；客户端按该字段展示压缩包内部对比入口，不能由 sourceKind 推断。STATIC archive 和 DAT_MACHINE 均支持现有安装归档对比接口。源码固件包成员校验失败返回 422 `BIOS_INSTALLATION_INVALID`，details 带 missingEntries、mismatchedEntries、warnings，且不替换原安装。服务器 BIOS 导入条目增加 `INVALID_ARCHIVE`，表示包可读取但必要成员不满足，并计入失败数。
+
 所有下列 route 都要求 ADMIN；匿名返回 401，USER 返回 403。写请求继续执行 Origin/Fetch Metadata/CSRF、Idempotency-Key 与 `If-Match` 规则。目录路径相对服务器 `/`，管理员可据此浏览完整可读文件系统；DTO 不包含 root digest、CAS path 或 source inode。
 
 | Route | 契约 |

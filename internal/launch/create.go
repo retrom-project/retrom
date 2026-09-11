@@ -613,7 +613,8 @@ WHERE variant.id=? ORDER BY content.logical_name LIMIT 1
 			continue
 		}
 		if !availableExternalBIOS(dependency) {
-			if allowMissing {
+			if allowMissing ||
+				(dependency.RequirementMode == "OPTIONAL" && dependency.InstallationStatus == nil) {
 				continue
 			}
 			return ErrBlocked

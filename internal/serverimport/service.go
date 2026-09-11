@@ -231,6 +231,7 @@ type catalogItem struct {
 	ProviderID                string  `json:"providerId"`
 	TargetID                  string  `json:"targetId"`
 	SourceKind                string  `json:"sourceKind"`
+	ArchiveMembersJSON        *string `json:"archiveMembersJson"`
 	LogicalName               string  `json:"logicalName"`
 	RequirementMode           string  `json:"requirementMode"`
 	ConditionCode             *string `json:"conditionCode"`
@@ -412,7 +413,7 @@ func boolInteger(value bool) int {
 func (service *Service) freezeCatalog(ctx context.Context) ([]catalogItem, error) {
 	rows, err := service.database.QueryContext(ctx, `
 SELECT requirement.id,requirement.version,requirement.core_id,core.name,requirement.provider_id,
-requirement.target_id,requirement.source_kind,
+requirement.target_id,requirement.source_kind,requirement.archive_members_json,
 requirement.logical_name,requirement.requirement_mode,
 requirement.condition_code,requirement.activation_options_json,requirement.delivery_kind,requirement.emulator_path,
 requirement.source_version,requirement.catalog_digest,
@@ -442,7 +443,7 @@ ORDER BY requirement.id COLLATE BINARY
 		var datActive sql.NullInt64
 		if err := rows.Scan(
 			&item.RequirementID, &item.RequirementVersion, &item.CoreID, &item.CoreName, &item.ProviderID,
-			&item.TargetID, &item.SourceKind, &item.LogicalName, &item.RequirementMode,
+			&item.TargetID, &item.SourceKind, &item.ArchiveMembersJSON, &item.LogicalName, &item.RequirementMode,
 			&item.ConditionCode, &item.ActivationOptionsJSON, &item.DeliveryKind, &item.EmulatorPath,
 			&item.SourceVersion, &item.CatalogDigest, &item.DATVersionID,
 			&item.DATMachineName, &item.ExpectedSize, &item.ExpectedMD5, &item.ExpectedSHA1, &item.ExpectedSHA256,
@@ -451,15 +452,10 @@ ORDER BY requirement.id COLLATE BINARY
 		); err != nil {
 			return nil, fmt.Errorf("serverimport/scan catalog item: %w", err)
 		}
-		if item.SourceKind == "STATIC" && item.ExpectedMD5 == nil && item.ExpectedSHA1 == nil &&
-			item.ExpectedSHA256 == nil {
-			return nil, ErrCatalogInvalid
+		if err := item.validateSource(datStatus, datActive); err != nil {
+			return nil, err
 		}
-		if item.SourceKind == "DAT_MACHINE" &&
-			(item.DATVersionID == nil || !datStatus.Valid || datStatus.String != "READY" ||
-				!datActive.Valid || datActive.Int64 != 1) {
-			return nil, ErrCatalogInvalid
-		}
+
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -474,12 +470,12 @@ func insertCatalogItem(ctx context.Context, transaction *sql.Tx, importID string
 		`
 INSERT INTO server_bios_import_items(
 server_import_id,requirement_id,requirement_version,core_id,core_name_snapshot,provider_id,target_id,
-source_kind,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,
+source_kind,archive_members_json,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,
 activation_options_json,source_version,catalog_digest,dat_version_id,dat_machine_name,expected_size_bytes,
 expected_md5,expected_sha1,expected_sha256,
 active_installation_id_snapshot,active_installation_version_snapshot,active_blob_sha256_snapshot,
 active_status_snapshot,active_validated_requirement_version_snapshot,state,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
 `,
 		importID,
 		item.RequirementID,
@@ -489,6 +485,7 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
 		item.ProviderID,
 		item.TargetID,
 		item.SourceKind,
+		item.ArchiveMembersJSON,
 		item.LogicalName,
 		item.RequirementMode,
 		item.ConditionCode,

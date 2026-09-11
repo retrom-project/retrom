@@ -102,11 +102,11 @@ function BIOSFileCell({ installed, item, onInspect }: {
   item: BIOSRequirement;
   onInspect: BIOSRowProps["onInspect"];
 }) {
-  const name = item.sourceKind === "DAT_MACHINE" && installed
+  const name = item.fileKind === "ARCHIVE" && installed
     ? <button className="runtime-bios-inspect" type="button" onClick={() => onInspect(item)}>{item.logicalName}</button>
     : item.logicalName;
   return <div className="runtime-bios-file" role="cell">
-    <span className="runtime-file-mark" aria-hidden="true">{item.logicalName.toLowerCase().endsWith(".zip") ? "ZIP" : "BIOS"}</span>
+    <span className="runtime-file-mark" aria-hidden="true">{item.fileKind === "ARCHIVE" ? "ZIP" : "BIOS"}</span>
     <div><h3>{name}</h3><p>{requirementLabels[item.requirementMode] ?? item.requirementMode}{item.conditionCode ? " · 按游戏内容决定是否需要" : ""}</p>
       {(item.expectedMd5 || installed?.md5) ? <dl className="runtime-technical">
         {item.expectedMd5 ? <><dt>期望 MD5</dt><dd><code>{item.expectedMd5}</code></dd></> : null}
@@ -235,7 +235,7 @@ function ArchiveInspectionDialog({ archiveDialog, onClose }: {
   return <ConfirmDialog
     open={archiveDialog !== null}
     title={`${archiveDialog?.item.logicalName ?? "BIOS"} 内容对比`}
-    description="左侧为当前 DAT 要求，右侧为已安装 ZIP 内容；name、size、crc 表头统一位于列表上方。行背景表示状态，悬停可查看说明。"
+    description="左侧为当前 固件要求，右侧为已安装 ZIP 内容；name、size、crc 表头统一位于列表上方。行背景表示状态，悬停可查看说明。"
     confirmLabel="关闭"
     hideCancel
     wide
@@ -449,7 +449,7 @@ function ArchiveComparisonLists({ inspection }: { inspection: ArchiveInspection 
   const expectedEntries = inspection.entries.filter((entry): entry is ArchiveEntryComparison & { expected: ArchiveEntryFacts } => entry.expected !== null);
   const actualEntries = inspection.entries.filter((entry): entry is ArchiveEntryComparison & { actual: ArchiveEntryFacts } => entry.actual !== null);
   return <div className="bios-entry-comparison">
-    <ArchiveEntryList title="DAT 要求" ariaLabel="DAT 要求列表" entries={expectedEntries.map((entry) => ({ facts: entry.expected, status: entry.status }))} />
+    <ArchiveEntryList title="固件要求" ariaLabel="固件要求列表" entries={expectedEntries.map((entry) => ({ facts: entry.expected, status: entry.status }))} />
     <ArchiveEntryList title="当前 ZIP 内容" ariaLabel="当前 ZIP 内容列表" entries={actualEntries.map((entry) => ({ facts: entry.actual, status: entry.status }))} />
   </div>;
 }
