@@ -3598,7 +3598,7 @@
       const biosHint = document.createElement('span');
       biosHint.className = 'rt-bios-replacement-hint';
       biosHint.setAttribute('role', 'tooltip');
-      biosHint.textContent = '替换会清理依赖旧 BIOS 的存档与运行会话';
+      biosHint.textContent = '新 BIOS 将在下次启动游戏时生效，当前运行与已有存档保留';
       const hideBIOSHint = () =&gt; biosHint.remove();
       root.querySelectorAll('[data-bios-replacement-hint]').forEach(button =&gt; {
         const show = () =&gt; {

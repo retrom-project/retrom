@@ -10,7 +10,7 @@ it("only displays replacement guidance on hover or keyboard focus", async () => 
   const user = userEvent.setup();
   render(<BIOSFileButton {...props} />);
   const button = screen.getByRole("button", {name:"替换文件"});
-  expect(button).toHaveAccessibleDescription("替换会清理依赖旧 BIOS 的存档与运行会话");
+  expect(button).toHaveAccessibleDescription("新 BIOS 将在下次启动游戏时生效，当前运行与已有存档保留");
   expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   await user.hover(button);
   expect(screen.getByRole("tooltip")).toBeVisible();

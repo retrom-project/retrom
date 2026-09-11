@@ -1,6 +1,6 @@
 # Retrom 数据模型
 
-字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/012_game_save_sync.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/013_bios_session_retirement.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
@@ -40,7 +40,7 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 `bios_requirements` 与冻结的 `server_bios_import_items` 以 `archive_members_json` 保存源码派生的成员数组（name、sizeBytes、CRC32、SHA1、required）；该字段仅用于 STATIC archive。生成列 `file_kind` 在 DAT_MACHINE 或成员声明非 NULL 时为 ARCHIVE，其余为 FILE。成员不得成为独立 Requirement；服务器任务冻结成员声明并随 catalog digest 校验漂移。未发布的初始 schema 直接收口，不提供散文件槽到归档槽的历史转换。
 
-`bios_requirements`、`dat_versions` 和服务器 BIOS 导入项引用稳定 Provider/Target。当前 active DAT 可以前移；已创建 Launch 只消费其冻结的依赖文件。BIOS 安装替换会撤销受影响的活动运行并把当前 Variant 置为待重验，但不会删除仍可由当前 Target 读取的 Game 存档。
+`bios_requirements`、`dat_versions` 和服务器 BIOS 导入项引用稳定 Provider/Target。当前 active DAT 可以前移；已创建 Launch 只消费其冻结的依赖文件。BIOS 安装替换只切换当前安装，已有运行保持冻结的旧文件，新的启动按需重校验；Game 存档保留。
 
 依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base、多盘或 runtime pack 的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并锁定实际 Blob 边。
 
@@ -104,7 +104,13 @@ Netplay room、session、participant 与 event 保存当前选择和会话冻结
 
 每个 CAS Blob 必须存在于 `internal/blobregistry/registry.json` 并由 payload release ownership registry 分类。流程进入终态后由持久 Job 单向释放 consumption；最后一个保护引用消失后才建立 GC candidate，并等待配置宽限期。
 
-Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS 替换只移除旧 BIOS 相关运行边；Game 删除移除内容、媒体、存档和运行边。共享 Blob 始终由剩余 owner 保护。
+Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS 替换只切换当前安装，后台分批释放旧安装与过时 Variant BIOS 边，已创建 Launch 的冻结边保留至结束或过期；Game 删除移除内容、媒体、存档和运行边。共享 Blob 始终由剩余 owner 保护。
+
+### BIOS 与 Launch 延迟回收
+
+`013_bios_session_retirement.sql` 为未释放的非活动 BIOS 安装、按 Blob 定位的 `BIOS_BUNDLE` VariantFile 和当前活动 BIOS Blob 建立索引。替换事务不遍历依赖 JSON，也不更新 GameVariant、Launch、Play、Netplay 或 SaveState。旧安装仍持有 Blob，后台每个事务最多移除 200 条旧 Variant BIOS 边；同一 Blob 仍被其他活动安装采用时保留这些边。释放安装的 Blob 引用后仍保留名称/hash/来源审计。
+
+`launch_payload_retirements` 是 Launch 的回收排期，包含 `launch_session_id`、`due_at_ms`、`released_at_ms`。迁移为现有会话建立排期，插入/状态/心跳更新 trigger 同事务维护截止时间：CREATED 取 bootstrap/hard 最早值，ACTIVE 取 idle/hard 最早值，终态取 finished 时间；已释放行不重新入队。后台按未释放截止时间的部分索引逐会话处理，每个短事务分别最多释放 200 条内容文件和 200 条外部文件引用。超时会话标为 EXPIRED，并按 Launch ID 结束对应 Play；大项目跨批次继续，全部文件引用释放后才记录释放时间。存档和会话来源记录保留，物理文件仍受其他 owner 与 GC 宽限期保护。普通启动与每小时 GC 对账重试未完成工作；单次替换无需等待对账，服务重启可续做。
 
 ## 10. 数据库不变量
 

@@ -97,6 +97,12 @@ func (service *Service) Signal() {
 }
 
 func (service *Service) ReconcileGC(ctx context.Context) error {
+	if err := service.releaseSupersededBIOS(ctx); err != nil {
+		return err
+	}
+	if err := service.releaseTerminalLaunches(ctx); err != nil {
+		return err
+	}
 	if err := service.releaseExpiredReviewPreviews(ctx); err != nil {
 		return err
 	}

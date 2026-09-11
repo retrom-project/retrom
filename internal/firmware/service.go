@@ -231,8 +231,7 @@ func persistInstallation(
 	now := nowTime.UnixMilli()
 	id, _ := uuid.NewV7()
 	consumptionID, _ := uuid.NewV7()
-	retired, err := payloadrelease.RetireSupersededBIOS(ctx, transaction, requirementID, now)
-	if err != nil {
+	if err := payloadrelease.SupersedeBIOS(ctx, transaction, requirementID, now); err != nil {
 		return Installation{}, fmt.Errorf("%w: retire installation: %w", ErrInvalid, err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -296,11 +295,6 @@ created_at_ms) VALUES(?,
 ?)
 `, consumptionID.String(), snapshot.uploadID, uploadFileID, id.String(), now); err != nil {
 		return Installation{}, fmt.Errorf("%w: consume upload: %w", ErrInvalid, err)
-	}
-	if releases != nil {
-		if err := releases.StageCandidates(ctx, transaction, retired.BlobIDs); err != nil {
-			return Installation{}, fmt.Errorf("%w: stage retired installation: %w", ErrInvalid, err)
-		}
 	}
 	if err := transaction.Commit(); err != nil {
 		return Installation{}, fmt.Errorf("firmware/service: %w", err)

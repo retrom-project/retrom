@@ -5,6 +5,7 @@ package launch
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"runtime"
@@ -18,6 +19,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
+	"retrom/internal/payloadrelease"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -25,6 +27,16 @@ import (
 
 func TestMelonDSExternalBIOSIsLockedPerLaunch(t *testing.T) {
 	t.Parallel()
+	exerciseMelonDSBIOSSwitch(t, false)
+}
+
+func TestBIOSSwitchPreservesManualApproval(t *testing.T) {
+	t.Parallel()
+	exerciseMelonDSBIOSSwitch(t, true)
+}
+
+func exerciseMelonDSBIOSSwitch(t *testing.T, manualOverride bool) {
+	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
@@ -140,18 +152,39 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 	service := New(database.SQL, dependencySet, credentials, time.Now).
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
+	if manualOverride {
+		_, err := database.SQL.ExecContext(ctx, `UPDATE game_variants SET compatibility_code='REVIEW_SCREENSHOT_OVERRIDE',version=version+1,updated_at_ms=updated_at_ms+1 WHERE id=?`, variantID)
+		testassert.False(t, err != nil, err)
+	}
 	melonds := "melonds"
 	oldLaunch, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return oldLaunch.LaunchID == "" }), "old MelonDS launch = %#v, error=%v", oldLaunch, err)
 	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
+	savedID := seedBIOSResumeSave(t, database.SQL, gameID, oldLaunch.LaunchID, gameBlobID, gameMetadata.SHA256, gameMetadata.Size)
+	selected, err := service.selectSavedLaunchVariant(ctx, "local", CreateRequest{GameID: gameID, SaveStateID: &savedID}, melonds)
+	testassert.False(t, err != nil, err)
 	for index := range requirements {
-		if _, err := database.SQL.ExecContext(ctx, `UPDATE bios_installations SET is_active=0,version=version+1,updated_at_ms=? WHERE requirement_id=? AND is_active=1`, time.Now().UnixMilli(), requirements[index].id); err != nil {
-			t.Fatal(err)
-		}
+		tx, err := database.SQL.BeginTx(ctx, nil)
+		testassert.False(t, err != nil, err)
+		testassert.False(t, payloadrelease.SupersedeBIOS(ctx, tx, requirements[index].id, time.Now().UnixMilli()) != nil, "supersede BIOS")
+		testassert.False(t, tx.Commit() != nil, "commit BIOS switch")
 		requirements[index].newDigest = install(&requirements[index], "new", 1)
 	}
 	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
-	pending, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
+	if manualOverride {
+		assertApprovedBIOSResume(t, service, database.SQL, gameID, variantID, savedID, requirements, capabilities)
+		return
+	}
+	tx, err := database.SQL.BeginTx(ctx, nil)
+	testassert.False(t, err != nil, err)
+	testassert.True(t, errors.Is(service.checkLaunchBIOSSelection(ctx, tx, selected), ErrBlocked), "concurrent replacement accepted stale launch")
+	lockedDigest, err := corevalidation.BIOSDependencyDigest(snapshot)
+	testassert.False(t, err != nil, err)
+	testassert.True(t, errors.Is(service.checkValidationBIOS(ctx, tx, validationInputs{
+		GameID: gameID, GameVariantID: variantID, ProviderID: target.ProviderID, TargetID: target.TargetID, BIOSDependencyDigest: lockedDigest,
+	}, sql.NullString{}), errValidationGameChanged), "late validation revived retired BIOS")
+	testassert.False(t, tx.Rollback() != nil, "rollback selection test")
+	pending, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "new BIOS validation = %#v, error=%v", pending, err)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
@@ -164,7 +197,7 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "new BIOS validation state = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	newLaunch, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
+	newLaunch, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return newLaunch.LaunchID == "" }), "new MelonDS launch = %#v, error=%v", newLaunch, err)
 	assertMelonDSLaunch(t, ctx, service, newLaunch, requirements, true)
 	if _, err := service.ExternalBlob(ctx, newLaunch.LaunchID, oldLaunch.Capability, requirements[0].logicalName); !errors.Is(err, ErrCredential) {
