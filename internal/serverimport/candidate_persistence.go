@@ -306,7 +306,8 @@ func (service *Service) finishTask(ctx context.Context, unit work) {
 	if err != nil {
 		return
 	}
-	failed := counts["SOURCE_CHANGED"] + counts["CATALOG_CHANGED"] + counts["READ_FAILED"] + counts["COMMIT_FAILED"]
+	failed := counts["SOURCE_CHANGED"] + counts["CATALOG_CHANGED"] + counts["READ_FAILED"] +
+		counts["INVALID_ARCHIVE"] + counts["COMMIT_FAILED"]
 	state := "COMPLETED"
 	if failed > 0 {
 		state = "PARTIAL_FAILURE"
@@ -509,7 +510,8 @@ func updateTerminalImport(
 	counts map[string]int64,
 	now int64,
 ) error {
-	failed := counts["SOURCE_CHANGED"] + counts["CATALOG_CHANGED"] + counts["READ_FAILED"] + counts["COMMIT_FAILED"]
+	failed := counts["SOURCE_CHANGED"] + counts["CATALOG_CHANGED"] + counts["READ_FAILED"] +
+		counts["INVALID_ARCHIVE"] + counts["COMMIT_FAILED"]
 	var phaseValue any
 	if phase != "" {
 		phaseValue = phase

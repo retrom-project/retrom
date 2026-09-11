@@ -27,6 +27,8 @@ describe("UserAdmin", () => {
   it("shows only account security fields and never private game metrics", () => {
     render(<UserAdmin initialUsers={initialUsers} initialInvitations={initialInvitations} filterValues={{}} />);
     expect(screen.getByRole("heading", { name: "用户管理" })).toBeInTheDocument();
+    expect(screen.queryByText(/已加载.*个账号/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重置" })).not.toBeInTheDocument();
     expect(screen.getByText("活跃会话")).toBeInTheDocument();
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.queryByText(/游戏数|游玩时长|存档数|Profile ID|IP/)).not.toBeInTheDocument();

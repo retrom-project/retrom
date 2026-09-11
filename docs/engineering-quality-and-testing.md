@@ -550,11 +550,11 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 ## 13.2 RPG Maker 测试矩阵
 
-- 纯逻辑：唯一用户虚拟 Core、Provider 声明的七世代 Target 与 Host 受限接入策略、七世代自动检测与 42 个跨世代 mismatch、LCF varint/chunk、INI UTF-8/CP932、RGSS marker、MV/MZ HTML/JSON、安全逻辑路径与 fileset、deterministic mkxpz、pack matcher、checkpoint codec 和唯一 Provider 生命周期；parser/codec 使用固定 seed fuzz，不能引入 I/O/panic/无界分配或第二份映射 registry。
+- 纯逻辑：唯一用户虚拟 Core、Provider 声明的七世代 Target 与 Host 受限接入策略、七世代自动检测与 42 个跨世代 mismatch、LCF varint/chunk、INI UTF-8/CP932、RGSS marker、MV/MZ HTML/JSON、安全逻辑路径与 fileset、deterministic mkxpz、项目资源声明与人工自包含确认、checkpoint codec 和唯一 Provider 生命周期；parser/codec 使用固定 seed fuzz，不能引入 I/O/panic/无界分配或第二份映射 registry。
 - SQLite/HTTP：001–010 最终 bootstrap、Provider/Target/pack/save/Launch 约束、启动目录原子同步及用户配置保留、只向前激活与持久存档 readFormats 保护、ticket 单次消费/过期/重放、review ETag/相关 prepublish 输入、普通审核 Preview/checkpoint/冻结恢复/TTL/终态清理、270 MiB multipart、Range/ETag/MIME/Host/Origin；无旧库转换或运行证明专用表/API。
 - Web：上传目的及 ZIP/目录自动识别、依赖就绪与普通试运行、唯一用户 Core、准确世代显示、loading/disabled/error、按需截图、会话级 checkpoint/恢复、dispatcher、Provider 启动取消/存档中退出/主动退出/失败清理，以及移动/桌面/4K/focus/axe。覆盖所有直接消费共享生命周期的普通、沉浸和联机分支；不保留 gate 面板或第二层 controller/factory。
 - Chrome 产品链：七世代都经过真实上传、审核、Launch、受授权内容、普通 Player、marker、输入/音频/连续帧、checkpoint、结束和不同 Launch 恢复。A、B、C、restore 与继续输入均由研发 harness 观察普通 checkpoint、真实核心/fixture 和可见画面；证明 restore=B 且与 A/C 可区分。HTTP 201、load 成功、Blob/hash 相等、同进程 load 或单张截图均不能替代运行证明。
-- 有数据顺序验收：保留七世代当次 PASS 门槛，在同一最终重建 PFB 上执行 `ACC-RPG-009` 增量流程；installation 空前置不等于业务空库。先保护 games/saves/reviews 的具名 ID 与稳定字段摘要，provision 和正式 Case 结束都核对原记录及精确新增集合。单测覆盖旧记录丢失/变化、同数量错误 ID、跨分页/重复 ID/cursor、包非空写前拒绝及证据缺失/篡改；失败不生成成功证据、不自动清库。范围、动态字段排除及两阶段数量仅以[统一验收 ACC-RPG-009](./project-acceptance.md#acc-rpg-009rtp资源包)为准，不夸大为整库不变。
+- 项目资源策略：`ACC-RPG-009` 在现有开发实例中增量添加自有 fixture，验证五个 RTP 世代的默认阻断、人工确认、取消确认及发布；安装接口、专用上传和挂载已退役。保留已有游戏/存档，不清库。运行验证仍按受影响世代分别执行，不以审核就绪代替真实运行。具体步骤与证据只以[统一验收 ACC-RPG-009](./project-acceptance.md#acc-rpg-009项目资源与人工自包含确认)为准。
 - 安全/供应链：七世代闭环后执行 MV/MZ malicious harness 与扩展矩阵；Provider/Target/Bundle、许可来源、core 候选身份、checkpoint 格式与正式双镜像输入逐项闭合。PFB candidate 不冒充正式 tag/release 或外部分发证据。
 
 本切片最终必须运行：

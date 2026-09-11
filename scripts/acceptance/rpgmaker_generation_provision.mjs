@@ -84,7 +84,7 @@ if (caseId === "ACC-RPG-008") {
 }
 const localProxy = await localRpgAcceptanceProxy(baseUrl);
 const browser = await chromium.launch({
-  executablePath: required("RETROM_CHROME_EXECUTABLE"), headless: true,
+  executablePath: required("RETROM_CHROME_EXECUTABLE"), headless: process.env.RETROM_ACCEPTANCE_HEADED !== "1",
 });
 
 try {

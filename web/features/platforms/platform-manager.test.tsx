@@ -142,18 +142,15 @@ describe("PlatformManager", () => {
     expect(screen.getByText("筛选状态下仅查看；清除筛选后可调整全局展示顺序")).toBeInTheDocument();
   });
 
-  it("uses status summary controls as real quick filters", async () => {
+  it("filters by the status dropdown without duplicate quick filters", async () => {
     const user = userEvent.setup();
     const disabled: PlatformInstance = { ...instances[0], id: "instance-2", name: "停用目录", slug: "disabled", enabled: false, platformId: "arcade", platformName: "Arcade" };
     render(<PlatformManager instances={[...instances, disabled]} platforms={platforms} createOpen={false} />);
 
-    const quickFilters = screen.getByLabelText("游戏目录快速筛选");
-    expect(within(quickFilters).queryByText("空目录 2")).not.toBeInTheDocument();
-    expect(within(quickFilters).queryByText("Arcade 1")).not.toBeInTheDocument();
-    const disabledFilter = screen.getByRole("button", { name: "已停用 1" });
-    expect(screen.getByRole("button", { name: "全部 2" })).toHaveAttribute("aria-pressed", "true");
-    await user.click(disabledFilter);
-    expect(disabledFilter).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByLabelText("游戏目录快速筛选")).not.toBeInTheDocument();
+    const status = screen.getByRole("combobox", { name: "启用状态" });
+    await user.selectOptions(status, "DISABLED");
+    expect(status).toHaveValue("DISABLED");
     expect(screen.getByText("停用目录")).toBeInTheDocument();
     expect(screen.queryByText("掌机游戏")).not.toBeInTheDocument();
   });

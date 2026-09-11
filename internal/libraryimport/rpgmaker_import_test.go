@@ -211,10 +211,10 @@ func TestPrepareRPGMakerArchiveMaterializesNestedEntryWithoutExpandingIt(t *test
 	t.Fatal("sidecar archive entry was not indexed")
 }
 
-func TestPrepareStaticBIOSDependenciesLeavesRPGMakerValidationToRuntimePacks(t *testing.T) {
+func TestPrepareStaticBIOSDependenciesLeavesRPGMakerValidationToProjectResources(t *testing.T) {
 	t.Parallel()
 	groups := []preparedGroup{{
-		validationStatus: "BLOCKED", compatibilityCode: "RPG_RUNTIME_PACK_MISSING",
+		validationStatus: "BLOCKED", compatibilityCode: "RPG_EXTERNAL_RTP_REQUIRED",
 		dependencySnapshot: `{"bindings":[],"schemaVersion":1}`,
 	}}
 	if err := prepareStaticBIOSDependencies(
@@ -222,7 +222,7 @@ func TestPrepareStaticBIOSDependenciesLeavesRPGMakerValidationToRuntimePacks(t *
 	); err != nil {
 		t.Fatalf("prepareStaticBIOSDependencies() error = %v", err)
 	}
-	if groups[0].compatibilityCode != "RPG_RUNTIME_PACK_MISSING" {
+	if groups[0].compatibilityCode != "RPG_EXTERNAL_RTP_REQUIRED" {
 		t.Fatalf("RPG validation was overwritten: %#v", groups[0])
 	}
 }

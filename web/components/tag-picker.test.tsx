@@ -16,12 +16,29 @@ const options: TagReference[] = [
   { tagId: "tag-finished", name: "已通关" },
 ];
 
-function PickerHarness({ initial = [] }: { initial?: TagReference[] }) {
+function PickerHarness({ initial = [], keepOpenOnSelect = false }: { initial?: TagReference[]; keepOpenOnSelect?: boolean }) {
   const [selected, setSelected] = useState(initial);
-  return <TagPicker label="游戏标签" options={options} selected={selected} onChange={setSelected} />;
+  return <TagPicker keepOpenOnSelect={keepOpenOnSelect} label="游戏标签" options={options} selected={selected} onChange={setSelected} />;
 }
 
 describe("TagPicker", () => {
+  it("can keep the list open for consecutive selections until an outside click", async () => {
+    const user = userEvent.setup();
+    render(<><PickerHarness keepOpenOnSelect /><button>其他区域</button></>);
+    const input = screen.getByRole("combobox", { name: "游戏标签" });
+    await user.click(input);
+    await user.click(screen.getByRole("option", { name: "动作" }));
+    expect(screen.getByRole("listbox")).toBeVisible();
+    expect(screen.queryByRole("option", { name: "动作" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "双人合作" }));
+    expect(screen.getByText("已选择 2/20 个标签")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "其他区域" }));
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    await user.click(input);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
   it("cancels delayed blur on refocus and on unmount", async () => {
     vi.useFakeTimers();
     const view = render(<PickerHarness />);

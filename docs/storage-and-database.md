@@ -119,6 +119,8 @@ PRAGMA busy_timeout = 5000;
 
 冻结的 bootstrap 包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`，直接创建 current-state Game/File/Variant 和 Provider-owned Target declaration，以及最终的 EmulationStation 状态机、索引与约束。不存在旧 revision 表、转换迁移或外键关闭窗口；每步建表/索引/trigger 与 checksum 记录同事务提交，外键始终开启。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。匹配前缀用于 bootstrap 续跑和明确支持的兼容升级；011 批次丢弃扩展新增身份/处置表并在事务中替换 trigger，可保留现有 001–010 数据。012 原生存档扩展追加 `game_save_versions` 和 `launch_game_save_bindings`，保留既有存档表与数据，支持从已发布 001–011 前缀升级。其他旧开发 schema 不因此获得升级兼容。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
 
+BIOS 切换和 Launch 回收排期由兼容扩展 `013_bios_session_retirement.sql` 建立索引、排期表和 trigger；保留现有游戏、存档、运行快照与安装记录，不重建开发库。回收语义见[数据模型](./data-model.md#bios-与-launch-延迟回收)。
+
 项目首次发布前遇到不兼容开发数据库，必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。程序不提供转换器、双写或隐式导入页面，也不得把旧 DB/CAS 拆开混入新库。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。001–010 已冻结；兼容扩展从 011 起只追加，不改写旧 checksum。
 
 ## 4. 表目录
@@ -349,7 +351,7 @@ data/
 
 顶层恒等式固定为 `registeredBytes = protectedBytes + unreferencedBytes = sum(categories[].bytes)`，`blobCount = sum(categories[].blobCount)`。存档详情另给有效/软删除行数、去重后的状态文件引用量和截图引用量；GC 候选详情给候选 Blob 数与引用量。这些详情是可能相互重叠的引用视图，不与九类容量相加。
 
-替换封面或移除视频后，失去最后引用的旧媒体会立即从 `MEDIA/protectedBytes` 转入 `UNREFERENCED/unreferencedBytes` 并登记候选；`registeredBytes` 与物理 CAS 文件在默认 7 天宽限期结束前保持不变。ROM 或多盘内容成功替换是显式破坏性边界：事务切换 current 后删除旧 ContentFile/VariantFile、旧运行快照与其绑定存档，失去最后引用的 Blob 同样立即转 `UNREFERENCED` 并登记候选；与 current 完全相同或验证失败的输入不得触发这些删除。同一 Requirement 的 BIOS 真正替换也会撤销依赖旧 Installation 的运行与存档、删除旧 `BIOS_BUNDLE` VariantFile 载荷、清空旧 Installation Blob 引用并登记候选；不同 Provider Target Requirement 的安装仍是独立有效资产。这与上传工作流引用是否已经释放是两个独立不变量。
+替换封面或移除视频后，失去最后引用的旧媒体会立即从 `MEDIA/protectedBytes` 转入 `UNREFERENCED/unreferencedBytes` 并登记候选；`registeredBytes` 与物理 CAS 文件在默认 7 天宽限期结束前保持不变。ROM 或多盘内容成功替换是显式破坏性边界：事务切换 current 后删除旧 ContentFile/VariantFile、旧运行快照与其绑定存档，失去最后引用的 Blob 同样立即转 `UNREFERENCED` 并登记候选；与 current 完全相同或验证失败的输入不得触发这些删除。同一 Requirement 的 BIOS 替换仅切换活动安装，已有会话和存档保留。后台分批释放旧安装与过时 `BIOS_BUNDLE` VariantFile 引用；Launch 文件在结束或过期后释放，最后引用消失才登记 GC 候选；不同 Provider Target Requirement 的安装及共享文件仍受保护。这与上传工作流引用是否已经释放是两个独立不变量。
 
 `POST /api/v1/admin/storage-cleanups` 是唯一在线手动回收入口：ADMIN-only，要求 CSRF 与 UUID `Idempotency-Key`，无 body/query，返回本次已推进的 `scheduledBlobCount/scheduledBytes/acceptedAtMs`，不返回 Blob/Job 标识。相同 key 重放原结果；提交成功为 202，后台逐 Blob 执行最终保护复核。明确不在本口径内的项目为 `DATABASE_FILES`、`UPLOAD_PARTS`、`JOB_SCRATCH`、`DEPENDENCY_ROOT`、`FILESYSTEM_OVERHEAD`、`UNREGISTERED_ORPHANS`、`VOLUME_FREE_SPACE`。因此该分析不能回答卷总量、剩余空间或完整磁盘占用，立即清理也不处理这些范围。统一验证为 [`ACC-STOR-001`](./project-acceptance.md#acc-stor-001已登记-cas-容量分析)。
 

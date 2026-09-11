@@ -191,7 +191,7 @@
   text-decoration: none;
   background: var(--immersive-purple);
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 
@@ -257,7 +257,7 @@
   background: transparent;
   border: 0;
   border-left: 4px solid transparent;
-  border-radius: 0 15px 15px 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
   cursor: pointer;
 }
 
@@ -323,7 +323,7 @@
   overflow: hidden;
   background: rgb(12 17 29 / 0.72);
   border: 1px solid rgb(255 255 255 / 0.09);
-  border-radius: 24px;
+  border-radius: var(--radius-panel);
   box-shadow: 0 24px 76px rgb(0 0 0 / 0.32);
 }
 
@@ -366,7 +366,7 @@
   overflow: hidden;
   background: #101727;
   border: 1px solid rgb(255 255 255 / 0.14);
-  border-radius: 18px;
+  border-radius: var(--radius-cover);
   box-shadow: 0 20px 50px rgb(0 0 0 / 0.42);
 }
 
@@ -412,7 +412,7 @@
   overflow: hidden;
   background: #05070c;
   border: 1px solid rgb(255 255 255 / 0.12);
-  border-radius: 18px;
+  border-radius: var(--radius-cover);
 }
 
 .videoPanel video {
@@ -523,7 +523,7 @@
   text-align: center;
   background: linear-gradient(145deg, #1a2236, #101522);
   border: 1px solid rgb(255 255 255 / 0.14);
-  border-radius: 28px;
+  border-radius: var(--radius-dialog);
   box-shadow: 0 34px 120px rgb(0 0 0 / 0.62);
 }
 
@@ -538,7 +538,7 @@
   font-size: 24px;
   font-weight: 900;
   background: var(--immersive-purple);
-  border-radius: 17px;
+  border-radius: var(--radius-control);
 }
 
 .choiceDialog h2,
@@ -574,7 +574,7 @@
   font-weight: 800;
   background: rgb(255 255 255 / 0.07);
   border: 2px solid rgb(255 255 255 / 0.11);
-  border-radius: 16px;
+  border-radius: var(--radius-control);
 }
 
 .dialogButton.selected {
@@ -637,7 +637,7 @@
   font-weight: 800;
   background: rgb(18 24 39 / 0.92);
   border: 1px solid rgb(255 255 255 / 0.18);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   box-shadow: 0 14px 42px rgb(0 0 0 / 0.42);
   opacity: 0;
   pointer-events: none;

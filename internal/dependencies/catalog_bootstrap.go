@@ -63,8 +63,12 @@ func (set *Set) staticBIOSTargets(
 	ctx context.Context,
 	transaction *sql.Tx,
 ) (map[string]runtimeTarget, error) {
-	result := make(map[string]runtimeTarget, len(staticBIOSCatalog))
-	for _, requirement := range staticBIOSCatalog {
+	catalog, err := completeStaticBIOSCatalog()
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]runtimeTarget, len(catalog))
+	for _, requirement := range catalog {
 		if _, exists := result[requirement.coreID]; exists {
 			continue
 		}

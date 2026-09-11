@@ -6,79 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/packs"
 )
 
 type rpgReviewAnalysis struct {
 	SelfContained bool `json:"selfContained"`
 	Requirements  struct {
-		RTP []struct {
-			Slot           int    `json:"slot"`
-			DeclaredName   string `json:"declaredName"`
-			NormalizedName string `json:"normalizedName"`
-		} `json:"rtpDependencies"`
+		RTP []detector.RTPDependency `json:"rtpDependencies"`
 	} `json:"requirements"`
-}
-
-func (run *draftPatchRun) applyRPGMakerBinding() error {
-	proceed, err := run.validRPGMakerPatchShape()
-	if err != nil || !proceed {
-		return err
-	}
-	profile, err := loadRPGReviewBinding(run.ctx, run.transaction, run.draftID)
-	if err != nil {
-		return fmt.Errorf("libraryimport/review resolve RPG packs: %w", err)
-	}
-	generation := detector.Generation(profile.generation)
-	override := *run.patch.RPGSelfContainedOverride
-	if generation != detector.RPG2000 && generation != detector.RPG2003 && override {
-		return ErrInvalid
-	}
-	selections := rpgPackSelections(*run.patch.RuntimePackSelections)
-	definitions, installations, err := loadRPGPackCatalog(run.ctx, run.transaction, generation)
-	if err != nil {
-		return fmt.Errorf("libraryimport/review resolve RPG packs: %w", err)
-	}
-	resolution, err := packs.Resolve(
-		generation, profile.analysis.SelfContained, override, profile.requirements,
-		definitions, installations, selections,
-	)
-	if err != nil {
-		return fmt.Errorf("libraryimport/review resolve selected RPG packs: %w", err)
-	}
-	return replaceRPGPackSelections(run.ctx, run.transaction, run.draftID,
-		resolution.Bindings, override, resolution.DependencySHA256, run.service.now().UnixMilli())
-}
-
-func (run *draftPatchRun) validRPGMakerPatchShape() (bool, error) {
-	if !run.isRPG {
-		if run.patch.RuntimePackSelections != nil || run.patch.RPGSelfContainedOverride != nil {
-			return false, ErrInvalid
-		}
-		return false, nil
-	}
-	if run.targetOrDOSChanged {
-		return false, ErrInvalid
-	}
-	if run.patch.RuntimePackSelections == nil && run.patch.RPGSelfContainedOverride == nil {
-		return false, nil
-	}
-	if run.patch.RuntimePackSelections == nil || run.patch.RPGSelfContainedOverride == nil {
-		return false, ErrInvalid
-	}
-	return true, nil
-}
-
-func rpgPackSelections(values []RuntimePackSelectionPatch) []packs.Selection {
-	selections := make([]packs.Selection, 0, len(values))
-	for _, selection := range values {
-		selections = append(selections, packs.Selection{
-			Slot: selection.Slot, InstallationID: selection.InstallationID,
-		})
-	}
-	return selections
 }
 
 type rpgReviewBinding struct {
@@ -86,7 +21,36 @@ type rpgReviewBinding struct {
 	override         bool
 	dependencySHA256 string
 	analysis         rpgReviewAnalysis
-	requirements     []packs.Requirement
+}
+
+func (run *draftPatchRun) applyRPGMakerBinding() error {
+	if !run.isRPG {
+		if run.patch.RPGSelfContainedOverride != nil {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if run.targetOrDOSChanged {
+		return ErrInvalid
+	}
+	if run.patch.RPGSelfContainedOverride == nil {
+		return nil
+	}
+	profile, err := loadRPGReviewBinding(run.ctx, run.transaction, run.draftID)
+	if err != nil {
+		return err
+	}
+	override := *run.patch.RPGSelfContainedOverride
+	if override && (profile.generation == "RPGMV" || profile.generation == "RPGMZ") {
+		return ErrInvalid
+	}
+	_, err = run.transaction.ExecContext(run.ctx, `
+UPDATE rpgmaker_review_profiles SET self_contained_override=?,updated_at_ms=? WHERE review_draft_id=?
+`, boolIncrement(override), run.service.now().UnixMilli(), run.draftID)
+	if err != nil {
+		return fmt.Errorf("libraryimport/review self-contained confirmation: %w", err)
+	}
+	return nil
 }
 
 func loadRPGReviewBinding(ctx context.Context, transaction *sql.Tx, draftID string) (rpgReviewBinding, error) {
@@ -100,102 +64,5 @@ FROM rpgmaker_review_profiles WHERE review_draft_id=?
 	); err != nil || json.Unmarshal([]byte(analysisJSON), &result.analysis) != nil {
 		return rpgReviewBinding{}, ErrInvalid
 	}
-	result.requirements = make([]packs.Requirement, 0, len(result.analysis.Requirements.RTP))
-	for _, requirement := range result.analysis.Requirements.RTP {
-		result.requirements = append(result.requirements, packs.Requirement{
-			Slot: requirement.Slot, DeclaredName: requirement.DeclaredName,
-			NormalizedName: requirement.NormalizedName,
-		})
-	}
 	return result, nil
-}
-
-func loadRPGPackCatalog(
-	ctx context.Context, transaction *sql.Tx, generation detector.Generation,
-) ([]packs.Definition, []packs.Installation, error) {
-	rows, err := transaction.QueryContext(ctx, `
-SELECT definition.id,definition.declared_name,definition.normalized_declared_name,definition.enabled,
-installation.id,installation.files_digest,installation.status,installation.deleted_at_ms
-FROM runtime_asset_pack_definitions definition
-LEFT JOIN runtime_asset_pack_installations installation ON installation.definition_id=definition.id
-WHERE definition.generation=?
-ORDER BY definition.id,installation.id
-`, generation)
-	if err != nil {
-		return nil, nil, fmt.Errorf("libraryimport/review RPG pack catalog: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	definitionByID := make(map[string]packs.Definition)
-	var installations []packs.Installation
-	for rows.Next() {
-		var definition packs.Definition
-		var installationID, filesDigest, status sql.NullString
-		var deletedAt sql.NullInt64
-		if err := rows.Scan(
-			&definition.ID, &definition.DeclaredName, &definition.NormalizedDeclaredName,
-			&definition.Enabled, &installationID, &filesDigest, &status, &deletedAt,
-		); err != nil {
-			return nil, nil, fmt.Errorf("libraryimport/review RPG pack catalog: %w", err)
-		}
-		definition.Generation = generation
-		definitionByID[definition.ID] = definition
-		if installationID.Valid {
-			installations = append(installations, packs.Installation{
-				ID: installationID.String, DefinitionID: definition.ID, FilesDigest: filesDigest.String,
-				Status: status.String, Deleted: deletedAt.Valid,
-			})
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("libraryimport/review RPG pack catalog: %w", err)
-	}
-	definitions := make([]packs.Definition, 0, len(definitionByID))
-	for _, definition := range definitionByID {
-		definitions = append(definitions, definition)
-	}
-	return definitions, installations, nil
-}
-
-func replaceRPGPackSelections(
-	ctx context.Context, transaction *sql.Tx, draftID string, bindings []packs.Binding,
-	override bool,
-	dependencySHA256 string, now int64,
-) error {
-	var currentCount int
-	var currentOverride bool
-	var currentDigest string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT profile.self_contained_override,profile.dependency_snapshot_sha256,
-  (SELECT count(*) FROM review_draft_runtime_pack_selections selection
-   WHERE selection.review_draft_id=profile.review_draft_id)
-FROM rpgmaker_review_profiles profile WHERE profile.review_draft_id=?
-`, draftID).Scan(&currentOverride, &currentDigest, &currentCount); err != nil {
-		return ErrInvalid
-	}
-	if currentOverride == override && currentDigest == dependencySHA256 && currentCount == len(bindings) {
-		return nil
-	}
-	if _, err := transaction.ExecContext(ctx, `
-DELETE FROM review_draft_runtime_pack_selections WHERE review_draft_id=?
-`, draftID); err != nil {
-		return fmt.Errorf("libraryimport/review replace RPG packs: %w", err)
-	}
-	for _, binding := range bindings {
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO review_draft_runtime_pack_selections(
-  review_draft_id,slot,declared_name,normalized_declared_name,definition_id,installation_id,created_at_ms
-) VALUES(?,?,?,?,?,?,?)
-`, draftID, binding.Slot, binding.DeclaredName, binding.NormalizedDeclaredName,
-			binding.DefinitionID, binding.InstallationID, now); err != nil {
-			return fmt.Errorf("libraryimport/review replace RPG packs: %w", err)
-		}
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE rpgmaker_review_profiles
-SET self_contained_override=?,dependency_snapshot_sha256=?,updated_at_ms=?
-WHERE review_draft_id=?
-`, boolIncrement(override), dependencySHA256, now, draftID); err != nil {
-		return fmt.Errorf("libraryimport/review replace RPG packs: %w", err)
-	}
-	return nil
 }

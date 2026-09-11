@@ -66,6 +66,8 @@ describe("AppShell", () => {
     const foot = container.querySelector(".sidebar-foot");
     const accountRow = container.querySelector(".sidebar-account-row");
     const switchLink = screen.getByRole("link", { name: "管理后台" });
+    expect(accountRow?.querySelector(".account-copy")).toHaveTextContent("Test");
+    expect(accountRow?.querySelector(".account-copy")).not.toHaveTextContent("@test");
     expect(accountRow?.querySelector(".account-menu")).not.toBeNull();
     expect(accountRow?.querySelector(".connection")).not.toBeNull();
     expect(Array.from(foot?.children ?? [])).toEqual([accountRow, switchLink]);

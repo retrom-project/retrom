@@ -140,12 +140,6 @@ paths:
     $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1jobs~1{jobId}~1cancel
   /api/v1/admin/jobs/{jobId}/retry:
     $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1jobs~1{jobId}~1retry
-  /api/v1/admin/runtime-asset-packs:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1runtime-asset-packs
-  /api/v1/admin/runtime-asset-packs/installations:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1runtime-asset-packs~1installations
-  /api/v1/admin/runtime-asset-packs/installations/{installationId}:
-    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1runtime-asset-packs~1installations~1{installationId}
   /api/v1/admin/reviews:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews
   /api/v1/admin/reviews/deduplicate:
@@ -525,28 +519,10 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointUnavailableReason
     CheckpointAvailability:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointAvailability
-    RuntimeAssetPackKind:
-      $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackKind
     RuntimeTargetAdminItem:
       $ref: ./domains/catalog.yaml#/components/schemas/RuntimeTargetAdminItem
     RuntimeTargetList:
       $ref: ./domains/catalog.yaml#/components/schemas/RuntimeTargetList
-    RuntimeAssetPackDefinition:
-      $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackDefinition
-    RuntimeAssetPackReferenceCounts:
-      $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackReferenceCounts
-    RuntimeAssetPackDiagnostic:
-      $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackDiagnostic
-    RuntimeAssetPackInstallation:
-      $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackInstallation
-    RuntimeAssetPackList:
-      $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackList
-    InstallRuntimeAssetPackRequest:
-      $ref: ./domains/imports.yaml#/components/schemas/InstallRuntimeAssetPackRequest
-    RuntimeAssetPackInstallAccepted:
-      $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackInstallAccepted
-    RpgRuntimePackSelectionRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimePackSelectionRequest
     RuntimeCheckpointMetadata:
       $ref: ./components/common.yaml#/components/schemas/RuntimeCheckpointMetadata
     ProductSaveStateCreated:
@@ -852,8 +828,6 @@ components:
       $ref: ./domains/catalog.yaml#/components/requestBodies/ReplaceGameTags
     ReviewDraft:
       $ref: ./domains/reviews.yaml#/components/requestBodies/ReviewDraft
-    InstallRuntimeAssetPack:
-      $ref: ./domains/imports.yaml#/components/requestBodies/InstallRuntimeAssetPack
     MetadataProvider:
       $ref: ./components/common.yaml#/components/requestBodies/MetadataProvider
     MetadataFields:
@@ -913,12 +887,8 @@ components:
       $ref: ./domains/imports.yaml#/components/responses/BadRequestResponse
     PreconditionRequiredResponse:
       $ref: ./domains/imports.yaml#/components/responses/PreconditionRequiredResponse
-    RuntimeAssetPackListResponse:
-      $ref: ./domains/imports.yaml#/components/responses/RuntimeAssetPackListResponse
     RuntimeTargetListResponse:
       $ref: ./domains/catalog.yaml#/components/responses/RuntimeTargetListResponse
-    RuntimeAssetPackInstallResponse:
-      $ref: ./domains/imports.yaml#/components/responses/RuntimeAssetPackInstallResponse
     RuntimeCheckpointCreateResponse:
       $ref: ./domains/runtime.yaml#/components/responses/RuntimeCheckpointCreateResponse
     CheckpointStatusResponse:
@@ -939,8 +909,6 @@ components:
       $ref: ./domains/runtime.yaml#/components/responses/RequestTooLargeResponse
     RpgUnprocessableResponse:
       $ref: ./components/common.yaml#/components/responses/RpgUnprocessableResponse
-    RpgServiceUnavailableResponse:
-      $ref: ./domains/imports.yaml#/components/responses/RpgServiceUnavailableResponse
     DiagnosticsResponse:
       $ref: ./domains/operations.yaml#/components/responses/DiagnosticsResponse
     StorageAnalysisResponse:
@@ -1192,8 +1160,6 @@ components:
       $ref: ./domains/imports.yaml#/components/parameters/ImportJobID
     ImportItemID:
       $ref: ./components/common.yaml#/components/parameters/ImportItemID
-    RuntimeAssetPackInstallationID:
-      $ref: ./domains/imports.yaml#/components/parameters/RuntimeAssetPackInstallationID
     BulkApprovalID:
       $ref: ./domains/reviews.yaml#/components/parameters/BulkApprovalID
     JobID:

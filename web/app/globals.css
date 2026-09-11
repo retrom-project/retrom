@@ -27,5 +27,5 @@
 @import "../styles/mobile.css";
 @import "../features/mobile/mobile-play.css";
 
-.local-game-save-notice { position: fixed; z-index: 120; bottom: 16px; right: 16px; max-width: min(420px, calc(100vw - 32px)); padding: 16px; border: 1px solid #566179; border-radius: 12px; background: #18202e; color: #eef2fa; box-shadow: 0 6px 24px #0006; }
+.local-game-save-notice { position: fixed; z-index: 120; bottom: 16px; right: 16px; max-width: min(420px, calc(100vw - 32px)); padding: 16px; border: 1px solid #566179; border-radius: var(--radius-panel); background: #18202e; color: #eef2fa; box-shadow: 0 6px 24px #0006; }
 .local-game-save-notice p { margin: 0 0 12px; font-size: 14px; line-height: 1.6; }

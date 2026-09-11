@@ -182,6 +182,6 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
         <button type="button" aria-pressed={!muted} onClick={() => { const next = !muted; setMuted(next); if (videoRef.current) {videoRef.current.muted = next;} }}>{muted ? "已静音" : "开启声音"}</button>
       </div> : null}
     </div>
-    <p className="game-detail-media-status" aria-live="polite">{status}</p>
+    <p className="sr-only" aria-live="polite">{status}</p>
   </div>;
 }

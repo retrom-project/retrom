@@ -29,6 +29,20 @@ describe("FavoriteActions", () => {
   beforeEach(() => { auth.fetch.mockReset(); });
   afterEach(cleanup);
 
+  it("keeps the detail heart icon-only and confirms removal without a manage button", async () => {
+    const user = userEvent.setup();
+    render(<FavoriteActions gameId={gameId} title="Metroid" variant="detail" showManageButton={false} initialFavorite={{ favoritedAtMs: 1000, folderIds: [] }} />);
+    const heart = screen.getByRole("button", { name: "取消收藏“Metroid”" });
+    expect(heart).toHaveTextContent("");
+    expect(heart).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "管理“Metroid”的收藏夹" })).not.toBeInTheDocument();
+    await user.click(heart);
+    expect(screen.getByRole("alertdialog", { name: "取消收藏“Metroid”？" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "保留收藏" }));
+    expect(heart).toHaveAttribute("aria-pressed", "true");
+    expect(auth.fetch).not.toHaveBeenCalled();
+  });
+
   it("favorites a game and exactly replaces multiple folder membership", async () => {
     auth.fetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);

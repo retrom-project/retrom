@@ -234,56 +234,6 @@ paths:
       responses:
         '202':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/admin/runtime-asset-packs:
-    get:
-      operationId: getAdminRuntimeAssetPacks
-      description: Lists immutable RPG Maker runtime-pack definitions and their installations without exposing host paths or Blob identifiers.
-      responses:
-        '200':
-          $ref: '#/components/responses/RuntimeAssetPackListResponse'
-  /api/v1/admin/runtime-asset-packs/installations:
-    post:
-      operationId: postAdminRuntimeAssetPackInstallation
-      description: Consumes one completed RUNTIME_ASSET_PACK upload and schedules bounded validation of one immutable installation.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      requestBody:
-        $ref: '#/components/requestBodies/InstallRuntimeAssetPack'
-      responses:
-        '202':
-          $ref: '#/components/responses/RuntimeAssetPackInstallResponse'
-        '400':
-          $ref: '#/components/responses/BadRequestResponse'
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-        '413':
-          $ref: '#/components/responses/RpgPayloadTooLargeResponse'
-        '422':
-          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
-        '503':
-          $ref: '#/components/responses/RpgServiceUnavailableResponse'
-  /api/v1/admin/runtime-asset-packs/installations/{installationId}:
-    parameters:
-      - $ref: '#/components/parameters/RuntimeAssetPackInstallationID'
-    delete:
-      operationId: deleteAdminRuntimeAssetPackInstallation
-      description: Deletes only an installation with zero variant and checkpoint references; referenced immutable installations cannot be removed.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      responses:
-        '204':
-          description: Runtime asset pack installation scheduled for payload release
-        '400':
-          $ref: '#/components/responses/BadRequestResponse'
-        '404':
-          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-        '412':
-          $ref: '#/components/responses/RpgPreconditionFailedResponse'
-        '428':
-          $ref: '#/components/responses/PreconditionRequiredResponse'
 components:
   schemas:
     ImportBatchDiscard:
@@ -368,234 +318,6 @@ components:
           format: int64
           minimum: 0
           description: Failed or blocked items plus unresolved rejected files in user-visible attention batches.
-    RuntimeAssetPackKind:
-      type: string
-      pattern: '^[A-Za-z0-9_]{2,64}$'
-      description: Product-defined classification; installation selects a stable definitionId, not this label.
-    RuntimeAssetPackDefinition:
-      type: object
-      additionalProperties: false
-      required:
-        - definitionId
-        - kind
-        - generation
-        - declaredName
-        - normalizedDeclaredName
-        - displayName
-        - requiredLayoutVersion
-        - origin
-        - enabled
-      properties:
-        definitionId:
-          type: string
-          pattern: ^[a-z0-9_]{1,64}$
-        kind:
-          $ref: '#/components/schemas/RuntimeAssetPackKind'
-        generation:
-          $ref: ../components/common.yaml#/components/schemas/RpgGeneration
-        declaredName:
-          type: string
-          minLength: 1
-          maxLength: 512
-        normalizedDeclaredName:
-          type: string
-          minLength: 1
-          maxLength: 2048
-          description: Server-computed Unicode NFKC full case-fold key used for exact runtime-pack matching.
-        displayName:
-          type: string
-          minLength: 1
-          maxLength: 200
-        requiredLayoutVersion:
-          type: string
-          minLength: 1
-          maxLength: 160
-        origin:
-          type: string
-          enum:
-            - BUILTIN
-            - CUSTOM
-        enabled:
-          type: boolean
-    RuntimeAssetPackReferenceCounts:
-      type: object
-      additionalProperties: false
-      required:
-        - gameCount
-        - checkpointCount
-      properties:
-        gameCount:
-          type: integer
-          format: int64
-          minimum: 0
-        checkpointCount:
-          type: integer
-          format: int64
-          minimum: 0
-    RuntimeAssetPackDiagnostic:
-      type: object
-      additionalProperties: false
-      required:
-        - code
-        - level
-        - message
-      properties:
-        code:
-          type: string
-          pattern: ^[A-Z][A-Z0-9_]{0,119}$
-        level:
-          type: string
-          enum:
-            - INFO
-            - WARNING
-            - ERROR
-        message:
-          type: string
-          maxLength: 1000
-    RuntimeAssetPackInstallation:
-      type: object
-      additionalProperties: false
-      required:
-        - installationId
-        - definitionId
-        - filesDigest
-        - fileCount
-        - totalBytes
-        - bundleSha256
-        - status
-        - diagnostics
-        - sourceNote
-        - references
-        - version
-        - createdAtMs
-        - validatedAtMs
-        - deletedAtMs
-      properties:
-        installationId:
-          type: string
-          format: uuid
-        definitionId:
-          type: string
-          pattern: ^[a-z0-9_]{1,64}$
-        filesDigest:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        fileCount:
-          type: integer
-          minimum: 1
-          maximum: 10000
-        totalBytes:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 536870912
-        bundleSha256:
-          type: string
-          nullable: true
-          pattern: ^[0-9a-f]{64}$
-        status:
-          type: string
-          enum:
-            - VALIDATING
-            - READY
-            - FAILED
-            - DELETE_PENDING
-            - DELETED
-        diagnostics:
-          type: array
-          maxItems: 100
-          items:
-            $ref: '#/components/schemas/RuntimeAssetPackDiagnostic'
-        sourceNote:
-          type: string
-          nullable: true
-          maxLength: 500
-        references:
-          $ref: '#/components/schemas/RuntimeAssetPackReferenceCounts'
-        version:
-          type: integer
-          format: int64
-          minimum: 1
-        createdAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        validatedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        deletedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-    RuntimeAssetPackList:
-      type: object
-      additionalProperties: false
-      required:
-        - definitions
-        - installations
-      properties:
-        definitions:
-          type: array
-          items:
-            $ref: '#/components/schemas/RuntimeAssetPackDefinition'
-        installations:
-          type: array
-          items:
-            $ref: '#/components/schemas/RuntimeAssetPackInstallation'
-    InstallRuntimeAssetPackRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - uploadId
-      oneOf:
-        - required: [definitionId]
-          not:
-            anyOf:
-              - required: [generation]
-              - required: [declaredName]
-        - required: [generation, declaredName]
-          not:
-            required: [definitionId]
-      description: Select an enabled definitionId, or create a custom RGSS definition with generation and declaredName. The two forms are mutually exclusive. No engine-specific pack kind is accepted.
-      properties:
-        uploadId:
-          type: string
-          format: uuid
-        definitionId:
-          type: string
-          minLength: 1
-          maxLength: 128
-        generation:
-          $ref: ../components/common.yaml#/components/schemas/RpgGeneration
-        declaredName:
-          type: string
-          minLength: 1
-          maxLength: 512
-        sourceNote:
-          type: string
-          maxLength: 500
-          description: The server also enforces NFC, at most 2,000 UTF-8 bytes, Unicode-whitespace trim and the validation-note control-character denylist; an empty value is allowed.
-    RuntimeAssetPackInstallAccepted:
-      type: object
-      additionalProperties: false
-      required:
-        - installationId
-        - jobId
-        - status
-      properties:
-        installationId:
-          type: string
-          format: uuid
-        jobId:
-          type: string
-          format: uuid
-        status:
-          type: string
-          enum:
-            - VALIDATING
     CreateUploadRequest:
       type: object
       additionalProperties: false
@@ -608,9 +330,8 @@ components:
           enum:
             - GENERAL
             - PROJECT
-            - RUNTIME_ASSET_PACK
           default: GENERAL
-          description: GENERAL is an ordinary import, PROJECT is an engine-independent project input, and RUNTIME_ASSET_PACK is reserved for pack installation. Engine and archive validation occurs in the selected import strategy, not the upload transport.
+          description: GENERAL is an ordinary import and PROJECT is an engine-independent project input. Engine and archive validation occurs in the selected import strategy, not the upload transport.
         sourceType:
           type: string
           enum:
@@ -720,12 +441,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ReconfigureImportRequest'
-    InstallRuntimeAssetPack:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/InstallRuntimeAssetPackRequest'
   responses:
     BadRequestResponse:
       description: Malformed request or invalid idempotency key (400)
@@ -739,39 +454,14 @@ components:
         application/json:
           schema:
             $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
-    RuntimeAssetPackListResponse:
-      description: RPG Maker runtime-pack definitions and installations
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RuntimeAssetPackList'
-    RuntimeAssetPackInstallResponse:
-      description: Runtime-pack installation validation accepted
-      headers:
-        Location:
-          schema:
-            type: string
-        ETag:
-          schema:
-            type: string
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RuntimeAssetPackInstallAccepted'
     RpgPayloadTooLargeResponse:
-      description: RPG_RGSS_CONTENT_TOO_LARGE or RPG_RUNTIME_PACK_TOO_LARGE (413)
+      description: RPG_RGSS_CONTENT_TOO_LARGE (413)
       content:
         application/json:
           schema:
             $ref: ../components/common.yaml#/components/schemas/RpgErrorEnvelope
     RpgPreconditionFailedResponse:
       description: RPG runtime-pack installation version changed (412)
-      content:
-        application/json:
-          schema:
-            $ref: ../components/common.yaml#/components/schemas/RpgErrorEnvelope
-    RpgServiceUnavailableResponse:
-      description: RPG_RUNTIME_PACK_UNAVAILABLE; the isolated archive worker temporarily lacks process or resource capacity (503)
       content:
         application/json:
           schema:
@@ -818,13 +508,6 @@ components:
         minimum: 0
     ImportJobID:
       name: importJobId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    RuntimeAssetPackInstallationID:
-      name: installationId
       in: path
       required: true
       schema:

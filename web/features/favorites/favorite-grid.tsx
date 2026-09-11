@@ -3,26 +3,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FavoriteActions } from "./favorite-actions";
-import type { FavoriteFolder, FavoriteGame, FavoriteReference } from "./favorite-api";
-import { TagChips } from "@/components/tag-picker";
+import type { FavoriteGame, FavoriteReference } from "./favorite-api";
 import { StatusBadge } from "@/components/ui";
 
 function FavoritePoster({ game }: { game: FavoriteGame }) {
   if (game.status !== "DELETED" && game.coverUrl) {return <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="(min-width: 2600px) 280px, 270px" unoptimized />;}
-  return <span className="favorite-poster" role="img" aria-label={`${game.title} 暂无封面`}><small>RETROM CLASSICS</small><strong>{game.title}</strong><span>{game.defaultCore.name}</span></span>;
+  return <span className="favorite-poster" role="img" aria-label={`${game.title} 暂无封面`}><small>RETROM CLASSICS</small><strong title={game.title}>{game.title}</strong><span>{game.defaultCore.name}</span></span>;
 }
 
 export function FavoriteGrid({
-  games, folders, selecting, selected, busy = false, onToggle, onFavoriteChange,
+  games, selecting, selected, busy = false, onToggle, onFavoriteChange,
 }: {
-  games: FavoriteGame[]; folders: FavoriteFolder[]; selecting: boolean; selected: ReadonlySet<string>; busy?: boolean;
+  games: FavoriteGame[]; selecting: boolean; selected: ReadonlySet<string>; busy?: boolean;
   onToggle: (gameId: string) => void; onFavoriteChange: (gameId: string, favorite: FavoriteReference | null) => void;
 }) {
-  const folderNames = new Map(folders.map((folder) => [folder.folderId, folder.name]));
   return <div className={`favorite-game-grid ${selecting ? "is-selecting" : ""}`}>
     {games.map((game) => {
       const deleted = game.status === "DELETED";
-      const folderTags = game.favorite.folderIds.map((folderId) => folderNames.get(folderId)).filter((name): name is string => Boolean(name));
       return <article className="favorite-game-card" data-favorite-game={game.gameId} key={game.gameId}>
         <div className="favorite-game-cover">
           {deleted ? <div aria-label={`游戏“${game.title}”已删除`}><FavoritePoster game={game} /></div> : <Link href={`/games/${game.gameId}`} aria-label={`查看游戏“${game.title}”详情`}><FavoritePoster game={game} /><span>查看游戏详情</span></Link>}
@@ -38,8 +35,6 @@ export function FavoriteGrid({
         <div className="favorite-game-body">
           {deleted ? <div><h3>{game.title}</h3><StatusBadge tone="bad">已删除</StatusBadge></div> : <Link href={`/games/${game.gameId}`}><h3>{game.title}</h3></Link>}
           <p><span>{game.platform.name}</span><span>{game.releaseYear ?? "年份未知"}</span></p>
-          <TagChips tags={game.tags ?? []} limit={2} label={`${game.title} 的游戏标签`} />
-          <div className="favorite-tags" aria-label={`${game.title} 的收藏夹`}>{folderTags.slice(0, 2).map((name) => <span key={name}>{name}</span>)}{folderTags.length > 2 ? <span aria-label={`另外 ${folderTags.length - 2} 个收藏夹`}>+{folderTags.length - 2}</span> : null}</div>
         </div>
         <FavoriteActions
           gameId={game.gameId}

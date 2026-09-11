@@ -43,9 +43,6 @@ SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variants
 	if err := run.insertRPGMakerVariantProfile(); err != nil {
 		return err
 	}
-	if err := run.copyRPGMakerRuntimePacks(); err != nil {
-		return err
-	}
 	return run.copyDOSEntriesAndSelectVariant()
 }
 
@@ -88,25 +85,6 @@ INSERT INTO rpgmaker_variant_profiles(
 `, run.variantID, run.rpgGeneration, run.rpgDependencySnapshotSHA)
 	if err != nil {
 		return fmt.Errorf("libraryimport/rpgmaker variant profile: %w", err)
-	}
-	return nil
-}
-
-func (run *approvalRun) copyRPGMakerRuntimePacks() error {
-	if run.platformID != "rpgmaker" {
-		return nil
-	}
-	_, err := run.transaction.ExecContext(run.ctx, `
-INSERT INTO game_variant_runtime_packs(
-  game_variant_id,slot,declared_name,normalized_declared_name,definition_id,installation_id
-)
-SELECT ?,slot,declared_name,normalized_declared_name,definition_id,installation_id
-FROM review_draft_runtime_pack_selections
-WHERE review_draft_id=?
-ORDER BY slot
-`, run.variantID, run.draftID)
-	if err != nil {
-		return fmt.Errorf("libraryimport/rpgmaker variant packs: %w", err)
 	}
 	return nil
 }

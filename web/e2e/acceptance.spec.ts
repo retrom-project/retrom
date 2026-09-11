@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { expectSidebarFooterAlignment } from "./acceptance-shell-layout";
 import { evidencePath, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, retryOnceOnConnectionReset, type HorizontalGaps } from "./acceptance-support";
 import { registerRuntimeAcceptanceTests } from "./acceptance-runtime-cases";
 import { registerCoreExpansionAcceptanceTests } from "./acceptance-core-expansion-cases";
 import { verifyUserDesktopLayouts } from "./acceptance-user-layout";
-import { verifyRuntimePackInstallLayout } from "./runtime-pack-layout";
+import { verifyBIOSOnlyDependencies } from "./bios-only-dependencies";
 
 test.beforeEach(async ({ page }, testInfo) => {
   const multiViewport = /^ACC-UI-00[56]\b/.test(testInfo.title);
@@ -34,12 +35,14 @@ test("ACC-UI-001 authenticated navigation exposes the administrator entry", asyn
   const userSidebarFoot = page.locator(".sidebar-foot");
   await expect(userSidebarFoot.locator(".sidebar-account-row .connection")).toHaveCount(1);
   expect(await userSidebarFoot.locator(":scope > *").evaluateAll((elements) => elements.map((element) => element.className))).toEqual(["sidebar-account-row", "context-switch"]);
+  await expectSidebarFooterAlignment(page);
   await page.getByRole("link", { name: "管理后台" }).click();
   await expect(page).toHaveURL(/\/admin\/imports$/);
   await expect(page.getByRole("link", { name: "返回用户侧" })).toBeVisible();
   const adminSidebarFoot = page.locator(".sidebar-foot");
   await expect(adminSidebarFoot.locator(".sidebar-account-row .connection")).toHaveCount(1);
   expect(await adminSidebarFoot.locator(":scope > *").evaluateAll((elements) => elements.map((element) => element.className))).toEqual(["sidebar-account-row", "context-switch"]);
+  await expectSidebarFooterAlignment(page);
   await page.screenshot({ path: evidencePath(testInfo, "user-navigation.png"), fullPage: true });
 });
 
@@ -227,7 +230,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
       sharedPageGaps = gaps;
     }
   }
-  await verifyRuntimePackInstallLayout(page);
+  await verifyBIOSOnlyDependencies(page);
   await page.goto("/admin/imports/new");
   const dropzoneAlignment = await page.locator(".dropzone").evaluate((dropzone) => {
     const dropzoneBox = dropzone.getBoundingClientRect();

@@ -13,7 +13,7 @@ function recentGame(index: number): RecentGame {
 
 function home(): Home {
   return { library: { gameCount: 10, saveStateCount: 1 }, play: { activeDurationMs: 100 }, platforms: [], quickPlatforms: [], latestGames: [],
-    featuredGame: { ...recentGame(0), hasSaveStates: false, lastSessionSave: null },
+    featuredGame: { ...recentGame(0), description: "", hasSaveStates: false, lastSessionSave: null },
     recentGames: Array.from({ length: 10 }, (_, index) => recentGame(index)),
   };
 }
@@ -37,7 +37,7 @@ describe("phone home", () => {
 
   it("continues the associated save instead of inferring progress from history", () => {
     const data = home();
-    data.featuredGame = { ...recentGame(0), hasSaveStates: true, lastSessionSave: {
+    data.featuredGame = { ...recentGame(0), description: "", hasSaveStates: true, lastSessionSave: {
       saveStateId: "saved-progress", createdAtMs: 1000, activeDurationMs: 100,
       screenshotUrl: null, discIndex: null, discLabel: null,
     } };

@@ -17,7 +17,6 @@ import {
   importTaskIssueSummary,
   importTaskPhase,
   importTaskProgress,
-  importTaskSummary,
   type ImportDetail,
   type ImportListItem,
   type ImportTaskFilters,
@@ -228,7 +227,6 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
   const [details, setDetails] = useState<Record<string, DetailState>>({});
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const visible = useMemo(() => filterImportTasks(items, filters), [items, filters]);
-  const summary = useMemo(() => importTaskSummary(items), [items]);
   const directories = useMemo(() => [...new Set(items.map((item) => item.platformInstanceName))].sort((left, right) => left.localeCompare(right, "zh-CN")), [items]);
 
   function selectState(state: string) {
@@ -334,13 +332,6 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
       <label><span>目标目录</span><select value={filters.directory} onChange={(event) => setFilters((current) => ({ ...current, directory: event.target.value }))}><option value="">所有目录</option>{directories.map((directory) => <option key={directory}>{directory}</option>)}</select></label>
       <label><span>任务状态</span><select value={filters.state} onChange={(event) => selectState(event.target.value)}><option value="">所有状态</option><option value="RUNNING">运行中</option><option value="QUEUED">排队中</option><option value="ATTENTION">需要处理</option><option value="REVIEW_PENDING">等待审核</option><option value="COMPLETED">已完成</option></select></label>
     </section>
-    <div className="import-workflow-chips" aria-label="任务摘要">
-      <button className={filters.state === "" ? "is-active" : ""} type="button" onClick={() => selectState("")}>全部 {summary.total}</button>
-      <button className={filters.state === "RUNNING" ? "is-active" : ""} type="button" onClick={() => selectState("RUNNING")}>运行中 {summary.running}</button>
-      <button className={filters.state === "ATTENTION" ? "is-active" : ""} type="button" onClick={() => selectState("ATTENTION")}>需要处理 {summary.attention}</button>
-      <button className={filters.state === "REVIEW_PENDING" ? "is-active" : ""} type="button" onClick={() => selectState("REVIEW_PENDING")}>等待审核 {summary.review}</button>
-      <button className={filters.state === "COMPLETED" ? "is-active" : ""} type="button" onClick={() => selectState("COMPLETED")}>已完成 {summary.completed}</button>
-    </div>
     {visible.length
       ? <div className="import-task-list">{visible.map((item) => <ImportTaskEntry detail={details[item.id]} expanded={expandedId === item.id} item={item} onToggle={() => void toggleDetails(item)} timeZone={timeZone} key={item.id} />)}</div>
       : <div className="import-workflow-empty"><h2>没有匹配的导入任务</h2><p>请调整搜索内容、目标目录或任务状态。</p></div>}

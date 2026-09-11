@@ -481,13 +481,14 @@ func (server *Server) gameAssociations(
 }
 
 func (server *Server) homeFeaturedGame(ctx context.Context, profileID string) (homeFeaturedResult, error) {
-	var launchID, gameID, title, platformID, platformName, instanceID, instanceName string
+	var launchID, gameID, title, description, platformID, platformName, instanceID, instanceName string
 	var lastPlayedAtMS, activeDurationMS, sessionCount int64
 	var coverAssetID sql.NullString
 	err := server.database.QueryRowContext(ctx, `
 SELECT ps.launch_session_id,
 g.id,
 m.title,
+m.description,
 p.id,
 p.name,
 pi.id,
@@ -515,7 +516,7 @@ AND ps.profile_id=?
 ORDER BY ps.started_at_ms DESC,ps.id DESC
 LIMIT 1
 `, profileID, profileID, profileID).Scan(
-		&launchID, &gameID, &title, &platformID, &platformName, &instanceID, &instanceName,
+		&launchID, &gameID, &title, &description, &platformID, &platformName, &instanceID, &instanceName,
 		&lastPlayedAtMS, &activeDurationMS, &sessionCount, &coverAssetID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -542,7 +543,7 @@ WHERE save.game_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL
 		return homeFeaturedResult{}, err
 	}
 	return homeFeaturedResult{Value: map[string]any{
-		"gameId": gameID, "title": title,
+		"gameId": gameID, "title": title, "description": description,
 		"platform":         map[string]any{"id": platformID, "name": platformName},
 		"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
 		"lastPlayedAtMs":   lastPlayedAtMS, "activeDurationMs": activeDurationMS,

@@ -10,7 +10,7 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestRPGReviewPreviewServesSelectedRTPThroughOrdinaryContentAuthorization(t *testing.T) {
+func TestRPGReviewPreviewDoesNotMountHistoricalRTPSelection(t *testing.T) {
 	t.Parallel()
 	fixture := newReviewCheckpointFixture(t)
 	seedReviewRuntimePack(t, fixture)
@@ -21,27 +21,14 @@ func TestRPGReviewPreviewServesSelectedRTPThroughOrdinaryContentAuthorization(t 
 	}
 	envelope := testsupport.RuntimeEnvelope(t, configuration)
 	encoded, err := json.Marshal(envelope["resources"])
-	if err != nil || !strings.Contains(string(encoded), "__retrom__/packs/0/index.json") {
-		t.Fatalf("ordinary RPG preview omitted its selected RTP: %s %v", encoded, err)
-	}
-	index, err := fixture.launcher.RuntimePackIndex(t.Context(), preview.PreviewID, preview.Capability, 0)
-	if err != nil || !strings.Contains(string(index.Contents), "Music/theme.wav") {
-		t.Fatalf("ordinary RTP index: %s %v", index.Contents, err)
-	}
-	file, err := fixture.launcher.RuntimePackFile(t.Context(), preview.PreviewID, preview.Capability, 0, "Music/theme.wav")
-	if err != nil || file.Digest != strings.Repeat("1", 64) {
-		t.Fatalf("ordinary RTP file: %+v %v", file, err)
-	}
-	if _, err := fixture.launcher.RuntimePackFile(t.Context(), preview.PreviewID, "wrong-capability", 0, "Music/theme.wav"); err == nil {
-		t.Fatal("RTP content bypassed preview authentication")
-	}
-	if _, err := fixture.launcher.RuntimePackIndex(t.Context(), preview.PreviewID, preview.Capability, 1); err == nil {
-		t.Fatal("RTP endpoint exposed an unselected slot")
+	if err != nil || strings.Contains(string(encoded), "__retrom__/pack") {
+		t.Fatalf("RPG preview mounted a retired RTP selection: %s %v", encoded, err)
 	}
 }
 
 func seedReviewRuntimePack(t *testing.T, fixture reviewCheckpointFixture) {
 	t.Helper()
+	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO runtime_asset_pack_definitions(id,kind,generation,declared_name,normalized_declared_name,display_name,required_layout_version,origin,enabled,created_at_ms) VALUES('rpg2000_rtp','RPG2000_RTP','RPG2000','RPG2000_RTP','rpg2000_rtp','Historical RTP','easy-rtp-layout-v1','BUILTIN',1,0)`)
 	mustRPGLaunchSQL(t, fixture.database, `
 INSERT INTO runtime_asset_pack_installations(
  id,definition_id,files_digest,file_count,total_bytes,bundle_blob_id,bundle_sha256,status,

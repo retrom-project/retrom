@@ -8,7 +8,7 @@ import (
 	"retrom/internal/runtimecatalog"
 )
 
-func TestNewDeclaredPackUsesExistingLayoutWithoutSchemaChange(t *testing.T) {
+func TestProviderPackDeclarationsDoNotCreateInstallableProductDefinitions(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
 	if err := Reconcile(t.Context(), database.SQL, initial, time.UnixMilli(1)); err != nil {
@@ -30,14 +30,15 @@ func TestNewDeclaredPackUsesExistingLayoutWithoutSchemaChange(t *testing.T) {
 	if err := Reconcile(t.Context(), database.SQL, candidate, time.UnixMilli(3)); err != nil {
 		t.Fatal(err)
 	}
-	var layout, origin, after string
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT required_layout_version,origin FROM runtime_asset_pack_definitions WHERE id='additional-rtp'`).Scan(&layout, &origin); err != nil {
+	var after string
+	var definitions int
+	if err := database.SQL.QueryRowContext(t.Context(), "SELECT count(*) FROM runtime_asset_pack_definitions").Scan(&definitions); err != nil {
 		t.Fatal(err)
 	}
 	if err := database.SQL.QueryRowContext(t.Context(), `SELECT group_concat(sql,';') FROM sqlite_schema WHERE sql IS NOT NULL`).Scan(&after); err != nil {
 		t.Fatal(err)
 	}
-	if after != before || layout != "easy-rtp-layout-v1" || origin != "BUILTIN" {
-		t.Fatalf("schema or declaration drift: layout=%s origin=%s", layout, origin)
+	if after != before || definitions != 0 {
+		t.Fatalf("retired catalog changed schema or created %d definitions", definitions)
 	}
 }

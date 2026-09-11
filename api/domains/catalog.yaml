@@ -1391,6 +1391,7 @@ components:
         - targetId
         - logicalName
         - sourceKind
+        - fileKind
         - requirementMode
         - conditionCode
         - expectedMd5
@@ -1418,6 +1419,9 @@ components:
           enum:
             - STATIC
             - DAT_MACHINE
+        fileKind:
+          type: string
+          enum: [FILE, ARCHIVE]
         requirementMode:
           type: string
           enum:

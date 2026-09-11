@@ -39,7 +39,7 @@ const itemLabels: Record<ImportItem["state"], string> = {
   PENDING: "等待处理", EVALUATING: "正在评估", IMPORTED_MATCHED: "已导入·匹配", IMPORTED_WARNING: "已导入·警告",
   IMPORTED_MISSING_ENTRY: "已导入·缺少条目", NOT_FOUND: "未找到", SKIPPED_EXISTING: "保留已有 BIOS",
   SKIPPED_NOT_BETTER: "候选不更优", ALREADY_SAME_BYTES: "内容相同", SOURCE_CHANGED: "源文件已变化",
-  CATALOG_CHANGED: "目录版本已变化", READ_FAILED: "读取失败", COMMIT_FAILED: "提交失败", CANCELLED: "已取消",
+  CATALOG_CHANGED: "目录版本已变化", READ_FAILED: "读取失败", INVALID_ARCHIVE: "固件内容不完整或不匹配", COMMIT_FAILED: "提交失败", CANCELLED: "已取消",
 };
 
 function stateTone(state: ServerImportSummary["state"]): "good" | "warn" | "bad" | "info" {
@@ -146,7 +146,7 @@ function ServerDirectoryDrawer({ breadcrumbs, busy, catalogSummary, directories,
   return <><button type="button" className="runtime-drawer-backdrop" aria-label="关闭服务器导入" disabled={busy} onClick={onClose} /><aside ref={drawer} className="runtime-drawer server-import-drawer" role="dialog" aria-modal="true" aria-labelledby="server-import-drawer-title" onKeyDown={trapFocus}><header><div><StatusBadge tone="info">服务器导入</StatusBadge><h2 id="server-import-drawer-title">选择 BIOS 所在目录</h2><p>从服务器根目录选择可读取的目录。</p></div><button id="server-import-drawer-close" type="button" className="runtime-drawer-close" aria-label="关闭" disabled={busy} onClick={onClose}><AppIcon name="x" /></button></header><div className="runtime-drawer-body">
     <fieldset className="server-root-options"><legend>服务器位置</legend>{roots.map((root) => <label key={root.id}><input type="radio" name="server-import-root" value={root.id} checked={rootId === root.id} disabled={busy || root.status !== "AVAILABLE"} onChange={(event) => onRoot(event.target.value)} /><span><strong>{root.label}</strong><small>{root.status === "AVAILABLE" ? "可用" : "不可用"}</small></span></label>)}</fieldset>
     <div className="server-directory-browser"><nav aria-label="当前目录"><button type="button" onClick={() => onPath("")} disabled={!path || busy}>根目录</button>{breadcrumbs.map((part, index) => <button type="button" key={`${part}-${index}`} disabled={index === breadcrumbs.length - 1 || busy} onClick={() => onPath(breadcrumbs.slice(0, index + 1).join("/"))}>/ {part}</button>)}</nav>{directoryContent}</div>
-    <label className="server-import-overwrite"><input type="checkbox" checked={replaceIfBetter} disabled={busy} onChange={(event) => onReplaceIfBetter(event.target.checked)} /><span><strong>允许使用更优候选替换已有 BIOS</strong><small>只接受严格更优候选；成功替换会清理依赖旧 BIOS 的存档与运行会话。</small></span></label>
+    <label className="server-import-overwrite"><input type="checkbox" checked={replaceIfBetter} disabled={busy} onChange={(event) => onReplaceIfBetter(event.target.checked)} /><span><strong>允许使用更优候选替换已有 BIOS</strong><small>只接受严格更优候选；成功新 BIOS 将在下次启动游戏时生效，当前运行与已有存档保留。</small></span></label>
     <div className="server-import-selection-summary" aria-live="polite"><strong>{selectedRoot?.label ?? "未选择服务器位置"} / {path}</strong><span>将检查当前系统完整 BIOS 目录，共 {catalogSummary.totalCount} 项；包含可选和按需 BIOS，不只检查已导入游戏。</span></div>
   </div><footer><button type="button" className="button secondary" disabled={busy} onClick={onClose}>取消</button><button type="button" className="button" disabled={busy || !rootId || selectedRoot?.status !== "AVAILABLE"} onClick={onCreate}>{busy ? "正在创建…" : "开始异步导入"}</button></footer></aside></>;
 }
@@ -342,7 +342,7 @@ export function ServerImportManager({ initialRoots, initialImports, initialPegas
 type DetailFilters = { query: string; outcome: string; matchMethod: string };
 
 function ImportResultRow({ item, onInspect }: { item: ImportItem; onInspect: (item: ImportItem) => void }) {
-  const failed = ["SOURCE_CHANGED", "CATALOG_CHANGED", "READ_FAILED", "COMMIT_FAILED"].includes(item.state);
+  const failed = ["SOURCE_CHANGED", "CATALOG_CHANGED", "READ_FAILED", "INVALID_ARCHIVE", "COMMIT_FAILED"].includes(item.state);
   const tone = item.state.startsWith("IMPORTED") ? "good" : failed ? "bad" : "warn";
   return <article role="row"><div role="cell"><strong>{item.logicalName}</strong><small>{item.coreName} · {item.providerId}/{item.targetId} · {item.requirementMode}</small>{item.selectedRelativePath ? <small title={item.selectedRelativePath}>候选：{item.selectedRelativePath}</small> : null}</div><div role="cell"><StatusBadge tone={tone}>{itemLabels[item.state]}</StatusBadge><small>{item.replaced ? "已替换现有安装" : "未替换现有安装"}</small></div><div role="cell"><strong>{item.matchMethod ?? "—"}</strong><small>{item.outcomeCode ?? "尚无结果码"}</small><small>{item.previousInstallationStatus ?? "无旧安装"} → {item.newInstallationStatus ?? "无新安装"}</small></div><div role="cell"><button type="button" className="button secondary compact" disabled={item.candidateCount === 0} onClick={() => onInspect(item)}>查看候选（{item.candidateCount}）</button></div></article>;
 }

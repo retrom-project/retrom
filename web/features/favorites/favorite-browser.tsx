@@ -21,6 +21,7 @@ import {
   type FavoriteReference,
   type UnfavoriteResult,
 } from "./favorite-api";
+import { FavoriteNavigation } from "./favorite-navigation";
 import { FavoriteGrid } from "./favorite-grid";
 import { favoriteQueryString, selectFavoriteScope, toggleGameSelection, type FavoriteQuery } from "./favorite-state";
 import { FolderEditDialog, FolderNameDialog, FolderPickerDialog } from "./folder-dialogs";
@@ -44,24 +45,6 @@ function pageWithFavorite(page: FavoritePage, gameId: string, favorite: Favorite
 }
 
 type FavoriteFolder = FavoritePage["folders"][number];
-
-function FavoriteNavigation({ onChooseScope, onCreate, page, query }: {
-  onChooseScope: (scope: FavoriteQuery["scope"], folderId?: string) => void;
-  onCreate: () => void;
-  page: FavoritePage | null;
-  query: FavoriteQuery;
-}) {
-  return <aside className="favorite-rail" aria-label="收藏导航">
-    <header><h2>收藏导航</h2><p>全部收藏与自定义收藏夹</p></header>
-    <nav>
-      <button className={query.scope === "ALL" ? "is-active" : ""} aria-current={query.scope === "ALL" ? "page" : undefined} onClick={() => onChooseScope("ALL")}><span aria-hidden="true">♥</span><span>全部收藏</span><strong>{page?.summary.favoriteCount ?? 0}</strong></button>
-      <button className={query.scope === "UNCATEGORIZED" ? "is-active" : ""} aria-current={query.scope === "UNCATEGORIZED" ? "page" : undefined} onClick={() => onChooseScope("UNCATEGORIZED")}><span aria-hidden="true">○</span><span>未分类</span><strong>{page?.summary.uncategorizedCount ?? 0}</strong></button>
-      <p className="favorite-rail-label">收藏夹</p>
-      {page?.folders.map((folder) => <button className={query.folderId === folder.folderId ? "is-active" : ""} aria-current={query.folderId === folder.folderId ? "page" : undefined} onClick={() => onChooseScope("FOLDER", folder.folderId)} key={folder.folderId}><span aria-hidden="true">▣</span><span>{folder.name}</span><strong>{folder.visibleGameCount}</strong></button>)}
-    </nav>
-    <button className="favorite-new-folder" type="button" aria-label="新建收藏夹" onClick={onCreate}>＋ 新建收藏夹</button>
-  </aside>;
-}
 
 function FavoriteToolbar({ currentCount, onOrganizeUncategorized, onSearch, onToggleSelecting, onUpdateQuery, page, query, search, selecting }: {
   currentCount: number | undefined;
@@ -115,7 +98,7 @@ function FavoriteGames({ busy, loading, onFavoriteChange, onLoadMore, onToggle, 
   selecting: boolean;
 }) {
   if (!page?.items.length) {return null;}
-  return <><FavoriteGrid games={page.items} folders={page.folders} selecting={selecting} selected={selected} busy={busy} onToggle={onToggle} onFavoriteChange={onFavoriteChange} />{page.nextCursor ? <button className="button secondary favorite-load-more" type="button" disabled={loading} onClick={onLoadMore}>{loading ? "加载中…" : "加载更多"}</button> : null}</>;
+  return <><FavoriteGrid games={page.items} selecting={selecting} selected={selected} busy={busy} onToggle={onToggle} onFavoriteChange={onFavoriteChange} />{page.nextCursor ? <button className="button secondary favorite-load-more" type="button" disabled={loading} onClick={onLoadMore}>{loading ? "加载中…" : "加载更多"}</button> : null}</>;
 }
 
 function FavoriteBatchBar({ busy, currentFolder, onAdd, onCancel, onRemove, onUnfavorite, selected, selecting }: {
@@ -132,26 +115,12 @@ function FavoriteBatchBar({ busy, currentFolder, onAdd, onCancel, onRemove, onUn
   return <div className="favorite-batch" role="status" aria-live="polite"><strong>已选择 {selected.size} 款</strong><button className="is-primary" type="button" disabled={busy} onClick={(event) => onAdd(event.currentTarget)}>加入收藏夹</button>{currentFolder ? <button type="button" disabled={busy} onClick={() => onRemove(currentFolder.folderId)}>从当前收藏夹移除</button> : null}<button className="is-danger" type="button" disabled={busy} onClick={onUnfavorite}>取消收藏</button><button type="button" disabled={busy} onClick={onCancel}>取消选择</button></div>;
 }
 
-function favoriteViewMetadata(page: FavoritePage | null, query: FavoriteQuery, folder: FavoriteFolder | null) {
-  if (query.scope === "ALL") {
-    const count = page?.summary.favoriteCount;
-    return { count, description: `你收藏的所有游戏，共 ${count ?? 0} 款。`, title: "全部收藏" };
-  }
-  if (query.scope === "UNCATEGORIZED") {
-    const count = page?.summary.uncategorizedCount;
-    return { count, description: `${count ?? 0} 款游戏尚未加入任何自定义收藏夹。`, title: "未分类" };
-  }
-  const count = folder?.visibleGameCount;
-  const title = folder?.name ?? "收藏夹";
-  return { count, description: `“${title}”收藏夹，共 ${count ?? 0} 款。`, title };
-}
-
 type FavoriteBrowserViewProps = {
   busy: boolean;
   currentFolder: FavoriteFolder | null;
   error: string;
   loading: boolean;
-  metadata: ReturnType<typeof favoriteViewMetadata>;
+  currentCount: number | undefined;
   onAddBatch: (element: HTMLButtonElement) => void;
   onCancelBatch: () => void;
   onChooseScope: (scope: FavoriteQuery["scope"], folderId?: string) => void;
@@ -177,12 +146,11 @@ type FavoriteBrowserViewProps = {
 
 function FavoriteBrowserView(props: FavoriteBrowserViewProps) {
   return <>
-    <PageHeader eyebrow="你的游戏" title="我的收藏" description="快速保存喜欢的游戏，需要时再用收藏夹整理。同一款游戏可以加入多个收藏夹。" actions={<div className="favorite-head-summary"><strong>{props.page?.summary.favoriteCount ?? 0}</strong> 款收藏 · <strong>{props.page?.summary.folderCount ?? 0}</strong> 个收藏夹</div>} />
+    <PageHeader eyebrow="你的游戏" title="我的收藏" description="" actions={<div className="favorite-head-summary"><strong>{props.page?.summary.favoriteCount ?? 0}</strong> 款收藏 · <strong>{props.page?.summary.folderCount ?? 0}</strong> 个收藏夹</div>} />
     <div className="favorite-layout">
-      <FavoriteNavigation onChooseScope={props.onChooseScope} onCreate={props.onCreateFolder} page={props.page} query={props.query} />
-      <section className="favorite-content" aria-labelledby="favorite-view-title">
-        <header className="favorite-view-head"><div><h2 id="favorite-view-title">{props.metadata.title}</h2><p>{props.metadata.description}</p></div>{props.currentFolder ? <button className="button secondary" type="button" onClick={props.onEditFolder}>编辑收藏夹</button> : null}</header>
-        <FavoriteToolbar currentCount={props.metadata.count} onOrganizeUncategorized={props.onOrganizeUncategorized} onSearch={props.onSearch} onToggleSelecting={props.onToggleSelecting} onUpdateQuery={props.onUpdateQuery} page={props.page} query={props.query} search={props.search} selecting={props.selecting} />
+      <section className="favorite-content" aria-label="收藏游戏">
+        <FavoriteToolbar currentCount={props.currentCount} onOrganizeUncategorized={props.onOrganizeUncategorized} onSearch={props.onSearch} onToggleSelecting={props.onToggleSelecting} onUpdateQuery={props.onUpdateQuery} page={props.page} query={props.query} search={props.search} selecting={props.selecting} />
+        <FavoriteNavigation onChooseScope={props.onChooseScope} onCreate={props.onCreateFolder} onEdit={props.currentFolder ? props.onEditFolder : undefined} page={props.page} query={props.query} />
         <FavoriteContentState error={props.error} loading={props.loading} onChooseAll={() => props.onChooseScope("ALL")} onClear={props.onClear} onRefresh={props.onRefresh} page={props.page} query={props.query} />
         {!props.error ? <FavoriteGames busy={props.busy} loading={props.loading} onFavoriteChange={props.onFavoriteChange} onLoadMore={props.onLoadMore} onToggle={props.onToggleSelection} page={props.page} selected={props.selected} selecting={props.selecting} /> : null}
       </section>
@@ -263,7 +231,7 @@ export function FavoriteBrowser({
   const batchAddButton = useRef<HTMLButtonElement>(null);
 
   const currentFolder = useMemo(() => page?.folders.find((folder) => folder.folderId === query.folderId) ?? null, [page, query.folderId]);
-  const metadata = favoriteViewMetadata(page, query, currentFolder);
+  const currentCount = query.scope === "ALL" ? page?.summary.favoriteCount : query.scope === "UNCATEGORIZED" ? page?.summary.uncategorizedCount : currentFolder?.visibleGameCount;
 
   const refresh = useCallback(async (nextQuery = query) => {
     const sequence = ++requestSequence.current;
@@ -415,7 +383,7 @@ export function FavoriteBrowser({
 
   return <div className="page-layout favorite-page">
     <FavoriteBrowserView
-      busy={busy} currentFolder={currentFolder} error={error} loading={loading} metadata={metadata}
+      busy={busy} currentFolder={currentFolder} error={error} loading={loading} currentCount={currentCount}
       onAddBatch={(element) => { batchAddButton.current = element; setBatchFolderIds([]); setBatchPickerAnchor(element); }}
       onCancelBatch={() => { setBatchPickerAnchor(null); setSelecting(false); setSelected(new Set()); }}
       onChooseScope={chooseScope}

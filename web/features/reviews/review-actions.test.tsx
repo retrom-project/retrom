@@ -111,7 +111,7 @@ describe("ReviewActions metadata", () => {
       rpgMaker: {
         selectedCoreId: "rpgmaker", generation: "RPGMV", evidenceGeneration: "RPGMV",
         evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
-        runtimePackRequirements: [], runtimePackSelections: [],
+        externalRTPRequirements: [],
       },
     };
     const refreshedRpgReview = { ...rpgReview, version: 2 };
@@ -122,7 +122,7 @@ describe("ReviewActions metadata", () => {
     const user = userEvent.setup();
     render(<ReviewActions review={rpgReview} />);
 
-    expect(screen.getByRole("heading", { name: "RPG Maker 运行依赖" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "RPG Maker 项目检查" })).toBeInTheDocument();
     expect(screen.getByText("RPG Maker MV")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "运行游戏" })).toBeEnabled();
     expect(screen.queryByText("高级验证详情")).not.toBeInTheDocument();
@@ -133,7 +133,7 @@ describe("ReviewActions metadata", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled(), { timeout: 2_000 });
     const request = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH")?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({
-      metadata: { title: "MV Project" }, runtimePackSelections: [], rpgSelfContainedOverride: false,
+      metadata: { title: "MV Project" }, rpgSelfContainedOverride: false,
     });
   });
 

@@ -22,8 +22,7 @@ export type ReviewSourceMedia = ReviewSourceMediaBase & (
 export type RPGMakerReview = {
   selectedCoreId: string; generation: string; evidenceGeneration: string | null; evidenceConfidence: "MATCHED" | "FAMILY_ONLY";
   selfContained: boolean; selfContainedOverride: boolean;
-  runtimePackRequirements: Array<{ slot: number; declaredName: string; normalizedDeclaredName: string }>;
-  runtimePackSelections: Array<{ slot: number; declaredName: string; installationId: string }>;
+  externalRTPRequirements: Array<{ slot: number; declaredName: string }>;
 };
 export type ReviewWorkspace = {
   itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean;
@@ -43,7 +42,7 @@ export type ReviewWorkspace = {
 export type MetadataForm = { title: string; description: string; developer: string; publisher: string; genre: string; players: string; releaseYear: string };
 export type CoverSelection = { candidateId: string | null; uploadedId: string | null };
 export type PreviewAsset = { id: string; url: string; width: number; height: number };
-export type DraftPayload = { metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null }; selectedCandidateId: string | null; selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] }; defaultDosEntry: string | null; tagIds: string[]; runtimePackSelections?: Array<{ slot: number; installationId: string }>; rpgSelfContainedOverride?: boolean; scummvmCandidateId?: string };
+export type DraftPayload = { metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null }; selectedCandidateId: string | null; selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] }; defaultDosEntry: string | null; tagIds: string[]; rpgSelfContainedOverride?: boolean; scummvmCandidateId?: string };
 export type Comparison = { candidate: ReviewCandidate; current: MetadataForm; next: MetadataForm; currentCover: CoverSelection; nextCover: CoverSelection };
 
 export const compareFields: Array<{ key: keyof MetadataForm; label: string; multiline?: boolean; type?: "number" }> = [
@@ -74,7 +73,6 @@ export function withRPGMakerDraft(payload: DraftPayload, rpgMaker: RPGMakerRevie
   if (!rpgMaker) {return payload;}
   return {
     ...payload,
-    runtimePackSelections: rpgMaker.runtimePackSelections.map(({ slot, installationId }) => ({ slot, installationId })),
     rpgSelfContainedOverride: rpgMaker.selfContainedOverride,
   };
 }

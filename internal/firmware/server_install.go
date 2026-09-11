@@ -28,6 +28,7 @@ type ServerInstallRequest struct {
 	SourceVersion      string
 	CatalogDigest      string
 	SourceKind         string
+	ArchiveMembersJSON *string
 	LogicalName        string
 	OriginalFilename   string
 	Metadata           blobstore.Metadata
@@ -217,15 +218,14 @@ func (service *Service) persistServerInstallation(
 	if err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server register blob: %w", err)
 	}
-	if request.SourceKind == "DAT_MACHINE" {
+	if request.SourceKind == "DAT_MACHINE" || request.ArchiveMembersJSON != nil {
 		if err := persistArchiveEntries(ctx, transaction, blobID, request.ArchiveEntries, now); err != nil {
 			return ServerInstallResult{}, err
 		}
 	}
-	retired, err := payloadrelease.RetireSupersededBIOS(
+	if err := payloadrelease.SupersedeBIOS(
 		ctx, transaction, request.RequirementID, now,
-	)
-	if err != nil {
+	); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server retire: %w", err)
 	}
 	details := request.Details
@@ -246,11 +246,6 @@ INSERT INTO bios_installations(
 		request.Metadata.Size, request.Metadata.MD5, request.Metadata.SHA1, request.Metadata.SHA256,
 		version, request.Status, string(detailsJSON), now, now, request.CandidateID); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server persist installation: %w", err)
-	}
-	if service.releases != nil {
-		if err := service.releases.StageCandidates(ctx, transaction, retired.BlobIDs); err != nil {
-			return ServerInstallResult{}, fmt.Errorf("firmware/server stage retired: %w", err)
-		}
 	}
 	result.NewInstallationID = installationID.String()
 	switch request.Status {
@@ -332,7 +327,7 @@ func candidateStrictlyBetter(
 	activeBlobID string,
 	activeFacts FileFacts,
 ) (bool, bool, error) {
-	if request.SourceKind == "STATIC" {
+	if request.SourceKind == "STATIC" && request.ArchiveMembersJSON == nil {
 		if request.StaticExpectation == nil || request.StaticEvaluation == nil {
 			return false, false, nil
 		}
@@ -350,6 +345,9 @@ func candidateStrictlyBetter(
 		return false, false, nil
 	}
 	active := EvaluateDAT(request.LogicalName, request.DATExpectedEntries, activeFacts, entries)
+	if request.ArchiveMembersJSON != nil {
+		RequireCompleteArchive(&active)
+	}
 	return CompareDATQuality(*request.DATEvaluation, active) < 0, true, nil
 }
 

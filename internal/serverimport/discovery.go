@@ -287,7 +287,7 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 		Metadata:    metadata,
 		State:       "ELIGIBLE",
 	}
-	if item.SourceKind == "STATIC" {
+	if item.SourceKind == "STATIC" && item.ArchiveMembersJSON == nil {
 		expectation := firmware.StaticExpectation{LogicalName: item.LogicalName, SizeBytes: item.ExpectedSize}
 		if item.ExpectedMD5 != nil {
 			expectation.MD5 = *item.ExpectedMD5
@@ -326,6 +326,12 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 		return candidate, err
 	}
 	evaluation := firmware.EvaluateDAT(item.LogicalName, expected, facts, entries)
+	if item.ArchiveMembersJSON != nil {
+		firmware.RequireCompleteArchive(&evaluation)
+	}
+	if item.ArchiveMembersJSON != nil && !evaluation.Launchable {
+		candidate.State = "INELIGIBLE"
+	}
 	candidate.DAT = &evaluation
 	candidate.ExpectedDATEntries = expected
 	candidate.ArchiveEntries = entries
@@ -343,7 +349,7 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 }
 
 func staticExpectation(item catalogItem) *firmware.StaticExpectation {
-	if item.SourceKind != "STATIC" {
+	if item.SourceKind != "STATIC" || item.ArchiveMembersJSON != nil {
 		return nil
 	}
 	result := &firmware.StaticExpectation{LogicalName: item.LogicalName, SizeBytes: item.ExpectedSize}
@@ -471,6 +477,13 @@ func (reader *cancelReader) Read(buffer []byte) (int, error) {
 }
 
 func (service *Service) expectedDATEntries(ctx context.Context, item catalogItem) ([]firmware.ExpectedDATEntry, error) {
+	if item.ArchiveMembersJSON != nil {
+		members, err := firmware.StaticArchiveExpectations(*item.ArchiveMembersJSON)
+		if err != nil {
+			return nil, fmt.Errorf("load archive requirements: %w", err)
+		}
+		return members, nil
+	}
 	rows, err := service.database.QueryContext(ctx, `
 SELECT entry.name,entry.size_bytes,entry.crc32,entry.sha1
 FROM dat_rom_entries entry

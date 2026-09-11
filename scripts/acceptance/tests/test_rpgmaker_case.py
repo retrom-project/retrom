@@ -22,10 +22,6 @@ BROWSER_PATH = Path(__file__).resolve().parents[1] / "rpgmaker_browser.mjs"
 GENERATION_PROVISION_PATH = (
     Path(__file__).resolve().parents[1] / "rpgmaker_generation_provision.mjs"
 )
-PACK_PROVISION_PRODUCT_PATH = (
-    Path(__file__).resolve().parents[1] / "rpgmaker_pack_provision_product.mjs"
-)
-PACK_BROWSER_PATH = Path(__file__).resolve().parents[1] / "rpgmaker_pack.mjs"
 SECURITY_BROWSER_PATH = Path(__file__).resolve().parents[1] / "rpgmaker_security.mjs"
 SPEC = importlib.util.spec_from_file_location("rpgmaker_case", MODULE_PATH)
 assert SPEC and SPEC.loader
@@ -224,38 +220,10 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn("dialogs.slice(0, 5)", helper)
         self.assertNotIn("document.body.innerText", helper)
 
-    def test_pack_provision_uses_review_detail_approval_projection(self) -> None:
-        source = (
-            Path(__file__).resolve().parents[1] / "rpgmaker_pack_provision.mjs"
-        ).read_text()
-        self.assertIn("if (!current.canApprove", source)
-        self.assertIn('import {assertReviewRole} from "./rpgmaker_pack_review_state.mjs";', source)
-        source += (Path(__file__).resolve().parents[1] / "rpgmaker_pack_review_state.mjs").read_text()
-        self.assertIn("review.canApprove !== initiallyReady", source)
-        self.assertNotIn('state !== "REVIEW_PENDING"', source)
 
-    def test_pack_provision_preserves_a_title_wrapper_without_mutating_binding(self) -> None:
-        source = PACK_PROVISION_PRODUCT_PATH.read_text()
-        self.assertIn("directoryFiles(sourcePath, `${sourceName}/`)", source)
-        self.assertIn("review.metadata?.title !== sourceName", source)
-        self.assertNotIn("ensureReviewTitle", source)
 
-    def test_pack_provision_uses_one_virtual_rpgmaker_platform_instance(self) -> None:
-        source = PACK_PROVISION_PRODUCT_PATH.read_text()
-        self.assertIn('item.defaultCoreId === "rpgmaker"', source)
-        self.assertIn("new Map(expectedTargetIds.map((targetId) => [targetId, platform.id]))", source)
-        self.assertNotIn("expectedCoreIds.includes(item.defaultCoreId)", source)
 
-    def test_pack_provision_reveals_save_by_current_player_pointer_contract(self) -> None:
-        source = PACK_PROVISION_PRODUCT_PATH.read_text()
-        self.assertIn("await revealPreviewToolbar(page)", source)
-        self.assertIn('getByRole("button", {name: "创建存档", exact: true})', source)
-        self.assertNotIn('page.locator(".player-toolbar")', source)
 
-    def test_pack_driver_initializes_role_contract_before_product_execution(self) -> None:
-        source = PACK_BROWSER_PATH.read_text()
-        self.assertLess(source.index("const reviewRoles ="), source.index("const browser ="))
-        self.assertLess(source.index("const reviewRoles ="), source.index("validateReviewRole(role"))
 
     def test_all_formal_rpg_cases_have_a_driver_registration(self) -> None:
         self.assertEqual(
@@ -271,10 +239,10 @@ class EvidenceContractTests(unittest.TestCase):
             rpgmaker.DEFERRED_CASES,
         )
         self.assertEqual(
-            {"ACC-RPG-009", "ACC-RPG-010", "ACC-RPG-011"},
+            {"ACC-RPG-010", "ACC-RPG-011"},
             rpgmaker.MINIMAL_CLOSURE_CASES,
         )
-        self.assertEqual("ACC-RPG-009", rpgmaker.PACK_CASE)
+        self.assertEqual("ACC-RPG-009", rpgmaker.RESOURCE_POLICY_CASE)
         self.assertEqual("ACC-RPG-012", rpgmaker.COMPATIBILITY_CASE)
         runner_spec = importlib.util.spec_from_file_location("acceptance_run", RUNNER_PATH)
         assert runner_spec and runner_spec.loader
@@ -744,7 +712,7 @@ class EvidenceContractTests(unittest.TestCase):
             "RETROM_CHROME_EXECUTABLE",
             rpgmaker.required_environment("ACC-RPG-012"),
         )
-        self.assertIn(
+        self.assertNotIn(
             "RETROM_ACC_RPG_009_PROVISION_EVIDENCE",
             rpgmaker.required_environment("ACC-RPG-009"),
         )
@@ -794,122 +762,14 @@ class EvidenceContractTests(unittest.TestCase):
             self.assertEqual("BLOCKED", result["status"])
             self.assertIn("RETROM_ACC_RPG_002_IMPORT_ITEM_ID", result["missingInputs"])
 
-    def test_pack_plan_v2_requires_named_input_review_and_reference_roles(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source_directory = root / "directory"
-            source_directory.mkdir()
-            (source_directory / "asset.bin").write_bytes(b"asset")
-            sources = {"rpg2000Rtp": source_directory}
-            for index, role in enumerate(sorted(set(rpgmaker.PACK_UPLOAD_ROLES) - {"rpg2000Rtp"})):
-                suffix = ".zip" if index % 2 == 0 else ".7z"
-                path = root / f"pack-{index}{suffix}"
-                path.write_bytes(b"pack")
-                sources[role] = path
-            identifiers = [f"{number:08d}-1111-4111-8111-111111111111" for number in range(1, 30)]
-            plan = {
-                "schemaVersion": 2,
-                "uploads": {
-                    role: {
-                        "sourcePath": str(sources[role]),
-                        "sourceType": "DIRECTORY" if sources[role].is_dir() else "FILES",
-                        "definitionId": identity[0], "generation": identity[1], "declaredName": identity[2],
-                        "sourceNote": rpgmaker.PACK_SOURCE_NOTE,
-                        "sourceFileCount": rpgmaker.pack_source_identity(
-                            sources[role], "DIRECTORY" if sources[role].is_dir() else "FILES",
-                        )[0],
-                        "sourceSizeBytes": rpgmaker.pack_source_identity(
-                            sources[role], "DIRECTORY" if sources[role].is_dir() else "FILES",
-                        )[1],
-                        "sourceSha256": rpgmaker.pack_source_identity(
-                            sources[role], "DIRECTORY" if sources[role].is_dir() else "FILES",
-                        )[2],
-                    }
-                    for role, identity in rpgmaker.PACK_UPLOAD_ROLES.items()
-                },
-                "reviewIds": dict(zip(sorted(rpgmaker.PACK_REVIEW_ROLES), identifiers[:13], strict=True)),
-                "protectedReferences": {
-                    "publishedVariant": {"installationId": identifiers[13], "gameId": identifiers[14]},
-                    "restorableCheckpoint": {
-                        "installationId": identifiers[15], "gameId": identifiers[16],
-                        "saveStateId": identifiers[17],
-                    },
-                },
-            }
-            plan_path = root / "plan.json"
-            plan_path.write_text(json.dumps(plan))
-            self.assertEqual(plan, rpgmaker.pack_plan(plan_path))
-            plan["uploads"].pop("rgss1Custom")
-            plan_path.write_text(json.dumps(plan))
-            with self.assertRaisesRegex(rpgmaker.ContractError, "UPLOAD_MATRIX_INCOMPLETE"):
-                rpgmaker.pack_plan(plan_path)
 
-    def test_pack_case_requires_a_fresh_database_path(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            database = Path(directory) / "retrom.db"
-            database.write_bytes(b"sqlite")
-            self.assertEqual(database, rpgmaker.pack_database(database))
-            with self.assertRaisesRegex(rpgmaker.ContractError, "DATABASE_INVALID"):
-                rpgmaker.pack_database(Path("relative.db"))
 
-    def test_pack_evidence_requires_real_http_outcomes_and_no_paths(self) -> None:
-        payload = pack_evidence_payload()
-        rpgmaker.validate_pack_evidence(payload)
-        payload["uploads"]["rpg2000Rtp"]["sourcePath"] = "/private/runtime-pack"
-        with self.assertRaisesRegex(rpgmaker.ContractError, "SECRET_OR_PATH"):
-            rpgmaker.validate_pack_evidence(payload)
 
-    def test_pack_evidence_requires_actual_readiness_not_trial_proof(self) -> None:
-        payload = pack_evidence_payload()
-        rpgmaker.validate_pack_evidence(payload)
-        selected = next(item for item in payload["reviews"]["matcherRejections"] if item["matcher"] == "SELECTED")
-        selected["publishReadiness"]["current"] = False
-        with self.assertRaisesRegex(rpgmaker.ContractError, "PUBLISH_READINESS"):
-            rpgmaker.validate_pack_evidence(payload)
-        payload = pack_evidence_payload()
-        payload["databaseEvidence"]["selectedReviews"][0]["validationStatus"] = "BLOCKED"
-        with self.assertRaisesRegex(rpgmaker.ContractError, "DATABASE_SELECTION"):
-            rpgmaker.validate_pack_evidence(payload)
 
-    def test_pack_evidence_rejects_unreleased_consumption_and_fake_selection(self) -> None:
-        payload = pack_evidence_payload()
-        payload["databaseEvidence"]["uploads"]["zeroReference"]["consumptionReleasedAtMs"] = None
-        with self.assertRaisesRegex(rpgmaker.ContractError, "CONSUMPTION_EVIDENCE_INVALID"):
-            rpgmaker.validate_pack_evidence(payload)
-        payload = pack_evidence_payload()
-        payload["databaseEvidence"]["selectedReviews"][0]["installationId"] = pack_uuid(900)
-        with self.assertRaisesRegex(rpgmaker.ContractError, "SELECTION_EVIDENCE_INVALID"):
-            rpgmaker.validate_pack_evidence(payload)
 
-    def test_pack_evidence_requires_provider_target_identity_for_protected_references(self) -> None:
-        payload = pack_evidence_payload()
-        payload["databaseEvidence"]["protectedReferences"]["publishedVariant"].pop(
-            "bundleSha256",
-        )
-        with self.assertRaisesRegex(rpgmaker.ContractError, "PROTECTED_REFERENCE_EVIDENCE_INVALID"):
-            rpgmaker.validate_pack_evidence(payload)
 
-    def test_pack_browser_capture_does_not_wait_for_polling_network_idle(self) -> None:
-        source = PACK_BROWSER_PATH.read_text()
-        self.assertNotIn('waitUntil: "networkidle"', source)
-        self.assertIn('waitUntil: "domcontentloaded", timeout: 120_000', source)
-        self.assertIn('locator("main.content h1").first().waitFor', source)
 
-    def test_pack_http_failure_reports_only_the_stable_error_code(self) -> None:
-        source = PACK_BROWSER_PATH.read_text()
-        self.assertIn("await responseErrorCode(response)", source)
-        self.assertIn("body?.error?.code", source)
-        self.assertNotIn("body?.error?.message", source)
 
-    def test_pack_install_retries_only_the_typed_resource_failure(self) -> None:
-        source = PACK_BROWSER_PATH.read_text()
-        retry = source.split("async function installWithResourceRetry", 1)[1].split(
-            "async function uploadFile", 1,
-        )[0]
-        self.assertIn('response.status() !== 503', retry)
-        self.assertIn('code !== "RPG_RUNTIME_PACK_UNAVAILABLE"', retry)
-        self.assertIn("attempt === 2", retry)
-        self.assertNotIn("RPG_RUNTIME_PACK_INVALID", retry)
 
     def test_content_security_evidence_requires_exact_product_observations(self) -> None:
         payload = content_security_evidence_payload()
@@ -980,139 +840,12 @@ class EvidenceContractTests(unittest.TestCase):
             rpgmaker.validate_security_evidence(payload, "ACC-RPG-011")
 
 
-def pack_uuid(number: int) -> str:
+def fixture_uuid(number: int) -> str:
     return f"{number:08d}-1111-4111-8111-111111111111"
 
 
-def pack_job(number: int, kind: str, input_digest: bool = False) -> dict:
-    result = {
-        "jobId": pack_uuid(number), "kind": kind, "state": "SUCCEEDED",
-        "events": ["QUEUED", "STARTED", "SUCCEEDED"],
-    }
-    if input_digest:
-        result["inputDigest"] = "d" * 64
-    return result
 
 
-def pack_evidence_payload() -> dict:
-    roles = sorted(rpgmaker.PACK_UPLOAD_ROLES)
-    uploads, installations, database_uploads = {}, {}, {}
-    for index, role in enumerate(roles, start=1):
-        upload_id, installation_id = pack_uuid(index), pack_uuid(index + 20)
-        finalize = pack_job(index + 40, "UPLOAD_FINALIZE")
-        validation = pack_job(index + 60, "RUNTIME_ASSET_PACK_VALIDATE", True)
-        uploads[role] = {
-            "role": role, "uploadId": upload_id, "installationId": installation_id,
-            "jobId": validation["jobId"], "definitionId": rpgmaker.PACK_UPLOAD_ROLES[role][0],
-            "finalizeJob": finalize, "validationJob": validation,
-        }
-        installations[role] = {
-            "installationId": installation_id, "definitionId": "definition",
-            "status": "READY", "filesDigest": f"{index:064x}", "bundleSha256": f"{index + 20:064x}",
-        }
-        database_uploads[role] = {
-            "uploadId": upload_id, "installationId": installation_id, "consumptionId": pack_uuid(index + 80),
-            "sessionState": "COMPLETE", "consumptionReleasedAtMs": 10 if role == "zeroReference" else None,
-            "consumptionReleaseReason": "UPLOAD_CONSUMED" if role == "zeroReference" else None,
-            "finalizeJob": finalize, "validationJob": validation,
-        }
-    published_roles = [
-        "rpg2000SelfContained", "rpg2003SelfContained", "rpgxpNoRtp", "rpgvxNoRtp", "rpgvxaceNoRtp",
-    ]
-    published = [
-        {
-            "role": role, "itemId": pack_uuid(120 + index), "gameId": pack_uuid(130 + index),
-            "generation": "RPGXP", "status": 201,
-        }
-        for index, role in enumerate(published_roles)
-    ]
-    missing_roles = ["rpg2000Missing", "rpg2003Missing", "rpgxpCustom", "rpgvxCustom", "rpgvxaceCustom"]
-    outcomes = [
-        {
-            "role": role, "matcher": "MISSING", "patchStatus": 422, "patchCode": "REVIEW_DRAFT_INVALID",
-            "publish": {"status": 409, "code": "REVIEW_VALIDATION_STALE"},
-        }
-        for role in missing_roles
-    ]
-    selected = []
-    for index, role in enumerate(missing_roles):
-        item = {
-            "role": role, "itemId": pack_uuid(150 + index), "matcher": "SELECTED", "patchStatus": 200,
-            "installationId": installations[[
-                "rpg2000Rtp", "rpg2003Rtp", "rgss1Custom", "rgss2Custom", "rgss3Custom",
-            ][index]]["installationId"],
-            "publishReadiness": {"canApprove": True, "current": True, "status": "READY"},
-        }
-        outcomes.append(item)
-        selected.append({**{key: item[key] for key in ("role", "itemId", "installationId")},
-                         "validationStatus": "READY", "dependencyInstallationId": item["installationId"]})
-    for index, (role, upload_role) in enumerate((
-        ("rpgxpStandardAmbiguous", "rgss1StandardV1"),
-        ("rpgvxStandardAmbiguous", "rgss2StandardV1"),
-        ("rpgvxaceStandardAmbiguous", "rgss3StandardV1"),
-    )):
-        item = {
-            "role": role, "itemId": pack_uuid(160 + index), "matcher": "AMBIGUOUS", "patchStatus": 200,
-            "installationId": installations[upload_role]["installationId"],
-            "rejectionStatus": 422, "rejectionCode": "REVIEW_DRAFT_INVALID",
-            "publishReadiness": {"canApprove": True, "current": True, "status": "READY"},
-        }
-        outcomes.append(item)
-        selected.append({**{key: item[key] for key in ("role", "itemId", "installationId")},
-                         "validationStatus": "READY", "dependencyInstallationId": item["installationId"]})
-    protected_references = {
-        "publishedVariant": {"installationId": pack_uuid(180), "gameId": pack_uuid(181)},
-        "restorableCheckpoint": {
-            "installationId": pack_uuid(182), "gameId": pack_uuid(183), "saveStateId": pack_uuid(184),
-        },
-    }
-    protected_database = {
-        "publishedVariant": {
-            **protected_references["publishedVariant"], "definitionId": "rgss1_standard",
-            "availableForLaunch": True, "providerId": "retrom-runtime", "targetId": "rpgmaker-xp",
-            "bundleSha256": "c" * 64,
-        },
-        "restorableCheckpoint": {
-            **protected_references["restorableCheckpoint"], "definitionId": "rgss2_rpgvx",
-            "availableForLaunch": True, "providerId": "retrom-runtime", "targetId": "rpgmaker-vx",
-            "bundleSha256": "d" * 64,
-        },
-    }
-    zero_upload = database_uploads["zeroReference"]
-    release_job = pack_job(190, "PAYLOAD_RELEASE", True)
-    population = {"before": {"games": [], "saves": [], "reviews": []},
-                  "after": {"games": [], "saves": [], "reviews": []}}
-    return {
-        "schemaVersion": 1, "caseId": "ACC-RPG-009", "status": "PASS",
-        "populationPreservation": population,
-        "uploads": uploads, "installations": installations,
-        "reviews": {"published": published, "matcherRejections": outcomes},
-        "protectedReferences": protected_references,
-        "protectedDeletes": [
-            {"role": role, "status": 409, "code": "RPG_RUNTIME_PACK_IN_USE"}
-            for role in ("publishedVariant", "restorableCheckpoint")
-        ],
-        "zeroReferenceDelete": {
-            "staleStatus": 412, "currentStatus": 204, "finalStatus": "DELETED", "deletedAtMs": 1,
-        },
-        "screenshots": [
-            "screenshots/rpgmaker-pack-catalog.png", "screenshots/rpgmaker-pack-review-binding.png",
-        ],
-        "databaseEvidence": {
-            "schemaVersion": 1, "uploads": database_uploads,
-            "provisioningEvidence": {"payload": {"populationPreservation": population}},
-            "publishedReviews": [
-                {key: item[key] for key in ("role", "itemId", "gameId")} for item in published
-            ],
-            "selectedReviews": selected, "protectedReferences": protected_database,
-            "zeroReferenceRelease": {
-                "consumptionId": zero_upload["consumptionId"], "releaseReason": "UPLOAD_CONSUMED",
-                "uploadFileCount": 1, "purgedFileCount": 1, "completionAuditCount": 1,
-                "gcFirstUnreferencedAtMs": 10, "gcScheduledAtMs": 20,
-                "bundleSha256": installations["zeroReference"]["bundleSha256"], "job": release_job,
-            },
-        },
-    }
 
 
 def product_payload(spec, digest: str) -> dict:
@@ -1357,9 +1090,9 @@ def content_security_evidence_payload() -> dict:
                     "sidecar": logical_name, "sha256": digest, "sizeBytes": index + 1,
                     "filesDigest": f"{index + 100:064x}",
                     "postInspectionFilesDigest": f"{index + 100:064x}", "nestedEntryCount": 0,
-                    "importJobId": pack_uuid(200 + index), "importItemId": pack_uuid(300 + index),
+                    "importJobId": fixture_uuid(200 + index), "importItemId": fixture_uuid(300 + index),
                     "contentIdentityDigest": f"{index + 200:064x}",
-                    "launchId": pack_uuid(500 + index),
+                    "launchId": fixture_uuid(500 + index),
                     "providerId": "retrom-runtime", "targetId": targets[generation],
                     "bundleSha256": f"{generation_index + 600:064x}",
                     "projection": {
@@ -1388,12 +1121,12 @@ def content_security_evidence_payload() -> dict:
         ],
         "nestedArchives": nested,
         "opaqueNative": {
-            "importItemId": pack_uuid(802), "generation": "RPGMZ", "filesDigest": "a" * 64,
+            "importItemId": fixture_uuid(802), "generation": "RPGMZ", "filesDigest": "a" * 64,
             "sourceFiles": [
                 {"name": name, "sha256": "b" * 64, "sizeBytes": 1} for name in opaque_names
             ],
             "runtimeProjection": [{"name": name, "status": 404} for name in opaque_names],
-            "launchId": pack_uuid(803), "runtimeOrigin": f"https://{pack_uuid(803)}.example.test",
+            "launchId": fixture_uuid(803), "runtimeOrigin": f"https://{fixture_uuid(803)}.example.test",
             "launchFinished": True,
         },
         "screenshots": ["screenshots/acc-rpg-010-opaque-native.png"],

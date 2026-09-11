@@ -44,13 +44,20 @@ func (server *Server) installBIOS(writer http.ResponseWriter, request *http.Requ
 	}
 	result, err := server.firmware.Install(request.Context(), request.PathValue("requirementId"), version, body)
 	if err != nil {
+		details := map[string]any{}
+		message := "上传文件、需求版本或 BIOS 内容无效"
+		var archiveError *firmware.ArchiveContentError
+		if errors.As(err, &archiveError) {
+			details = archiveError.Details
+			message = "固件包缺少必要文件，或文件名称、大小、哈希不匹配"
+		}
 		writeError(
 			writer,
 			request,
 			http.StatusUnprocessableEntity,
 			"BIOS_INSTALLATION_INVALID",
-			"上传文件、需求版本或 BIOS 内容无效",
-			map[string]any{},
+			message,
+			details,
 		)
 		return
 	}

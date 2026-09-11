@@ -88,7 +88,7 @@ function GameHero(props: Pick<AdminGameManagerViewProps, "cover" | "currentFile"
 }
 
 function GameTags(props: Pick<AdminGameManagerViewProps, "activeTags" | "busy" | "gameTags" | "onGameTags" | "onSaveTags" | "tagsDirty">) {
-  return <section className="panel admin-game-tags" aria-labelledby="admin-game-tags-title"><div className="panel-head"><div><h2 id="admin-game-tags-title">游戏标签</h2><p>标签与发布信息分别保存；已删除游戏仍可调整标签。</p></div><button className="button" type="button" disabled={props.busy !== null || !props.tagsDirty} onClick={props.onSaveTags}>{props.busy === "tags" ? "正在更新…" : "更新标签"}</button></div><div className="panel-body"><TagPicker options={props.activeTags} selected={props.gameTags} onChange={props.onGameTags} disabled={props.busy !== null} /><div className="admin-game-empty-tags">{props.gameTags.length ? null : "未设置标签"}</div></div></section>;
+  return <section className="panel admin-game-tags" aria-labelledby="admin-game-tags-title"><div className="panel-head"><div><h2 id="admin-game-tags-title">游戏标签</h2><p>标签与发布信息分别保存；已删除游戏仍可调整标签。</p></div><button className="button" type="button" disabled={props.busy !== null || !props.tagsDirty} onClick={props.onSaveTags}>{props.busy === "tags" ? "正在更新…" : "更新标签"}</button></div><div className="panel-body"><TagPicker keepOpenOnSelect options={props.activeTags} selected={props.gameTags} onChange={props.onGameTags} disabled={props.busy !== null} /><div className="admin-game-empty-tags">{props.gameTags.length ? null : "未设置标签"}</div></div></section>;
 }
 
 function PublishInformation(props: Pick<AdminGameManagerViewProps, "currentInstance" | "disabled" | "draft" | "game" | "metadataDirty" | "onDraft" | "onSaveMetadata">) {
