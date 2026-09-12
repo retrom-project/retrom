@@ -2303,8 +2303,9 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 `RETROM_CHROME_EXECUTABLE`、`RETROM_UZEBOX_ROM` 与 `RETROM_UZEBOX_CORE_SHA256`。
 驱动不下载游戏，不读取默认私人目录，不提交游戏；缺少输入须报告 BLOCKED。
 通过普通上传/导入、审核 Preview、发布、Product Launch 验证浏览器非空画面、
-非零音频、标准手柄确认/左右移动，创建 checkpoint 后继续移动，再使用不同 Launch
-等待 READY 过场结束后识别挡板，核对左右移动；读档后挡板位置必须立即一致，尾灯动画相位在 10 秒内对齐时整帧必须与保存前一致，
+非零音频和标准手柄确认。等待 READY 过场结束后识别挡板，核对左右移动；
+创建 checkpoint 后继续移动，再使用不同 Launch 恢复。读档后挡板位置必须立即一致，
+尾灯动画相位在 10 秒内对齐时整帧必须与保存前一致，
 再验证移动和 A 键发球。游戏及核心摘要、Provider/Target/Bundle/module 身份、
 各阶段截图和存档大小进入 `uzebox-product.json`。浏览器异常、空存档、错误画面或
 恢复后输入失败均不得 PASS。虚拟标准手柄不替代实体手柄验收；结果只覆盖该样本。
