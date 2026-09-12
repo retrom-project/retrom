@@ -19,6 +19,16 @@ Provider Bundle 是 Target 行为的唯一事实源。Retrom 的 binding catalog
 
 核心接入的手柄准入要求为方向移动和确认，取消可选；同一映射配置内坚持单按钮单目标，不用原生按钮与键盘重复发送补足确认/取消。输入行为和验证边界统一见[核心运行时验证基线](./core-runtime-validation.md#3-共享验证规则)，已有正常取消及宿主菜单 B 返回保留。
 
+### 1.1 开发仓库与 fork 维护
+
+开发仓库的路径、克隆地址、依赖关系和维护分支只由当前 Retrom worktree 的 `workspace/manifest.yaml` 登记。工作区根清单只负责引导；功能分支和本机路径只进入本地 PFB 状态，不写入正式依赖清单。调整依赖时，在所属仓库提交源码，并将 Retrom 清单与集成改动一起提交，运行 `make workspace-check`。
+
+第三方核心的源码、分支与发布归各 fork 仓库管理。修改前读取目标仓库的 `AGENTS.md` 和 `retrom-fork.json`，以维护元数据确定上游基线、镜像分支与维护分支；不在 Retrom 的 Agent 规范中复制核心仓库名单或猜测分支名称。
+
+上游镜像分支只接受 fast-forward 同步，固定版本补丁进入对应 `retrom/<baseline>` 维护分支，正式核心 tag 使用 `retrom-core-<baseline>-rN`。不得把固定版本补丁合入移动的上游镜像、从镜像直接发布，或新建平行长期分支。旧 `rpg-runtime-*`、`retrom-web-*` tag 只作为不可移动的历史记录保留，不恢复为发布入口；具体仓库存在更严格的维护契约时同时遵守。
+
+仓库布局与同一 PFB 的源码隔离见 [PFB 开发](./pfb-development.md)。Provider 的正式发布仍需相应产品链验证，PFB 验证通过不构成外部分发授权。
+
 ## 2. Provider Bundle V1
 
 正式和 candidate 产物使用同一个闭合 Bundle V1 schema。Bundle 至少固定：
