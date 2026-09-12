@@ -51,6 +51,8 @@ internal/persistence/runtimecatalog/ 已验证目录定义的事务投影
 internal/corevalidation/  BIOS/多盘快照、格式校验与确定性摘要
 internal/service/corevalidation/ 静态 BIOS 适用性、可用性与阻断判定
 internal/persistence/corevalidation/ BIOS 目录及安装事实查询
+internal/service/datindex/ DAT BIOS 需求身份、摘要与同步编排
+internal/persistence/datindex/ DAT 索引与需求记录写入
 internal/runtimebundle/   Bundle 与 Launch Envelope V1 的闭合解析/语义校验
 internal/runtimelaunch/   Provider-neutral Launch Envelope 投影
 internal/launch/          启动预检、LaunchSession/capability 与产品编排
@@ -109,7 +111,7 @@ Handler 负责协议解析、身份提取和结果映射，通过 Service 执行
 
 Service 决定事务范围；Repository 的事务回调只提供绑定到同一事务的业务能力。跨表校验、乐观条件、幂等响应和联动写入保持原子，失败与取消必须回滚。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
 
-BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后缀决定适用性，再解析激活选项并判断安装是否阻断启动。快照与摘要保留在纯 `corevalidation` 包，使用可选业务值而非 SQL nullable 类型；参与摘要的 JSON 口径保持稳定。运行目录的纯解析与数据库投影分开，投影仍加入调用方的启动事务。
+BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后缀决定适用性，再解析激活选项并判断安装是否阻断启动。快照与摘要保留在纯 `corevalidation` 包，使用可选业务值而非 SQL nullable 类型；参与摘要的 JSON 口径保持稳定。运行目录的纯解析与数据库投影分开，投影仍加入调用方的启动事务。DAT 索引写入属于持久化层；BIOS 需求同步由 Service 生成稳定身份与摘要，并通过调用方事务绑定的记录端口完成新增/更新及旧版本需求停用。
 
 独立运行域授权 Service 验证凭据编码、会话类型/状态、过期与撤销，Repository 返回业务记录并将票据消费与 capability 签发绑定到同一事务；凭据只以 digest 进入持久化端口。
 
@@ -117,7 +119,7 @@ BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后�
 
 沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。容量分析 Repository 一次返回完整的 Blob、保护集合、用途和引用快照，Service 完成 archive 用途传播、分类优先级、去重口径及受检整数汇总；聚合不再占用数据库事务。
 
-分层按业务模块逐步迁移，收藏、标签、平台目录创建与推荐补齐、沉浸式查询、容量分析、通用任务操作、GC 维护入口、独立运行域授权及静态 BIOS 判定使用上述边界；迁入 `internal/service/` 的全部生产源码由架构测试禁止直接依赖数据库实现，不能为单个模块增加绕过项。详细收藏事务与读取快照见 [收藏与收藏夹](./favorites-and-collections.md)。
+分层按业务模块逐步迁移，收藏、标签、平台目录创建与推荐补齐、沉浸式查询、容量分析、通用任务操作、GC 维护入口、独立运行域授权及静态 BIOS 判定及 DAT BIOS 需求同步使用上述边界；迁入 `internal/service/` 的全部生产源码由架构测试禁止直接依赖数据库实现，不能为单个模块增加绕过项。详细收藏事务与读取快照见 [收藏与收藏夹](./favorites-and-collections.md)。
 
 ## 3. HTTP 与数据约定
 

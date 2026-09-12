@@ -19,6 +19,8 @@ import (
 	"slices"
 	"time"
 
+	datservice "retrom/internal/service/datindex"
+
 	"retrom/internal/dbexec"
 
 	"github.com/google/uuid"
@@ -26,7 +28,7 @@ import (
 
 	"retrom/internal/arcadedat"
 	"retrom/internal/cleanup"
-	"retrom/internal/datindex"
+	"retrom/internal/persistence/datindex"
 )
 
 var (
@@ -243,7 +245,7 @@ UPDATE dat_versions SET is_active=1,activated_at_ms=?,updated_at_ms=?,version=ve
 `, nowMS, nowMS, datID); err != nil {
 		return "", "", "", fmt.Errorf("activate test-only built-in DAT: %w", err)
 	}
-	if err := datindex.SyncRequirements(ctx, transaction, datID, time.UnixMilli(nowMS)); err != nil {
+	if err := datservice.SyncRequirements(ctx, datindex.Bind(transaction), datID, time.UnixMilli(nowMS)); err != nil {
 		return "", "", "", fmt.Errorf("sync test-only built-in DAT requirements: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {

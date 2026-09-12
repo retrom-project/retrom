@@ -13,6 +13,8 @@ import (
 	"sort"
 	"time"
 
+	datservice "retrom/internal/service/datindex"
+
 	"retrom/internal/dbexec"
 
 	"github.com/google/uuid"
@@ -20,7 +22,7 @@ import (
 	"retrom/internal/arcadedat"
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/datindex"
+	"retrom/internal/persistence/datindex"
 )
 
 func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) error {
@@ -534,7 +536,7 @@ WHERE id=? AND provider_id=? AND target_id=?
 `, now.UnixMilli(), now.UnixMilli(), datID, providerID, targetID); err != nil {
 		return fmt.Errorf("activate selected built-in DAT: %w", err)
 	}
-	if err := datindex.SyncRequirements(ctx, transaction, datID, now); err != nil {
+	if err := datservice.SyncRequirements(ctx, datindex.Bind(transaction), datID, now); err != nil {
 		return fmt.Errorf("sync selected built-in DAT requirements: %w", err)
 	}
 	auditID, _ := uuid.NewV7()
