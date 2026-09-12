@@ -116,6 +116,8 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 联机资格由稳定 Provider/Target、Target 的标准能力和 Retrom 的受控 profile 共同决定。Netplay profile 与 session 冻结 Bundle、Provider/Target、内容和依赖摘要；不再维护平行的稳定 Target字段。参与者必须取得完全一致的冻结输入。Provider 只通过 `PlayerRuntimeV1.netplayPort` 交换标准消息；单机 Launch 不取得联机凭据，联机 Launch 禁止普通存档。
 
+游戏目录分页、profile 匹配和依赖快照判定由 `internal/service/netplay` 通过类型化端口编排；相应 SQL 和行映射位于 `internal/persistence/netplay`。受控 profile 解析与 canonical digest 位于无数据库依赖的 `internal/netplay/profile`。禁用的平台实例同时退出目录候选与按游戏 ID 的资格查询，不能继续用于选择游戏或启动新的联机会话。
+
 ## 9. PlaySession 生命周期
 
 Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat 以连续序号报告上一时段的 running/visible/paused，服务端按接收时间计费；页面隐藏、暂停、失联、重放或跳号不能伪造时长。用户菜单退出、游戏自身退出和异常退出最终都幂等 finish Launch；卸载失败由 hard expiry 收口。

@@ -219,27 +219,27 @@ func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 			profile, ok := registry.Profile(test.profileID)
 			testassert.Truef(t, ok, "profile %q missing", test.profileID)
 			contentAllowed, targetMatches := service.matchesTargetProfile(eligibilityRow{
-				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
-				targetID:    profile.TargetID,
-				contentKind: "SINGLE_FILE", logicalName: test.logicalName,
+				PlatformID: test.platformID, CoreID: test.coreID, ProviderID: profile.ProviderID,
+				TargetID:    profile.TargetID,
+				ContentKind: "SINGLE_FILE", LogicalName: test.logicalName,
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return !targetMatches }), "arbitrary %s content did not match Target profile", test.coreID)
 			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
-				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
-				targetID:    profile.TargetID,
-				contentKind: "MULTI_DISC",
+				PlatformID: test.platformID, CoreID: test.coreID, ProviderID: profile.ProviderID,
+				TargetID:    profile.TargetID,
+				ContentKind: "MULTI_DISC",
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return contentAllowed }, func() bool { return targetMatches }), "unsupported %s content kind matched Target profile", test.coreID)
 			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
-				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
-				targetID:    "drifted-target",
-				contentKind: "SINGLE_FILE",
+				PlatformID: test.platformID, CoreID: test.coreID, ProviderID: profile.ProviderID,
+				TargetID:    "drifted-target",
+				ContentKind: "SINGLE_FILE",
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return targetMatches }), "drifted %s Target matched profile", test.coreID)
 			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
-				platformID: "unverified-platform", coreID: test.coreID, providerID: profile.ProviderID,
-				targetID:    profile.TargetID,
-				contentKind: "SINGLE_FILE",
+				PlatformID: "unverified-platform", CoreID: test.coreID, ProviderID: profile.ProviderID,
+				TargetID:    profile.TargetID,
+				ContentKind: "SINGLE_FILE",
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return targetMatches }), "unverified %s platform matched Target profile", test.coreID)
 		})
@@ -290,9 +290,10 @@ func TestArcadeEligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := NewService(database.SQL, nil, nil, Options{}, func() time.Time { return now })
+	datValue := datID
 	row := eligibilityRow{
-		variantID: variantID, logicalName: "child.zip", dependencyJSON: snapshot,
-		datVersionID: sql.NullString{String: datID, Valid: true},
+		VariantID: variantID, LogicalName: "child.zip", DependencyJSON: snapshot,
+		DATVersionID: &datValue,
 	}
 	runnable, err := service.arcadeDependencySnapshotRunnable(ctx, row)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !runnable }), "typed Arcade Arcade variant runnable=%t error=%v", runnable, err)

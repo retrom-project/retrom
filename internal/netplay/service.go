@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	application "retrom/internal/service/netplay"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
 	"retrom/internal/service/tagging"
@@ -25,7 +27,7 @@ var (
 	ErrSessionNotFound = errors.New("NETPLAY_SESSION_NOT_FOUND")
 	ErrForbidden       = errors.New("NETPLAY_FORBIDDEN")
 	ErrInvalidSeat     = errors.New("NETPLAY_INVALID_SEAT")
-	ErrInvalidProfile  = errors.New("NETPLAY_INVALID_PROFILE")
+	ErrInvalidProfile  = application.ErrInvalidProfile
 	ErrSeatTaken       = errors.New("NETPLAY_SEAT_TAKEN")
 	ErrRoomNotReady    = errors.New("NETPLAY_ROOM_NOT_READY")
 	ErrRoomConflict    = errors.New("NETPLAY_ROOM_STATE_CONFLICT")
