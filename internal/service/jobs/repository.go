@@ -5,6 +5,7 @@ import "context"
 // Repository binds all job state, input and event changes to one transaction.
 type Repository interface {
 	WithWrite(context.Context, func(Records) error) error
+	WithRead(context.Context, func(ReadRecords) error) error
 }
 
 type Records interface {

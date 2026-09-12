@@ -9,6 +9,7 @@ import (
 )
 
 type memoryJobs struct {
+	Repository
 	job                Job
 	input              []byte
 	readErr            error
