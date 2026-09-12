@@ -155,6 +155,8 @@ Idempotency-Key: <uuid>
 
 上传用例由 `internal/service/uploads` 编排，`internal/persistence/uploads` 负责 SQL、读快照和写事务。流式接收与 CAS 组装在写事务之外运行；接受 part 时在事务内重新检查会话状态，并共同提交 part、文件接收字节数和会话版本。终结结果的每次写入都校验当前 job、终结轮次与 execution number，取消或后续轮次不能被旧 worker 覆盖。读取会话、文件和 part bitmap 使用同一个读快照。
 
+排队中的终结 Job 被通用取消入口取消后，worker 必须同步当前上传会话与未完成文件的取消状态；过期 execution 不能执行此同步。终结超时后使用最多 5 秒的独立清理 context 保存失败结果，仍执行同样的轮次、execution 和取消检查。
+
 | 方法与路径 | 语义 |
 | --- | --- |
 | `GET /api/v1/admin/uploads/{uploadId}` | 返回会话、文件、已接收 part bitmap 和过期时间，用于断点恢复。 |

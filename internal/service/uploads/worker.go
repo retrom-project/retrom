@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"retrom/internal/cleanup"
 )
@@ -15,7 +16,7 @@ func matchesRun(current SessionState, run Run) bool {
 }
 
 func (service *Service) claimFinalization(ctx context.Context, run Run) (bool, error) {
-	var claimed bool
+	var claimed, cancelled bool
 	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
 		current, err := scope.Sessions.Current(ctx, run.UploadID)
 		if err != nil {
@@ -28,7 +29,14 @@ func (service *Service) claimFinalization(ctx context.Context, run Run) (bool, e
 		if err != nil {
 			return fmt.Errorf("read finalize job: %w", err)
 		}
-		if job.ExecutionNo != run.ExecutionNo || job.State != "QUEUED" {
+		if job.ExecutionNo != run.ExecutionNo {
+			return nil
+		}
+		if job.State == "CANCELLED" {
+			cancelled = true
+			return finishUploadCancellation(ctx, scope, run, current.Version, service.now().UnixMilli())
+		}
+		if job.State != "QUEUED" {
 			return nil
 		}
 		claim := JobClaim{Run: run, AtMS: service.now().UnixMilli(), EventJSON: jobEvent(run, 1, "")}
@@ -40,6 +48,9 @@ func (service *Service) claimFinalization(ctx context.Context, run Run) (bool, e
 	})
 	if err != nil {
 		return false, fmt.Errorf("claim upload finalization: %w", err)
+	}
+	if cancelled {
+		cleanup.RemoveAll(filepath.Join(service.dataDir, "tmp", "uploads", run.UploadID))
 	}
 	return claimed, nil
 }
@@ -107,6 +118,11 @@ func (service *Service) finalizeWrite(
 }
 
 func (service *Service) fail(ctx context.Context, run Run, cause error) error {
+	if ctx.Err() != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+	}
 	code := "UPLOAD_FINALIZE_IO"
 	if errors.Is(cause, errPartMissing) {
 		code = "UPLOAD_PART_MISSING"

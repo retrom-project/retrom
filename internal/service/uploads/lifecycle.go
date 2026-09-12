@@ -161,6 +161,9 @@ func requestFinalizeCancellation(
 	if job.State == "CANCEL_REQUESTED" {
 		return true, nil
 	}
+	if job.State == "CANCELLED" {
+		return false, nil
+	}
 	if job.State != "QUEUED" && job.State != "RUNNING" {
 		return false, ErrInvalid
 	}
@@ -220,8 +223,11 @@ func (service *Service) runFinalization(ctx context.Context, run Run) error {
 	}
 	for _, file := range candidates {
 		stopped, err := service.finalizeWrite(ctx, run, func(WriteScope, SessionState) error { return nil })
-		if err != nil || stopped {
-			return err
+		if err != nil {
+			return errors.Join(err, service.fail(ctx, run, err))
+		}
+		if stopped {
+			return nil
 		}
 		stopped, err = service.finalizeCandidate(ctx, run, file)
 		if err != nil {
