@@ -2108,6 +2108,9 @@ Product Launch、标准手柄确认/方向、创建即时存档、不同 Launch 
 缺少输入时输出 BLOCKED；硬超时 600 秒。失败在发布前时可通过 `RETROM_PC88_REVIEW_ID`
 继续同一待审核项。若已发布，可用 `RETROM_PC88_RESUME_EVIDENCE` 指向完整记录导入、预览、发布的
 此前 JSON，重新验证同一游戏；结果保留此前证据摘要，且 Provider、模块和 Bundle 必须完全相同。
+正式发行包复测可同时指定 `RETROM_PC88_EXPECTED_BUNDLE_SHA256` 和
+`RETROM_PC88_EXPECTED_CORE_SHA256`：正常下载并核对核心 bytes，允许 Provider 版本升级，
+保留此前导入/预览证据引用，并重新执行产品启动、存档和不同 Launch 恢复。
 驱动不会替换已有 BIOS 安装。输出 `pc88-product.json` 和普通游戏截图，
 不下载、提交游戏/BIOS，也不记录授权凭据。首版仅声明单张 D88/U88 和即时状态，
 一个样本不能证明全部 PC-88 软件、多盘切换或磁盘写入兼容性。
