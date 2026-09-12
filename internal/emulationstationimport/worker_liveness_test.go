@@ -11,12 +11,7 @@ import (
 func TestImportStopsAndRetriesWhenItemCannotLeaveWorkingState(t *testing.T) {
 	fixture := newLifecycleFixture(t)
 	started, unit := startLifecycleImport(t, fixture, "", "nes")
-	mustExecEmulationStationTest(t, fixture.database, `
-CREATE TRIGGER test_reject_emulationstation_working_state_exit
-BEFORE UPDATE OF execution_state ON emulationstation_import_items
-WHEN OLD.execution_state='COPYING' AND NEW.execution_state<>OLD.execution_state
-BEGIN SELECT RAISE(ABORT,'injected terminalization failure'); END;
-`)
+	fault := blockWorkingStateExit(t, fixture, started.ID)
 
 	ctx, cancel := context.WithCancel(fixture.context)
 	done := make(chan struct{})
@@ -31,6 +26,10 @@ BEGIN SELECT RAISE(ABORT,'injected terminalization failure'); END;
 		cancel()
 		<-done
 		t.Fatal("import worker repeated an item after its terminalization failed")
+	}
+
+	if fault.attachmentHits.Load() != 1 || fault.terminalHits.Load() != 1 {
+		t.Fatalf("working-state fault missed real exit: attachment=%d terminal=%d", fault.attachmentHits.Load(), fault.terminalHits.Load())
 	}
 
 	var jobState, itemState string
