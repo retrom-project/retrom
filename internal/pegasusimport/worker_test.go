@@ -15,12 +15,14 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
+	repository "retrom/internal/persistence/pegasusimport"
 	"retrom/internal/serversource"
+	application "retrom/internal/service/pegasusimport"
 	"retrom/internal/testassert"
 )
 
-func TestArcadeCompanionsReleaseQueryBeforeRecordingCASBlob(t *testing.T) {
-	t.Parallel()
+func arcadeCompanionFixture(t *testing.T) (*Service, work, Root, executionItem) {
+	t.Helper()
 	setupContext := context.Background()
 	dataDir := t.TempDir()
 	database, err := sql.Open("sqlite", filepath.Join(dataDir, "companion.db"))
@@ -28,13 +30,19 @@ func TestArcadeCompanionsReleaseQueryBeforeRecordingCASBlob(t *testing.T) {
 	database.SetMaxOpenConns(1)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if _, err := database.ExecContext(setupContext, `
-CREATE TABLE pegasus_import_items(id TEXT,import_id TEXT,collection_id TEXT,discovery_state TEXT);
-CREATE TABLE pegasus_import_collections(id TEXT,mapping_action TEXT,target_platform_instance_id TEXT,target_dat_version_id TEXT);
-CREATE TABLE pegasus_import_item_files(item_id TEXT,relative_path TEXT,size_bytes INTEGER,source_facts_digest TEXT);
+CREATE TABLE pegasus_import_items(id TEXT,import_id TEXT,collection_id TEXT,discovery_state TEXT,execution_state TEXT DEFAULT 'PENDING',version INTEGER DEFAULT 1,library_import_job_id TEXT,library_import_item_id TEXT);
+CREATE TABLE jobs(id TEXT,scope_type TEXT,scope_id TEXT,kind TEXT,state TEXT,worker_id TEXT,version INTEGER,execution_no INTEGER,attempt_count INTEGER,max_attempts INTEGER,leased_until_ms INTEGER,execution_deadline_at_ms INTEGER);
+CREATE TABLE pegasus_imports(id TEXT,import_job_id TEXT,scan_job_id TEXT,version INTEGER,state TEXT);
+INSERT INTO jobs VALUES('work','PEGASUS_IMPORT','import','SERVER_PEGASUS_IMPORT','RUNNING','worker',1,1,1,4,100,1000);
+INSERT INTO pegasus_imports VALUES('import','work','scan',1,'RUNNING');
+CREATE TABLE pegasus_import_collections(id TEXT,mapping_action TEXT,target_platform_instance_id TEXT,target_dat_version_id TEXT,target_platform_id TEXT);
+CREATE TABLE pegasus_import_item_files(item_id TEXT,relative_path TEXT,size_bytes INTEGER,source_facts_digest TEXT,ordinal INTEGER DEFAULT 0,blob_id TEXT);
 CREATE TABLE dat_machines(dat_version_id TEXT,machine_name TEXT,cloneof TEXT,romof TEXT);
 CREATE TABLE blobs(id TEXT PRIMARY KEY,sha256 TEXT UNIQUE,size_bytes INTEGER,md5 TEXT,sha1 TEXT,crc32 TEXT,media_type TEXT,created_at_ms INTEGER);
-INSERT INTO pegasus_import_collections VALUES('collection','IMPORT','target','dat');
-INSERT INTO pegasus_import_items VALUES('parent','import','collection','READY');
+INSERT INTO pegasus_import_collections VALUES('collection','IMPORT','target','dat','arcade');
+INSERT INTO pegasus_import_items(id,import_id,collection_id,discovery_state) VALUES('parent','import','collection','READY');
+INSERT INTO pegasus_import_items(id,import_id,collection_id,discovery_state,execution_state) VALUES('primary','import','collection','READY','COPYING');
+INSERT INTO pegasus_import_item_files(item_id,relative_path,size_bytes,source_facts_digest) VALUES('primary','child.zip',1,'child-facts');
 INSERT INTO dat_machines VALUES('dat','child','parent',NULL),('dat','parent',NULL,NULL);
 `); err != nil {
 		t.Fatal(err)
@@ -50,7 +58,7 @@ INSERT INTO dat_machines VALUES('dat','child','parent',NULL),('dat','parent',NUL
 	testassert.False(t, err != nil, err)
 	if _, err := database.ExecContext(
 		setupContext,
-		`INSERT INTO pegasus_import_item_files VALUES('parent',?,?,?)`,
+		`INSERT INTO pegasus_import_item_files(item_id,relative_path,size_bytes,source_facts_digest) VALUES('parent',?,?,?)`,
 		name,
 		len(contents),
 		serversource.FactsDigest(info),
@@ -60,35 +68,66 @@ INSERT INTO dat_machines VALUES('dat','child','parent',NULL),('dat','parent',NUL
 	for index := 0; index < 70; index++ {
 		id, candidate := fmt.Sprintf("unrelated-%02d", index), fmt.Sprintf("unrelated-%02d.zip", index)
 		if _, err := database.ExecContext(
-			setupContext, `INSERT INTO pegasus_import_items VALUES(?,'import','collection','READY')`, id,
+			setupContext, `INSERT INTO pegasus_import_items(id,import_id,collection_id,discovery_state) VALUES(?,'import','collection','READY')`, id,
 		); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := database.ExecContext(
-			setupContext, `INSERT INTO pegasus_import_item_files VALUES(?,?,1,'unused')`, id, candidate,
+			setupContext, `INSERT INTO pegasus_import_item_files(item_id,relative_path,size_bytes,source_facts_digest) VALUES(?,?,1,'unused')`, id, candidate,
 		); err != nil {
 			t.Fatal(err)
 		}
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	service := &Service{database: database, blobs: blobs, now: time.Now}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+	service := &Service{database: database, blobs: blobs, now: func() time.Time { return time.UnixMilli(10) }}
 	item := executionItem{
 		ID: "primary", TargetPlatformID: "target", TargetDATVersionID: "dat",
 		Files: []executionFile{{Path: "child.zip"}},
 	}
-	candidates, err := service.arcadeCompanionCandidates(ctx, "import", item)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(candidates) != 1 }, func() bool { return candidates[0].Path != name }), "candidates = %#v, error=%v", candidates, err)
+	unit := work{JobID: "work", ImportID: "import", WorkerID: "worker", ExecutionNo: 1, Attempt: 1}
+	return service, unit, Root{path: sourceDir}, item
+}
+
+func TestArcadeCompanionsReleaseQueryBeforeRecordingCASBlob(t *testing.T) {
+	t.Parallel()
+	service, unit, root, item := arcadeCompanionFixture(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	const name = "parent.zip"
+	candidates, err := application.NewCompanions(repository.NewCompanions(service.database), service.now).Find(
+		ctx,
+		unit.Identity(),
+		item.ID,
+	)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return err != nil },
+			func() bool { return len(candidates) != 1 },
+			func() bool { return candidates[0].File.Path != name },
+		),
+		"candidates = %#v, error=%v",
+		candidates,
+		err,
+	)
 	companions, err := service.arcadeCompanions(
 		ctx,
-		work{ImportID: "import"},
-		Root{path: sourceDir},
+		unit,
+		root,
 		item,
 	)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(companions) != 1 }, func() bool { return companions[0].RelativePath != name }, func() bool { return companions[0].BlobID == "" }), "companions = %#v", companions)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return len(companions) != 1 },
+			func() bool { return companions[0].RelativePath != name },
+			func() bool { return companions[0].BlobID == "" },
+		),
+		"companions = %#v",
+		companions,
+	)
 }
 
 func TestLibraryImportFailureExposesSourceFileLimit(t *testing.T) {
@@ -96,7 +135,20 @@ func TestLibraryImportFailureExposesSourceFileLimit(t *testing.T) {
 	files := make([]libraryimport.ServerSourceFile, libraryimport.ServerSourceFileLimit+1)
 	files[0].RelativePath = "1944j.zip"
 	details := (&Service{}).libraryImportFailure(libraryimport.ErrInvalid, files)
-	testassert.Falsef(t, testassert.Any(func() bool { return details.CauseCode != "SOURCE_FILE_LIMIT_EXCEEDED" }, func() bool { return details.ObservedFileCount == nil }, func() bool { return *details.ObservedFileCount != int64(len(files)) }, func() bool { return details.AllowedFileCount == nil }, func() bool { return *details.AllowedFileCount != libraryimport.ServerSourceFileLimit }, func() bool { return details.RelativePath == nil }, func() bool { return *details.RelativePath != "1944j.zip" }), "failure details = %#v", details)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return details.CauseCode != "SOURCE_FILE_LIMIT_EXCEEDED" },
+			func() bool { return details.ObservedFileCount == nil },
+			func() bool { return *details.ObservedFileCount != int64(len(files)) },
+			func() bool { return details.AllowedFileCount == nil },
+			func() bool { return *details.AllowedFileCount != libraryimport.ServerSourceFileLimit },
+			func() bool { return details.RelativePath == nil },
+			func() bool { return *details.RelativePath != "1944j.zip" },
+		),
+		"failure details = %#v",
+		details,
+	)
 }
 
 func TestItemFailureKeepsInternalIdentityAndRedactsHostPath(t *testing.T) {
@@ -112,8 +164,26 @@ func TestItemFailureKeepsInternalIdentityAndRedactsHostPath(t *testing.T) {
 		"11111111-1111-4111-8111-111111111111",
 		"22222222-2222-4222-8222-222222222222",
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return strings.Contains(details.TechnicalDetail, "/srv/private") }, func() bool { return !strings.Contains(details.TechnicalDetail, "[path]") }), "technical detail = %q", details.TechnicalDetail)
-	testassert.Falsef(t, testassert.Any(func() bool { return details.LibraryImportJobID == nil }, func() bool { return details.LibraryImportItemID == nil }, func() bool { return *details.LibraryImportJobID != "11111111-1111-4111-8111-111111111111" }, func() bool { return *details.LibraryImportItemID != "22222222-2222-4222-8222-222222222222" }), "failure details = %#v", details)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return strings.Contains(details.TechnicalDetail, "/srv/private") },
+			func() bool { return !strings.Contains(details.TechnicalDetail, "[path]") },
+		),
+		"technical detail = %q",
+		details.TechnicalDetail,
+	)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return details.LibraryImportJobID == nil },
+			func() bool { return details.LibraryImportItemID == nil },
+			func() bool { return *details.LibraryImportJobID != "11111111-1111-4111-8111-111111111111" },
+			func() bool { return *details.LibraryImportItemID != "22222222-2222-4222-8222-222222222222" },
+		),
+		"failure details = %#v",
+		details,
+	)
 }
 
 func TestItemFailureClassifiesSQLiteConstraintByDriverCode(t *testing.T) {
@@ -121,7 +191,10 @@ func TestItemFailureClassifiesSQLiteConstraintByDriverCode(t *testing.T) {
 	database, err := sql.Open("sqlite", ":memory:")
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	if _, err := database.ExecContext(context.Background(), `CREATE TABLE unique_value(value TEXT UNIQUE); INSERT INTO unique_value VALUES('same')`); err != nil {
+	if _, err := database.ExecContext(
+		context.Background(),
+		`CREATE TABLE unique_value(value TEXT UNIQUE); INSERT INTO unique_value VALUES('same')`,
+	); err != nil {
 		t.Fatal(err)
 	}
 	_, constraintError := database.ExecContext(context.Background(), `INSERT INTO unique_value VALUES('same')`)

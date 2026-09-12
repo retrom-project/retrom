@@ -40,7 +40,7 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, root R
 			service.itemFailure("SOURCE_ASSEMBLY", "ASSEMBLE_SOURCE_FILES", err, firstSourcePath(item)))
 		return
 	}
-	if err := service.updateExecutionPhase(ctx, unit.ImportID, "VALIDATING"); err != nil {
+	if err := service.updateExecutionPhase(ctx, unit, "VALIDATING"); err != nil {
 		service.closeItemWithFailure(ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)))
 		return

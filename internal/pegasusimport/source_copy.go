@@ -2,15 +2,14 @@ package pegasusimport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path"
 	"strings"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobcatalog"
-
-	"retrom/internal/persistence/recordstore"
+	repository "retrom/internal/persistence/pegasusimport"
+	application "retrom/internal/service/pegasusimport"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -44,195 +43,32 @@ func (service *Service) executionSourceFiles(
 	return append(files, companions...), nil
 }
 
-func (service *Service) recordCopiedFile(
-	ctx context.Context,
-	itemID string,
-	ordinal int64,
-	metadata blobstore.Metadata,
-) (string, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return "", fmt.Errorf("pegasusimport/start copied file transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	now := service.now().UnixMilli()
-	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, "application/octet-stream", now)
-	if err != nil {
-		return "", fmt.Errorf("pegasusimport/record copied file blob: %w", err)
-	}
-	if _, err := recordstore.UpdatePegasusImportItemFiles(ctx, transaction, recordstore.Update{
-		Set: `blob_id=?,state='COPIED',updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `item_id=? AND ordinal=? AND state='DISCOVERED'`,
-			Args:  []any{itemID, ordinal},
-		},
-		Values: []any{blobID, now},
-	}); err != nil {
-		return "", fmt.Errorf("pegasusimport/record copied file: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return "", fmt.Errorf("pegasusimport/commit copied file: %w", err)
-	}
-	return blobID, nil
-}
-
-func (service *Service) recordCopiedAsset(
-	ctx context.Context,
-	itemID, kind string,
-	metadata blobstore.Metadata,
-	mediaType string,
-) (string, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return "", fmt.Errorf("pegasusimport/start copied asset transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	now := service.now().UnixMilli()
-	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, mediaType, now)
-	if err != nil {
-		return "", fmt.Errorf("pegasusimport/record copied asset blob: %w", err)
-	}
-	if _, err := recordstore.UpdatePegasusImportItemAssets(ctx, transaction, recordstore.Update{
-		Set: `blob_id=?,state='COPIED',updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `item_id=? AND kind=? AND state='DISCOVERED'`,
-			Args:  []any{itemID, kind},
-		},
-		Values: []any{blobID, now},
-	}); err != nil {
-		return "", fmt.Errorf("pegasusimport/record copied asset: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return "", fmt.Errorf("pegasusimport/commit copied asset: %w", err)
-	}
-	return blobID, nil
-}
-
 func (service *Service) arcadeCompanions(
 	ctx context.Context,
 	unit work,
 	root Root,
 	item executionItem,
 ) ([]libraryimport.ServerSourceFile, error) {
-	candidates, err := service.arcadeCompanionCandidates(ctx, unit.ImportID, item)
+	companions := application.NewCompanions(repository.NewCompanions(service.database), service.now)
+	candidates, err := companions.Find(ctx, unit.Identity(), item.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pegasusimport/read companions: %w", err)
 	}
 	result := make([]libraryimport.ServerSourceFile, 0, len(candidates))
-	for _, file := range candidates {
+	for _, candidate := range candidates {
+		file := candidate.File
 		metadata, err := service.copySource(ctx, root, unit.RelativePath, file.Path, file.Size, file.Facts)
-		if err != nil {
+		if errors.Is(err, ErrSourceChanged) {
 			continue
 		}
-		transaction, err := service.database.BeginTx(ctx, nil)
 		if err != nil {
-			return nil, fmt.Errorf("pegasusimport/start companion transaction: %w", err)
+			return nil, err
 		}
-		blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, "application/zip", service.now().UnixMilli())
-		if err == nil {
-			err = transaction.Commit()
-		} else {
-			dbexec.Rollback(transaction)
-		}
+		blobID, err := companions.Record(ctx, unit.Identity(), item.ID, candidate, verifiedMaterial(metadata))
 		if err != nil {
-			return nil, fmt.Errorf("pegasusimport/record arcade companion: %w", err)
+			return nil, fmt.Errorf("pegasusimport/register companion: %w", err)
 		}
-		result = append(
-			result,
-			libraryimport.ServerSourceFile{RelativePath: file.Path, BlobID: blobID, SizeBytes: file.Size},
-		)
-	}
-	return result, nil
-}
-
-func (service *Service) arcadeCompanionCandidates(
-	ctx context.Context,
-	importID string,
-	item executionItem,
-) ([]executionFile, error) {
-	if item.TargetDATVersionID == "" || len(item.Files) != 1 {
-		return []executionFile{}, nil
-	}
-	machine := strings.TrimSuffix(path.Base(item.Files[0].Path), path.Ext(item.Files[0].Path))
-	dependencies, err := service.arcadeDependencyMachines(ctx, item.TargetDATVersionID, machine)
-	if err != nil {
-		return nil, err
-	}
-	if len(dependencies) == 0 {
-		return []executionFile{}, nil
-	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT file.relative_path,file.size_bytes,file.source_facts_digest
-FROM pegasus_import_items candidate
-JOIN pegasus_import_collections collection ON collection.id=candidate.collection_id
-JOIN pegasus_import_item_files file ON file.item_id=candidate.id
-WHERE candidate.import_id=? AND candidate.id<>? AND candidate.discovery_state='READY'
-AND collection.mapping_action='IMPORT' AND collection.target_platform_instance_id=?
-AND collection.target_dat_version_id=?
-AND (SELECT count(*) FROM pegasus_import_item_files own WHERE own.item_id=candidate.id)=1
-ORDER BY file.relative_path`, importID, item.ID, item.TargetPlatformID, item.TargetDATVersionID)
-	if err != nil {
-		return nil, fmt.Errorf("pegasusimport/query arcade companions: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make([]executionFile, 0)
-	for rows.Next() {
-		var file executionFile
-		if err := rows.Scan(&file.Path, &file.Size, &file.Facts); err != nil {
-			return nil, fmt.Errorf("pegasusimport/scan arcade companion: %w", err)
-		}
-		if !strings.EqualFold(path.Ext(file.Path), ".zip") {
-			continue
-		}
-		candidateMachine := strings.TrimSuffix(path.Base(file.Path), path.Ext(file.Path))
-		if _, required := dependencies[candidateMachine]; !required {
-			continue
-		}
-		result = append(result, file)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("pegasusimport/iterate arcade companions: %w", err)
-	}
-	return result, nil
-}
-
-func (service *Service) arcadeDependencyMachines(
-	ctx context.Context,
-	datVersionID, machine string,
-) (map[string]struct{}, error) {
-	rows, err := service.database.QueryContext(ctx, `
-WITH RECURSIVE dependency(machine) AS (
- SELECT cloneof FROM dat_machines
- WHERE dat_version_id=? AND machine_name=? AND cloneof IS NOT NULL
- UNION
- SELECT romof FROM dat_machines
- WHERE dat_version_id=? AND machine_name=? AND romof IS NOT NULL
- UNION
- SELECT relation.cloneof FROM dat_machines relation
- JOIN dependency current ON relation.machine_name=current.machine
- WHERE relation.dat_version_id=? AND relation.cloneof IS NOT NULL
- UNION
- SELECT relation.romof FROM dat_machines relation
- JOIN dependency current ON relation.machine_name=current.machine
- WHERE relation.dat_version_id=? AND relation.romof IS NOT NULL
-)
-SELECT machine FROM dependency WHERE machine<>? ORDER BY machine`,
-		datVersionID, machine, datVersionID, machine, datVersionID, datVersionID, machine,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("pegasusimport/query arcade dependency closure: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make(map[string]struct{})
-	for rows.Next() {
-		var dependency string
-		if err := rows.Scan(&dependency); err != nil {
-			return nil, fmt.Errorf("pegasusimport/scan arcade dependency closure: %w", err)
-		}
-		result[dependency] = struct{}{}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("pegasusimport/iterate arcade dependency closure: %w", err)
+		result = append(result, libraryimport.ServerSourceFile{RelativePath: file.Path, BlobID: blobID, SizeBytes: file.Size})
 	}
 	return result, nil
 }

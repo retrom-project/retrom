@@ -2,11 +2,9 @@ package pegasusimport
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	repository "retrom/internal/persistence/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
@@ -36,40 +34,6 @@ func (service *Service) finishItem(ctx context.Context, unit work, itemID string
 	if err := items.Finish(ctx, unit.Identity(), itemID, outcome); err != nil {
 		slog.Error("Pegasus item completion failed", "error", service.sanitizeTechnicalDetail(err))
 	}
-}
-
-func (service *Service) closeAssetWarning(ctx context.Context, itemID, kind, code string) {
-	now := service.now().UnixMilli()
-	state := "READ_FAILED"
-	if code == "PEGASUS_SOURCE_CHANGED" {
-		state = "SOURCE_CHANGED"
-	}
-	_, _ = recordstore.UpdatePegasusImportItemAssets(ctx, service.database, recordstore.Update{
-		Set: `state=?,warning_code=?,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `item_id=? AND kind=?`,
-			Args:  []any{itemID, kind},
-		},
-		Values: []any{state, code, now},
-	})
-	var encoded string
-	if err := service.database.QueryRowContext(
-		ctx, `SELECT warnings_json FROM pegasus_import_items WHERE id=?`, itemID,
-	).Scan(&encoded); err != nil {
-		return
-	}
-	warnings := make([]map[string]any, 0, 1)
-	_ = json.Unmarshal([]byte(encoded), &warnings)
-	warnings = append(warnings, map[string]any{"code": code, "field": strings.ToLower(kind)})
-	encodedBytes, _ := json.Marshal(warnings)
-	_, _ = recordstore.UpdatePegasusImportItems(ctx, service.database, recordstore.Update{
-		Set: `warnings_json=?,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{itemID},
-		},
-		Values: []any{string(encodedBytes), now},
-	})
 }
 
 func mediaWarning(kind string, err error) string {

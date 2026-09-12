@@ -9,8 +9,6 @@ import (
 	repository "retrom/internal/persistence/pegasusimport"
 	libraryservice "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/pegasusimport"
-
-	"retrom/internal/persistence/recordstore"
 )
 
 type (
@@ -95,7 +93,7 @@ func (service *Service) processItem(ctx context.Context, unit work, root Root, i
 	if resumed {
 		return
 	}
-	if err := service.updateExecutionPhase(ctx, unit.ImportID, "COPYING_CONTENT"); err != nil {
+	if err := service.updateExecutionPhase(ctx, unit, "COPYING_CONTENT"); err != nil {
 		service.closeItemWithFailure(
 			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)),
@@ -105,27 +103,27 @@ func (service *Service) processItem(ctx context.Context, unit work, root Root, i
 	if !service.copyExecutionFiles(ctx, unit, root, &item) {
 		return
 	}
-	service.copyExecutionAssets(ctx, unit, root, &item)
-	if service.importCancelled(ctx, unit.ImportID) {
+	if !service.copyExecutionAssets(ctx, unit, root, &item) {
+		return
+	}
+	cancelled, err := service.importCancelled(ctx, unit)
+	if err != nil {
+		service.closeItemWithFailure(
+			ctx,
+			unit,
+			item.ID,
+			"COMMIT_FAILED",
+			"INTERNAL_ERROR",
+			true,
+			service.itemFailure("STORAGE", "READ_CANCELLATION", err, firstSourcePath(item)),
+		)
+		return
+	}
+	if cancelled {
 		service.closeItem(ctx, unit, item.ID, "CANCELLED", "CANCELLED", false)
 		return
 	}
 	service.prepareReviewItem(ctx, unit, root, item)
-}
-
-func (service *Service) updateExecutionPhase(ctx context.Context, importID, phase string) error {
-	now := service.now().UnixMilli()
-	if _, err := recordstore.UpdatePegasusImports(ctx, service.database, recordstore.Update{
-		Set: `phase=?,version=version+1,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND state='RUNNING' AND phase IS NOT ?`,
-			Args:  []any{importID, phase},
-		},
-		Values: []any{phase, now},
-	}); err != nil {
-		return fmt.Errorf("pegasusimport/update execution phase: %w", err)
-	}
-	return nil
 }
 
 func (service *Service) copyExecutionFiles(
@@ -151,7 +149,7 @@ func (service *Service) copyExecutionFiles(
 			service.closeItem(ctx, unit, item.ID, terminalForCode(code), code, !errors.Is(err, ErrSourceChanged))
 			return false
 		}
-		blobID, err := service.recordCopiedFile(ctx, item.ID, item.Files[index].Ordinal, metadata)
+		blobID, err := service.recordCopiedFile(ctx, unit, item.ID, item.Files[index], metadata)
 		if err != nil {
 			service.closeItem(ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true)
 			return false
@@ -161,33 +159,30 @@ func (service *Service) copyExecutionFiles(
 	return true
 }
 
-func (service *Service) copyExecutionAssets(
-	ctx context.Context,
-	unit work,
-	root Root,
-	item *executionItem,
-) {
+func (service *Service) copyExecutionAssets(ctx context.Context, unit work, root Root, item *executionItem) bool {
 	for index := range item.Assets {
-		metadata, valid, err := service.copyAsset(ctx, root, unit.RelativePath, item.Assets[index])
+		asset := item.Assets[index]
+		metadata, valid, err := service.copyAsset(ctx, root, unit.RelativePath, asset)
+		if err != nil && !errors.Is(err, ErrSourceChanged) {
+			service.closeItemWithFailure(ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
+				service.itemFailure("STORAGE", "COPY_MEDIA", err, asset.Path))
+			return false
+		}
 		if err != nil || !valid {
-			service.closeAssetWarning(ctx, item.ID, item.Assets[index].Kind, mediaWarning(item.Assets[index].Kind, err))
+			if err := service.closeAssetWarning(ctx, unit, item.ID, asset, mediaWarning(asset.Kind, err)); err != nil {
+				service.closeItemWithFailure(ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
+					service.itemFailure("STORAGE", "WRITE_MEDIA_WARNING", err, asset.Path))
+				return false
+			}
 			continue
 		}
-		blobID, err := service.recordCopiedAsset(
-			ctx, item.ID, item.Assets[index].Kind, metadata, item.Assets[index].MediaType,
-		)
+		blobID, err := service.recordCopiedAsset(ctx, unit, item.ID, asset, metadata)
 		if err != nil {
-			service.closeAssetWarning(ctx, item.ID, item.Assets[index].Kind, "PEGASUS_MEDIA_READ_FAILED")
-			continue
+			service.closeItemWithFailure(ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
+				service.itemFailure("STORAGE", "BIND_MEDIA", err, asset.Path))
+			return false
 		}
 		item.Assets[index].BlobID = blobID
 	}
-}
-
-func (service *Service) importCancelled(ctx context.Context, importID string) bool {
-	var aggregateState string
-	err := service.database.QueryRowContext(
-		ctx, `SELECT state FROM pegasus_imports WHERE id=?`, importID,
-	).Scan(&aggregateState)
-	return err != nil || aggregateState == "CANCEL_REQUESTED"
+	return true
 }
