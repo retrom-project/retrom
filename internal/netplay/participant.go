@@ -13,8 +13,6 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 
-	"github.com/google/uuid"
-
 	"retrom/internal/launch"
 )
 
@@ -26,85 +24,7 @@ type ParticipantLaunch struct {
 	CredentialExpiry int64
 }
 
-type SocketParticipant struct {
-	RoomID               string
-	SessionID            string
-	ProfileID            string
-	PlayerNo             int
-	CredentialGeneration int64
-	ProfileDigest        string
-	ProviderID           string
-	TargetID             string
-	BundleSHA256         string
-	RoomVersion          int64
-	SessionVersion       int64
-	SessionState         string
-	OccupiedSeatMask     int
-	PlayerCount          int
-}
-
-func (service *Service) AuthenticateSocket(
-	ctx context.Context, roomID, profileID, encodedCredential string,
-) (SocketParticipant, error) {
-	var participant SocketParticipant
-	var credentialHash []byte
-	var launchState string
-	err := service.database.QueryRowContext(ctx, `
-SELECT room.id,session.id,participant.profile_id,participant.player_no,
-  participant.credential_generation,session.profile_digest,session.provider_id,session.target_id,
-  session.bundle_sha256,
-  room.version,session.version,session.state,session.occupied_seat_mask,session.player_count,
-  participant.credential_sha256,launch.state
-FROM netplay_rooms room
-JOIN netplay_sessions session ON session.id=room.current_session_id AND session.room_id=room.id
-JOIN netplay_session_participants participant ON participant.netplay_session_id=session.id
-JOIN launch_sessions launch ON launch.id=participant.launch_session_id
-WHERE room.id=? AND participant.profile_id=? AND room.state IN ('STARTING','RUNNING')
-  AND session.state NOT IN ('FINISHED','FAILED')
-`, roomID, profileID).Scan(
-		&participant.RoomID, &participant.SessionID, &participant.ProfileID, &participant.PlayerNo,
-		&participant.CredentialGeneration, &participant.ProfileDigest, &participant.ProviderID,
-		&participant.TargetID, &participant.BundleSHA256,
-		&participant.RoomVersion, &participant.SessionVersion, &participant.SessionState,
-		&participant.OccupiedSeatMask, &participant.PlayerCount,
-		&credentialHash, &launchState,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return SocketParticipant{}, ErrForbidden
-	}
-	if err != nil {
-		return SocketParticipant{}, serviceError("authenticate socket", err)
-	}
-	if launchState != "ACTIVE" || !MatchesCapability(encodedCredential, credentialHash) {
-		return SocketParticipant{}, ErrForbidden
-	}
-	return participant, nil
-}
-
-func (service *Service) ParticipantCapability(
-	ctx context.Context, sessionID, profileID string,
-) (string, error) {
-	var generation int64
-	var credentialHash []byte
-	var launchID string
-	if err := service.database.QueryRowContext(ctx, `
-SELECT credential_generation,credential_sha256,launch_session_id
-FROM netplay_session_participants
-WHERE netplay_session_id=? AND profile_id=? AND launch_session_id IS NOT NULL
-`, sessionID, profileID).Scan(&generation, &credentialHash, &launchID); err != nil {
-		return "", ErrForbidden
-	}
-	sessionUUID, sessionErr := uuid.Parse(sessionID)
-	profileUUID, profileErr := uuid.Parse(profileID)
-	if sessionErr != nil || profileErr != nil || generation < 1 {
-		return "", ErrForbidden
-	}
-	credential := service.credentials.Capability(sessionUUID, profileUUID, uint32(generation))
-	if !MatchesCapability(EncodeCapability(credential), credentialHash) {
-		return "", ErrForbidden
-	}
-	return EncodeCapability(credential), nil
-}
+type SocketParticipant = application.SocketParticipant
 
 func (service *Service) failPreparation(ctx context.Context, roomID string, cause error) error {
 	rollbackContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -196,24 +116,6 @@ WHERE session.id=? AND session.room_id=? AND participant.profile_id=?
 		spec.generation = 1
 	}
 	return spec, nil
-}
-
-func (service *Service) participantCredential(
-	sessionID, profileID string, generation int64,
-) ([32]byte, error) {
-	const maxCredentialGeneration = int64(1<<32 - 1)
-	if generation < 1 || generation > maxCredentialGeneration {
-		return [32]byte{}, ErrForbidden
-	}
-	sessionUUID, err := uuid.Parse(sessionID)
-	if err != nil {
-		return [32]byte{}, ErrSessionNotFound
-	}
-	profileUUID, err := uuid.Parse(profileID)
-	if err != nil {
-		return [32]byte{}, ErrForbidden
-	}
-	return service.credentials.Capability(sessionUUID, profileUUID, uint32(generation)), nil
 }
 
 func (service *Service) recordParticipantLaunch(

@@ -1,6 +1,6 @@
 //go:build linux
 
-package netplay
+package capability
 
 import "syscall"
 

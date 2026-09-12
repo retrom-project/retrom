@@ -1,4 +1,4 @@
-package netplay
+package capability
 
 import (
 	"os"

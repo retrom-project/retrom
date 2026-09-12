@@ -1,5 +1,5 @@
 //go:build !linux
 
-package netplay
+package capability
 
 func credentialNoFollow() int { return 0 }

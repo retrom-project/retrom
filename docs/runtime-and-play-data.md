@@ -132,6 +132,8 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 房间维护按有界批次扫描空闲过期、启动超时和运行时长上限；写入前重新核对候选房间版本与会话身份，已变化的候选留给后续扫描。启动恢复只接受 SERVER_RESTARTED 或 RESTORE，并在单一事务中结束旧会话与关联 Launch/Play。事件查询在一个读事务中确认房间和读取游标后的记录，条数限制为 1–100，缺省或无效限制使用 100。
 
+Socket 认证与参与者凭据重取通过 Service 校验活动 Launch、规范编码、身份和凭据代次，Repository 只读取当前持久状态。缺失授权与存储故障使用不同错误；失败不返回部分身份或凭据。签名算法、密钥文件保护和规范编码由独立 capability 包维护。
+
 ## 9. PlaySession 生命周期
 
 Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat 以连续序号报告上一时段的 running/visible/paused，服务端按接收时间计费；页面隐藏、暂停、失联、重放或跳号不能伪造时长。用户菜单退出、游戏自身退出和异常退出最终都幂等 finish Launch；卸载失败由 hard expiry 收口。
