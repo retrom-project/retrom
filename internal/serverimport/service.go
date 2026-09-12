@@ -36,8 +36,8 @@ var (
 	ErrCatalogEmpty   = errors.New("BIOS_CATALOG_EMPTY")
 	ErrCatalogInvalid = errors.New("BIOS_CATALOG_INVALID")
 	ErrScanLimit      = errors.New("SERVER_IMPORT_SCAN_LIMIT_EXCEEDED")
-	ErrNotCancellable = errors.New("SERVER_IMPORT_NOT_CANCELLABLE")
-	ErrNotRetryable   = errors.New("SERVER_IMPORT_NOT_RETRYABLE")
+	ErrNotCancellable = importservice.ErrNotCancellable
+	ErrNotRetryable   = importservice.ErrNotRetryable
 	ErrNotFound       = importservice.ErrNotFound
 )
 

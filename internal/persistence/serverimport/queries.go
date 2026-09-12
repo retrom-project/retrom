@@ -14,7 +14,11 @@ import (
 )
 
 func (repository *Queries) Get(ctx context.Context, importID string) (serverimport.Summary, error) {
-	result, err := scanSummary(repository.database.QueryRowContext(ctx, summaryQuery+` WHERE import.id=?`, importID))
+	return getSummary(ctx, repository.database, importID)
+}
+
+func getSummary(ctx context.Context, executor dbexec.Executor, importID string) (serverimport.Summary, error) {
+	result, err := scanSummary(executor.QueryRowContext(ctx, summaryQuery+` WHERE import.id=?`, importID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return serverimport.Summary{}, serverimport.ErrNotFound
 	}

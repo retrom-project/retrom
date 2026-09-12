@@ -69,8 +69,8 @@ internal/playtime/        PlaySession 和有效时长
 internal/blobstore/       CAS 写入、读取、引用与垃圾回收
 internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮换、离线恢复、用户管理、账户链接与账户限流策略
 internal/persistence/accounts/ 账户安全事务、限流桶及原子多主体计数
-internal/service/serverimport/ 服务器 BIOS 导入查询和分页规则
-internal/persistence/serverimport/ 导入目录、结果及候选证据查询
+internal/service/serverimport/ 服务器 BIOS 导入查询、分页及取消/重试规则
+internal/persistence/serverimport/ 导入目录/候选查询及取消/重试原子事务
 internal/service/metadatascrape/ 抓取调度、证据查询、候选规则与执行收口
 internal/persistence/metadatascrape/ 抓取证据、结果、任务租约与事务存储
 internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排
@@ -431,7 +431,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 13. 服务器导入运维
 
-服务器 BIOS 导入的查询 Service 校验分页边界和游标，Repository 负责汇总及稳定排序；缺少导入记录返回领域错误，损坏的候选/选择证据或其他存储故障不能伪装成空结果或资源不存在。
+服务器 BIOS 导入的查询 Service 校验分页边界和游标，Repository 负责汇总及稳定排序；缺少导入记录返回领域错误，损坏的候选/选择证据或其他存储故障不能伪装成空结果或资源不存在。取消与手动重试由 Service 在事务内检查导入版本、任务状态和来源配置；Repository 原子维护条目、任务、执行输入、事件和审计，并在提交前读取返回的汇总。取消排队任务保留已完成条目，只取消未完成条目；运行中任务等待 worker 确认。手动重试要求没有其他同类活动导入，生成新执行输入并重置执行预算，过期版本和任何事务故障均不能留下部分重置或成功响应。
 
 服务器目录浏览与导入只对 ADMIN 开放，不配置应用目录白名单。固定 source ID 为 `filesystem`、路径 `/`，可浏览和选择服务进程有权限读取的普通目录；容器部署须将来源目录挂载进容器。导入只读取来源，仍不跟随符号链接、不读取设备文件，也不执行来源命令。旧部署须移除已废弃的 `RETROM_SERVER_IMPORT_ROOTS` 设置；未知环境变量仍按启动配置规则拒绝。旧任务保留历史摘要，使用旧 root ID 的未完成任务需从新路径重新扫描。
 
