@@ -335,137 +335,21 @@ ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END
 }
 
 func transitionServerReview(
-	ctx context.Context,
-	transaction *sql.Tx,
-	importItemID, state string,
-	gameID any,
-	now int64,
+	ctx context.Context, transaction *sql.Tx, importItemID, state string, gameID any, now int64,
 ) error {
-	if state != "PUBLISHED" && state != "REVIEW_DISCARDED" {
-		return ErrInvalid
+	var publishedGameID *string
+	if gameID != nil {
+		value, ok := gameID.(string)
+		if !ok {
+			return ErrInvalid
+		}
+		publishedGameID = &value
 	}
-	pegasusAffected, err := transitionServerReviewOwner(
-		ctx, transaction, "pegasus_import_items", importItemID, state, gameID, now,
-	)
-	if err != nil {
-		return err
-	}
-	emulationStationAffected, err := transitionServerReviewOwner(
-		ctx, transaction, "emulationstation_import_items", importItemID, state, gameID, now,
-	)
-	if err != nil {
-		return err
-	}
-	if pegasusAffected+emulationStationAffected == 0 {
-		return nil
-	}
-	if pegasusAffected > 0 {
-		return refreshPegasusReviewCounts(ctx, transaction, importItemID, now)
-	}
-	return refreshEmulationStationReviewCounts(ctx, transaction, importItemID, now)
-}
-
-func transitionServerReviewOwner(
-	ctx context.Context,
-	transaction *sql.Tx,
-	table, importItemID, state string,
-	gameID any,
-	now int64,
-) (int64, error) {
-	update := recordstore.UpdatePegasusImportItems
-	switch table {
-	case "pegasus_import_items":
-	case "emulationstation_import_items":
-		update = recordstore.UpdateEmulationstationImportItems
-	default:
-		return 0, ErrInvalid
-	}
-	result, err := update(ctx, transaction, recordstore.Update{
-		Set: "execution_state=?,published_game_id=?,version=version+1,updated_at_ms=?", Values: []any{state, gameID, now},
-		Scope: recordstore.Scope{Where: `library_import_item_id=? AND (execution_state='REVIEW_PENDING'
- OR ?='REVIEW_DISCARDED' AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED'))
-`, Args: []any{importItemID, state}},
+	err := librarypersistence.TransitionReviewOwners(ctx, transaction, libraryservice.ReviewOwnerTransition{
+		ItemID: importItemID, State: libraryservice.ReviewOwnerState(state), GameID: publishedGameID, NowMS: now,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("libraryimport/server review transition: %w", err)
-	}
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("libraryimport/server review rows affected: %w", err)
-	}
-	if affected == 0 {
-		var linked int
-		if err := transaction.QueryRowContext(
-			ctx, `SELECT count(*) FROM `+table+` WHERE library_import_item_id=?`, importItemID,
-		).Scan(&linked); err != nil {
-			return 0, fmt.Errorf("libraryimport/server review link: %w", err)
-		}
-		if linked > 0 {
-			return 0, ErrInvalid
-		}
-		return 0, nil
-	}
-	return affected, nil
-}
-
-func refreshPegasusReviewCounts(
-	ctx context.Context, transaction *sql.Tx, importItemID string, now int64,
-) error {
-	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
-		Set: `
-review_pending_item_count=(
-  SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_PENDING'
-),
-published_item_count=(
-  SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id AND item.execution_state='PUBLISHED'
-),
-review_discarded_item_count=(
-  SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_DISCARDED'
-),
-version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-id=(SELECT import_id FROM pegasus_import_items WHERE library_import_item_id=? LIMIT 1)
-`,
-			Args: []any{importItemID},
-		},
-		Values: []any{now},
-	}); err != nil {
-		return fmt.Errorf("libraryimport/server review aggregate: %w", err)
-	}
-	return nil
-}
-
-func refreshEmulationStationReviewCounts(
-	ctx context.Context, transaction *sql.Tx, importItemID string, now int64,
-) error {
-	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
-		Set: `
-review_pending_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state='REVIEW_PENDING'
-),published_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state='PUBLISHED'
-),review_discarded_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state='REVIEW_DISCARDED'
-),version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-id=(SELECT import_id FROM emulationstation_import_items
- WHERE library_import_item_id=? LIMIT 1)
-`,
-			Args: []any{importItemID},
-		},
-		Values: []any{now},
-	}); err != nil {
-		return fmt.Errorf("libraryimport/EmulationStation review aggregate: %w", err)
+		return fmt.Errorf("libraryimport/transition review owner: %w", err)
 	}
 	return nil
 }

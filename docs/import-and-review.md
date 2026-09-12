@@ -349,6 +349,10 @@ Parent 改变有效 source manifest 和 content identity。每次接受后重新
 
 审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都写 `SCRAPE_REQUESTED` ReviewEvent，服务端不会自动覆盖持久化草稿。首次自动刮削已有候选且草稿尚未选择来源时，前端把首个候选基础信息与 READY 封面填入客户端状态，并通过当前 ETag 防抖、串行实时保存；没有候选时必须把最新持久化 Run 的精确结论常驻投影到审核摘要，区分无特征、精确未命中、上游限流/超时/网络异常和响应无法解析，不能一律折叠成“未找到游戏信息”。之后显式查询原位等待 Job 终态，并以单个“当前信息 / 最新信息”左右两栏对比对话框呈现结果；每栏内部上方为短元信息与 3:4 封面，下方为完整简介。右栏可编辑且可上传人工封面，取消不采用，应用更新客户端状态并触发实时 PATCH；不得把历次候选卡不断追加到页面正文。草稿在决策前可以引用当前 run/candidate/asset；ReviewEvent v2 只冻结文字字段、候选/Validation/Run 等结构化审计 ID 与选择结论，不保存 asset/blob/upload ID 或媒体 URL。
 
+单条丢弃、批次处置和快速去重共用 `internal/service/libraryimport.ReviewDiscards` 的审核决定规则。单条丢弃拥有独立事务，批次逐项提交，快速去重的一页继续共享同一事务；附件取消、Item 与父任务计数、v2 审计、服务器来源状态和 payload 释放登记必须一起成功。最终写入同时检查待审状态和草稿版本；单条来源只能从已交接的 `REVIEW_PENDING` 收口，批次处置沿用其未发布预约清理权限。状态或版本不符返回冲突，数据库与损坏审计证据错误保留原因并返回服务器错误。
+
+丢弃后的任务状态由 `internal/service/importprogress` 按既定聚合优先级计算，保留排队、运行、失败和未解决拒绝记录的影响。Repository 在同一事务读取聚合快照，保存时同时检查父任务版本与原待审数量；丢弃最后一个待审项不能把仍有失败或在途条目的任务改为 `COMPLETED`，也不能提前释放其 payload。
+
 ## 10. 审核历史
 
 ReviewEvent v2 只追加不覆盖，至少包含：

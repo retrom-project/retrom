@@ -39,7 +39,8 @@ func newDeduplicateDiscardFault(t *testing.T, fixture deduplicateFixture, copies
 func discardStatementItem(query string, args []driver.NamedValue) string {
 	normalized := strings.Join(strings.Fields(query), " ")
 	if !strings.HasPrefix(normalized, "UPDATE import_items SET ") ||
-		!strings.Contains(normalized, "state='DISCARDED'") || !strings.Contains(normalized, "AND state='REVIEW_PENDING'") || len(args) != 3 {
+		!strings.Contains(normalized, "state='DISCARDED'") || !strings.Contains(normalized, "AND state='REVIEW_PENDING'") ||
+		!strings.Contains(normalized, "d.version=?") || len(args) != 4 {
 		return ""
 	}
 	id, _ := args[2].Value.(string)

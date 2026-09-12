@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"retrom/internal/dbexec"
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 )
@@ -98,10 +100,13 @@ func (service *Service) DeduplicateReviews(
 		if len(duplicates) == 0 {
 			continue
 		}
-		if _, err := service.discardInTransaction(
-			ctx, transaction, candidate.itemID, candidate.reviewVersion, "快速去重：游戏内容已发布", false,
+		if _, err := service.reviewDiscards().DiscardInScope(
+			ctx, librarypersistence.BindReviewDiscard(transaction), libraryservice.ReviewDiscardRequest{
+				ItemID: candidate.itemID, ExpectedVersion: candidate.reviewVersion,
+				Reason: "快速去重：游戏内容已发布", Mode: libraryservice.ReviewDiscardSingle,
+			},
 		); err != nil {
-			return ReviewDeduplicateResult{}, err
+			return ReviewDeduplicateResult{}, fmt.Errorf("libraryimport/deduplicate discard: %w", err)
 		}
 		result.DiscardedCount++
 	}

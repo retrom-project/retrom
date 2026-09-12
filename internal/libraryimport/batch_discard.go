@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/dbexec"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/payloadrelease"
@@ -18,8 +19,10 @@ func (service *Service) DiscardBatchReviews(ctx context.Context, importID string
 		return false, err
 	}
 	for _, item := range reviews {
-		if _, err := service.discard(ctx, item.id, item.version, "丢弃本批次未发布内容", true); err != nil {
-			return false, err
+		if _, err := service.reviewDiscards().Discard(ctx, libraryservice.ReviewDiscardRequest{
+			ItemID: item.id, ExpectedVersion: item.version, Reason: "丢弃本批次未发布内容", Mode: libraryservice.ReviewDiscardBatch,
+		}); err != nil {
+			return false, fmt.Errorf("libraryimport/discard batch review: %w", err)
 		}
 	}
 	return len(reviews) < 50, nil

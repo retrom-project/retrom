@@ -5,30 +5,22 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"retrom/internal/dbexec"
-
-	tagpersistence "retrom/internal/persistence/tagging"
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/payloadrelease"
-	"retrom/internal/service/tagging"
 
 	"github.com/google/uuid"
 )
 
-type DecisionResult struct {
-	ItemID      string `json:"itemId"`
-	EventID     string `json:"reviewEventId"`
-	Status      string `json:"status"`
-	Version     int64  `json:"version"`
-	UpdatedAtMS int64  `json:"updatedAtMs"`
-}
+type DecisionResult = libraryservice.ReviewDecisionResult
 
 func requireSingleReviewMutation(result sql.Result, err error, action string) error {
 	if err != nil {
@@ -44,274 +36,20 @@ func requireSingleReviewMutation(result sql.Result, err error, action string) er
 	return nil
 }
 
-func discardReviewItemAndAggregate(
-	ctx context.Context,
-	transaction *sql.Tx,
-	itemID string,
-	importID string,
-	now int64,
-) error {
-	itemResult, itemErr := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
-		Set: `
-state='DISCARDED',
-version=version+1,
-updated_at_ms=?,
-completed_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-id=?
-AND state='REVIEW_PENDING'
-`,
-			Args: []any{itemID},
-		},
-		Values: []any{now, now},
-	})
-	if err := requireSingleReviewMutation(itemResult, itemErr, "discard item"); err != nil {
-		return err
-	}
-	jobResult, jobErr := transaction.ExecContext(ctx, `
-UPDATE import_jobs
-SET review_pending_item_count=review_pending_item_count-1,
-discarded_item_count=discarded_item_count+1,
-state=CASE WHEN cancel_requested_at_ms IS NOT NULL THEN state
-WHEN review_pending_item_count=1
-AND rejected_file_count=resolved_rejected_file_count THEN 'COMPLETED'
-WHEN review_pending_item_count=1 THEN 'PARTIAL_FAILURE'
-ELSE state END,
-version=version+1,
-updated_at_ms=?,
-completed_at_ms=CASE WHEN cancel_requested_at_ms IS NOT NULL THEN completed_at_ms
-WHEN review_pending_item_count=1
-AND rejected_file_count=resolved_rejected_file_count THEN ? ELSE NULL END
-WHERE id=? AND review_pending_item_count>0
-`, now, now, importID)
-	return requireSingleReviewMutation(jobResult, jobErr, "discard job aggregate")
+func (service *Service) reviewDiscards() *libraryservice.ReviewDiscards {
+	return libraryservice.NewReviewDiscards(librarypersistence.NewReviewDiscards(service.database), service.now)
 }
 
-// Contract branches stay contiguous for a single auditable decision.
 func (service *Service) Discard(
-	ctx context.Context,
-	itemID string,
-	expectedVersion int64,
-	reason string,
+	ctx context.Context, itemID string, expectedVersion int64, reason string,
 ) (DecisionResult, error) {
-	return service.discard(ctx, itemID, expectedVersion, reason, false)
-}
-
-func (service *Service) discard(
-	ctx context.Context, itemID string, expectedVersion int64, reason string, batch bool,
-) (DecisionResult, error) {
-	reason = strings.TrimSpace(reason)
-	if reason != "" && !validField(reason, 500, true) {
-		return DecisionResult{}, ErrInvalid
-	}
-	transaction, err := service.database.BeginTx(ctx, nil)
+	result, err := service.reviewDiscards().Discard(ctx, libraryservice.ReviewDiscardRequest{
+		ItemID: itemID, ExpectedVersion: expectedVersion, Reason: reason, Mode: libraryservice.ReviewDiscardSingle,
+	})
 	if err != nil {
-		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	result, err := service.discardInTransaction(ctx, transaction, itemID, expectedVersion, reason, batch)
-	if err != nil {
-		return DecisionResult{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
+		return DecisionResult{}, fmt.Errorf("libraryimport/discard review: %w", err)
 	}
 	return result, nil
-}
-
-func (service *Service) discardInTransaction(
-	ctx context.Context, transaction *sql.Tx, itemID string, expectedVersion int64, reason string, batch bool,
-) (DecisionResult, error) {
-	evidence, err := service.loadDiscardEvidence(ctx, transaction, itemID, expectedVersion, batch)
-	if err != nil {
-		return DecisionResult{}, err
-	}
-	now := service.now().UnixMilli()
-	if err := cancelDiscardedReviewAttachments(ctx, transaction, itemID, now); err != nil {
-		return DecisionResult{}, err
-	}
-	if err := discardReviewItemAndAggregate(ctx, transaction, itemID, evidence.importID, now); err != nil {
-		return DecisionResult{}, err
-	}
-	eventID, err := insertDiscardReviewEvent(ctx, transaction, itemID, reason, evidence, now)
-	if err != nil {
-		return DecisionResult{}, err
-	}
-	if err := transitionServerReview(ctx, transaction, itemID, "REVIEW_DISCARDED", nil, now); err != nil {
-		return DecisionResult{}, err
-	}
-	if err := scheduleTerminalPayloads(
-		ctx, transaction, itemID, evidence.importID, payloadrelease.ReasonImportDiscarded, now,
-	); err != nil {
-		return DecisionResult{}, err
-	}
-	return DecisionResult{
-		ItemID: itemID, EventID: eventID, Status: "DISCARDED",
-		Version: evidence.currentVersion + 1, UpdatedAtMS: now,
-	}, nil
-}
-
-type discardEvidence struct {
-	draftID            string
-	importID           string
-	metadataJSON       string
-	configSnapshotJSON string
-	validationID       sql.NullString
-	datID              sql.NullString
-	dependencySnapshot sql.NullString
-	candidateID        sql.NullString
-	coverID            sql.NullString
-	uploadedCoverID    sql.NullString
-	backgroundID       sql.NullString
-	currentVersion     int64
-	tags               []tagging.Reference
-}
-
-func (service *Service) loadDiscardEvidence(
-	ctx context.Context,
-	transaction *sql.Tx,
-	itemID string,
-	expectedVersion int64,
-	batch bool,
-) (discardEvidence, error) {
-	var value discardEvidence
-	err := transaction.QueryRowContext(ctx, `
-SELECT d.id,i.import_job_id,d.metadata_json,d.version,
-  j.config_snapshot_json,d.selected_validation_id,v.dat_version_id,v.dependency_snapshot_json,
-  d.selected_candidate_id,d.cover_candidate_asset_id,d.cover_uploaded_asset_id,
-  d.background_candidate_asset_id
-FROM import_items i
-JOIN import_jobs j ON j.id=i.import_job_id
-JOIN review_drafts d ON d.import_item_id=i.id
-LEFT JOIN import_item_core_validations v ON v.id=d.selected_validation_id
-WHERE i.id=? AND i.state='REVIEW_PENDING'
-AND (? OR i.review_handoff_kind='DIRECT' OR EXISTS(
-  SELECT 1 FROM emulationstation_import_items reserved_source
-  WHERE reserved_source.library_import_item_id=i.id
-  AND reserved_source.execution_state='REVIEW_PENDING'
-))
-`, itemID, batch).Scan(
-		&value.draftID, &value.importID, &value.metadataJSON, &value.currentVersion,
-		&value.configSnapshotJSON, &value.validationID,
-		&value.datID, &value.dependencySnapshot, &value.candidateID, &value.coverID,
-		&value.uploadedCoverID, &value.backgroundID,
-	)
-	if err != nil || value.currentVersion != expectedVersion {
-		return discardEvidence{}, ErrInvalid
-	}
-	value.tags, err = service.tags.ReviewDraftReferences(ctx, tagpersistence.Bind(transaction), value.draftID)
-	if err != nil {
-		return discardEvidence{}, fmt.Errorf("libraryimport/review: read discarded draft tags: %w", err)
-	}
-	return value, nil
-}
-
-func cancelDiscardedReviewAttachments(
-	ctx context.Context,
-	transaction *sql.Tx,
-	itemID string,
-	now int64,
-) error {
-	if _, err := transaction.ExecContext(ctx, `UPDATE jobs
-SET state=CASE WHEN state='QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,
-  cancel_requested_at_ms=?,cancel_reason='review discarded',
-  finished_at_ms=CASE WHEN state='QUEUED' THEN ? ELSE NULL END,
-  version=version+1,updated_at_ms=?
-WHERE id IN (SELECT job_id FROM review_arcade_parent_attachments
-  WHERE import_item_id=? AND state IN ('QUEUED','RUNNING'))
-  AND state IN ('QUEUED','RUNNING')`, now, now, now, itemID); err != nil {
-		return fmt.Errorf("libraryimport/review: %w", err)
-	}
-	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
-		Set: `
-state='CANCELLED',error_code='CANCELLED',
-  diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
-  version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `import_item_id=? AND state IN ('QUEUED','RUNNING')`,
-			Args:  []any{itemID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("libraryimport/review: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `UPDATE jobs
-SET state=CASE WHEN state='RUNNING' THEN 'CANCEL_REQUESTED' ELSE 'CANCELLED' END,
-  cancel_requested_at_ms=?,cancel_reason='review discarded',
-  finished_at_ms=CASE WHEN state='RUNNING' THEN NULL ELSE ? END,
-  version=version+1,updated_at_ms=?
-WHERE id IN (SELECT job_id FROM review_multidisc_attachments
-  WHERE import_item_id=? AND state IN ('QUEUED','RUNNING','FAILED_RETRYABLE'))
-  AND (state IN ('QUEUED','RUNNING') OR state='FAILED' AND error_retryable=1)`, now, now, now, itemID); err != nil {
-		return fmt.Errorf("libraryimport/review: %w", err)
-	}
-	if _, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
-		Set: `
-state='CANCELLED',error_code='CANCELLED',
-  diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
-  version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `import_item_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')`,
-			Args:  []any{itemID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("libraryimport/review: %w", err)
-	}
-	return nil
-}
-
-func insertDiscardReviewEvent(
-	ctx context.Context,
-	transaction *sql.Tx,
-	itemID string,
-	reason string,
-	evidence discardEvidence,
-	now int64,
-) (string, error) {
-	beforeJSON, configJSON, datJSON, providerJSON := marshalDiscardEvidence(evidence)
-	eventID, _ := uuid.NewV7()
-	actor := reviewActor(ctx)
-	_, err := recordstore.CreateReviewEvents(ctx, transaction, `
-INSERT INTO review_events(
-  id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
-  after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,
-  reason,created_at_ms
-) VALUES(?,?,'DISCARDED',?,?,?,?, 
-  '{"schemaVersion":2,"decision":"DISCARDED"}',
-  '{"schemaVersion":2,"decision":"DISCARDED"}',?,?,?,?,?)
-`, eventID.String(), itemID, actor.Kind, actor.UserID, actor.Label, string(beforeJSON),
-		string(configJSON), string(datJSON), string(providerJSON), nullableText(reason), now)
-	if err != nil {
-		return "", fmt.Errorf("libraryimport/review: %w", err)
-	}
-	return eventID.String(), nil
-}
-
-func marshalDiscardEvidence(evidence discardEvidence) ([]byte, []byte, []byte, []byte) {
-	beforeJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 2, "metadata": json.RawMessage(evidence.metadataJSON),
-		"tags": evidence.tags,
-		"mediaSelection": map[string]any{
-			"cover":      evidence.coverID.Valid || evidence.uploadedCoverID.Valid,
-			"background": evidence.backgroundID.Valid,
-		},
-	})
-	configJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 2, "validationAvailable": evidence.validationID.Valid,
-	})
-	datJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 2, "datMatched": evidence.datID.Valid,
-	})
-	providerJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 2, "selectedCandidateId": nullable(evidence.candidateID),
-		"candidateSelected": evidence.candidateID.Valid,
-	})
-	return beforeJSON, configJSON, datJSON, providerJSON
 }
 
 type RetryResult struct {
