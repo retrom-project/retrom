@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 22
+const Version = 23
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -193,6 +193,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "intellivision/freeintv", PlatformID: "intellivision", DefaultCoreID: "freeintv",
 		Name: "Intellivision 游戏", CatalogOrder: 580,
 	},
+	{Key: "pc88/quasi88", PlatformID: "pc88", DefaultCoreID: "quasi88", Name: "PC-88 游戏", CatalogOrder: 590},
 }}
 
 func Current() Catalog {

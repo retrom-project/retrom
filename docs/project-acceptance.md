@@ -2089,6 +2089,32 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 通过标准：无浏览器异常，`play-state-v1` 新存档在不同 Launch 精确恢复命名状态，方向/确认/取消、暂停、截图、音频与缓存断言通过。证据为 `play-product.json` 与各阶段 PNG。自动化使用标准映射虚拟手柄；实体设备、完整比赛、跨游戏图形兼容性与声音质量不属于该 Case 的通过结论。《Ridge Racer V》上下跳动及三维场景缺失作为已知图形兼容性问题记录，不更改正常核心绑定与启动行为。
 
 
+### ACC-PC88-001：QUASI88 PC-88 磁盘与即时状态
+
+以作者公开发布的《The Librarian》v0.91 D88 为外部语料，运行
+`scripts/acceptance/pc88_product.mjs`，完成 BIOS 安装、正常导入、审核预览、发布、
+Product Launch、标准手柄确认/方向、创建即时存档、不同 Launch 恢复与恢复后输入。
+场景固定 1280×900 viewport：用确认键跳过剧情进入六边形地图，向右移动后保存 B，
+再向左移动到 C；新会话须直接恢复 B 的整幅地图像素，继续向左须到达 C 的角色位置。
+另外从 B 创建新会话，以真实键盘 Numpad4 向左移动到 C。移动比较角色身体位置，
+避免随机遭遇和角色边缘重绘差异；每次恢复仍严格比较整幅地图。
+输入前先证明静止地图不随时间改变，当前运行的 A/B/C/恢复截图仍须目视复核角色位置。
+保存截图不能是空白，音频须有非零采样。虚拟标准手柄不替代实体手柄验收。
+
+运行变量为 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、
+`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_PC88_DISC`、
+`RETROM_PC88_BIOS_DIR`。游戏 SHA-256 固定为
+`e98b5084ee0392351d1c9a1dc49dc07ba2f799d7cc0ca53a186a28786b8a296a`。
+缺少输入时输出 BLOCKED；硬超时 600 秒。失败在发布前时可通过 `RETROM_PC88_REVIEW_ID`
+继续同一待审核项。若已发布，可用 `RETROM_PC88_RESUME_EVIDENCE` 指向完整记录导入、预览、发布的
+此前 JSON，重新验证同一游戏；结果保留此前证据摘要，且 Provider、模块和 Bundle 必须完全相同。
+正式发行包复测可同时指定 `RETROM_PC88_EXPECTED_BUNDLE_SHA256` 和
+`RETROM_PC88_EXPECTED_CORE_SHA256`：正常下载并核对核心 bytes，允许 Provider 版本升级，
+保留此前导入/预览证据引用，并重新执行产品启动、存档和不同 Launch 恢复。
+驱动不会替换已有 BIOS 安装。输出 `pc88-product.json` 和普通游戏截图，
+不下载、提交游戏/BIOS，也不记录授权凭据。首版仅声明单张 D88/U88 和即时状态，
+一个样本不能证明全部 PC-88 软件、多盘切换或磁盘写入兼容性。
+
 ### ACC-PC98-001：NP2kai PC-98 磁盘与即时状态
 
 以作者公开发布的《囚人へのペル・エム・フル》2025-12-31 HDI 为外部语料，使用

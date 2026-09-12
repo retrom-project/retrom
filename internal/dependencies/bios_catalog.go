@@ -31,7 +31,7 @@ type staticBIOS struct {
 	targetID     string
 }
 
-var staticBIOSCatalog = []staticBIOS{
+var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 	{
 		coreID: "freeintv", logical: "exec.bin", mode: "REQUIRED", size: 8192,
 		md5: "62e761035cb657903761800f4437b8af", sha256: "1aeb614856beba95463166daf09304b414d5617d3f37d221724b3337fc4b2722",
@@ -252,7 +252,7 @@ var staticBIOSCatalog = []staticBIOS{
 		md5: "08e36edbea28a017f79f8d4f7ff9b6d7", sha256: "4b44ccf5d84cc83daa2e6a2bee00fdafa14eb58bdf5859e96d8861a891675417",
 		sourceURL: "https://docs.libretro.com/library/beetle_pc_fx/",
 	},
-}
+}...)
 
 // Static BIOS definitions are synchronized atomically with their aliases and version provenance.
 func bootstrapStaticBIOS(
