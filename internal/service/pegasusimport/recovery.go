@@ -11,12 +11,13 @@ import (
 )
 
 type (
-	RecoverySnapshot struct {
+	ExecutionSnapshot struct {
 		JobID, ImportID, Kind, JobState, ImportState, WorkerID       string
 		JobVersion, ImportVersion, ExecutionNo, Attempt, MaxAttempts int64
 		LeaseUntilMS, DeadlineMS                                     int64
 	}
-	RecoveryChange struct {
+	RecoverySnapshot = ExecutionSnapshot
+	RecoveryChange   struct {
 		Before                                                  RecoverySnapshot
 		JobState, ImportState, ItemState, Code, ItemCode, Event string
 		NowMS                                                   int64
@@ -168,13 +169,16 @@ func planRecovery(before RecoverySnapshot, now int64) (RecoveryChange, error) {
 		change.ItemState, change.Event, change.ItemCode = "CANCELLED", "CANCELLED", "CANCELLED"
 		return change, nil
 	}
-	if before.JobState != "RUNNING" || !recoveryParentActive(before) {
+	if (before.JobState != "RUNNING" && before.JobState != "QUEUED") || !recoveryParentActive(before) {
 		return RecoveryChange{}, ErrVersionConflict
 	}
 	if before.DeadlineMS <= now {
 		change.Code = "PEGASUS_EXECUTION_TIMEOUT"
 	} else if before.Attempt >= before.MaxAttempts {
 		change.Code = "PEGASUS_WORKER_ATTEMPTS_EXHAUSTED"
+	}
+	if before.JobState == "QUEUED" && change.Code == "" {
+		return RecoveryChange{}, ErrVersionConflict
 	}
 	if change.Code != "" {
 		change.ItemCode = change.Code
@@ -191,7 +195,11 @@ func recoveryParentActive(before RecoverySnapshot) bool {
 }
 
 func validRecoveryExecution(before RecoverySnapshot) bool {
-	return before.LeaseUntilMS > 0 && before.DeadlineMS > 0 && before.Attempt > 0 && before.MaxAttempts > 0 &&
+	validLease := before.LeaseUntilMS > 0
+	if before.JobState == "QUEUED" {
+		validLease = before.LeaseUntilMS == 0 && before.WorkerID == ""
+	}
+	return validLease && before.DeadlineMS > 0 && before.Attempt > 0 && before.MaxAttempts > 0 &&
 		before.ExecutionNo > 0 &&
 		before.JobVersion > 0 && before.JobVersion < math.MaxInt64 && before.ImportVersion > 0 &&
 		before.ImportVersion < math.MaxInt64-1

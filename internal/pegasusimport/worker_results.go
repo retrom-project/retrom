@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strings"
 
+	repository "retrom/internal/persistence/pegasusimport"
+	application "retrom/internal/service/pegasusimport"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -219,91 +222,9 @@ VALUES(?,'PEGASUS_IMPORT',?,'CANCELLED','{"schemaVersion":1}',?)`,
 }
 
 func (service *Service) finishImport(ctx context.Context, unit work) error {
-	now := service.now().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("pegasusimport/start finish transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	var blocked, failed, reviewPending, published, reviewDiscarded, existing, cancelled int64
-	if err := transaction.QueryRowContext(ctx, `
-SELECT count(*) FILTER(
-  WHERE execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')
-),
-count(*) FILTER(
-  WHERE execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
-),
-count(*) FILTER(WHERE execution_state='REVIEW_PENDING'),
-count(*) FILTER(WHERE execution_state='PUBLISHED'),
-count(*) FILTER(WHERE execution_state='REVIEW_DISCARDED'),
-count(*) FILTER(WHERE execution_state='SKIPPED_EXISTING'),
-count(*) FILTER(WHERE execution_state='CANCELLED')
-FROM pegasus_import_items
-WHERE import_id=?`, unit.ImportID).
-		Scan(&blocked, &failed, &reviewPending, &published, &reviewDiscarded, &existing, &cancelled); err != nil {
-		return fmt.Errorf("pegasusimport/read final counts: %w", err)
-	}
-	state := "COMPLETED"
-	if blocked+failed > 0 {
-		state = "PARTIAL_FAILURE"
-	}
-	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
-		Set: `
-state=?,phase=NULL,review_pending_item_count=?,published_item_count=?,
-review_discarded_item_count=?,existing_item_count=?,
-blocked_item_count=?,failed_item_count=?,cancelled_item_count=?,retryable=?,
-completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{unit.ImportID},
-		},
-		Values: []any{
-			state,
-			reviewPending,
-			published,
-			reviewDiscarded,
-			existing,
-			blocked,
-			failed,
-			cancelled,
-			boolInt(failed > 0),
-			now,
-			now,
-		},
-	}); err != nil {
-		return fmt.Errorf("pegasusimport/finish import: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE jobs
-SET state='SUCCEEDED',finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
-version=version+1,updated_at_ms=?
-WHERE id=?`, now, now, unit.JobID); err != nil {
-		return fmt.Errorf("pegasusimport/finish job: %w", err)
-	}
-	data, _ := json.Marshal(
-		map[string]any{
-			"schemaVersion":   1,
-			"state":           state,
-			"reviewPending":   reviewPending,
-			"published":       published,
-			"reviewDiscarded": reviewDiscarded,
-			"existing":        existing,
-			"blocked":         blocked,
-			"failed":          failed,
-		},
-	)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'SUCCEEDED',?,?)`,
-		unit.JobID, unit.ImportID, string(data), now); err != nil {
-		return fmt.Errorf("pegasusimport/create success event: %w", err)
-	}
-	if err := scheduleTerminalItems(ctx, transaction, unit.ImportID, now); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("pegasusimport/commit finish: %w", err)
+	completion := application.NewCompletion(repository.NewCompletion(service.database), service.now)
+	if err := completion.Finish(ctx, unit.Identity()); err != nil {
+		return fmt.Errorf("pegasusimport/finish: %w", err)
 	}
 	return nil
 }

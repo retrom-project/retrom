@@ -46,8 +46,10 @@ func (repository *Recovery) ExpiredExecutions(
 	limit int,
 ) ([]application.RecoverySnapshot, error) {
 	rows, err := repository.database.QueryContext(ctx, recoverySnapshotSQL+`
-AND job.state IN ('RUNNING','CANCEL_REQUESTED')
-AND (job.leased_until_ms IS NULL OR job.leased_until_ms<=?) ORDER BY job.leased_until_ms,job.id LIMIT ?`, now, limit)
+AND ((job.state IN ('RUNNING','CANCEL_REQUESTED') AND job.leased_until_ms<=?)
+OR (job.state='QUEUED' AND job.leased_until_ms IS NULL AND job.worker_id IS NULL AND job.attempt_count>0
+AND (job.execution_deadline_at_ms<=? OR job.attempt_count>=job.max_attempts)))
+ORDER BY job.leased_until_ms,job.id LIMIT ?`, now, now, limit)
 	if err != nil {
 		return nil, fmt.Errorf("query expired Pegasus executions: %w", err)
 	}

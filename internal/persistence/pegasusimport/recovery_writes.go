@@ -36,7 +36,8 @@ version=version+1,updated_at_ms=?`,
  AND EXISTS(SELECT 1 FROM pegasus_imports plan JOIN jobs job ON job.id=plan.import_job_id
  WHERE plan.id=? AND plan.version=? AND plan.state=? AND job.id=? AND job.version=?
  AND job.state=? AND job.execution_no=? AND job.attempt_count=? AND COALESCE(job.worker_id,'')=?
- AND job.leased_until_ms=? AND job.leased_until_ms<=? AND job.execution_deadline_at_ms=?)`,
+ AND COALESCE(job.leased_until_ms,0)=? AND ((job.state='QUEUED' AND job.leased_until_ms IS NULL)
+ OR (job.state IN ('RUNNING','CANCEL_REQUESTED') AND job.leased_until_ms<=?)) AND job.execution_deadline_at_ms=?)`,
 			Args: []any{
 				identity.ItemID, identity.ImportID, before.Version, before.State, identity.LibraryJobID, identity.LibraryItemID,
 				identity.LibraryItemID, identity.LibraryJobID, execution.ImportID, execution.ImportVersion, execution.ImportState,
@@ -70,7 +71,8 @@ func (records recoveryRecords) Apply(ctx context.Context, change application.Rec
  leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,error_code=?,error_retryable=0,
 version=version+1,updated_at_ms=?
  WHERE id=? AND version=? AND state=? AND execution_no=? AND attempt_count=? AND COALESCE(worker_id,'')=?
- AND leased_until_ms=? AND leased_until_ms<=? AND execution_deadline_at_ms=?
+ AND COALESCE(leased_until_ms,0)=? AND ((state='QUEUED' AND leased_until_ms IS NULL)
+ OR (state IN ('RUNNING','CANCEL_REQUESTED') AND leased_until_ms<=?)) AND execution_deadline_at_ms=?
  AND EXISTS(SELECT 1 FROM pegasus_imports plan WHERE plan.id=? AND plan.version=? AND plan.state=?
  AND ((jobs.kind='SERVER_PEGASUS_IMPORT' AND plan.import_job_id=jobs.id)
  OR (jobs.kind='SERVER_PEGASUS_SCAN' AND plan.scan_job_id=jobs.id AND plan.import_job_id IS NULL)))`,

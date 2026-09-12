@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,11 +16,7 @@ import (
 
 	application "retrom/internal/service/pegasusimport"
 
-	"retrom/internal/dbexec"
-
 	tagpersistence "retrom/internal/persistence/tagging"
-
-	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -145,7 +140,11 @@ func (service *Service) runLoop() {
 		}
 
 		for {
-			unit, ok := service.claim(context.Background())
+			unit, ok, err := service.claim(context.Background())
+			if err != nil {
+				slog.Error("Pegasus worker claim failed", "error", service.sanitizeTechnicalDetail(err))
+				break
+			}
 			if !ok {
 				break
 			}
@@ -154,84 +153,14 @@ func (service *Service) runLoop() {
 	}
 }
 
-type work struct {
-	JobID, ImportID, Kind, RootID, RootDigest, RelativePath string
-	CreatedByUserID                                         string
-	ExecutionNo, Attempt, DeadlineAtMS                      int64
-}
+type work = application.Work
 
-func (service *Service) claim(ctx context.Context) (work, bool) {
-	transaction, err := service.database.BeginTx(ctx, nil)
+func (service *Service) claim(ctx context.Context) (work, bool, error) {
+	unit, found, err := application.NewLeases(repository.NewLeases(service.database), service.now).Claim(ctx)
 	if err != nil {
-		return work{}, false
+		return work{}, false, fmt.Errorf("pegasusimport/claim: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	now := service.now().UnixMilli()
-	var unit work
-	if err := transaction.QueryRowContext(ctx, `
-SELECT job.id,import.id,job.kind,import.root_id,import.root_config_digest,import.source_relative_path,
-import.created_by_user_id,
-job.execution_no,job.attempt_count
-FROM jobs job JOIN pegasus_imports import ON import.id=job.scope_id
-WHERE job.scope_type='PEGASUS_IMPORT' AND job.kind IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT')
-AND job.state='QUEUED' AND job.available_at_ms<=?
-ORDER BY job.available_at_ms,job.created_at_ms,job.id LIMIT 1
-`, now).Scan(&unit.JobID, &unit.ImportID, &unit.Kind, &unit.RootID, &unit.RootDigest,
-		&unit.RelativePath, &unit.CreatedByUserID, &unit.ExecutionNo, &unit.Attempt); err != nil {
-		return work{}, false
-	}
-	duration := int64((30 * time.Minute) / time.Millisecond)
-	if unit.Kind == "SERVER_PEGASUS_IMPORT" {
-		duration = int64((8 * time.Hour) / time.Millisecond)
-	}
-	unit.Attempt++
-	unit.DeadlineAtMS = now + duration
-	result, err := transaction.ExecContext(ctx, `
-UPDATE jobs
-SET state='RUNNING',attempt_count=attempt_count+1,
-execution_started_at_ms=COALESCE(execution_started_at_ms,?),
-execution_deadline_at_ms=COALESCE(execution_deadline_at_ms,?),
-leased_until_ms=?,heartbeat_at_ms=?,worker_id='pegasus-import-worker',
-version=version+1,updated_at_ms=? WHERE id=? AND state='QUEUED'
-`, now, unit.DeadlineAtMS, now+60000, now, now, unit.JobID)
-	if err != nil {
-		return work{}, false
-	}
-	if affected, _ := result.RowsAffected(); affected != 1 {
-		return work{}, false
-	}
-	phase := "DISCOVERING_METADATA"
-	if unit.Kind == "SERVER_PEGASUS_IMPORT" {
-		phase = "COPYING_CONTENT"
-	}
-	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
-		Set: `
-state=CASE WHEN ?='SERVER_PEGASUS_IMPORT' THEN 'RUNNING' ELSE state END,
-phase=?,started_at_ms=CASE WHEN ?='SERVER_PEGASUS_IMPORT' THEN COALESCE(started_at_ms,?) ELSE
-started_at_ms END,
-version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{unit.ImportID},
-		},
-		Values: []any{unit.Kind, phase, unit.Kind, now, now},
-	}); err != nil {
-		return work{}, false
-	}
-	event, _ := json.Marshal(
-		map[string]any{"schemaVersion": 1, "executionNo": unit.ExecutionNo, "attempt": unit.Attempt},
-	)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'STARTED',?,?)
-`, unit.JobID, unit.ImportID, string(event), now); err != nil {
-		return work{}, false
-	}
-	if err := transaction.Commit(); err != nil {
-		return work{}, false
-	}
-	return unit, true
+	return unit, found, nil
 }
 
 func (service *Service) execute(ctx context.Context, unit work) {
@@ -240,9 +169,11 @@ func (service *Service) execute(ctx context.Context, unit work) {
 		ctx, cancel = context.WithDeadline(ctx, time.UnixMilli(unit.DeadlineAtMS))
 		defer cancel()
 	}
+	ctx, cancelWork := context.WithCancel(ctx)
+	defer cancelWork()
 	heartbeatDone := make(chan struct{})
-	go service.heartbeat(ctx, unit, heartbeatDone)
-	defer close(heartbeatDone)
+	go func() { defer close(heartbeatDone); service.heartbeat(ctx, unit, cancelWork) }()
+	defer func() { cancelWork(); <-heartbeatDone }()
 	root, ok := service.roots[unit.RootID]
 	if !ok || root.digest != unit.RootDigest {
 		service.fail(ctx, unit, "SERVER_IMPORT_ROOT_CHANGED", false)
@@ -255,21 +186,23 @@ func (service *Service) execute(ctx context.Context, unit work) {
 	service.executeImport(ctx, unit, root)
 }
 
-func (service *Service) heartbeat(ctx context.Context, unit work, done <-chan struct{}) {
+func (service *Service) heartbeat(ctx context.Context, unit work, cancel context.CancelFunc) {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
 			return
 		case <-service.stop:
+			cancel()
 			return
 		case <-ticker.C:
-			now := service.now().UnixMilli()
-			_, _ = service.database.ExecContext(ctx, `
-UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING' AND worker_id='pegasus-import-worker'
-`, now, now+60000, now, unit.JobID)
+			leases := application.NewLeases(repository.NewLeases(service.database), service.now)
+			if err := leases.Renew(ctx, unit.Identity()); err != nil {
+				slog.Error("Pegasus worker lease renewal failed", "error", service.sanitizeTechnicalDetail(err))
+				cancel()
+				return
+			}
 		}
 	}
 }

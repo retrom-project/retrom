@@ -105,8 +105,7 @@ VALUES('01980000-0000-7000-8000-000000000800','pegasus-profile','pegasus-test','
 		"01980000-0000-7000-8000-000000000800",
 	)
 	testassert.False(t, err != nil, err)
-	scanWork, ok := service.claim(ctx)
-	testassert.True(t, ok, "scan job was not claimable")
+	scanWork := mustClaimPegasus(t, service)
 	service.execute(ctx, scanWork)
 	scanned, err := service.Get(ctx, created.ID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return scanned.State != "AWAITING_MAPPING" }, func() bool { return scanned.Counts.Covers != 1 }, func() bool { return scanned.Counts.Videos != 1 }), "scan = %#v, error=%v", scanned, err)
@@ -145,8 +144,7 @@ VALUES('01980000-0000-7000-8000-000000000800','pegasus-profile','pegasus-test','
 	testassert.False(t, err != nil, err)
 	_, err = service.StartImport(ctx, created.ID, remapped.Version)
 	testassert.False(t, err != nil, err)
-	importWork, ok := service.claim(ctx)
-	testassert.True(t, ok, "import job was not claimable")
+	importWork := mustClaimPegasus(t, service)
 	service.execute(ctx, importWork)
 	finished, err := service.Get(ctx, created.ID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return finished.State != "COMPLETED" }, func() bool { return finished.Counts.ReviewPending != 2 }, func() bool { return finished.Counts.Published != 0 }, func() bool { return finished.Counts.Failed != 0 }), "finished = %#v, error=%v", finished, err)
@@ -347,7 +345,8 @@ WHERE id=? AND execution_state='REVIEW_PENDING'
 	mustExecPegasusTest(ctx, t, database.SQL, `
 UPDATE jobs SET state='QUEUED',finished_at_ms=NULL,worker_id=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL
 WHERE id=?`, claimedWork.JobID)
-	resumedWork, claimed := service.claim(ctx)
+	resumedWork, claimed, err := service.claim(ctx)
+	testassert.False(t, err != nil, err)
 	if !claimed || resumedWork.JobID != claimedWork.JobID || resumedWork.Attempt != claimedWork.Attempt+1 {
 		t.Fatalf("resume did not reclaim original execution: %#v claimed=%v", resumedWork, claimed)
 	}
@@ -371,4 +370,13 @@ FROM pegasus_import_items item WHERE item.id=?
 		Scan(&mappedDrafts); err != nil || mappedDrafts != 2 {
 		t.Fatalf("resumed tag inheritance = %d, %v", mappedDrafts, err)
 	}
+}
+
+func mustClaimPegasus(t *testing.T, service *Service) work {
+	t.Helper()
+	unit, found, err := service.claim(t.Context())
+	if err != nil || !found {
+		t.Fatalf("claim found=%v error=%v", found, err)
+	}
+	return unit
 }
