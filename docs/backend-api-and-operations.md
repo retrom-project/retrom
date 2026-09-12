@@ -75,8 +75,8 @@ internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮�
 internal/persistence/accounts/ 账户安全事务、限流桶及原子多主体计数
 internal/service/serverimport/ 服务器 BIOS 导入查询、分页及取消/重试规则
 internal/persistence/serverimport/ 导入目录/候选查询及取消/重试原子事务
-internal/service/libraryimport/ 审核列表、元数据归一化、幂等与审计决策
-internal/persistence/libraryimport/ 审核列表查询、元数据/搜索/审计事务
+internal/service/libraryimport/ 审核列表、元数据归一化、来源创建身份及主文件分组规则
+internal/persistence/libraryimport/ 审核查询、元数据/搜索/审计事务和服务器来源原子绑定
 internal/service/metadatascrape/ 抓取调度、证据查询、候选规则与执行收口
 internal/persistence/metadatascrape/ 抓取证据、结果、任务租约与事务存储
 internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排

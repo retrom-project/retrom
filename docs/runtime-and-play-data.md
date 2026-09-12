@@ -56,6 +56,8 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 - `targetOptions` 是由当前 Target 的闭合 `targetOptionsSchema` 校验后的 Provider 私有配置；
 - `restore`、`netplay` 分别是可空的标准恢复和联机输入；生产 Envelope 不携带研发验证脚本或位置证明。
 
+配置签发由 `internal/service/launch.ConfigIssuer` 编排，Repository 先在只读快照内读取会话并交给 Service 校验 capability，授权通过后才读取资源。完整 Envelope 构建成功后，在短写事务内重新检查授权、bootstrap/hard/idle 期限、冻结输入和版本，再激活 CREATED 会话；提交成功才返回配置。构建、最终查询、激活或提交失败均不留下部分激活。已 ACTIVE 的配置重取不刷新 idle 或游玩时间；并发合法激活及 START/heartbeat 的版本推进可以继续签发，结束或撤销后的会话不能重新激活。可选资源只有实际缺失时可省略，存储故障与取消必须保留原因。
+
 Go 在签发前验证 envelope 和 Target options；dispatcher 验证 JSON 边界、模块 URL、模块摘要、Provider 身份与 API 版本，然后只调用 `createRuntime(envelope, host)`。Provider 创建入口按自身声明验证外部 Envelope 与 Host，直接构造核心私有的最小类型参数，不再提供单独预检，也不在内部重复验证相同 Envelope 或转换后的通用 config。下载文件、解码 checkpoint、跨 origin 消息仍在各自信任边界校验；任一身份、摘要、schema、资源或能力不一致都 fail closed。
 
 Provider 是核心生命周期的唯一所有者，不包装第二个 controller。公开状态为 `CREATED/MOUNTING/RUNNING/PAUSED/CHECKPOINTING/EXITING/EXITED/FAILED`；暂停、恢复、checkpoint 和控制操作共用一个队列，退出可抢占排队及进行中的操作。启动在 restore、frame 和 core 等异步边界后检查取消，晚到的核心只清理、不重新进入 RUNNING。Provider 若能观察并上报核心主动退出，只发出一次公共退出事件；失败保持 FAILED 终态，退出清理幂等。Host 继续独立负责页面导航、iframe 与授权会话，不承担核心内部状态转换。
