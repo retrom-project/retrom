@@ -7,12 +7,11 @@ import (
 	"testing"
 
 	"retrom/internal/composition"
-	"retrom/internal/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 
 type beforePegasusCancellation struct {
-	service *pegasusimport.Service
+	service *application.Service
 	before  func(application.JobCancellationRequest)
 }
 

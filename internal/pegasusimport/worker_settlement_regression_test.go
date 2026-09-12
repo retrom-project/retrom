@@ -1,15 +1,20 @@
 package pegasusimport
 
 import (
+	"errors"
 	"fmt"
 	"testing"
+
+	application "retrom/internal/service/pegasusimport"
 )
 
 func TestWorkerFailureCannotCloseReplacedExecution(t *testing.T) {
 	t.Parallel()
 	service, unit, _ := handoffFixture(t)
 	mustExecPegasusTest(t.Context(), t, service.database, `UPDATE jobs SET worker_id='replacement' WHERE id='work'`)
-	service.fail(t.Context(), unit, "INTERNAL_ERROR", true)
+	if err := service.workerSettlement().Fail(t.Context(), unit.Identity(), application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("stale owner error=%v", err)
+	}
 	var state string
 	if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM pegasus_imports WHERE id='import'`).Scan(
 		&state,
@@ -25,7 +30,9 @@ func TestWorkerFailureRollsBackWhenEventCannotBeWritten(t *testing.T) {
 	t.Parallel()
 	service, unit, _ := handoffFixture(t)
 	mustExecPegasusTest(t.Context(), t, service.database, `DROP TABLE job_events`)
-	service.fail(t.Context(), unit, "INTERNAL_ERROR", true)
+	if err := service.workerSettlement().Fail(t.Context(), unit.Identity(), application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); err == nil {
+		t.Fatal("event failure was not returned")
+	}
 	var state string
 	if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM pegasus_imports WHERE id='import'`).Scan(
 		&state,
@@ -75,7 +82,9 @@ UPDATE pegasus_imports SET state='CANCEL_REQUESTED',cancel_reason='stop' WHERE i
 					t.Fatalf("cancel=%v %v", closed, err)
 				}
 			} else {
-				service.fail(t.Context(), unit, "INTERNAL_ERROR", true)
+				if err := service.workerSettlement().Fail(t.Context(), unit.Identity(), application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); err != nil {
+					t.Fatal(err)
+				}
 			}
 			assertSettledReview(t, service, cancel)
 		})

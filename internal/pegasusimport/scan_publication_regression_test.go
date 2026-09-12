@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	application "retrom/internal/service/pegasusimport"
 )
 
 func scanPublicationFixture(t *testing.T) (*Service, work, scanResult) {
@@ -91,7 +93,9 @@ func TestScanFailureClearsOnlyUnpublishedProjection(t *testing.T) {
 	if err := service.persistScanItems(t.Context(), unit, result.Items, 10); err != nil {
 		t.Fatal(err)
 	}
-	service.fail(t.Context(), unit, "INTERNAL_ERROR", true)
+	if err := service.workerSettlement().Fail(t.Context(), unit.Identity(), application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}); err != nil {
+		t.Fatal(err)
+	}
 	assertEmptyScanProjection(t, service)
 }
 

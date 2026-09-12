@@ -26,7 +26,7 @@ func (source scanSource) Discover(ctx context.Context, visit func(application.Di
 	defer release()
 	directory, err := serversource.OpenSelectedDirectory(source.root.path, source.selectedPath)
 	if err != nil {
-		return fmt.Errorf("%w: %w", serversource.ErrRootUnavailable, err)
+		return fmt.Errorf("%w: %w", application.ErrRootUnavailable, errors.Join(serversource.ErrRootUnavailable, err))
 	}
 	defer func() { cleanup.Error("close Pegasus scan directory", directory.Close()) }()
 	_, err = serversource.WalkFilesContext(ctx, directory,

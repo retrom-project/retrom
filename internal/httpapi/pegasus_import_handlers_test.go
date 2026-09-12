@@ -13,8 +13,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/pegasusimport"
+	"retrom/internal/composition"
 	"retrom/internal/serversource"
+	"retrom/internal/service/pegasusimport"
 	"retrom/internal/testassert"
 )
 
@@ -32,7 +33,7 @@ func TestPegasusImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "library", "fixture.nes"), []byte("fixture-rom"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	server.pegasusImports = pegasusimport.New(
+	server.pegasusImports = composition.NewPegasusImport(
 		server.database, server.blobs, server.importer, server.credentials,
 		[]serversource.Root{{ID: "games", Label: "Game Library", Path: root}}, time.Now,
 	)

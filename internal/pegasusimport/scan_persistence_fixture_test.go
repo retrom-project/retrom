@@ -27,16 +27,7 @@ func (service *Service) persistScanHeaders(ctx context.Context, unit work, resul
 }
 
 func (service *Service) persistScanItems(ctx context.Context, unit work, items []scannedItem, _ int64) error {
-	for offset := 0; offset < len(items); offset += 500 {
-		if err := service.scanPublication().Items(
-			ctx,
-			unit.Identity(),
-			items[offset:min(offset+500, len(items))],
-		); err != nil {
-			return fmt.Errorf("stage Pegasus scan items: %w", err)
-		}
-	}
-	return nil
+	return service.scanPublication().Items(ctx, unit.Identity(), items)
 }
 
 func (service *Service) finishScan(ctx context.Context, unit work, result scanResult, _ int64) error {

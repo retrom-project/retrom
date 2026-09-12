@@ -51,7 +51,9 @@ VALUES('second',0,'FILE','second.gba',4,
 			return result, nil
 		},
 	})
-	service.executeImport(t.Context(), unit, service.roots["games"])
+	if err := service.importExecutor(service.roots["games"]).Execute(t.Context(), unit); !errors.Is(err, failure) {
+		t.Fatalf("lost failed outcome cause: %v", err)
+	}
 	if failedWrites.Load() != 1 || laterClaims.Load() != 0 {
 		t.Errorf("outcome failure writes=%d later claims=%d; execution must stop before its next item", failedWrites.Load(), laterClaims.Load())
 	}

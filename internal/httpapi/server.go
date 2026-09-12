@@ -41,7 +41,6 @@ import (
 	"retrom/internal/libraryimport"
 	"retrom/internal/netplay"
 	"retrom/internal/payloadrelease"
-	"retrom/internal/pegasusimport"
 	favoritepersistence "retrom/internal/persistence/favorites"
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	retromruntime "retrom/internal/runtime"
@@ -58,6 +57,7 @@ import (
 	"retrom/internal/service/jobs"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
+	"retrom/internal/service/pegasusimport"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/service/saves"
 	"retrom/internal/service/serverimport"
@@ -222,7 +222,9 @@ func New(
 		now,
 	)
 	serverImportService.Start()
-	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, serversource.FilesystemRoots(), now)
+	pegasusImportService := composition.NewPegasusImport(
+		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
+	)
 	pegasusImportService.Start()
 	emulationStationImportService := emulationstationimport.New(
 		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,

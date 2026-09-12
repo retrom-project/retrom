@@ -40,7 +40,8 @@ cmd/retrom/               进程入口、配置和优雅关闭
 internal/httpapi/         路由、中间件、DTO、错误映射
 internal/catalog/         Platform、PlatformInstance、Game、GameVariant
 internal/importing/       导入任务、分组、刮削与审核编排
-internal/service/pegasusimport/ 扫描投影、计划/映射/启动、租约、物化/审核交接与结果恢复
+internal/pegasusimport/   服务器目录、metadata/媒体读取、CAS 写入及路径脱敏适配器
+internal/service/pegasusimport/ 应用入口、扫描/导入编排、计划/映射/启动、worker 生命周期与结果恢复
 internal/persistence/pegasusimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
 internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
 internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
@@ -144,6 +145,8 @@ BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后�
 通用任务 Service 先判定取消或重试资格，再通过一个事务内的业务端口写入任务、事件及新的执行输入；服务器 BIOS 导入的关联取消共享该事务。存储故障保留原因，缺失记录与版本冲突映射为业务冲突。GC 维护入口通过独立端口调用持久 payload release dispatcher，并读取计数与保护集合。
 
 Pegasus 与 EmulationStation 的通用 Job 取消由领域 Service 接管：通用资格读取事务结束后，携带原始 Job 版本、kind、scope 与操作者进入领域事务，重新校验当前关联并原子取消；不得只更新 Job 而遗漏来源计划，也不得用刷新后的版本替换客户端 ETag。返回值取自提交前同一快照，提交失败不返回成功或发送唤醒。
+
+Pegasus 的 HTTP 与批次处置直接调用应用 Service；`composition.NewPegasusImport` 在启动时一次性组装查询、命令、Repository、来源适配器与 worker。HTTP 显式传入操作者，Service 决定提交后的唤醒；扫描与导入共用 worker 的维护、取消和关闭流程，每次执行只绑定冻结来源，不重新构造数据库依赖。旧 `internal/pegasusimport` 包只保留文件/CAS 适配器，架构测试禁止它导入数据库实现，也禁止 HTTP 重新依赖该包。
 
 沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。容量分析 Repository 一次返回完整的 Blob、保护集合、用途和引用快照，Service 完成 archive 用途传播、分类优先级、去重口径及受检整数汇总；聚合不再占用数据库事务。
 

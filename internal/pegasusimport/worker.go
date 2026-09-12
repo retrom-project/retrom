@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	repository "retrom/internal/persistence/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 
@@ -38,15 +37,4 @@ func (reader contextReader) Read(buffer []byte) (int, error) {
 		return count, fmt.Errorf("pegasusimport/read source: %w", err)
 	}
 	return count, nil
-}
-
-func (service *Service) nextItem(ctx context.Context, unit work) (executionItem, bool, error) {
-	item, found, err := application.NewItemWork(repository.NewItemWork(service.database), service.now).Next(
-		ctx,
-		unit.Identity(),
-	)
-	if err != nil {
-		return executionItem{}, false, fmt.Errorf("pegasusimport/next item: %w", err)
-	}
-	return item, found, nil
 }

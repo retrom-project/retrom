@@ -32,7 +32,7 @@ func (adapter workerAdapter) Maintain(ctx context.Context) error {
 }
 
 func (adapter workerAdapter) Execute(ctx context.Context, unit application.Work) {
-	adapter.service.executeContent(ctx, unit)
+	adapter.service.dispatcher().Execute(ctx, unit)
 }
 
 type workerCancellation struct {

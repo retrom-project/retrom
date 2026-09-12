@@ -10,9 +10,9 @@ import (
 
 	"retrom/internal/emulationstationimport"
 	"retrom/internal/libraryimport"
-	"retrom/internal/pegasusimport"
 	discardpersistence "retrom/internal/persistence/importdiscard"
 	"retrom/internal/service/importdiscard"
+	"retrom/internal/service/pegasusimport"
 )
 
 func NewImportDiscard(database *sql.DB, importer *libraryimport.Service, pegasus *pegasusimport.Service,

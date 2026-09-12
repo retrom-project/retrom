@@ -11,7 +11,7 @@ import (
 	"retrom/internal/serversource"
 )
 
-func (service *Service) copySource(
+func (service *Sources) copySource(
 	ctx context.Context,
 	root Root,
 	selectedPath, relativePath string,
@@ -43,7 +43,7 @@ func (service *Service) copySource(
 	return metadata, nil
 }
 
-func (service *Service) copyAsset(
+func (service *Sources) copyAsset(
 	ctx context.Context,
 	root Root,
 	selectedPath string,

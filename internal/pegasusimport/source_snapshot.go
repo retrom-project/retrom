@@ -13,24 +13,24 @@ import (
 	application "retrom/internal/service/pegasusimport"
 )
 
-func (source creationSourceSelector) VerifyMetadata(
+func (source *Sources) VerifyMetadata(
 	ctx context.Context,
 	rootID, path string,
 	evidence []application.MetadataEvidence,
 ) error {
-	root, ok := source.service.roots[rootID]
+	root, ok := source.roots[rootID]
 	if !ok {
 		return ErrSourceChanged
 	}
 	for _, expected := range evidence {
-		if err := verifyMetadataFile(ctx, root, path, expected, source.service.acquireSourceReader); err != nil {
+		if err := verifyMetadataFile(ctx, root, path, expected, source.acquireSourceReader); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (service *Service) acquireSourceReader(ctx context.Context) (func(), error) {
+func (service *Sources) acquireSourceReader(ctx context.Context) (func(), error) {
 	if service.sourceReader != nil {
 		return service.sourceReader(ctx)
 	}
