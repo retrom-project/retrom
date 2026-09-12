@@ -17,7 +17,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/contentprofile"
-	"retrom/internal/platforminstance"
+	"retrom/internal/service/platforminstance"
 
 	"github.com/google/uuid"
 )

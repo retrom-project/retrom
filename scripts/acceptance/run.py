@@ -206,6 +206,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         120,
         "go test -tags=integration ./internal/httpapi -run 'TestPlatformLifecycleUsesImpactDigestVersioningAndAudit|TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries' -count=1",
     ),
+    "ACC-PLAT-006": (
+        180,
+        "go test ./internal/platformcatalog ./internal/contentprofile ./internal/service/platforminstance ./internal/persistence/platforminstance -count=1 && go test ./internal/httpapi -run '^TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent$' -count=1",
+    ),
     "ACC-GAME-002": (180, "go test -tags=integration ./internal/gamecontent -run '^TestReplacementPublishesAtomicallyAndFailureKeepsCurrent$' -count=1"),
     "ACC-GAME-001": (
         180,

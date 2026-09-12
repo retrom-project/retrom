@@ -12,13 +12,14 @@ import (
 	"testing"
 	"time"
 
+	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/recordstore"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/platformcatalog"
-	"retrom/internal/platforminstance"
 	"retrom/internal/runtimecatalog"
+	"retrom/internal/service/platforminstance"
 	"retrom/internal/store"
 )
 
@@ -56,7 +57,7 @@ func BuildPlatformInstances(ctx context.Context, database *sql.DB) (PlatformInst
 		if err != nil {
 			return nil, fmt.Errorf("testsupport: create platform instance id: %w", err)
 		}
-		slug, err := platforminstance.NextSlug(ctx, database, template.PlatformID, template.Name)
+		slug, err := fixturePlatformSlug(ctx, database, template.PlatformID, template.Name)
 		if err != nil {
 			return nil, fmt.Errorf("testsupport: create platform instance slug %s: %w", template.Key, err)
 		}
@@ -119,4 +120,25 @@ func MustPlatformInstanceID(t testing.TB, database *sql.DB, templateKey string) 
 		t.Fatalf("resolve platform instance fixture: %v", err)
 	}
 	return id
+}
+
+func fixturePlatformSlug(ctx context.Context, database *sql.DB, platformID, name string) (string, error) {
+	base := platforminstance.SlugBase(name, platformID)
+	var slugs []string
+	err := platformpersistence.New(database).WithRead(ctx, func(reader platforminstance.Reader) error {
+		var err error
+		slugs, err = reader.UsedSlugs(ctx, platformID, base)
+		if err != nil {
+			return fmt.Errorf("testsupport: read reserved slugs: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("testsupport: read platform: %w", err)
+	}
+	slug, err := platforminstance.NextSlug(base, slugs)
+	if err != nil {
+		return "", fmt.Errorf("testsupport: select slug: %w", err)
+	}
+	return slug, nil
 }

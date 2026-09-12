@@ -29,11 +29,12 @@ import (
 	"retrom/internal/importing"
 	"retrom/internal/maintenance"
 	"retrom/internal/netplay"
-	"retrom/internal/platforminstance"
+	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimeprovider"
 	"retrom/internal/scummvm"
+	"retrom/internal/service/platforminstance"
 	"retrom/internal/store"
 )
 
@@ -428,7 +429,7 @@ func openAndBootstrapDatabase(
 	if err := resources.dependencies.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		return fmt.Errorf("bootstrap dependency records: %w", err)
 	}
-	if err := platforminstance.New(database.SQL, time.Now).ValidateCatalog(ctx); err != nil {
+	if err := platforminstance.New(platformpersistence.New(database.SQL), time.Now).ValidateCatalog(ctx); err != nil {
 		return fmt.Errorf("validate recommended game directories: %w", err)
 	}
 	if err := database.IntegrityCheck(ctx); err != nil {

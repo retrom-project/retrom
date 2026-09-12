@@ -12,8 +12,9 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/platformcatalog"
-	"retrom/internal/platforminstance"
+	"retrom/internal/service/platforminstance"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -36,7 +37,7 @@ VALUES(?,'test-profile','directory-admin','Directory Admin','ADMIN','ENABLED',0,
 		t.Fatal(err)
 	}
 	dependencySet, err := dependencies.Load(
-		filepath.Join("..", "..", "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
+		filepath.Join("..", "..", "..", "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
 	)
 	testassert.False(t, err != nil, err)
 	if err := testsupport.SeedRuntimeProviders(t.Context(), database.SQL, dependencySet.RuntimeCatalog); err != nil {
@@ -45,7 +46,7 @@ VALUES(?,'test-profile','directory-admin','Directory Admin','ADMIN','ENABLED',0,
 	if err := dependencySet.Bootstrap(t.Context(), database.SQL, time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
-	service := platforminstance.New(database.SQL, func() time.Time {
+	service := platforminstance.New(platformpersistence.New(database.SQL), func() time.Time {
 		return time.UnixMilli(1_786_000_000_000)
 	})
 	if err := service.ValidateCatalog(t.Context()); err != nil {

@@ -28,7 +28,7 @@ import (
 	"retrom/internal/payloadrelease"
 	"retrom/internal/pegasusimport"
 	favoritepersistence "retrom/internal/persistence/favorites"
-	"retrom/internal/platforminstance"
+	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/rpgmaker/isolation"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimecatalog"
@@ -38,6 +38,7 @@ import (
 	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
 	"retrom/internal/service/favorites"
+	"retrom/internal/service/platforminstance"
 	"retrom/internal/storageanalysis"
 	"retrom/internal/tagging"
 	"retrom/internal/uploads"
@@ -217,7 +218,7 @@ func New(
 		pegasusImports:          pegasusImportService,
 		emulationStationImports: emulationStationImportService,
 		payloadReleases:         payloadReleaseService,
-		platformDirectories:     platforminstance.New(database, now),
+		platformDirectories:     platforminstance.New(platformpersistence.New(database), now),
 		metadata:                scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
 			WithPayloadRelease(payloadReleaseService).
