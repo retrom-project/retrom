@@ -444,7 +444,7 @@ Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collect
 
 聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的 Pegasus import。统一验收见 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001`。
 
-取消和手动重试由 Pegasus Service 在同一工作单元读取计划及 Job 状态、版本与 execution，再交给 Repository 原子保存。已经被 worker 领取的 Job 即使计划仍为 `QUEUED`，也先进入 `CANCEL_REQUESTED`，由 worker 在检查点收口；真正未领取的队列取消只终止尚未交接条目，并在同一事务登记终态 payload 释放。手动重试要求没有其他活动 Pegasus execution，生成并检查新的 execution/audit ID，只重置可重试失败项并重新计算失败计数；冻结输入、待审核项和其他既有结果保持有效。新的手动 execution 才清空旧 attempt/deadline/lease，输入快照、Job、计划、事件和操作者审计必须一起提交；提交失败不返回成功结果，也不唤醒 worker。
+取消和手动重试由 Pegasus Service 在同一工作单元读取计划及 Job 状态、版本与 execution，再交给 Repository 原子保存。扫描 Job 同样支持取消：未领取时原子清除尚未发布的扫描投影并关闭计划，已领取时先请求取消，旧扫描不能继续发布结果。扫描及其取消状态不占用正式 import 的唯一执行名额。通用 Job 取消接口把调用方原始 Job ETag 传入领域事务，同时核对 kind、scope 与计划的当前 Job 关联；不得用另一次读取的新版本代替旧 ETag。已经被 worker 领取的 Job 即使计划仍为 `QUEUED`，也先进入 `CANCEL_REQUESTED`，由 worker 在检查点收口；真正未领取的队列取消只终止尚未交接条目，并在同一事务登记终态 payload 释放。手动重试要求没有其他活动 Pegasus execution，生成并检查新的 execution/audit ID，只重置可重试失败项并重新计算失败计数；冻结输入、待审核项和其他既有结果保持有效。新的手动 execution 才清空旧 attempt/deadline/lease，输入快照、Job、计划、事件和操作者审计必须一起提交；提交失败不返回成功结果，也不唤醒 worker。
 
 执行领取、续租、子项领取/恢复/结果以及导入完成由 Service 决定，Repository 在事务内检查当前 worker、execution、attempt、Job/计划/子项版本和未过期的租约及 deadline。每次领取生成独立且经过错误检查的 worker 身份；自动接管返回原先持久化的执行截止时刻，续租不能越过它。心跳失败或上下文结束时停止续租，执行返回前等待心跳退出。完成导入前必须确认没有 PENDING/COPYING/VALIDATING 子项，结果计数、终态释放与事件整体提交；重复结果不追加事件，旧 worker 不得领取子项、写审核元数据或关闭当前执行。
 

@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -25,6 +23,7 @@ type (
 	}
 	WorkflowReader interface {
 		Current(context.Context, string) (WorkflowSnapshot, error)
+		CurrentJob(context.Context, string) (WorkflowSnapshot, error)
 	}
 	WorkflowWriter interface {
 		Cancel(context.Context, CancellationPlan) error
@@ -55,68 +54,6 @@ type (
 
 func NewWorkflowControl(repository WorkflowRepository, now func() time.Time) *WorkflowControl {
 	return &WorkflowControl{repository: repository, now: now}
-}
-
-func (service *WorkflowControl) Cancel(
-	ctx context.Context,
-	id string,
-	version int64,
-	reason, actorID string,
-) (Summary, bool, error) {
-	reason = strings.TrimSpace(reason)
-	if reason == "" || utf8.RuneCountInString(reason) > 500 {
-		return Summary{}, false, ErrNotCancellable
-	}
-	var result Summary
-	var pending bool
-	err := service.repository.WithControl(ctx, func(scope WorkflowScope) error {
-		before, err := scope.Read.Current(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read Pegasus cancellation: %w", err)
-		}
-		if !canCancel(before, version) {
-			return ErrNotCancellable
-		}
-		auditID, err := uuid.NewV7()
-		if err != nil {
-			return fmt.Errorf("generate Pegasus cancellation audit: %w", err)
-		}
-		plan := CancellationPlan{
-			Before:  before,
-			Reason:  reason,
-			ActorID: actorID,
-			AuditID: auditID.String(),
-			NowMS:   service.now().UnixMilli(),
-			State:   "CANCELLED",
-		}
-		plan.Pending = before.Summary.State == "RUNNING" || before.JobState == "RUNNING"
-		if plan.Pending {
-			plan.State = "CANCEL_REQUESTED"
-		} else {
-			plan.CompletedAtMS = &plan.NowMS
-		}
-		if err := scope.Write.Cancel(ctx, plan); err != nil {
-			return fmt.Errorf("save Pegasus cancellation: %w", err)
-		}
-		after, err := scope.Read.Current(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read cancelled Pegasus import: %w", err)
-		}
-		result, pending = after.Summary, plan.Pending
-		return nil
-	})
-	if err != nil {
-		return Summary{}, false, fmt.Errorf("finish Pegasus cancellation: %w", err)
-	}
-	return result, pending, nil
-}
-
-func canCancel(before WorkflowSnapshot, version int64) bool {
-	if !validWorkflowVersion(before, version) || before.Summary.ImportJobID == nil {
-		return false
-	}
-	return (before.Summary.State == "QUEUED" || before.Summary.State == "RUNNING") &&
-		(before.JobState == "QUEUED" || before.JobState == "RUNNING")
 }
 
 func validWorkflowVersion(before WorkflowSnapshot, version int64) bool {

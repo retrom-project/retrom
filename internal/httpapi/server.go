@@ -264,6 +264,7 @@ func New(
 	server.reviewQueue = composition.NewLibraryReviewQueue(database, server.tagService)
 	server.reviewDetails = composition.NewLibraryReviewDetails(database)
 	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
+	server.jobService = composition.WithPegasusJobCancellation(server.jobService, pegasusImportService)
 	server.metadataEvidence = composition.NewMetadataEvidenceQueries(database)
 	server.importDiscards = composition.NewImportDiscard(
 		database,

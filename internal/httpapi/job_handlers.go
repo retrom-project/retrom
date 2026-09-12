@@ -31,7 +31,18 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 		body.Reason,
 	)
 	if err != nil {
-		writeError(writer, request, http.StatusConflict, "JOB_NOT_CANCELLABLE", "任务不可取消或版本已经变化", map[string]any{})
+		if !errors.Is(err, jobs.ErrConflict) && !errors.Is(err, jobs.ErrRetryViaDomain) {
+			server.databaseError(writer, request, err)
+			return
+		}
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"JOB_NOT_CANCELLABLE",
+			"任务不可取消或版本已经变化",
+			map[string]any{},
+		)
 		return
 	}
 	if !pending {
@@ -76,7 +87,14 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	if err != nil {
-		writeError(writer, request, http.StatusConflict, "JOB_NOT_RETRYABLE", "任务不可重试或版本已经变化", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"JOB_NOT_RETRYABLE",
+			"任务不可重试或版本已经变化",
+			map[string]any{},
+		)
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))

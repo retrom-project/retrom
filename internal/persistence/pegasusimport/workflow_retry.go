@@ -28,7 +28,7 @@ AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),
 completed_at_ms=NULL,version=version+1,updated_at_ms=?`,
 		Scope: recordstore.Scope{Where: `id=? AND version=? AND state=? AND import_job_id=? AND retryable=1
 AND NOT EXISTS(SELECT 1 FROM pegasus_imports active WHERE active.id<>?
-AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, Args: []any{
+AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, Args: []any{
 			plan.Before.Summary.ID, plan.Before.Summary.Version, plan.Before.Summary.State,
 			*plan.Before.Summary.ImportJobID, plan.Before.Summary.ID,
 		}},

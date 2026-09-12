@@ -72,8 +72,15 @@ func TestRetryReportsActiveExecutionWithoutChangingFailedPlan(t *testing.T) {
 	db := newPegasusRetryDatabase(t)
 	if _, err := db.ExecContext(t.Context(), `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
 VALUES('other-scan','PEGASUS_IMPORT','other','SERVER_PEGASUS_SCAN','eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',1,'{}',1,'QUEUED',0,4,1,1,1);
-INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
-VALUES('other','games','Games','Other','eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee','QUEUED','other-scan','user',1,1,100);`); err != nil {
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
+VALUES('other-import','PEGASUS_IMPORT','other','SERVER_PEGASUS_IMPORT',
+'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',1,'{}',1,'QUEUED',0,4,1,1,1);
+INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,
+scan_job_id,import_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
+VALUES('other','games','Games','Other',
+'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+'QUEUED','other-scan','other-import','user',1,1,100);`); err != nil {
 		t.Fatal(err)
 	}
 	service := &Service{database: db, now: func() time.Time { return time.UnixMilli(10) }}

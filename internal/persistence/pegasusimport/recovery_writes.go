@@ -84,7 +84,7 @@ version=version+1,updated_at_ms=?
 		return err
 	}
 	if before.Kind == "SERVER_PEGASUS_SCAN" {
-		if err := clearUnpublishedScan(ctx, records.tx, before.ImportID); err != nil {
+		if err := ClearUnpublishedScan(ctx, records.tx, before.ImportID); err != nil {
 			return err
 		}
 	} else if err := records.recoverItems(ctx, change, finished); err != nil {

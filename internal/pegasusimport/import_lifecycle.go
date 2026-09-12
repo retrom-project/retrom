@@ -40,6 +40,20 @@ func (service *Service) Cancel(
 	if err != nil {
 		return Summary{}, false, fmt.Errorf("cancel Pegasus import: %w", err)
 	}
+	service.signal()
+	return result, pending, nil
+}
+
+func (service *Service) CancelJob(
+	ctx context.Context,
+	request application.JobCancellationRequest,
+) (application.JobCancellationResult, bool, error) {
+	control := application.NewWorkflowControl(repository.NewWorkflowControl(service.database), service.now)
+	result, pending, err := control.CancelJob(ctx, request)
+	if err != nil {
+		return application.JobCancellationResult{}, false, fmt.Errorf("cancel Pegasus job: %w", err)
+	}
+	service.signal()
 	return result, pending, nil
 }
 

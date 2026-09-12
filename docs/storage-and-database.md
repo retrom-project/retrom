@@ -381,7 +381,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
 
 `retrom` serve 进程从启动到退出持有 `RETROM_DATA_DIR/retrom.lock` 的 Linux advisory exclusive lock；`backup` 使用同一非阻塞锁，服务仍运行时以 `BACKUP_REQUIRES_OFFLINE` 失败，不尝试在线复制。lock 文件不是 PID/秘密，崩溃后由内核释放。数据根已被限定为本地文件系统，这一约束也适用于 lock。`restore` 只创建新目标，无需接管正在运行的数据根。默认无参数仍启动服务，维护子命令不得隐式启动 HTTP/worker。
 
-配置的 server-import root、root digest 对应的宿主路径和原始 Pegasus/EmulationStation metadata 不进入 bundle。restore 保留数据库与已写 CAS 的待审/发布结果，但把 `SCANNING|AWAITING_MAPPING|QUEUED|RUNNING|CANCEL_REQUESTED` Pegasus/EmulationStation 聚合、其活动 Item 与 Job 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 原子失败收口；恢复服务不得根据相同 root ID 自动续跑外部 source。
+配置的 server-import root、root digest 对应的宿主路径和原始 Pegasus/EmulationStation metadata 不进入 bundle。restore 保留数据库与已写 CAS 的待审/发布结果，但把 `SCANNING|AWAITING_MAPPING|QUEUED|RUNNING|CANCEL_REQUESTED` Pegasus/EmulationStation 聚合、其活动 Item 与 Job 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 原子失败收口；恢复服务不得根据相同 root ID 自动续跑外部 source。对尚未完成的 Pegasus 扫描，恢复事务先撤销 Job 写入权限，再清除未发布且没有审核、Blob 或标签归属的暂存投影，并重算聚合计数；后续任何恢复步骤失败都回滚这些清理。已交接的审核与永久归属不属于扫描清理范围。
 
 完整 backup bundle 的 v2 目录固定如下；目录模式均为 `0700`、普通文件均为 `0600`，不保留源文件的 group/other permission、owner、mtime、xattr 或 ACL：
 

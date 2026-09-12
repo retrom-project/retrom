@@ -59,7 +59,7 @@ NOT EXISTS(SELECT 1 FROM pegasus_import_collections collection JOIN json_each(co
 LEFT JOIN tags tag ON tag.id=json_extract(entry.value,'$.tagId') AND tag.status='ACTIVE'
 WHERE collection.import_id=? AND collection.mapping_action='IMPORT' AND tag.id IS NULL),
 EXISTS(SELECT 1 FROM pegasus_imports active WHERE active.id<>?
-AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))
+AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))
 FROM pegasus_imports WHERE id=?`, id, id, id).
 		Scan(&result.RootConfigDigest, &result.SourceSnapshotDigest, &result.TagsValid, &result.OtherActive)
 	if err != nil {

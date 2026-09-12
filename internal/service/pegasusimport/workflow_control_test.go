@@ -30,6 +30,8 @@ func (m *workflowMemory) Current(context.Context, string) (WorkflowSnapshot, err
 func (m *workflowMemory) Cancel(_ context.Context, plan CancellationPlan) error {
 	m.cancellation = &plan
 	m.before.Summary.State = plan.State
+	m.before.JobState = plan.State
+	m.before.JobVersion++
 	return m.writeErr
 }
 
@@ -41,13 +43,26 @@ func (m *workflowMemory) Retry(_ context.Context, plan RetryPlan) error {
 
 func workflowFixture() *workflowMemory {
 	job := "job"
-	return &workflowMemory{before: WorkflowSnapshot{Summary: Summary{ID: "import", Version: 4, State: "PARTIAL_FAILURE", Retryable: true, ImportJobID: &job}, JobState: "SUCCEEDED", JobVersion: 3, Execution: 1, RetryableItems: 1}}
+	return &workflowMemory{
+		before: WorkflowSnapshot{
+			Summary:        Summary{ID: "import", Version: 4, State: "PARTIAL_FAILURE", Retryable: true, ImportJobID: &job},
+			JobState:       "SUCCEEDED",
+			JobVersion:     3,
+			Execution:      1,
+			RetryableItems: 1,
+		},
+	}
 }
 
 func TestWorkflowRetryUsesNextExecutionAndCurrentActor(t *testing.T) {
 	t.Parallel()
 	m := workflowFixture()
-	value, err := NewWorkflowControl(m, func() time.Time { return time.UnixMilli(10) }).Retry(t.Context(), "import", 4, "actor")
+	value, err := NewWorkflowControl(m, func() time.Time { return time.UnixMilli(10) }).Retry(
+		t.Context(),
+		"import",
+		4,
+		"actor",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +108,13 @@ func TestWorkflowCancellationDistinguishesClaimedAndQueuedWork(t *testing.T) {
 			m := workflowFixture()
 			m.before.Summary.State = "QUEUED"
 			m.before.JobState = jobState
-			_, pending, err := NewWorkflowControl(m, func() time.Time { return time.UnixMilli(10) }).Cancel(t.Context(), "import", 4, "  Stop  ", "actor")
+			_, pending, err := NewWorkflowControl(m, func() time.Time { return time.UnixMilli(10) }).Cancel(
+				t.Context(),
+				"import",
+				4,
+				"  Stop  ",
+				"actor",
+			)
 			if err != nil {
 				t.Fatal(err)
 			}

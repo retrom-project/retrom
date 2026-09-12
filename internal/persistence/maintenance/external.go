@@ -28,6 +28,9 @@ WHERE kind IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT') AND state IN ('QUE
 	if err != nil {
 		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored Pegasus jobs: %w", err)
 	}
+	if err := clearRestoredPegasusScans(ctx, transaction); err != nil {
+		return maintenance.ImportCounts{}, err
+	}
 	emulationStationJobCount, err := fenceRestoredEmulationStation(ctx, transaction, nowMS)
 	if err != nil {
 		return maintenance.ImportCounts{}, err

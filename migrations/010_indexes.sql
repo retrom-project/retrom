@@ -170,7 +170,7 @@ CREATE INDEX pegasus_collections_page ON pegasus_import_collections(import_id,me
 CREATE INDEX pegasus_imports_history ON pegasus_imports(created_at_ms DESC,id DESC);
 
 CREATE UNIQUE INDEX pegasus_imports_one_active_execution ON pegasus_imports((1))
-WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
+WHERE import_job_id IS NOT NULL AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
 
 CREATE INDEX pegasus_imports_state ON pegasus_imports(state,updated_at_ms DESC,id DESC);
 

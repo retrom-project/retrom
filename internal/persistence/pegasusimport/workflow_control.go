@@ -3,6 +3,7 @@ package pegasusimport
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"retrom/internal/dbexec"
@@ -39,18 +40,20 @@ func (records workflowRecords) Current(ctx context.Context, id string) (applicat
 		return application.WorkflowSnapshot{}, err
 	}
 	result := application.WorkflowSnapshot{Summary: summary}
-	if summary.ImportJobID == nil {
-		return result, nil
-	}
+	jobID, kind := workflowJob(summary)
 	err = records.transaction.QueryRowContext(ctx, `
 SELECT state,version,execution_no FROM jobs WHERE id=? AND scope_type='PEGASUS_IMPORT'
-AND scope_id=? AND kind='SERVER_PEGASUS_IMPORT'`, *summary.ImportJobID, id).
+AND scope_id=? AND kind=?`, jobID, id, kind).
 		Scan(&result.JobState, &result.JobVersion, &result.Execution)
 	if err != nil {
 		return application.WorkflowSnapshot{}, fmt.Errorf("read Pegasus execution identity: %w", err)
 	}
+	if summary.ImportJobID == nil {
+		return result, nil
+	}
 	err = records.transaction.QueryRowContext(ctx, `
-SELECT EXISTS(SELECT 1 FROM pegasus_imports WHERE id<>? AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),
+SELECT EXISTS(SELECT 1 FROM pegasus_imports WHERE id<>?
+AND import_job_id IS NOT NULL AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),
 (SELECT count(*) FROM pegasus_import_items WHERE import_id=? AND retryable=1
 AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED'))`, id, id).
 		Scan(&result.OtherActive, &result.RetryableItems)
@@ -58,6 +61,28 @@ AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED'))`, id, i
 		return application.WorkflowSnapshot{}, fmt.Errorf("read Pegasus retry availability: %w", err)
 	}
 	return result, nil
+}
+
+func workflowJob(summary application.Summary) (string, string) {
+	if summary.ImportJobID != nil {
+		return *summary.ImportJobID, "SERVER_PEGASUS_IMPORT"
+	}
+	return summary.ScanJobID, "SERVER_PEGASUS_SCAN"
+}
+
+func (records workflowRecords) CurrentJob(ctx context.Context, jobID string) (application.WorkflowSnapshot, error) {
+	var importID string
+	err := records.transaction.QueryRowContext(ctx, `SELECT plan.id FROM jobs job
+JOIN pegasus_imports plan ON plan.id=job.scope_id WHERE job.id=? AND job.scope_type='PEGASUS_IMPORT'
+AND ((job.kind='SERVER_PEGASUS_SCAN' AND plan.scan_job_id=job.id AND plan.import_job_id IS NULL)
+OR(job.kind='SERVER_PEGASUS_IMPORT' AND plan.import_job_id=job.id))`, jobID).Scan(&importID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return application.WorkflowSnapshot{}, application.ErrNotFound
+	}
+	if err != nil {
+		return application.WorkflowSnapshot{}, fmt.Errorf("read Pegasus cancellation job ownership: %w", err)
+	}
+	return records.Current(ctx, importID)
 }
 
 func requireWorkflowChange(result sql.Result, err, conflict error) error {
