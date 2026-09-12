@@ -71,8 +71,12 @@ export async function savePC88(opened, client, launchId, gameId) {
 export async function enterPC88Map(opened, picture) {
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
-    if ((await picture(opened)).yellow > 3000) {return;}
+    if (isPC88MapReady(await picture(opened))) {return;}
     await pressPC88(opened, 0, 2500);
   }
   throw Error("PC88_MAP_BOOT_TIMEOUT");
+}
+
+export function isPC88MapReady(frame) {
+  return frame.yellow > 3000 && frame.tile === "left";
 }
