@@ -5,6 +5,7 @@ import (
 )
 
 const (
+	ModeNXEngineProject     = string(contentprofile.ContentKindNXEngineProject)
 	ModeScummVMProject      = string(contentprofile.ContentKindScummVMProject)
 	ModeStandard            = "STANDARD"
 	ModeMultiDisc           = string(contentprofile.ContentKindMultiDisc)

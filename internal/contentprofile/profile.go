@@ -32,6 +32,7 @@ const (
 	ContentKindRPGMakerProject     ContentKind = "RPG_MAKER_PROJECT"
 	ContentKindONSProject          ContentKind = "ONS_PROJECT"
 	ContentKindKiriKiriProject     ContentKind = "KIRIKIRI_PROJECT"
+	ContentKindNXEngineProject     ContentKind = "NXENGINE_PROJECT"
 	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT"
 	ContentKindTyranoScriptProject ContentKind = "TYRANOSCRIPT_PROJECT"
 	ContentKindScummVMProject      ContentKind = "SCUMMVM_PROJECT"
@@ -109,6 +110,7 @@ var registry = map[string]Profile{
 	"tic80":   single("tic80", ".tic"),
 	"pico8":   single("pico8", ".p8", ".p8.png"),
 
+	"cavestory":    project("cavestory", ContentKindNXEngineProject),
 	"scummvm":      project("scummvm", ContentKindScummVMProject),
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),
 	"ons":          project("ons", ContentKindONSProject),
