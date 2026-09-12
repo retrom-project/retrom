@@ -18,6 +18,7 @@ from pfb.docker import (
     _runtime_git_mount_arguments,
     app_restart,
     app_up,
+    build_toolchain,
     import_provider_base,
     migrate_legacy_storage,
     workspace_paths,
@@ -240,6 +241,21 @@ class LightweightDevelopmentContractTests(unittest.TestCase):
             self.assertNotIn("npm", source)
             self.assertNotIn("candidate", source)
             self.assertNotIn("docker build", source)
+
+    def test_new_toolchain_reuses_dependencies_and_refreshes_marker(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            root = Path(temporary)
+            marker = root / "toolchain.json"
+            marker.write_text(json.dumps({"schemaVersion": 1, "toolchainSha256": "old", "inputsSha256": "same"}))
+            with mock.patch("pfb.docker.ensure_workspace", return_value={"root": root}), \
+                    mock.patch("pfb.docker._toolchain_digest", return_value="new"), \
+                    mock.patch("pfb.docker._development_inputs_digest", return_value="same"), \
+                    mock.patch("pfb.docker.subprocess.run", return_value=mock.Mock(returncode=0)), \
+                    mock.patch("pfb.docker._run_dev_command") as prepare:
+                result = build_toolchain(root, {})
+            self.assertFalse(result["dependenciesChanged"])
+            prepare.assert_not_called()
+            self.assertEqual(json.loads(marker.read_text())["toolchainSha256"], "new")
 
     def test_workspace_is_stable_and_bind_mounted(self) -> None:
         root = Path("/tmp/retrom-pfb-fixture")

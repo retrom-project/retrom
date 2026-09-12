@@ -186,7 +186,7 @@ SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 
 
 ### 3.14 Runtime Provider 与 RPG Maker 虚拟 Core
 
-浏览器运行实现只由两个不可变 Provider Bundle 提供：`emulatorjs` 声明 44 个 Target，`retrom-runtime` 声明 17 个 Target。Provider manifest 是 Target 能力、资源输入、checkpoint 格式和 module 资产的公开唯一声明；Provider 内部可以使用私有 adapter/core，但 Retrom 数据库、Go、OpenAPI、Web 与验收不得复制或依赖该映射。Host 只维护 Product Core 到稳定 `(providerId,targetId)` 的 binding；Launch、Preview 和 Netplay session 才冻结当次 `bundleSha256`。
+浏览器运行实现只由两个不可变 Provider Bundle 提供：`emulatorjs` 声明 55 个 Target，`retrom-runtime` 声明 22 个 Target。Provider manifest 是 Target 能力、资源输入、checkpoint 格式和 module 资产的公开唯一声明；Provider 内部可以使用私有 adapter/core，但 Retrom 数据库、Go、OpenAPI、Web 与验收不得复制或依赖该映射。Host 只维护 Product Core 到稳定 `(providerId,targetId)` 的 binding；Launch、Preview 和 Netplay session 才冻结当次 `bundleSha256`。
 
 所有运行入口共享 `Launch Envelope V1`。Envelope 只包含 session、Provider/Target/Bundle 身份、capabilities、checkpoint declaration、授权 resources、target options、restore、validation 与 netplay；不暴露 Provider 私有实现。每个 Target 在 Provider declaration 中内联闭合 `targetOptionsSchema`；Host 签发前和 Provider Module mount 前分别精确校验，Web dispatcher 只保留 JSON-safe、深度和大小等通用门禁，不维护 `optionsKind` 或 Target 私有字段。Web 的唯一装载入口是共享 Provider dispatcher：它校验 module URL、SHA-256、Provider 身份和 API version，再调用 `createRuntime` 并只向 Player 暴露 `PlayerRuntimeV1`。Player Shell 不按 RPG 世代、引擎或 Target 分支，也不从项目内容重选实现。
 
@@ -210,8 +210,8 @@ flowchart LR
     N -->|HTTP：页面 / _next| W["retrom-web / Next.js + Player Shell"]
     N -->|HTTP：API / content / runtime| S["retrom / Go 模块化单体"]
     W --> PD["Provider dispatcher"]
-    PD --> EP["EmulatorJS Provider · 44 Targets"]
-    PD --> RP["retrom-runtime Provider · 13 Targets"]
+    PD --> EP["EmulatorJS Provider · 55 Targets"]
+    PD --> RP["retrom-runtime Provider · 22 Targets"]
     S --> D["SQLite WAL"]
     S --> B["本地 SHA-256 CAS"]
     S --> J["SQLite 队列 + 进程内 Worker"]
@@ -285,13 +285,13 @@ erDiagram
 
 ## 6. 平台、核心与推荐游戏目录
 
-空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 51 个 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
+空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的当前 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
 
 | 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |
 | NES / Famicom (`nes`) | `fceumm`、`nestopia` | NES 游戏 → `fceumm` | 统一接收 `.nes/.unf/.unif/.fds`；只有 FDS 内容需要 `disksys.rom` |
 | Famicom Disk System (`fds`) | `fceumm`、`nestopia` | 无独立推荐目录 | 基础平台 code 用于当前内容识别；FDS 内容统一导入 NES 游戏目录 |
-| SNES (`snes`) | `snes9x` | SNES 游戏 → `snes9x` | 标准游戏通常不要求 BIOS |
+| SNES (`snes`) | `snes9x`、`bsnes` | SNES 游戏 → `snes9x` | bsnes 为 4.3.0-pre 可选核心，不另建推荐目录；标准游戏通常不要求 BIOS |
 | Game Boy / Color (`gbc`) | `gambatte`、`mgba` | Game Boy 游戏 → `gambatte` | 两个 core 均可供本次启动切换 |
 | Game Boy Advance (`gba`) | `mgba` | GBA 游戏 → `mgba` | BIOS 可选 |
 | Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003`、`fbalpha2012_cps1`、`fbalpha2012_cps2` | FBNeo 游戏 → `fbneo`；MAME 2003 Plus 游戏 → `mame2003_plus`；FB Alpha 2012 CPS-1/2 游戏 → 对应核心 | MAME 2003 不另建推荐目录；Arcade 扩展名去重后仍为 `.zip`，每个核心继续使用独立 DAT |
@@ -301,6 +301,14 @@ erDiagram
 | Atari 5200 (`atari5200`) | `a5200` | Atari 5200 游戏 → `a5200` | `.a52`；需要 `5200.rom` |
 | Atari 7800 (`atari7800`) | `prosystem` | Atari 7800 游戏 → `prosystem` | `.a78`；需要 `7800 BIOS (U).rom` |
 | Atari Lynx (`lynx`) | `handy` | Atari Lynx 游戏 → `handy` | `.lnx`；需要 `lynxboot.img` |
+| Game Gear (`gamegear`) | `genesis_plus_gx` | Game Gear 游戏 → `genesis_plus_gx` | 单卡带 `.gg` |
+| SG-1000 (`sg1000`) | `genesis_plus_gx` | SG-1000 游戏 → `genesis_plus_gx` | 单卡带 `.sg` |
+| Multivision (`multivision`) | `genesis_plus_gx` | Multivision 游戏 → `genesis_plus_gx` | SG-1000 兼容卡带 `.sg`；独立内容身份 |
+| Sega Pico (`pico`) | `picodrive` | Sega Pico 游戏 → `picodrive` | `.md/.bin`；与 PICO-8 无关；专用外设按实际样本验证 |
+| Sega 32X (`sega32x`) | `picodrive` | Sega 32X 游戏 → `picodrive` | 单卡带 `.32x`；不包含 CD32X |
+| SuperGrafx (`supergrafx`) | `mednafen_pce` | SuperGrafx 游戏 → `mednafen_pce` | `.pce/.sgx`；使用包含 SGX 的锁定 EmulatorJS 构建 |
+| GX4000 (`gx4000`) | `cap32` | GX4000 游戏 → `cap32` | 单卡带 `.cpr`；Provider 选择 Plus 机型 |
+| Uzebox (`uzebox`) | `uzem` | Uzebox 游戏 → `uzem` | ATmega644 单卡带 `.uze`；玩家一，不支持 SD 或鼠标卡带 |
 | Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`、`.smd`、`.bin`；Wide 为可选核心，不另建目录 |
 | PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏 → `mednafen_pce` | `.pce` |
 | PC Engine CD (`pcecd`) | `mednafen_pce` | PC Engine CD 游戏 → `mednafen_pce` | 单文件 CHD；需要 `syscard3.pce`，卡带不受此条件影响 |
@@ -309,6 +317,7 @@ erDiagram
 | Commodore PET (`pet`) | `vice_xpet` | Commodore PET 游戏 → `vice_xpet` | 单文件；不开放 M3U/CMD/VFL 引用 |
 | Commodore Plus/4 (`plus4`) | `vice_xplus4` | Commodore Plus/4 游戏 → `vice_xplus4` | 单文件；不提供换盘 |
 | Philips CD-i (`cdi`) | `same_cdi` | Philips CD-i 游戏 → `same_cdi` | 单文件 CHD；需要 `cdimono1.zip`，其默认 BIOS 和 MCU ROM 在包内校验 |
+| GCE Vectrex (`vectrex`) | `vecx` | Vectrex 游戏 → `vecx` | 单卡带 `.vec/.bin`；支持 ZIP/7z 单主文件导入 |
 | Neo Geo Pocket / Color (`ngpc`) | `mednafen_ngp` | Neo Geo Pocket 游戏 → `mednafen_ngp` | `.ngp`、`.ngc` |
 | Nintendo 64 (`n64`) | `mupen64plus_next`、`parallel_n64` | Nintendo 64 游戏 → `mupen64plus_next` | `.z64`；产品 ID 只使用 `parallel_n64` |
 | PlayStation (`psx`) | `pcsx_rearmed`、`mednafen_psx_hw` | PlayStation 游戏 → `pcsx_rearmed` | 单文件 CHD；后者需要线程且固定 software renderer |
@@ -326,6 +335,7 @@ erDiagram
 | Commodore 64 (`c64`) | `vice_x64sc`、`vice_x64` | Commodore 64 游戏 → `vice_x64sc` | 单文件；不接受 CMD/VFL/M3U 引用 |
 | Commodore 128 (`c128`) | `vice_x128` | Commodore 128 游戏 → `vice_x128` | 单文件；不提供换盘 |
 | Commodore VIC-20 (`vic20`) | `vice_xvic` | Commodore VIC-20 游戏 → `vice_xvic` | 单文件；不提供换盘 |
+| Intellivision (`intellivision`) | `freeintv` | Intellivision 游戏 → `freeintv` | 需要 `exec.bin` 与 `grom.bin` |
 | ColecoVision (`colecovision`) | `gearcoleco` | ColecoVision 游戏 → `gearcoleco` | 需要 `colecovision.rom` |
 | Atari Jaguar (`atarijaguar`) | `virtualjaguar` | Atari Jaguar 游戏 → `virtualjaguar` | 单文件 cartridge |
 | Doom (`doom`) | `prboom` | Doom 游戏 → `prboom` | 单一 IWAD；需要 `prboom.wad` 辅助资源 |

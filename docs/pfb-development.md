@@ -64,11 +64,19 @@ worktree，再读取该 PFB 的清单准备选中源码；`REPOS` 精确选择�
 
 ## Loose dev provider
 
-每个 PFB 选择一组开发 Provider，未设置时为 `retrom-runtime`。修改 EmulatorJS adapter 时，在该 Retrom worktree 的 `.pfb/workspace/providers/dev/provider-id` 写入 `emulatorjs` 并执行 `pfb-restart`；选择保存在持久 workspace 中，重启时读取。仅支持 `retrom-runtime` 和 `emulatorjs`，不接受任意入口路径。EmulatorJS 直接使用已导入基座的核心资源，仅重新编译对应 client；核对 `dev-provider.json` 的 `providerId` 与 status 的模块摘要后再做浏览器验收。
+每个 PFB 选择一组开发 Provider，未设置时为 `retrom-runtime`。修改 EmulatorJS adapter 时，在该 Retrom worktree 的 `.pfb/workspace/providers/dev/provider-id` 写入 `emulatorjs` 并执行 `pfb-restart`；选择保存在持久 workspace 中，重启时读取。仅支持 `retrom-runtime` 和 `emulatorjs`，不接受任意入口路径。EmulatorJS 默认使用已导入基座的核心资源，仅重新编译对应 client；核对 `dev-provider.json` 的 `providerId` 与 status 的模块摘要后再做浏览器验收。
 
 PFB 启动前，`retrom-runtime/scripts/pfb-provider-watch.mjs --once` 从当前基座 active descriptor 与 integrity 文件读取 asset index/Target declaration，使用 esbuild 只生成自包含 `client.mjs`，并读取 `provider-sources.json` 声明的本地 adapter 资源。所有开发文件的路径、大小、摘要、MIME 与 base64 字节组成一份 `dev-provider.json`；构建完成后原子替换此文件，不保留历史目录。失败构建不改变已发布文件。Go 启动时一次加载并校验完整文件到内存，旧进程继续使用启动时的字节，新进程重启后读取新文件，因此 watcher 与 restart 之间不会出现 module SHA/ETag/响应字节错配。常驻 watcher 监听 `src/`、`assets/`、package 与 provider source 声明。
 
 Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type 和内含字节 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store` 与开发 ETag；Launch Envelope 保留基座 bundle/Target declaration，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载开发文件；无需 `pfb-build`。
+
+显式构建已声明的 EmulatorJS fork 后，可在 `.pfb/workspace/providers/dev/core-inputs.json` 选择候选目录，然后执行 `pfb-up PFB_SELECT=false` 或 `pfb-restart`：
+
+```json
+{"schemaVersion":1,"cores":[{"id":"cap32","directory":"/pfb-workspace/core-builds/cap32/current"}]}
+```
+
+该路径使用容器内的持久 workspace 挂载点，候选必须来自本 PFB 的 `pfb-core-build`。watcher 不编译核心；它复用 runtime 的候选校验，检查来源已在 EmulatorJS source catalog 中声明、基座已有核心资源、完整候选文件集、commit/source tree/ABI 元数据及各文件大小和 SHA。验证后将核心、来源说明、许可与源码一并加入 loose descriptor，同步更新 asset index 与所选核心的编译期 implementation 身份，再编译 client（公开 Target 声明不变）；失败不会替换现有 descriptor。此入口目前支持 `emulatorjs-development-forks.mjs` 中维护的 fork，其他核心仍使用对应的显式候选聚合流程。新增或移除选择、重新构建核心后必须 restart 并核对实际资源摘要；删除选择文件可恢复基座资源。选择不更改 Target、生产来源清单或 release lock。禁止在活动浏览器验收期间构建或替换。
 
 `RETROM_PROVIDER_DEV_ROOT` 是失败关闭边界：只有 `RETROM_MODE=test`、非空合法 `RETROM_PFB_ID` 与匹配的本地 PFB origin 同时成立时才接受；普通 `make dev` 两者都不设置，release 模式对任何 loose root 无条件拒绝。生产 active descriptor、Provider archive、release digest、双镜像和 CI 不读取 `.pfb/`。
 

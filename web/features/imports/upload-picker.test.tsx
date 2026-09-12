@@ -233,6 +233,7 @@ describe("UploadPicker", () => {
     }));
   });
 
+
   it("uses the generic project purpose for TyranoScript and trial workflow", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({importJobId: "tyrano-import"}), {
       status: 202, headers: {"Content-Type": "application/json"},
@@ -370,4 +371,30 @@ describe("UploadPicker", () => {
     }));
     expect(await screen.findByText("导入任务已创建")).toBeVisible();
   });
+});
+
+describe("UploadPicker NXEngine projects", () => {
+  it("uses the generic project purpose for 洞窟物语 and exposes the trial runtime", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "cavestory-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "cavestory", name: "洞窟物语 游戏", platformName: "洞窟物语", coreName: "NXEngine",
+      importCapabilities: { contentModes: ["NXENGINE_PROJECT"], multiDisc: null },
+    }]} />);
+
+    await user.upload(screen.getByLabelText("选择导入文件"), new File(["FORM"], "game.zip"));
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "cavestory");
+    expect(screen.getByText("洞窟物语项目")).toBeVisible();
+    expect(screen.getByText(/上传包含 Doukutsu.exe/)).toBeVisible();
+    expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（洞窟物语项目）");
+
+    await user.click(screen.getByRole("button", { name: "上传并试运行洞窟物语" }));
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "PROJECT");
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "cavestory", metadataProvider: "NONE", contentMode: "NXENGINE_PROJECT", tagIds: [] }),
+    }));
+  });
+
 });

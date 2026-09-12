@@ -133,6 +133,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 - RPG Maker：只接受一次目录选择结果，或 `sourceType=FILES` 下恰一个 ZIP/7z；若干散文件、多归档或 URL 一律拒绝。规范化后最多 10,000 个项目文件，逐项形成 `PROJECT_FILE`；项目根内的 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z`、工具 sidecar 和其他内层 archive 都按原始 bytes 作为不透明项目文件保留，绝不递归展开、识别其内层目录或执行其中内容。完整根目录/内容证据规则只由第 17 节执行。
 - ONS：只接受一次完整目录选择，或 `sourceType=FILES` 下恰一个 ZIP/7z。服务端只剥离一层共同包装目录，要求项目根存在 `0.txt`、`00.txt`、`nscript.dat` 或 `nscr_sec.dat` 之一，并至少存在一份 TTF 字体；项目全部文件以 `PROJECT_FILE` 原样保留，NSA/SAR/NS2 等资源包不递归展开。文本脚本在限定探测窗口内是合法 UTF-8 时记为 `utf8`，否则按 ONS 兼容基线记为 `gbk`。项目没有单 ROM hash 身份，元信息源固定为 `NONE`。
 - KiriKiri：只接受一次完整目录选择，或 `sourceType=FILES` 下恰一个 ZIP/7z。服务端只剥离一层共同包装目录，要求项目根存在 `startup.tjs` 或 `data.xp3`；全部项目文件以 `PROJECT_FILE` 原样保留，XP3 不递归展开。存在 `data.xp3` 时固定选择它；没有该名称而恰有一个 XP3 时选择该文件；多个其他 XP3 无法唯一裁决时拒绝导入。静态识别只证明 KiriKiri 项目形状，兼容状态固定为 `KIRIKIRI_RUNTIME_TRIAL_REQUIRED`，审核预览实际出现画面并完成按需截图后才允许批准。项目没有单 ROM hash 身份，元信息源固定为 `NONE`。
+- Cave Story/NXEngine：完整目录或恰一个 ZIP/7z，剥离共同包装目录后须包含唯一 `Doukutsu.exe`、`data/npc.tbl`、`data/Stage/Start.pxm` 与 `Start.tsc`。可执行文件仅检查 MZ 标记与有界长度，不作为 Windows 代码执行。最多 4096 个文件、单文件 32 MiB、项目 64 MiB；拒绝危险路径和不区分大小写的重复路径。形成 `NXENGINE_PROJECT`，静态检测后为 `NXENGINE_RUNTIME_TRIAL_REQUIRED`，按普通审核预览和截图流程批准。游戏项目资源不会自动成为原生存档。
 - GameMaker/Butterscotch：只接受一次完整目录选择，或 `sourceType=FILES` 下恰一个 ZIP/7z。服务端只剥离一层共同包装目录，要求根目录恰有一个不区分大小写的 `data.win`，并验证其 `FORM` header 与声明长度；全部文件以 `PROJECT_FILE` 原样保留，不解析、修改或执行其他项目文件。静态结果只证明 GameMaker 容器形状，兼容状态固定为 `BUTTERSCOTCH_RUNTIME_TRIAL_REQUIRED`，审核预览由锁定 Butterscotch core 实际运行并完成按需截图后才允许批准。项目没有单 ROM hash 身份，元信息源固定为 `NONE`。
 - 多文件项目的外层 solid 7z 先在受限 worker 中完整扫描一次；安全扫描通过后，待物化成员必须按 archive ordinal 由一个受限 worker 顺序流入 CAS，复用同一 solid decoder。不得为每个项目文件重新打开归档并重复解压同一 solid block。物化结果仍逐项复核扫描阶段冻结的 size/CRC32/MD5/SHA-1/SHA-256，不能用批量处理弱化完整性门禁。
 - 每个 Item 的 `ImportItemSourceFile` 是 source manifest 与 Approve 复制 GameContentFile 的唯一关系来源；`group_key` 使用数据模型的 canonical digest，重试不得因 worker 遍历顺序改变分组。
@@ -157,6 +158,10 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 | Nintendo DS (`nds`) | 原始 `.nds`；或一个 ZIP/7z | archive 必须恰有一个 `.nds` entry。 |
 | Atari 2600 / 5200 / 7800 | 对应 `.a26/.a52/.a78`；或一个 ZIP/7z | 各目录只接受自己的扩展，唯一成员物化为 raw CONTENT。 |
 | Atari Lynx (`lynx`) | 原始 `.lnx`；或一个 ZIP/7z | archive 必须恰有一个 `.lnx` entry。 |
+| Game Gear / SG-1000 / Multivision | 分别为 `.gg` / `.sg` / `.sg`；或一个 ZIP/7z | 归档恰有一个本平台支持成员；SG-1000 和 Multivision 保留各自平台身份。 |
+| Sega Pico / Sega 32X | 分别为 `.md/.bin` / `.32x`；或一个 ZIP/7z | 单卡带，不接受光盘与多盘引用；Pico 不指 PICO-8。 |
+| SuperGrafx (`supergrafx`) | `.pce/.sgx`；或一个 ZIP/7z | 恰有一个支持成员；独立于 PC Engine 目录。 |
+| GX4000 (`gx4000`) | `.cpr`；或一个 ZIP/7z | 只接收卡带；Amstrad CPC 仍只收 `.dsk/.sna`。 |
 | Mega Drive (`megadrive`) | 原始 `.md`、`.smd`、`.bin`；或一个 ZIP/7z | archive 必须恰有一个上述扩展的安全 entry；不同扩展的多个 ROM 也属于多候选歧义。保留内容 bytes 与扩展名，`.smd` 由核心解码，不在导入时改名或转换。 |
 | PC Engine (`pce`) | 原始 `.pce`；或一个 ZIP/7z | archive 必须恰有一个 `.pce` entry。 |
 | Neo Geo Pocket (`ngpc`) | 原始 `.ngp`；或一个 ZIP/7z | archive 必须恰有一个 `.ngp` entry。 |
@@ -166,6 +171,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 | Master System (`mastersystem`) | 原始 `.sms`；或一个 ZIP/7z | archive 必须恰有一个 `.sms` entry；本期不借用 SMS Plus 的其他平台格式扩展产品范围。 |
 | ZX Spectrum (`zxspectrum`) | 原始 `.tzx/.tap/.z80/.rzx/.scl/.trd`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；只发布单文件内容，不接收 M3U 或多盘集合。 |
 | Commodore 64 / 128 / VIC-20 (`c64/c128/vic20`) | 原始 `.d64/.d6z/.d71/.d7z/.d80/.d81/.d82/.d8z/.g64/.g6z/.g41/.g4z/.x64/.x6z/.nib/.nbz/.d2m/.d4m/.t64/.tap/.tcrt/.prg/.p00/.crt/.bin/.vsf/.gz/.20/.40/.60/.a0/.b0/.rom`；或一个 ZIP/7z | 三个平台分别绑定 VICE x64sc/x128/xvic；archive 必须恰有一个支持 entry。CMD/VFL/M3U 引用文件、多文件磁盘集合与换盘不在本期范围。 |
+| Intellivision (`intellivision`) | 原始 `.int/.rom/.bin`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；启动要求已安装 `exec.bin` 与 `grom.bin`。 |
 | ColecoVision (`colecovision`) | 原始 `.col/.cv/.bin/.rom`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；启动要求已安装匹配的 `colecovision.rom`。 |
 | Atari Jaguar (`atarijaguar`) | 原始 `.j64/.jag/.rom/.abs/.cof/.bin/.prg`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；不接收 Jaguar CD 或多文件光盘内容。 |
 | Doom (`doom`) | 原始 `.wad/.iwad`；或一个 ZIP/7z | archive 必须恰有一个 IWAD 游戏内容；启动同时要求已安装 `prboom.wad`。字面扩展 `.pwad` 不接收，PWAD/mod 依赖闭包不在本期范围。 |

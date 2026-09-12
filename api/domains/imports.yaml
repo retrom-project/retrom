@@ -396,6 +396,7 @@ components:
             - ONS_PROJECT
             - KIRIKIRI_PROJECT
             - BUTTERSCOTCH_PROJECT
+            - NXENGINE_PROJECT
             - TYRANOSCRIPT_PROJECT
             - SCUMMVM_PROJECT
           description: Omitted requests use STANDARD. For import creation only, STANDARD targeting rpgmaker with one ZIP/7z or a complete directory is normalized to RPG_MAKER_PROJECT before the immutable job snapshot is created.

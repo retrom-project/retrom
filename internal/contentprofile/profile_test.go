@@ -11,7 +11,8 @@ import (
 func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 	t.Parallel()
 	tests := map[string][]string{
-		"nes": {"game.nes", "game.UNIF", "disk.FDS"}, "fds": {"disk.fds"}, "snes": {"game.sfc"},
+		"intellivision": {".int", ".rom", ".bin"},
+		"nes":           {"game.nes", "game.UNIF", "disk.FDS"}, "fds": {"disk.fds"}, "snes": {"game.sfc"},
 		"gbc": {"game.gb", "game.GBC"}, "gba": {"game.gba"}, "nds": {"game.nds"},
 		"atari5200": {"game.a52"}, "psx": {"game.chd"}, "lynx": {"game.lnx"},
 		"saturn": {"game.chd"}, "megadrive": {"game.md", "game.smd", "game.SMD", "game.bin", "game.BIN"}, "n64": {"game.z64"},
@@ -171,6 +172,9 @@ func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
 		got := AllowsContentKind(platformID, ContentKindMultiDisc)
 		testassert.CheckFalsef(t, got != (platformID == "saturn"), "AllowsContentKind(%q, MULTI_DISC) = %t", platformID, got)
 		switch platformID {
+		case "cavestory":
+			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindNXEngineProject), "Cave Story project support missing")
+			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "Cave Story accepted SINGLE_FILE")
 		case "rpgmaker":
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindRPGMakerProject), "RPG Maker project support missing")
 			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "RPG Maker accepted SINGLE_FILE")

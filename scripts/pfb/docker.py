@@ -234,7 +234,7 @@ def build_toolchain(root: Path, spec: dict[str, Any]) -> dict[str, Any]:
         _run_dev_command(root, spec, image, paths, Path(spec["runtime"]["root"]), ["npm", "ci"])
         _run_dev_command(root, spec, image, paths, root,
                          ["make", "api-generate-go", "GO_PREPARE_MODE=system", "NODE_PREPARE_MODE=system"])
-        atomic_json(marker, {"schemaVersion": 1, "toolchainSha256": digest, "inputsSha256": inputs})
+    atomic_json(marker, {"schemaVersion": 1, "toolchainSha256": digest, "inputsSha256": inputs})
     return {"image": image, "toolchainSha256": digest, "inputsSha256": inputs,
             "imageBuilt": image_built, "dependenciesChanged": dependencies_changed}
 

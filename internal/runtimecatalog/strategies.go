@@ -17,8 +17,10 @@ const (
 )
 
 var hostStrategies = map[string]HostStrategy{
-	"PC98_DISK": {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
+	"POKEMINI_ROM": {"EMULATORJS_CONTENT", OptionsNone, []string{"SINGLE_FILE"}},
+	"PC98_DISK":    {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 
+	"NXENGINE_PROJECT":        {"FILE_TREE_PROJECT", OptionsNone, []string{"NXENGINE_PROJECT"}},
 	"OPENBOR_PAK":             {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"MSX_MEDIA":               {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"PX68K_DISK":              {"EMULATORJS_CONTENT", OptionsNone, []string{"SINGLE_FILE"}},
