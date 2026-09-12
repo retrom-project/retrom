@@ -19,7 +19,8 @@ func validateCheckpointFormats(
 	}
 	rows, err := transaction.QueryContext(ctx, `
 SELECT DISTINCT save.checkpoint_format FROM save_states save
-JOIN game_variants variant ON variant.game_id=save.game_id
+JOIN launch_sessions source_launch ON source_launch.id=save.source_launch_session_id
+JOIN game_variants variant ON variant.game_id=save.game_id AND variant.core_id=source_launch.core_id
 WHERE save.deleted_at_ms IS NULL AND variant.provider_id=? AND variant.target_id=?
 `, providerID, target.target.ID)
 	if err != nil {
