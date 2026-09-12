@@ -20,10 +20,11 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/pegasusmeta"
 	"retrom/internal/serversource"
+	application "retrom/internal/service/pegasusimport"
 )
 
 const (
-	maxMetadataFiles = 1000
+	maxMetadataFiles = application.MaxMetadataFiles
 	maxGames         = 100000
 )
 

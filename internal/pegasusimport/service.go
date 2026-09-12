@@ -2,7 +2,6 @@ package pegasusimport
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -73,15 +72,16 @@ type (
 )
 
 type Service struct {
-	database *sql.DB
-	blobs    *blobstore.Store
-	importer *libraryimport.Service
-	roots    map[string]Root
-	now      func() time.Time
-	tags     *tagging.Service
-	wake     chan struct{}
-	stop     chan struct{}
-	stopOnce sync.Once
+	sourceReader func(context.Context) (func(), error)
+	database     *sql.DB
+	blobs        *blobstore.Store
+	importer     *libraryimport.Service
+	roots        map[string]Root
+	now          func() time.Time
+	tags         *tagging.Service
+	wake         chan struct{}
+	stop         chan struct{}
+	stopOnce     sync.Once
 }
 
 func New(
@@ -454,11 +454,6 @@ func (service *Service) validateCreateRequest(request CreateRequest) (Root, erro
 	}
 	cleanup.Error("close", directory.Close())
 	return root, nil
-}
-
-func jobDedupe(kind, value string) string {
-	digest := sha256.Sum256([]byte("retrom-job-dedupe-v1\x00" + kind + "\x00" + value))
-	return hex.EncodeToString(digest[:])
 }
 
 func boolInt(value bool) int {
