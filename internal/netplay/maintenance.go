@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"retrom/internal/dbexec"
@@ -178,46 +177,6 @@ ORDER BY room.updated_at_ms,room.id LIMIT 100
 	return active, nil
 }
 
-func (service *Service) mutateHostRoom(
-	ctx context.Context,
-	roomID, actorProfileID string,
-	expectedVersion int64,
-	allowedStates []string,
-	mutation func(*sql.Tx, int64) error,
-) (Room, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return Room{}, serviceError("mutate host room transaction", err)
-	}
-	defer dbexec.Rollback(transaction)
-	var host, state string
-	var version int64
-	if err := transaction.QueryRowContext(
-		ctx, `SELECT host_profile_id,state,version FROM netplay_rooms WHERE id=?`, roomID,
-	).Scan(&host, &state, &version); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Room{}, ErrRoomNotFound
-		}
-		return Room{}, serviceError("mutate host room state", err)
-	}
-	if host != actorProfileID {
-		return Room{}, ErrForbidden
-	}
-	if version != expectedVersion {
-		return Room{}, ErrPrecondition
-	}
-	if !slices.Contains(allowedStates, state) {
-		return Room{}, ErrRoomConflict
-	}
-	if err := mutation(transaction, service.clock.Now().UnixMilli()); err != nil {
-		return Room{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Room{}, serviceError("mutate host room commit", err)
-	}
-	return service.Room(ctx, roomID, actorProfileID)
-}
-
 func appendEvent(
 	ctx context.Context,
 	transaction *sql.Tx,
@@ -253,13 +212,6 @@ func newV7() string {
 }
 
 func intPointer(value int) *int { return &value }
-
-func boolInt(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
-}
 
 func stringPointerFromNull(value sql.NullString) *string {
 	if !value.Valid {

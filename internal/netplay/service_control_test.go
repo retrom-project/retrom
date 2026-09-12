@@ -2,7 +2,6 @@ package netplay
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -297,13 +296,6 @@ func TestArcadeEligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	}
 	runnable, err := service.arcadeDependencySnapshotRunnable(ctx, row)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !runnable }), "typed Arcade Arcade variant runnable=%t error=%v", runnable, err)
-}
-
-func TestHostCannotClaimGuestSeatThroughTheService(t *testing.T) {
-	t.Parallel()
-	if err := validateSeatMember(sql.NullString{String: "HOST", Valid: true}, sql.NullInt64{}); !errors.Is(err, ErrForbidden) {
-		t.Fatalf("host seat mutation error = %v", err)
-	}
 }
 
 func TestAuthenticateSocketDistinguishesForbiddenFromDatabaseFailure(t *testing.T) {

@@ -5,13 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/service/netplay"
 )
 
-type Eligibility struct{ database *sql.DB }
+type Eligibility struct{ database dbexec.Executor }
 
-func NewEligibility(database *sql.DB) *Eligibility { return &Eligibility{database: database} }
+func NewEligibility(database dbexec.Executor) *Eligibility { return &Eligibility{database: database} }
+
 func (repository *Eligibility) GamePage(
 	ctx context.Context,
 	profileID, afterTitle, afterGameID string,
