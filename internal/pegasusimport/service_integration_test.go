@@ -335,7 +335,7 @@ WHERE item.import_id=? AND item.title='Discarded Fixture'
 	)
 	mustExecPegasusTest(ctx, t, database.SQL, `
 UPDATE pegasus_imports
-SET state='RUNNING',phase='VALIDATING',completed_at_ms=NULL
+SET state='QUEUED',phase=NULL,completed_at_ms=NULL
 WHERE id=?
 `, importID)
 	mustExecPegasusTest(ctx, t, database.SQL, `
@@ -343,6 +343,15 @@ UPDATE pegasus_import_items
 SET execution_state='PENDING',completed_at_ms=NULL
 WHERE id=? AND execution_state='REVIEW_PENDING'
 `, resumedPegasusItemID)
+	// Reclaim the interrupted execution before resuming its attached review.
+	mustExecPegasusTest(ctx, t, database.SQL, `
+UPDATE jobs SET state='QUEUED',finished_at_ms=NULL,worker_id=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL
+WHERE id=?`, claimedWork.JobID)
+	resumedWork, claimed := service.claim(ctx)
+	if !claimed || resumedWork.JobID != claimedWork.JobID || resumedWork.Attempt != claimedWork.Attempt+1 {
+		t.Fatalf("resume did not reclaim original execution: %#v claimed=%v", resumedWork, claimed)
+	}
+	claimedWork = resumedWork
 	resumed, found, err := service.nextItem(ctx, importID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !found }, func() bool { return resumed.LibraryImportJobID != resumedImportJobID }, func() bool { return resumed.LibraryImportItemID != resumedReviewItemID }), "resumed review handoff = %#v, found=%v, error=%v", resumed, found, err)
 	service.processItem(ctx, claimedWork, service.roots["games"], resumed)

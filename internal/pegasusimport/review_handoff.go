@@ -2,14 +2,15 @@ package pegasusimport
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 
-	"retrom/internal/dbexec"
+	repository "retrom/internal/persistence/pegasusimport"
+	libraryservice "retrom/internal/service/libraryimport"
+	application "retrom/internal/service/pegasusimport"
 
 	"retrom/internal/persistence/recordstore"
 
@@ -89,177 +90,32 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, root R
 }
 
 func (service *Service) prepareLibraryReview(
-	ctx context.Context,
-	unit work,
-	item executionItem,
-	importJobID string,
-	imported libraryimport.ServerImportItem,
+	ctx context.Context, unit work, item executionItem, importJobID string, imported libraryimport.ServerImportItem,
 ) {
-	var metadata libraryimport.ServerMetadata
-	if err := json.Unmarshal([]byte(item.MetadataJSON), &metadata); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "BLOCKED_CONTENT", "PEGASUS_METADATA_SYNTAX_INVALID", false, "",
-			withLibraryImportIdentity(
-				service.itemFailure("METADATA", "DECODE_FROZEN_METADATA", err, firstSourcePath(item)),
-				importJobID,
-				imported.ItemID,
-			),
-		)
-		return
-	}
-	if err := service.updateExecutionPhase(ctx, unit.ImportID, "PREPARING_REVIEWS"); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)),
-				importJobID,
-				imported.ItemID,
-			),
-		)
-		return
-	}
-	_, metadataWarnings, err := service.importer.SeedServerReviewMetadata(ctx, imported.ItemID, metadata)
-	if err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			withLibraryImportIdentity(
-				service.itemFailure("METADATA", "SEED_SERVER_REVIEW", err, firstSourcePath(item)),
-				importJobID,
-				imported.ItemID,
-			),
-		)
-		return
-	}
-	service.finalizeReviewHandoff(ctx, unit, item, importJobID, imported.ItemID, metadataWarnings)
-}
-
-func (service *Service) finalizeReviewHandoff(
-	ctx context.Context,
-	unit work,
-	item executionItem,
-	importJobID, importItemID string,
-	metadataWarnings []libraryimport.ServerMetadataWarning,
-) {
-	now := service.now().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "START_REVIEW_HANDOFF_TRANSACTION", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
-		return
-	}
-	defer dbexec.Rollback(transaction)
-	if err := appendServerMetadataWarnings(ctx, transaction, item.ID, metadataWarnings, now); err != nil {
-		dbexec.Rollback(transaction)
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "APPEND_METADATA_WARNINGS", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
-		return
-	}
-	result, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
-		Set: `
-execution_state='REVIEW_PENDING',error_code=NULL,retryable=0,
-completed_at_ms=?,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND execution_state='VALIDATING'`,
-			Args:  []any{item.ID},
-		},
-		Values: []any{now, now},
+	handoff := application.NewReviewHandoff(repository.NewReviewHandoff(service.database),
+		libraryservice.NewMetadataSeeder(nil, service.now), service.now)
+	err := handoff.Complete(ctx, application.ReviewHandoffRequest{
+		ItemID: item.ID, ImportID: unit.ImportID,
+		JobID: unit.JobID, LibraryJobID: importJobID, LibraryItemID: imported.ItemID,
+		ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt,
 	})
-	if err != nil || rowsAffected(result) != 1 {
-		dbexec.Rollback(transaction)
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "MARK_REVIEW_PENDING", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
+	if err == nil || errors.Is(err, application.ErrVersionConflict) {
 		return
 	}
-	if err := service.refreshCountsAndEvent(ctx, transaction, unit, item.ID, "REVIEW_PENDING", now); err != nil {
-		dbexec.Rollback(transaction)
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "REFRESH_IMPORT_COUNTS", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
-		return
-	}
-	if err := transaction.Commit(); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "COMMIT_REVIEW_HANDOFF_TRANSACTION", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
-	}
-}
+	service.closeItemWithFailure(
+		ctx,
+		item.ID,
+		"COMMIT_FAILED",
+		"INTERNAL_ERROR",
+		true,
+		"",
 
-func appendServerMetadataWarnings(
-	ctx context.Context,
-	transaction *sql.Tx,
-	itemID string,
-	additions []libraryimport.ServerMetadataWarning,
-	now int64,
-) error {
-	if len(additions) == 0 {
-		return nil
-	}
-	var encoded string
-	if err := transaction.QueryRowContext(
-		ctx, `SELECT warnings_json FROM pegasus_import_items WHERE id=?`, itemID,
-	).Scan(&encoded); err != nil {
-		return fmt.Errorf("read metadata warnings: %w", err)
-	}
-	warnings := make([]map[string]any, 0, len(additions))
-	if err := json.Unmarshal([]byte(encoded), &warnings); err != nil {
-		return fmt.Errorf("decode metadata warnings: %w", err)
-	}
-	for _, addition := range additions {
-		duplicate := false
-		for _, existing := range warnings {
-			if existing["code"] == addition.Code && existing["field"] == addition.Field {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			warnings = append(warnings, map[string]any{"code": addition.Code, "field": addition.Field})
-		}
-	}
-	updated, err := json.Marshal(warnings)
-	if err != nil {
-		return fmt.Errorf("encode metadata warnings: %w", err)
-	}
-	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
-		Set: `warnings_json=?,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{itemID},
-		},
-		Values: []any{string(updated), now},
-	}); err != nil {
-		return fmt.Errorf("update metadata warnings: %w", err)
-	}
-	return nil
+		withLibraryImportIdentity(
+			service.itemFailure("REVIEW_HANDOFF", "COMPLETE_REVIEW_HANDOFF", err, firstSourcePath(item)),
+			importJobID,
+			imported.ItemID,
+		),
+	)
 }
 
 func firstSourcePath(item executionItem) string {

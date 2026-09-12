@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"retrom/internal/dbexec"
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/persistence/recordstore"
 
@@ -58,19 +60,9 @@ type ServerImportResult struct {
 	RejectedCodes []string
 }
 
-type ServerMetadata struct {
-	Title, Description, Developer, Publisher, Genre string
-	Players, ReleaseYear                            *int
-}
-
-type ServerMetadataWarning struct {
-	Code  string `json:"code"`
-	Field string `json:"field"`
-}
-
-const (
-	reviewDescriptionMaximumRunes = 10_000
-	reviewShortFieldMaximumRunes  = 200
+type (
+	ServerMetadata        = libraryservice.ServerMetadata
+	ServerMetadataWarning = libraryservice.ServerMetadataWarning
 )
 
 type serverReviewOrigin struct {
@@ -330,147 +322,6 @@ WHERE import_job_id=? AND disposition='REJECTED' ORDER BY 1
 	return codes, nil
 }
 
-func (service *Service) patchServerMetadata(
-	ctx context.Context,
-	itemID string,
-	metadata ServerMetadata,
-) (int64, error) {
-	if !validServerReviewMetadata(metadata, service.now().UTC().Year()+1) {
-		return 0, ErrInvalid
-	}
-	encoded, err := json.Marshal(map[string]any{
-		"title": metadata.Title, "description": metadata.Description, "developer": metadata.Developer,
-		"publisher": metadata.Publisher, "genre": metadata.Genre, "players": metadata.Players,
-		"releaseYear": metadata.ReleaseYear,
-	})
-	if err != nil {
-		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
-	}
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	var before string
-	var version int64
-	if err := transaction.QueryRowContext(ctx, `
-SELECT draft.metadata_json,draft.version FROM review_drafts draft
-JOIN import_items item ON item.id=draft.import_item_id
-WHERE draft.import_item_id=? AND item.state='REVIEW_PENDING'
-`, itemID).Scan(&before, &version); err != nil {
-		return 0, ErrInvalid
-	}
-	if before == string(encoded) {
-		return version, nil
-	}
-	now := service.now().UnixMilli()
-	if _, err := recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
-		Set: `metadata_json=?,version=version+1,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `import_item_id=? AND version=?`,
-			Args:  []any{itemID, version},
-		},
-		Values: []any{string(encoded), now},
-	}); err != nil {
-		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
-	}
-	if _, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
-		Set: `search_text=?`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{itemID},
-		},
-		Values: []any{strings.ToLower(metadata.Title)},
-	}); err != nil {
-		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
-	}
-	eventID, _ := uuid.NewV7()
-	actor := reviewActor(ctx)
-	beforeEvent := marshalReviewEventV2(map[string]any{"metadata": json.RawMessage(before)})
-	afterEvent := marshalReviewEventV2(map[string]any{"metadata": json.RawMessage(encoded)})
-	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
-INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
-after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'DRAFT_SAVED',?,?,?,?,?,?,?,?,?,?)
-`, eventID.String(), itemID, actor.Kind, actor.UserID, actor.Label, beforeEvent,
-		afterEvent, marshalReviewEventV2(map[string]any{"metadataChanged": true}),
-		emptyReviewEventV2, emptyReviewEventV2, emptyReviewEventV2, now); err != nil {
-		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
-	}
-	return version + 1, nil
-}
-
-func validServerSourceMetadata(metadata ServerMetadata) bool {
-	if metadata.Title == "" || !validField(metadata.Title, 200, false) {
-		return false
-	}
-	for _, value := range []struct {
-		text      string
-		maximum   int
-		multiline bool
-	}{
-		{metadata.Description, 20_000, true},
-		{metadata.Developer, 500, false},
-		{metadata.Publisher, 500, false},
-		{metadata.Genre, 500, false},
-	} {
-		if !validField(value.text, value.maximum, value.multiline) {
-			return false
-		}
-	}
-	if metadata.Players != nil && (*metadata.Players < 1 || *metadata.Players > 64) {
-		return false
-	}
-	return metadata.ReleaseYear == nil || *metadata.ReleaseYear >= 1000 && *metadata.ReleaseYear <= 9999
-}
-
-func validServerReviewMetadata(metadata ServerMetadata, maximumYear int) bool {
-	if metadata.Title == "" || !validField(metadata.Title, reviewShortFieldMaximumRunes, false) ||
-		!validField(metadata.Description, reviewDescriptionMaximumRunes, true) ||
-		!validField(metadata.Developer, reviewShortFieldMaximumRunes, false) ||
-		!validField(metadata.Publisher, reviewShortFieldMaximumRunes, false) ||
-		!validField(metadata.Genre, reviewShortFieldMaximumRunes, false) {
-		return false
-	}
-	if metadata.Players != nil && (*metadata.Players < 1 || *metadata.Players > 64) {
-		return false
-	}
-	return metadata.ReleaseYear == nil || *metadata.ReleaseYear >= 1950 && *metadata.ReleaseYear <= maximumYear
-}
-
-func normalizeServerReviewMetadata(
-	metadata ServerMetadata,
-	maximumYear int,
-) (ServerMetadata, []ServerMetadataWarning, error) {
-	if !validServerSourceMetadata(metadata) {
-		return ServerMetadata{}, nil, ErrInvalid
-	}
-	warnings := make([]ServerMetadataWarning, 0, 5)
-	truncate := func(value string, maximum int, field string) string {
-		runes := []rune(value)
-		if len(runes) <= maximum {
-			return value
-		}
-		warnings = append(warnings, ServerMetadataWarning{Code: "FIELD_TRUNCATED", Field: field})
-		return string(runes[:maximum])
-	}
-	metadata.Description = truncate(metadata.Description, reviewDescriptionMaximumRunes, "description")
-	metadata.Developer = truncate(metadata.Developer, reviewShortFieldMaximumRunes, "developer")
-	metadata.Publisher = truncate(metadata.Publisher, reviewShortFieldMaximumRunes, "publisher")
-	metadata.Genre = truncate(metadata.Genre, reviewShortFieldMaximumRunes, "genre")
-	if metadata.ReleaseYear != nil && (*metadata.ReleaseYear < 1950 || *metadata.ReleaseYear > maximumYear) {
-		metadata.ReleaseYear = nil
-		warnings = append(warnings, ServerMetadataWarning{Code: "FIELD_VALUE_INVALID", Field: "releaseYear"})
-	}
-	if !validServerReviewMetadata(metadata, maximumYear) {
-		return ServerMetadata{}, nil, ErrInvalid
-	}
-	return metadata, warnings, nil
-}
-
 // SeedServerReviewMetadata applies trusted server-import text fields to
 // the ordinary review draft. Publication remains an explicit review decision.
 func (service *Service) SeedServerReviewMetadata(
@@ -489,12 +340,13 @@ func (service *Service) SeedServerReviewMetadataAtYear(
 	metadata ServerMetadata,
 	maximumYear int,
 ) (int64, []ServerMetadataWarning, error) {
-	normalized, warnings, err := normalizeServerReviewMetadata(metadata, maximumYear)
+	version, warnings, err := libraryservice.NewMetadataSeeder(
+		librarypersistence.NewMetadata(service.database), service.now,
+	).Seed(ctx, importItemID, metadata, maximumYear)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, fmt.Errorf("libraryimport/server metadata: %w", err)
 	}
-	version, err := service.patchServerMetadata(ctx, importItemID, normalized)
-	return version, warnings, err
+	return version, warnings, nil
 }
 
 func validExternalAssets(assets []ExternalAsset) bool {

@@ -17,11 +17,12 @@ import (
 	"retrom/internal/corevalidation"
 	"retrom/internal/importing"
 	"retrom/internal/rpgmaker/detector"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 var (
-	ErrInvalid                        = errors.New("IMPORT_INVALID")
-	ErrVersionConflict                = errors.New("VERSION_CONFLICT")
+	ErrInvalid                        = libraryservice.ErrInvalid
+	ErrVersionConflict                = libraryservice.ErrVersionConflict
 	ErrReimportRequiredPlatformChange = errors.New("REIMPORT_REQUIRED_FOR_PLATFORM_CHANGE")
 	ErrMultiDiscModeUnavailable       = errors.New("MULTI_DISC_MODE_UNAVAILABLE")
 	ErrMultiDiscPlaylistMissing       = errors.New("MULTI_DISC_PLAYLIST_MISSING")

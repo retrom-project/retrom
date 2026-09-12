@@ -4,39 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"retrom/internal/testassert"
 
 	_ "modernc.org/sqlite"
 )
-
-func TestNormalizeServerReviewMetadataUsesOrdinaryDraftLimits(t *testing.T) {
-	t.Parallel()
-	releaseYear := 1949
-	metadata, warnings, err := normalizeServerReviewMetadata(ServerMetadata{
-		Title:       "Fixture",
-		Description: strings.Repeat("界", reviewDescriptionMaximumRunes+1),
-		Developer:   strings.Repeat("开", reviewShortFieldMaximumRunes+1),
-		Publisher:   strings.Repeat("发", reviewShortFieldMaximumRunes+1),
-		Genre:       strings.Repeat("类", reviewShortFieldMaximumRunes+1),
-		ReleaseYear: &releaseYear,
-	}, 2027)
-	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return len([]rune(metadata.Description)) != reviewDescriptionMaximumRunes }, func() bool { return len([]rune(metadata.Developer)) != reviewShortFieldMaximumRunes }, func() bool { return len([]rune(metadata.Publisher)) != reviewShortFieldMaximumRunes }, func() bool { return len([]rune(metadata.Genre)) != reviewShortFieldMaximumRunes }, func() bool { return metadata.ReleaseYear != nil }), "normalized metadata = %#v", metadata)
-	expected := []ServerMetadataWarning{
-		{Code: "FIELD_TRUNCATED", Field: "description"},
-		{Code: "FIELD_TRUNCATED", Field: "developer"},
-		{Code: "FIELD_TRUNCATED", Field: "publisher"},
-		{Code: "FIELD_TRUNCATED", Field: "genre"},
-		{Code: "FIELD_VALUE_INVALID", Field: "releaseYear"},
-	}
-	testassert.Falsef(t, len(warnings) != len(expected), "warnings = %#v", warnings)
-	for index := range expected {
-		testassert.Falsef(t, warnings[index] != expected[index], "warnings[%d] = %#v, want %#v", index, warnings[index], expected[index])
-	}
-}
 
 func TestServerImportResultKeepsLatestBlockedValidationWhenDraftHasNoSelection(t *testing.T) {
 	t.Parallel()
