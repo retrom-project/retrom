@@ -39,7 +39,8 @@
         "neocd",
         "gbe-plus",
         "nxengine",
-        "ppsspp"
+        "ppsspp",
+        "uzem"
       ]
     },
     {
@@ -355,6 +356,15 @@
       "gitlink": "git@github.com:retrom-project/ppsspp.git",
       "defaultBranch": "retrom/g2e6fd06ed6c7",
       "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "uzem",
+      "path": "project/retrom-core/libretro-uzem",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/libretro-uzem.git",
+      "defaultBranch": "retrom/gd991ee94547c",
+      "submodules": false,
       "dependsOn": []
     }
   ]

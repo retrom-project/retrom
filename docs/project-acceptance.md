@@ -2316,6 +2316,23 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 本地输入记录支持发布前继续同一导入项；完整重跑需未导入该游戏的测试数据。
 成功样本不代表所有游戏兼容，虚拟标准手柄也不证明实体控制器的硬件采集。
 
+### ACC-UZEBOX-001：Uzebox 单卡带产品验证
+
+使用操作者显式提供的官方 Arkanoid `.uze`，SHA-256 为
+`4f398029fac2f2b854df49df632b75b2148e034d331c7c4be41a78f97232a62a`。
+运行 `make acceptance-case CASE=ACC-UZEBOX-001`，驱动为
+`scripts/acceptance/uzebox_product.mjs`，硬超时 600 秒。变量为
+`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、
+`RETROM_CHROME_EXECUTABLE`、`RETROM_UZEBOX_ROM` 与 `RETROM_UZEBOX_CORE_SHA256`。
+驱动不下载游戏，不读取默认私人目录，不提交游戏；缺少输入须报告 BLOCKED。
+通过普通上传/导入、审核 Preview、发布、Product Launch 验证浏览器非空画面、
+非零音频和标准手柄确认。等待 READY 过场结束后识别挡板，核对左右移动；
+创建 checkpoint 后继续移动，再使用不同 Launch 恢复。读档后挡板位置必须立即一致，
+尾灯动画相位在 10 秒内对齐时整帧必须与保存前一致，
+再验证移动和 A 键发球。游戏及核心摘要、Provider/Target/Bundle/module 身份、
+各阶段截图和存档大小进入 `uzebox-product.json`。浏览器异常、空存档、错误画面或
+恢复后输入失败均不得 PASS。虚拟标准手柄不替代实体手柄验收；结果只覆盖该样本。
+
 
 ### ACC-PSP-001：独立 PPSSPP 的产品启动与即时存档
 

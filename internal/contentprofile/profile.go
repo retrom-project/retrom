@@ -63,6 +63,7 @@ var registry = map[string]Profile{
 
 	"neogeocd":      raw("neogeocd", ".chd"),
 	"pokemini":      single("pokemini", ".min"),
+	"uzebox":        single("uzebox", ".uze"),
 	"vectrex":       single("vectrex", ".vec", ".bin"),
 	"intellivision": single("intellivision", ".int", ".rom", ".bin"),
 	"x68000":        single("x68000", ".dim", ".xdf", ".hdf"),
