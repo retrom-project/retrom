@@ -96,7 +96,7 @@ func (service *Service) startCandidateWalk(
 		var physicalCandidates int64
 		var hashPhase sync.Once
 		counts, err := walkFiles(directory, service.scanLimits, func(file discoveredFile) error {
-			if service.cancelRequested(ctx, unit.JobID) {
+			if service.cancelRequested(ctx, unit) {
 				return errCancelled
 			}
 			matched := index.associations(file)

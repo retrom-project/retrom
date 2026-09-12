@@ -36,16 +36,17 @@ func (service *Service) runLoop() {
 		case <-ticker.C:
 		}
 		for {
-			if unit, ok := service.claimCancellation(context.Background()); ok {
-				service.cancelTask(context.Background(), unit)
-				continue
+			handled, err := service.outcomes().Reconcile(context.Background())
+			if err != nil {
+				service.workerError("reconcile", err)
+				break
 			}
-			if unit, ok := service.exhaustedStaleWork(context.Background()); ok {
-				service.failTask(context.Background(), unit, "INTERNAL_ERROR")
+			if handled {
 				continue
 			}
 			workUnit, ok, err := service.claim(context.Background())
 			if err != nil || !ok {
+				service.workerError("claim", err)
 				break
 			}
 			service.execute(context.Background(), workUnit)
@@ -59,31 +60,6 @@ func (service *Service) claim(ctx context.Context) (work, bool, error) {
 		return work{}, false, fmt.Errorf("claim server import: %w", err)
 	}
 	return unit, found, nil
-}
-
-func (service *Service) claimCancellation(ctx context.Context) (work, bool) {
-	var unit work
-	err := service.database.QueryRowContext(ctx, `
-SELECT import.id,import.job_id,job.execution_no,COALESCE(job.worker_id,'') FROM server_imports import
-JOIN jobs job ON job.id=import.job_id
-WHERE import.state='CANCEL_REQUESTED' AND job.state='CANCEL_REQUESTED'
-ORDER BY import.updated_at_ms,import.id LIMIT 1
-`).Scan(&unit.ImportID, &unit.JobID, &unit.Execution, &unit.Owner)
-	return unit, err == nil
-}
-
-func (service *Service) exhaustedStaleWork(ctx context.Context) (work, bool) {
-	var unit work
-	now := service.now().UnixMilli()
-	err := service.database.QueryRowContext(ctx, `
-SELECT import.id,import.job_id,job.execution_no,COALESCE(job.worker_id,'') FROM server_imports import
-JOIN jobs job ON job.id=import.job_id
-WHERE import.state='RUNNING' AND job.state='RUNNING' AND job.attempt_count>=job.max_attempts
-AND job.leased_until_ms IS NOT NULL AND job.leased_until_ms<=?
-ORDER BY import.updated_at_ms,import.id LIMIT 1
-`, now).Scan(&unit.ImportID, &unit.JobID, &unit.Execution, &unit.Owner)
-	unit.Recovery = true
-	return unit, err == nil
 }
 
 // Discovery, cancellation and item commits are one state machine.
@@ -120,7 +96,7 @@ func (service *Service) execute(ctx context.Context, unit work) {
 	if !ok {
 		return
 	}
-	if service.cancelRequested(ctx, unit.JobID) {
+	if service.cancelRequested(ctx, unit) {
 		service.cancelTask(ctx, unit)
 		return
 	}
@@ -196,7 +172,7 @@ func (service *Service) installCandidates(
 			service.progress(ctx, unit, "INSTALLING", int64(index+1), int64(len(items)))
 			continue
 		}
-		if service.cancelRequested(ctx, unit.JobID) {
+		if service.cancelRequested(ctx, unit) {
 			service.cancelTask(ctx, unit)
 			return false
 		}

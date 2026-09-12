@@ -41,7 +41,9 @@ WHERE job_id=?
 	}
 	if _, err := store.executor.ExecContext(ctx, `
 UPDATE server_imports SET state='CANCELLED',cancel_requested_at_ms=?,cancel_reason=?,
-cancelled_item_count=catalog_item_count,completed_at_ms=?,version=version+1,updated_at_ms=?
+cancelled_item_count=(SELECT count(*) FROM server_bios_import_items item
+WHERE item.server_import_id=server_imports.id AND item.state='CANCELLED'),
+completed_at_ms=?,version=version+1,updated_at_ms=?
 WHERE id=? AND state='QUEUED'
 `, now, strings.TrimSpace(reason), now, now, importID); err != nil {
 		return fmt.Errorf("jobs/server import cancel: %w", err)

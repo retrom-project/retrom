@@ -445,6 +445,8 @@ BIOS 发现结果的排序、未选中原因和证据编码由 Service 在写事
 
 BIOS 候选恢复先由 Repository 完整读取并关闭结果集，再由 Service 重建静态/DAT 评估、应用归档完整性规则与加载冻结的期望条目；不得持有结果集时嵌套查询。损坏的评估证据、缺失的目录关联或可用候选缺少评估均应中止恢复，不得伪装成空证据继续安装。
 
+BIOS 条目结果、终态汇总、自动重试和取消恢复由 Service 决定，Repository 在执行栅栏内原子保存条目、聚合、Job 与事件。终态条目不能重复产生结果事件，完成任务前必须确认所有条目终结；编码、读取或提交失败保留错误原因，后台调度遇到存储错误时结束当前轮询，不得在失败的恢复操作上持续空转。专用导入取消与通用 Job 取消入口均保留已完成条目和计数。
+
 BIOS 每次领取生成独立 worker 身份，并携带 Job execution number；领取、心跳和进度更新由 Service/Repository 协作完成。进度、候选写入、条目结果与 BIOS 安装事务必须锁定同一执行和 worker，旧 worker 不得写入被接管或手动重试后的执行。自动接管保留原执行 deadline，事务失败不得发布可执行的 work。
 
 Worker lease 为 60 秒、每 15 秒 heartbeat，并每读取 8 MiB 检查 cancel/deadline。进程恢复复用完整发现结果和终态 Item；root 暂不可用或内部瞬时错误只在零终态 Item 时按 1/5/30/120 秒有界自动重试，最多 4 attempt。日志、JobEvent 和 diagnostics 仅记录 root ID、相对路径的必要脱敏投影和稳定错误码，不记录绝对路径、basename/hash 或底层 `os.PathError`。

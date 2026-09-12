@@ -7,15 +7,15 @@ import (
 	"retrom/internal/service/serverimport"
 )
 
-type WorkerAccess int
+type WorkerAccess = serverimport.WorkerAccess
 
 const (
-	RunningWorker WorkerAccess = iota
-	CancelledWorker
-	ExhaustedWorker
+	RunningWorker   = serverimport.RunningWorker
+	CancelledWorker = serverimport.CancelledWorker
+	ExhaustedWorker = serverimport.ExhaustedWorker
 )
 
-// LockWorker serializes legacy write adapters with lease claims until their typed repositories own each write.
+// LockWorker serializes import writes with lease claims across repositories.
 func LockWorker(
 	ctx context.Context,
 	executor dbexec.Executor,

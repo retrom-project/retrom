@@ -18,10 +18,3 @@ func (service *Service) workerError(operation string, err error) {
 	}
 	cleanup.Error("server import "+operation, err)
 }
-
-func workerFailureAccess(unit work) importpersistence.WorkerAccess {
-	if unit.Recovery {
-		return importpersistence.ExhaustedWorker
-	}
-	return importpersistence.RunningWorker
-}
