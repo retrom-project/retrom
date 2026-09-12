@@ -41,7 +41,7 @@ func TestReviewCoverConsumptionFailureRemainsServerError(t *testing.T) {
 		},
 	})
 	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
-	response := requestReviewCover(t, server, itemID, fileID, `"v1"`)
+	response := requestReviewCover(t, server, itemID, fileID)
 	if response.Code != http.StatusInternalServerError || inserted != 1 || failed != 1 {
 		t.Fatalf("consumption SQL failure misclassified: status=%d inserted=%d failed=%d body=%s", response.Code, inserted, failed, response.Body.String())
 	}
@@ -56,7 +56,7 @@ func TestReviewCoverReservedDraftCannotConsumeUpload(t *testing.T) {
 	if _, err := server.database.ExecContext(t.Context(), `UPDATE import_items SET review_handoff_kind='EMULATIONSTATION' WHERE id=?`, itemID); err != nil {
 		t.Fatal(err)
 	}
-	response := requestReviewCover(t, server, itemID, fileID, `"v1"`)
+	response := requestReviewCover(t, server, itemID, fileID)
 	if response.Code != http.StatusConflict {
 		t.Fatalf("reserved review accepted cover before handoff: status=%d body=%s", response.Code, response.Body.String())
 	}
@@ -89,11 +89,11 @@ func TestReviewCoverUploadCannotMoveBetweenReviews(t *testing.T) {
 		t.Fatal("fixture did not create independent reviews")
 	}
 	fileID := createReviewCoverUpload(t, server)
-	first := requestReviewCover(t, server, firstItemID, fileID, `"v1"`)
+	first := requestReviewCover(t, server, firstItemID, fileID)
 	if first.Code != http.StatusCreated {
 		t.Fatalf("first cover=%d %s", first.Code, first.Body.String())
 	}
-	second := requestReviewCover(t, server, secondItemID, fileID, `"v1"`)
+	second := requestReviewCover(t, server, secondItemID, fileID)
 	if second.Code != http.StatusConflict || !strings.Contains(second.Body.String(), `"UPLOAD_ALREADY_CONSUMED"`) {
 		t.Fatalf("cover moved to second review: %d %s", second.Code, second.Body.String())
 	}
@@ -116,7 +116,7 @@ func TestReviewCoverProjectUploadRemainsIneligible(t *testing.T) {
 UPDATE upload_sessions SET purpose='PROJECT' WHERE id=(SELECT upload_session_id FROM upload_files WHERE id=?)`, fileID); err != nil {
 		t.Fatal(err)
 	}
-	response := requestReviewCover(t, server, itemID, fileID, `"v1"`)
+	response := requestReviewCover(t, server, itemID, fileID)
 	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), `"UPLOAD_ALREADY_CONSUMED"`) {
 		t.Fatalf("project upload accepted as media: status=%d body=%s", response.Code, response.Body.String())
 	}

@@ -41,7 +41,7 @@ func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 				},
 			})
 			server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
-			response := requestReviewCover(t, server, itemID, fileID, `"v1"`)
+			response := requestReviewCover(t, server, itemID, fileID)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
 				t.Fatalf("SQL failure mapped as domain rejection: status=%d hits=%d body=%s", response.Code, hits, response.Body.String())
 			}
@@ -49,12 +49,12 @@ func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 	}
 }
 
-func requestReviewCover(t *testing.T, server *Server, itemID, fileID, version string) *httptest.ResponseRecorder {
+func requestReviewCover(t *testing.T, server *Server, itemID, fileID string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets",
 		strings.NewReader(`{"uploadFileId":"`+fileID+`","kind":"COVER"}`))
 	request.SetPathValue("importItemId", itemID)
-	request.Header.Set("If-Match", version)
+	request.Header.Set("If-Match", `"v1"`)
 	request.Header.Set("Idempotency-Key", "01980000-0000-7000-8000-000000008601")
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()

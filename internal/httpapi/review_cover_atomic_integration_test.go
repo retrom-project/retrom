@@ -24,54 +24,25 @@ func TestReviewCoverRollbackPreservesCauseAndCanReplay(t *testing.T) {
 	server := newTestServer(t)
 	itemID := createReviewSnapshotItem(t, server)
 	fileID := createReviewCoverUpload(t, server)
-	cause := errors.New("cover consumption write unavailable")
-	enabled := true
-	inserted, failed := 0, 0
+	fault := &reviewCoverWriteFault{fileID: fileID, cause: errors.New("cover consumption write unavailable"), enabled: true}
 	faultDB := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
-		AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
-			if strings.Contains(query, "INSERT INTO review_uploaded_assets") && len(args) > 2 && args[2].Value == fileID {
-				count, err := result.RowsAffected()
-				if err != nil {
-					return nil, err
-				}
-				inserted += int(count)
-			}
-			return result, nil
-		},
-		BeforeQuery: func(_ context.Context, query string, args []driver.NamedValue) error {
-			if enabled && strings.Contains(query, "INSERT INTO upload_consumptions") && strings.Contains(query, "'REVIEW_ASSET'") && len(args) > 2 && args[2].Value == fileID {
-				failed++
-				return cause
-			}
-			return nil
-		},
+		AfterExec: fault.afterExec, BeforeQuery: fault.beforeQuery,
 	})
 	service := composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
 	request := application.ReviewCoverRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1}
 	result, err := service.Upload(t.Context(), request)
-	if !errors.Is(err, cause) || errors.Is(err, application.ErrReviewCoverConsumed) || result != (application.ReviewCoverResult{}) || inserted != 1 || failed != 1 {
-		t.Fatalf("failure lost cause or returned partial success: result=%+v err=%v inserted=%d failed=%d", result, err, inserted, failed)
+	if !errors.Is(err, fault.cause) || errors.Is(err, application.ErrReviewCoverConsumed) || result != (application.ReviewCoverResult{}) || fault.inserted != 1 || fault.failed != 1 {
+		t.Fatalf("failure lost cause or returned partial success: result=%+v err=%v fault.inserted=%d fault.failed=%d", result, err, fault.inserted, fault.failed)
 	}
 	assertReviewCoverCounts(t, server, itemID, 0)
-	enabled = false
+	fault.enabled = false
 	saved, err := service.Upload(t.Context(), request)
 	if err != nil || saved.AssetID == "" || saved.Width != 2 || saved.Height != 3 || saved.MediaType != "image/png" || saved.Version != 1 {
 		t.Fatalf("retry=%+v err=%v", saved, err)
 	}
 	assertReviewCoverCounts(t, server, itemID, 1)
 	server.reviewCoverUploads = service
-	response := requestReviewCover(t, server, itemID, fileID, `"v1"`)
-	var replay struct {
-		application.ReviewCoverResult
-		URL string `json:"url"`
-	}
-	if err := json.Unmarshal(response.Body.Bytes(), &replay); err != nil {
-		t.Fatal(err)
-	}
-	if response.Code != http.StatusCreated || response.Header().Get("ETag") != `"v1"` || replay.ReviewCoverResult != saved || replay.URL != "/api/v1/admin/review-assets/"+saved.AssetID || inserted != 2 {
-		t.Fatalf("replay changed identity/shape or inserted duplicate: status=%d body=%s inserted=%d saved=%+v", response.Code, response.Body.String(), inserted, saved)
-	}
-	assertReviewCoverCounts(t, server, itemID, 1)
+	assertReviewCoverReplay(t, server, itemID, fileID, saved, fault)
 }
 
 type reviewCoverBarrierBlobs struct {
@@ -133,4 +104,50 @@ func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) 
 			}
 		})
 	}
+}
+
+type reviewCoverWriteFault struct {
+	fileID           string
+	cause            error
+	enabled          bool
+	inserted, failed int
+}
+
+func (fault *reviewCoverWriteFault) afterExec(
+	_ context.Context, query string, args []driver.NamedValue, result driver.Result,
+) (driver.Result, error) {
+	if strings.Contains(query, "INSERT INTO review_uploaded_assets") && len(args) > 2 && args[2].Value == fault.fileID {
+		count, err := result.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		fault.inserted += int(count)
+	}
+	return result, nil
+}
+
+func (fault *reviewCoverWriteFault) beforeQuery(_ context.Context, query string, args []driver.NamedValue) error {
+	if fault.enabled && strings.Contains(query, "INSERT INTO upload_consumptions") && strings.Contains(query, "'REVIEW_ASSET'") && len(args) > 2 && args[2].Value == fault.fileID {
+		fault.failed++
+		return fault.cause
+	}
+	return nil
+}
+
+func assertReviewCoverReplay(
+	t *testing.T, server *Server, itemID, fileID string, saved application.ReviewCoverResult, fault *reviewCoverWriteFault,
+) {
+	t.Helper()
+	response := requestReviewCover(t, server, itemID, fileID)
+	var replay struct {
+		application.ReviewCoverResult
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &replay); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusCreated || response.Header().Get("ETag") != `"v1"` || replay.ReviewCoverResult != saved || replay.URL != "/api/v1/admin/review-assets/"+saved.AssetID || fault.inserted != 2 {
+		t.Fatalf("replay changed identity/shape or inserted duplicate: status=%d body=%s inserted=%d saved=%+v", response.Code, response.Body.String(), fault.inserted, saved)
+	}
+	assertReviewCoverCounts(t, server, itemID, 1)
 }
