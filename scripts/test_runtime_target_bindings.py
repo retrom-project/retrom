@@ -14,7 +14,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 74)
+        self.assertEqual(len(catalog["bindings"]), 75)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -43,6 +43,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             "crocods": ("crocods", ["amstradcpc"]),
             "fuse": ("fuse", ["zxspectrum"]),
             "gearcoleco": ("gearcoleco", ["colecovision"]),
+            "freeintv": ("freeintv", ["intellivision"]),
             "mednafen-pce": ("mednafen_pce", ["pce", "pcecd"]),
             "prboom": ("prboom", ["doom"]),
             "puae": ("puae", ["amiga"]),

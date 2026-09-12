@@ -1038,6 +1038,14 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 无头 Chrome 无法推进动画帧的环境可使用 `RETROM_SMOKE_HEADED=1 xvfb-run -a node web/smoke/emulatorjs-single-file.mjs`，其余输入、截图和超时门禁保持一致，证据记录浏览器版本与软件渲染器。
 
+### ACC-INTV-001：Intellivision / FreeIntv 产品验证
+
+- 上限：每个样本 240 秒。使用 `web/smoke/emulatorjs-single-file.mjs` 的 `freeintv` scenario，环境、输入结构、证据与画面复核规则同 ACC-RUN-013。
+- 前置：操作者授权的单卡带经真实上传、导入、审核预览与发布；确认缺少 `exec.bin` 或 `grom.bin` 时阻断，并通过 BIOS 管理安装两项，普通自动测试不读取私有游戏和 BIOS。
+- 流程：在审核预览和 Product Launch 确认真实游戏画面；使用标准手柄完成方向与确认，保存状态 B，继续到 C，结束旧 Launch 后由不同 Launch 恢复 B，再验证输入和退出。真实键盘独立验证；同一手柄按钮不得重复发送两个目标输入。
+- 通过标准：依赖 snapshot 包含两份正确 BIOS；单游戏 `ROM_BLOB`、Provider/Target、gzip checkpoint 格式和摘要与配置一致；画面明确证明方向、确认、恢复位置与恢复后输入。`REVIEW_REQUIRED` 经当次画面复核才能记 PASS，错误读档、重开局或无输入响应均失败。物理手柄验收与虚拟标准手柄证据分开记录。
+- 证据：导入、缺失 BIOS 阻断及安装、预览、发布记录，逐样本 A/B/C/恢复 B/恢复后输入截图，Provider/Bundle/module 与内容 size/SHA、存档与不同 Launch 身份。结论仅覆盖当次样本，不外推 ECS 或全库兼容。
+
 ### ACC-SAVE-001：手动状态存档与截图
 
 - 上限：180 秒。
