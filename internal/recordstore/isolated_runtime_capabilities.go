@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateIsolatedRuntimeCapabilities(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "credential_sha256", ValidateIsolatedRuntimeCapabilities)
 }
 
-func ValidateIsolatedRuntimeCapabilities(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateIsolatedRuntimeCapabilities(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, isolated_runtime_capabilitiesOwnership, keys)
 }
 

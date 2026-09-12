@@ -3,10 +3,12 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func UpdateImportJobFileResolutions(
-	ctx context.Context, db DBTX, change Update,
+	ctx context.Context, db dbexec.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -28,7 +30,7 @@ FROM import_job_file_resolutions candidate CROSS JOIN previous
 WHERE candidate.import_job_id=previous.import_job_id AND candidate.upload_file_id=previous.upload_file_id`
 
 func DeleteImportJobFileResolutions(
-	ctx context.Context, db DBTX, scope Scope,
+	ctx context.Context, db dbexec.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,

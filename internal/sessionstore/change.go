@@ -6,10 +6,11 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 	"retrom/internal/recordstore"
 )
 
-func ChangeLaunch(ctx context.Context, db recordstore.DBTX, change recordstore.Update) (sql.Result, error) {
+func ChangeLaunch(ctx context.Context, db dbexec.Executor, change recordstore.Update) (sql.Result, error) {
 	return changeSession(
 		ctx,
 		db,
@@ -20,7 +21,7 @@ func ChangeLaunch(ctx context.Context, db recordstore.DBTX, change recordstore.U
 	)
 }
 
-func ChangePreview(ctx context.Context, db recordstore.DBTX, change recordstore.Update) (sql.Result, error) {
+func ChangePreview(ctx context.Context, db dbexec.Executor, change recordstore.Update) (sql.Result, error) {
 	return changeSession(
 		ctx,
 		db,
@@ -32,19 +33,19 @@ func ChangePreview(ctx context.Context, db recordstore.DBTX, change recordstore.
 }
 
 type (
-	sessionUpdate    func(context.Context, recordstore.DBTX, recordstore.Update) (sql.Result, error)
-	sessionRelations func(context.Context, recordstore.DBTX, string) error
+	sessionUpdate    func(context.Context, dbexec.Executor, recordstore.Update) (sql.Result, error)
+	sessionRelations func(context.Context, dbexec.Executor, string) error
 )
 
 func changeSession(
 	ctx context.Context,
-	db recordstore.DBTX,
+	db dbexec.Executor,
 	change recordstore.Update,
 	table string,
 	update sessionUpdate,
 	apply sessionRelations,
 ) (sql.Result, error) {
-	result, err := recordstore.Atomic(ctx, db, func(tx recordstore.DBTX) (sql.Result, error) {
+	result, err := recordstore.Atomic(ctx, db, func(tx dbexec.Executor) (sql.Result, error) {
 		ids, err := sessionIDs(ctx, tx, table, change.Scope)
 		if err != nil {
 			return nil, err
@@ -66,7 +67,7 @@ func changeSession(
 	return result, nil
 }
 
-func sessionIDs(ctx context.Context, db recordstore.DBTX, table string, scope recordstore.Scope) ([]string, error) {
+func sessionIDs(ctx context.Context, db dbexec.Executor, table string, scope recordstore.Scope) ([]string, error) {
 	if scope.Where == "" {
 		return nil, fmt.Errorf("%w: missing session scope", recordstore.ErrInvariant)
 	}

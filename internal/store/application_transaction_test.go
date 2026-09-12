@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/dbexec"
 	"retrom/internal/recordstore"
 	"retrom/internal/sessionstore"
 )
@@ -17,7 +18,7 @@ func TestApplicationAtomicCancellationRollsBackContinuingTransaction(t *testing.
 	tx := lifecycleTransaction(t, db)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	_, err := recordstore.Atomic(ctx, tx, func(connection recordstore.DBTX) (sql.Result, error) {
+	_, err := recordstore.Atomic(ctx, tx, func(connection dbexec.Executor) (sql.Result, error) {
 		result, writeErr := connection.ExecContext(ctx,
 			"INSERT INTO profiles(id,display_name,created_at_ms) VALUES('cancelled-profile','Cancelled',1)")
 		cancel()

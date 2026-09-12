@@ -10,25 +10,20 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 )
-
-type DBTX interface {
-	ExecContext(context.Context, string, ...any) (sql.Result, error)
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}
 
 var (
 	ErrInvariant           = errors.New("RECORD_INVARIANT_VIOLATION")
 	errTransactionRequired = errors.New("record write requires a database transaction")
 )
 
-type validator func(context.Context, DBTX, ...any) error
+type validator func(context.Context, dbexec.Executor, ...any) error
 
 func create(
-	ctx context.Context, db DBTX, query string, args []any, columns string, check validator,
+	ctx context.Context, db dbexec.Executor, query string, args []any, columns string, check validator,
 ) (sql.Result, error) {
-	return Atomic(ctx, db, func(tx DBTX) (sql.Result, error) {
+	return Atomic(ctx, db, func(tx dbexec.Executor) (sql.Result, error) {
 		keys, err := insertedKeys(ctx, tx, query, args, columns)
 		if err != nil {
 			return nil, err
@@ -42,7 +37,7 @@ func create(
 	})
 }
 
-func insertedKeys(ctx context.Context, tx DBTX, query string, args []any, columns string) ([][]any, error) {
+func insertedKeys(ctx context.Context, tx dbexec.Executor, query string, args []any, columns string) ([][]any, error) {
 	rows, err := tx.QueryContext(ctx, strings.TrimSuffix(strings.TrimSpace(query), ";")+" RETURNING "+columns, args...)
 	if err != nil {
 		return nil, fmt.Errorf("create record: %w", err)
@@ -73,7 +68,7 @@ func insertedKeys(ctx context.Context, tx DBTX, query string, args []any, column
 	return keys, nil
 }
 
-func validate(ctx context.Context, db DBTX, query string, args []any) error {
+func validate(ctx context.Context, db dbexec.Executor, query string, args []any) error {
 	var message string
 	if err := db.QueryRowContext(ctx, query, args...).Scan(&message); err != nil {
 		return fmt.Errorf("validate record ownership: %w", err)

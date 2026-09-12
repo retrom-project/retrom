@@ -3,10 +3,12 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func UpdateReviewMultidiscAttachments(
-	ctx context.Context, db DBTX, change Update,
+	ctx context.Context, db dbexec.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -60,7 +62,7 @@ FROM review_multidisc_attachments candidate CROSS JOIN previous
 WHERE candidate.id=previous.id`
 
 func DeleteReviewMultidiscAttachments(
-	ctx context.Context, db DBTX, scope Scope,
+	ctx context.Context, db dbexec.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,

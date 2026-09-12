@@ -7,14 +7,15 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 )
 
-type operation func(DBTX) (sql.Result, error)
+type operation func(dbexec.Executor) (sql.Result, error)
 
 // Atomic runs an application write and its dependent SQL on one connection.
 // A failed operation rolls back its savepoint even when an outer transaction continues.
 func Atomic(
-	ctx context.Context, db DBTX, work operation,
+	ctx context.Context, db dbexec.Executor, work operation,
 ) (sql.Result, error) {
 	switch value := db.(type) {
 	case *sql.Tx:
@@ -41,7 +42,7 @@ func Atomic(
 }
 
 func savepoint(
-	ctx context.Context, db DBTX, work operation,
+	ctx context.Context, db dbexec.Executor, work operation,
 ) (sql.Result, error) {
 	if _, err := db.ExecContext(ctx, "SAVEPOINT record_write"); err != nil {
 		return nil, fmt.Errorf("begin record savepoint: %w", err)
@@ -56,7 +57,7 @@ func savepoint(
 	return result, nil
 }
 
-func rollbackSavepoint(ctx context.Context, db DBTX, cause error) error {
+func rollbackSavepoint(ctx context.Context, db dbexec.Executor, cause error) error {
 	rollbackCtx := context.WithoutCancel(ctx)
 	_, rollbackErr := db.ExecContext(rollbackCtx, "ROLLBACK TO record_write")
 	_, releaseErr := db.ExecContext(rollbackCtx, "RELEASE record_write")

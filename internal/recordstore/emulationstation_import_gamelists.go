@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateEmulationstationImportGamelists(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "import_id,relative_path", ValidateEmulationstationImportGamelists)
 }
 
-func ValidateEmulationstationImportGamelists(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateEmulationstationImportGamelists(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, emulationstation_import_gamelistsOwnership, keys)
 }
 

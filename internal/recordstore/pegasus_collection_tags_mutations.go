@@ -3,10 +3,12 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func UpdatePegasusCollectionTags(
-	ctx context.Context, db DBTX, change Update,
+	ctx context.Context, db dbexec.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -28,7 +30,7 @@ FROM pegasus_collection_tags candidate CROSS JOIN previous
 WHERE candidate.collection_id=previous.collection_id AND candidate.tag_id=previous.tag_id`
 
 func DeletePegasusCollectionTags(
-	ctx context.Context, db DBTX, scope Scope,
+	ctx context.Context, db dbexec.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,

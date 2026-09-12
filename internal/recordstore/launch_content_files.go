@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateLaunchContentFiles(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "launch_session_id,logical_name", ValidateLaunchContentFiles)
 }
 
-func ValidateLaunchContentFiles(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateLaunchContentFiles(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, launch_content_filesOwnership, keys)
 }
 

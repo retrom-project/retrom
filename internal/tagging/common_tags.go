@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -48,7 +50,7 @@ func normalizedCommonTags() ([]normalizedCommonTag, error) {
 	return result, nil
 }
 
-func activeTagIDsByNameKey(ctx context.Context, database executor) (map[string]string, error) {
+func activeTagIDsByNameKey(ctx context.Context, database dbexec.Executor) (map[string]string, error) {
 	rows, err := database.QueryContext(ctx, `SELECT id,name_key FROM tags WHERE status='ACTIVE'`)
 	if err != nil {
 		return nil, fmt.Errorf("tagging: list active tag keys: %w", err)
@@ -70,7 +72,7 @@ func activeTagIDsByNameKey(ctx context.Context, database executor) (map[string]s
 
 func createCommonTag(
 	ctx context.Context,
-	database executor,
+	database dbexec.Executor,
 	actorUserID string,
 	tag normalizedCommonTag,
 	now int64,

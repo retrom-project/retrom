@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateLaunchExternalFiles(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "launch_session_id,virtual_path", ValidateLaunchExternalFiles)
 }
 
-func ValidateLaunchExternalFiles(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateLaunchExternalFiles(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, launch_external_filesOwnership, keys)
 }
 

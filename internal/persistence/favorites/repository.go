@@ -8,14 +8,7 @@ import (
 	"retrom/internal/service/favorites"
 )
 
-type (
-	Repository struct{ database *sql.DB }
-	executor   interface {
-		ExecContext(context.Context, string, ...any) (sql.Result, error)
-		QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-		QueryRowContext(context.Context, string, ...any) *sql.Row
-	}
-)
+type Repository struct{ database *sql.DB }
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
 func (service *Repository) WithWrite(ctx context.Context, work func(favorites.WriteScope) error) error {

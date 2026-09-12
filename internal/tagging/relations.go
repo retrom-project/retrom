@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/dbexec"
 	"retrom/internal/recordstore"
 
 	"retrom/internal/cleanup"
@@ -81,7 +82,7 @@ ORDER BY relation.collection_id,tag.name_key,tag.id
 
 func replaceOwnerReferences(
 	ctx context.Context,
-	database executor,
+	database dbexec.Executor,
 	relationTable, ownerColumn, ownerID, actorUserID string,
 	desired []Reference,
 	now int64,
@@ -308,7 +309,7 @@ func (service *Service) EmulationStationCollectionReferences(
 	)
 }
 
-func createOwnerTag(ctx context.Context, db recordstore.DBTX, table, query string, args ...any) (sql.Result, error) {
+func createOwnerTag(ctx context.Context, db dbexec.Executor, table, query string, args ...any) (sql.Result, error) {
 	var result sql.Result
 	var err error
 
@@ -332,7 +333,7 @@ func createOwnerTag(ctx context.Context, db recordstore.DBTX, table, query strin
 
 func deleteOwnerTag(
 	ctx context.Context,
-	db recordstore.DBTX,
+	db dbexec.Executor,
 	table string,
 	scope recordstore.Scope,
 ) (sql.Result, error) {

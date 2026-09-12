@@ -14,6 +14,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"retrom/internal/dbexec"
 	"retrom/internal/recordstore"
 
 	"github.com/google/uuid"
@@ -132,12 +133,6 @@ type CreateInput struct {
 type Service struct {
 	database *sql.DB
 	now      func() time.Time
-}
-
-type executor interface {
-	ExecContext(context.Context, string, ...any) (sql.Result, error)
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
 type directoryRow struct {
@@ -343,7 +338,7 @@ func (service *Service) apply(
 
 func (service *Service) createInstance(
 	ctx context.Context,
-	database executor,
+	database dbexec.Executor,
 	actor AuditActor,
 	input CreateInput,
 	catalogKey string,
@@ -394,7 +389,7 @@ INSERT INTO platform_instances(
 
 func (service *Service) catalogReferences(
 	ctx context.Context,
-	database executor,
+	database dbexec.Executor,
 	catalog platformcatalog.Catalog,
 ) (map[string]catalogReference, error) {
 	result := make(map[string]catalogReference, len(catalog.Templates))
@@ -427,7 +422,7 @@ AND (
 	return result, nil
 }
 
-func readDirectoryRows(ctx context.Context, database executor) ([]directoryRow, error) {
+func readDirectoryRows(ctx context.Context, database dbexec.Executor) ([]directoryRow, error) {
 	rows, err := database.QueryContext(ctx, `
 SELECT id,platform_id,default_core_id,name,description,sort_order,enabled,catalog_template_key,deleted_at_ms
 FROM platform_instances
@@ -553,7 +548,7 @@ func directoryMatchesTemplate(row directoryRow, template platformcatalog.Directo
 		row.Name == template.Name && row.Description == template.Description
 }
 
-func readInstance(ctx context.Context, database executor, id string) (Instance, error) {
+func readInstance(ctx context.Context, database dbexec.Executor, id string) (Instance, error) {
 	var instance Instance
 	var enabled int
 	err := database.QueryRowContext(ctx, `
@@ -580,7 +575,7 @@ WHERE pi.id=? AND pi.deleted_at_ms IS NULL
 
 func insertAudit(
 	ctx context.Context,
-	database executor,
+	database dbexec.Executor,
 	actor AuditActor,
 	action, resourceID string,
 	before, after any,
@@ -677,7 +672,7 @@ func SlugWithSuffix(base string, suffix int) string {
 	return prefix + ending
 }
 
-func NextSlug(ctx context.Context, database executor, platformID, name string) (string, error) {
+func NextSlug(ctx context.Context, database dbexec.Executor, platformID, name string) (string, error) {
 	base := SlugBase(name, platformID)
 	prefix := base + "-"
 	rows, err := database.QueryContext(ctx, `

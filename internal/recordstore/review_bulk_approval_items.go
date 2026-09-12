@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateReviewBulkApprovalItems(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "bulk_approval_id,import_item_id", ValidateReviewBulkApprovalItems)
 }
 
-func ValidateReviewBulkApprovalItems(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateReviewBulkApprovalItems(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, review_bulk_approval_itemsOwnership, keys)
 }
 

@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateNetplaySessions(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "id", ValidateNetplaySessions)
 }
 
-func ValidateNetplaySessions(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateNetplaySessions(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, netplay_sessionsOwnership, keys)
 }
 

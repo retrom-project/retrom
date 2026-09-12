@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateReviewMultidiscAttachments(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "id", ValidateReviewMultidiscAttachments)
 }
 
-func ValidateReviewMultidiscAttachments(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateReviewMultidiscAttachments(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, review_multidisc_attachmentsOwnership, keys)
 }
 

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 	"retrom/internal/recordstore"
 )
 
@@ -24,9 +25,9 @@ func CreateSave(ctx context.Context, tx *sql.Tx, query string, args ...any) (sql
 // exactly the inserted rows, including multi-row inserts.
 // Close the result before applying relations on the same connection.
 func write(ctx context.Context, tx *sql.Tx, query string, args []any,
-	apply func(context.Context, recordstore.DBTX, string) error,
+	apply func(context.Context, dbexec.Executor, string) error,
 ) (sql.Result, error) {
-	result, err := recordstore.Atomic(ctx, tx, func(connection recordstore.DBTX) (sql.Result, error) {
+	result, err := recordstore.Atomic(ctx, tx, func(connection dbexec.Executor) (sql.Result, error) {
 		ids, err := changedIDs(ctx, connection, query, args)
 		if err != nil {
 			return nil, err
@@ -44,7 +45,7 @@ func write(ctx context.Context, tx *sql.Tx, query string, args []any,
 	return result, nil
 }
 
-func changedIDs(ctx context.Context, tx recordstore.DBTX, query string, args []any) ([]string, error) {
+func changedIDs(ctx context.Context, tx dbexec.Executor, query string, args []any) ([]string, error) {
 	rows, err := tx.QueryContext(ctx, strings.TrimSuffix(strings.TrimSpace(query), ";")+" RETURNING id", args...)
 	if err != nil {
 		return nil, fmt.Errorf("write session: %w", err)

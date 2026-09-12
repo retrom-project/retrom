@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateScrapeCandidateAssets(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "id", ValidateScrapeCandidateAssets)
 }
 
-func ValidateScrapeCandidateAssets(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateScrapeCandidateAssets(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, scrape_candidate_assetsOwnership, keys)
 }
 

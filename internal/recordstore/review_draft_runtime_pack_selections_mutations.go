@@ -3,10 +3,12 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func UpdateReviewDraftRuntimePackSelections(
-	ctx context.Context, db DBTX, change Update,
+	ctx context.Context, db dbexec.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -28,7 +30,7 @@ FROM review_draft_runtime_pack_selections candidate CROSS JOIN previous
 WHERE candidate.review_draft_id=previous.review_draft_id AND candidate.slot=previous.slot`
 
 func DeleteReviewDraftRuntimePackSelections(
-	ctx context.Context, db DBTX, scope Scope,
+	ctx context.Context, db dbexec.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,

@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateBiosInstallations(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "id", ValidateBiosInstallations)
 }
 
-func ValidateBiosInstallations(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateBiosInstallations(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, bios_installationsOwnership, keys)
 }
 

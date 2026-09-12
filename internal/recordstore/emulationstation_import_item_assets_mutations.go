@@ -3,10 +3,12 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func UpdateEmulationstationImportItemAssets(
-	ctx context.Context, db DBTX, change Update,
+	ctx context.Context, db dbexec.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -47,7 +49,7 @@ FROM emulationstation_import_item_assets candidate CROSS JOIN previous
 WHERE candidate.item_id=previous.item_id AND candidate.kind=previous.kind`
 
 func DeleteEmulationstationImportItemAssets(
-	ctx context.Context, db DBTX, scope Scope,
+	ctx context.Context, db dbexec.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,

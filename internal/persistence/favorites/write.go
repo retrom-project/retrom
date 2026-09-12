@@ -4,18 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/dbexec"
 	"retrom/internal/recordstore"
 	"retrom/internal/service/favorites"
 )
 
 type (
-	gameRecords        struct{ database executor }
-	membershipRecords  struct{ database executor }
-	folderRecords      struct{ database executor }
-	idempotencyRecords struct{ database executor }
+	gameRecords        struct{ database dbexec.Executor }
+	membershipRecords  struct{ database dbexec.Executor }
+	folderRecords      struct{ database dbexec.Executor }
+	idempotencyRecords struct{ database dbexec.Executor }
 )
 
-func writeScope(database executor) favorites.WriteScope {
+func writeScope(database dbexec.Executor) favorites.WriteScope {
 	return favorites.WriteScope{
 		Games: gameRecords{database}, Memberships: membershipRecords{database},
 		Folders: folderRecords{database}, FolderWrites: folderRecords{database},

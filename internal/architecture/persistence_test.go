@@ -56,7 +56,7 @@ func assertBusinessImports(t *testing.T, directory string) {
 
 func databaseDependency(value string) bool {
 	for _, prefix := range []string{
-		"database/sql", "modernc.org/sqlite", "retrom/internal/persistence",
+		"database/sql", "modernc.org/sqlite", "retrom/internal/persistence", "retrom/internal/dbexec",
 		"retrom/internal/recordstore", "retrom/internal/sessionstore", "retrom/internal/storequery", "retrom/internal/store",
 	} {
 		if value == prefix || strings.HasPrefix(value, prefix+"/") {

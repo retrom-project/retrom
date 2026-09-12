@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 	"retrom/internal/recordstore"
 )
 
@@ -38,7 +39,7 @@ func CollectScopeIDs(ctx context.Context, transaction *sql.Tx, query string, arg
 }
 
 type deletionBatch struct {
-	remove func(context.Context, recordstore.DBTX, recordstore.Scope) (sql.Result, error)
+	remove func(context.Context, dbexec.Executor, recordstore.Scope) (sql.Result, error)
 	where  string
 }
 

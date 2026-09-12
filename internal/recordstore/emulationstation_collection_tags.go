@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateEmulationstationCollectionTags(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "collection_id,tag_id", ValidateEmulationstationCollectionTags)
 }
 
-func ValidateEmulationstationCollectionTags(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateEmulationstationCollectionTags(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, emulationstation_collection_tagsOwnership, keys)
 }
 

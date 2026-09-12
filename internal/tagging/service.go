@@ -11,18 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/dbexec"
 	"retrom/internal/recordstore"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
 )
-
-type executor interface {
-	ExecContext(context.Context, string, ...any) (sql.Result, error)
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}
 
 type Service struct {
 	database *sql.DB
@@ -93,7 +88,7 @@ func scanAdminItem(row scanner) (AdminItem, error) {
 	return result, nil
 }
 
-func adminItemByID(ctx context.Context, database executor, tagID string) (AdminItem, error) {
+func adminItemByID(ctx context.Context, database dbexec.Executor, tagID string) (AdminItem, error) {
 	result, err := scanAdminItem(database.QueryRowContext(ctx, adminItemQuery+` WHERE tag.id=?`, tagID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return AdminItem{}, ErrNotFound
@@ -209,7 +204,7 @@ func auditJSON(value any) string {
 
 func writeAudit(
 	ctx context.Context,
-	database executor,
+	database dbexec.Executor,
 	actorUserID, action, resourceType, resourceID string,
 	before, after, diff any,
 	now int64,
@@ -480,7 +475,7 @@ func encodedIDs(values []string) string {
 
 func activeReferences(
 	ctx context.Context,
-	database executor,
+	database dbexec.Executor,
 	relationTable, ownerColumn, ownerID string,
 ) ([]Reference, error) {
 	query := `SELECT tag.id,tag.name FROM ` + relationTable + ` relation
@@ -507,7 +502,7 @@ WHERE relation.` + ownerColumn + `=? ORDER BY tag.name_key,tag.id`
 
 func ValidateActiveReferences(
 	ctx context.Context,
-	database executor,
+	database dbexec.Executor,
 	tagIDs []string,
 ) ([]Reference, error) {
 	validated, err := ValidateIDs(tagIDs)

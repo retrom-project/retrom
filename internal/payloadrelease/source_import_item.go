@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/dbexec"
 	"retrom/internal/recordstore"
 
 	"retrom/internal/cleanup"
 )
 
-type sourceRecordUpdate func(context.Context, recordstore.DBTX, recordstore.Update) (sql.Result, error)
+type sourceRecordUpdate func(context.Context, dbexec.Executor, recordstore.Update) (sql.Result, error)
 
 type sourceImportItemSpec struct {
 	updateItem, updateFiles, updateAssets sourceRecordUpdate

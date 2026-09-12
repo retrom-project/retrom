@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateVariantFiles(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "game_variant_id,role,logical_name", ValidateVariantFiles)
 }
 
-func ValidateVariantFiles(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateVariantFiles(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, variant_filesOwnership, keys)
 }
 

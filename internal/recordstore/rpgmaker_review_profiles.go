@@ -3,15 +3,17 @@ package recordstore
 import (
 	"context"
 	"database/sql"
+
+	"retrom/internal/dbexec"
 )
 
 func CreateRpgmakerReviewProfiles(
-	ctx context.Context, db DBTX, query string, args ...any,
+	ctx context.Context, db dbexec.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "review_draft_id", ValidateRpgmakerReviewProfiles)
 }
 
-func ValidateRpgmakerReviewProfiles(ctx context.Context, db DBTX, keys ...any) error {
+func ValidateRpgmakerReviewProfiles(ctx context.Context, db dbexec.Executor, keys ...any) error {
 	return validate(ctx, db, rpgmaker_review_profilesOwnership, keys)
 }
 
