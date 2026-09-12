@@ -40,10 +40,12 @@ cmd/retrom/               进程入口、配置和优雅关闭
 internal/httpapi/         路由、中间件、DTO、错误映射
 internal/catalog/         Platform、PlatformInstance、Game、GameVariant
 internal/importing/       导入任务、分组、刮削与审核编排
+internal/service/pegasusimport/ 扫描投影、计划/映射/启动、租约、物化/审核交接与结果恢复
+internal/persistence/pegasusimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
 internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
 internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
-internal/service/emulationstationimport/ 查询分页、创建及未开始计划生命周期、标签投影
-internal/persistence/emulationstationimport/ 查询、诊断与运行依赖映射、创建和计划事务
+internal/service/emulationstationimport/ 查询、计划与映射、启动、扫描发布、取消/重试与过期恢复
+internal/persistence/emulationstationimport/ 查询映射、计划/扫描/租约/恢复事务与来源归属校验
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
 internal/firmware/        BIOS 文件与归档匹配、候选质量比较
@@ -60,8 +62,8 @@ internal/persistence/datindex/ DAT 索引与需求记录写入
 internal/runtimebundle/   Bundle 与 Launch Envelope V1 的闭合解析/语义校验
 internal/runtimelaunch/   Provider-neutral Launch Envelope 投影
 internal/launch/          启动预检、LaunchSession/capability 与产品编排
-internal/service/launch/ 内容授权、资源选择与游玩事件/计时策略
-internal/persistence/launch/ 内容及授权快照查询、游玩状态与撤销事务
+internal/service/launch/ 内容授权、Preview/Product 创建、审核截图、资源选择与游玩策略
+internal/persistence/launch/ 授权与内容快照、会话/响应收据/截图/游玩事务与校验任务调度
 internal/rpgmaker/        RPG 项目识别、Target binding、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
 internal/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢复协议
 internal/service/isolation/ unique-origin Host、票据及 capability 授权规则
@@ -75,11 +77,12 @@ internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮�
 internal/persistence/accounts/ 账户安全事务、限流桶及原子多主体计数
 internal/service/serverimport/ 服务器 BIOS 导入查询、分页及取消/重试规则
 internal/persistence/serverimport/ 导入目录/候选查询及取消/重试原子事务
-internal/service/libraryimport/ 审核列表、元数据归一化、来源创建身份及主文件分组规则
-internal/persistence/libraryimport/ 审核查询、元数据/搜索/审计事务和服务器来源原子绑定
+internal/service/libraryimport/ 审核查询、封面上传、丢弃决定、元数据与服务器来源创建规则
+internal/persistence/libraryimport/ 审核快照、封面/消费/丢弃/审计事务和服务器来源原子绑定
 internal/service/metadatascrape/ 抓取调度、证据查询、候选规则与执行收口
 internal/persistence/metadatascrape/ 抓取证据、结果、任务租约与事务存储
 internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排
+internal/service/importprogress/ ImportJob 条目驱动聚合的纯状态规则
 internal/service/importdiscard/ 导入批次丢弃、取消与归属判断
 internal/persistence/importdiscard/ 处置快照、归属恢复与原子释放写入
 internal/service/gamecontent/ 内容替换校验、执行身份与发布业务编排
@@ -139,6 +142,8 @@ BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后�
 独立运行域授权 Service 验证凭据编码、会话类型/状态、过期与撤销，Repository 返回业务记录并将票据消费与 capability 签发绑定到同一事务；凭据只以 digest 进入持久化端口。
 
 通用任务 Service 先判定取消或重试资格，再通过一个事务内的业务端口写入任务、事件及新的执行输入；服务器 BIOS 导入的关联取消共享该事务。存储故障保留原因，缺失记录与版本冲突映射为业务冲突。GC 维护入口通过独立端口调用持久 payload release dispatcher，并读取计数与保护集合。
+
+Pegasus 与 EmulationStation 的通用 Job 取消由领域 Service 接管：通用资格读取事务结束后，携带原始 Job 版本、kind、scope 与操作者进入领域事务，重新校验当前关联并原子取消；不得只更新 Job 而遗漏来源计划，也不得用刷新后的版本替换客户端 ETag。返回值取自提交前同一快照，提交失败不返回成功或发送唤醒。
 
 沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。容量分析 Repository 一次返回完整的 Blob、保护集合、用途和引用快照，Service 完成 archive 用途传播、分类优先级、去重口径及受检整数汇总；聚合不再占用数据库事务。
 
