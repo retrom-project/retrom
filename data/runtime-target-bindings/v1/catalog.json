@@ -917,6 +917,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-nxengine",
+      "coreId": "nxengine",
+      "providerId": "retrom-runtime",
+      "targetId": "nxengine",
+      "platformIds": [
+        "cavestory"
+      ],
+      "acceptedContentKinds": [
+        "NXENGINE_PROJECT"
+      ],
+      "detectorProfile": "NXENGINE_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-onscripter-yuri",
       "coreId": "onscripter_yuri",
       "providerId": "retrom-runtime",
@@ -1196,6 +1210,12 @@
         "enabled": true
       },
       {
+        "id": "cavestory",
+        "name": "Cave Story",
+        "sortOrder": 510,
+        "enabled": true
+      },
+      {
         "id": "cdi",
         "name": "Philips CD-i",
         "sortOrder": 540,
@@ -1389,7 +1409,7 @@
       },
       {
         "id": "pokemini",
-        "name": "Nintendo Pok\u00e9mon Mini",
+        "name": "Nintendo Pokémon Mini",
         "sortOrder": 610,
         "enabled": true
       },
@@ -1450,7 +1470,7 @@
       {
         "id": "uzebox",
         "name": "Uzebox",
-        "sortOrder": 620,
+        "sortOrder": 630,
         "enabled": true
       },
       {
@@ -1605,7 +1625,7 @@
       },
       {
         "id": "gbe_plus",
-        "name": "GBE+ (Pok\u00e9mon Mini)",
+        "name": "GBE+ (Pokémon Mini)",
         "enabled": true
       },
       {
@@ -1701,6 +1721,11 @@
       {
         "id": "np2kai",
         "name": "Neko Project II Kai",
+        "enabled": true
+      },
+      {
+        "id": "nxengine",
+        "name": "NXEngine",
         "enabled": true
       },
       {
@@ -1879,6 +1904,7 @@
       "DOS_BUNDLE",
       "KIRIKIRI_PROJECT",
       "MULTI_DISC",
+      "NXENGINE_PROJECT",
       "ONS_PROJECT",
       "RPG_MAKER_PROJECT",
       "SCUMMVM_PROJECT",
