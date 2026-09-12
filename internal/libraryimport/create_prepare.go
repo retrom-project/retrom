@@ -190,39 +190,10 @@ func (service *Service) prepareContent(
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareRPGMakerProject(
 			ctx, plan.sourceType, plan.files, plan.target.defaultCoreID,
 		)
-	case contentcapability.ModeONSProject:
-		if plan.target.platformID != "ons" {
-			return ErrInvalid
-		}
-		plan.dispositions, plan.groups, plan.archives, err = service.prepareONSProject(
-			ctx, plan.sourceType, plan.files,
-		)
-	case contentcapability.ModeKiriKiriProject:
-		if plan.target.platformID != "kirikiri" {
-			return ErrInvalid
-		}
-		plan.dispositions, plan.groups, plan.archives, err = service.prepareKiriKiriProject(
-			ctx, plan.sourceType, plan.files,
-		)
-	case contentcapability.ModeButterscotchProject:
-		if plan.target.platformID != "butterscotch" {
-			return ErrInvalid
-		}
-		plan.dispositions, plan.groups, plan.archives, err = service.prepareButterscotchProject(
-			ctx, plan.sourceType, plan.files,
-		)
-	case contentcapability.ModeTyranoScriptProject:
-		if plan.target.platformID != "tyranoscript" {
-			return ErrInvalid
-		}
-		plan.dispositions, plan.groups, plan.archives, err = service.prepareTyranoScriptProject(
-			ctx, plan.sourceType, plan.files,
-		)
-	case contentcapability.ModeScummVMProject:
-		if plan.target.platformID != "scummvm" {
-			return ErrInvalid
-		}
-		plan.dispositions, plan.groups, plan.archives, err = service.prepareScummVMProject(ctx, plan.sourceType, plan.files)
+	case contentcapability.ModeONSProject, contentcapability.ModeKiriKiriProject, contentcapability.ModeNXEngineProject,
+		contentcapability.ModeButterscotchProject, contentcapability.ModeTyranoScriptProject,
+		contentcapability.ModeScummVMProject:
+		return service.prepareEngineProject(ctx, plan)
 	case contentcapability.ModeStandard:
 		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
 			ctx, plan.target.platformID, plan.sourceType, plan.files, plan.datID,
@@ -355,4 +326,51 @@ ORDER BY f.relative_path,f.id
 		return nil, ErrInvalid
 	}
 	return files, nil
+}
+
+func (service *Service) prepareEngineProject(ctx context.Context, plan *creationPlan) error {
+	var err error
+	switch plan.contentMode {
+	case contentcapability.ModeONSProject:
+		if plan.target.platformID != "ons" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareONSProject(
+			ctx, plan.sourceType, plan.files,
+		)
+	case contentcapability.ModeKiriKiriProject:
+		if plan.target.platformID != "kirikiri" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareKiriKiriProject(
+			ctx, plan.sourceType, plan.files,
+		)
+	case contentcapability.ModeNXEngineProject:
+		if plan.target.platformID != "cavestory" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareNXEngineProject(ctx, plan.sourceType, plan.files)
+	case contentcapability.ModeButterscotchProject:
+		if plan.target.platformID != "butterscotch" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareButterscotchProject(
+			ctx, plan.sourceType, plan.files,
+		)
+	case contentcapability.ModeTyranoScriptProject:
+		if plan.target.platformID != "tyranoscript" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareTyranoScriptProject(
+			ctx, plan.sourceType, plan.files,
+		)
+	case contentcapability.ModeScummVMProject:
+		if plan.target.platformID != "scummvm" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareScummVMProject(ctx, plan.sourceType, plan.files)
+	default:
+		return ErrInvalid
+	}
+	return err
 }

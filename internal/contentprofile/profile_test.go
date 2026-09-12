@@ -172,6 +172,9 @@ func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
 		got := AllowsContentKind(platformID, ContentKindMultiDisc)
 		testassert.CheckFalsef(t, got != (platformID == "saturn"), "AllowsContentKind(%q, MULTI_DISC) = %t", platformID, got)
 		switch platformID {
+		case "cavestory":
+			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindNXEngineProject), "Cave Story project support missing")
+			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "Cave Story accepted SINGLE_FILE")
 		case "rpgmaker":
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindRPGMakerProject), "RPG Maker project support missing")
 			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "RPG Maker accepted SINGLE_FILE")
