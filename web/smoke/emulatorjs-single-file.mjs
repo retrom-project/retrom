@@ -15,7 +15,7 @@ if (!scenarioPath || !origin || !username || !password || !output) {
   throw new Error("SMOKE_SCENARIO_OR_ENVIRONMENT_REQUIRED");
 }
 const scenarios = JSON.parse(await readFile(scenarioPath, "utf8"));
-const allowed = ["freeintv", "vecx", "fuse", "vice_x64sc", "gearcoleco", "virtualjaguar", "prboom", "vice_x128", "vice_xvic", "puae",
+const allowed = ["bsnes", "freeintv", "vecx", "fuse", "vice_x64sc", "gearcoleco", "virtualjaguar", "prboom", "vice_x128", "vice_xvic", "puae",
   "81", "cap32", "crocods", "vice_xpet", "vice_xplus4", "same_cdi", "vice_x64", "mednafen_pce"];
 if (!Array.isArray(scenarios) || !scenarios.length || scenarios.some((item) =>
   !allowed.includes(item.coreId) || !/^[0-9a-f-]{36}$/u.test(item.gameId) ||

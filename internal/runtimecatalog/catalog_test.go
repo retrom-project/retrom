@@ -20,7 +20,7 @@ func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalog.SchemaVersion != 1 || len(catalog.Bindings) != 76 {
+	if catalog.SchemaVersion != 1 || len(catalog.Bindings) != 77 {
 		t.Fatalf("catalog = %#v", catalog)
 	}
 	for _, binding := range catalog.Bindings {
@@ -81,6 +81,7 @@ func TestPlatformDefaultsSelectBindingsOnlyByProductCore(t *testing.T) {
 		}
 	}
 	for _, expected := range []struct{ platform, core, target string }{
+		{platform: "snes", core: "bsnes", target: "bsnes"},
 		{platform: "gbc", core: "gambatte", target: "gambatte"},
 		{platform: "nds", core: "desmume2015", target: "desmume2015"},
 	} {
@@ -91,6 +92,17 @@ func TestPlatformDefaultsSelectBindingsOnlyByProductCore(t *testing.T) {
 		}
 		if !found {
 			t.Fatalf("missing default binding %#v", expected)
+		}
+	}
+}
+
+func TestBsnesRemainsAlternativeWithoutRecommendedDirectory(t *testing.T) {
+	for _, template := range platformcatalog.Current().Templates {
+		if template.DefaultCoreID == "bsnes" {
+			t.Fatal("bsnes must remain an alternative without a recommended directory")
+		}
+		if template.PlatformID == "snes" && template.DefaultCoreID != "snes9x" {
+			t.Fatal("SNES recommended directory must retain Snes9x")
 		}
 	}
 }
