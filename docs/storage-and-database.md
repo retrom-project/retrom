@@ -121,6 +121,8 @@ PRAGMA busy_timeout = 5000;
 
 `store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。此次改写与旧开发基线不兼容，旧 checksum 不会被覆盖；当前前缀只用于中断初始化的续跑，不能解释为支持旧开发库升级。
 
+只读 schema 预检被取消或超过启动期限时保留对应的 context 错误，不将其误报为 `DATABASE_SCHEMA_INVALID`；超时本身不构成重建数据库的依据。
+
 跨表与新旧状态校验由 `recordstore` 的参数化 SQL 执行；会话、存档与回收排期的联动由 `sessionstore` 在同一事务完成。保存点保证校验失败时撤销该次写入，不能依赖调用方最终选择 rollback 来维持不变量。共享查询在 `storequery` 中维护；完整职责及空操作语义见[数据模型](./data-model.md#应用写入与数据库职责)。
 
 不兼容开发数据库必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。新建且未启动过的 PFB 直接初始化空库。程序不提供转换器、双写或隐式导入，也不得把旧 DB/CAS 拆开混入新库。默认开发数据根为 `.dev-data/data`，测试和验收使用独立临时根。未来发布后的兼容演进仍须追加 migration 并验证明确支持的升级路径，不能改写已发布 checksum。
