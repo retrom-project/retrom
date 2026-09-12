@@ -116,7 +116,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-SEC-001": (120, "go test -tags=integration ./internal/arcadedat ./internal/importing -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective|TestValidateLogicalPath' -count=1"),
     "ACC-SEC-002": (
         120,
-        "go test ./internal/runtime ./internal/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1",
+        "go test ./internal/runtime ./internal/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1",
     ),
     "ACC-SEC-003": (
         120,
@@ -308,7 +308,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-003": (
         300,
-        "go test -tags=integration ./internal/pegasusimport ./internal/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestSelectServerImportItemUsesTheDeclaredPrimarySource|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure' -count=1",
+        "go test -tags=integration ./internal/pegasusimport ./internal/libraryimport ./internal/service/pegasusimport ./internal/persistence/pegasusimport ./internal/service/libraryimport ./internal/persistence/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestSelectServerImportItemUsesTheDeclaredPrimarySource|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestReviewHandoff|TestServerMetadata|TestMetadata' -count=1",
     ),
     "ACC-PEG-004": (
         300,
@@ -322,7 +322,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ES-002": (
         240,
-        "go test ./internal/emulationstationimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestEmulationStationImportHTTP' -count=1",
+        "go test ./internal/emulationstationimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestEmulationStationImportHTTP|TestQuer|TestGamelistsReject' -count=1 && go test ./internal/service/emulationstationimport ./internal/persistence/emulationstationimport -count=1",
     ),
     "ACC-ES-003": (
         300,
@@ -385,7 +385,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         240,
         "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",
     ),
-    "ACC-RUN-001": (180, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
+    "ACC-RUN-001": (180, "go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1"),
     "ACC-RUN-014": (180, "scripts/acceptance/input-diagnostics.sh"),
     "ACC-RUN-002": (180, "scripts/acceptance/ui-case.sh ACC-RUN-002"),
     "ACC-RUN-003": (180, "scripts/acceptance/ui-case.sh ACC-RUN-003"),
@@ -437,7 +437,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-NP-020": (300, "scripts/acceptance/ui-case.sh ACC-NP-020"),
     "ACC-NP-021": (300, "scripts/acceptance/ui-case.sh ACC-NP-021"),
     "ACC-NP-022": (300, "scripts/acceptance/ui-case.sh ACC-NP-022"),
-    "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
+    "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1"),
     "ACC-MDISC-001": (
         600,
         "go test -tags=integration ./internal/libraryimport -run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=60s && make web-test",
