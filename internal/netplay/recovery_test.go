@@ -2,6 +2,7 @@ package netplay
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
@@ -120,10 +121,11 @@ VALUES(?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)
 		now.UnixMilli(), now.UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if err := closeNetplaySession(ctx, tx, finishedSessionID, "FINISHED", "USER_EXIT", now.UnixMilli()); err != nil {
+	reactivateRecoveryFixture(t, tx, roomID, finishedSessionID, memberID)
+	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := service.EndRoom(ctx, roomID, profileID, "USER_EXIT", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := database.SQL.QueryRowContext(context.Background(), `SELECT state,ended_at_ms FROM play_sessions WHERE id=?`, finishedPlayID).
@@ -134,4 +136,15 @@ VALUES(?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return playState != "FINISHED" }, func() bool { return playEndedAt != now.UnixMilli() }, func() bool { return launchState != "REVOKED" }), "normal end launch=%s play=%s/%d", launchState, playState, playEndedAt)
+}
+
+func reactivateRecoveryFixture(t *testing.T, tx *sql.Tx, roomID, finishedSessionID, memberID string) {
+	t.Helper()
+	ctx := t.Context()
+	if _, err := tx.ExecContext(ctx, `UPDATE netplay_rooms SET state='RUNNING',current_session_id=?,ended_at_ms=NULL,end_reason=NULL WHERE id=?`, finishedSessionID, roomID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE netplay_room_members SET left_at_ms=NULL,leave_reason=NULL WHERE id=?`, memberID); err != nil {
+		t.Fatal(err)
+	}
 }

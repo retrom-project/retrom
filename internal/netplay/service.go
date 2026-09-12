@@ -66,15 +66,7 @@ const (
 )
 
 func endDisposition(reason string, actorIsHost bool) string {
-	switch reason {
-	case "HOST_CLOSED", "HOST_LOST", "PROFILE_REVOKED", "SERVER_RESTARTED", "RESTORE", "HARD_EXPIRED":
-		return RoomDispositionEnded
-	case "AUTH_REVOKED", "PEER_TIMEOUT", "PROTOCOL_VIOLATION":
-		if actorIsHost {
-			return RoomDispositionEnded
-		}
-	}
-	return RoomDispositionWaiting
+	return application.EndDisposition(reason, actorIsHost)
 }
 
 type resyncCause string

@@ -202,10 +202,3 @@ VALUES(?,?,?,?,?,?,?)
 }
 
 func intPointer(value int) *int { return &value }
-
-func stringPointerFromNull(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	return &value.String
-}
