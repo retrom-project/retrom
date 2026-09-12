@@ -9,12 +9,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RuntimeTargetBindingsTest(unittest.TestCase):
+    def test_bsnes_is_an_enabled_snes_alternative_with_exact_target_binding(self):
+        catalog = load_runtime_target_bindings(ROOT / "data/runtime-target-bindings/v1/catalog.json")
+        bindings = {item["coreId"]: item for item in catalog["bindings"]}
+        self.assertEqual(bindings["bsnes"], {
+            "id": "emulatorjs-bsnes", "coreId": "bsnes", "providerId": "emulatorjs",
+            "targetId": "bsnes", "platformIds": ["snes"], "acceptedContentKinds": ["SINGLE_FILE"],
+            "detectorProfile": "EMULATORJS_SINGLE_FILE", "launchPolicy": "SUPPORTED",
+        })
+        self.assertEqual(bindings["snes9x"]["targetId"], "snes9x")
+        cores = {item["id"]: item for item in catalog["definitions"]["cores"]}
+        self.assertEqual(cores["bsnes"], {"id": "bsnes", "name": "bsnes", "enabled": True})
+
     def test_catalog_is_closed_complete_and_maps_product_cores_without_defaults(self):
         catalog = load_runtime_target_bindings(
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 73)
+        self.assertEqual(len(catalog["bindings"]), 79)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -37,14 +49,18 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("emulatorjs", "gambatte")]["coreId"], "gambatte")
         self.assertEqual(by_target[("emulatorjs", "desmume2015")]["coreId"], "desmume2015")
         expected_single_file_targets = {
+            "vecx": ("vecx", ["vectrex"]),
+            "neocd": ("neocd", ["neogeocd"]),
             "81": ("81", ["zx81"]),
             "cap32": ("cap32", ["amstradcpc", "gx4000"]),
             "crocods": ("crocods", ["amstradcpc"]),
             "fuse": ("fuse", ["zxspectrum"]),
             "gearcoleco": ("gearcoleco", ["colecovision"]),
+            "freeintv": ("freeintv", ["intellivision"]),
             "mednafen-pce": ("mednafen_pce", ["pce", "pcecd", "supergrafx"]),
             "prboom": ("prboom", ["doom"]),
             "puae": ("puae", ["amiga"]),
+            "quasi88": ("quasi88", ["pc88"]),
             "same-cdi": ("same_cdi", ["cdi"]),
             "vice-x128": ("vice_x128", ["c128"]),
             "vice-x64": ("vice_x64", ["c64"]),

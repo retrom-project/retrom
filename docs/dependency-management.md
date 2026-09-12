@@ -38,7 +38,7 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 ## 3. 两个 Provider
 
-`emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 51 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
+`emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 56 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
 `retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08、Play! 和 Ruffle 在内的 22 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
@@ -70,7 +70,7 @@ Provider 安装和数据库 reconcile 在对外 ready 之前完成。激活事�
 
 ## 6. PFB 开发层与 production
 
-PFB 只消费同一命名 worktree 中的 Retrom 与 `retrom-runtime` 源码，不再构建或锁定完整 candidate Bundle。workspace 中已安装的基座 Provider 必须先通过正式 Bundle schema、integrity、Target declaration 与静态文件验证；runtime watcher 从基座读取 asset index，只重建 `client.mjs` 和 `provider-sources.json` 已声明的本地 adapter 资源。
+PFB 只消费同一命名 worktree 中的 Retrom 与 `retrom-runtime` 源码，不再构建或锁定完整 candidate Bundle。workspace 中已安装的基座 Provider 必须先通过正式 Bundle schema、integrity、Target declaration 与静态文件验证；runtime watcher 从基座读取 asset index，只重建 `client.mjs` 和 `provider-sources.json` 已声明的本地 adapter 资源。显式选择已构建的 EmulatorJS 维护 fork candidate 时，按 [PFB 开发契约](./pfb-development.md) 验证闭合资产、来源、许可及摘要，并将核心身份编译进开发 client；此入口不构建核心、不增加 Target，也不修改正式来源坐标。
 
 loose descriptor 只能覆盖同一 provider/base bundle 中已有的公开路径，不能注入 Target、改写 Retrom binding、伪造 Release 坐标或替换未知大体积 core。Go 启动逐文件验证 size/SHA-256/media type与内含字节，并只在合法test PFB中接受；release 和普通非 PFB 进程拒绝 `RETROM_PROVIDER_DEV_ROOT`。
 
@@ -232,3 +232,53 @@ BIOS 由产品 BIOS 安装链提供：`iplrom.dat`（131072 bytes）和 `cgrom.d
 两者均为 REQUIRED / EXTERNAL_FILE；平台定义中的 SHA-256 与上游 MD5 对应。
 以逐文件 `EXTERNAL_FILE_SET` 交付真实字节长度与摘要，由 adapter 写入 `game/keropi/`。
 游戏与 BIOS 均不进入核心产物、Provider 包或 Git。
+
+### Vectrex
+
+VecX 的源码和构建归 `retrom-project/libretro-vecx`，维护基线为
+`retrom/g8f671cc9d737`，上游镜像 `master` 不接受 Retrom 补丁。
+Emscripten 工具链与 EmulatorJS RetroArch linker 固定在 fork 的 `retrom-fork.json`
+及构建配方中。`pfb-core-build CORE=vecx` 生成核心、许可、完整源归档和逐文件候选描述符。
+EmulatorJS `forks` 固定已发布的 `retrom-core-g8f671cc9d737-r1`、commit、许可、
+完整源归档和准确文件摘要；Provider 2.9.0 声明 `vecx` Target。后续未发布候选通过
+`developmentInputs` / `developmentForks` 显式登记，普通正式构建拒绝该输入。
+首次接入显式构建并验证完整 Provider 候选，再用 `pfb-provider-import` 导入为 PFB 基座。
+日常生命周期不重建核心或 Provider。正式更新按 core → runtime → Retrom 顺序发布，
+Retrom 固定正式 Provider lock 后重跑 ACC-VECTREX-001。
+
+### NeoCD 核心
+
+Retrom workspace catalog 新增 `neocd`，维护仓库为
+`retrom-project/neocd_libretro`，上游 commit 为
+`3118c6901787e863e80e79170d02d47657b3b0ab`，默认维护分支为
+`retrom/g3118c6901787`；`master` 只保留上游镜像。
+核心通过 PFB 显式 `pfb-core-build CORE=neocd` 构建，使用固定 Emscripten 镜像和
+EmulatorJS RetroArch commit。runtime 只验证并聚合锁定资产，不编译核心。
+正式来源固定为 `retrom-core-g3118c6901787-r1`；后续更新遵循 core → runtime → Retrom
+顺序，Retrom 固定正式 Provider lock 后重跑 ACC-NEOCD-001。
+
+发布包包含完整 NeoCD 源码归档、组件许可和字节摘要；源码未发布时普通 release
+构建必须拒绝。顶层 LGPLv3 不覆盖所有组件：Z80 源码带有非商业限制，链接的
+RetroArch 另带 GPLv3，不能将组合产物标为无限制 LGPL-only。游戏与 BIOS 不进入
+源码或 Provider；BIOS 通过现有管理员安装链路提供。
+
+## GBE+ Pokémon Mini 固定核心输入
+
+核心源 `retrom-project/gbe-plus` 固定上游 `shonumi/gbe-plus` 的
+`05a05e931b3993ff3e6316b0d841a1fb4d3ac7a7`，维护分支 `retrom/g05a05e931b39`。
+当前 Retrom workspace catalog 声明该仓库；WASM 与浏览器宿主构建由 core fork 独占，
+ABI 为 `gbe-pokemini-host-v1`，不在 runtime 中编译核心。
+
+比较时（2026-09-12），GBE+ 为 600 stars、最近 push 2026-08-24，libretro/PokeMini
+为 37 stars、最近 push 2026-07-31。GBE+ 有专用 Mini 核心、EEPROM、原生状态与冲击输入；
+PokeMini 提供现成 libretro/Emscripten 路径，但文档记录部分游戏 EEPROM 限制。
+选择 GBE+ 综合考虑维护与功能，stars 仅作辅助。来源为各上游 GitHub 仓库与
+[libretro PokeMini 文档](https://docs.libretro.com/library/pokemini/)。
+
+核心固定 `retrom-core-g05a05e931b39-r1`，正式 Provider 校验 release descriptor、
+完整资产清单与准确大小/SHA-256。未发布覆盖只允许显式 PFB candidate。
+发布按 core → runtime → Retrom 顺序，Retrom 固定正式 Provider lock 后重跑 `ACC-POKEMINI-001`。
+
+Provider 安装校验保持完整 SHA-256 与大小检查；文件摘要使用有界的 1 MiB 读取缓冲，避免 Docker bind mount 上大量 32 KiB 读取消耗启动预检时限。该调整不跳过任何依赖字节。
+PFB 的测试模式使用既有配置允许的 5 分钟启动预检额度，为完整 Provider 校验留出 bind mount I/O 时间；生产服务的默认额度不变。
+显式 pfb-build 成功后总是更新工具链记录；仅镜像变化时复用已验证依赖，不重复 npm ci，并保证后续 up 接受新的工具链摘要。

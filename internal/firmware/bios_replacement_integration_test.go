@@ -16,6 +16,15 @@ func assertDeferredBIOSRelease(t *testing.T, ctx context.Context, database *sql.
 	releases *payloadrelease.Service, lifecycle firmwareReplacementLifecycle, blobID, installationID string,
 ) {
 	t.Helper()
+	// Retiring an installation also queues release of its upload ownership.
+	// Drain that work before asserting GC eligibility, without a background race.
+	for {
+		worked, err := releases.RunOnce(ctx)
+		testassert.False(t, err != nil, err)
+		if !worked {
+			break
+		}
+	}
 	testassert.False(t, releases.ReconcileGC(ctx) != nil, "reconcile retired BIOS")
 	var oldBlob sql.NullString
 	var released sql.NullInt64
@@ -36,7 +45,7 @@ func assertDeferredBIOSRelease(t *testing.T, ctx context.Context, database *sql.
  (SELECT count(*) FROM launch_external_files WHERE launch_session_id=?),
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)`, lifecycle.launchID, blobID).Scan(&refs, &candidates)
 	testassert.False(t, err != nil, err)
-	testassert.True(t, refs == 0 && candidates == 1, "finished launch must release old BIOS")
+	testassert.Truef(t, refs == 0 && candidates == 1, "finished launch must release old BIOS: refs=%d candidates=%d", refs, candidates)
 	var saves int
 	err = database.QueryRowContext(ctx, `SELECT count(*) FROM save_states WHERE id=?`, lifecycle.saveID).Scan(&saves)
 	testassert.False(t, err != nil, err)
