@@ -3,10 +3,7 @@ package accounts
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	accountpersistence "retrom/internal/persistence/accounts"
@@ -47,81 +44,39 @@ func accountLinkState(consumedAt, revokedAt sql.NullInt64, expiresAt, now int64)
 	}
 }
 
-func (service *Service) linkToken(kind, id string) string {
-	parsed, err := uuid.Parse(id)
-	if err != nil {
-		return ""
-	}
-	return service.credentials.AccountLinkToken(kind, parsed)
+func (service *Service) issuance() *accountservice.LinkIssuanceService {
+	return accountservice.NewLinkIssuance(
+		accountpersistence.NewLinks(
+			service.database,
+		),
+		service.credentials,
+		func() time.Time {
+			return service.now()
+		},
+	)
 }
 
 func (service *Service) CreateInvitation(
 	ctx context.Context,
 	principal authn.Principal,
 	role string,
-	confirmAdminRole bool,
-	idempotencyKey string,
+	confirmed bool,
+	key string,
 ) (AccountLink, bool, error) {
-	if role != "USER" && role != "ADMIN" || role == "ADMIN" != confirmAdminRole {
-		return AccountLink{}, false, ErrRoleConfirmation
-	}
-	digest := operationDigest("postAdminInvitation", principal.UserID, map[string]any{
-		"confirmAdminRole": confirmAdminRole,
-		"role":             role,
-	})
-	now := service.now().UTC().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return AccountLink{}, false, fmt.Errorf("begin invitation creation: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	body, replayed, err := loadIdempotency(
-		ctx, transaction, principal.UserID, "postAdminInvitation", idempotencyKey, digest, now,
+	value, replayed, err := service.issuance().Invitation(
+		ctx,
+		accountservice.LinkCreator{
+			UserID:   principal.UserID,
+			Username: principal.Username,
+		},
+		role,
+		confirmed,
+		key,
 	)
 	if err != nil {
-		return AccountLink{}, false, err
-	}
-	if replayed {
-		var result AccountLink
-		if err := json.Unmarshal(body, &result); err != nil {
-			return AccountLink{}, false, fmt.Errorf("decode invitation replay: %w", err)
-		}
-		result.CapabilityToken = service.linkToken("INVITATION", result.AccountLinkID)
-		return result, true, nil
-	}
-	linkID := newID()
-	expires := now + int64(time.Hour/time.Millisecond)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO account_links(
-id,kind,invited_role,target_user_id,created_by_user_id,created_at_ms,expires_at_ms,version)
-VALUES(?,'INVITATION',?,NULL,?,?,?,1)
-`, linkID, role, principal.UserID, now, expires); err != nil {
 		return AccountLink{}, false, fmt.Errorf("create invitation: %w", err)
 	}
-	result := AccountLink{
-		AccountLinkID: linkID, Kind: "INVITATION", Role: role, TargetUserID: nil,
-		CreatedBy: map[string]any{"userId": principal.UserID, "username": principal.Username},
-		State:     "ACTIVE", Version: 1, CreatedAtMS: now, ExpiresAtMS: expires,
-		ConsumedAtMS: nil, RevokedAtMS: nil,
-	}
-	if err := insertUserAudit(
-		ctx, transaction, principal, "INVITATION_CREATED", "ACCOUNT_LINK", linkID,
-		map[string]any{"kind": "INVITATION", "role": role, "expiresAtMs": expires}, now,
-	); err != nil {
-		return AccountLink{}, false, err
-	}
-	encoded, _ := json.Marshal(result)
-	if err := storeIdempotency(
-		ctx, transaction, principal.UserID, "postAdminInvitation", idempotencyKey, digest,
-		http.StatusCreated, encoded, now,
-	); err != nil {
-		return AccountLink{}, false, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return AccountLink{}, false, fmt.Errorf("commit invitation creation: %w", err)
-	}
-	result.CapabilityToken = service.linkToken("INVITATION", linkID)
-	return result, false, nil
+	return legacyAccountLink(value), replayed, nil
 }
 
 func (service *Service) links() *accountservice.LinkService {
@@ -318,127 +273,27 @@ VALUES(?,?,'ARGON2ID_V1',?,?)
 	return nil
 }
 
-// Closed transaction preserves exact version and idempotency semantics.
 func (service *Service) CreatePasswordReset(
 	ctx context.Context,
 	principal authn.Principal,
-	targetUserID string,
-	expectedVersion int64,
-	idempotencyKey string,
+	targetID string,
+	version int64,
+	key string,
 ) (AccountLink, bool, error) {
-	digest := operationDigest("postAdminUserPasswordResetLink", principal.UserID, map[string]any{
-		"expectedVersion": expectedVersion,
-		"targetUserId":    targetUserID,
-	})
-	now := service.now().UTC().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return AccountLink{}, false, fmt.Errorf("begin password reset creation: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	body, replayed, err := loadIdempotency(
-		ctx, transaction, principal.UserID, "postAdminUserPasswordResetLink", idempotencyKey, digest, now,
+	value, replayed, err := service.issuance().PasswordReset(
+		ctx,
+		accountservice.LinkCreator{
+			UserID:   principal.UserID,
+			Username: principal.Username,
+		},
+		targetID,
+		version,
+		key,
 	)
 	if err != nil {
-		return AccountLink{}, false, err
+		return AccountLink{}, false, fmt.Errorf("create password reset: %w", err)
 	}
-	if replayed {
-		var result AccountLink
-		if err := json.Unmarshal(body, &result); err != nil {
-			return AccountLink{}, false, fmt.Errorf("decode password-reset replay: %w", err)
-		}
-		result.CapabilityToken = service.linkToken("PASSWORD_RESET", result.AccountLinkID)
-		return result, true, nil
-	}
-	if err := validatePasswordResetTarget(ctx, transaction, targetUserID, expectedVersion); err != nil {
-		return AccountLink{}, false, err
-	}
-	result, err := recordstore.UpdateUsers(ctx, transaction, recordstore.Update{
-		Set: `version=version+1,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND version=? AND status!='DELETED'`,
-			Args:  []any{targetUserID, expectedVersion},
-		},
-		Values: []any{now},
-	})
-	if err != nil {
-		return AccountLink{}, false, fmt.Errorf("version password-reset target: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return AccountLink{}, false, ErrUserVersion
-	}
-	if _, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
-		Set: `revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1`,
-		Scope: recordstore.Scope{
-			Where: `
-kind='PASSWORD_RESET' AND target_user_id=?
-AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`,
-			Args: []any{targetUserID, now},
-		},
-		Values: []any{now},
-	}); err != nil {
-		return AccountLink{}, false, fmt.Errorf("revoke prior password-reset links: %w", err)
-	}
-	linkID := newID()
-	expires := now + int64(time.Hour/time.Millisecond)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO account_links(
-id,kind,invited_role,target_user_id,created_by_user_id,created_at_ms,expires_at_ms,version)
-VALUES(?,'PASSWORD_RESET',NULL,?,?,?,?,1)
-`, linkID, targetUserID, principal.UserID, now, expires); err != nil {
-		return AccountLink{}, false, fmt.Errorf("create password-reset link: %w", err)
-	}
-	resultLink := AccountLink{
-		AccountLinkID: linkID, Kind: "PASSWORD_RESET", Role: nil, TargetUserID: targetUserID,
-		CreatedBy: map[string]any{"userId": principal.UserID, "username": principal.Username},
-		State:     "ACTIVE", Version: 1, CreatedAtMS: now, ExpiresAtMS: expires,
-		ConsumedAtMS: nil, RevokedAtMS: nil, TargetVersion: expectedVersion + 1,
-	}
-	if err := insertUserAudit(
-		ctx, transaction, principal, "PASSWORD_RESET_CREATED", "ACCOUNT_LINK", linkID,
-		map[string]any{"targetUserId": targetUserID, "expiresAtMs": expires}, now,
-	); err != nil {
-		return AccountLink{}, false, err
-	}
-	encoded, _ := json.Marshal(resultLink)
-	if err := storeIdempotency(
-		ctx, transaction, principal.UserID, "postAdminUserPasswordResetLink", idempotencyKey,
-		digest, http.StatusCreated, encoded, now,
-	); err != nil {
-		return AccountLink{}, false, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return AccountLink{}, false, fmt.Errorf("commit password-reset creation: %w", err)
-	}
-	resultLink.CapabilityToken = service.linkToken("PASSWORD_RESET", linkID)
-	return resultLink, false, nil
-}
-
-func validatePasswordResetTarget(
-	ctx context.Context,
-	transaction *sql.Tx,
-	targetUserID string,
-	expectedVersion int64,
-) error {
-	var status string
-	var currentVersion int64
-	err := transaction.QueryRowContext(ctx, `
-SELECT status,version FROM users WHERE id=?
-`, targetUserID).Scan(&status, &currentVersion)
-	if errors.Is(err, sql.ErrNoRows) {
-		return ErrUserNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("read password-reset target: %w", err)
-	}
-	if status == "DELETED" {
-		return ErrUserDeleted
-	}
-	if currentVersion != expectedVersion {
-		return ErrUserVersion
-	}
-	return nil
+	return legacyAccountLink(value), replayed, nil
 }
 
 // Capability consumption, password rotation, revocation, and optional session are atomic.
