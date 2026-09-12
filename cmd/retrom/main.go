@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	"retrom/internal/composition"
+
 	providerpersistence "retrom/internal/persistence/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
 
@@ -25,7 +27,6 @@ import (
 
 	"golang.org/x/term"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -40,6 +41,7 @@ import (
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimeprovider"
 	"retrom/internal/scummvm"
+	"retrom/internal/service/accounts"
 	"retrom/internal/service/maintenance"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/store"
@@ -200,7 +202,7 @@ func readSetupCode(ctx context.Context, configuration config.Maintenance) (strin
 	if err != nil {
 		return "", fmt.Errorf("load setup-code credentials: %w", err)
 	}
-	code, err := accounts.ReadSetupCode(ctx, database, credentials)
+	code, err := composition.ReadAccountSetupCode(ctx, database, credentials)
 	if err != nil {
 		return "", fmt.Errorf("derive setup code: %w", err)
 	}
@@ -239,7 +241,7 @@ func resetOfflineAdmin(
 	if err != nil {
 		return fmt.Errorf("load offline recovery password blocklist: %w", err)
 	}
-	accountService, err := accounts.New(
+	accountService, err := composition.NewAccounts(
 		ctx, database.SQL, credentials, config.ModeRelease, blocklist, time.Now,
 	)
 	if err != nil {
@@ -483,7 +485,7 @@ func initializeRuntimeServices(
 	if err != nil {
 		return nil, nil, fmt.Errorf("load password blocklist: %w", err)
 	}
-	accountService, err := accounts.New(
+	accountService, err := composition.NewAccounts(
 		ctx, resources.database.SQL, resources.credentials,
 		configuration.Mode, blocklist, time.Now,
 	)

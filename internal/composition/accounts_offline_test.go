@@ -1,14 +1,15 @@
-package accounts
+package composition
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"retrom/internal/config"
+	accountservice "retrom/internal/service/accounts"
 	"retrom/internal/testassert"
+
+	"github.com/google/uuid"
 )
 
 func TestReadSetupCodeIsReadOnlyAndPendingOnly(t *testing.T) {
@@ -17,17 +18,17 @@ func TestReadSetupCodeIsReadOnlyAndPendingOnly(t *testing.T) {
 	if err := fixture.service.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	code, err := ReadSetupCode(context.Background(), fixture.database.SQL, fixture.credentials)
+	code, err := ReadAccountSetupCode(context.Background(), fixture.database.SQL, fixture.credentials)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return code != fixture.credentials.SetupCode() }), "pending setup code = %q, %v", code, err)
-	if _, err := fixture.service.Initialize(context.Background(), InitializeRequest{
+	if _, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{
 		SetupCode: code, Username: "admin", DisplayName: "Administrator",
 		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReadSetupCode(
+	if _, err := ReadAccountSetupCode(
 		context.Background(), fixture.database.SQL, fixture.credentials,
-	); !errors.Is(err, ErrInitializationDone) {
+	); !errors.Is(err, accountservice.ErrInitializationDone) {
 		t.Fatalf("completed setup code = %v", err)
 	}
 }
@@ -47,12 +48,12 @@ func TestOfflineAdminResetRotatesCredentialAndSecurityState(t *testing.T) {
 	}
 	if _, err := fixture.service.Authenticate(
 		context.Background(), admin.CookieToken,
-	); !errors.Is(err, ErrAuthenticationNeeded) {
+	); !errors.Is(err, accountservice.ErrAuthenticationNeeded) {
 		t.Fatalf("old offline recovery session = %v", err)
 	}
 	if _, err := fixture.service.InspectAccountLink(
 		context.Background(), "PASSWORD_RESET", reset.CapabilityToken,
-	); !errors.Is(err, ErrAccountLinkUnavailable) {
+	); !errors.Is(err, accountservice.ErrAccountLinkUnavailable) {
 		t.Fatalf("offline recovery reset link = %v", err)
 	}
 	if _, err := fixture.service.Login(
@@ -73,7 +74,7 @@ FROM instance_state WHERE id=1
 	member := acceptFixtureInvitation(t, fixture, admin.Principal, "USER", "member", "Member")
 	if err := fixture.service.OfflineAdminReset(
 		context.Background(), member.User.Username, "another replacement phrase", "another replacement phrase",
-	); !errors.Is(err, ErrOfflineAdmin) {
+	); !errors.Is(err, accountservice.ErrOfflineAdmin) {
 		t.Fatalf("offline recovery accepted USER = %v", err)
 	}
 }

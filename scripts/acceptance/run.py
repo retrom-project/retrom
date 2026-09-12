@@ -157,23 +157,23 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-AUTH-001": (
         120,
-        "go test ./internal/accounts ./internal/httpapi -run 'TestReadSetupCodeIsReadOnlyAndPendingOnly|TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin|TestReleaseInitializationLoginExpiryAndPasswordRotation' -count=1",
+        "go test ./internal/composition ./internal/httpapi -run 'TestReadSetupCodeIsReadOnlyAndPendingOnly|TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin|TestReleaseInitializationLoginExpiryAndPasswordRotation' -count=1",
     ),
     "ACC-AUTH-002": (
         120,
-        "go test ./internal/accounts ./internal/store -run 'TestTestModeBootstrapsExactlyOnceAndReleaseRejectsDefaultCredential|TestCurrentMigrationLineageResumeAndReopen|TestMigrationPreflightRejectsOldCorruptGapAndFutureLineages' -count=1",
+        "go test ./internal/composition ./internal/store -run 'TestTestModeBootstrapsExactlyOnceAndReleaseRejectsDefaultCredential|TestCurrentMigrationLineageResumeAndReopen|TestMigrationPreflightRejectsOldCorruptGapAndFutureLineages' -count=1",
     ),
     "ACC-AUTH-003": (
         120,
-        "make data-check && make deps-check && go test ./internal/accounts ./internal/httpapi -run 'TestReleaseInitializationLoginExpiryAndPasswordRotation|TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock|TestSetupAndLinkRateLimitsUseIndependentIPBuckets|TestAuthHTTPTestLoginCookieCSRFAndLogout|TestAuthHTTPLoginRateLimitReturnsRetryAfter|TestCanonicalClientIPTrustsOnlyConfiguredProxyChain' -count=1",
+        "make data-check && make deps-check && go test ./internal/composition ./internal/httpapi -run 'TestReleaseInitializationLoginExpiryAndPasswordRotation|TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock|TestSetupAndLinkRateLimitsUseIndependentIPBuckets|TestAuthHTTPTestLoginCookieCSRFAndLogout|TestAuthHTTPLoginRateLimitReturnsRetryAfter|TestCanonicalClientIPTrustsOnlyConfiguredProxyChain' -count=1",
     ),
     "ACC-AUTH-004": (
         120,
-        "go test ./internal/accounts ./internal/httpapi -run 'TestInvitationAndPasswordResetCapabilitiesAreSingleUseAndSecretless|TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestAccountAdministrationHTTPInvitationAndAuthorization' -count=1",
+        "go test ./internal/composition ./internal/httpapi -run 'TestInvitationAndPasswordResetCapabilitiesAreSingleUseAndSecretless|TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestAccountAdministrationHTTPInvitationAndAuthorization' -count=1",
     ),
     "ACC-AUTH-005": (
         120,
-        "go test ./internal/accounts -run 'TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestOfflineAdminResetRotatesCredentialAndSecurityState|TestAccountSecurityAuditUsesClosedActions' -count=1",
+        "go test ./internal/composition -run 'TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestOfflineAdminResetRotatesCredentialAndSecurityState|TestAccountSecurityAuditUsesClosedActions' -count=1",
     ),
     "ACC-AUTH-006": (
         120,
@@ -189,7 +189,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ISO-003": (
         180,
-        "go test ./internal/accounts -run '^TestInvitationConcurrentConsumptionAndUserLifecycleRevocations$' -count=1 && make web-test",
+        "go test ./internal/composition -run '^TestInvitationConcurrentConsumptionAndUserLifecycleRevocations$' -count=1 && make web-test",
     ),
     "ACC-PLAT-001": (
         120,
@@ -467,7 +467,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-MDISC-007": (600, "scripts/acceptance/multidisc-regression.sh"),
     "ACC-MDISC-008": (
         600,
-        "go test -tags=integration ./internal/httpapi ./internal/libraryimport -run 'TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent' -count=1 -timeout=60s && go test ./internal/accounts ./internal/httpapi -run 'TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestIdempotencyRecordsAreScopedToAuthenticatedUser|TestAccountAdministrationHTTPInvitationAndAuthorization' -count=1",
+        "go test -tags=integration ./internal/httpapi ./internal/libraryimport -run 'TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent' -count=1 -timeout=60s && go test ./internal/composition ./internal/httpapi -run 'TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestIdempotencyRecordsAreScopedToAuthenticatedUser|TestAccountAdministrationHTTPInvitationAndAuthorization' -count=1",
     ),
     "ACC-UI-001": (180, "scripts/acceptance/ui-case.sh ACC-UI-001"),
     "ACC-UI-002": (180, "scripts/acceptance/ui-case.sh ACC-UI-002"),

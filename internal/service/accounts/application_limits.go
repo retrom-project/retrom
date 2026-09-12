@@ -7,19 +7,10 @@ import (
 	"strings"
 
 	"retrom/internal/authn"
-	accountservice "retrom/internal/service/accounts"
 
 	"golang.org/x/text/unicode/norm"
 )
 
-var ErrRateLimited = accountservice.ErrRateLimited
-
-type (
-	RateLimitError   = accountservice.RateLimitError
-	rateLimitSubject = accountservice.RateLimitSubject
-)
-
-func RateLimitRetryAfter(err error) int { return accountservice.RateLimitRetryAfter(err) }
 func canonicalLoginSubject(input string) string {
 	if username, err := authn.NormalizeUsername(input); err == nil {
 		return username
@@ -31,16 +22,16 @@ func (service *Service) LoginRateLimited(
 	ctx context.Context,
 	username, password, clientIP string,
 ) (Session, error) {
-	account := rateLimitSubject{
+	account := RateLimitSubject{
 		Scope: "LOGIN_ACCOUNT", Subject: canonicalLoginSubject(username), Threshold: 5,
 	}
-	ip := rateLimitSubject{Scope: "LOGIN_IP", Subject: clientIP, Threshold: 30}
-	if err := service.limiter.Check(ctx, account, ip); err != nil {
+	ip := RateLimitSubject{Scope: "LOGIN_IP", Subject: clientIP, Threshold: 30}
+	if err := service.modules.Limiter.Check(ctx, account, ip); err != nil {
 		return Session{}, fmt.Errorf("authentication limit check: %w", err)
 	}
 	session, err := service.Login(ctx, username, password)
 	if errors.Is(err, ErrAuthentication) {
-		if rateErr := service.limiter.Record(ctx, account, ip); rateErr != nil {
+		if rateErr := service.modules.Limiter.Record(ctx, account, ip); rateErr != nil {
 			return Session{}, fmt.Errorf("authentication limit record: %w", rateErr)
 		}
 		return Session{}, err
@@ -48,7 +39,7 @@ func (service *Service) LoginRateLimited(
 	if err != nil {
 		return Session{}, err
 	}
-	if err := service.limiter.Clear(ctx, account); err != nil {
+	if err := service.modules.Limiter.Clear(ctx, account); err != nil {
 		return Session{}, fmt.Errorf("authentication limit clear: %w", err)
 	}
 	return session, nil
@@ -59,13 +50,13 @@ func (service *Service) InitializeRateLimited(
 	request InitializeRequest,
 	clientIP string,
 ) (Session, error) {
-	subject := rateLimitSubject{Scope: "SETUP_IP", Subject: clientIP, Threshold: 5}
-	if err := service.limiter.Check(ctx, subject); err != nil {
+	subject := RateLimitSubject{Scope: "SETUP_IP", Subject: clientIP, Threshold: 5}
+	if err := service.modules.Limiter.Check(ctx, subject); err != nil {
 		return Session{}, fmt.Errorf("authentication limit check: %w", err)
 	}
 	session, err := service.Initialize(ctx, request)
 	if rateLimitedSetupFailure(err) {
-		if rateErr := service.limiter.Record(ctx, subject); rateErr != nil {
+		if rateErr := service.modules.Limiter.Record(ctx, subject); rateErr != nil {
 			return Session{}, fmt.Errorf("authentication limit record: %w", rateErr)
 		}
 	}
@@ -76,13 +67,13 @@ func (service *Service) InspectAccountLinkRateLimited(
 	ctx context.Context,
 	expectedKind, token, clientIP string,
 ) (LinkInspection, error) {
-	subject := rateLimitSubject{Scope: "LINK_IP", Subject: clientIP, Threshold: 20}
-	if err := service.limiter.Check(ctx, subject); err != nil {
+	subject := RateLimitSubject{Scope: "LINK_IP", Subject: clientIP, Threshold: 20}
+	if err := service.modules.Limiter.Check(ctx, subject); err != nil {
 		return LinkInspection{}, fmt.Errorf("authentication limit check: %w", err)
 	}
 	result, err := service.InspectAccountLink(ctx, expectedKind, token)
 	if errors.Is(err, ErrAccountLinkUnavailable) {
-		if rateErr := service.limiter.Record(ctx, subject); rateErr != nil {
+		if rateErr := service.modules.Limiter.Record(ctx, subject); rateErr != nil {
 			return LinkInspection{}, fmt.Errorf("authentication limit record: %w", rateErr)
 		}
 	}
@@ -94,13 +85,13 @@ func (service *Service) AcceptInvitationRateLimited(
 	request AcceptInvitationRequest,
 	clientIP string,
 ) (Session, error) {
-	subject := rateLimitSubject{Scope: "LINK_IP", Subject: clientIP, Threshold: 20}
-	if err := service.limiter.Check(ctx, subject); err != nil {
+	subject := RateLimitSubject{Scope: "LINK_IP", Subject: clientIP, Threshold: 20}
+	if err := service.modules.Limiter.Check(ctx, subject); err != nil {
 		return Session{}, fmt.Errorf("authentication limit check: %w", err)
 	}
 	result, err := service.AcceptInvitation(ctx, request)
 	if rateLimitedLinkFailure(err) {
-		if rateErr := service.limiter.Record(ctx, subject); rateErr != nil {
+		if rateErr := service.modules.Limiter.Record(ctx, subject); rateErr != nil {
 			return Session{}, fmt.Errorf("authentication limit record: %w", rateErr)
 		}
 	}
@@ -112,13 +103,13 @@ func (service *Service) CompletePasswordResetRateLimited(
 	request CompletePasswordResetRequest,
 	clientIP string,
 ) (PasswordResetResult, error) {
-	subject := rateLimitSubject{Scope: "LINK_IP", Subject: clientIP, Threshold: 20}
-	if err := service.limiter.Check(ctx, subject); err != nil {
+	subject := RateLimitSubject{Scope: "LINK_IP", Subject: clientIP, Threshold: 20}
+	if err := service.modules.Limiter.Check(ctx, subject); err != nil {
 		return PasswordResetResult{}, fmt.Errorf("authentication limit check: %w", err)
 	}
 	result, err := service.CompletePasswordReset(ctx, request)
 	if rateLimitedLinkFailure(err) {
-		if rateErr := service.limiter.Record(ctx, subject); rateErr != nil {
+		if rateErr := service.modules.Limiter.Record(ctx, subject); rateErr != nil {
 			return PasswordResetResult{}, fmt.Errorf("authentication limit record: %w", rateErr)
 		}
 	}

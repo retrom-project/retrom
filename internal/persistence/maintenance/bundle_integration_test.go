@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/composition"
+
 	"retrom/internal/service/maintenance"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -26,7 +28,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/config"
@@ -203,7 +204,7 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	if _, err := netplay.LoadOrCreateCredentials(dataDir); err != nil {
 		t.Fatal(err)
 	}
-	accountService, err := accounts.New(
+	accountService, err := composition.NewAccounts(
 		ctx, database.SQL, credentials, config.ModeTest, authn.EmptyBlocklist{}, time.Now,
 	)
 	testassert.False(t, err != nil, err)

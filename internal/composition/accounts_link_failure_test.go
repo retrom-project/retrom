@@ -1,10 +1,11 @@
-package accounts
+package composition
 
 import (
 	"errors"
 	"testing"
 
 	"retrom/internal/config"
+	accountservice "retrom/internal/service/accounts"
 )
 
 func TestAccountLinkInspectionPreservesDatabaseFailure(t *testing.T) {
@@ -18,7 +19,7 @@ func TestAccountLinkInspectionPreservesDatabaseFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = fixture.service.InspectAccountLink(t.Context(), "INVITATION", link.CapabilityToken)
-	if err == nil || errors.Is(err, ErrAccountLinkUnavailable) {
+	if err == nil || errors.Is(err, accountservice.ErrAccountLinkUnavailable) {
 		t.Fatalf("database failure classified as unavailable capability: %v", err)
 	}
 }
@@ -26,7 +27,7 @@ func TestAccountLinkInspectionPreservesDatabaseFailure(t *testing.T) {
 func TestAccountLinkDirectoryRejectsUnboundedLimit(t *testing.T) {
 	fixture := newAccountFixture(t, config.ModeTest)
 	authenticatedTestAdmin(t, fixture)
-	_, err := fixture.service.ListAccountLinks(t.Context(), LinkListFilter{Kind: "INVITATION", Limit: -1})
+	_, err := fixture.service.ListAccountLinks(t.Context(), accountservice.LinkListFilter{Kind: "INVITATION", Limit: -1})
 	if err == nil {
 		t.Fatal("negative limit disabled the account-link directory bound")
 	}

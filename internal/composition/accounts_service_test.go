@@ -1,4 +1,4 @@
-package accounts
+package composition
 
 import (
 	"context"
@@ -11,16 +11,19 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
+	accountservice "retrom/internal/service/accounts"
+
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 )
 
 type accountFixture struct {
-	service     *Service
+	service     *accountservice.Service
 	credentials *retromruntime.Credentials
 	database    *store.DB
 	now         *time.Time
+	setNow      func(func() time.Time)
 }
 
 func newAccountFixture(t *testing.T, mode config.Mode) accountFixture {
@@ -32,9 +35,10 @@ func newAccountFixture(t *testing.T, mode config.Mode) accountFixture {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	credentials, err := retromruntime.LoadOrCreateCredentials(root)
 	testassert.False(t, err != nil, err)
-	service, err := New(context.Background(), database.SQL, credentials, mode, authn.EmptyBlocklist{}, func() time.Time { return fixed })
+	clock := func() time.Time { return fixed }
+	service, err := NewAccounts(context.Background(), database.SQL, credentials, mode, authn.EmptyBlocklist{}, func() time.Time { return clock() })
 	testassert.False(t, err != nil, err)
-	return accountFixture{service: service, credentials: credentials, database: database, now: &fixed}
+	return accountFixture{service: service, credentials: credentials, database: database, now: &fixed, setNow: func(next func() time.Time) { clock = next }}
 }
 
 func TestTestModeBootstrapsExactlyOnceAndReleaseRejectsDefaultCredential(t *testing.T) {
@@ -67,12 +71,12 @@ SELECT actor_kind,actor_user_id,actor_label FROM audit_events WHERE action='INST
 	}
 	loggedIn, err := fixture.service.Login(context.Background(), "test", "test")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return loggedIn.User.Username != "test" }, func() bool { return loggedIn.User.Role != "ADMIN" }), "test login = %#v, %v", loggedIn.User, err)
-	release, err := New(
+	release, err := NewAccounts(
 		context.Background(), fixture.database.SQL, fixture.credentials, config.ModeRelease,
 		authn.EmptyBlocklist{}, func() time.Time { return *fixture.now },
 	)
 	testassert.False(t, err != nil, err)
-	if err := release.Start(context.Background()); !errors.Is(err, ErrTestCredential) {
+	if err := release.Start(context.Background()); !errors.Is(err, accountservice.ErrTestCredential) {
 		t.Fatalf("release Start() = %v", err)
 	}
 }
@@ -83,53 +87,53 @@ func TestReleaseInitializationLoginExpiryAndPasswordRotation(t *testing.T) {
 	if err := fixture.service.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.service.Initialize(context.Background(), InitializeRequest{
+	if _, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{
 		SetupCode: "invalid", Username: "admin", DisplayName: "Administrator",
 		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
-	}); !errors.Is(err, ErrInitializationProof) {
+	}); !errors.Is(err, accountservice.ErrInitializationProof) {
 		t.Fatalf("invalid setup = %v", err)
 	}
 	var users int
 	if err := fixture.database.SQL.QueryRowContext(context.Background(), "SELECT count(*) FROM users").Scan(&users); err != nil || users != 0 {
 		t.Fatalf("users after invalid setup = %d, %v", users, err)
 	}
-	initialized, err := fixture.service.Initialize(context.Background(), InitializeRequest{
+	initialized, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{
 		SetupCode: fixture.credentials.SetupCode(), Username: "admin", DisplayName: "Administrator",
 		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
 	})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return initialized.User.Role != "ADMIN" }, func() bool { return initialized.CSRFToken == "" }, func() bool { return initialized.CookieToken == "" }), "initialized session = %#v", initialized)
 	otherPassword := strings.Repeat("other phrase ", 2)
-	if _, err := fixture.service.Initialize(context.Background(), InitializeRequest{
+	if _, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{
 		SetupCode: fixture.credentials.SetupCode(), Username: "other", DisplayName: "Other Admin",
 		Password: otherPassword, PasswordConfirmation: otherPassword,
-	}); !errors.Is(err, ErrInitializationDone) {
+	}); !errors.Is(err, accountservice.ErrInitializationDone) {
 		t.Fatalf("reinitialize = %v", err)
 	}
-	if _, err := fixture.service.Login(context.Background(), "missing", "a sufficiently long phrase"); !errors.Is(err, ErrAuthentication) {
+	if _, err := fixture.service.Login(context.Background(), "missing", "a sufficiently long phrase"); !errors.Is(err, accountservice.ErrAuthentication) {
 		t.Fatalf("missing login = %v", err)
 	}
 	loggedIn, err := fixture.service.Login(context.Background(), "admin", "a sufficiently long phrase")
 	testassert.False(t, err != nil, err)
 	authenticated, err := fixture.service.Authenticate(context.Background(), loggedIn.CookieToken)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return authenticated.Principal.UserID != loggedIn.Principal.UserID }, func() bool { return !MatchesCSRF(loggedIn.CookieToken, loggedIn.CSRFToken) }, func() bool { return MatchesCSRF(loggedIn.CookieToken, "wrong") }), "authenticated = %#v, %v", authenticated.Principal, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return authenticated.Principal.UserID != loggedIn.Principal.UserID }, func() bool { return !accountservice.MatchesCSRF(loggedIn.CookieToken, loggedIn.CSRFToken) }, func() bool { return accountservice.MatchesCSRF(loggedIn.CookieToken, "wrong") }), "authenticated = %#v, %v", authenticated.Principal, err)
 	rotated, err := fixture.service.ChangePassword(
 		context.Background(), loggedIn.Principal, "a sufficiently long phrase",
 		"a new sufficiently long phrase", "a new sufficiently long phrase",
 	)
 	testassert.False(t, err != nil, err)
 	testassert.False(t, rotated.CookieToken == loggedIn.CookieToken, "password change reused the old session token")
-	if _, err := fixture.service.Authenticate(context.Background(), loggedIn.CookieToken); !errors.Is(err, ErrAuthenticationNeeded) {
+	if _, err := fixture.service.Authenticate(context.Background(), loggedIn.CookieToken); !errors.Is(err, accountservice.ErrAuthenticationNeeded) {
 		t.Fatalf("old session after rotation = %v", err)
 	}
-	if _, err := fixture.service.Login(context.Background(), "admin", "a sufficiently long phrase"); !errors.Is(err, ErrAuthentication) {
+	if _, err := fixture.service.Login(context.Background(), "admin", "a sufficiently long phrase"); !errors.Is(err, accountservice.ErrAuthentication) {
 		t.Fatalf("old password login = %v", err)
 	}
 	if _, err := fixture.service.Login(context.Background(), "admin", "a new sufficiently long phrase"); err != nil {
 		t.Fatalf("new password login = %v", err)
 	}
 	*fixture.now = fixture.now.Add(24 * time.Hour)
-	if _, err := fixture.service.Authenticate(context.Background(), rotated.CookieToken); !errors.Is(err, ErrAuthenticationNeeded) {
+	if _, err := fixture.service.Authenticate(context.Background(), rotated.CookieToken); !errors.Is(err, accountservice.ErrAuthenticationNeeded) {
 		t.Fatalf("absolute expiry = %v", err)
 	}
 }
@@ -146,7 +150,7 @@ func TestAuthenticatePreservesDatabaseFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = fixture.service.Authenticate(context.Background(), loggedIn.CookieToken)
-	testassert.Falsef(t, testassert.Any(func() bool { return err == nil }, func() bool { return errors.Is(err, ErrAuthenticationNeeded) }, func() bool { return !strings.Contains(err.Error(), "authenticate session") }), "database failure was collapsed to authentication state: %v", err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err == nil }, func() bool { return errors.Is(err, accountservice.ErrAuthenticationNeeded) }, func() bool { return !strings.Contains(err.Error(), "authenticate session") }), "database failure was collapsed to authentication state: %v", err)
 }
 
 func TestStartRejectsCorruptCredentialWithoutComputingIt(t *testing.T) {
@@ -177,7 +181,7 @@ VALUES('01980000-0000-7000-8000-000000000999','Orphan',1786000000000)
 `); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.service.Start(context.Background()); !errors.Is(err, ErrInitializationState) {
+	if err := fixture.service.Start(context.Background()); !errors.Is(err, accountservice.ErrInitializationState) {
 		t.Fatalf("orphan profile Start() = %v", err)
 	}
 }

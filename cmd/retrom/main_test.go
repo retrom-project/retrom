@@ -10,7 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/accounts"
+	"retrom/internal/composition"
+
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
@@ -28,7 +29,7 @@ func accountCommandFixture(t *testing.T, mode config.Mode) (config.Maintenance, 
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(root)
 	testassert.False(t, err != nil, err)
-	service, err := accounts.New(
+	service, err := composition.NewAccounts(
 		context.Background(), database.SQL, credentials, mode, authn.EmptyBlocklist{}, time.Now,
 	)
 	testassert.False(t, err != nil, err)
@@ -94,7 +95,7 @@ func TestResetOfflineAdminRequiresLockAndTTYConfirmation(t *testing.T) {
 	defer func() { cleanup.Error("close", database.Close()) }()
 	credentials, err := retromruntime.LoadCredentials(configuration.DataDir)
 	testassert.False(t, err != nil, err)
-	service, err := accounts.New(
+	service, err := composition.NewAccounts(
 		context.Background(), database.SQL, credentials, config.ModeRelease, authn.EmptyBlocklist{}, time.Now,
 	)
 	testassert.False(t, err != nil, err)

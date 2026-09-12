@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
 	"retrom/internal/cursor"
 	"retrom/internal/launch"
 	"retrom/internal/netplay"
+	"retrom/internal/service/accounts"
 
 	"github.com/coder/websocket"
 )

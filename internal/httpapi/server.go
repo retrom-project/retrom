@@ -29,7 +29,6 @@ import (
 
 	tagpersistence "retrom/internal/persistence/tagging"
 
-	"retrom/internal/accounts"
 	"retrom/internal/blobstore"
 	"retrom/internal/config"
 	"retrom/internal/cursor"
@@ -49,6 +48,7 @@ import (
 	"retrom/internal/scummvm"
 	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
+	"retrom/internal/service/accounts"
 	"retrom/internal/service/favorites"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/service/immersive"

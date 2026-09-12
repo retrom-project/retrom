@@ -1,13 +1,17 @@
-package accounts
+package composition
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"testing"
 	"time"
 
+	"retrom/internal/authn"
 	"retrom/internal/config"
+
 	accountpersistence "retrom/internal/persistence/accounts"
+
 	accountservice "retrom/internal/service/accounts"
 )
 
@@ -30,7 +34,7 @@ func (repository failingConsumptionRepository) WithConsumptionWrite(ctx context.
 
 func failingConsumptionService(fixture accountFixture) *accountservice.LinkConsumptionService {
 	return accountservice.NewLinkConsumption(failingConsumptionRepository{accountpersistence.NewLinks(fixture.database.SQL)}, accountservice.LinkConsumptionOptions{
-		Tokens: fixture.credentials, Hasher: fixture.service.hasher, Blocklist: fixture.service.blocklist, Mint: fixture.service.mintSession, Now: func() time.Time { return *fixture.now },
+		Tokens: fixture.credentials, Hasher: authn.NewPasswordHasher(), Blocklist: authn.EmptyBlocklist{}, Mint: func() (accountservice.SessionMaterial, error) { return accountservice.MintSession(rand.Reader) }, Now: func() time.Time { return *fixture.now },
 	})
 }
 

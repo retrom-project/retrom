@@ -10,7 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/accounts"
+	"retrom/internal/composition"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -34,7 +35,7 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *retromruntime.
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	credentials, err := retromruntime.LoadOrCreateCredentials(root)
 	testassert.False(t, err != nil, err)
-	accountService, err := accounts.New(
+	accountService, err := composition.NewAccounts(
 		context.Background(), database.SQL, credentials, mode, authn.EmptyBlocklist{}, now,
 	)
 	testassert.False(t, err != nil, err)

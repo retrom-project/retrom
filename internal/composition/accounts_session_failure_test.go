@@ -1,4 +1,4 @@
-package accounts
+package composition
 
 import (
 	"errors"
@@ -6,18 +6,19 @@ import (
 	"time"
 
 	"retrom/internal/config"
+	accountservice "retrom/internal/service/accounts"
 )
 
 func TestSessionRefreshFailureCannotReportExtendedSession(t *testing.T) {
 	fixture := newAccountFixture(t, config.ModeTest)
 	session := authenticatedTestAdmin(t, fixture)
 	advanced := fixture.now.Add(6 * time.Minute)
-	fixture.service.now = func() time.Time {
+	fixture.setNow(func() time.Time {
 		if _, err := fixture.database.SQL.ExecContext(t.Context(), `DROP TABLE auth_sessions`); err != nil {
 			t.Fatal(err)
 		}
 		return advanced
-	}
+	})
 	_, err := fixture.service.Authenticate(t.Context(), session.CookieToken)
 	if err == nil {
 		t.Fatal("failed session refresh reported an extended authenticated session")
@@ -31,7 +32,7 @@ func TestLoginStorageFailureIsNotReportedAsBadPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := fixture.service.Login(t.Context(), "test", "test")
-	if err == nil || errors.Is(err, ErrAuthentication) {
+	if err == nil || errors.Is(err, accountservice.ErrAuthentication) {
 		t.Fatalf("storage failure converted to wrong password: %v", err)
 	}
 }

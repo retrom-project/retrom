@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
 	"retrom/internal/config"
+	"retrom/internal/service/accounts"
 )
 
 // One boundary applies readiness, origin, authentication, role, and CSRF in fixed order.

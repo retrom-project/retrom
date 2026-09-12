@@ -14,10 +14,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
 	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
+	"retrom/internal/service/accounts"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )

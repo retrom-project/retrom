@@ -11,9 +11,9 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
 	"retrom/internal/cursor"
+	"retrom/internal/service/accounts"
 )
 
 func (server *Server) accountLinkURL(path, fragment, token string) string {

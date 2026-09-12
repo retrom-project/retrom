@@ -69,6 +69,7 @@ internal/playtime/        PlaySession 和有效时长
 internal/blobstore/       CAS 写入、读取、引用与垃圾回收
 internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮换、离线恢复、用户管理、账户链接与账户限流策略
 internal/persistence/accounts/ 账户安全事务、限流桶及原子多主体计数
+internal/composition/ 进程装配：为 Service 注入 Repository、外部客户端与时钟
 internal/service/metadatascrape/ 抓取调度、证据查询、候选规则与执行收口
 internal/persistence/metadatascrape/ 抓取证据、结果、任务租约与事务存储
 internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排
@@ -389,6 +390,8 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 初始化 Service 在一个读快照中判断实例状态、用户/Profile 数量和管理员不变量，并在写事务内重新检查首位管理员的创建资格。密码哈希与 Session 随机材料在写事务前准备；用户、Profile、凭据、实例状态、Session 和初始化审计一起提交。已初始化实例启动时，每个未删除的用户都必须具有可验证格式的凭据；已删除用户允许清除凭据。
 
 认证 Service 保留凭据读取、会话读取与续期写入的存储错误原因；存储故障不能转换为密码错误或匿名状态。续期事务重新检查用户状态、会话撤销、版本及到期时间，只有提交成功才返回延长后的有效期。登录时间更新与 Session 登记在同一事务中提交。密码轮换在哈希计算后重新检查会话撤销、用户 session version 和先前验证的密码摘要；密码、撤销、替代 Session、默认密码标记和审计必须一起提交，任何一步失败都回滚。
+
+账户应用统一由 `internal/service/accounts` 对接 HTTP 与离线命令；`internal/composition` 只组装具体依赖，Service 不持有数据库连接或 SQL 执行器。账户身份、安全及链接的 DTO 使用明确的可空字段，不以 `any` 传递持久化结果。
 
 账户链接 Service 负责 capability 校验、消费/撤销/过期状态优先级、查询边界及撤销策略；Repository 将链接更新、审计和幂等响应放在同一事务。存储故障不能伪装成无效 capability 或筛选错误，也不能因此增加认证失败计数。签发策略由 Service 校验管理员确认、目标状态和版本；Repository 原子完成旧重置链接撤销、新链接签发、审计与幂等响应。幂等记录不保存 capability，只有事务提交成功后才生成返回给调用方的 token。消费链接时，密码哈希在写事务外准备，写入前重新检查链接有效期、撤销状态及目标账户快照；身份/凭据、会话撤销与替换、默认密码标记、链接消费和审计在同一事务提交。禁用账户可以完成密码重置，但不创建会话；事务失败不能返回可用会话。
 

@@ -1,4 +1,4 @@
-package accounts
+package composition
 
 import (
 	"context"
@@ -32,7 +32,7 @@ func TestPasswordResetIssuanceLateFailureKeepsOldLinkAndVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := accountservice.NewLinkIssuance(failingIssueRepository{accountpersistence.NewLinks(fixture.database.SQL)}, fixture.service.credentials, func() time.Time { return *fixture.now })
+	service := accountservice.NewLinkIssuance(failingIssueRepository{accountpersistence.NewLinks(fixture.database.SQL)}, fixture.credentials, func() time.Time { return *fixture.now })
 	result, _, err := service.PasswordReset(t.Context(), accountservice.LinkCreator{UserID: admin.User.UserID, Username: admin.User.Username}, target.User.UserID, 2, "new-reset")
 	if !errors.Is(err, context.Canceled) || result.CapabilityToken != "" {
 		t.Fatalf("late issuance: %+v %v", result, err)

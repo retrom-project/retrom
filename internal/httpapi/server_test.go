@@ -20,9 +20,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
 	"retrom/internal/config"
+	"retrom/internal/service/accounts"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
