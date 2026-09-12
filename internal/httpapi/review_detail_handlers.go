@@ -14,6 +14,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
+	"retrom/internal/service/tagging"
 )
 
 const reviewDetailQuery = `
@@ -767,4 +768,25 @@ LIMIT 10
 		return nil, fmt.Errorf("scan review scrape runs: %w", err)
 	}
 	return runs, nil
+}
+
+func decodeOptionalJSON(value sql.NullString) any {
+	if !value.Valid {
+		return nil
+	}
+	var decoded any
+	_ = json.Unmarshal([]byte(value.String), &decoded)
+	return decoded
+}
+
+func (server *Server) activeReviewTags(ctx context.Context, itemID string) ([]tagging.Reference, error) {
+	references, err := server.tagService.ReviewReferences(ctx, []string{itemID})
+	if err != nil {
+		return nil, fmt.Errorf("project review tags: %w", err)
+	}
+	tags := references[itemID]
+	if tags == nil {
+		tags = []tagging.Reference{}
+	}
+	return tags, nil
 }

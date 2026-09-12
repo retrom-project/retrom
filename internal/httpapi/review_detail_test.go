@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -54,7 +55,9 @@ func TestReviewListRejectsMultipleSourceBatchFilters(t *testing.T) {
 		"importJobId":              {"01980000-0000-7000-8000-000000000001"},
 		"emulationStationImportId": {"01980000-0000-7000-8000-000000000002"},
 	}
-	_, _, _, err := applyReviewListFilters("SELECT 1 WHERE 1=1", values)
+	_, err := libraryservice.NormalizeReviewQueueFilter(libraryservice.ReviewQueueFilter{
+		ImportJobID: values.Get("importJobId"), EmulationStationImportID: values.Get("emulationStationImportId"),
+	})
 	testassert.Truef(t, errors.Is(err, errInvalidReviewQuery), "error = %v", err)
 }
 

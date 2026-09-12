@@ -155,13 +155,6 @@ func gameCoverURL(assetID sql.NullString) any {
 	return nil
 }
 
-func reviewAssetURL(assetID sql.NullString) any {
-	if assetID.Valid {
-		return "/api/v1/admin/review-assets/" + assetID.String
-	}
-	return nil
-}
-
 func saveStateScreenshotURL(saveStateID string) string {
 	return "/content/save-states/" + saveStateID + "/screenshot"
 }

@@ -56,6 +56,7 @@ import (
 	"retrom/internal/service/importdiscard"
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/jobs"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/service/saves"
@@ -116,6 +117,7 @@ type Server struct {
 	rpgIsolation            *isolation.Service
 	favoriteService         *favorites.Service
 	tagService              *tagging.Service
+	reviewQueue             *libraryservice.ReviewQueue
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
 	emulationStationImports *emulationstationimport.Service
@@ -256,6 +258,7 @@ func New(
 		netplayObservers: make(map[string]int),
 		runtimeProvider:  http.NotFoundHandler(),
 	}
+	server.reviewQueue = composition.NewLibraryReviewQueue(database, server.tagService)
 	server.importDiscards = composition.NewImportDiscard(
 		database,
 		importer,
