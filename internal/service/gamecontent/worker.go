@@ -12,9 +12,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const replacementExecutionTimeout = 6 * time.Hour
+
 // Run processes a persisted execution; queue recovery can invoke the same entry point.
 func (service *Service) Run(parent context.Context, jobID string, executionNo int64) error {
-	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, replacementExecutionTimeout)
 	defer cancel()
 	snapshot, inputDigest, err := service.input(ctx, jobID, executionNo)
 	if err != nil {
@@ -32,7 +34,7 @@ func (service *Service) Run(parent context.Context, jobID string, executionNo in
 		InputDigest: inputDigest,
 		ExecutionNo: executionNo,
 		Now:         now,
-		Deadline:    now + 300_000,
+		Deadline:    now + replacementExecutionTimeout.Milliseconds(),
 	}
 	var claimed bool
 	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
