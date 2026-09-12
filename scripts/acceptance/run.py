@@ -256,22 +256,22 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "go test -tags=integration ./internal/libraryimport ./internal/httpapi -run '^TestReviewDeduplicate' -count=1 -timeout=120s && "
         "cd web && npm run test -- features/reviews/review-deduplicate.test.tsx",
     ),
-    "ACC-DAT-001": (300, "go test -tags=integration ./internal/arcadedat ./internal/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
+    "ACC-DAT-001": (300, "go test -tags=integration ./internal/arcadedat ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-002": (
         300,
         "go test -tags=integration ./internal/libraryimport -run '^TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure$' -count=1",
     ),
-    "ACC-DAT-003": (180, "go test -tags=integration ./internal/store ./internal/dependencies -run 'TestCurrentDATSchemaRejectsNonReleaseCatalogState|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
+    "ACC-DAT-003": (180, "go test -tags=integration ./internal/store ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies -run 'TestCurrentDATSchemaRejectsNonReleaseCatalogState|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-004": (
         180,
-        "go test -tags=integration ./internal/dependencies -run '^TestBootstrapCatalogsMaterializesPinnedDATsIdempotently$' -count=1",
+        "go test -tags=integration ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies -run '^TestBootstrapCatalogsMaterializesPinnedDATsIdempotently$' -count=1",
     ),
     "ACC-DAT-005": (120, "go test ./internal/arcadedat -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective' -count=1"),
     "ACC-DAT-006": (900, "scripts/acceptance/dependency-upgrade.sh"),
     "ACC-BIOS-001": (120, "go test -tags=integration ./internal/firmware -run '^TestStaticBIOSHashMismatchIsInstalledAsWarning$' -count=1"),
     "ACC-BIOS-002": (
         180,
-        "go test -tags=integration ./internal/dependencies ./internal/launch ./internal/libraryimport ./internal/firmware -run 'TestPublishedGameLaunchLocksContentAndCredential|TestMelonDSExternalBIOSIsLockedPerLaunch|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestStaticBIOSHashMismatchIsInstalledAsWarning|TestBIOSLaunchRetirementDeadlines|TestBIOSRetirement|TestFinishedLaunchRetirementDrainsLargeFileSets|TestBIOSSwitchPreservesManualApproval' -count=1",
+        "go test -tags=integration ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies ./internal/launch ./internal/libraryimport ./internal/firmware -run 'TestPublishedGameLaunchLocksContentAndCredential|TestMelonDSExternalBIOSIsLockedPerLaunch|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestStaticBIOSHashMismatchIsInstalledAsWarning|TestBIOSLaunchRetirementDeadlines|TestBIOSRetirement|TestFinishedLaunchRetirementDrainsLargeFileSets|TestBIOSSwitchPreservesManualApproval' -count=1",
     ),
     "ACC-BIOS-003": (
         120,

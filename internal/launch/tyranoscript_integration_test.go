@@ -18,6 +18,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	isolationpersistence "retrom/internal/persistence/isolation"
 
 	"retrom/internal/blobstore"
@@ -52,7 +55,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)

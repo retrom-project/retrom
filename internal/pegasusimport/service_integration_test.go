@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -73,7 +76,7 @@ func TestScanMapImportCreatesReviewBeforePublishingGameAndMedia(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	err = testsupport.SeedRuntimeProviders(ctx, database.SQL, dependencySet.RuntimeCatalog)
 	testassert.False(t, err != nil, err)
-	err = dependencySet.Bootstrap(ctx, database.SQL, time.Now())
+	err = dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now())
 	testassert.False(t, err != nil, err)
 	mustExecPegasusTest(ctx, t, database.SQL, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('pegasus-profile','Pegasus Test',1);

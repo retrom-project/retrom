@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/persistence/blobcatalog"
 
 	"github.com/google/uuid"
@@ -26,7 +29,7 @@ import (
 func TestAdminPlatformsProjectsManifestBoundNetplayCapability(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.UnixMilli(1_786_000_000_000)); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
@@ -206,7 +209,7 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.UnixMilli(1_786_000_000_000)
-	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -348,7 +351,7 @@ func assertPlatformExtensions(
 func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.UnixMilli(1_786_000_000_000)); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
 	read := func() map[string]platformCapabilityProjection {

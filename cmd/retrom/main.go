@@ -17,6 +17,9 @@ import (
 	"syscall"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"golang.org/x/term"
 
 	"retrom/internal/accounts"
@@ -426,7 +429,8 @@ func openAndBootstrapDatabase(
 	if err := resources.runtimeProviders.Reconcile(ctx, database.SQL, time.Now()); err != nil {
 		return fmt.Errorf("reconcile runtime providers: %w", err)
 	}
-	if err := resources.dependencies.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	dependencies := dependencyservice.New(resources.dependencies, dependencypersistence.New(database.SQL))
+	if err := dependencies.Bootstrap(ctx, time.Now()); err != nil {
 		return fmt.Errorf("bootstrap dependency records: %w", err)
 	}
 	if err := platforminstance.New(platformpersistence.New(database.SQL), time.Now).ValidateCatalog(ctx); err != nil {
@@ -479,7 +483,8 @@ func startCatalogBootstrap(resources serverResources) context.CancelFunc {
 }
 
 func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database *sql.DB) {
-	if err := dependencySet.BootstrapCatalogs(ctx, database, time.Now()); err != nil {
+	dependencies := dependencyservice.New(dependencySet, dependencypersistence.New(database))
+	if err := dependencies.BootstrapCatalogs(ctx, time.Now()); err != nil {
 		slog.Error("background DAT indexing failed", "error", err)
 		return
 	}

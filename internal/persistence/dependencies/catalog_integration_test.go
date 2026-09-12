@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
@@ -19,8 +22,8 @@ import (
 func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
 	ctx := context.Background()
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
-	set, err := Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
+	set, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
@@ -28,10 +31,10 @@ func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
 	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {
 		t.Fatal(err)
 	}
-	if err := set.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := set.BootstrapCatalogs(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	var machines int64
@@ -83,7 +86,7 @@ AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
 `).Scan(&expansionRequirements); err != nil || expansionRequirements != 0 {
 		t.Fatalf("FBA2012 DAT requirements = %d, error=%v", expansionRequirements, err)
 	}
-	if err := set.BootstrapCatalogs(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatalf("idempotent bootstrap: %v", err)
 	}
 	var providerID, targetID, selectedDATID string
@@ -109,7 +112,7 @@ VALUES(?,'fbneo',?,?,'legacy/fbneo.dat',?,'legacy-parser','READY',1,
 		t.Fatal(err)
 	}
 	selectionTime := time.Now().Add(time.Second)
-	if err := set.Bootstrap(ctx, database.SQL, selectionTime); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL)).Bootstrap(ctx, selectionTime); err != nil {
 		t.Fatal(err)
 	}
 	var activeAfterSelection, supersededActive int
@@ -120,7 +123,7 @@ SELECT (SELECT count(*) FROM dat_versions WHERE provider_id=? AND target_id=? AN
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return activeAfterSelection != 0 }, func() bool { return supersededActive != 0 }), "manifest selection = active:%d superseded:%d", activeAfterSelection, supersededActive)
-	if err := set.BootstrapCatalogs(ctx, database.SQL, selectionTime); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL)).BootstrapCatalogs(ctx, selectionTime); err != nil {
 		t.Fatal(err)
 	}
 	var selectedActive, selectedRequirements int

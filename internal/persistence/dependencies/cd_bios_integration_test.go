@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
@@ -23,11 +26,11 @@ func TestCDRequirementsDoNotBlockPCECartridges(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	set, err := Load(filepath.Join("..", "..", "data"), []string{"4.2.3"}, "4.2.3")
+	set, err := dependencies.Load(filepath.Join("..", "..", "..", "data"), []string{"4.2.3"}, "4.2.3")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := set.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {

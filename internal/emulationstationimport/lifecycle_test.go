@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -43,7 +46,7 @@ func newLifecycleFixture(t *testing.T) lifecycleFixture {
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	testassert.False(t, testsupport.SeedRuntimeProviders(t.Context(), database.SQL, dependencySet.RuntimeCatalog) != nil, "seed runtime providers")
-	testassert.False(t, dependencySet.Bootstrap(t.Context(), database.SQL, time.Now()) != nil, "bootstrap dependencies")
+	testassert.False(t, dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), time.Now()) != nil, "bootstrap dependencies")
 	const userID = "01980000-0000-7000-8000-000000000841"
 	mustExecEmulationStationTest(t, database.SQL, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('emulationstation-lifecycle-profile','Lifecycle',1);

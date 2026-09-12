@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/authn"
@@ -48,7 +51,7 @@ func newFixture(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := deps.Bootstrap(ctx, database.SQL, now()); err != nil {
+	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dir)

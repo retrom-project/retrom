@@ -18,6 +18,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/libraryimport"
 	"retrom/internal/testassert"
 	"retrom/internal/uploads"
@@ -27,7 +30,7 @@ func TestRPGMakerReviewDetailUsesDetectedCoreBehindVirtualPlatform(t *testing.T)
 	t.Parallel()
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	uploadID := completeRPGMakerHTTPUpload(t, ctx, server, rpgMakerHTTPFixture(t, "rpg2000"))

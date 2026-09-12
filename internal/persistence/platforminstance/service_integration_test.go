@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	platformpersistence "retrom/internal/persistence/platforminstance"
@@ -43,7 +46,7 @@ VALUES(?,'test-profile','directory-admin','Directory Admin','ADMIN','ENABLED',0,
 	if err := testsupport.SeedRuntimeProviders(t.Context(), database.SQL, dependencySet.RuntimeCatalog); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencySet.Bootstrap(t.Context(), database.SQL, time.UnixMilli(1_786_000_000_000)); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
 	service := platforminstance.New(platformpersistence.New(database.SQL), func() time.Time {

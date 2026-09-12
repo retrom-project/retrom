@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/authn"
@@ -53,7 +56,7 @@ func TestScanMapImportCreatesReviewsAndReleasesTerminalSourcePayload(t *testing.
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	testassert.False(t, testsupport.SeedRuntimeProviders(ctx, database.SQL, dependencySet.RuntimeCatalog) != nil, "seed runtime providers")
-	testassert.False(t, dependencySet.Bootstrap(ctx, database.SQL, time.Now()) != nil, "bootstrap dependencies")
+	testassert.False(t, dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()) != nil, "bootstrap dependencies")
 	const userID = "01980000-0000-7000-8000-000000000840"
 	mustExecEmulationStationTest(t, database.SQL, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('emulationstation-profile','ES Test',1);

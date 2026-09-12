@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/libraryimport"
 	"retrom/internal/testsupport"
 )
@@ -72,7 +75,7 @@ func TestOrdinaryRGSSReviewServesDeclaredArchiveThroughAuthenticatedHTTP(t *test
 func newProjectArchiveReviewHTTPFixture(t *testing.T, generation string) (*Server, string) {
 	t.Helper()
 	server := newTestServer(t)
-	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	uploadID := completeRPGMakerHTTPUpload(t, t.Context(), server, rpgMakerHTTPFixture(t, generation))

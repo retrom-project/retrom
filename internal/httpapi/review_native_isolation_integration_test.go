@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	isolationpersistence "retrom/internal/persistence/isolation"
 
 	"retrom/internal/libraryimport"
@@ -134,7 +137,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 			t.Error(err)
 		}
 	})
-	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	prefix, version := "rpg", "1.6.2"

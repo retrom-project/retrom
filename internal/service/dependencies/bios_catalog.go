@@ -3,14 +3,11 @@ package dependencies
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
-
-	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 )
@@ -249,9 +246,9 @@ var staticBIOSCatalog = []staticBIOS{
 // Static BIOS definitions are synchronized atomically with their aliases and version provenance.
 func bootstrapStaticBIOS(
 	ctx context.Context,
-	transaction *sql.Tx,
+	records BIOSRecords,
 	versionName string,
-	selectedTargets map[string]runtimeTarget,
+	selectedTargets map[string]RuntimeTarget,
 	now time.Time,
 ) error {
 	catalog, err := completeStaticBIOSCatalog()
@@ -267,7 +264,7 @@ func bootstrapStaticBIOS(
 			continue
 		}
 		if requirement.providerID != "" &&
-			(target.providerID != requirement.providerID || target.targetID != requirement.targetID) {
+			(target.ProviderID != requirement.providerID || target.TargetID != requirement.targetID) {
 			return fmt.Errorf("%w: firmware target %s", errBIOSOptions, requirement.coreID)
 		}
 		delivery := requirement.delivery
@@ -291,94 +288,24 @@ func bootstrapStaticBIOS(
 		)
 		digest := sha256.Sum256(canonical)
 		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
-			"retrom:bios:"+target.providerID+":"+target.targetID+":"+requirement.logical,
+			"retrom:bios:"+target.ProviderID+":"+target.TargetID+":"+requirement.logical,
 		)).String()
-		_, err := recordstore.CreateBiosRequirements(
-			ctx, transaction,
-			`
-INSERT INTO bios_requirements(id,
-core_id,
-provider_id,
-target_id,
-source_kind,
-dat_machine_name,
-logical_name,
-requirement_mode,
-condition_code,
-activation_options_json,
-catalog_digest,
-size_bytes,
-md5,
-sha1,
-sha256,
-source_url,
-source_version,
-enabled,
-version,
-created_at_ms,
-updated_at_ms,
-delivery_kind,
-emulator_path,archive_members_json) VALUES(?,
-?,
-?,
-?,
-'STATIC',
-NULL,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-NULL,
-?,
-?,
-?,
-1,
-1,
-?,
-?,
-?,
-?,?) ON CONFLICT(provider_id,target_id,
-logical_name)
-DO UPDATE SET requirement_mode=excluded.requirement_mode,
-condition_code=excluded.condition_code,
-activation_options_json=excluded.activation_options_json,
-catalog_digest=excluded.catalog_digest,
-size_bytes=excluded.size_bytes,
-md5=excluded.md5,
-sha256=excluded.sha256,
-source_url=excluded.source_url,
-source_version=excluded.source_version,
-delivery_kind=excluded.delivery_kind,
-emulator_path=excluded.emulator_path,
-archive_members_json=excluded.archive_members_json,
-enabled=1,
-version=CASE WHEN bios_requirements.catalog_digest!=excluded.catalog_digest
-  THEN bios_requirements.version+1 ELSE bios_requirements.version END,
-updated_at_ms=excluded.updated_at_ms
-`,
-			id,
-			requirement.coreID,
-			target.providerID,
-			target.targetID,
-			requirement.logical,
-			requirement.mode,
-			requirement.condition,
-			nullableOptions(requirement.options),
-			hex.EncodeToString(digest[:]),
-			nullablePositive(requirement.size),
-			requirement.md5,
-			nullableStringValue(requirement.sha256),
-			requirement.sourceURL,
-			versionName,
-			now.UnixMilli(),
-			now.UnixMilli(),
-			delivery,
-			nullableStringValue(requirement.emulatorPath),
-			nullableStringValue(requirement.members),
-		)
+		err := records.Upsert(ctx, BIOSRequirement{
+			ID: id, CoreID: requirement.coreID, ProviderID: target.ProviderID, TargetID: target.TargetID,
+			LogicalName: requirement.logical, Mode: requirement.mode, ConditionCode: requirement.condition,
+			Options: nullableOptions(
+				requirement.options,
+			), Digest: hex.EncodeToString(
+				digest[:],
+			), SizeBytes: nullablePositive(
+				requirement.size,
+			),
+			MD5: requirement.md5, SHA256: nullableStringValue(requirement.sha256), SourceURL: requirement.sourceURL,
+			VersionName: versionName, AtMS: now.UnixMilli(), Delivery: delivery, EmulatorPath: nullableStringValue(
+				requirement.emulatorPath,
+			),
+			ArchiveMembers: nullableStringValue(requirement.members),
+		})
 		if err != nil {
 			return fmt.Errorf("seed BIOS requirement: %w", err)
 		}
@@ -463,18 +390,18 @@ func validEmulatorPath(value string) bool {
 	return true
 }
 
-func nullablePositive(value int64) any {
+func nullablePositive(value int64) *int64 {
 	if value <= 0 {
 		return nil
 	}
-	return value
+	return &value
 }
 
-func nullableStringValue(value string) any {
+func nullableStringValue(value string) *string {
 	if value == "" {
 		return nil
 	}
-	return value
+	return &value
 }
 
 func validASCIIOption(value string, minimum int) bool {
@@ -496,9 +423,9 @@ func nullableJSON(value string) string {
 	return value
 }
 
-func nullableOptions(value string) any {
+func nullableOptions(value string) *string {
 	if value == "" {
 		return nil
 	}
-	return value
+	return &value
 }
