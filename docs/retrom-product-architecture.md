@@ -285,7 +285,7 @@ erDiagram
 
 ## 6. 平台、核心与推荐游戏目录
 
-空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 64 个 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
+空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的当前 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
 
 | 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |
@@ -308,6 +308,7 @@ erDiagram
 | Sega 32X (`sega32x`) | `picodrive` | Sega 32X 游戏 → `picodrive` | 单卡带 `.32x`；不包含 CD32X |
 | SuperGrafx (`supergrafx`) | `mednafen_pce` | SuperGrafx 游戏 → `mednafen_pce` | `.pce/.sgx`；使用包含 SGX 的锁定 EmulatorJS 构建 |
 | GX4000 (`gx4000`) | `cap32` | GX4000 游戏 → `cap32` | 单卡带 `.cpr`；Provider 选择 Plus 机型 |
+| Uzebox (`uzebox`) | `uzem` | Uzebox 游戏 → `uzem` | ATmega644 单卡带 `.uze`；玩家一，不支持 SD 或鼠标卡带 |
 | Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`、`.smd`、`.bin`；Wide 为可选核心，不另建目录 |
 | PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏 → `mednafen_pce` | `.pce` |
 | PC Engine CD (`pcecd`) | `mednafen_pce` | PC Engine CD 游戏 → `mednafen_pce` | 单文件 CHD；需要 `syscard3.pce`，卡带不受此条件影响 |
