@@ -15,6 +15,26 @@ func RefreshCountsAndEvent(
 	jobID, importID, itemID, outcome string,
 	now int64,
 ) error {
+	if err := refreshCounts(ctx, executor, importID, now); err != nil {
+		return err
+	}
+	data, _ := json.Marshal(map[string]any{"schemaVersion": 1, "itemId": itemID, "outcome": outcome})
+	_, err := executor.ExecContext(
+		ctx,
+		`INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
+VALUES(?,'PEGASUS_IMPORT',?,'PROGRESS',?,?)`,
+		jobID,
+		importID,
+		string(data),
+		now,
+	)
+	if err != nil {
+		return fmt.Errorf("pegasusimport/create progress event: %w", err)
+	}
+	return nil
+}
+
+func refreshCounts(ctx context.Context, executor dbexec.Executor, importID string, now int64) error {
 	if _, err := recordstore.UpdatePegasusImports(ctx, executor, recordstore.Update{
 		Set: `
 review_pending_item_count=(
@@ -73,19 +93,6 @@ version=version+1,updated_at_ms=?
 		},
 	}); err != nil {
 		return fmt.Errorf("pegasusimport/refresh aggregate counts: %w", err)
-	}
-	data, _ := json.Marshal(map[string]any{"schemaVersion": 1, "itemId": itemID, "outcome": outcome})
-	_, err := executor.ExecContext(
-		ctx,
-		`INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'PROGRESS',?,?)`,
-		jobID,
-		importID,
-		string(data),
-		now,
-	)
-	if err != nil {
-		return fmt.Errorf("pegasusimport/create progress event: %w", err)
 	}
 	return nil
 }
