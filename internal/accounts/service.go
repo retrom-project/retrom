@@ -14,6 +14,9 @@ import (
 	"strings"
 	"time"
 
+	accountpersistence "retrom/internal/persistence/accounts"
+	accountservice "retrom/internal/service/accounts"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -45,6 +48,7 @@ var (
 )
 
 type Service struct {
+	limiter     *accountservice.Limiter
 	database    *sql.DB
 	credentials *retromruntime.Credentials
 	hasher      *authn.PasswordHasher
@@ -100,6 +104,7 @@ func New(
 		return nil, fmt.Errorf("prepare dummy credential: %w", err)
 	}
 	return &Service{
+		limiter:  accountservice.NewLimiter(accountpersistence.NewRateLimits(database), credentials, now),
 		database: database, credentials: credentials, hasher: hasher, blocklist: blocklist,
 		mode: mode, now: now, random: rand.Reader, dummyPHC: dummy,
 	}, nil

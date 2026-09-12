@@ -67,6 +67,8 @@ internal/service/saves/   存档授权、格式兼容、幂等和 GAME_SAVE 版�
 internal/persistence/saves/ 存档、Blob 登记、恢复绑定与幂等记录的原子读写
 internal/playtime/        PlaySession 和有效时长
 internal/blobstore/       CAS 写入、读取、引用与垃圾回收
+internal/service/accounts/ 账户限流窗口、阈值、封锁与恢复策略
+internal/persistence/accounts/ 账户限流桶与原子多主体计数
 internal/service/metadatascrape/ 抓取调度、证据查询、候选规则与执行收口
 internal/persistence/metadatascrape/ 抓取证据、结果、任务租约与事务存储
 internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排
