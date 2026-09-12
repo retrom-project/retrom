@@ -1,9 +1,18 @@
 package pegasusimport
 
 import (
+	"context"
+	"database/sql/driver"
+	"errors"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"retrom/internal/libraryimport"
+	repository "retrom/internal/persistence/pegasusimport"
+	libraryservice "retrom/internal/service/libraryimport"
+	application "retrom/internal/service/pegasusimport"
+	"retrom/internal/testsupport"
 )
 
 func handoffFixture(t *testing.T) (*Service, work, executionItem) {
@@ -37,11 +46,33 @@ func handoffFixture(t *testing.T) (*Service, work, executionItem) {
 
 const fixedHandoffDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
+func completeHandoff(ctx context.Context, service *Service, unit work, item executionItem) error {
+	handoff := application.NewReviewHandoff(repository.NewReviewHandoff(service.database),
+		libraryservice.NewMetadataSeeder(nil, service.now), service.now)
+	return handoff.Complete(ctx, application.ReviewHandoffRequest{
+		ItemID: item.ID, ImportID: unit.ImportID, JobID: unit.JobID, WorkerID: unit.WorkerID,
+		LibraryJobID: "handoff-job", LibraryItemID: "handoff-item",
+		ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt,
+	})
+}
+
 func TestReviewHandoffRollsBackDraftWhenProgressEventFails(t *testing.T) {
 	t.Parallel()
 	service, unit, item := handoffFixture(t)
-	mustExecPegasusTest(t.Context(), t, service.database, `DROP TABLE job_events`)
-	service.prepareLibraryReview(t.Context(), unit, item, "handoff-job", libraryimport.ServerImportItem{ItemID: "handoff-item"})
+	failure := errors.New("progress event unavailable")
+	var writes atomic.Int64
+	service.database = testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
+		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+			if strings.Contains(query, "INSERT INTO job_events") {
+				writes.Add(1)
+				return failure
+			}
+			return nil
+		},
+	})
+	if err := completeHandoff(t.Context(), service, unit, item); !errors.Is(err, failure) || writes.Load() != 1 {
+		t.Fatalf("handoff did not reach failing event: writes=%d error=%v", writes.Load(), err)
+	}
 	assertHandoffDraftUntouched(t, service)
 }
 
@@ -49,7 +80,9 @@ func TestReviewHandoffRejectsPreviousExecution(t *testing.T) {
 	t.Parallel()
 	service, unit, item := handoffFixture(t)
 	unit.ExecutionNo++
-	service.prepareLibraryReview(t.Context(), unit, item, "handoff-job", libraryimport.ServerImportItem{ItemID: "handoff-item"})
+	if err := completeHandoff(t.Context(), service, unit, item); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("stale execution handoff error=%v", err)
+	}
 	assertHandoffDraftUntouched(t, service)
 	var state string
 	if err := service.database.QueryRowContext(t.Context(), `SELECT execution_state FROM pegasus_import_items WHERE id='item'`).Scan(&state); err != nil {

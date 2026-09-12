@@ -22,7 +22,7 @@ import (
 
 type ServerSourceFile = libraryservice.ServerSourceFile
 
-const ServerSourceFileLimit = 64
+const ServerSourceFileLimit = libraryservice.ServerSourceFileLimit
 
 const (
 	reviewHandoffDirect           = "DIRECT"

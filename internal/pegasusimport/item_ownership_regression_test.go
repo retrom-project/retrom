@@ -1,9 +1,11 @@
 package pegasusimport
 
 import (
+	"errors"
 	"testing"
 
-	"retrom/internal/libraryimport"
+	repository "retrom/internal/persistence/pegasusimport"
+	application "retrom/internal/service/pegasusimport"
 )
 
 func TestReviewHandoffRejectsReplacedWorker(t *testing.T) {
@@ -11,7 +13,9 @@ func TestReviewHandoffRejectsReplacedWorker(t *testing.T) {
 	service, unit, item := handoffFixture(t)
 	unit.WorkerID = "pegasus-import-worker"
 	mustExecPegasusTest(t.Context(), t, service.database, `UPDATE jobs SET worker_id='new-worker' WHERE id='work'`)
-	service.prepareLibraryReview(t.Context(), unit, item, "handoff-job", libraryimport.ServerImportItem{ItemID: "handoff-item"})
+	if err := completeHandoff(t.Context(), service, unit, item); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("replaced worker handoff error=%v", err)
+	}
 	assertHandoffDraftUntouched(t, service)
 }
 
@@ -19,7 +23,12 @@ func TestItemCompletionRejectsReplacedWorker(t *testing.T) {
 	t.Parallel()
 	service, unit, item := handoffFixture(t)
 	mustExecPegasusTest(t.Context(), t, service.database, `UPDATE jobs SET worker_id='new-worker' WHERE id='work'`)
-	service.closeItem(t.Context(), unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true)
+	err := application.NewItemWork(repository.NewItemWork(service.database), service.now).Finish(
+		t.Context(), unit.Identity(), item.ID, application.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true},
+	)
+	if !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("replaced worker outcome error=%v", err)
+	}
 	var state string
 	if err := service.database.QueryRowContext(t.Context(), `SELECT execution_state FROM pegasus_import_items WHERE id='item'`).Scan(&state); err != nil {
 		t.Fatal(err)

@@ -111,12 +111,7 @@ func TestArcadeCompanionsReleaseQueryBeforeRecordingCASBlob(t *testing.T) {
 		candidates,
 		err,
 	)
-	companions, err := service.arcadeCompanions(
-		ctx,
-		unit,
-		root,
-		item,
-	)
+	companions, err := service.importExecutor(root).CompanionFiles(ctx, unit, item)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(
 		t,
@@ -154,15 +149,15 @@ func TestLibraryImportFailureExposesSourceFileLimit(t *testing.T) {
 func TestItemFailureKeepsInternalIdentityAndRedactsHostPath(t *testing.T) {
 	t.Parallel()
 	service := &Service{}
-	details := withLibraryImportIdentity(
-		service.itemFailure(
-			"RESULT_ATTACHMENT",
-			"ATTACH_LIBRARY_RESULT",
-			fmt.Errorf("attach failed: %w", &os.PathError{Op: "open", Path: "/srv/private/library.db", Err: os.ErrPermission}),
-			"arcade/1944j.zip",
-		),
-		"11111111-1111-4111-8111-111111111111",
-		"22222222-2222-4222-8222-222222222222",
+	details := service.itemFailure(
+		"RESULT_ATTACHMENT",
+		"ATTACH_LIBRARY_RESULT",
+		&application.ReviewPreparationError{
+			LibraryJobID:  "11111111-1111-4111-8111-111111111111",
+			LibraryItemID: "22222222-2222-4222-8222-222222222222",
+			Cause:         fmt.Errorf("attach failed: %w", &os.PathError{Op: "open", Path: "/srv/private/library.db", Err: os.ErrPermission}),
+		},
+		"arcade/1944j.zip",
 	)
 	testassert.Falsef(
 		t,

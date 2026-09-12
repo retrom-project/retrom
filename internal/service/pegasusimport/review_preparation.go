@@ -94,6 +94,20 @@ func (service *ReviewPreparation) accept(
 	if result.Created.ImportJobID == "" || len(result.Items) != 1 || result.Items[0].ItemID == "" {
 		return ErrInvalid
 	}
+	if err := service.acceptResult(ctx, unit, item, result); err != nil {
+		return &ReviewPreparationError{
+			LibraryJobID: result.Created.ImportJobID, LibraryItemID: result.Items[0].ItemID, Cause: err,
+		}
+	}
+	return nil
+}
+
+func (service *ReviewPreparation) acceptResult(
+	ctx context.Context,
+	unit Work,
+	item ExecutionItem,
+	result library.ServerImportResult,
+) error {
 	imported := result.Items[0]
 	err := service.items.Resume(ctx, unit.Identity(), item.ID, result.Created.ImportJobID, imported.ItemID)
 	if err != nil {

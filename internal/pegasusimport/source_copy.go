@@ -2,83 +2,14 @@ package pegasusimport
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"path"
-	"strings"
-
-	repository "retrom/internal/persistence/pegasusimport"
-	application "retrom/internal/service/pegasusimport"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/libraryimport"
 	"retrom/internal/mediaasset"
 	"retrom/internal/serversource"
 )
-
-func (service *Service) executionSourceFiles(
-	ctx context.Context,
-	unit work,
-	root Root,
-	item executionItem,
-) ([]libraryimport.ServerSourceFile, error) {
-	files := make([]libraryimport.ServerSourceFile, 0, len(item.Files))
-	for _, file := range item.Files {
-		files = append(
-			files,
-			libraryimport.ServerSourceFile{RelativePath: file.Path, BlobID: file.BlobID, SizeBytes: file.Size},
-		)
-	}
-	arcadeArchive := item.TargetPlatformKind == "arcade" && len(item.Files) == 1 &&
-		strings.EqualFold(path.Ext(item.Files[0].Path), ".zip")
-	if !arcadeArchive {
-		return files, nil
-	}
-	companions, err := service.arcadeCompanions(ctx, unit, root, item)
-	if err != nil {
-		return nil, err
-	}
-	return append(files, companions...), nil
-}
-
-func (service *Service) arcadeCompanions(
-	ctx context.Context,
-	unit work,
-	root Root,
-	item executionItem,
-) ([]libraryimport.ServerSourceFile, error) {
-	companions := application.NewCompanions(repository.NewCompanions(service.database), service.now)
-	candidates, err := companions.Find(ctx, unit.Identity(), item.ID)
-	if err != nil {
-		return nil, fmt.Errorf("pegasusimport/read companions: %w", err)
-	}
-	result := make([]libraryimport.ServerSourceFile, 0, len(candidates))
-	for _, candidate := range candidates {
-		file := candidate.File
-		metadata, err := service.copySource(ctx, root, unit.RelativePath, file.Path, file.Size, file.Facts)
-		if errors.Is(err, ErrSourceChanged) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		blobID, err := companions.Record(ctx, unit.Identity(), item.ID, candidate, verifiedMaterial(metadata))
-		if err != nil {
-			return nil, fmt.Errorf("pegasusimport/register companion: %w", err)
-		}
-		result = append(result, libraryimport.ServerSourceFile{RelativePath: file.Path, BlobID: blobID, SizeBytes: file.Size})
-	}
-	return result, nil
-}
-
-func terminalForCode(code string) string {
-	if code == "PEGASUS_SOURCE_CHANGED" {
-		return "SOURCE_CHANGED"
-	}
-	return "READ_FAILED"
-}
 
 func (service *Service) copySource(
 	ctx context.Context,

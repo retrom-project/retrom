@@ -24,7 +24,7 @@ var (
 	ErrInvalid                        = libraryservice.ErrInvalid
 	ErrVersionConflict                = libraryservice.ErrVersionConflict
 	ErrReimportRequiredPlatformChange = errors.New("REIMPORT_REQUIRED_FOR_PLATFORM_CHANGE")
-	ErrMultiDiscModeUnavailable       = errors.New("MULTI_DISC_MODE_UNAVAILABLE")
+	ErrMultiDiscModeUnavailable       = libraryservice.ErrMultiDiscModeUnavailable
 	ErrMultiDiscPlaylistMissing       = errors.New("MULTI_DISC_PLAYLIST_MISSING")
 	errMetadataScraperNotConfigured   = errors.New("metadata scraper is not configured")
 )

@@ -18,7 +18,7 @@ func TestArcadeCompanionsRejectReplacedOwnerBeforeRegisteringCAS(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	result, err := service.arcadeCompanions(t.Context(), unit, root, item)
+	result, err := service.importExecutor(root).CompanionFiles(t.Context(), unit, item)
 	if !errors.Is(err, ErrVersionConflict) || len(result) != 0 {
 		t.Fatalf("old worker got companions=%#v err=%v", result, err)
 	}

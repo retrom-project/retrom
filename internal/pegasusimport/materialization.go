@@ -30,19 +30,6 @@ func (service *Service) recordCopiedFile(
 	return result, nil
 }
 
-func materialAsset(itemID string, asset executionAsset) application.MaterialSource {
-	return application.MaterialSource{
-		Key:   application.MaterialKey{ItemID: itemID, Kind: asset.Kind},
-		Path:  asset.Path,
-		Facts: asset.Facts,
-
-		Size:      asset.Size,
-		MediaType: asset.MediaType,
-		Width:     asset.Width,
-		Height:    asset.Height,
-	}
-}
-
 func verifiedMaterial(metadata blobstore.Metadata) application.VerifiedBlob {
 	return application.VerifiedBlob{
 		SHA256: metadata.SHA256,
@@ -63,7 +50,7 @@ func (service *Service) recordCopiedAsset(
 	result, err := service.materialization().Copy(
 		ctx,
 		unit.Identity(),
-		materialAsset(itemID, asset),
+		application.AssetMaterial(itemID, asset),
 		verifiedMaterial(metadata),
 	)
 	if err != nil {
@@ -79,7 +66,9 @@ func (service *Service) closeAssetWarning(
 	asset executionAsset,
 	code string,
 ) error {
-	if err := service.materialization().Warning(ctx, unit.Identity(), materialAsset(itemID, asset), code); err != nil {
+	if err := service.materialization().Warning(
+		ctx, unit.Identity(), application.AssetMaterial(itemID, asset), code,
+	); err != nil {
 		return fmt.Errorf("pegasusimport/write asset warning: %w", err)
 	}
 	return nil
@@ -97,12 +86,4 @@ func (service *Service) updateExecutionPhase(ctx context.Context, unit work, pha
 		)
 	}
 	return nil
-}
-
-func (service *Service) importCancelled(ctx context.Context, unit work) (bool, error) {
-	cancelled, err := service.materialization().Cancelled(ctx, unit.Identity())
-	if err != nil {
-		return false, fmt.Errorf("pegasusimport/read cancellation: %w", err)
-	}
-	return cancelled, nil
 }

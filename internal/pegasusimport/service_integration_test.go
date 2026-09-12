@@ -353,7 +353,9 @@ WHERE id=?`, claimedWork.JobID)
 	claimedWork = resumedWork
 	resumed, found, err := service.nextItem(ctx, claimedWork)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !found }, func() bool { return resumed.LibraryImportJobID != resumedImportJobID }, func() bool { return resumed.LibraryImportItemID != resumedReviewItemID }), "resumed review handoff = %#v, found=%v, error=%v", resumed, found, err)
-	service.processItem(ctx, claimedWork, service.roots["games"], resumed)
+	if err := service.importExecutor(service.roots["games"]).Process(ctx, claimedWork, resumed); err != nil {
+		t.Fatal(err)
+	}
 	err = service.finishImport(ctx, claimedWork)
 	testassert.False(t, err != nil, err)
 	var resumedState string

@@ -2,6 +2,8 @@ package libraryimport
 
 import "context"
 
+const ServerSourceFileLimit = 64
+
 type (
 	SourceCreationIntent struct {
 		ImportID, ItemID, JobID, WorkerID string
