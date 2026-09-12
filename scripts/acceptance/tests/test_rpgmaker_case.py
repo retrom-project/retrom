@@ -474,10 +474,14 @@ class EvidenceContractTests(unittest.TestCase):
 
     def test_generation_browser_proves_product_runtime_progress_on_both_launches(self) -> None:
         source = BROWSER_PATH.read_text()
-        debug_close = source.index('getByRole("button", { name: "关闭调试信息面板" }).click()')
+        debug_open = source.index("await debugControl.click();")
+        debug_close = source.index("await debugControl.click();", debug_open + 1)
+        hidden = source.index('await diagnostics.waitFor({ state: "hidden" });', debug_close)
         resume = source.index('getByRole("button", { name: "继续游戏" }).click()', debug_close)
         progress = source.index("const firstRuntimeProgress = await assertRuntimeProgress(page);", resume)
-        self.assertLess(debug_close, resume)
+        self.assertLess(debug_open, debug_close)
+        self.assertLess(debug_close, hidden)
+        self.assertLess(hidden, resume)
         self.assertLess(resume, progress)
         self.assertIn("const firstRuntimeProgress = await assertRuntimeProgress(page);", source)
         self.assertIn("const cacheRuntimeProgress = await assertRuntimeProgress(cachePage);", source)
