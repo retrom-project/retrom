@@ -38,7 +38,8 @@
         "bsnes",
         "neocd",
         "gbe-plus",
-        "nxengine"
+        "nxengine",
+        "ppsspp"
       ]
     },
     {
@@ -345,6 +346,15 @@
       "gitlink": "git@github.com:retrom-project/nxengine-libretro.git",
       "defaultBranch": "retrom/gfd1c0686f8b4",
       "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "ppsspp",
+      "path": "project/retrom-core/ppsspp",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/ppsspp.git",
+      "defaultBranch": "retrom/g2e6fd06ed6c7",
+      "submodules": true,
       "dependsOn": []
     }
   ]

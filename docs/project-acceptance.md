@@ -2315,3 +2315,43 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 恢复画面对比仅排除关卡菜单的动画缩略图，并保留静态网格与光标；还需进入实际关卡。
 本地输入记录支持发布前继续同一导入项；完整重跑需未导入该游戏的测试数据。
 成功样本不代表所有游戏兼容，虚拟标准手柄也不证明实体控制器的硬件采集。
+
+
+### ACC-PSP-001：独立 PPSSPP 的产品启动与即时存档
+
+- 硬超时：900 秒。
+- 环境：Chrome，支持 WebGL2/OffscreenCanvas/SharedArrayBuffer 的隔离来源；已安装的 Provider
+  包含 `retrom-runtime/ppsspp`，开发候选与正式发行均使用公共产品入口。fixture 由操作者提供，不入库。自动化脚本为
+  `scripts/acceptance/ppsspp_product.mjs`，`RETROM_PSP_SKY_DISC` 指向《傲气雄鹰》ISO，
+  `RETROM_PSP_SECOND_DISC` 指向《半分钟英雄1》ISO。通用环境变量为
+  `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE` 和 `RETROM_ACCEPTANCE_CASE_DIR`。Windows Node 可通过
+  `RETROM_ACCEPTANCE_NODE_MODULES` 指定 Playwright 所在目录。
+- 流程：上传两份 ISO，经 PSP 平台导入、Review Preview、发布和 Product Launch；使用标准
+  Gamepad API 的单一映射验证方向与确认；校验音频、暂停和截图；保存非空有界的即时存档，
+  经不同 Launch 恢复到同一菜单选择并继续输入；验证第二次读取复用持久分块缓存、无全盘请求，
+  退出后会话和核心资源释放。损坏、截断和超限存档必须失败，不得静默重开游戏。
+- 通过标准：两款游戏可见画面；公共存档格式为 `ppsspp-state-v1-storage-v1`，gzip 只包一层；
+  新实例精确恢复执行状态与记忆棒文件，恢复后方向、确认仍工作。证据记录实例 ID、存档 ID、
+  格式、网络计数及截图。所有游戏请求必须携带单 Range，返回 206 且每块至多 256 KiB；
+  冷缓存预览进入菜单前的下载量必须小于全盘，记录实际字节与比例。自动化虚拟标准手柄证明
+  浏览器映射；实体手柄仍需单独记录实测结果。
+- 限制：本 Case 不证明 EmulatorJS 旧存档兼容，也不代表整个 PSP 游戏库兼容。缺少实际运行
+  证据时仅标为候选，不作为稳定发布依据。
+
+### ACC-PSP-002：PSP Range 冷启动、分块缓存与既有即时存档
+
+- 硬超时 900 秒；脚本为 `scripts/acceptance/ppsspp_range_product.mjs`，通用浏览器、认证与证据
+  环境变量沿用 ACC-PSP-001。本 Case 使用已通过真实导入发布的测试游戏，不删除或重新导入
+  相同内容。指定 `RETROM_PSP_SKY_GAME_ID`、`RETROM_PSP_SECOND_GAME_ID`，分别对应两款 ISO；
+  `RETROM_PSP_REVIEW_ID` 指向保留的《傲气雄鹰》待审核项，用于当次实际 Review Preview；
+  `RETROM_PSP_LEGACY_SAVE_ID` 指向 Range 调整前独立 PPSSPP 创建、菜单选中 HIGHSCORES 的存档。
+- 每个冷启动阶段使用全新 Chrome context，先验证待审核项的实际画面，再分别启动两款已发布
+  游戏。所有游戏响应必须为准确 206 单 Range、每块至多 256 KiB，区间、文件总长度和 ETag
+  匹配冻结游戏。进入菜单后暂停并统计当次下载字节；必须大于零且小于全盘，记录比例及截图。
+- 《傲气雄鹰》验证方向、新建即时存档、不同 Launch 恢复到同一菜单项；恢复到该已读场景时
+  不新增游戏内容请求，随后方向与确认继续有效。再恢复 Range 改动前的存档，验证同一菜单
+  选项和继续输入。《半分钟英雄1》验证菜单方向与确认。检查音频、公共存档格式、产品退出
+  与全部 Worker 释放。证据为 `ppsspp-range.json`；不能复用旧截图或旧网络记录作为当次结果。
+- 本 Case 聚焦内容读取边界；导入发布链路本身仍由 ACC-PSP-001 验证，结论不扩大到完整
+  PSP 游戏库、CSO/CHD/PBP 的真实兼容性或硬件性能。
