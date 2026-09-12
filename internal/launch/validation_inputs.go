@@ -46,14 +46,6 @@ type validationScope struct {
 	ID   string `json:"id"`
 }
 
-func validationDedupeKey(variantID, digest string) string {
-	canonical, _ := json.Marshal(map[string]string{"gameVariantId": variantID, "validationInputDigest": digest})
-	value := sha256.New()
-	_, _ = value.Write([]byte("retrom-job-dedupe-v1\x00VARIANT_VALIDATE\x00"))
-	_, _ = value.Write(canonical)
-	return hex.EncodeToString(value.Sum(nil))
-}
-
 type variantArcadeBIOSRow struct {
 	logicalName         string
 	dependencyState     string

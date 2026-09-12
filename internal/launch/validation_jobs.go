@@ -2,15 +2,15 @@ package launch
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"retrom/internal/persistence/contentquery"
+	persistence "retrom/internal/persistence/launch"
+	application "retrom/internal/service/launch"
 
 	"retrom/internal/dbexec"
 
@@ -133,13 +133,7 @@ emulator_game_id=NULL,version=version+1,updated_at_ms=?
 }
 
 func bindCurrentGameStateDigest(baseDigest string, gameVersion int64, sourceManifestDigest string) string {
-	canonical, _ := json.Marshal(struct {
-		BaseDigest           string `json:"baseDigest"`
-		GameVersion          int64  `json:"gameVersion"`
-		SourceManifestDigest string `json:"sourceManifestDigest"`
-	}{baseDigest, gameVersion, sourceManifestDigest})
-	digest := sha256.Sum256(canonical)
-	return hex.EncodeToString(digest[:])
+	return application.BindCurrentGameStateDigest(baseDigest, gameVersion, sourceManifestDigest)
 }
 
 func (service *Service) ensureGameVariant(
@@ -188,148 +182,26 @@ func (service *Service) EnsureVariantForMove(ctx context.Context, gameID, coreID
 }
 
 func (service *Service) queueValidationJob(
-	ctx context.Context,
-	transaction *sql.Tx,
-	variantID, gameID string,
-	gameVersion int64,
-	sourceManifestDigest, providerID, targetID string,
-	contentPolicy contentcapability.Policy,
-	datID sql.NullString,
-	digest, biosDependencyDigest string,
+	ctx context.Context, transaction *sql.Tx, variantID, gameID string, gameVersion int64,
+	sourceManifestDigest, providerID, targetID string, contentPolicy contentcapability.Policy,
+	datID sql.NullString, digest, biosDependencyDigest string,
 ) (string, bool, error) {
-	dedupeKey := validationDedupeKey(variantID, digest)
-	var jobID, jobState string
-	var retryable sql.NullInt64
-	var executionNo, jobVersion int64
-	err := transaction.QueryRowContext(ctx, `
-SELECT id,state,error_retryable,execution_no,version
-FROM jobs WHERE kind='VARIANT_VALIDATE' AND dedupe_key=?
-`, dedupeKey).Scan(&jobID, &jobState, &retryable, &executionNo, &jobVersion)
-	if err == nil {
-		return service.reuseValidationJob(
-			ctx, transaction, variantID, jobID, jobState, retryable, executionNo, jobVersion,
-		)
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return "", false, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	jobID = newUUID()
-	executionID := newUUID()
-	now := service.now().UnixMilli()
-	payload, _ := json.Marshal(map[string]any{"schemaVersion": 1, "inputExecutionNo": 1})
-	snapshot := validationSnapshot{
-		SchemaVersion: 1,
-		Kind:          "VARIANT_VALIDATE",
-		Scope:         validationScope{Type: "GAME_VARIANT", ID: variantID},
-		ExecutionID:   executionID,
-		Inputs: validationInputs{
-			GameID: gameID, GameVariantID: variantID, GameVersion: gameVersion,
-			SourceManifestDigest: sourceManifestDigest,
-			ProviderID:           providerID, TargetID: targetID, ContentPolicy: contentPolicy,
-			DATVersionID: nullableSQL(datID), ValidationInputDigest: digest,
+	scheduler := application.NewValidationScheduler(
+		persistence.NewValidationJobs(transaction), application.ValidationEnvironment{Now: service.now},
+	)
+	result, err := scheduler.Queue(
+		ctx,
+		application.ValidationInputs{
+			GameID: gameID, GameVariantID: variantID, GameVersion: gameVersion, SourceManifestDigest: sourceManifestDigest,
+			ProviderID: providerID, TargetID: targetID, ContentPolicy: contentPolicy,
+			DATVersionID: dbexec.StringPointer(datID), ValidationInputDigest: digest,
 			BIOSDependencyDigest: biosDependencyDigest,
 		},
-	}
-	inputJSON, _ := json.Marshal(snapshot)
-	inputHash := sha256.Sum256(inputJSON)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO jobs(
- id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
- attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms
-) VALUES(?,'GAME_VARIANT',?,'VARIANT_VALIDATE',?,1,?,0,'QUEUED',0,2,?,?,?)
-`, jobID, variantID, dedupeKey, string(payload), now, now, now); err != nil {
-		return "", false, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES(?,1,?,?,?)
-`, jobID, string(inputJSON), hex.EncodeToString(inputHash[:]), now); err != nil {
-		return "", false, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'GAME_VARIANT',?,'QUEUED','{}',?)
-`, jobID, variantID, now); err != nil {
-		return "", false, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	return jobID, true, nil
-}
-
-func (service *Service) reuseValidationJob(
-	ctx context.Context,
-	transaction *sql.Tx,
-	variantID, jobID, jobState string,
-	retryable sql.NullInt64,
-	executionNo, jobVersion int64,
-) (string, bool, error) {
-	if jobState == "FAILED" && retryable.Valid && retryable.Int64 == 1 {
-		if err := retryVariantValidationJob(
-			ctx, transaction, jobID, variantID, executionNo, jobVersion, service.now().UnixMilli(),
-		); err != nil {
-			return "", false, err
-		}
-		return jobID, true, nil
-	}
-	if jobState == "FAILED" || jobState == "CANCELLED" {
-		return "", false, ErrBlocked
-	}
-	return jobID, false, nil
-}
-
-func retryVariantValidationJob(
-	ctx context.Context,
-	transaction *sql.Tx,
-	jobID, variantID string,
-	executionNo, jobVersion, now int64,
-) error {
-	var previousJSON string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT input_json FROM job_input_snapshots WHERE job_id=? AND execution_no=?
-`, jobID, executionNo).Scan(&previousJSON); err != nil {
-		return fmt.Errorf("launch/retry validation input: %w", err)
-	}
-	var snapshot validationSnapshot
-	if err := json.Unmarshal([]byte(previousJSON), &snapshot); err != nil ||
-		snapshot.SchemaVersion != 1 || snapshot.Kind != "VARIANT_VALIDATE" ||
-		snapshot.Scope.Type != "GAME_VARIANT" || snapshot.Scope.ID != variantID {
-		return ErrBlocked
-	}
-	executionNo++
-	snapshot.ExecutionID = newUUID()
-	inputJSON, err := json.Marshal(snapshot)
+	)
 	if err != nil {
-		return fmt.Errorf("launch/retry validation input: %w", err)
+		return "", false, fmt.Errorf("schedule variant validation: %w", err)
 	}
-	inputHash := sha256.Sum256(inputJSON)
-	payload, _ := json.Marshal(map[string]any{"schemaVersion": 1, "inputExecutionNo": executionNo})
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES(?,?,?,?,?)
-`, jobID, executionNo, string(inputJSON), hex.EncodeToString(inputHash[:]), now); err != nil {
-		return fmt.Errorf("launch/write retried validation input: %w", err)
-	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE jobs
-SET state='QUEUED',execution_no=?,payload_json=?,attempt_count=0,available_at_ms=?,
-execution_started_at_ms=NULL,execution_deadline_at_ms=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL,
-finished_at_ms=NULL,worker_id=NULL,error_code=NULL,error_retryable=NULL,
-cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
-WHERE id=? AND version=? AND state='FAILED' AND error_retryable=1
-`, executionNo, string(payload), now, now, jobID, jobVersion)
-	if err != nil {
-		return fmt.Errorf("launch/reset retried validation job: %w", err)
-	}
-	affected, err := result.RowsAffected()
-	if err != nil || affected != 1 {
-		return ErrBlocked
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'GAME_VARIANT',?,'RETRY_SCHEDULED',json_object('schemaVersion',1,'executionNo',?,'trigger','LAUNCH'),?)
-`, jobID, variantID, executionNo, now); err != nil {
-		return fmt.Errorf("launch/write retried validation event: %w", err)
-	}
-	return nil
+	return result.JobID, result.Queued, nil
 }
 
 type datValidationTarget struct{ variantID, gameID string }
