@@ -1,17 +1,11 @@
 package metadatascrape
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobcatalog"
-
-	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
@@ -202,78 +196,6 @@ func waitRetry(ctx context.Context, delay time.Duration) error {
 	}
 }
 
-func (service *Service) persistProviderResponse(
-	ctx context.Context,
-	transaction *sql.Tx,
-	result hasheous.LookupResult,
-	cachedResponseID string,
-	now int64,
-) (string, string, error) {
-	if cachedResponseID != "" {
-		return cachedResponseID, "CACHE", nil
-	}
-	rawBlobIDValue, err := service.persistRawResponse(ctx, transaction, result.RawResponse, now)
-	if err != nil {
-		return "", "", err
-	}
-	var rawBlobID any
-	if rawBlobIDValue != "" {
-		rawBlobID = rawBlobIDValue
-	}
-	responseID := newID()
-	expiresAt := service.providerResponseExpiry(result.Outcome, now)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,
-raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms) VALUES(?,'HASHEOUS',?,?,?,?,?,?,?)
-`, responseID, result.RequestDigest, nullableStatus(result.HTTPStatus), string(result.Outcome),
-		rawBlobID, providerPayloadState(rawBlobIDValue), now, expiresAt); err != nil {
-		return "", "", fmt.Errorf("metadatascrape/service: %w", err)
-	}
-	if result.Outcome == hasheous.OutcomeHit || result.Outcome == hasheous.OutcomeMiss {
-		if _, err := recordstore.CreateMetadataProviderCache(ctx, transaction, `
-INSERT INTO metadata_provider_cache(provider,request_digest,current_response_id,expires_at_ms,updated_at_ms)
-VALUES('HASHEOUS',?,?,?,?) ON CONFLICT(provider,request_digest)
-DO UPDATE SET current_response_id=excluded.current_response_id,
-expires_at_ms=excluded.expires_at_ms,updated_at_ms=excluded.updated_at_ms
-`, result.RequestDigest, responseID, expiresAt, now); err != nil {
-			return "", "", fmt.Errorf("metadatascrape/service: %w", err)
-		}
-	}
-	return responseID, "NETWORK", nil
-}
-
-func providerPayloadState(blobID string) string {
-	if blobID == "" {
-		return "NONE"
-	}
-	return "RETAINED"
-}
-
-func (service *Service) persistRawResponse(
-	ctx context.Context,
-	transaction *sql.Tx,
-	raw []byte,
-	now int64,
-) (string, error) {
-	if len(raw) == 0 {
-		return "", nil
-	}
-	metadata, err := service.blobs.Put(bytes.NewReader(raw))
-	if err != nil {
-		return "", fmt.Errorf("metadatascrape/service: %w", err)
-	}
-	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, "application/json", now)
-	if err != nil {
-		return "", fmt.Errorf("metadatascrape/service: %w", err)
-	}
-	return blobID, nil
-}
-
-func (service *Service) providerResponseExpiry(outcome hasheous.ProviderOutcome, now int64) int64 {
-	return lookupservice.ResponseExpiry(outcome, now)
-}
-
-// Contract branches stay contiguous for a single auditable decision.
 func (service *Service) persistResult(
 	ctx context.Context,
 	runID, evidenceID string,
@@ -282,181 +204,14 @@ func (service *Service) persistResult(
 	attemptNo int,
 	allowCandidate bool,
 ) (bool, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
+	recorder := lookupservice.NewRecorder(lookuppersistence.NewRecorder(service.database), service.blobs, service.now)
+	created, err := recorder.Record(ctx, lookupservice.LookupAttempt{
+		RunID: runID, EvidenceID: evidenceID,
+		Lookup:    lookupservice.ResolvedLookup{Result: result, CachedResponseID: cachedResponseID},
+		AttemptNo: attemptNo, AllowCandidate: allowCandidate,
+	})
 	if err != nil {
-		return false, fmt.Errorf("metadatascrape/service: %w", err)
+		return false, fmt.Errorf("record metadata lookup: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	now := service.now().UnixMilli()
-	var writable int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT count(*) FROM metadata_scrape_runs run
-LEFT JOIN games game ON game.id=run.game_id
-WHERE run.id=? AND (run.game_id IS NULL OR game.status='PUBLISHED')
-`, runID).Scan(&writable); err != nil {
-		return false, fmt.Errorf("metadatascrape/service: %w", err)
-	}
-	if writable != 1 {
-		return false, errGameDeleted
-	}
-	responseID, source, err := service.persistProviderResponse(ctx, transaction, result, cachedResponseID, now)
-	if err != nil {
-		return false, err
-	}
-	attemptID := newID()
-	if source == "CACHE" {
-		attemptNo = 1
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO metadata_scrape_query_attempts(id,
-scrape_run_id,
-content_hash_evidence_id,
-provider_response_id,
-attempt_no,
-source,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?)
-`, attemptID, runID, evidenceID, responseID, attemptNo, source, now); err != nil {
-		return false, fmt.Errorf("metadatascrape/service: %w", err)
-	}
-	if result.Candidate == nil || !allowCandidate {
-		if err := transaction.Commit(); err != nil {
-			return false, fmt.Errorf("commit metadata lookup without candidate: %w", err)
-		}
-		return false, nil
-	}
-	return service.persistCandidate(ctx, transaction, runID, evidenceID, responseID, attemptID, result, now)
-}
-
-func (service *Service) persistCandidate(
-	ctx context.Context,
-	transaction *sql.Tx,
-	runID, evidenceID, responseID, attemptID string,
-	result hasheous.LookupResult,
-	now int64,
-) (bool, error) {
-	metadataJSON, _ := json.Marshal(result.Candidate.Metadata)
-	evidenceJSON, _ := json.Marshal(result.Candidate.Evidence)
-	candidateID := newID()
-	resultInsert, err := transaction.ExecContext(
-		ctx,
-		`
-INSERT INTO scrape_candidates(id,
-scrape_run_id,
-primary_response_id,
-provider_game_id,
-normalized_metadata_json,
-evidence_json,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?) ON CONFLICT(scrape_run_id,
-provider_game_id) DO NOTHING
-`,
-		candidateID,
-		runID,
-		responseID,
-		result.Candidate.ProviderGameID,
-		string(metadataJSON),
-		string(evidenceJSON),
-		now,
-	)
-	if err != nil {
-		return false, fmt.Errorf("metadatascrape/service: %w", err)
-	}
-	inserted, _ := resultInsert.RowsAffected()
-	if inserted == 0 {
-		if err := transaction.QueryRowContext(ctx, `
-SELECT id
-FROM scrape_candidates
-WHERE scrape_run_id=?
-AND provider_game_id=?
-`, runID, result.Candidate.ProviderGameID).Scan(&candidateID); err != nil {
-			return false, fmt.Errorf("metadatascrape/service: %w", err)
-		}
-	}
-	var crc32Value, md5Value, sha1Value, sha256Value sql.NullString
-	if err := transaction.QueryRowContext(ctx, `
-SELECT crc32,
-md5,
-sha1,
-sha256
-FROM content_hash_evidence
-WHERE id=?
-`, evidenceID).Scan(&crc32Value, &md5Value, &sha1Value, &sha256Value); err != nil {
-		return false, fmt.Errorf("metadatascrape/service: %w", err)
-	}
-	matched := make(map[string]string, 4)
-	hashes := map[string]sql.NullString{
-		"crc32": crc32Value, "md5": md5Value, "sha1": sha1Value, "sha256": sha256Value,
-	}
-	for key, value := range hashes {
-		if value.Valid {
-			matched[key] = value.String
-		}
-	}
-	matchedJSON, _ := json.Marshal(matched)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO scrape_candidate_hits(scrape_candidate_id,
-query_attempt_id,
-matched_hashes_json,
-created_at_ms) VALUES(?,
-?,
-?,
-?)
-`, candidateID, attemptID, string(matchedJSON), now); err != nil {
-		return false, fmt.Errorf("metadatascrape/service: %w", err)
-	}
-	if inserted == 1 {
-		for _, asset := range result.Candidate.Assets {
-			assetID := newID()
-			if _, err := recordstore.CreateScrapeCandidateAssets(ctx, transaction, `
-INSERT INTO scrape_candidate_assets(id,
-scrape_candidate_id,
-provider_response_id,
-provider_asset_id,
-kind_hint,
-ordinal,
-source_path,
-status,
-version,
-created_at_ms,
-updated_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-'PENDING',
-1,
-?,
-?)
-`,
-				assetID,
-				candidateID,
-				responseID,
-				asset.ProviderAssetID,
-				asset.Kind,
-				asset.Ordinal,
-				asset.Path,
-				now,
-				now,
-			); err != nil {
-				return false, fmt.Errorf("metadatascrape/service: %w", err)
-			}
-		}
-	}
-	if err := transaction.Commit(); err != nil {
-		return false, fmt.Errorf("commit metadata candidate: %w", err)
-	}
-	return inserted == 1, nil
+	return created, nil
 }

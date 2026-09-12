@@ -19,10 +19,7 @@ type Service struct {
 	now      func() time.Time
 }
 
-var (
-	errGameVersionConflict = scheduleservice.ErrGameVersionConflict
-	errGameDeleted         = scheduleservice.ErrGameDeleted
-)
+var errGameVersionConflict = scheduleservice.ErrGameVersionConflict
 
 type Scheduled = scheduleservice.Scheduled
 

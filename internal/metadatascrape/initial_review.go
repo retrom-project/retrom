@@ -8,8 +8,6 @@ import (
 	"retrom/internal/dbexec"
 	initialpersistence "retrom/internal/persistence/metadatascrape"
 	initialservice "retrom/internal/service/metadatascrape"
-
-	"github.com/google/uuid"
 )
 
 func (service *Service) completeInitialImport(ctx context.Context, transaction *sql.Tx, runID string, now int64) error {
@@ -176,16 +174,4 @@ WHERE id=?
 		return fmt.Errorf("%s: %w (persist failure: %w)", code, cause, err)
 	}
 	return fmt.Errorf("%s: %w", code, cause)
-}
-
-func nullableStatus(status int) any {
-	if status == 0 {
-		return nil
-	}
-	return status
-}
-
-func newID() string {
-	value, _ := uuid.NewV7()
-	return value.String()
 }
