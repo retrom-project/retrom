@@ -441,6 +441,8 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 EmulationStation 单实例至多一个 active execution、20 个未开始/等待映射计划，等待映射 7 天过期。扫描上限固定为深度 64、目录 250,000、普通文件 2,000,000、精确小写 `gamelist.xml` 1,000、单 XML 8 MiB、XML 总量 64 MiB、XML depth/attributes 16、单 token 1 MiB、总 token 1,000,000、游戏 100,000、单 Item source file 64、warning 64、预计来源 2 TiB与单 execution 8 小时；HTTP 不能放宽。扫描只读取 XML/facts/M3U/媒体与 CHD 头，执行才复制完整内容。
 
+BIOS 候选恢复先由 Repository 完整读取并关闭结果集，再由 Service 重建静态/DAT 评估、应用归档完整性规则与加载冻结的期望条目；不得持有结果集时嵌套查询。损坏的评估证据、缺失的目录关联或可用候选缺少评估均应中止恢复，不得伪装成空证据继续安装。
+
 Worker lease 为 60 秒、每 15 秒 heartbeat，并每读取 8 MiB 检查 cancel/deadline。进程恢复复用完整发现结果和终态 Item；root 暂不可用或内部瞬时错误只在零终态 Item 时按 1/5/30/120 秒有界自动重试，最多 4 attempt。日志、JobEvent 和 diagnostics 仅记录 root ID、相对路径的必要脱敏投影和稳定错误码，不记录绝对路径、basename/hash 或底层 `os.PathError`。
 
 ## 14. 关联文档

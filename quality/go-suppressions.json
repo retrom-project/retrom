@@ -21,7 +21,7 @@
     },
     {
       "path": "internal/serverimport/discovery.go",
-      "line": 456,
+      "line": 455,
       "symbol": "func (reader *cancelReader) Read(buffer []byte) (int, error)",
       "linter": "wrapcheck",
       "reason": "io.Reader must return the underlying io.EOF sentinel unchanged to satisfy io.Copy.",

@@ -2,7 +2,6 @@ package serverimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -477,46 +476,9 @@ func (reader *cancelReader) Read(buffer []byte) (int, error) {
 }
 
 func (service *Service) expectedDATEntries(ctx context.Context, item catalogItem) ([]firmware.ExpectedDATEntry, error) {
-	if item.ArchiveMembersJSON != nil {
-		members, err := firmware.StaticArchiveExpectations(*item.ArchiveMembersJSON)
-		if err != nil {
-			return nil, fmt.Errorf("load archive requirements: %w", err)
-		}
-		return members, nil
-	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT entry.name,entry.size_bytes,entry.crc32,entry.sha1
-FROM dat_rom_entries entry
-WHERE entry.dat_version_id=? AND entry.machine_name=? AND COALESCE(entry.status,'GOOD')<>'NODUMP'
-AND (entry.bios_name IS NULL OR EXISTS(
- SELECT 1 FROM dat_bios_sets bios WHERE bios.dat_version_id=entry.dat_version_id
- AND bios.machine_name=entry.machine_name AND bios.bios_name=entry.bios_name AND bios.is_default=1
-)) ORDER BY entry.name COLLATE BINARY,entry.ordinal
-`, item.DATVersionID, item.DATMachineName)
+	result, err := service.recovery().ExpectedDATEntries(ctx, item)
 	if err != nil {
-		return nil, fmt.Errorf("query expected DAT entries: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make([]firmware.ExpectedDATEntry, 0)
-	for rows.Next() {
-		var entry firmware.ExpectedDATEntry
-		var crc, sha sql.NullString
-		if err := rows.Scan(&entry.Name, &entry.SizeBytes, &crc, &sha); err != nil {
-			return nil, fmt.Errorf("scan expected DAT entry: %w", err)
-		}
-		if crc.Valid {
-			entry.CRC32 = crc.String
-		}
-		if sha.Valid {
-			entry.SHA1 = sha.String
-		}
-		result = append(result, entry)
-	}
-	if len(result) == 0 {
-		return nil, ErrCatalogInvalid
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate expected DAT entries: %w", err)
+		return nil, fmt.Errorf("read DAT expectations: %w", err)
 	}
 	return result, nil
 }

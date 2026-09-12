@@ -12,28 +12,7 @@ import (
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/firmware"
 )
-
-func staticStatusMethod(value firmware.StaticEvaluation) (string, string) {
-	if value.ExactHash {
-		return "MATCHED", "EXACT_HASH"
-	}
-	if value.ExpectedSizeMatched {
-		return "HASH_WARNING", "EXPECTED_SIZE_FALLBACK"
-	}
-	return "HASH_WARNING", "LARGEST_SIZE_FALLBACK"
-}
-
-func datStatusMethod(value firmware.DATEvaluation) (string, string) {
-	if value.MissingCount > 0 {
-		return "MISSING_ENTRY", "DAT_PARTIAL_FALLBACK"
-	}
-	if value.MismatchedCount > 0 {
-		return "HASH_WARNING", "DAT_ENTRY_WARNING"
-	}
-	return "MATCHED", "DAT_ENTRY_MATCH"
-}
 
 // Clearing candidates and their item projections is one resumable-discovery reset.
 func (service *Service) clearEvaluation(ctx context.Context, importID string) error {

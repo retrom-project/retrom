@@ -8,14 +8,13 @@ import (
 	"os"
 	"time"
 
+	importservice "retrom/internal/service/serverimport"
+
 	firmwareservice "retrom/internal/service/firmware"
 
 	"retrom/internal/dbexec"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/firmware"
-	"retrom/internal/importing"
 )
 
 var (
@@ -36,19 +35,7 @@ type work struct {
 	DeadlineAtMS    int64
 }
 
-type evaluatedCandidate struct {
-	ID                 string
-	Item               catalogItem
-	File               discoveredFile
-	Association        string
-	Metadata           blobstore.Metadata
-	ArchiveEntries     []importing.ArchiveEntry
-	Static             *firmware.StaticEvaluation
-	DAT                *firmware.DATEvaluation
-	ExpectedDATEntries []firmware.ExpectedDATEntry
-	State              string
-	Details            map[string]any
-}
+type evaluatedCandidate = importservice.EvaluatedCandidate
 
 func (service *Service) runLoop() {
 	ticker := time.NewTicker(time.Second)
