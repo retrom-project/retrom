@@ -46,7 +46,6 @@ import (
 	"retrom/internal/runtimecatalog"
 	"retrom/internal/runtimelaunch"
 	"retrom/internal/scummvm"
-	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
 	"retrom/internal/service/accounts"
 	"retrom/internal/service/favorites"
@@ -58,6 +57,7 @@ import (
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/service/saves"
+	"retrom/internal/service/serverimport"
 	"retrom/internal/service/storageanalysis"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
@@ -202,7 +202,7 @@ func New(
 	importer.ResumeReviewBulkJobs(context.Background())
 	firmwareService := firmwareservice.New(firmwarepersistence.New(database), now).WithBlobStore(blobs).
 		WithPayloadRelease(payloadReleaseService)
-	serverImportService := serverimport.New(
+	serverImportService := composition.NewServerImports(
 		database,
 		blobs,
 		firmwareService,

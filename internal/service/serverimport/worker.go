@@ -7,8 +7,6 @@ import (
 	"os"
 	"time"
 
-	importservice "retrom/internal/service/serverimport"
-
 	firmwareservice "retrom/internal/service/firmware"
 
 	"retrom/internal/cleanup"
@@ -21,9 +19,9 @@ var (
 	errExecutionDeadline = errors.New("server import execution deadline exceeded")
 )
 
-type work = importservice.Work
+type work = Work
 
-type evaluatedCandidate = importservice.EvaluatedCandidate
+type evaluatedCandidate = EvaluatedCandidate
 
 func (service *Service) runLoop() {
 	ticker := time.NewTicker(time.Second)
@@ -36,7 +34,7 @@ func (service *Service) runLoop() {
 		case <-ticker.C:
 		}
 		for {
-			handled, err := service.outcomes().Reconcile(context.Background())
+			handled, err := service.outcomes.Reconcile(context.Background())
 			if err != nil {
 				service.workerError("reconcile", err)
 				break
@@ -55,7 +53,7 @@ func (service *Service) runLoop() {
 }
 
 func (service *Service) claim(ctx context.Context) (work, bool, error) {
-	unit, found, err := service.leases().Claim(ctx)
+	unit, found, err := service.leases.Claim(ctx)
 	if err != nil {
 		return work{}, false, fmt.Errorf("claim server import: %w", err)
 	}
@@ -257,7 +255,7 @@ func (service *Service) heartbeatLoop(ctx context.Context, unit work, done <-cha
 		case <-service.stop:
 			return
 		case <-ticker.C:
-			if err := service.leases().Heartbeat(ctx, unit); err != nil {
+			if err := service.leases.Heartbeat(ctx, unit); err != nil {
 				service.workerError("heartbeat", err)
 				return
 			}

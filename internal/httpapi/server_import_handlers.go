@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cursor"
-	"retrom/internal/serverimport"
+	"retrom/internal/service/serverimport"
 )
 
 func (server *Server) serverImportRoots(writer http.ResponseWriter, _ *http.Request) {

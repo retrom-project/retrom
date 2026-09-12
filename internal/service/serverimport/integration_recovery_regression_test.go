@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"context"
@@ -15,11 +15,11 @@ func TestCandidateRecoveryRejectsBrokenEvaluationEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedRecoveryCandidate(t, database, created.ID, "not-json")
-	items, err := service.loadItems(t.Context(), created.ID)
+	items, err := service.LoadItemsForTest(t.Context(), created.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.loadPersistedCandidates(t.Context(), created.ID, items); err == nil {
+	if _, err := service.LoadPersistedCandidatesForTest(t.Context(), created.ID, items); err == nil {
 		t.Fatal("recovery silently discarded corrupt evaluation evidence")
 	}
 }
@@ -32,14 +32,14 @@ func TestCandidateRecoveryReleasesRowsBeforeLoadingDAT(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedRecoveryCandidate(t, database, created.ID, "{}")
-	items, err := service.loadItems(t.Context(), created.ID)
+	items, err := service.LoadItemsForTest(t.Context(), created.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	database.SetMaxOpenConns(1)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
-	groups, err := service.loadPersistedCandidates(ctx, created.ID, items)
+	groups, err := service.LoadPersistedCandidatesForTest(ctx, created.ID, items)
 	if err != nil {
 		t.Fatalf("single-connection recovery: %v", err)
 	}

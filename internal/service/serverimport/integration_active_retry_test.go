@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"errors"

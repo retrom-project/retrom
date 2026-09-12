@@ -431,6 +431,8 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 13. 服务器导入运维
 
+服务器 BIOS 导入由 `internal/service/serverimport` 统一提供应用接口和 worker 编排，`internal/composition` 组装来源配置、Blob/固件接口与 Repository；HTTP 不再依赖旧导入包或构造底层存储。Service 不接受数据库连接，数据库实现全部位于 `internal/persistence/serverimport`。
+
 服务器 BIOS 导入的创建 Service 校验来源与目录快照、按 requirement ID 固定快照顺序，并计算目录和执行输入摘要；来源适配器负责不跟随符号链接的目录访问。Repository 在短事务中检查活动任务并原子创建 Job、不可变输入、导入条目与审计，提交成功后才唤醒 worker。
 
 服务器 BIOS 导入的查询 Service 校验分页边界和游标，Repository 负责汇总及稳定排序；缺少导入记录返回领域错误，损坏的候选/选择证据或其他存储故障不能伪装成空结果或资源不存在。取消与手动重试由 Service 在事务内检查导入版本、任务状态和来源配置；Repository 原子维护条目、任务、执行输入、事件和审计，并在提交前读取返回的汇总。取消排队任务保留已完成条目，只取消未完成条目；运行中任务等待 worker 确认。手动重试要求没有其他同类活动导入，生成新执行输入并重置执行预算，过期版本和任何事务故障均不能留下部分重置或成功响应。

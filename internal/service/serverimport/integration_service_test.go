@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"context"
@@ -75,9 +75,9 @@ VALUES('fixture-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: rootDir}}, time.Now)
 	created, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
-	unit, ok, err := service.claim(ctx)
+	unit, ok, err := service.ClaimForTest(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "claim = %#v/%t/%v", unit, ok, err)
-	service.execute(ctx, unit)
+	service.ExecuteForTest(ctx, unit)
 	var itemState, selectionDetails string
 	var outcome sql.NullString
 	if queryErr := database.SQL.QueryRowContext(context.Background(), `
@@ -132,10 +132,10 @@ SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requiremen
 		Kind: "BIOS_DIRECTORY", RootID: "bios-root", ReplaceIfBetter: true,
 	}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
-	sameUnit, ok, err := service.claim(ctx)
+	sameUnit, ok, err := service.ClaimForTest(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }),
 		"same-bytes claim = %#v/%t/%v", sameUnit, ok, err)
-	service.execute(ctx, sameUnit)
+	service.ExecuteForTest(ctx, sameUnit)
 	var sameState string
 	if err := database.QueryRowContext(ctx, `
 SELECT state FROM server_bios_import_items WHERE server_import_id=?
@@ -157,10 +157,10 @@ UPDATE bios_requirements SET version=2,catalog_digest=?,updated_at_ms=2 WHERE id
 		Kind: "BIOS_DIRECTORY", RootID: "bios-root", ReplaceIfBetter: true,
 	}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
-	staleUnit, ok, err := service.claim(ctx)
+	staleUnit, ok, err := service.ClaimForTest(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }),
 		"stale-version claim = %#v/%t/%v", staleUnit, ok, err)
-	service.execute(ctx, staleUnit)
+	service.ExecuteForTest(ctx, staleUnit)
 	if err := database.QueryRowContext(ctx, `
 SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement'
 `).Scan(&installationCount); err != nil || installationCount != 2 {
@@ -212,9 +212,9 @@ func verifyServerImportFallbacks(
 	}
 	downgrade, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root", ReplaceIfBetter: true}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
-	downgradeUnit, ok, err := service.claim(ctx)
+	downgradeUnit, ok, err := service.ClaimForTest(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "downgrade claim = %#v/%t/%v", downgradeUnit, ok, err)
-	service.execute(ctx, downgradeUnit)
+	service.ExecuteForTest(ctx, downgradeUnit)
 	var downgradeState string
 	if err := database.QueryRowContext(ctx, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, downgrade.ID).Scan(&downgradeState); err != nil {
 		t.Fatal(err)
@@ -232,12 +232,12 @@ func verifyServerImportFallbacks(
 	// the internal file limit makes the same discovery gate deterministic here:
 	// a limit failure must terminalize the task before another installation is
 	// committed.
-	service.scanLimits.maxFiles = 0
+	service.SetFileLimitForTest(0)
 	limited, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
-	limitedUnit, ok, err := service.claim(ctx)
+	limitedUnit, ok, err := service.ClaimForTest(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "scan-limit claim = %#v/%t/%v", limitedUnit, ok, err)
-	service.execute(ctx, limitedUnit)
+	service.ExecuteForTest(ctx, limitedUnit)
 	limitedSummary, err := service.Get(ctx, limited.ID)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return limitedSummary.State != "FAILED" }, func() bool { return limitedSummary.LastErrorCode == nil }, func() bool { return *limitedSummary.LastErrorCode != "SERVER_IMPORT_SCAN_LIMIT_EXCEEDED" }), "scan-limit import = %#v", limitedSummary)
@@ -245,7 +245,7 @@ func verifyServerImportFallbacks(
 	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement'`).Scan(&installationCount); err != nil || installationCount != 2 {
 		t.Fatalf("scan-limit installation count = %d, %v", installationCount, err)
 	}
-	service.scanLimits = defaultScanLimits()
+	service.ResetScanLimitsForTest()
 
 	// A transient unavailable mount schedules a bounded automatic retry rather
 	// than prematurely terminalizing every catalog item.
@@ -256,9 +256,9 @@ func verifyServerImportFallbacks(
 		t.Fatal(err)
 	}
 	defer func() { _ = os.Rename(offline, rootDir) }()
-	retryUnit, ok, err := service.claim(ctx)
+	retryUnit, ok, err := service.ClaimForTest(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "retry claim = %#v/%t/%v", retryUnit, ok, err)
-	service.execute(ctx, retryUnit)
+	service.ExecuteForTest(ctx, retryUnit)
 	var jobState, importState string
 	var attempt int
 	if err := database.QueryRowContext(ctx, `SELECT state,attempt_count FROM jobs WHERE id=?`, retrying.JobID).Scan(&jobState, &attempt); err != nil {
@@ -307,7 +307,7 @@ func TestWalkFilesReadsMetadataFromAuthorizedDirectoryDescriptor(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	defer func() { _ = directory.Close() }()
 	visited := make([]discoveredFile, 0, 1)
-	counts, err := walkFiles(directory, defaultScanLimits(), func(file discoveredFile) error {
+	counts, err := walkFiles(directory, func(file discoveredFile) error {
 		visited = append(visited, file)
 		return nil
 	})
@@ -325,9 +325,9 @@ func reclaimCompletedImport(ctx context.Context, t *testing.T, service *Service,
 	if _, err := database.ExecContext(ctx, `UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,leased_until_ms=?,heartbeat_at_ms=?,worker_id='expired-worker',updated_at_ms=? WHERE id=?`, now-1, now, now, created.JobID); err != nil {
 		t.Fatal(err)
 	}
-	recoveredUnit, ok, err := service.claim(ctx)
+	recoveredUnit, ok, err := service.ClaimForTest(ctx)
 	if err != nil || !ok {
 		t.Fatalf("recovery claim: %v %v", ok, err)
 	}
-	service.execute(ctx, recoveredUnit)
+	service.ExecuteForTest(ctx, recoveredUnit)
 }

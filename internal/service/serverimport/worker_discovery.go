@@ -476,7 +476,7 @@ func (reader *cancelReader) Read(buffer []byte) (int, error) {
 }
 
 func (service *Service) expectedDATEntries(ctx context.Context, item catalogItem) ([]firmware.ExpectedDATEntry, error) {
-	result, err := service.recovery().ExpectedDATEntries(ctx, item)
+	result, err := service.recovery.ExpectedDATEntries(ctx, item)
 	if err != nil {
 		return nil, fmt.Errorf("read DAT expectations: %w", err)
 	}

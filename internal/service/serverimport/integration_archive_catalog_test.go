@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"archive/zip"
@@ -113,11 +113,11 @@ func assertRecoveredArchive(t *testing.T, service *Service, importID string, com
 	t.Helper()
 	ctx := context.Background()
 
-	items, err := service.loadItems(ctx, importID)
+	items, err := service.LoadItemsForTest(ctx, importID)
 	if err != nil || len(items) != 1 || items[0].ArchiveMembersJSON == nil {
 		t.Fatalf("frozen items=%#v/%v", items, err)
 	}
-	recovered, err := service.loadPersistedCandidates(ctx, importID, items)
+	recovered, err := service.LoadPersistedCandidatesForTest(ctx, importID, items)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,11 +137,11 @@ func testServerArchiveImport(t *testing.T, complete bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	unit, ok, err := service.claim(ctx)
+	unit, ok, err := service.ClaimForTest(ctx)
 	if err != nil || !ok {
 		t.Fatalf("claim=%t/%v", ok, err)
 	}
-	service.execute(ctx, unit)
+	service.ExecuteForTest(ctx, unit)
 	var state string
 	if err := database.QueryRowContext(ctx, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&state); err != nil {
 		t.Fatal(err)

@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"context"
@@ -26,7 +26,7 @@ func TestLeaseClaimFailureRollsBackOwnerBudgetAndEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := importservice.NewLeases(failingLeaseRepository{importpersistence.NewLeases(database)}, legacy.now)
+	service := importservice.NewLeases(failingLeaseRepository{importpersistence.NewLeases(database)}, legacy.NowForTest)
 	unit, found, err := service.Claim(t.Context())
 	if !errors.Is(err, context.Canceled) || found || unit.Owner != "" {
 		t.Fatalf("failed claim: %+v %v %v", unit, found, err)
@@ -51,7 +51,7 @@ func TestProgressConflictRollsBackJobLeaseAndEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	unit, found, err := legacy.claim(t.Context())
+	unit, found, err := legacy.ClaimForTest(t.Context())
 	if err != nil || !found {
 		t.Fatalf("claim: %v %v", found, err)
 	}
@@ -68,7 +68,7 @@ func TestProgressConflictRollsBackJobLeaseAndEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = repository.WithWrite(t.Context(), func(records importservice.LeaseRecords) error {
-		return records.Touch(t.Context(), importservice.LeaseTouch{Before: before, Now: legacy.now().UnixMilli(), LeaseUntil: *before.LeaseUntil + 1000, Phase: "DISCOVERING", Event: []byte(`{"schemaVersion":1}`)})
+		return records.Touch(t.Context(), importservice.LeaseTouch{Before: before, Now: legacy.NowForTest().UnixMilli(), LeaseUntil: *before.LeaseUntil + 1000, Phase: "DISCOVERING", Event: []byte(`{"schemaVersion":1}`)})
 	})
 	if !errors.Is(err, importservice.ErrLeaseLost) {
 		t.Fatalf("stale progress accepted: %v", err)

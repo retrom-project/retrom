@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"context"
@@ -26,7 +26,7 @@ func TestOutcomeLateFailureRollsBackItemRetryAndFailure(t *testing.T) {
 	for _, action := range []string{"item", "retry", "failure"} {
 		t.Run(action, func(t *testing.T) {
 			legacy, database, unit, candidate := discoveryWriteFixture(t)
-			service := importservice.NewOutcomes(failingOutcomeRepository{importpersistence.NewOutcomes(database)}, legacy.now)
+			service := importservice.NewOutcomes(failingOutcomeRepository{importpersistence.NewOutcomes(database)}, legacy.NowForTest)
 			beforeImport, beforeJob := workerVersions(t, database, unit)
 			var err error
 			switch action {
@@ -67,7 +67,7 @@ func TestTerminalOutcomeLateFailurePreservesCurrentExecution(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			service := importservice.NewOutcomes(failingOutcomeRepository{importpersistence.NewOutcomes(database)}, legacy.now)
+			service := importservice.NewOutcomes(failingOutcomeRepository{importpersistence.NewOutcomes(database)}, legacy.NowForTest)
 			if action == "cancel" {
 				err = service.Cancel(t.Context(), unit)
 			} else {
@@ -97,8 +97,8 @@ func prepareTerminalOutcome(t *testing.T, service *Service, unit work, candidate
 		}
 		return
 	}
-	if err := service.persistCandidates(t.Context(), unit, map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}, walkCounts{}); err != nil {
+	if err := service.PersistCandidatesForTest(t.Context(), unit, map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}, walkCounts{}); err != nil {
 		t.Fatal(err)
 	}
-	service.completeItem(t.Context(), unit, candidate.Item.RequirementID, "NOT_FOUND", nil, "BIOS_CANDIDATE_NOT_FOUND")
+	service.CompleteItemForTest(t.Context(), unit, candidate.Item.RequirementID, "NOT_FOUND", nil, "BIOS_CANDIDATE_NOT_FOUND")
 }

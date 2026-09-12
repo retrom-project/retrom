@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"context"
@@ -25,7 +25,7 @@ func (repository failingDiscoveryRepository) WithWrite(ctx context.Context, work
 func TestDiscoveryWritesRollbackAfterLateFailure(t *testing.T) {
 	legacy, database, unit, candidate := discoveryWriteFixture(t)
 	groups := map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}
-	service := importservice.NewDiscovery(failingDiscoveryRepository{importpersistence.NewDiscovery(database)}, legacy.now)
+	service := importservice.NewDiscovery(failingDiscoveryRepository{importpersistence.NewDiscovery(database)}, legacy.NowForTest)
 	beforeImport, beforeJob := workerVersions(t, database, unit)
 	if err := service.Persist(t.Context(), unit, groups, walkCounts{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("persist late failure: %v", err)
@@ -42,7 +42,7 @@ func TestDiscoveryWritesRollbackAfterLateFailure(t *testing.T) {
 	if state != "PENDING" || candidates != 0 {
 		t.Fatalf("partial evidence write: %s count=%d", state, candidates)
 	}
-	if err := legacy.persistCandidates(t.Context(), unit, groups, walkCounts{}); err != nil {
+	if err := legacy.PersistCandidatesForTest(t.Context(), unit, groups, walkCounts{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.Reset(t.Context(), unit); !errors.Is(err, context.Canceled) {

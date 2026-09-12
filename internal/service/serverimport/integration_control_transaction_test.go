@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"context"
@@ -81,7 +81,7 @@ func (repository failingControlRepository) WithWrite(ctx context.Context, work f
 func TestImportControlLateFailureRollsBackEveryWrite(t *testing.T) {
 	t.Run("retry", func(t *testing.T) {
 		service, database, created := failedControlImport(t)
-		control := importservice.NewControl(failingControlRepository{importpersistence.NewControl(database)}, map[string]string{"bios-root": service.roots["bios-root"].digest}, time.Now)
+		control := importservice.NewControl(failingControlRepository{importpersistence.NewControl(database)}, map[string]string{"bios-root": service.RootDigestForTest("bios-root")}, time.Now)
 		result, err := control.Retry(t.Context(), created.ID, created.Version, controlActorID)
 		if !errors.Is(err, context.Canceled) || result.ID != "" {
 			t.Fatalf("late retry: %+v %v", result, err)

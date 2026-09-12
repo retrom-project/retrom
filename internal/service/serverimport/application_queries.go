@@ -3,17 +3,10 @@ package serverimport
 import (
 	"context"
 	"fmt"
-
-	importpersistence "retrom/internal/persistence/serverimport"
-	importservice "retrom/internal/service/serverimport"
 )
 
-func (service *Service) queries() *importservice.Queries {
-	return importservice.NewQueries(importpersistence.NewQueries(service.database))
-}
-
 func (service *Service) Get(ctx context.Context, id string) (Summary, error) {
-	result, err := service.queries().Get(ctx, id)
+	result, err := service.queries.Get(ctx, id)
 	if err != nil {
 		return Summary{}, fmt.Errorf("query server import: %w", err)
 	}
@@ -27,11 +20,11 @@ func (service *Service) List(
 	beforeID string,
 	limit int,
 ) ([]Summary, error) {
-	query := importservice.ListQuery{State: state, Limit: limit}
+	query := ListQuery{State: state, Limit: limit}
 	if beforeAt != 0 || beforeID != "" {
-		query.Before = &importservice.SummaryCursor{CreatedAtMS: beforeAt, ID: beforeID}
+		query.Before = &SummaryCursor{CreatedAtMS: beforeAt, ID: beforeID}
 	}
-	result, err := service.queries().List(ctx, query)
+	result, err := service.queries.List(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("query server import history: %w", err)
 	}
@@ -43,11 +36,11 @@ func (service *Service) Items(
 	importID, query, outcome, method, afterCore, afterName, afterID string,
 	limit int,
 ) ([]Item, error) {
-	filter := importservice.ItemQuery{ImportID: importID, Text: query, Outcome: outcome, Method: method, Limit: limit}
+	filter := ItemQuery{ImportID: importID, Text: query, Outcome: outcome, Method: method, Limit: limit}
 	if afterCore != "" || afterName != "" || afterID != "" {
-		filter.After = &importservice.ItemCursor{Core: afterCore, Name: afterName, ID: afterID}
+		filter.After = &ItemCursor{Core: afterCore, Name: afterName, ID: afterID}
 	}
-	result, err := service.queries().Items(ctx, filter)
+	result, err := service.queries.Items(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("query server import items: %w", err)
 	}
@@ -61,11 +54,11 @@ func (service *Service) Candidates(
 	afterID string,
 	limit int,
 ) ([]Candidate, error) {
-	filter := importservice.CandidateQuery{ImportID: importID, RequirementID: requirementID, Limit: limit}
+	filter := CandidateQuery{ImportID: importID, RequirementID: requirementID, Limit: limit}
 	if afterRank != 0 || afterID != "" {
-		filter.After = &importservice.CandidateCursor{Rank: afterRank, ID: afterID}
+		filter.After = &CandidateCursor{Rank: afterRank, ID: afterID}
 	}
-	result, err := service.queries().Candidates(ctx, filter)
+	result, err := service.queries.Candidates(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("query server import candidates: %w", err)
 	}

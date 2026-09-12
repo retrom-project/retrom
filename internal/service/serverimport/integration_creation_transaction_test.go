@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"context"
@@ -25,7 +25,7 @@ func (repository failingCreationRepository) WithCreate(ctx context.Context, work
 func TestCreationLateFailureRollsBackTaskSnapshotItemsAndEvidence(t *testing.T) {
 	legacy, database, _ := archiveImportFixture(t)
 	repository := failingCreationRepository{importpersistence.NewCreation(database)}
-	creation := importservice.NewCreation(repository, configuredSources{legacy.roots}, legacy.now)
+	creation := importservice.NewCreation(repository, legacy.SourceSelectorForTest(), legacy.NowForTest)
 	result, err := creation.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if !errors.Is(err, context.Canceled) || result.ID != "" {
 		t.Fatalf("late creation failure: %+v %v", result, err)

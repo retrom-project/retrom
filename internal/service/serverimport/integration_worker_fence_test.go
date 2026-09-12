@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"database/sql"
@@ -11,11 +11,11 @@ func TestWorkerCannotCompleteImportWithUnfinishedItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	unit, ok, err := service.claim(t.Context())
+	unit, ok, err := service.ClaimForTest(t.Context())
 	if err != nil || !ok {
 		t.Fatalf("claim: %v %v", ok, err)
 	}
-	service.finishTask(t.Context(), unit)
+	service.FinishTaskForTest(t.Context(), unit)
 	current, err := service.Get(t.Context(), created.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -32,7 +32,7 @@ func TestWorkerCannotCompleteImportWithUnfinishedItems(t *testing.T) {
 func TestExpiredWorkerCannotWriteProgressIntoNewExecution(t *testing.T) {
 	service, database, oldUnit, newUnit := replacementWorkerFixture(t)
 	beforeImport, beforeJob := workerVersions(t, database, newUnit)
-	service.progress(t.Context(), oldUnit, "DISCOVERING", 0, 1)
+	service.ProgressForTest(t.Context(), oldUnit, "DISCOVERING", 0, 1)
 	afterImport, afterJob := workerVersions(t, database, newUnit)
 	if beforeImport != afterImport || beforeJob != afterJob {
 		t.Fatalf("stale worker updated new execution: import %d -> %d job %d -> %d", beforeImport, afterImport, beforeJob, afterJob)
@@ -46,14 +46,14 @@ func replacementWorkerFixture(t *testing.T) (*Service, *sql.DB, work, work) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldUnit, ok, err := service.claim(t.Context())
+	oldUnit, ok, err := service.ClaimForTest(t.Context())
 	if err != nil || !ok {
 		t.Fatalf("initial claim: %v %v", ok, err)
 	}
 	if _, err := database.ExecContext(t.Context(), `UPDATE jobs SET max_attempts=attempt_count WHERE id=?`, created.JobID); err != nil {
 		t.Fatal(err)
 	}
-	service.failTask(t.Context(), oldUnit, "INTERNAL_ERROR")
+	service.FailTaskForTest(t.Context(), oldUnit, "INTERNAL_ERROR")
 	failed, err := service.Get(t.Context(), created.ID)
 	if err != nil || failed.State != "FAILED" {
 		t.Fatalf("failed execution: %+v %v", failed, err)
@@ -61,7 +61,7 @@ func replacementWorkerFixture(t *testing.T) (*Service, *sql.DB, work, work) {
 	if _, err := service.Retry(t.Context(), created.ID, failed.Version, controlActorID); err != nil {
 		t.Fatal(err)
 	}
-	newUnit, ok, err := service.claim(t.Context())
+	newUnit, ok, err := service.ClaimForTest(t.Context())
 	if err != nil || !ok {
 		t.Fatalf("replacement claim: %v %v", ok, err)
 	}
@@ -83,12 +83,12 @@ func TestReclaimedWorkerCannotInstallPersistedCandidate(t *testing.T) {
 	if _, err := database.ExecContext(t.Context(), `UPDATE jobs SET leased_until_ms=0 WHERE id=?`, created.JobID); err != nil {
 		t.Fatal(err)
 	}
-	newUnit, ok, err := service.claim(t.Context())
+	newUnit, ok, err := service.ClaimForTest(t.Context())
 	if err != nil || !ok {
 		t.Fatalf("reclaim: %v %v", ok, err)
 	}
 	beforeImport, beforeJob := workerVersions(t, database, newUnit)
-	service.commitCandidate(t.Context(), oldUnit, selected.Item, selected)
+	service.CommitCandidateForTest(t.Context(), oldUnit, selected.Item, selected)
 	var installed int64
 	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM bios_installations`).Scan(&installed); err != nil {
 		t.Fatal(err)
@@ -122,11 +122,11 @@ func persistedWorkerCandidate(t *testing.T) workerCandidateFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldUnit, ok, err := service.claim(t.Context())
+	oldUnit, ok, err := service.ClaimForTest(t.Context())
 	if err != nil || !ok {
 		t.Fatalf("claim: %v %v", ok, err)
 	}
-	items, err := service.loadItems(t.Context(), created.ID)
+	items, err := service.LoadItemsForTest(t.Context(), created.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func persistedWorkerCandidate(t *testing.T) workerCandidateFixture {
 			t.Error(err)
 		}
 	}()
-	groups, ok := service.executeDiscovery(t.Context(), oldUnit, directory, items)
+	groups, ok := service.ExecuteDiscoveryForTest(t.Context(), oldUnit, directory, items)
 	if !ok {
 		t.Fatal("discovery failed")
 	}
@@ -147,7 +147,7 @@ func persistedWorkerCandidate(t *testing.T) workerCandidateFixture {
 	if len(values) != 1 {
 		t.Fatalf("eligible candidates: %d", len(values))
 	}
-	selected, err := service.verifySelected(t.Context(), oldUnit, service.roots["bios-root"], values[0])
+	selected, err := service.VerifySelectedForTest(t.Context(), oldUnit, service.RootForTest("bios-root"), values[0])
 	if err != nil {
 		t.Fatal(err)
 	}

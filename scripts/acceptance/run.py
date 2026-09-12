@@ -280,19 +280,19 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-BIOS-003": (
         120,
-        "go test ./internal/config ./internal/serverimport ./internal/httpapi -run 'TestServerFilesystemImportWithoutConfiguration|TestRelativePathAndNoFollowDirectoryBoundary|TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency' -count=1",
+        "go test ./internal/config ./internal/service/serverimport ./internal/httpapi -run 'TestServerFilesystemImportWithoutConfiguration|TestRelativePathAndNoFollowDirectoryBoundary|TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency' -count=1",
     ),
     "ACC-BIOS-004": (
         180,
-        "go test ./internal/firmware ./internal/service/firmware ./internal/persistence/firmware ./internal/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
+        "go test ./internal/firmware ./internal/service/firmware ./internal/persistence/firmware ./internal/service/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
     ),
     "ACC-BIOS-005": (
         180,
-        "go test -race ./internal/firmware ./internal/service/firmware ./internal/persistence/firmware ./internal/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
+        "go test -race ./internal/firmware ./internal/service/firmware ./internal/persistence/firmware ./internal/service/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
     ),
     "ACC-BIOS-006": (
         300,
-        "go test ./internal/serverimport -run 'TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate|TestRelativePathAndNoFollowDirectoryBoundary' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && scripts/acceptance/ui-case.sh ACC-BIOS-006",
+        "go test ./internal/service/serverimport -run 'TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate|TestRelativePathAndNoFollowDirectoryBoundary' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && scripts/acceptance/ui-case.sh ACC-BIOS-006",
     ),
     "ACC-BIOS-007": (
         240,

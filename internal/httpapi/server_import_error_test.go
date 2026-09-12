@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"retrom/internal/serverimport"
+	"retrom/internal/service/serverimport"
 )
 
 func TestServerImportErrorUsesDomainMissingRecord(t *testing.T) {

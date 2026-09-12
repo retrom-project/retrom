@@ -1,4 +1,4 @@
-package serverimport
+package serverimport_test
 
 import (
 	"database/sql"
@@ -17,11 +17,11 @@ func discoveryWriteFixture(t *testing.T) (*Service, *sql.DB, work, *evaluatedCan
 	if err != nil {
 		t.Fatal(err)
 	}
-	unit, found, err := service.claim(t.Context())
+	unit, found, err := service.ClaimForTest(t.Context())
 	if err != nil || !found {
 		t.Fatalf("claim: %v %v", found, err)
 	}
-	items, err := service.loadItems(t.Context(), created.ID)
+	items, err := service.LoadItemsForTest(t.Context(), created.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func discoveryWriteFixture(t *testing.T) (*Service, *sql.DB, work, *evaluatedCan
 func TestDiscoveryRejectsUnencodableEvidenceWithoutPartialWrites(t *testing.T) {
 	service, database, unit, candidate := discoveryWriteFixture(t)
 	candidate.Details["bad"] = math.NaN()
-	err := service.persistCandidates(t.Context(), unit, map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}, walkCounts{})
+	err := service.PersistCandidatesForTest(t.Context(), unit, map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}, walkCounts{})
 	var encodingErr *json.UnsupportedValueError
 	if !errors.As(err, &encodingErr) {
 		t.Errorf("unencodable evidence: %v", err)
@@ -50,7 +50,7 @@ func TestDiscoveryPreservesUnsafeArchiveEvidence(t *testing.T) {
 	service, database, unit, candidate := discoveryWriteFixture(t)
 	candidate.State = "ARCHIVE_UNSAFE"
 	candidate.DAT = &firmware.DATEvaluation{SafeArchive: false, Launchable: false}
-	if err := service.persistCandidates(t.Context(), unit, map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}, walkCounts{}); err != nil {
+	if err := service.PersistCandidatesForTest(t.Context(), unit, map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}, walkCounts{}); err != nil {
 		t.Fatal(err)
 	}
 	var safe bool
