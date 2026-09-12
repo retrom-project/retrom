@@ -36,7 +36,8 @@ type creationRecords struct{ executor dbexec.Executor }
 func (records creationRecords) PendingPlans(ctx context.Context) (int, error) {
 	var count int
 	if err := records.executor.QueryRowContext(ctx, `
-SELECT count(*) FROM emulationstation_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
+SELECT count(*) FROM emulationstation_imports WHERE import_job_id IS NULL
+AND state IN ('SCANNING','AWAITING_MAPPING','CANCEL_REQUESTED')
 `).Scan(
 
 		&count,
@@ -61,7 +62,8 @@ INSERT INTO emulationstation_imports(id,root_id,root_label_snapshot,source_relat
 release_year_max,state,phase,
 scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
 SELECT ?,?,?,?,?,?,'SCANNING','DISCOVERING_GAMELISTS',?,?,?,?,?
-WHERE (SELECT count(*) FROM emulationstation_imports WHERE state IN ('SCANNING','AWAITING_MAPPING'))<20
+WHERE (SELECT count(*) FROM emulationstation_imports WHERE import_job_id IS NULL
+AND state IN ('SCANNING','AWAITING_MAPPING','CANCEL_REQUESTED'))<20
 `,
 		plan.ImportID,
 		plan.Root.ID,

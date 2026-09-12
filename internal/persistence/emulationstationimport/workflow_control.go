@@ -58,15 +58,12 @@ func (records workflowRecords) Current(ctx context.Context, id string) (applicat
 		return application.WorkflowSnapshot{}, err
 	}
 	result := application.WorkflowSnapshot{Summary: summary}
-	if summary.ImportJobID == nil {
-		return result, nil
-	}
+	jobID, kind := workflowJob(summary)
 	err = records.executor.QueryRowContext(
 		ctx,
 		`SELECT state,version,execution_no FROM jobs
-WHERE id=? AND scope_type='EMULATIONSTATION_IMPORT' AND scope_id=? AND kind='SERVER_EMULATIONSTATION_IMPORT'`,
-		*summary.ImportJobID,
-		id,
+WHERE id=? AND scope_type='EMULATIONSTATION_IMPORT' AND scope_id=? AND kind=?`,
+		jobID, id, kind,
 	).
 		Scan(&result.JobState, &result.JobVersion, &result.Execution)
 	if err != nil {
@@ -86,7 +83,8 @@ func (records workflowRecords) RetryCurrent(ctx context.Context, id string) (app
 		return result, nil
 	}
 	err = records.executor.QueryRowContext(ctx, `SELECT
-EXISTS(SELECT 1 FROM emulationstation_imports WHERE id<>? AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),
+EXISTS(SELECT 1 FROM emulationstation_imports WHERE id<>? AND import_job_id IS NOT NULL
+AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),
 (SELECT count(*) FROM emulationstation_import_items WHERE import_id=? AND retryable=1
 AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED'))`, id, id).Scan(
 		&result.OtherActive,
@@ -127,7 +125,7 @@ type workflowAudit struct {
 }
 
 func (records workflowRecords) audit(ctx context.Context, value workflowAudit) error {
-	_, err := records.executor.ExecContext(
+	result, err := records.executor.ExecContext(
 		ctx,
 		`INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,
 resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms)
@@ -138,8 +136,15 @@ VALUES(?,'USER',?,NULL,?,'EMULATIONSTATION_IMPORT',?,'{}','{}',NULL,NULL,?)`,
 		value.ImportID,
 		value.NowMS,
 	)
-	if err != nil {
+	if err := requireWorkflowChange(result, err, application.ErrNotCancellable); err != nil {
 		return fmt.Errorf("record EmulationStation workflow audit: %w", err)
 	}
 	return nil
+}
+
+func workflowJob(summary application.Summary) (string, string) {
+	if summary.ImportJobID != nil {
+		return *summary.ImportJobID, "SERVER_EMULATIONSTATION_IMPORT"
+	}
+	return summary.ScanJobID, "SERVER_EMULATIONSTATION_SCAN"
 }

@@ -478,6 +478,8 @@ XML 必须是严格 UTF-8，可带 UTF-8 BOM，根元素必须是无 namespace �
 
 游戏和媒体路径都以所属 `gamelist.xml` 的目录为基准。`./foo`、普通相对路径与 Windows 分隔符在验证后规范化；空值、控制/空白路径、`..`、绝对路径、`~`、盘符、UNC、URI、过长路径、符号链接逃逸和类型漂移必须阻断。扫描只读取有界 XML、目录 facts、M3U 与媒体头，并且只打开 M3U 实际引用的 CHD 读取固定头；同目录未引用 CHD 不得因候选枚举被打开。XML parser 至少每消费 256 个 token 检查一次取消；目录发现、清单、媒体和 CHD 读取都进入共享 reader semaphore。扫描不读取完整 ROM，不创建业务 Blob、内部 ImportJob、ReviewDraft 或 Game。每次计划冻结 root/source facts、XML digest、确定性 source key、Collection/game 顺序、媒体候选、warning、来源 manifest 和预计读取量；重新扫描同一不变输入必须得到相同业务快照。扫描结果由 Service 按头信息、每批至多 500 个游戏及最终发布划分短事务；Repository 在每个事务检查当前扫描 Job 与计划的关联、版本、worker、execution/attempt、租约、截止时刻及冻结 root/path/year。清理暂存与写入拒绝诊断也执行相同检查，旧执行不能覆盖新执行；最终计数、来源摘要、等待映射状态、成功 Job 与事件原子提交。Collection 和游戏身份生成失败必须保留随机源原因，不留下零身份记录。
 
+扫描和导入取消共用 EmulationStation Service 的领域事务。通用 Job 入口传递原始 Job ETag、kind、scope 与操作者，事务内检查计划关联和版本，并原子保存 Job、计划、事件、审计及响应快照；真实存储错误返回服务器错误。未领取的扫描同时清除未拥有映射、CAS、审核或 Game 的暂存投影并归零计数，已领取扫描先进入 `CANCEL_REQUESTED`。尚未收口的扫描取消仍占未开始计划容量，但不占正式导入 execution 的唯一名额。恢复同样通过该所有权检查清理未发布扫描，再以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 关闭，任一步失败整体回滚。
+
 每个有效 Collection 必须由管理员显式选择 `IMPORT + PlatformInstance + tagIds` 或 `SKIP`；没有默认映射，不依据清单路径、扩展名、外部平台名或同名目录猜测。批量标签只以去重 union 追加到尚未跳过的 Collection，`SKIP` 清空标签。start 前要求至少一个非空 `IMPORT` Collection，并以 plan ETag 同时校验 source snapshot、root snapshot、目标 PlatformInstance/version/default Provider Target/DAT 与 Tag 状态；目标漂移返回可修复的重新映射冲突，来源漂移要求新建计划，不能沿旧 mapping 静默执行。
 
 执行阶段重新 no-follow 打开冻结 source manifest，流式复制到 CAS，再复用普通 import 的格式分组、内容身份、CoreValidation、DAT、BIOS、重复检查、审核与发布服务。M3U 只接受与清单同目录的 2–8 个现存 CHD；其他多文件格式不猜分组。Arcade companion 只允许来自同一次 execution、同一目标目录与同一冻结 DAT 的显式 ZIP 依赖闭包。封面按 `image → boxart → mix → thumbnail/s` 选择，video 独立；缺失或坏媒体只写 warning，不阻断可运行内容。

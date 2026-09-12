@@ -27,7 +27,7 @@ AND execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')),version=version+1,u
 		Scope: recordstore.Scope{Where: `id=? AND version=? AND state='AWAITING_MAPPING' AND import_job_id IS NULL
 AND mapping_version=? AND root_config_digest=? AND source_snapshot_digest=? AND release_year_max=? AND expires_at_ms>?
 AND NOT EXISTS(SELECT 1 FROM emulationstation_imports active WHERE active.id<>?
-AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, Args: []any{
+AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, Args: []any{
 			plan.Before.Summary.ID, plan.Before.Summary.Version, plan.Before.Summary.MappingVersion,
 			plan.Before.RootConfigDigest,
 			plan.Before.SourceSnapshotDigest, plan.Before.ReleaseYearMax, plan.NowMS, plan.Before.Summary.ID,

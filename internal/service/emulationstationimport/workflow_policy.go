@@ -10,19 +10,23 @@ import (
 func validWorkflowVersion(before WorkflowSnapshot, version int64) bool {
 	return version > 0 && version < math.MaxInt64 && before.Summary.Version == version &&
 		before.JobVersion > 0 && before.JobVersion < math.MaxInt64 &&
-		before.Execution > 0 && before.Summary.ImportJobID != nil
+		before.Execution > 0 && (before.Summary.ImportJobID != nil || before.Summary.ScanJobID != "")
 }
 
 func canCancel(before WorkflowSnapshot, version int64) bool {
 	if !validWorkflowVersion(before, version) {
 		return false
 	}
+	if before.Summary.ImportJobID == nil {
+		return before.Summary.State == "SCANNING" && (before.JobState == "QUEUED" || before.JobState == "RUNNING")
+	}
 	return (before.Summary.State == "QUEUED" && before.JobState == "QUEUED") ||
 		(before.Summary.State == "RUNNING" && before.JobState == "RUNNING")
 }
 
 func validateRetry(before RetrySnapshot, version int64) error {
-	if !validWorkflowVersion(before.WorkflowSnapshot, version) || before.Execution == math.MaxInt64 ||
+	if before.Summary.ImportJobID == nil || !validWorkflowVersion(before.WorkflowSnapshot, version) ||
+		before.Execution == math.MaxInt64 ||
 		!before.Summary.Retryable || before.RetryableItems == 0 {
 		return ErrNotRetryable
 	}

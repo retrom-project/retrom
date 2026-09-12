@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/cleanup"
+	esrepository "retrom/internal/persistence/emulationstationimport"
 	"retrom/internal/persistence/recordstore"
 )
 
@@ -61,58 +63,55 @@ AND execution_state IN ('PENDING','COPYING','VALIDATING')
 }
 
 func clearRestoredEmulationStationScanStaging(ctx context.Context, transaction *sql.Tx) error {
-	if _, err := recordstore.DeleteEmulationstationImportItemAssets(ctx, transaction, recordstore.Scope{
-		Where: `
-item_id IN (
- SELECT item.id FROM emulationstation_import_items item
- JOIN emulationstation_imports source ON source.id=item.import_id WHERE source.state='SCANNING')
-`,
-	}); err != nil {
-		return fmt.Errorf("maintenance/bundle: clear restored EmulationStation staging: %w", err)
+	ids, err := restoredEmulationStationScans(ctx, transaction)
+	if err != nil {
+		return err
 	}
-	if _, err := recordstore.DeleteEmulationstationImportItemFiles(ctx, transaction, recordstore.Scope{
-		Where: `
-item_id IN (
- SELECT item.id FROM emulationstation_import_items item
- JOIN emulationstation_imports source ON source.id=item.import_id WHERE source.state='SCANNING')
-`,
-	}); err != nil {
-		return fmt.Errorf("maintenance/bundle: clear restored EmulationStation staging: %w", err)
-	}
-	if _, err := recordstore.DeleteEmulationstationImportItems(ctx, transaction, recordstore.Scope{
-		Where: `
-import_id IN (
- SELECT id FROM emulationstation_imports WHERE state='SCANNING')
-`,
-	}); err != nil {
-		return fmt.Errorf("maintenance/bundle: clear restored EmulationStation staging: %w", err)
-	}
-	if _, err := recordstore.DeleteEmulationstationCollectionTags(ctx, transaction, recordstore.Scope{
-		Where: `
-collection_id IN (
- SELECT collection.id FROM emulationstation_import_collections collection
- JOIN emulationstation_imports source ON source.id=collection.import_id WHERE source.state='SCANNING')
-`,
-	}); err != nil {
-		return fmt.Errorf("maintenance/bundle: clear restored EmulationStation staging: %w", err)
-	}
-	if _, err := recordstore.DeleteEmulationstationImportCollections(ctx, transaction, recordstore.Scope{
-		Where: `
-import_id IN (
- SELECT id FROM emulationstation_imports WHERE state='SCANNING')
-`,
-	}); err != nil {
-		return fmt.Errorf("maintenance/bundle: clear restored EmulationStation staging: %w", err)
-	}
-	if _, err := recordstore.DeleteEmulationstationImportGamelists(ctx, transaction, recordstore.Scope{
-		Where: `
-import_id IN (
- SELECT id FROM emulationstation_imports WHERE state='SCANNING')
-`,
-	}); err != nil {
-		return fmt.Errorf("maintenance/bundle: clear restored EmulationStation staging: %w", err)
+	for _, id := range ids {
+		if err := esrepository.ClearUnpublishedScan(ctx, transaction, id); err != nil {
+			return fmt.Errorf("clear restored EmulationStation scan: %w", err)
+		}
+		result, err := transaction.ExecContext(ctx, `UPDATE emulationstation_imports SET
+  gamelist_count=0,invalid_gamelist_count=0,collection_count=0,folder_entry_count=0,game_count=0,
+  estimated_source_bytes=0,mapped_collection_count=0,skipped_collection_count=0,processable_item_count=0,
+  blocked_item_count=0,media_warning_count=0,discovered_cover_count=0,discovered_video_count=0
+  WHERE id=? AND import_job_id IS NULL AND state IN ('SCANNING','CANCEL_REQUESTED')`, id)
+		if err != nil {
+			return fmt.Errorf("clear restored EmulationStation scan counters: %w", err)
+		}
+		count, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("count cleared restored EmulationStation scans: %w", err)
+		}
+		if count != 1 {
+			return fmt.Errorf("clear restored EmulationStation scan %s: %w", id, sql.ErrNoRows)
+		}
 	}
 	return nil
+}
+
+func restoredEmulationStationScans(ctx context.Context, transaction *sql.Tx) ([]string, error) {
+	rows, err := transaction.QueryContext(ctx, `SELECT id FROM emulationstation_imports
+ WHERE import_job_id IS NULL AND state IN ('SCANNING','CANCEL_REQUESTED') ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("list restored EmulationStation scans: %w", err)
+	}
+	defer func() { cleanup.Error("close restored EmulationStation scans", rows.Close()) }()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("read restored EmulationStation scan: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate restored EmulationStation scans: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close restored EmulationStation scans: %w", err)
+	}
+	return ids, nil
 }
 
 const restoredEmulationStationAggregateSQLAssignments = `state='FAILED',phase=NULL,
@@ -137,4 +136,5 @@ cancelled_item_count=(SELECT count(*) FROM emulationstation_import_items item
  WHERE item.import_id=emulationstation_imports.id AND item.execution_state='CANCELLED'),
 completed_at_ms=?,version=version+1,updated_at_ms=?`
 
-const restoredEmulationStationAggregateSQLScope = `state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')`
+const restoredEmulationStationAggregateSQLScope = `
+state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')`

@@ -92,7 +92,7 @@ func (service *Service) scan(
 	}
 	defer func() { cleanup.Error("close", directory.Close()) }()
 	index := &scanIndex{ctx: ctx, files: make(map[string]discoveredFile)}
-	_, err = serversource.WalkFiles(directory, scanWalkLimits(), index.visit)
+	_, err = serversource.WalkFilesContext(ctx, directory, scanWalkLimits(), index.visit)
 	if errors.Is(err, serversource.ErrScanLimit) || errors.Is(err, ErrScanLimit) {
 		return scanResult{}, ErrScanLimit
 	}

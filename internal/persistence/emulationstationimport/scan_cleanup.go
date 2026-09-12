@@ -9,6 +9,12 @@ import (
 	application "retrom/internal/service/emulationstationimport"
 )
 
+// ClearUnpublishedScan is the shared restoration and worker cleanup boundary.
+// It refuses projections that already own mappings, copied content or review/game results.
+func ClearUnpublishedScan(ctx context.Context, executor dbexec.Executor, importID string) error {
+	return clearUnpublishedScan(ctx, executor, importID)
+}
+
 func clearUnpublishedScan(ctx context.Context, executor dbexec.Executor, importID string) error {
 	var eligible bool
 	err := executor.QueryRowContext(ctx, `SELECT import_job_id IS NULL AND scan_completed_at_ms IS NULL

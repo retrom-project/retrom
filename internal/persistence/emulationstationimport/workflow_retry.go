@@ -109,7 +109,7 @@ existing_item_count=?,blocked_item_count=?,failed_item_count=?,cancelled_item_co
 		Scope: recordstore.Scope{Where: `id=? AND version=? AND state=? AND import_job_id=? AND mapping_version=?
 AND root_config_digest=? AND source_snapshot_digest=? AND release_year_max=?
 AND NOT EXISTS(SELECT 1 FROM emulationstation_imports active WHERE active.id<>?
-AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, Args: []any{
+AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, Args: []any{
 			plan.Before.Summary.ID, plan.Before.Summary.Version, plan.Before.Summary.State, *plan.Before.Summary.ImportJobID,
 			plan.Before.Summary.MappingVersion, plan.Before.RootConfigDigest, plan.Before.SourceSnapshotDigest,
 			plan.Before.ReleaseYearMax, plan.Before.Summary.ID,

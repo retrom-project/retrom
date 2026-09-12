@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type (
@@ -61,63 +58,6 @@ type (
 
 func NewWorkflowControl(repository WorkflowRepository, sources FrozenSources, now func() time.Time) *WorkflowControl {
 	return &WorkflowControl{repository: repository, sources: sources, now: now}
-}
-
-func (service *WorkflowControl) Cancel(
-	ctx context.Context,
-	id string,
-	version int64,
-	reason, actor string,
-) (Summary, bool, error) {
-	reason = strings.TrimSpace(reason)
-	if reason == "" || len([]rune(reason)) > 500 {
-		return Summary{}, false, ErrNotCancellable
-	}
-	var result Summary
-	var pending bool
-	err := service.repository.WithControl(ctx, func(scope WorkflowScope) error {
-		before, err := scope.Read.Current(ctx, id)
-		if errors.Is(err, ErrNotFound) {
-			return ErrNotCancellable
-		}
-		if err != nil {
-			return fmt.Errorf("read EmulationStation cancellation: %w", err)
-		}
-		if !canCancel(before, version) {
-			return ErrNotCancellable
-		}
-		audit, err := uuid.NewV7()
-		if err != nil {
-			return fmt.Errorf("generate EmulationStation cancellation audit: %w", err)
-		}
-		plan := CancellationPlan{
-			Before:  before,
-			Reason:  reason,
-			ActorID: actor,
-			AuditID: audit.String(),
-			NowMS:   service.now().UnixMilli(),
-			State:   "CANCELLED",
-		}
-		plan.Pending = before.Summary.State == "RUNNING"
-		if plan.Pending {
-			plan.State = "CANCEL_REQUESTED"
-		} else {
-			plan.CompletedAtMS = &plan.NowMS
-		}
-		if err := scope.Write.Cancel(ctx, plan); err != nil {
-			return fmt.Errorf("persist EmulationStation cancellation: %w", err)
-		}
-		after, err := scope.Read.Current(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read cancelled EmulationStation plan: %w", err)
-		}
-		result, pending = after.Summary, plan.Pending
-		return nil
-	})
-	if err != nil {
-		return Summary{}, false, fmt.Errorf("finish EmulationStation cancellation: %w", err)
-	}
-	return result, pending, nil
 }
 
 func (service *WorkflowControl) Retry(ctx context.Context, id string, version int64, actor string) (Summary, error) {

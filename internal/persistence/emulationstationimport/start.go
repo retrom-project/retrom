@@ -68,7 +68,9 @@ JOIN json_each(collection.tag_snapshot_json) entry
 LEFT JOIN tags tag ON tag.id=json_extract(entry.value,'$.tagId') AND tag.status='ACTIVE'
 WHERE collection.import_id=? AND collection.mapping_action='IMPORT' AND tag.id IS NULL),
 EXISTS(SELECT 1 FROM emulationstation_imports active WHERE active.id<>?
-AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, id, id).Scan(&result.TagsValid, &result.OtherActive)
+AND active.import_job_id IS NOT NULL AND active.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))`, id, id).Scan(
+		&result.TagsValid, &result.OtherActive,
+	)
 	if err != nil {
 		return application.StartSnapshot{}, fmt.Errorf("read EmulationStation start readiness: %w", err)
 	}

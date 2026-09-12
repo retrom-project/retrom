@@ -42,7 +42,7 @@ CREATE INDEX emulationstation_gamelists_page ON emulationstation_import_gamelist
 CREATE INDEX emulationstation_imports_history ON emulationstation_imports(created_at_ms DESC,id DESC);
 
 CREATE UNIQUE INDEX emulationstation_imports_one_active_execution ON emulationstation_imports((1))
-WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
+WHERE import_job_id IS NOT NULL AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
 
 CREATE INDEX emulationstation_imports_state ON emulationstation_imports(state,updated_at_ms DESC,id DESC);
 

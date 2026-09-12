@@ -83,6 +83,19 @@ candidate.source_snapshot_digest IS NOT NULL
     AND candidate.scan_completed_at_ms IS NOT NULL AND candidate.started_at_ms IS NOT NULL AND
 candidate.completed_at_ms IS NULL
     AND candidate.phase IN ('COPYING_CONTENT','VALIDATING','PREPARING_REVIEWS')
+  OR candidate.state='CANCEL_REQUESTED' AND candidate.import_job_id IS NULL
+    AND candidate.source_snapshot_digest IS NULL AND candidate.scan_completed_at_ms IS NULL
+    AND candidate.started_at_ms IS NULL AND candidate.completed_at_ms IS NULL AND candidate.cancel_reason IS NOT NULL
+    AND candidate.phase IN ('DISCOVERING_GAMELISTS','PARSING_GAMELISTS','RESOLVING_SOURCES')
+  OR candidate.state='CANCELLED' AND candidate.import_job_id IS NULL
+    AND candidate.source_snapshot_digest IS NULL AND candidate.scan_completed_at_ms IS NULL
+    AND candidate.started_at_ms IS NULL AND candidate.completed_at_ms IS NOT NULL
+    AND candidate.phase IS NULL AND candidate.cancel_reason IS NOT NULL
+    AND candidate.gamelist_count+candidate.invalid_gamelist_count+candidate.collection_count+
+      candidate.folder_entry_count+
+      candidate.game_count+candidate.estimated_source_bytes+candidate.mapped_collection_count+
+      candidate.skipped_collection_count+candidate.processable_item_count+candidate.blocked_item_count+
+      candidate.media_warning_count+candidate.discovered_cover_count+candidate.discovered_video_count=0
   OR candidate.state='CANCEL_REQUESTED' AND candidate.import_job_id IS NOT NULL AND
 candidate.cancel_reason IS NOT NULL
     AND candidate.completed_at_ms IS NULL AND candidate.phase IN ('COPYING_CONTENT','VALIDATING',
@@ -165,6 +178,8 @@ WHEN ((candidate.state IS NOT previous.state) AND (previous.state<>candidate.sta
  AND EXISTS(SELECT 1 FROM import_batch_discards WHERE kind='EMULATIONSTATION' AND
 import_id=candidate.id) OR
   previous.state='SCANNING' AND candidate.state IN ('AWAITING_MAPPING','FAILED') OR
+  previous.state='SCANNING' AND candidate.state IN ('CANCEL_REQUESTED','CANCELLED')
+    AND previous.import_job_id IS NULL AND candidate.import_job_id IS NULL OR
   previous.state='AWAITING_MAPPING' AND candidate.state IN ('QUEUED','EXPIRED','FAILED') OR
   previous.state='QUEUED' AND candidate.state IN ('RUNNING','CANCELLED','FAILED') OR
   previous.state='RUNNING' AND candidate.state IN ('QUEUED','COMPLETED','PARTIAL_FAILURE',

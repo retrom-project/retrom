@@ -26,6 +26,7 @@ func (service *Service) Cancel(
 	if err != nil {
 		return Summary{}, false, fmt.Errorf("cancel EmulationStation import: %w", err)
 	}
+	service.signal()
 	return result, pending, nil
 }
 
@@ -36,4 +37,21 @@ func (service *Service) Retry(ctx context.Context, id string, version int64, act
 	}
 	service.signal()
 	return result, nil
+}
+
+type (
+	JobCancellationRequest = application.JobCancellationRequest
+	JobCancellationResult  = application.JobCancellationResult
+)
+
+func (service *Service) CancelJob(
+	ctx context.Context,
+	request JobCancellationRequest,
+) (JobCancellationResult, bool, error) {
+	result, pending, err := service.workflowControl().CancelJob(ctx, request)
+	if err != nil {
+		return JobCancellationResult{}, false, fmt.Errorf("cancel EmulationStation job: %w", err)
+	}
+	service.signal()
+	return result, pending, nil
 }
