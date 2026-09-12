@@ -134,6 +134,8 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 Socket 认证与参与者凭据重取通过 Service 校验活动 Launch、规范编码、身份和凭据代次，Repository 只读取当前持久状态。缺失授权与存储故障使用不同错误；失败不返回部分身份或凭据。签名算法、密钥文件保护和规范编码由独立 capability 包维护。
 
+参与者 Launch 编排通过类型化的启动接口调用 Launch 服务；冻结选择、凭据生成、准备事件与 LOADING 推进由联机 Service 负责。准备记录再次核对房间、会话和参与者版本；失败只收尾原 Session，不能影响同房间的替代会话。即使请求取消，失败收尾仍在独立的有界上下文中执行并保留原始错误。
+
 ## 9. PlaySession 生命周期
 
 Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat 以连续序号报告上一时段的 running/visible/paused，服务端按接收时间计费；页面隐藏、暂停、失联、重放或跳号不能伪造时长。用户菜单退出、游戏自身退出和异常退出最终都幂等 finish Launch；卸载失败由 hard expiry 收口。

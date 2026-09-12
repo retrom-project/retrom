@@ -29,11 +29,3 @@ func (service *Service) ParticipantCapability(ctx context.Context, sessionID, pr
 	}
 	return value, nil
 }
-
-func (service *Service) participantCredential(sessionID, profileID string, generation int64) ([32]byte, error) {
-	value, err := application.IssueParticipantCredential(service.credentials, sessionID, profileID, generation)
-	if err != nil {
-		return [32]byte{}, serviceError("issue participant credential", err)
-	}
-	return value, nil
-}

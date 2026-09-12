@@ -423,7 +423,7 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 		t.Fatal(err)
 	}
 	sentinel := errors.New("launch preflight failed")
-	if err := service.failPreparation(ctx, room.RoomID, sentinel); !errors.Is(err, sentinel) {
+	if err := service.preparation.Fail(ctx, room.RoomID, sessionID, sentinel); !errors.Is(err, sentinel) {
 		t.Fatalf("failPreparation() error = %v", err)
 	}
 	updated, err := service.Room(ctx, room.RoomID, hostID)

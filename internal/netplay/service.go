@@ -3,11 +3,10 @@ package netplay
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"sync"
 	"time"
 
+	repository "retrom/internal/persistence/netplay"
 	application "retrom/internal/service/netplay"
 
 	tagpersistence "retrom/internal/persistence/tagging"
@@ -34,7 +33,6 @@ var (
 	ErrProfileStale    = application.ErrProfileStale
 	ErrCapacity        = application.ErrCapacity
 	ErrPrecondition    = application.ErrPrecondition
-	errEventData       = errors.New("netplay: event data invalid")
 )
 
 func serviceError(operation string, err error) error {
@@ -56,7 +54,7 @@ type Service struct {
 	options     Options
 	stop        chan struct{}
 	done        chan struct{}
-	launchMu    sync.Mutex
+	preparation *application.ParticipantPreparation
 	tags        *tagging.Service
 }
 
@@ -90,6 +88,12 @@ func NewService(
 	}
 	return &Service{
 		database: database, registry: registry, credentials: credentials, clock: clock, options: options,
+		preparation: application.NewParticipantPreparation(
+			repository.NewParticipantPreparation(database),
+			credentials,
+			application.NewRoomExit(repository.NewRoomExit(database), options.WaitingIdle, clock.Now),
+			clock.Now,
+		),
 		tags: tagging.New(tagpersistence.New(database), now), stop: make(chan struct{}), done: make(chan struct{}),
 	}
 }
