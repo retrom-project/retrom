@@ -3,11 +3,8 @@ package runtimeprovider
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -287,11 +284,11 @@ func verifyInstalledFile(path string, expected runtimebundle.IntegrityFile) erro
 		return installationInvalid(err)
 	}
 	defer func() { cleanup.Error("close provider file", file.Close()) }()
-	digest := sha256.New()
-	if _, err := io.Copy(digest, file); err != nil {
+	digest, err := installedFileDigest(file)
+	if err != nil {
 		return installationInvalid(err)
 	}
-	if hex.EncodeToString(digest.Sum(nil)) != expected.SHA256 {
+	if digest != expected.SHA256 {
 		return ErrInstallationInvalid
 	}
 	return nil

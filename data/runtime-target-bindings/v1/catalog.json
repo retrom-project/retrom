@@ -833,6 +833,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-gbe-pokemini",
+      "coreId": "gbe_plus",
+      "providerId": "retrom-runtime",
+      "targetId": "gbe-pokemini",
+      "platformIds": [
+        "pokemini"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "POKEMINI_ROM",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-j2me",
       "coreId": "j2me",
       "providerId": "retrom-runtime",
@@ -1360,6 +1374,12 @@
         "enabled": true
       },
       {
+        "id": "pokemini",
+        "name": "Nintendo Pokémon Mini",
+        "sortOrder": 610,
+        "enabled": true
+      },
+      {
         "id": "ps2",
         "name": "PlayStation 2",
         "sortOrder": 205,
@@ -1561,6 +1581,11 @@
       {
         "id": "gambatte",
         "name": "Gambatte",
+        "enabled": true
+      },
+      {
+        "id": "gbe_plus",
+        "name": "GBE+ (Pokémon Mini)",
         "enabled": true
       },
       {
