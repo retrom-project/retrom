@@ -121,11 +121,11 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-API-001": (120, "go test ./internal/httpapi ./internal/cursor -count=1"),
     "ACC-FAV-001": (
         120,
-        "go test ./internal/store ./internal/favorites -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceConcurrentFavoriteFolderConflictVersionAndLimit|TestServiceListPaginationScopesAndVisibility|TestOrganizeFaultRollsBackEveryFavoriteMembershipAndIdempotencyRecord' -count=1 && go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
+        "go test ./internal/store ./internal/service/favorites ./internal/persistence/favorites -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceConcurrentFavoriteFolderConflictVersionAndLimit|TestServiceListPaginationScopesAndVisibility|TestOrganizeFaultRollsBackEveryFavoriteMembershipAndIdempotencyRecord' -count=1 && go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
     ),
     "ACC-FAV-002": (
         120,
-        "go test ./internal/favorites ./internal/httpapi -run 'TestNormalizeFolderName|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceListPaginationScopesAndVisibility|TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection|TestFavoriteHTTPRejectsAnonymousUnsafeAndNonStrictRequests' -count=1",
+        "go test ./internal/service/favorites ./internal/persistence/favorites ./internal/httpapi -run 'TestNormalizeFolderName|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceListPaginationScopesAndVisibility|TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection|TestFavoriteHTTPRejectsAnonymousUnsafeAndNonStrictRequests' -count=1",
     ),
     "ACC-FAV-003": (180, "scripts/acceptance/ui-case.sh ACC-FAV-003"),
     "ACC-FAV-004": (180, "scripts/acceptance/ui-case.sh ACC-FAV-004"),

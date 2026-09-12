@@ -89,6 +89,16 @@ web/lib/api/              类型化 API client 与错误映射
 web/components/           无业务状态的通用组件
 ```
 
+### 2.1 Service 与持久化边界
+
+业务模块按 `internal/service/<模块>` 组织，包含用例编排、业务类型和由消费者定义的 Repository 接口。`internal/persistence/<模块>` 实现这些接口，封装 SQL、字段映射和原子操作；目录不绑定数据库产品名称。解析器、算法和内容格式校验仍按独立基础能力组织，不因分层统一迁入 Service。
+
+Handler 负责协议解析、身份提取和结果映射，通过 Service 执行业务；Service 不导入数据库驱动或持久化实现，也不接收 SQL、表名、SET/WHERE、连接或事务对象。组装代码创建 Repository 并注入 Service。接口返回业务结果与可识别错误，不把 `sql.Rows`、`sql.Result`、`sql.Null*` 传播到上层。
+
+Service 决定事务范围；Repository 的事务回调只提供绑定到同一事务的业务能力。跨表校验、乐观条件、幂等响应和联动写入保持原子，失败与取消必须回滚。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
+
+分层按业务模块逐步迁移，收藏模块使用上述边界；迁入 `internal/service/` 的全部生产源码由架构测试禁止直接依赖数据库实现，不能为单个模块增加绕过项。详细收藏事务与读取快照见 [收藏与收藏夹](./favorites-and-collections.md)。
+
 ## 3. HTTP 与数据约定
 
 - API 前缀统一为 `/api/v1`，响应使用 JSON；二进制上传、下载和运行时文件端点除外。

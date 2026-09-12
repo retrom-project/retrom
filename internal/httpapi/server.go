@@ -15,7 +15,6 @@ import (
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
 	"retrom/internal/emulationstationimport"
-	"retrom/internal/favorites"
 	"retrom/internal/firmware"
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
@@ -28,6 +27,7 @@ import (
 	"retrom/internal/netplay"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/pegasusimport"
+	favoritepersistence "retrom/internal/persistence/favorites"
 	"retrom/internal/platforminstance"
 	"retrom/internal/rpgmaker/isolation"
 	retromruntime "retrom/internal/runtime"
@@ -37,6 +37,7 @@ import (
 	"retrom/internal/scummvm"
 	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
+	"retrom/internal/service/favorites"
 	"retrom/internal/storageanalysis"
 	"retrom/internal/tagging"
 	"retrom/internal/uploads"
@@ -223,7 +224,7 @@ func New(
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(database, blobs, credentials, now),
 		rpgIsolation:     isolation.New(database, config.RPGRuntimeOriginTemplate, now),
-		favoriteService:  favorites.New(database, now),
+		favoriteService:  favorites.New(favoritepersistence.New(database), now),
 		tagService:       tagging.New(database, now),
 		now:              now,
 		sseHeartbeat:     15 * time.Second,

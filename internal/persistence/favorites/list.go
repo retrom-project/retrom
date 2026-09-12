@@ -6,48 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
-	"unicode/utf8"
 
+	"retrom/internal/service/favorites"
 	"retrom/internal/tagging"
 )
 
-func validateListOptions(options ListOptions) (ListOptions, error) {
-	if options.Scope == "" {
-		options.Scope = ScopeAll
-	}
-	if options.Sort == "" {
-		options.Sort = SortFavoritedDesc
-	}
-	if options.Limit == 0 {
-		options.Limit = 50
-	}
-	if options.Limit < 1 || options.Limit > 100 || utf8.RuneCountInString(strings.TrimSpace(options.Query)) > 200 {
-		return ListOptions{}, ErrInvalid
-	}
-	options.Query = canonicalSearch(options.Query)
-	switch options.Scope {
-	case ScopeAll, ScopeUncategorized:
-		if options.FolderID != "" {
-			return ListOptions{}, ErrInvalid
-		}
-	case ScopeFolder:
-		if !ValidID(options.FolderID) {
-			return ListOptions{}, ErrInvalid
-		}
-	default:
-		return ListOptions{}, ErrInvalid
-	}
-	switch options.Sort {
-	case SortFavoritedDesc, SortRecentlyPlayed, SortTitleAsc, SortReleaseYearDesc:
-	default:
-		return ListOptions{}, ErrInvalidFavoriteListSort
-	}
-	return options, nil
-}
-
-func querySummary(ctx context.Context, transaction *sql.Tx, profileID string) (Summary, error) {
-	var result Summary
+func querySummary(ctx context.Context, transaction *sql.Tx, profileID string) (favorites.Summary, error) {
+	var result favorites.Summary
 	err := transaction.QueryRowContext(ctx, `
 SELECT
   count(*),
@@ -67,12 +32,12 @@ AND (game.status='DELETED' OR instance.enabled=1)
 		&result.FavoriteCount, &result.UncategorizedCount, &result.FolderCount,
 	)
 	if err != nil {
-		return Summary{}, fmt.Errorf("favorites: query summary: %w", err)
+		return favorites.Summary{}, fmt.Errorf("favorites: query summary: %w", err)
 	}
 	return result, nil
 }
 
-func queryFolders(ctx context.Context, transaction *sql.Tx, profileID string) ([]Folder, error) {
+func queryFolders(ctx context.Context, transaction *sql.Tx, profileID string) ([]favorites.Folder, error) {
 	rows, err := transaction.QueryContext(ctx, `
 SELECT folder.id,folder.name,folder.version,folder.created_at_ms,folder.updated_at_ms,
        count(CASE WHEN game.status='DELETED' OR game.status='PUBLISHED' AND instance.enabled=1 THEN 1 END)
@@ -89,9 +54,9 @@ ORDER BY folder.created_at_ms,folder.id
 		return nil, fmt.Errorf("favorites: query folders: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	result := make([]Folder, 0)
+	result := make([]favorites.Folder, 0)
 	for rows.Next() {
-		var folder Folder
+		var folder favorites.Folder
 		if err := rows.Scan(
 			&folder.FolderID, &folder.Name, &folder.Version, &folder.CreatedAtMS, &folder.UpdatedAtMS,
 			&folder.VisibleGameCount,
@@ -110,7 +75,7 @@ func queryPlatforms(
 	ctx context.Context,
 	transaction *sql.Tx,
 	profileID, scope, folderID string,
-) ([]PlatformSummary, error) {
+) ([]favorites.PlatformSummary, error) {
 	query := `
 SELECT platform.id,platform.name,count(*)
 FROM favorite_games favorite
@@ -141,9 +106,9 @@ ORDER BY platform.name,platform.id`
 		return nil, fmt.Errorf("favorites: query platforms: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	result := make([]PlatformSummary, 0)
+	result := make([]favorites.PlatformSummary, 0)
 	for rows.Next() {
-		var platform PlatformSummary
+		var platform favorites.PlatformSummary
 		if err := rows.Scan(&platform.ID, &platform.Name, &platform.Count); err != nil {
 			return nil, fmt.Errorf("favorites: scan platform: %w", err)
 		}
@@ -159,7 +124,7 @@ func queryTotal(
 	ctx context.Context,
 	transaction *sql.Tx,
 	profileID string,
-	options ListOptions,
+	options favorites.ListOptions,
 ) (int64, error) {
 	query := `
 SELECT count(*)
@@ -211,11 +176,11 @@ AND (?='' OR platform.id=?)`
 
 func parseCursorInt(values []string, index int) (int64, error) {
 	if index >= len(values) {
-		return 0, ErrInvalidCursor
+		return 0, favorites.ErrInvalidCursor
 	}
 	value, err := strconv.ParseInt(values[index], 10, 64)
 	if err != nil {
-		return 0, ErrInvalidCursor
+		return 0, favorites.ErrInvalidCursor
 	}
 	return value, nil
 }
@@ -305,12 +270,12 @@ AND (?=0 OR (year_rank>? OR (year_rank=? AND (
 ORDER BY year_rank,release_year_key DESC,title,game_id
 LIMIT ?`
 
-func favoritedCursorArguments(cursor *PageCursor) ([]any, error) {
+func favoritedCursorArguments(cursor *favorites.PageCursor) ([]any, error) {
 	if cursor == nil {
 		return []any{0, nil, nil, nil}, nil
 	}
-	if !ValidID(cursor.ID) || len(cursor.SortValues) != 1 {
-		return nil, ErrInvalidCursor
+	if !favorites.ValidID(cursor.ID) || len(cursor.SortValues) != 1 {
+		return nil, favorites.ErrInvalidCursor
 	}
 	favorited, err := parseCursorInt(cursor.SortValues, 0)
 	if err != nil {
@@ -319,23 +284,23 @@ func favoritedCursorArguments(cursor *PageCursor) ([]any, error) {
 	return []any{1, favorited, favorited, cursor.ID}, nil
 }
 
-func titleCursorArguments(cursor *PageCursor) ([]any, error) {
+func titleCursorArguments(cursor *favorites.PageCursor) ([]any, error) {
 	if cursor == nil {
 		return []any{0, nil, nil, nil}, nil
 	}
-	if !ValidID(cursor.ID) || len(cursor.SortValues) != 1 {
-		return nil, ErrInvalidCursor
+	if !favorites.ValidID(cursor.ID) || len(cursor.SortValues) != 1 {
+		return nil, favorites.ErrInvalidCursor
 	}
 	title := cursor.SortValues[0]
 	return []any{1, title, title, cursor.ID}, nil
 }
 
-func compoundCursorArguments(cursor *PageCursor) ([]any, error) {
+func compoundCursorArguments(cursor *favorites.PageCursor) ([]any, error) {
 	if cursor == nil {
 		return []any{0, nil, nil, nil, nil, nil, nil, nil}, nil
 	}
-	if !ValidID(cursor.ID) || len(cursor.SortValues) != 3 {
-		return nil, ErrInvalidCursor
+	if !favorites.ValidID(cursor.ID) || len(cursor.SortValues) != 3 {
+		return nil, favorites.ErrInvalidCursor
 	}
 	rank, err := parseCursorInt(cursor.SortValues, 0)
 	if err != nil {
@@ -349,27 +314,27 @@ func compoundCursorArguments(cursor *PageCursor) ([]any, error) {
 	return []any{1, rank, rank, value, value, title, title, cursor.ID}, nil
 }
 
-func favoriteItemsQuery(options ListOptions) (string, []any, error) {
+func favoriteItemsQuery(options favorites.ListOptions) (string, []any, error) {
 	switch options.Sort {
-	case SortFavoritedDesc:
+	case favorites.SortFavoritedDesc:
 		arguments, err := favoritedCursorArguments(options.Cursor)
 		return favoriteItemsFavoritedSQL, arguments, err
-	case SortRecentlyPlayed:
+	case favorites.SortRecentlyPlayed:
 		arguments, err := compoundCursorArguments(options.Cursor)
 		return favoriteItemsRecentlyPlayedSQL, arguments, err
-	case SortTitleAsc:
+	case favorites.SortTitleAsc:
 		arguments, err := titleCursorArguments(options.Cursor)
 		return favoriteItemsTitleSQL, arguments, err
-	case SortReleaseYearDesc:
+	case favorites.SortReleaseYearDesc:
 		arguments, err := compoundCursorArguments(options.Cursor)
 		return favoriteItemsReleaseYearSQL, arguments, err
 	default:
-		return "", nil, ErrInvalidFavoriteListSort
+		return "", nil, favorites.ErrInvalidFavoriteListSort
 	}
 }
 
-func scanFavoriteGame(rows *sql.Rows) (GameItem, error) {
-	var item GameItem
+func scanFavoriteGame(rows *sql.Rows) (favorites.GameItem, error) {
+	var item favorites.GameItem
 	var platformID, platformName, instanceID, instanceName, coreID, coreName string
 	var coverAssetID sql.NullString
 	var releaseYear, lastPlayed sql.NullInt64
@@ -378,12 +343,12 @@ func scanFavoriteGame(rows *sql.Rows) (GameItem, error) {
 		&coreID, &coreName, &coverAssetID, &releaseYear, &item.CreatedAtMS, &lastPlayed,
 		&item.Favorite.FavoritedAtMS,
 	); err != nil {
-		return GameItem{}, fmt.Errorf("favorites: scan game: %w", err)
+		return favorites.GameItem{}, fmt.Errorf("favorites: scan game: %w", err)
 	}
-	item.Platform = NamedResource{ID: platformID, Name: platformName}
+	item.Platform = favorites.NamedResource{ID: platformID, Name: platformName}
 	item.Availability = item.Status
-	item.PlatformInstance = NamedResource{ID: instanceID, Name: instanceName}
-	item.DefaultCore = NamedResource{ID: coreID, Name: coreName}
+	item.PlatformInstance = favorites.NamedResource{ID: instanceID, Name: instanceName}
+	item.DefaultCore = favorites.NamedResource{ID: coreID, Name: coreName}
 	if coverAssetID.Valid {
 		value := "/content/assets/" + coverAssetID.String
 		item.CoverURL = &value
@@ -404,8 +369,8 @@ func queryItems(
 	ctx context.Context,
 	transaction *sql.Tx,
 	profileID string,
-	options ListOptions,
-) ([]GameItem, error) {
+	options favorites.ListOptions,
+) ([]favorites.GameItem, error) {
 	query, cursorArguments, err := favoriteItemsQuery(options)
 	if err != nil {
 		return nil, err
@@ -430,7 +395,7 @@ func queryItems(
 		return nil, fmt.Errorf("favorites: query items: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	items := make([]GameItem, 0, options.Limit+1)
+	items := make([]favorites.GameItem, 0, options.Limit+1)
 	for rows.Next() {
 		item, err := scanFavoriteGame(rows)
 		if err != nil {
@@ -448,13 +413,13 @@ func populateMemberships(
 	ctx context.Context,
 	transaction *sql.Tx,
 	profileID string,
-	items []GameItem,
+	items []favorites.GameItem,
 ) error {
 	if len(items) == 0 {
 		return nil
 	}
 	gameIDs := make([]string, len(items))
-	byGame := make(map[string]*GameItem, len(items))
+	byGame := make(map[string]*favorites.GameItem, len(items))
 	for index := range items {
 		gameIDs[index] = items[index].GameID
 		byGame[items[index].GameID] = &items[index]
@@ -487,12 +452,12 @@ ORDER BY membership.game_id,folder.created_at_ms,folder.id`
 	return nil
 }
 
-func populateTags(ctx context.Context, transaction *sql.Tx, items []GameItem) error {
+func populateTags(ctx context.Context, transaction *sql.Tx, items []favorites.GameItem) error {
 	if len(items) == 0 {
 		return nil
 	}
 	gameIDs := make([]string, len(items))
-	byGame := make(map[string]*GameItem, len(items))
+	byGame := make(map[string]*favorites.GameItem, len(items))
 	for index := range items {
 		items[index].Tags = []tagging.Reference{}
 		gameIDs[index] = items[index].GameID
@@ -524,98 +489,94 @@ ORDER BY relation.game_id,tag.name_key,tag.id
 	return nil
 }
 
-func itemCursor(item GameItem, sortCode string) *PageCursor {
+func itemCursor(item favorites.GameItem, sortCode string) *favorites.PageCursor {
 	switch sortCode {
-	case SortRecentlyPlayed:
+	case favorites.SortRecentlyPlayed:
 		rank, last := int64(1), int64(-1)
 		if item.LastPlayedAtMS != nil {
 			rank, last = 0, *item.LastPlayedAtMS
 		}
-		return &PageCursor{
+		return &favorites.PageCursor{
 			SortValues: []string{strconv.FormatInt(rank, 10), strconv.FormatInt(last, 10), item.Title},
 			ID:         item.GameID,
 		}
-	case SortTitleAsc:
-		return &PageCursor{SortValues: []string{item.Title}, ID: item.GameID}
-	case SortReleaseYearDesc:
+	case favorites.SortTitleAsc:
+		return &favorites.PageCursor{SortValues: []string{item.Title}, ID: item.GameID}
+	case favorites.SortReleaseYearDesc:
 		rank, year := int64(1), int64(-1)
 		if item.ReleaseYear != nil {
 			rank, year = 0, *item.ReleaseYear
 		}
-		return &PageCursor{
+		return &favorites.PageCursor{
 			SortValues: []string{strconv.FormatInt(rank, 10), strconv.FormatInt(year, 10), item.Title},
 			ID:         item.GameID,
 		}
 	default:
-		return &PageCursor{
+		return &favorites.PageCursor{
 			SortValues: []string{strconv.FormatInt(item.Favorite.FavoritedAtMS, 10)},
 			ID:         item.GameID,
 		}
 	}
 }
 
-func (service *Service) List(
+func (service *Repository) List(
 	ctx context.Context,
-	principal Principal,
-	requested ListOptions,
-) (ListResult, error) {
-	options, err := validateListOptions(requested)
-	if err != nil {
-		return ListResult{}, err
-	}
+	profileID string,
+	options favorites.ListOptions,
+) (favorites.ListResult, error) {
 	transaction, err := service.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return ListResult{}, fmt.Errorf("favorites: begin read transaction: %w", err)
+		return favorites.ListResult{}, fmt.Errorf("favorites: begin read transaction: %w", err)
 	}
 	defer func() { _ = transaction.Rollback() }()
-	if options.Scope == ScopeFolder {
+	if options.Scope == favorites.ScopeFolder {
 		var found int
 		err := transaction.QueryRowContext(ctx, `
 SELECT 1 FROM favorite_folders WHERE profile_id=? AND id=?
-`, principal.ProfileID, options.FolderID).Scan(&found)
+`, profileID, options.FolderID).Scan(&found)
 		if errors.Is(err, sql.ErrNoRows) {
-			return ListResult{}, ErrFolderNotFound
+			return favorites.ListResult{}, favorites.ErrFolderNotFound
 		}
 		if err != nil {
-			return ListResult{}, fmt.Errorf("favorites: validate list folder: %w", err)
+			return favorites.ListResult{}, fmt.Errorf("favorites: validate list folder: %w", err)
 		}
 	}
-	summary, err := querySummary(ctx, transaction, principal.ProfileID)
+	summary, err := querySummary(ctx, transaction, profileID)
 	if err != nil {
-		return ListResult{}, err
+		return favorites.ListResult{}, err
 	}
-	folders, err := queryFolders(ctx, transaction, principal.ProfileID)
+	folders, err := queryFolders(ctx, transaction, profileID)
 	if err != nil {
-		return ListResult{}, err
+		return favorites.ListResult{}, err
 	}
-	platforms, err := queryPlatforms(ctx, transaction, principal.ProfileID, options.Scope, options.FolderID)
+	platforms, err := queryPlatforms(ctx, transaction, profileID, options.Scope, options.FolderID)
 	if err != nil {
-		return ListResult{}, err
+		return favorites.ListResult{}, err
 	}
-	total, err := queryTotal(ctx, transaction, principal.ProfileID, options)
+	total, err := queryTotal(ctx, transaction, profileID, options)
 	if err != nil {
-		return ListResult{}, err
+		return favorites.ListResult{}, err
 	}
-	items, err := queryItems(ctx, transaction, principal.ProfileID, options)
+	items, err := queryItems(ctx, transaction, profileID, options)
 	if err != nil {
-		return ListResult{}, err
+		return favorites.ListResult{}, err
 	}
-	var next *PageCursor
+	var next *favorites.PageCursor
 	if len(items) > options.Limit {
 		items = items[:options.Limit]
 		next = itemCursor(items[len(items)-1], options.Sort)
 	}
-	if err := populateMemberships(ctx, transaction, principal.ProfileID, items); err != nil {
-		return ListResult{}, err
+	if err := populateMemberships(ctx, transaction, profileID, items); err != nil {
+		return favorites.ListResult{}, err
 	}
 	if err := populateTags(ctx, transaction, items); err != nil {
-		return ListResult{}, err
+		return favorites.ListResult{}, err
 	}
 	if err := transaction.Commit(); err != nil {
-		return ListResult{}, fmt.Errorf("favorites: commit read transaction: %w", err)
+		return favorites.ListResult{}, fmt.Errorf("favorites: commit read transaction: %w", err)
 	}
-	return ListResult{
-		GeneratedAtMS: service.now().UnixMilli(), Summary: summary, Folders: folders,
+	return favorites.ListResult{
+		Summary: summary, Folders: folders,
 		Platforms: platforms, TotalCount: total, Items: items, NextCursor: next,
 	}, nil
 }

@@ -138,7 +138,7 @@ flowchart LR
 
 ### M9：收藏与收藏夹垂直切片
 
-范围：先同步正式契约和 OpenAPI；再实现 `internal/favorites`、owner-scoped API 与游戏投影；最后接通游戏库、详情、`/favorites`、批量整理和两秒撤销。Folder 名称、批量上限、幂等、cursor、ETag、可见性和两个 Profile 隔离均按正式专题闭合，不引入 Job、Blob 或运行时变化。
+范围：先同步正式契约和 OpenAPI；再实现 `internal/service/favorites`、`internal/persistence/favorites`、owner-scoped API 与游戏投影；最后接通游戏库、详情、`/favorites`、批量整理和两秒撤销。Folder 名称、批量上限、幂等、cursor、ETag、可见性和两个 Profile 隔离均按正式专题闭合，不引入 Job、Blob 或运行时变化。
 
 退出门禁：`ACC-FAV-001`–`004`、第 3 节 clean lineage 的 current-schema 测试、`make api-check`、`make ci` 与 `make web-e2e`。
 

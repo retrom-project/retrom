@@ -12,7 +12,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/favorites"
+	"retrom/internal/service/favorites"
 	"retrom/internal/tagging"
 )
 
