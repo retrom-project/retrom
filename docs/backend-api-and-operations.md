@@ -67,7 +67,7 @@ internal/service/saves/   存档授权、格式兼容、幂等和 GAME_SAVE 版�
 internal/persistence/saves/ 存档、Blob 登记、恢复绑定与幂等记录的原子读写
 internal/playtime/        PlaySession 和有效时长
 internal/blobstore/       CAS 写入、读取、引用与垃圾回收
-internal/service/accounts/ 登录、会话校验/续期、密码轮换与账户限流策略
+internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮换与账户限流策略
 internal/persistence/accounts/ 登录与 Session 事务、限流桶及原子多主体计数
 internal/service/metadatascrape/ 抓取调度、证据查询、候选规则与执行收口
 internal/persistence/metadatascrape/ 抓取证据、结果、任务租约与事务存储
@@ -385,6 +385,8 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 ## 9. 账户模式与安全边界
 
 无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，主机操作者再运行只读 `retrom setup-code` 取得证明并通过 `/setup` 创建首位管理员；该命令不取写锁、不修改数据库且不打印路径或其他状态。`retrom admin-reset --username <existing-admin>` 必须在服务停止并取得同一 data-root lock 后，从 `/dev/tty` 隐藏读取两次 release 合规密码；它只操作现有非 DELETED ADMIN，重新启用、撤销 session并写 SYSTEM 审计，密码不允许进入参数、环境或日志。
+
+初始化 Service 在一个读快照中判断实例状态、用户/Profile 数量和管理员不变量，并在写事务内重新检查首位管理员的创建资格。密码哈希与 Session 随机材料在写事务前准备；用户、Profile、凭据、实例状态、Session 和初始化审计一起提交。已初始化实例启动时，每个未删除的用户都必须具有可验证格式的凭据；已删除用户允许清除凭据。
 
 认证 Service 保留凭据读取、会话读取与续期写入的存储错误原因；存储故障不能转换为密码错误或匿名状态。续期事务重新检查用户状态、会话撤销、版本及到期时间，只有提交成功才返回延长后的有效期。登录时间更新与 Session 登记在同一事务中提交。密码轮换在哈希计算后重新检查会话撤销、用户 session version 和先前验证的密码摘要；密码、撤销、替代 Session、默认密码标记和审计必须一起提交，任何一步失败都回滚。
 

@@ -14,14 +14,9 @@ import (
 	accountpersistence "retrom/internal/persistence/accounts"
 	accountservice "retrom/internal/service/accounts"
 
-	"retrom/internal/dbexec"
-
-	"retrom/internal/persistence/recordstore"
-
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	retromruntime "retrom/internal/runtime"
 )
@@ -29,12 +24,11 @@ import (
 var (
 	ErrAuthentication       = accountservice.ErrAuthentication
 	ErrAuthenticationNeeded = accountservice.ErrAuthenticationNeeded
-	ErrInitialization       = errors.New("INITIALIZATION_REQUIRED")
-	ErrInitializationDone   = errors.New("INITIALIZATION_ALREADY_COMPLETED")
-	ErrInitializationProof  = errors.New("INITIALIZATION_PROOF_INVALID")
-	ErrInitializationState  = errors.New("INITIALIZATION_STATE_INVALID")
-	ErrTestCredential       = errors.New("TEST_DEFAULT_CREDENTIAL_ACTIVE")
-	errIdentityGeneration   = errors.New("generate account identity")
+	ErrInitialization       = accountservice.ErrInitialization
+	ErrInitializationDone   = accountservice.ErrInitializationDone
+	ErrInitializationProof  = accountservice.ErrInitializationProof
+	ErrInitializationState  = accountservice.ErrInitializationState
+	ErrTestCredential       = accountservice.ErrTestCredential
 	errSessionGeneration    = errors.New("generate session id")
 )
 
@@ -62,13 +56,7 @@ type Context struct {
 	TestDefaultAccountActive bool
 }
 
-type InitializeRequest struct {
-	SetupCode            string
-	Username             string
-	DisplayName          string
-	Password             string
-	PasswordConfirmation string
-}
+type InitializeRequest = accountservice.InitializeRequest
 
 func New(
 	ctx context.Context,
@@ -90,219 +78,37 @@ func New(
 	}, nil
 }
 
-func (service *Service) Start(ctx context.Context) error {
-	state, testDefault, err := service.instanceState(ctx)
-	if err != nil {
-		return err
-	}
-	if state == "PENDING" {
-		var users, profiles int
-		if err := service.database.QueryRowContext(ctx, `
-SELECT (SELECT count(*) FROM users),(SELECT count(*) FROM profiles)
-`).Scan(&users, &profiles); err != nil {
-			return fmt.Errorf("read initialization counts: %w", err)
-		}
-		if users != 0 || profiles != 0 {
-			return ErrInitializationState
-		}
-		if service.mode == config.ModeTest {
-			_, err = service.bootstrap(ctx, "test", "test", "test", "TEST_DEFAULT")
-			return err
-		}
-		return nil
-	}
-	if state != "COMPLETED" {
-		return ErrInitializationState
-	}
-	var admins, orphanProfiles int
-	if err := service.database.QueryRowContext(ctx, `
-SELECT
-  (SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'),
-  (SELECT count(*) FROM profiles profile
-   LEFT JOIN users user ON user.profile_id=profile.id
-   WHERE user.id IS NULL)
-`).Scan(&admins, &orphanProfiles); err != nil {
-		return fmt.Errorf("read completed initialization invariants: %w", err)
-	}
-	if admins == 0 || orphanProfiles != 0 {
-		return ErrInitializationState
-	}
-	if service.mode == config.ModeRelease && testDefault {
-		return ErrTestCredential
-	}
-	return service.validateCredentialStore(ctx)
+func (service *Service) initialization() *accountservice.InitializationService {
+	return accountservice.NewInitialization(
+		accountpersistence.NewInitialization(
+			service.database,
+		),
+		accountservice.InitializationOptions{
+			Mode:        service.mode,
+			Credentials: service.credentials,
+			Hasher:      service.hasher,
+			Blocklist:   service.blocklist,
+			Mint:        service.mintSession,
+			Now: func() time.Time {
+				return service.now()
+			},
+		},
+	)
 }
 
-func (service *Service) validateCredentialStore(ctx context.Context) error {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT password_scheme,password_hash FROM user_credentials ORDER BY user_id
-`)
-	if err != nil {
-		return fmt.Errorf("read credential store: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	for rows.Next() {
-		var scheme, encoded string
-		if err := rows.Scan(&scheme, &encoded); err != nil || scheme != "ARGON2ID_V1" || authn.ValidatePHC(encoded) != nil {
-			return authn.ErrCredential
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("scan credential store: %w", err)
+func (service *Service) Start(ctx context.Context) error {
+	if err := service.initialization().Start(ctx); err != nil {
+		return fmt.Errorf("start account service: %w", err)
 	}
 	return nil
 }
 
 func (service *Service) Initialize(ctx context.Context, request InitializeRequest) (Session, error) {
-	if service.mode != config.ModeRelease {
-		return Session{}, ErrInitializationDone
-	}
-	if !service.credentials.MatchesSetupCode(request.SetupCode) {
-		return Session{}, ErrInitializationProof
-	}
-	username, err := authn.NormalizeUsername(request.Username)
+	result, err := service.initialization().Initialize(ctx, request)
 	if err != nil {
-		return Session{}, fmt.Errorf("normalize initial username: %w", err)
+		return Session{}, fmt.Errorf("initialize account service: %w", err)
 	}
-	displayName, err := authn.NormalizeDisplayName(request.DisplayName)
-	if err != nil {
-		return Session{}, fmt.Errorf("normalize initial display name: %w", err)
-	}
-	password, err := authn.ValidatePassword(
-		request.Password, request.PasswordConfirmation, username, displayName, service.blocklist,
-	)
-	if err != nil {
-		return Session{}, fmt.Errorf("validate initial password: %w", err)
-	}
-	return service.bootstrap(ctx, username, displayName, password, "RELEASE_SETUP")
-}
-
-// Initialization invariants and atomic writes remain auditable in one transaction.
-func (service *Service) bootstrap(
-	ctx context.Context,
-	username, displayName, password, kind string,
-) (Session, error) {
-	input, err := service.prepareBootstrap(ctx, username, displayName, password)
-	if err != nil {
-		return Session{}, err
-	}
-	now := service.now().UTC().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return Session{}, fmt.Errorf("begin initialization: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	return persistBootstrap(ctx, transaction, input, kind, now)
-}
-
-type bootstrapInput struct {
-	username, displayName, encodedPassword string
-	session                                preparedSession
-	userID, profileID                      string
-}
-
-func (service *Service) prepareBootstrap(
-	ctx context.Context,
-	username, displayName, password string,
-) (bootstrapInput, error) {
-	encoded, err := service.hasher.Hash(ctx, password)
-	if err != nil {
-		return bootstrapInput{}, fmt.Errorf("hash initial password: %w", err)
-	}
-	prepared, err := service.prepareSession()
-	if err != nil {
-		return bootstrapInput{}, err
-	}
-	userID, profileID := newID(), newID()
-	if userID == "" || profileID == "" {
-		return bootstrapInput{}, errIdentityGeneration
-	}
-	return bootstrapInput{
-		username: username, displayName: displayName, encodedPassword: encoded,
-		session: prepared, userID: userID, profileID: profileID,
-	}, nil
-}
-
-func persistBootstrap(
-	ctx context.Context,
-	transaction *sql.Tx,
-	input bootstrapInput,
-	kind string,
-	now int64,
-) (Session, error) {
-	var state string
-	var users, profiles int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT state,(SELECT count(*) FROM users),(SELECT count(*) FROM profiles)
-FROM instance_state WHERE id=1
-`).Scan(&state, &users, &profiles); err != nil {
-		return Session{}, fmt.Errorf("read initialization state: %w", err)
-	}
-	if state != "PENDING" {
-		return Session{}, ErrInitializationDone
-	}
-	if users != 0 || profiles != 0 {
-		return Session{}, ErrInitializationState
-	}
-	if _, err := recordstore.CreateProfiles(ctx, transaction, `
-INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)
-`, input.profileID, input.displayName, now); err != nil {
-		return Session{}, fmt.Errorf("create profile: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,'ADMIN','ENABLED',?,?)
-`, input.userID, input.profileID, input.username, input.displayName, now, now); err != nil {
-		return Session{}, fmt.Errorf("create initial user: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO user_credentials(user_id,password_hash,password_scheme,password_changed_at_ms,created_at_ms)
-VALUES(?,?,'ARGON2ID_V1',?,?)
-`, input.userID, input.encodedPassword, now, now); err != nil {
-		return Session{}, fmt.Errorf("create initial credential: %w", err)
-	}
-	testDefault := 0
-	actorLabel := "release-setup"
-	if kind == "TEST_DEFAULT" {
-		testDefault = 1
-		actorLabel = "startup-test-bootstrap"
-	}
-	result, err := recordstore.UpdateInstanceState(ctx, transaction, recordstore.Update{
-		Set: `
-state='COMPLETED',bootstrap_kind=?,initial_admin_user_id=?,
-test_default_password_active=?,version=version+1,updated_at_ms=?,initialized_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=1 AND state='PENDING'`,
-		},
-		Values: []any{kind, input.userID, testDefault, now, now},
-	})
-	if err != nil {
-		return Session{}, fmt.Errorf("complete initialization: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return Session{}, ErrInitializationDone
-	}
-	if err := insertPreparedSession(ctx, transaction, input.session, input.userID, 1, now); err != nil {
-		return Session{}, err
-	}
-	auditID := newID()
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
-before_json,after_json,diff_json,request_id,created_at_ms)
-VALUES(?,'SYSTEM',NULL,?,'INSTANCE_INITIALIZED','USER',?,NULL,'{}','{}',NULL,?)
-`, auditID, actorLabel, input.userID, now); err != nil {
-		return Session{}, fmt.Errorf("audit initialization: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return Session{}, fmt.Errorf("commit initialization: %w", err)
-	}
-	return input.session.view(
-		User{UserID: input.userID, Username: input.username, DisplayName: input.displayName, Role: "ADMIN"},
-		input.profileID,
-		1,
-		now,
-	), nil
+	return result, nil
 }
 
 func (service *Service) mintSession() (accountservice.SessionMaterial, error) {
@@ -407,14 +213,11 @@ func (service *Service) Context(ctx context.Context, cookie string) (Context, er
 }
 
 func (service *Service) instanceState(ctx context.Context) (string, bool, error) {
-	var state string
-	var testDefault int
-	if err := service.database.QueryRowContext(ctx, `
-SELECT state,test_default_password_active FROM instance_state WHERE id=1
-`).Scan(&state, &testDefault); err != nil {
+	state, err := service.initialization().State(ctx)
+	if err != nil {
 		return "", false, fmt.Errorf("read instance state: %w", err)
 	}
-	return state, testDefault == 1, nil
+	return state.State, state.TestDefault, nil
 }
 
 type preparedSession struct {

@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	accountpersistence "retrom/internal/persistence/accounts"
+	accountservice "retrom/internal/service/accounts"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -21,19 +24,20 @@ func ReadSetupCode(
 	database *sql.DB,
 	credentials *retromruntime.Credentials,
 ) (string, error) {
-	var state string
-	var users, profiles int
-	err := database.QueryRowContext(ctx, `
-SELECT state,(SELECT count(*) FROM users),(SELECT count(*) FROM profiles)
-FROM instance_state WHERE id=1
-`).Scan(&state, &users, &profiles)
+	value, err := accountservice.NewInitialization(
+		accountpersistence.NewInitialization(
+			database,
+		),
+		accountservice.InitializationOptions{
+			Credentials: credentials,
+		},
+	).ReadSetupCode(
+		ctx,
+	)
 	if err != nil {
 		return "", fmt.Errorf("read setup-code state: %w", err)
 	}
-	if state != "PENDING" || users != 0 || profiles != 0 {
-		return "", ErrInitializationDone
-	}
-	return credentials.SetupCode(), nil
+	return value, nil
 }
 
 // Credential reset, revocations, re-enable, and audit are one transaction.
