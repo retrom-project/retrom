@@ -4,7 +4,7 @@ export type ImportListItem = {
   platformInstanceName: string;
   metadataProvider: string;
   contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" |
-    "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT";
+    "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "NXENGINE_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT";
   totalItemCount: number;
   reviewPendingItemCount: number;
   failedItemCount: number;
@@ -42,7 +42,7 @@ export type ImportDetail = {
   metadataProvider: string;
   targetPlatformInstance: { id: string; name: string };
   configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" |
-    "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT";
+    "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "NXENGINE_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT";
     tags?: Array<{ tagId: string; name: string }> };
   counts: {
     total: number;

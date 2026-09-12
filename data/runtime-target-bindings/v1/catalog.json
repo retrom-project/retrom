@@ -889,6 +889,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-nxengine",
+      "coreId": "nxengine",
+      "providerId": "retrom-runtime",
+      "targetId": "nxengine",
+      "platformIds": [
+        "cavestory"
+      ],
+      "acceptedContentKinds": [
+        "NXENGINE_PROJECT"
+      ],
+      "detectorProfile": "NXENGINE_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-onscripter-yuri",
       "coreId": "onscripter_yuri",
       "providerId": "retrom-runtime",
@@ -1179,6 +1193,12 @@
         "id": "c64",
         "name": "Commodore 64",
         "sortOrder": 270,
+        "enabled": true
+      },
+      {
+        "id": "cavestory",
+        "name": "Cave Story",
+        "sortOrder": 510,
         "enabled": true
       },
       {
@@ -1684,6 +1704,11 @@
         "enabled": true
       },
       {
+        "id": "nxengine",
+        "name": "NXEngine",
+        "enabled": true
+      },
+      {
         "id": "onscripter_yuri",
         "name": "ONScripter Yuri",
         "enabled": true
@@ -1854,6 +1879,7 @@
       "DOS_BUNDLE",
       "KIRIKIRI_PROJECT",
       "MULTI_DISC",
+      "NXENGINE_PROJECT",
       "ONS_PROJECT",
       "RPG_MAKER_PROJECT",
       "SCUMMVM_PROJECT",

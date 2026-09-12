@@ -44,6 +44,12 @@ func (service *Service) ProjectIndex(
 	if index, err := service.scummVMProjectIndex(ctx, launchID, capability); err == nil {
 		return index, nil
 	}
+	if index, err := service.productNXEngineProjectIndex(ctx, launchID, capability); err == nil {
+		return index, nil
+	}
+	if index, err := service.reviewPreviewNXEngineProjectIndex(ctx, launchID, capability); err == nil {
+		return index, nil
+	}
 	if index, err := service.productButterscotchProjectIndex(ctx, launchID, capability); err == nil {
 		return index, nil
 	}

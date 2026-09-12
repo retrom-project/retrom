@@ -38,12 +38,13 @@ FLASH_CASES = {"ACC-FLASH-001"}
 MSX_CASES = {"ACC-MSX-001"}
 PSP_CASES = {"ACC-PSP-001", "ACC-PSP-002"}
 PS2_CASES = {"ACC-PS2-001"}
+NXENGINE_CASES = {"ACC-NXENGINE-001"}
 OPENBOR_CASES = {"ACC-OPENBOR-001"}
 POKEMINI_CASES = {"ACC-POKEMINI-001"}
 PC98_CASES = {"ACC-PC98-001"}
 PC88_CASES = {"ACC-PC88-001"}
 STORAGE_CASES = {"ACC-SAVE-004"}
-PRODUCT_CASES = PSP_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
+PRODUCT_CASES = PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -496,6 +497,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-PSP-001": (900, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ppsspp_product.mjs"),
     "ACC-PSP-002": (900, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ppsspp_range_product.mjs"),
     "ACC-PS2-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs"),
+    "ACC-NXENGINE-001": (300, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/nxengine_product.mjs"),
     "ACC-OPENBOR-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/openbor_product.mjs"),
     "ACC-PICO-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs fake08"),
     "ACC-ONS-001": (
@@ -1011,6 +1013,8 @@ def execute_case(case_id: str) -> int:
                 product_filename = "pokemini-product.json"
             elif case_id in PC98_CASES:
                 product_filename = "pc98-product.json"
+            elif case_id in NXENGINE_CASES:
+                product_filename = "nxengine-product.json"
             elif case_id in OPENBOR_CASES:
                 product_filename = "openbor-product.json"
             elif case_id in PS2_CASES:
