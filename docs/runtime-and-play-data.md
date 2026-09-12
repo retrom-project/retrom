@@ -118,6 +118,8 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 游戏目录分页、profile 匹配和依赖快照判定由 `internal/service/netplay` 通过类型化端口编排；相应 SQL 和行映射位于 `internal/persistence/netplay`。受控 profile 解析与 canonical digest 位于无数据库依赖的 `internal/netplay/profile`。禁用的平台实例同时退出目录候选与按游戏 ID 的资格查询，不能继续用于选择游戏或启动新的联机会话。
 
+房间列表和详情通过同一 Service 查询入口装配权限；Repository 在一个读事务内加载房间、成员和会话。活动房间只包含本人仍占座的记录，退出后的房间继续按最近 24 小时终态窗口进入历史列表。
+
 ## 9. PlaySession 生命周期
 
 Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat 以连续序号报告上一时段的 running/visible/paused，服务端按接收时间计费；页面隐藏、暂停、失联、重放或跳号不能伪造时长。用户菜单退出、游戏自身退出和异常退出最终都幂等 finish Launch；卸载失败由 hard expiry 收口。

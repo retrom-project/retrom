@@ -23,17 +23,17 @@ const (
 )
 
 var (
-	ErrRoomNotFound    = errors.New("NETPLAY_ROOM_NOT_FOUND")
-	ErrSessionNotFound = errors.New("NETPLAY_SESSION_NOT_FOUND")
-	ErrForbidden       = errors.New("NETPLAY_FORBIDDEN")
-	ErrInvalidSeat     = errors.New("NETPLAY_INVALID_SEAT")
+	ErrRoomNotFound    = application.ErrRoomNotFound
+	ErrSessionNotFound = application.ErrSessionNotFound
+	ErrForbidden       = application.ErrForbidden
+	ErrInvalidSeat     = application.ErrInvalidSeat
 	ErrInvalidProfile  = application.ErrInvalidProfile
-	ErrSeatTaken       = errors.New("NETPLAY_SEAT_TAKEN")
-	ErrRoomNotReady    = errors.New("NETPLAY_ROOM_NOT_READY")
-	ErrRoomConflict    = errors.New("NETPLAY_ROOM_STATE_CONFLICT")
-	ErrProfileStale    = errors.New("NETPLAY_PROFILE_STALE")
-	ErrCapacity        = errors.New("NETPLAY_CAPACITY_REACHED")
-	ErrPrecondition    = errors.New("PRECONDITION_FAILED")
+	ErrSeatTaken       = application.ErrSeatTaken
+	ErrRoomNotReady    = application.ErrRoomNotReady
+	ErrRoomConflict    = application.ErrRoomConflict
+	ErrProfileStale    = application.ErrProfileStale
+	ErrCapacity        = application.ErrCapacity
+	ErrPrecondition    = application.ErrPrecondition
 	errUUIDUnavailable = errors.New("netplay: UUID unavailable")
 	errEventData       = errors.New("netplay: event data invalid")
 )

@@ -5,157 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
-	"time"
+
+	application "retrom/internal/service/netplay"
 
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
-
-	"retrom/internal/cleanup"
 )
-
-type RoomMember struct {
-	MemberID        string `json:"memberId"`
-	ProfileID       string `json:"-"`
-	PlayerNo        int    `json:"playerNo"`
-	Role            string `json:"role"`
-	DisplayName     string `json:"displayName"`
-	AvatarRef       any    `json:"avatarRef"`
-	Ready           bool   `json:"ready"`
-	ConnectionState string `json:"connectionState"`
-}
-
-type RoomGame struct {
-	GameID       string `json:"gameId"`
-	Title        string `json:"title"`
-	Status       string `json:"status"`
-	Availability string `json:"availability"`
-	PlatformName string `json:"platformName"`
-	ProfileID    string `json:"profileId"`
-	CoreName     string `json:"coreName"`
-	ProviderID   string `json:"providerId"`
-	TargetID     string `json:"targetId"`
-	MaxPlayers   int    `json:"maxPlayers"`
-}
-
-type SessionSummary struct {
-	SessionID string `json:"sessionId"`
-	SessionNo int    `json:"sessionNo"`
-	State     string `json:"state"`
-}
-
-type RoomPermissions struct {
-	Host      bool `json:"host"`
-	Member    bool `json:"member"`
-	CanSelect bool `json:"canSelectGame"`
-	CanJoin   bool `json:"canJoin"`
-	CanReady  bool `json:"canReady"`
-	CanStart  bool `json:"canStart"`
-	CanClose  bool `json:"canClose"`
-}
-
-type Room struct {
-	RoomID         string          `json:"roomId"`
-	State          string          `json:"state"`
-	Version        int64           `json:"version"`
-	Game           *RoomGame       `json:"game"`
-	Members        []RoomMember    `json:"members"`
-	CurrentSession *SessionSummary `json:"currentSession"`
-	Permissions    RoomPermissions `json:"permissions"`
-	SelfMemberID   *string         `json:"selfMemberId"`
-	ExpiresAtMS    int64           `json:"expiresAtMs"`
-	ServerNowMS    int64           `json:"serverNowMs"`
-	EndedAtMS      *int64          `json:"endedAtMs"`
-	EndReason      *string         `json:"endReason"`
-	UpdatedAtMS    int64           `json:"-"`
-}
-
-func (service *Service) ListRooms(
-	ctx context.Context,
-	profileID, view string,
-	afterUpdatedAtMS int64,
-	afterRoomID string,
-	limit int,
-) ([]Room, bool, error) {
-	if view == "" {
-		view = "active"
-	}
-	if (view != "active" && view != "recent") || limit < 1 || limit > 100 {
-		return nil, false, ErrRoomConflict
-	}
-	query, arguments := service.listRoomsQuery(profileID, view, afterUpdatedAtMS, afterRoomID, limit)
-	ids, err := service.queryRoomIDs(ctx, query, arguments, limit)
-	if err != nil {
-		return nil, false, err
-	}
-	hasMore := len(ids) > limit
-	if hasMore {
-		ids = ids[:limit]
-	}
-	result := make([]Room, 0, len(ids))
-	for _, roomID := range ids {
-		room, err := service.Room(ctx, roomID, profileID)
-		if err != nil {
-			return nil, false, err
-		}
-		result = append(result, room)
-	}
-	return result, hasMore, nil
-}
-
-func (service *Service) listRoomsQuery(
-	profileID, view string,
-	afterUpdatedAtMS int64,
-	afterRoomID string,
-	limit int,
-) (string, []any) {
-	terminalClause := "room.state NOT IN ('ENDED','EXPIRED')"
-	if view == "recent" {
-		terminalClause = "room.state IN ('ENDED','EXPIRED') AND room.ended_at_ms>=?"
-	}
-	query := `
-SELECT DISTINCT room.id
-FROM netplay_rooms room
-JOIN netplay_room_members member ON member.room_id=room.id
-WHERE member.profile_id=? AND ` + terminalClause
-	arguments := []any{profileID}
-	if view == "recent" {
-		arguments = append(arguments, service.clock.Now().Add(-24*time.Hour).UnixMilli())
-	}
-	if afterRoomID != "" {
-		query += ` AND (room.updated_at_ms < ? OR (room.updated_at_ms = ? AND room.id < ?))`
-		arguments = append(arguments, afterUpdatedAtMS, afterUpdatedAtMS, afterRoomID)
-	}
-	query += `
-ORDER BY room.updated_at_ms DESC,room.id DESC LIMIT ?
-`
-	arguments = append(arguments, limit+1)
-	return query, arguments
-}
-
-func (service *Service) queryRoomIDs(
-	ctx context.Context, query string, arguments []any, limit int,
-) ([]string, error) {
-	rows, err := service.database.QueryContext(ctx, query, arguments...)
-	if err != nil {
-		return nil, fmt.Errorf("netplay/list rooms: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	ids := make([]string, 0, limit+1)
-	for rows.Next() {
-		var roomID string
-		if err := rows.Scan(&roomID); err != nil {
-			return nil, fmt.Errorf("netplay/list rooms: %w", err)
-		}
-		ids = append(ids, roomID)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("netplay/list rooms: %w", err)
-	}
-	return ids, nil
-}
 
 func (service *Service) CreateRoom(ctx context.Context, profileID string) (Room, error) {
 	now := service.clock.Now().UnixMilli()
@@ -200,126 +57,6 @@ VALUES(?,?,?,'HOST',1,0,1,?,?)
 		return Room{}, fmt.Errorf("netplay/create room: %w", err)
 	}
 	return service.Room(ctx, roomID, profileID)
-}
-
-func (service *Service) Room(ctx context.Context, roomID, viewerProfileID string) (Room, error) {
-	var result Room
-	var gameID, variantID, profileID, digest, sessionID, reason sql.NullString
-	var maxPlayers, endedAt sql.NullInt64
-	err := service.database.QueryRowContext(ctx, `
-SELECT id,state,version,selected_game_id,selected_game_variant_id,netplay_profile_id,
-  profile_digest,max_players,current_session_id,expires_at_ms,ended_at_ms,end_reason,updated_at_ms
-FROM netplay_rooms WHERE id=?
-`, roomID).Scan(
-		&result.RoomID, &result.State, &result.Version, &gameID, &variantID, &profileID,
-		&digest, &maxPlayers, &sessionID, &result.ExpiresAtMS, &endedAt, &reason, &result.UpdatedAtMS,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Room{}, ErrRoomNotFound
-	}
-	if err != nil {
-		return Room{}, fmt.Errorf("netplay/get room: %w", err)
-	}
-	result.ServerNowMS = service.clock.Now().UnixMilli()
-	if endedAt.Valid {
-		result.EndedAtMS = &endedAt.Int64
-	}
-	if reason.Valid {
-		result.EndReason = &reason.String
-	}
-	if gameID.Valid {
-		var game RoomGame
-		game.GameID, game.ProfileID, game.MaxPlayers = gameID.String, profileID.String, int(maxPlayers.Int64)
-		if err := service.database.QueryRowContext(ctx, `
-SELECT game.title,game.status,platform.name,core.name,variant.provider_id,variant.target_id
-FROM games game
-JOIN platform_instances instance ON instance.id=game.platform_instance_id
-JOIN platforms platform ON platform.id=instance.platform_id
-JOIN game_variants variant ON variant.id=? AND variant.game_id=game.id
-JOIN cores core ON core.id=variant.core_id
-WHERE game.id=?
-`, variantID.String, gameID.String).Scan(
-			&game.Title, &game.Status, &game.PlatformName, &game.CoreName, &game.ProviderID, &game.TargetID,
-		); err != nil {
-			return Room{}, fmt.Errorf("netplay/get room game: %w", err)
-		}
-		game.Availability = game.Status
-		result.Game = &game
-	}
-	members, err := service.roomMembers(ctx, roomID, sessionID)
-	if err != nil {
-		return Room{}, err
-	}
-	result.Members = members
-	for _, member := range members {
-		if member.ProfileID == viewerProfileID {
-			value := member.MemberID
-			result.SelfMemberID = &value
-			result.Permissions.Member = true
-			result.Permissions.Host = member.Role == "HOST"
-			break
-		}
-	}
-	if sessionID.Valid {
-		var session SessionSummary
-		if err := service.database.QueryRowContext(ctx, `
-SELECT id,session_no,state FROM netplay_sessions WHERE id=?
-`, sessionID.String).Scan(&session.SessionID, &session.SessionNo, &session.State); err != nil {
-			return Room{}, fmt.Errorf("netplay/get room session: %w", err)
-		}
-		result.CurrentSession = &session
-	}
-	setRoomPermissions(&result)
-	return result, nil
-}
-
-func setRoomPermissions(room *Room) {
-	waiting := room.State == RoomStateWaiting
-	room.Permissions.CanSelect = room.Permissions.Host && (room.State == RoomStateDraft || waiting)
-	room.Permissions.CanJoin = waiting && !room.Permissions.Member
-	room.Permissions.CanReady = waiting && room.Permissions.Member
-	room.Permissions.CanStart = waiting && room.Permissions.Host && roomReady(room.Members)
-	room.Permissions.CanClose = room.Permissions.Host && room.State != "ENDED" && room.State != "EXPIRED"
-}
-
-func (service *Service) roomMembers(
-	ctx context.Context, roomID string, sessionID sql.NullString,
-) ([]RoomMember, error) {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT member.id,member.profile_id,member.player_no,member.role,profile.display_name,member.ready,
-  COALESCE(participant.state,'NOT_CONNECTED')
-FROM netplay_room_members member
-JOIN profiles profile ON profile.id=member.profile_id
-LEFT JOIN netplay_session_participants participant
-  ON participant.room_member_id=member.id AND participant.netplay_session_id=?
-WHERE member.room_id=? AND member.left_at_ms IS NULL
-ORDER BY member.player_no
-`, nullableString(sessionID), roomID)
-	if err != nil {
-		return nil, fmt.Errorf("netplay/list members: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make([]RoomMember, 0, 4)
-	for rows.Next() {
-		var member RoomMember
-		var ready int
-		if err := rows.Scan(
-			&member.MemberID, &member.ProfileID, &member.PlayerNo, &member.Role,
-			&member.DisplayName, &ready, &member.ConnectionState,
-		); err != nil {
-			return nil, fmt.Errorf("netplay/scan member: %w", err)
-		}
-		member.Ready = ready == 1
-		result = append(result, member)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("netplay/list members: %w", err)
-	}
-	return result, nil
-}
-
-func roomReady(members []RoomMember) bool {
-	return len(members) >= 2 && !slices.ContainsFunc(members, func(member RoomMember) bool { return !member.Ready })
 }
 
 func (service *Service) SelectGame(
@@ -736,3 +473,11 @@ SELECT state,version,selected_game_id,netplay_profile_id FROM netplay_rooms WHER
 	}
 	return nil
 }
+
+type (
+	RoomMember      = application.RoomMember
+	RoomGame        = application.RoomGame
+	SessionSummary  = application.SessionSummary
+	RoomPermissions = application.RoomPermissions
+	Room            = application.Room
+)

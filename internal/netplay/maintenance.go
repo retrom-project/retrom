@@ -267,10 +267,3 @@ func stringPointerFromNull(value sql.NullString) *string {
 	}
 	return &value.String
 }
-
-func nullableString(value sql.NullString) any {
-	if value.Valid {
-		return value.String
-	}
-	return nil
-}
