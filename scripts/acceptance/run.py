@@ -213,7 +213,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-GAME-002": (180, "go test -tags=integration ./internal/service/gamecontent ./internal/persistence/gamecontent -run '^TestReplacementPublishesAtomicallyAndFailureKeepsCurrent$' -count=1"),
     "ACC-GAME-001": (
         180,
-        "go test -tags=integration ./internal/httpapi ./internal/metadatascrape -run 'TestGameMetadataCurrentStateProjectionAndOptimisticEdit|TestImportPersistsHasheousEvidenceCandidateAndAsset' -count=1 -timeout=30s",
+        "go test -tags=integration ./internal/httpapi ./internal/persistence/metadatascrape -run 'TestGameMetadataCurrentStateProjectionAndOptimisticEdit|TestImportPersistsHasheousEvidenceCandidateAndAsset' -count=1 -timeout=30s",
     ),
     "ACC-GAME-003": (
         180,
@@ -226,20 +226,20 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-IMP-003": (
         180,
-        "go test -tags=integration ./internal/metadatascrape ./internal/libraryimport -run 'TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly|TestImportGroupsSingleArchiveMemberAndReportsEveryFile|TestSevenZipImportMaterializesSingleROMAndPreservesEvidence|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure' -count=1",
+        "go test -tags=integration ./internal/persistence/metadatascrape ./internal/libraryimport -run 'TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly|TestImportGroupsSingleArchiveMemberAndReportsEveryFile|TestSevenZipImportMaterializesSingleROMAndPreservesEvidence|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure' -count=1",
     ),
     "ACC-IMP-004": (
         180,
         "go test -tags=integration ./internal/libraryimport -run '^TestUploadImportReviewPublishPipeline$' -count=1",
     ),
-    "ACC-IMP-005": (180, "go test -tags=integration ./internal/hasheous ./internal/metadatascrape ./internal/service/metadatascrape ./internal/persistence/metadatascrape -count=1"),
+    "ACC-IMP-005": (180, "go test -tags=integration ./internal/hasheous ./internal/service/metadatascrape ./internal/persistence/metadatascrape -count=1"),
     "ACC-IMP-006": (
         180,
-        "go test -tags=integration ./internal/metadatascrape -run '^TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly$' -count=1",
+        "go test -tags=integration ./internal/persistence/metadatascrape -run '^TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly$' -count=1",
     ),
     "ACC-IMP-007": (
         180,
-        "go test -tags=integration ./internal/libraryimport ./internal/metadatascrape -run 'TestUploadImportReviewPublishPipeline|TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview|TestImportPersistsHasheousEvidenceCandidateAndAsset' -count=1",
+        "go test -tags=integration ./internal/libraryimport ./internal/persistence/metadatascrape -run 'TestUploadImportReviewPublishPipeline|TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview|TestImportPersistsHasheousEvidenceCandidateAndAsset' -count=1",
     ),
     "ACC-IMP-008": (
         180,

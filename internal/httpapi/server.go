@@ -38,7 +38,6 @@ import (
 	"retrom/internal/hasheous"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
-	"retrom/internal/metadatascrape"
 	"retrom/internal/netplay"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/pegasusimport"
@@ -56,6 +55,7 @@ import (
 	"retrom/internal/service/importdiscard"
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/jobs"
+	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/service/saves"
 	"retrom/internal/service/storageanalysis"
@@ -185,7 +185,7 @@ func New(
 	if err != nil {
 		panic(err)
 	}
-	scraper := metadatascrape.New(database, blobs, hasheous.New(nil, nil, now), now)
+	scraper := composition.NewMetadata(database, blobs, hasheous.New(nil, nil, now), now)
 	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs).
 		WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate).
 		WithPublicOrigin(config.PublicOrigin.String())

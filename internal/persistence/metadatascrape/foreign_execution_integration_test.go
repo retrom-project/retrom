@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/metadatascrape"
+	"retrom/internal/service/metadatascrape"
 )
 
 func assertForeignMetadataExecutionIsUntouched(t *testing.T, database *sql.DB, scraper *metadatascrape.Service, runID, jobID string) {

@@ -21,8 +21,8 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/metadatascrape"
 	"retrom/internal/scummvm"
+	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
 )
 

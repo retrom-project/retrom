@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	metadatapersistence "retrom/internal/persistence/metadatascrape"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
 	"retrom/internal/persistence/recordstore"
@@ -92,7 +94,7 @@ func (run *creationRun) scheduleMetadata(record *groupRecord) error {
 		return nil
 	}
 	scheduled, err := run.service.scraper.ScheduleImport(
-		run.ctx, run.transaction, record.itemID, run.plan.request.MetadataProvider,
+		run.ctx, metadatapersistence.BindSchedule(run.transaction), record.itemID, run.plan.request.MetadataProvider,
 	)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)

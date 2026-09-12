@@ -25,6 +25,10 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/composition"
+
+	metadatapersistence "retrom/internal/persistence/metadatascrape"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -38,7 +42,6 @@ import (
 	"retrom/internal/hasheous"
 	"retrom/internal/legacychecksum"
 	"retrom/internal/libraryimport"
-	"retrom/internal/metadatascrape"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -62,7 +65,7 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
@@ -125,7 +128,7 @@ WHERE id=?
 	resolver := resolverFunc(func(context.Context, string) ([]net.IPAddr, error) {
 		return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
 	})
-	scraper := metadatascrape.New(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
+	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
 	importer := libraryimport.New(database.SQL, time.Now, scraper).WithBlobStore(blobs)
 	created, err := importer.Create(
 		ctx,
@@ -453,7 +456,7 @@ WHERE id=?
 `, failureImport.ImportJobID); err != nil {
 		t.Fatal(err)
 	}
-	failureScrape, err := scraper.ScheduleImport(ctx, failureTransaction, failureItemID, "HASHEOUS")
+	failureScrape, err := scraper.ScheduleImport(ctx, metadatapersistence.BindSchedule(failureTransaction), failureItemID, "HASHEOUS")
 	testassert.False(t, err != nil, err)
 	if _, err := failureTransaction.ExecContext(ctx, `
 UPDATE jobs
@@ -518,7 +521,7 @@ func TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
@@ -695,7 +698,7 @@ WHERE id=?
 	resolver := resolverFunc(func(context.Context, string) ([]net.IPAddr, error) {
 		return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
 	})
-	scraper := metadatascrape.New(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
+	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
 	importer := libraryimport.New(database.SQL, time.Now, scraper).WithBlobStore(blobs)
 	created, err := importer.Create(
 		ctx,

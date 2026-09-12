@@ -19,7 +19,7 @@ import (
 
 	"retrom/internal/contentcapability"
 	"retrom/internal/corevalidation"
-	"retrom/internal/metadatascrape"
+	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
 )
 
