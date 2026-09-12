@@ -14,12 +14,14 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/firmwaremanifest"
 	"retrom/internal/legacychecksum"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestStaticArchiveUploadValidatesMembersAndSupportsInspection(t *testing.T) {
@@ -57,7 +59,7 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 			if err != nil {
 				t.Fatal(err)
 			}
-			upload := uploads.New(database.SQL, blobs, dir, time.Now)
+			upload := uploads.New(uploadpersistence.New(database.SQL), blobs, dir, time.Now)
 			var archive bytes.Buffer
 			writer := zip.NewWriter(&archive)
 			entry, err := writer.Create(test.memberName)

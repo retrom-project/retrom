@@ -25,9 +25,9 @@ import (
 
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 type multiDiscHTTPFile struct {

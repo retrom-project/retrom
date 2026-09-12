@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -31,9 +33,9 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
@@ -52,7 +54,7 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	rpg2000 := rpgMakerFixtureFiles(t, filepath.Join(repositoryRoot, "testdata/public-roms/rpgmaker-smoke/rpg2000"))
 	initialUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2000)
 	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
@@ -284,7 +286,7 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.gba", []byte("original"))
 	gbaID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 	createdImport, err := libraryimport.New(database.SQL, time.Now).
@@ -437,7 +439,7 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	installSaturnBIOS(t, ctx, database.SQL, blobs)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.chd", fakeReplacementCHD("original"))
 	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
 	saturnID := testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause")

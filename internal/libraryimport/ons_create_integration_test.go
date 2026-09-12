@@ -14,14 +14,16 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestCreateONSArchiveReachesTrialRequiredReview(t *testing.T) {
@@ -46,7 +48,7 @@ func TestCreateONSArchiveReachesTrialRequiredReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	archive := onsProjectArchive(t)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{

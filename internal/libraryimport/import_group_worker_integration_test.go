@@ -15,15 +15,17 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/service/uploads"
 	"retrom/internal/store"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testing.T) {
@@ -315,7 +317,7 @@ func completeProjectUpload(
 	archive []byte,
 ) string {
 	t.Helper()
-	uploadService := uploads.New(database, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		Purpose: purpose, SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{

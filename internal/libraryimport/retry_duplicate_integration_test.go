@@ -17,15 +17,17 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestRetryAndCancelKeepImportItemAggregatesInSync(t *testing.T) {
@@ -172,7 +174,7 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploader := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	contents := []byte("duplicate-content-identity-fixture")
 	platformInstanceID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
@@ -293,7 +295,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 		"wrong-platform.iso": []byte("raw-psp-content"),
 		".DS_Store":          []byte("sidecar"),
 	}
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	declarations := make([]uploads.FileDeclaration, 0, len(files))
 	paths := make([]string, 0, len(files))
 	for path := range files {

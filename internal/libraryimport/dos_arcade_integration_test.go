@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -28,9 +30,9 @@ import (
 	"retrom/internal/importing"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testing.T) {
@@ -244,7 +246,7 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 		biosMetadata.SHA256, installationStatus, now, now); err != nil {
 		t.Fatal(err)
 	}
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{

@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -26,8 +28,8 @@ import (
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/scummvm"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 const scummVMActor = "01980000-0000-7000-8000-000000009975"
@@ -116,7 +118,7 @@ func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store
 		t.Fatal(err)
 	}
 	contents := body.Bytes()
-	service := uploads.New(database, blobs, dir, time.Now)
+	service := uploads.New(uploadpersistence.New(database), blobs, dir, time.Now)
 	upload, err := service.Create(ctx, uploads.CreateRequest{Purpose: "PROJECT", SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "game", RelativePath: "scummvm.zip", SizeBytes: int64(len(contents))}}})
 	if err != nil {
 		t.Fatal(err)

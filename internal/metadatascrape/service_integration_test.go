@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -37,9 +39,9 @@ import (
 	"retrom/internal/legacychecksum"
 	"retrom/internal/libraryimport"
 	"retrom/internal/metadatascrape"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 type doerFunc func(*http.Request) (*http.Response, error)
@@ -68,7 +70,7 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	contents := []byte("deterministic metadata fixture")
 	legacyMD5, legacySHA1 := legacychecksum.Sum(contents)
 	upload, err := uploadService.Create(
@@ -634,7 +636,7 @@ status) VALUES(?,
 			t.Fatal(err)
 		}
 	}
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
 		ctx,
 		uploads.CreateRequest{

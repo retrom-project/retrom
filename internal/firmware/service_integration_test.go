@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -31,9 +33,9 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/legacychecksum"
 	"retrom/internal/payloadrelease"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
@@ -53,7 +55,7 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	contents := []byte("retrom-invalid-bios\n")
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
 		ctx,
 		uploads.CreateRequest{
@@ -425,7 +427,7 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "bios", RelativePath: "stvbios.zip", SizeBytes: int64(archive.Len())}}})
 	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(archive.Bytes())

@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -33,9 +35,9 @@ import (
 	"retrom/internal/importing"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/service/tagging"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestMain(m *testing.M) {
@@ -69,7 +71,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
@@ -188,7 +190,7 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 	defaultTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "待通关")
 	testassert.False(t, err != nil, err)
 	blobs, _ := blobstore.Open(dataDir)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	contents := []byte("deterministic gba fixture")
 	upload, err := uploadService.Create(
 		ctx,

@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	isolationpersistence "retrom/internal/persistence/isolation"
 
 	jobpersistence "retrom/internal/persistence/jobs"
@@ -50,7 +52,7 @@ import (
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/service/storageanalysis"
 	"retrom/internal/service/tagging"
-	"retrom/internal/uploads"
+	"retrom/internal/service/uploads"
 )
 
 var (
@@ -217,7 +219,7 @@ func New(
 		authenticator:           authenticator,
 		accounts:                accountService,
 		cursors:                 cursor.New(credentials.CursorKey(), now),
-		uploads:                 uploads.New(database, blobs, config.DataDir, now),
+		uploads:                 uploads.New(uploadpersistence.New(database), blobs, config.DataDir, now),
 		importer:                importer,
 		launcher:                launcher,
 		jobService:              jobs.New(jobpersistence.New(database), now),

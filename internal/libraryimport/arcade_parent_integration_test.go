@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -26,9 +28,9 @@ import (
 	"retrom/internal/launch"
 	"retrom/internal/legacychecksum"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t *testing.T) {
@@ -69,7 +71,7 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
@@ -128,7 +130,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	childZIP := arcadeZIP(t, "a.bin", []byte("child"))
 	parentZIP := arcadeZIP(t, "b.bin", []byte("parent"))
 	rootZIP := arcadeZIPEntries(t, map[string][]byte{

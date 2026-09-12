@@ -22,8 +22,8 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/libraryimport"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
-	"retrom/internal/uploads"
 )
 
 func TestRPGMakerReviewDetailUsesDetectedCoreBehindVirtualPlatform(t *testing.T) {

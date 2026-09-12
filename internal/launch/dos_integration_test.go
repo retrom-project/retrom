@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -27,9 +29,9 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
@@ -56,7 +58,7 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 		{ClientFileID: "wad", RelativePath: "DOOM/DATA.WAD", SizeBytes: 3},
 		{ClientFileID: "unsafe", RelativePath: "DOOM/SETUP%.BAT", SizeBytes: 3},
 	}
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "DIRECTORY", Files: files})
 	testassert.False(t, err != nil, err)
 	for index, body := range [][]byte{[]byte("exe"), []byte("wad"), []byte("bat")} {

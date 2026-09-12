@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"retrom/internal/uploads"
+	"retrom/internal/service/uploads"
 )
 
 func (server *Server) createUpload(writer http.ResponseWriter, request *http.Request) {
@@ -27,7 +27,7 @@ func (server *Server) createUpload(writer http.ResponseWriter, request *http.Req
 
 func (server *Server) getUpload(writer http.ResponseWriter, request *http.Request) {
 	session, err := server.uploads.Get(request.Context(), request.PathValue("uploadId"))
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, uploads.ErrNotFound) {
 		server.notFound(writer, request)
 		return
 	}

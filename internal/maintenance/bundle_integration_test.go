@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -32,9 +34,9 @@ import (
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/tagging"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 const backupGameID = "01980000-0000-7000-8000-00000000f501"
@@ -180,7 +182,7 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
 		ctx,
 		uploads.CreateRequest{
@@ -302,12 +304,10 @@ VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCO
 	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := digestRegular(filepath.Join(restored, "tmp", "uploads", upload.ID, upload.Files[0].ID, "0")); err != nil {
-		t.Fatal(err)
-	}
 	restoredDatabase, err := openDatabase(ctx, filepath.Join(restored, "retrom.db"))
 	testassert.False(t, err != nil, err)
 	defer restoredDatabase.Close()
+	assertRestoredUploadPart(t, restoredDatabase, restored, upload.Files[0].ID)
 	restoredFavoriteHash, restoredFavoriteRows := favoriteBackupSnapshot(t, restoredDatabase)
 	testassert.Falsef(t, testassert.Any(func() bool { return restoredFavoriteRows != favoriteRows }, func() bool { return restoredFavoriteHash != favoriteHash }), "favorite backup snapshot changed: before=%d/%s after=%d/%s", favoriteRows, favoriteHash, restoredFavoriteRows, restoredFavoriteHash)
 	restoredTagHash, restoredTagRows := tagBackupSnapshot(t, restoredDatabase)
@@ -379,5 +379,16 @@ SELECT
 	}
 	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, filepath.Join(root, "obsolete-restored")); !errors.Is(err, ErrInvalidBundle) {
 		t.Fatalf("obsolete backup manifest error = %v", err)
+	}
+}
+
+func assertRestoredUploadPart(t *testing.T, database *sql.DB, root, fileID string) {
+	t.Helper()
+	var key string
+	if err := database.QueryRowContext(t.Context(), "SELECT storage_key FROM upload_parts WHERE upload_file_id=? AND part_no=0", fileID).Scan(&key); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := digestRegular(filepath.Join(root, "tmp", "uploads", filepath.FromSlash(key))); err != nil {
+		t.Fatal(err)
 	}
 }

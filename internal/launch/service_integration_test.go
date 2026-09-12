@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -29,9 +31,9 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
@@ -53,7 +55,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	}
 	blobs, _ := blobstore.Open(dataDir)
 	contents := []byte("launchable-gba")
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
 		ctx,
 		uploads.CreateRequest{

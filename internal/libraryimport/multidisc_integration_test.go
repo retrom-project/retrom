@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -33,10 +35,10 @@ import (
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
+	"retrom/internal/service/uploads"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 type multiDiscUploadFile struct {
@@ -60,7 +62,7 @@ func completeMultiDiscUpload(
 			ClientFileID: fmt.Sprintf("file-%d", index), RelativePath: file.path, SizeBytes: int64(len(file.contents)),
 		})
 	}
-	service := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	service := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := service.Create(ctx, uploads.CreateRequest{SourceType: sourceType, Files: declarations})
 	testassert.False(t, err != nil, err)
 	for index, file := range files {
