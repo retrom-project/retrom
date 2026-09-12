@@ -10,12 +10,13 @@ import {fantasyClient, previewCart, approveCart, launchCart, gamepad} from "./fa
 import {singleFile, reviewForImport} from "./rpgmaker_security_upload.mjs";
 import {waitForPreviewReady, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
 import {observeFantasyAudio, fantasyAudioEvidence} from "./fantasy_fixture.mjs";
+import {observeNeoCDRanges} from "./neocd_range_evidence.mjs";
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/neocd-storage");
 mkdirSync(directory, {recursive: true});
 const evidence = {caseId: "ACC-NEOCD-001", status: "FAIL", stages: [], errors: [], runtimes: [], diskRequests: 0, biosWarnings: []};
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
-let browser, proxy;
+let browser, proxy, ranges, discUrl, discSize;
 const requests = [], consoleMessages = [];
 async function prepare(client) {
   const file = join(directory, "product-input.json");
@@ -55,8 +56,9 @@ async function prepare(client) {
   return progress;
 }
 async function open(launch) {
-  const requestStart = requests.length;
+  const requestStart = requests.length, started = Date.now();
   const page = await browser.contexts()[0].newPage();
+  page.__retromFatalError = new Promise(resolve => page.once("pageerror", resolve));
   page.on("pageerror", error => evidence.errors.push(error.message.slice(0, 200)));
   page.on("console", message => {
     if (consoleMessages.length < 1000) {consoleMessages.push(`${message.type()}: ${message.text()}`);}
@@ -81,7 +83,11 @@ async function open(launch) {
   assert.equal(controls[8].value2, "BUTTON_2", "NEOCD_SECONDARY_BUTTON_MAPPING");
   const config = await page.evaluate(async id => (await fetch(`/runtime/launches/${id}/config`)).json(), launch.launchId ?? launch.previewId);
   assert.equal(config.runtime.targetId, "neocd");
-  const disk = config.resources.find(resource => resource.kind === "ROM_BLOB");
+  const disk = config.resources.find(resource => resource.kind === "SEEKABLE_BLOB");
+  assert.ok(disk?.rangeRequired);
+  discUrl = new URL(disk.url, base).href; discSize = disk.sizeBytes;
+  const initial = await ranges.snapshot(discUrl);
+  (evidence.startups ??= []).push({...initial, readyMs: Date.now() - started});
   assert.equal(disk.sha256, hash(readFileSync(env.RETROM_NEOCD_CHD)));
   evidence.diskRequests += requests.slice(requestStart).filter(url => url === new URL(disk.url, base).href).length;
   evidence.runtimes.push({providerVersion: config.runtime.providerVersion, bundleSha256: config.runtime.bundleSha256,
@@ -128,6 +134,7 @@ try {
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   context.on("request", request => requests.push(request.url()));
+  ranges = observeNeoCDRanges(context);
   context.setDefaultTimeout(30000); context.setDefaultNavigationTimeout(120000); await installVirtualStandardGamepad(context); await observeFantasyAudio(context);
   const client = await fantasyClient(context, base), progress = await prepare(client);
   evidence.gameId = progress.gameId; evidence.gameSha256 = progress.digest;
@@ -137,6 +144,12 @@ try {
     for (let i = 0; i < 4; i++) {await gamepad(first.page, 9, 200); await first.page.waitForTimeout(1200);}
     for (let i = 0; i < 6; i++) {await gamepad(first.page, 0, 200); await first.page.waitForTimeout(2000);}
     await first.page.waitForTimeout(5000);
+    const gameplayWaitMs = Number(env.RETROM_NEOCD_GAMEPLAY_WAIT_MS ?? 0);
+    assert.ok(Number.isFinite(gameplayWaitMs) && gameplayWaitMs >= 0 && gameplayWaitMs <= 120000);
+    if (gameplayWaitMs) {
+      await gamepad(first.page, 0, 200);
+      await first.page.waitForTimeout(gameplayWaitMs);
+    }
   }
   await first.canvas.screenshot({path: join(directory, "before-direction.png")});
   await gamepad(first.page, 15, 250); await first.page.waitForTimeout(500);
@@ -164,7 +177,9 @@ try {
   assert.equal(fresh.config.restore, null); await fresh.canvas.screenshot({path: join(directory, "fresh.png")}); await fresh.page.close();
   evidence.checkpoint = {storedBytes: bytes.length, rawBytes: raw.length, rawSha256: hash(raw), storedSha256: hash(bytes)};
   evidence.launches = {original: original.launchId, restored: restored.launchId};
-  assert.equal(evidence.diskRequests, 1, "NEOCD_DISC_CACHE_MISS");
+  evidence.range = await ranges.verify(discUrl, discSize);
+  evidence.diskRequests = requests.filter(url => url === discUrl).length;
+  assert.equal(evidence.diskRequests, evidence.range.requests, "NEOCD_FULL_DISC_REQUEST");
   assert.deepEqual(evidence.errors, []); evidence.status = "AWAITING_VISUAL_REVIEW";
 } catch (error) {evidence.error = error.message.slice(0, 500); process.exitCode = 1;}
 finally {
