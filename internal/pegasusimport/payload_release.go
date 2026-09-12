@@ -6,19 +6,12 @@ import (
 	"fmt"
 
 	"retrom/internal/payloadrelease"
+	repository "retrom/internal/persistence/pegasusimport"
 )
 
-func scheduleTerminalItems(ctx context.Context, transaction *sql.Tx, importID string, now int64) error {
-	ids, err := payloadrelease.CollectScopeIDs(ctx, transaction, `
-SELECT id FROM pegasus_import_items WHERE import_id=? AND payload_state='RETAINED' ORDER BY id
-`, importID)
-	if err != nil {
-		return fmt.Errorf("pegasusimport/list terminal payloads: %w", err)
-	}
-	for _, id := range ids {
-		if _, err := payloadrelease.ScheduleTerminalPegasusItem(ctx, transaction, id, now); err != nil {
-			return fmt.Errorf("pegasusimport/schedule terminal payload: %w", err)
-		}
+func scheduleTerminalItems(ctx context.Context, transaction *sql.Tx, id string, now int64) error {
+	if err := repository.ScheduleTerminalItems(ctx, transaction, id, now); err != nil {
+		return fmt.Errorf("schedule terminal Pegasus payloads: %w", err)
 	}
 	return nil
 }

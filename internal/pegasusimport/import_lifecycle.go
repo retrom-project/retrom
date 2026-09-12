@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"retrom/internal/authn"
 	repository "retrom/internal/persistence/pegasusimport"
@@ -98,7 +97,7 @@ func (service *Service) StartImport(ctx context.Context, importID string, expect
 		return Summary{}, err
 	}
 	if err := service.queueImport(ctx, summary, root, expectedVersion); err != nil {
-		return Summary{}, err
+		return Summary{}, fmt.Errorf("retry Pegasus import: %w", err)
 	}
 	service.signal()
 	return service.Get(ctx, importID)
@@ -266,121 +265,16 @@ VALUES(?,1,?,?,?)`, jobID, string(encoded), hex.EncodeToString(digest[:]), now);
 
 func (service *Service) Cancel(
 	ctx context.Context,
-	importID string,
+	id string,
 	version int64,
-	reason, userID string,
+	reason, actorID string,
 ) (Summary, bool, error) {
-	reason = strings.TrimSpace(reason)
-	if reason == "" || len([]rune(reason)) > 500 {
-		return Summary{}, false, ErrNotCancellable
-	}
-	transaction, err := service.database.BeginTx(ctx, nil)
+	control := application.NewWorkflowControl(repository.NewWorkflowControl(service.database), service.now)
+	result, pending, err := control.Cancel(ctx, id, version, reason, actorID)
 	if err != nil {
-		return Summary{}, false, fmt.Errorf("pegasusimport/cancel transaction: %w", err)
+		return Summary{}, false, fmt.Errorf("cancel Pegasus import: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	var state string
-	var actual int64
-	var jobID sql.NullString
-	if err := transaction.QueryRowContext(
-		ctx, `SELECT state,version,import_job_id FROM pegasus_imports WHERE id=?`, importID,
-	).Scan(&state, &actual, &jobID); err != nil ||
-		actual != version ||
-		!jobID.Valid ||
-		state != "QUEUED" && state != "RUNNING" {
-		return Summary{}, false, ErrNotCancellable
-	}
-	now := service.now().UnixMilli()
-	pending := state == "RUNNING"
-	if err := persistCancellation(ctx, transaction, cancellation{
-		ImportID: importID,
-		JobID:    jobID.String,
-		Reason:   reason,
-		UserID:   userID,
-		Now:      now,
-		Pending:  pending,
-	}); err != nil {
-		return Summary{}, false, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Summary{}, false, fmt.Errorf("pegasusimport/commit cancel: %w", err)
-	}
-	result, err := service.Get(ctx, importID)
-	return result, pending, err
-}
-
-type cancellation struct {
-	ImportID string
-	JobID    string
-	Reason   string
-	UserID   string
-	Now      int64
-	Pending  bool
-}
-
-func persistCancellation(ctx context.Context, transaction *sql.Tx, value cancellation) error {
-	newState, jobState := "CANCELLED", "CANCELLED"
-	var completed any = value.Now
-	if value.Pending {
-		newState, jobState, completed = "CANCEL_REQUESTED", "CANCEL_REQUESTED", nil
-	} else if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
-		Set: `
-execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `import_id=? AND execution_state='PENDING'`,
-			Args:  []any{value.ImportID},
-		},
-		Values: []any{value.Now, value.Now},
-	}); err != nil {
-		return fmt.Errorf("pegasusimport/cancel pending items: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE jobs
-SET state=?,cancel_requested_at_ms=?,cancel_reason=?,finished_at_ms=?,
-version=version+1,updated_at_ms=?
-WHERE id=?`, jobState, value.Now, value.Reason, completed, value.Now, value.JobID); err != nil {
-		return fmt.Errorf("pegasusimport/cancel job: %w", err)
-	}
-	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
-		Set: `
-state=?,cancel_reason=?,
-cancelled_item_count=(
-  SELECT count(*)
-  FROM pegasus_import_items
-  WHERE import_id=? AND execution_state='CANCELLED'
-),
-completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{value.ImportID},
-		},
-		Values: []any{newState, value.Reason, value.ImportID, completed, value.Now},
-	}); err != nil {
-		return fmt.Errorf("pegasusimport/cancel import: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'CANCEL_REQUESTED','{"schemaVersion":1}',?)`,
-		value.JobID, value.ImportID, value.Now); err != nil {
-		return fmt.Errorf("pegasusimport/create cancel event: %w", err)
-	}
-	auditID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO audit_events(
-id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
-before_json,after_json,diff_json,request_id,created_at_ms
-) VALUES(
-?,'USER',?,NULL,'PEGASUS_IMPORT_CANCEL_REQUESTED','PEGASUS_IMPORT',
-?,'{}','{}',NULL,NULL,?
-)`, auditID.String(), value.UserID, value.ImportID, value.Now); err != nil {
-		return fmt.Errorf("pegasusimport/create cancel audit: %w", err)
-	}
-	if err := scheduleTerminalItems(ctx, transaction, value.ImportID, value.Now); err != nil {
-		return err
-	}
-	return nil
+	return result, pending, nil
 }
 
 func (service *Service) Delete(ctx context.Context, id string, version int64) error {
@@ -403,92 +297,12 @@ func (service *Service) ExpirePlans(ctx context.Context) error {
 	return nil
 }
 
-func (service *Service) Retry(ctx context.Context, importID string, version int64, userID string) (Summary, error) {
-	_ = userID
-	summary, err := service.Get(ctx, importID)
-	if err != nil || summary.Version != version || !summary.Retryable || summary.ImportJobID == nil ||
-		summary.State != "FAILED" && summary.State != "PARTIAL_FAILURE" {
-		return Summary{}, ErrNotRetryable
-	}
-	transaction, err := service.database.BeginTx(ctx, nil)
+func (service *Service) Retry(ctx context.Context, id string, version int64, actorID string) (Summary, error) {
+	control := application.NewWorkflowControl(repository.NewWorkflowControl(service.database), service.now)
+	result, err := control.Retry(ctx, id, version, actorID)
 	if err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/retry transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	var execution int64
-	if err := transaction.QueryRowContext(
-		ctx, `SELECT execution_no FROM jobs WHERE id=?`, *summary.ImportJobID,
-	).Scan(&execution); err != nil {
-		return Summary{}, ErrNotRetryable
-	}
-	execution++
-	now := service.now().UnixMilli()
-	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
-		Set: `
-execution_state='PENDING',error_code=NULL,error_details_json=NULL,retryable=0,
-completed_at_ms=NULL,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-import_id=?
-AND retryable=1
-AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
-`,
-			Args: []any{importID},
-		},
-		Values: []any{now},
-	}); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/reset retryable items: %w", err)
-	}
-	inputID, _ := uuid.NewV7()
-	input := map[string]any{
-		"schemaVersion": 1,
-		"kind":          "SERVER_PEGASUS_IMPORT",
-		"scope":         map[string]any{"type": "PEGASUS_IMPORT", "id": importID},
-		"executionId":   inputID.String(),
-		"inputs":        map[string]any{"retry": true, "version": version},
-	}
-	encoded, _ := json.Marshal(input)
-	digest := sha256.Sum256(encoded)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES(?,?,?,?,?)`, *summary.ImportJobID, execution, string(encoded), hex.EncodeToString(digest[:]), now); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/create retry input: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE jobs
-SET state='QUEUED',execution_no=?,payload_json=json_object('inputExecutionNo',?),
-attempt_count=0,available_at_ms=?,execution_started_at_ms=NULL,
-execution_deadline_at_ms=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL,
-finished_at_ms=NULL,worker_id=NULL,error_code=NULL,error_retryable=NULL,
-cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
-WHERE id=?`, execution, execution, now, now, *summary.ImportJobID); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/queue retry job: %w", err)
-	}
-	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
-		Set: `
-state='QUEUED',phase=NULL,last_error_code=NULL,retryable=0,
-completed_at_ms=NULL,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{importID},
-		},
-		Values: []any{now},
-	}); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/queue retry import: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(
-?,'PEGASUS_IMPORT',?,'MANUAL_RETRY',
-json_object('schemaVersion',1,'executionNo',?),?
-)`, *summary.ImportJobID, importID, execution, now); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/create retry event: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/commit retry: %w", err)
+		return Summary{}, fmt.Errorf("retry Pegasus import: %w", err)
 	}
 	service.signal()
-	return service.Get(ctx, importID)
+	return result, nil
 }

@@ -312,7 +312,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-004": (
         300,
-        "go test ./internal/pegasusimport ./internal/serversource -run 'TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && go test ./internal/persistence/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1",
+        "go test ./internal/pegasusimport ./internal/serversource -run 'TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors|TestRetry|TestCancel' -count=1 && go test ./internal/service/pegasusimport ./internal/persistence/pegasusimport -run 'TestWorkflow|TestQueuedCancellation' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && go test ./internal/persistence/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1",
     ),
     "ACC-PEG-005": (240, "scripts/acceptance/ui-case.sh ACC-PEG-005"),
     "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
@@ -412,7 +412,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-NP-010": (
         120,
-        "go test ./internal/netplay ./internal/httpapi "
+        "go test ./internal/netplay ./internal/netplay/capability ./internal/httpapi "
         "-run 'TestAcceptanceNP010|TestDecodeClientMessageRejectsUnknownDuplicateDeepAndOversizeInput|TestStateFrameBindsHeaderAndLength|TestStateFrameTreatsProviderCheckpointAsOpaqueBytes|TestCredentialIsPurposeBoundAndStoredOwnerOnly' -count=1",
     ),
     "ACC-NP-011": (
