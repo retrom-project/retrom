@@ -14,7 +14,7 @@ const env = process.env, platform = process.argv[2], base = env.RETROM_ACCEPTANC
 const cores = {gamegear: "genesis_plus_gx", sg1000: "genesis_plus_gx", multivision: "genesis_plus_gx",
   pico: "picodrive", sega32x: "picodrive", supergrafx: "mednafen_pce", gx4000: "cap32", neogeo: "fbneo"};
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? `.artifacts/platform-expansion/${platform}`);
-const evidence = {caseId: "ACC-RUN-016", platform, status: "FAIL", stages: [], errors: [], runtimes: []};
+const evidence = {caseId: "ACC-RUN-017", platform, status: "FAIL", stages: [], errors: [], runtimes: []};
 mkdirSync(directory, {recursive: true});
 let browser, proxy;
 const coreReads = [];

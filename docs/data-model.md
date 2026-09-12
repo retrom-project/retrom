@@ -90,9 +90,9 @@ Review Preview 使用相同冻结原则和 Player，但保留审核来源 owner�
 
 `save_states` 保存 Profile、Game、checkpoint format、payload Blob/SHA-256/size、可选截图、DOS 路径/disc index 和来源 Launch。它不复制 Provider、Target、Bundle 或 Variant 身份。
 
-写入必须来自同一 Profile/Game 的有效 PRODUCT Launch，且格式等于 Target 当前 `writeFormat`、大小不超过 `maxBytes`。恢复使用当前 READY Variant；只要当前 Target 声明可读该 checkpoint format 即可。不可读存档保留为 BLOCKED 投影，不加载旧 Provider、不 fallback，也不阻止无存档启动。
+写入必须来自同一 Profile/Game 的有效 PRODUCT Launch，且格式等于 Target 当前 `writeFormat`、大小不超过 `maxBytes`。恢复使用显式 Core 的当前 READY Variant；省略 Core 时通过来源 Launch 选择原 Core，而非目录当前默认 Core。当前 Target 还须声明可读该 checkpoint format，来源 Launch 不锁定恢复时的 Provider 版本或 Variant。不可读存档保留为 BLOCKED 投影，不加载旧 Provider、不 fallback，也不阻止无存档启动。
 
-Provider 激活前必须保证现有未删除的持久用户存档格式仍在 `readFormats` 中；审核临时 checkpoint 不参与升级门槛，也不以 `maxBytes` 减少阻塞升级。审核结束由既有 payload release 清除临时引用；普通 GC 周期释放过期 preview 的 checkpoint/restore 引用。实际 CAS 删除仍按剩余 owner 与宽限期执行。
+Provider 激活前按来源 Launch 的 Core 关联其当前 Variant/Target，保证该核心现有未删除持久存档格式仍在 `readFormats` 中；同一 Game 的其他备用核心不继承这项格式要求。审核临时 checkpoint 不参与升级门槛，也不以 `maxBytes` 减少阻塞升级。审核结束由既有 payload release 清除临时引用；普通 GC 周期释放过期 preview 的 checkpoint/restore 引用。实际 CAS 删除仍按剩余 owner 与宽限期执行。
 
 ## 8. Play、隔离与联机
 
