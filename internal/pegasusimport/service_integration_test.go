@@ -18,6 +18,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
@@ -30,14 +31,10 @@ import (
 	"retrom/internal/testsupport"
 )
 
-type pegasusTestSQLExecer interface {
-	ExecContext(context.Context, string, ...any) (sql.Result, error)
-}
-
 func mustExecPegasusTest(
 	ctx context.Context,
 	t *testing.T,
-	execer pegasusTestSQLExecer,
+	execer dbexec.Executor,
 	query string,
 	arguments ...any,
 ) {
@@ -46,11 +43,7 @@ func mustExecPegasusTest(
 	testassert.False(t, err != nil, err)
 }
 
-type pegasusTestScanner interface {
-	Scan(...any) error
-}
-
-func mustScanPegasusTest(t *testing.T, scanner pegasusTestScanner, destinations ...any) {
+func mustScanPegasusTest(t *testing.T, scanner dbexec.Scanner, destinations ...any) {
 	t.Helper()
 	testassert.False(t, scanner.Scan(destinations...) != nil, "scan Pegasus fixture")
 }
