@@ -310,7 +310,7 @@ func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
 		gameKind = "NATIVE_WEB"
 	case "tyranoscript":
 		gameKind = "ISOLATED_WEB"
-	case "scummvm", "onscripter-yuri", "kirikiri2-kag", "rpgmaker-2000", "rpgmaker-2003":
+	case "nxengine", "scummvm", "onscripter-yuri", "kirikiri2-kag", "rpgmaker-2000", "rpgmaker-2003":
 		gameKind = "FILE_TREE"
 	case "rpgmaker-mv", "rpgmaker-mz":
 		gameKind = "NATIVE_WEB"
