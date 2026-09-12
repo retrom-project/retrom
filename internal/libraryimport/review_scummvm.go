@@ -58,15 +58,3 @@ func (state *draftValidationRefresh) resolveScummVMSelection() (draftDependencyS
 	status, code := snapshot.Status()
 	return draftDependencyState{tracked: true, status: status, code: code, snapshotJSON: state.dependencySnapshot}, nil
 }
-
-func (run *approvalRun) prepareScummVMSelection() error {
-	snapshot, err := scummvm.ParseSnapshot(run.dependencySnapshotJSON)
-	if err != nil || run.validationStatus != "READY" || snapshot.Detection.SourceDigest != run.sourceManifestDigest {
-		return ErrInvalid
-	}
-	if _, err := snapshot.Selected(); err != nil {
-		return ErrInvalid
-	}
-	run.runtimeDependencySnapshotJSON = run.dependencySnapshotJSON
-	return nil
-}

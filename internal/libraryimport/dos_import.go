@@ -29,8 +29,6 @@ var (
 	errMetadataScraperNotConfigured   = errors.New("metadata scraper is not configured")
 )
 
-const reviewScreenshotOverrideCode = "REVIEW_SCREENSHOT_OVERRIDE"
-
 type CreateRequest struct {
 	UploadID                 string   `json:"uploadId"`
 	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`

@@ -3,9 +3,7 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"sort"
 
 	"retrom/internal/dbexec"
 	repository "retrom/internal/persistence/libraryimport"
@@ -13,20 +11,13 @@ import (
 )
 
 var (
-	ErrDuplicateContent    = errors.New("DUPLICATE_GAME_CONFIRMATION_REQUIRED")
+	ErrDuplicateContent    = application.ErrDuplicateContent
 	errMultiDiscIncomplete = application.ErrMultiDiscIncomplete
 )
 
 type DuplicateGame = application.DuplicateGame
 
-type DuplicateConflict struct {
-	ContentIdentityDigest string          `json:"contentIdentityDigest"`
-	Games                 []DuplicateGame `json:"games"`
-}
-
-func (conflict *DuplicateConflict) Error() string { return ErrDuplicateContent.Error() }
-
-func (conflict *DuplicateConflict) Unwrap() error { return ErrDuplicateContent }
+type DuplicateConflict = application.DuplicateConflict
 
 func importItemContentIdentity(ctx context.Context, executor dbexec.Executor, itemID string) (string, error) {
 	digest, err := application.NewContentDuplicates(repository.BindContentDuplicates(executor)).Identity(ctx, itemID)
@@ -49,44 +40,12 @@ func findDuplicateGames(
 	return games, nil
 }
 
-func claimContentIdentity(
-	ctx context.Context,
-	transaction *sql.Tx,
-	platformID, digest string,
-	now int64,
-) error {
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO content_identity_claims(platform_id,content_identity_digest,created_at_ms)
-VALUES(?,?,?)
-ON CONFLICT(platform_id,content_identity_digest) DO NOTHING
-`, platformID, digest, now); err != nil {
-		return fmt.Errorf("libraryimport/duplicate: %w", err)
+func claimContentIdentity(ctx context.Context, transaction *sql.Tx, platformID, digest string, now int64) error {
+	writer := repository.BindReviewApproval(transaction).Decisions
+	if err := writer.ClaimIdentity(ctx, platformID, digest, now); err != nil {
+		return fmt.Errorf("claim content identity: %w", err)
 	}
 	return nil
-}
-
-func duplicateIDs(games []DuplicateGame) []string {
-	ids := make([]string, 0, len(games))
-	for _, game := range games {
-		ids = append(ids, game.GameID)
-	}
-	sort.Strings(ids)
-	return ids
-}
-
-func sameDuplicateIDs(games []DuplicateGame, acknowledged []string) bool {
-	if len(games) != len(acknowledged) {
-		return false
-	}
-	want := duplicateIDs(games)
-	got := append([]string(nil), acknowledged...)
-	sort.Strings(got)
-	for index := range want {
-		if want[index] != got[index] || (index > 0 && got[index] == got[index-1]) {
-			return false
-		}
-	}
-	return true
 }
 
 func (service *Service) DuplicateGames(

@@ -19,6 +19,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
+	application "retrom/internal/service/libraryimport"
 )
 
 var errReviewBulkNotRunnable = errors.New("review bulk approval is not runnable")
@@ -167,62 +168,6 @@ FROM review_bulk_approvals WHERE id=?
 	return nil
 }
 
-func (service *Service) markReviewBulkPublished(
-	ctx context.Context,
-	transaction *sql.Tx,
-	work reviewBulkWork,
-	item reviewBulkWorkItem,
-	approved Approved,
-) error {
-	now := service.now().UnixMilli()
-	result, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
-		Set: `
-state='PUBLISHED',game_id=?,review_event_id=?,
-outcome_code='PUBLISHED',outcome_details_json=json_object('schemaVersion',1,'code','PUBLISHED'),
-completed_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `bulk_approval_id=? AND import_item_id=? AND state='RUNNING'`,
-			Args:  []any{work.bulkID, item.itemID},
-		},
-		Values: []any{approved.GameID, approved.EventID, now},
-	})
-	if err != nil {
-		return fmt.Errorf("libraryimport/review bulk publish outcome: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return ErrInvalid
-	}
-	result, err = recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
-		Set: `
-processed_count=processed_count+1,published_count=published_count+1,
-version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND state='RUNNING'`,
-			Args:  []any{work.bulkID},
-		},
-		Values: []any{now},
-	})
-	if err != nil {
-		return fmt.Errorf("libraryimport/review bulk publish outcome: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return ErrInvalid
-	}
-	result, err = transaction.ExecContext(ctx, `
-UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING' AND worker_id=?
-`, now, now+60_000, now, work.jobID, work.workerID)
-	if err != nil {
-		return fmt.Errorf("libraryimport/review bulk publish outcome: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return ErrInvalid
-	}
-	return reviewBulkProgressEvent(ctx, transaction, work, now)
-}
-
 func validReviewBulkOutcome(state string) bool {
 	switch state {
 	case "SKIPPED_DUPLICATE", "SKIPPED_CHANGED", "SKIPPED_NOT_READY", "FAILED_FINAL":
@@ -331,11 +276,11 @@ func (service *Service) processReviewBulkItem(
 	work reviewBulkWork,
 	item reviewBulkWorkItem,
 ) error {
-	_, err := service.approveWithOptions(ctx, item.itemID, item.reviewVersion, ApprovalDecision{}, approvalOptions{
-		strictReady: true, expectedValidationID: item.validationID,
-		expectedSourceSnapshotID: item.sourceSnapshotID, bulkApprovalID: work.bulkID,
-		beforeCommit: func(ctx context.Context, transaction *sql.Tx, approved Approved) error {
-			return service.markReviewBulkPublished(ctx, transaction, work, item, approved)
+	_, err := service.reviewApprovals().Approve(ctx, application.ReviewApprovalRequest{
+		ItemID: item.itemID, ExpectedVersion: item.reviewVersion,
+		Bulk: &application.BulkPublicationIntent{
+			BulkID: work.bulkID, JobID: work.jobID, WorkerID: work.workerID,
+			ValidationID: item.validationID, SourceSnapshotID: item.sourceSnapshotID,
 		},
 	})
 	if err == nil {

@@ -1,19 +1,18 @@
 package libraryimport
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 
 	"retrom/internal/dbexec"
 	validationpersistence "retrom/internal/persistence/corevalidation"
+	librarypersistence "retrom/internal/persistence/libraryimport"
 	validationservice "retrom/internal/service/corevalidation"
+	application "retrom/internal/service/libraryimport"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/corevalidation"
 	"retrom/internal/multidisc"
@@ -200,327 +199,34 @@ func nullable(value sql.NullString) any {
 	return nil
 }
 
-type Approved struct {
-	GameID  string `json:"gameId"`
-	EventID string `json:"reviewEventId"`
-	Status  string `json:"status"`
-}
-
-type ApprovalDecision struct {
-	Reason              *string
-	DuplicatePolicy     string
-	AcknowledgedGameIDs []string
-	SourceKind          string
-	SourceRefID         string
-	ExternalAssets      []ExternalAsset
-}
-
-type approvalOptions struct {
-	strictReady              bool
-	expectedValidationID     string
-	expectedSourceSnapshotID string
-	bulkApprovalID           string
-	beforeCommit             func(context.Context, *sql.Tx, Approved) error
-}
-
-type ExternalAsset struct {
-	Kind      string
-	BlobID    string
-	MediaType string
-	WidthPX   *int64
-	HeightPX  *int64
-}
-
-func multiDiscApprovalEvidence(
-	ctx context.Context,
-	transaction *sql.Tx,
-	sourceSnapshotID string,
-) (int, int64, error) {
-	rows, err := transaction.QueryContext(ctx, `
-SELECT entry.ordinal,entry.state,entry.blob_id,entry.source_logical_name,
-       file.blob_id,file.logical_name,file.sort_order,blob.size_bytes
-FROM import_item_multidisc_entries entry
-LEFT JOIN import_item_source_snapshot_files file
-  ON file.source_snapshot_id=entry.source_snapshot_id
- AND file.role='DISC' AND file.sort_order=entry.ordinal
-LEFT JOIN blobs blob ON blob.id=entry.blob_id
-WHERE entry.source_snapshot_id=?
-ORDER BY entry.ordinal
-`, sourceSnapshotID)
-	if err != nil {
-		return 0, 0, fmt.Errorf("libraryimport/approve multi-disc: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	discCount := 0
-	var totalSize int64
-	for rows.Next() {
-		var ordinal, sortOrder int
-		var state, entryBlobID, entryLogicalName, fileBlobID, fileLogicalName string
-		var size int64
-		if err := rows.Scan(
-			&ordinal, &state, &entryBlobID, &entryLogicalName,
-			&fileBlobID, &fileLogicalName, &sortOrder, &size,
-		); err != nil {
-			return 0, 0, ErrInvalid
-		}
-		if ordinal != discCount || sortOrder != ordinal || state != "PRESENT" ||
-			entryBlobID != fileBlobID || entryLogicalName != fileLogicalName || size < 8 {
-			return 0, 0, ErrInvalid
-		}
-		totalSize += size
-		discCount++
-	}
-	if err := rows.Err(); err != nil {
-		return 0, 0, fmt.Errorf("libraryimport/approve multi-disc: %w", err)
-	}
-	return discCount, totalSize, nil
-}
-
-func validateMultiDiscSourceCounts(
-	ctx context.Context,
-	transaction *sql.Tx,
-	sourceSnapshotID string,
-	discCount int,
-) error {
-	var playlistCount, sourceDiscCount, sourceCount int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT count(*) FILTER(WHERE role='PLAYLIST_SOURCE'),
-       count(*) FILTER(WHERE role='DISC'),count(*)
-FROM import_item_source_snapshot_files WHERE source_snapshot_id=?
-`, sourceSnapshotID).Scan(&playlistCount, &sourceDiscCount, &sourceCount); err != nil ||
-		playlistCount != 1 || sourceDiscCount != discCount || sourceCount != discCount+1 {
-		return ErrInvalid
+func nullableInt(value sql.NullInt64) any {
+	if value.Valid {
+		return value.Int64
 	}
 	return nil
 }
 
-func validateMultiDiscApproval(
-	ctx context.Context,
-	transaction *sql.Tx,
-	sourceSnapshotID, validationID, platformID string,
-	contentPolicy contentcapability.Policy,
-	snapshot corevalidation.Snapshot,
-) error {
-	capabilities := contentcapability.Resolve(platformID, true, true, contentPolicy)
-	if capabilities.MultiDisc == nil || snapshot.MultiDisc == nil ||
-		len(snapshot.MultiDisc.MissingEntries) != 0 {
-		return ErrInvalid
-	}
-	discCount, totalSize, err := multiDiscApprovalEvidence(ctx, transaction, sourceSnapshotID)
-	if err != nil {
-		return err
-	}
-	if discCount < 2 || discCount > capabilities.MultiDisc.MaxDiscs ||
-		discCount != snapshot.MultiDisc.DiscCount || totalSize > capabilities.MultiDisc.MaxTotalBytes {
-		return ErrInvalid
-	}
-	if err := validateMultiDiscSourceCounts(ctx, transaction, sourceSnapshotID, discCount); err != nil {
-		return err
-	}
-	var canonicalCount int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT count(*) FROM import_item_validation_files
-WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST'
-`, validationID).Scan(&canonicalCount); err != nil || canonicalCount != 1 {
-		return ErrInvalid
-	}
-	return nil
-}
-
-func validateCurrentApprovalSnapshot(
-	ctx context.Context,
-	transaction *sql.Tx,
-	sourceSnapshotID, validationID, platformID, providerID, targetID string,
-	contentPolicy contentcapability.Policy,
-	contentKind string,
-	validationSnapshot corevalidation.Snapshot,
-	frozenJSON string,
-) error {
-	contentLogicalName, err := snapshotContentLogicalName(ctx, transaction, sourceSnapshotID)
-	if err != nil {
-		return err
-	}
-	currentSnapshot, validationStatus, _, err := validationservice.New(
-		validationpersistence.New(
-			transaction,
-		),
-	).ResolveBIOS(
-		ctx,
-		providerID,
-		targetID,
-		contentLogicalName,
-	)
-	if err != nil || validationStatus != "READY" {
-		return ErrInvalid
-	}
-	currentSnapshot.MultiDisc = validationSnapshot.MultiDisc
-	currentJSON, err := currentSnapshot.JSON()
-	if err != nil || string(currentJSON) != frozenJSON {
-		return ErrInvalid
-	}
-	if contentKind != multidisc.ContentKind {
-		return nil
-	}
-	return validateMultiDiscApproval(
-		ctx, transaction, sourceSnapshotID, validationID, platformID, contentPolicy, validationSnapshot,
-	)
-}
-
-func validArcadeApprovalDependencyState(state string) bool {
-	return state == "SATISFIED_BY_CONTENT" || state == "SATISFIED_EXTERNAL" || state == "HASH_WARNING"
-}
-
-func equalArcadeRequirementNames(requirements []arcadeROMRequirement, frozen []string) bool {
-	if len(requirements) != len(frozen) {
-		return false
-	}
-	for index := range requirements {
-		if requirements[index].name != frozen[index] {
-			return false
-		}
-	}
-	return true
-}
-
-func arcadeDependencyValidationRole(kind string) string {
-	if kind == "PARENT" {
-		return "PARENT"
-	}
-	if kind == "BIOS_OR_BASE" {
-		return "BIOS_BUNDLE"
-	}
-	return ""
-}
-
-func validateArcadeExternalDependencyFile(
-	ctx context.Context,
-	transaction *sql.Tx,
-	validationID string,
-	dependency arcadeDraftDependency,
-) error {
-	role := arcadeDependencyValidationRole(dependency.Kind)
-	if role == "" {
-		return ErrInvalid
-	}
-	var count int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT count(*) FROM import_item_validation_files
-WHERE import_item_core_validation_id=? AND role=? AND logical_name=?
-`, validationID, role, dependency.ExpectedLogicalName).Scan(&count); err != nil {
-		return fmt.Errorf("libraryimport/approve arcade dependency: %w", err)
-	}
-	if count != 1 {
-		return ErrInvalid
-	}
-	return nil
-}
-
-func (service *Service) validateCurrentArcadeApprovalDependency(
-	ctx context.Context,
-	transaction *sql.Tx,
-	validationID, datVersionID string,
-	dependency arcadeDraftDependency,
-) error {
-	if !validArcadeApprovalDependencyState(dependency.State) {
-		return ErrInvalid
-	}
-	requirements, hasDisk, err := arcadeRequirementsWithQueryer(
-		ctx, transaction, datVersionID, dependency.Machine,
-	)
-	if err != nil || hasDisk || !equalArcadeRequirementNames(requirements, dependency.RequiredEntries) {
-		return ErrInvalid
-	}
-	if dependency.State == "SATISFIED_BY_CONTENT" {
-		return nil
-	}
-	return validateArcadeExternalDependencyFile(ctx, transaction, validationID, dependency)
-}
-
-func (service *Service) validateCurrentArcadeApprovalSnapshot(
-	ctx context.Context,
-	transaction *sql.Tx,
-	validationID, frozenJSON string,
-) error {
-	frozen, valid := parseArcadeDraftSnapshot(frozenJSON)
-	if !valid || len(frozen.MissingEntries) != 0 ||
-		len(frozen.MismatchedEntries) != 0 {
-		return ErrInvalid
-	}
-	canonical, err := service.canonicalArcadeSnapshotWithQueryer(ctx, transaction, frozenJSON)
-	if err != nil || len(canonical.Dependencies) != len(projectedClosureDependencies(canonical.Closure)) {
-		return ErrInvalid
-	}
-	seen := make(map[string]struct{}, len(canonical.Dependencies))
-	for _, dependency := range canonical.Dependencies {
-		key := dependency.Kind + "\x00" + dependency.Machine
-		if _, duplicate := seen[key]; duplicate {
-			return ErrInvalid
-		}
-		seen[key] = struct{}{}
-		if err := service.validateCurrentArcadeApprovalDependency(
-			ctx, transaction, validationID, canonical.DatVersionID, dependency,
-		); err != nil {
-			return err
-		}
-	}
-	frozenCanonical, frozenErr := json.Marshal(frozen)
-	canonicalJSON, canonicalErr := json.Marshal(canonical)
-	if frozenErr != nil || canonicalErr != nil || !bytes.Equal(frozenCanonical, canonicalJSON) {
-		return ErrInvalid
-	}
-	return nil
-}
-
-func projectedClosureDependencies(raw json.RawMessage) []arcadeClosureNode {
-	var nodes []arcadeClosureNode
-	if json.Unmarshal(raw, &nodes) != nil {
-		return nil
-	}
-	dependencies := make([]arcadeClosureNode, 0, len(nodes))
-	for _, node := range nodes {
-		if node.Kind != "CONTENT" {
-			dependencies = append(dependencies, node)
-		}
-	}
-	return dependencies
-}
+type (
+	Approved         = application.ReviewApproved
+	ApprovalDecision = application.ReviewApprovalDecision
+	ExternalAsset    = application.ApprovalExternalAsset
+)
 
 func (service *Service) validateCurrentApprovalDependencySnapshot(
-	ctx context.Context,
-	transaction *sql.Tx,
-	sourceSnapshotID, validationID, platformID, providerID, targetID string,
-	contentPolicy contentcapability.Policy,
-	contentKind, frozenJSON string,
+	ctx context.Context, transaction *sql.Tx, sourceSnapshotID, validationID, platformID, providerID,
+	targetID string,
+	policy contentcapability.Policy, contentKind, frozenJSON string,
 ) error {
-	snapshot, err := corevalidation.ParseSnapshot(frozenJSON)
-	if err == nil {
-		return validateCurrentApprovalSnapshot(
-			ctx, transaction, sourceSnapshotID, validationID, platformID, providerID, targetID,
-			contentPolicy, contentKind, snapshot, frozenJSON,
-		)
+	err := application.ValidateApprovalDependencies(ctx,
+		librarypersistence.BindApprovalDependencies(transaction), application.ApprovalDependencyInput{
+			SnapshotID: sourceSnapshotID, ValidationID: validationID, PlatformID: platformID,
+			ProviderID: providerID, TargetID: targetID,
+			Policy: policy, ContentKind: contentKind, DependencyJSON: frozenJSON,
+		})
+	if err != nil {
+		return fmt.Errorf("validate approval dependencies: %w", err)
 	}
-	if platformID != "arcade" || contentKind != "SINGLE_FILE" {
-		return ErrInvalid
-	}
-	return service.validateCurrentArcadeApprovalSnapshot(ctx, transaction, validationID, frozenJSON)
-}
-
-func screenshotOverrideRuntimeSnapshot(snapshot corevalidation.Snapshot) corevalidation.Snapshot {
-	filtered := make([]corevalidation.BIOSDependency, 0, len(snapshot.BIOS))
-	for _, dependency := range snapshot.BIOS {
-		if dependency.DeliveryKind != "EXTERNAL_FILE" {
-			filtered = append(filtered, dependency)
-			continue
-		}
-		if dependency.EmulatorPath == nil || dependency.BlobID == nil || dependency.InstallationStatus == nil {
-			continue
-		}
-		if corevalidation.BIOSInstallationUsable(*dependency.InstallationStatus) {
-			filtered = append(filtered, dependency)
-		}
-	}
-	snapshot.BIOS = filtered
-	return snapshot
+	return nil
 }
 
 type approvalValidationDigestInput struct {
@@ -545,7 +251,8 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 	}
 	if input.ContentKind != multidisc.ContentKind {
 		digest, err := corevalidation.ProviderValidationInputDigest(
-			input.ProviderID, input.TargetID, input.ContentID, dbexec.StringPointer(input.DATID), input.Snapshot,
+			input.ProviderID, input.TargetID, input.ContentID, dbexec.StringPointer(input.DATID),
+			input.Snapshot,
 		)
 		if err != nil {
 			return "", fmt.Errorf("libraryimport/service: %w", err)

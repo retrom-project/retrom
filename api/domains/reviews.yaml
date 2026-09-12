@@ -218,6 +218,18 @@ paths:
       responses:
         '201':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '409':
+          description: REVIEW_VALIDATION_STALE or DUPLICATE_GAME_CONFIRMATION_REQUIRED; duplicate confirmation includes the complete current match set.
+          content:
+            application/json:
+              schema:
+                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
+        '500':
+          description: INTERNAL_ERROR when persistence fails or persisted review evidence cannot be decoded. No publication is committed.
+          content:
+            application/json:
+              schema:
+                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
   /api/v1/admin/reviews/{importItemId}/discard:
     parameters:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID

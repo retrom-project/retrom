@@ -12,12 +12,7 @@ import (
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 
-	"retrom/internal/persistence/recordstore"
-
-	"github.com/google/uuid"
-
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 )
 
 type ServerSourceFile = libraryservice.ServerSourceFile
@@ -39,12 +34,6 @@ type (
 	ServerMetadata        = libraryservice.ServerMetadata
 	ServerMetadataWarning = libraryservice.ServerMetadataWarning
 )
-
-type serverReviewOrigin struct {
-	SourceRefID string
-	SourceKind  string
-	Assets      []ExternalAsset
-}
 
 // CreateServerSource adopts already verified CAS blobs into the established
 // import/content-profile pipeline. It creates an internal COMPLETE upload
@@ -239,148 +228,4 @@ func (service *Service) SeedServerReviewMetadataAtYear(
 		return 0, nil, fmt.Errorf("libraryimport/server metadata: %w", err)
 	}
 	return version, warnings, nil
-}
-
-func validExternalAssets(assets []ExternalAsset) bool {
-	seen := map[string]struct{}{}
-	for _, asset := range assets {
-		if _, exists := seen[asset.Kind]; exists || asset.BlobID == "" {
-			return false
-		}
-		seen[asset.Kind] = struct{}{}
-		if !validExternalAsset(asset) {
-			return false
-		}
-	}
-	return true
-}
-
-func validExternalAsset(asset ExternalAsset) bool {
-	switch asset.Kind {
-	case "COVER":
-		validDimensions := asset.WidthPX != nil && asset.HeightPX != nil &&
-			*asset.WidthPX > 0 && *asset.HeightPX > 0
-		validType := asset.MediaType == "image/png" || asset.MediaType == "image/jpeg" ||
-			asset.MediaType == "image/webp"
-		return validDimensions && validType
-	case "VIDEO":
-		validType := asset.MediaType == "video/mp4" || asset.MediaType == "video/webm"
-		return asset.WidthPX == nil && asset.HeightPX == nil && validType
-	default:
-		return false
-	}
-}
-
-func loadServerReviewOrigin(
-	ctx context.Context,
-	transaction *sql.Tx,
-	importItemID string,
-	coverOverridden bool,
-) (serverReviewOrigin, bool, error) {
-	var origin serverReviewOrigin
-	if err := transaction.QueryRowContext(ctx, `
-SELECT source_ref_id,source_kind FROM (
- SELECT id AS source_ref_id,'SERVER_PEGASUS_IMPORT' AS source_kind
- FROM pegasus_import_items
- WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
- UNION ALL
- SELECT id AS source_ref_id,'SERVER_EMULATIONSTATION_IMPORT' AS source_kind
- FROM emulationstation_import_items
- WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
-) ORDER BY source_kind LIMIT 1
-`, importItemID, importItemID).Scan(&origin.SourceRefID, &origin.SourceKind); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return serverReviewOrigin{}, false, nil
-		}
-		return serverReviewOrigin{}, false, fmt.Errorf("libraryimport/server review origin: %w", err)
-	}
-	assetTable := "pegasus_import_item_assets"
-	if origin.SourceKind == "SERVER_EMULATIONSTATION_IMPORT" {
-		assetTable = "emulationstation_import_item_assets"
-	}
-	rows, err := transaction.QueryContext(ctx, `
-SELECT kind,blob_id,media_type,width_px,height_px
-FROM `+assetTable+`
-WHERE item_id=? AND state='COPIED' AND blob_id IS NOT NULL AND media_type IS NOT NULL
-ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END
-`, origin.SourceRefID)
-	if err != nil {
-		return serverReviewOrigin{}, false, fmt.Errorf("libraryimport/server review assets: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	for rows.Next() {
-		var asset ExternalAsset
-		var width, height sql.NullInt64
-		if err := rows.Scan(&asset.Kind, &asset.BlobID, &asset.MediaType, &width, &height); err != nil {
-			return serverReviewOrigin{}, false, fmt.Errorf("libraryimport/server review assets: %w", err)
-		}
-		if asset.Kind == "COVER" && coverOverridden {
-			continue
-		}
-		if width.Valid {
-			asset.WidthPX = &width.Int64
-		}
-		if height.Valid {
-			asset.HeightPX = &height.Int64
-		}
-		if !validExternalAsset(asset) {
-			return serverReviewOrigin{}, false, ErrInvalid
-		}
-		origin.Assets = append(origin.Assets, asset)
-	}
-	if err := rows.Err(); err != nil {
-		return serverReviewOrigin{}, false, fmt.Errorf("libraryimport/server review assets: %w", err)
-	}
-	return origin, true, nil
-}
-
-func transitionServerReview(
-	ctx context.Context, transaction *sql.Tx, importItemID, state string, gameID any, now int64,
-) error {
-	var publishedGameID *string
-	if gameID != nil {
-		value, ok := gameID.(string)
-		if !ok {
-			return ErrInvalid
-		}
-		publishedGameID = &value
-	}
-	err := librarypersistence.TransitionReviewOwners(ctx, transaction, libraryservice.ReviewOwnerTransition{
-		ItemID: importItemID, State: libraryservice.ReviewOwnerState(state), GameID: publishedGameID, NowMS: now,
-	})
-	if err != nil {
-		return fmt.Errorf("libraryimport/transition review owner: %w", err)
-	}
-	return nil
-}
-
-func (service *Service) copyExternalAssets(
-	ctx context.Context,
-	transaction *sql.Tx,
-	gameID string,
-	assets []ExternalAsset,
-	now int64,
-) error {
-	for _, asset := range assets {
-		var blobID string
-		err := transaction.QueryRowContext(
-			ctx,
-			`SELECT id FROM blobs WHERE id=?`,
-			asset.BlobID,
-		).Scan(&blobID)
-		if err != nil || blobID != asset.BlobID {
-			return ErrInvalid
-		}
-		assetID, _ := uuid.NewV7()
-		if _, err := recordstore.CreateGameAssets(ctx, transaction, `
-INSERT INTO game_assets(
-id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
-)
-VALUES(?,?,?, ?,0,?,?,?,?)
-`, assetID.String(), gameID, asset.BlobID, asset.Kind,
-			asset.WidthPX, asset.HeightPX, asset.MediaType, now); err != nil {
-			return fmt.Errorf("libraryimport/server asset: %w", err)
-		}
-	}
-	return nil
 }

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"retrom/internal/libraryimport"
+	application "retrom/internal/service/libraryimport"
 )
 
 func (server *Server) approveReview(writer http.ResponseWriter, request *http.Request) {
@@ -25,18 +25,16 @@ func (server *Server) approveReview(writer http.ResponseWriter, request *http.Re
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核决定无效", map[string]any{})
 		return
 	}
-	approved, err := server.importer.ApproveWithDecision(
-		request.Context(),
-		request.PathValue("importItemId"),
-		version,
-		libraryimport.ApprovalDecision{
+	approved, err := server.reviewApprovals.Approve(request.Context(), application.ReviewApprovalRequest{
+		ItemID: request.PathValue("importItemId"), ExpectedVersion: version,
+		Decision: application.ReviewApprovalDecision{
 			Reason:              body.Reason,
 			DuplicatePolicy:     body.DuplicatePolicy,
 			AcknowledgedGameIDs: body.AcknowledgedGameIDs,
 		},
-	)
+	})
 	if err != nil {
-		var duplicateConflict *libraryimport.DuplicateConflict
+		var duplicateConflict *application.DuplicateConflict
 		if errors.As(err, &duplicateConflict) {
 			writeError(
 				writer,
@@ -51,7 +49,11 @@ func (server *Server) approveReview(writer http.ResponseWriter, request *http.Re
 			)
 			return
 		}
-		writeError(writer, request, http.StatusConflict, "REVIEW_VALIDATION_STALE", "审核输入或验证结果已经变化", map[string]any{})
+		if errors.Is(err, application.ErrInvalid) {
+			writeError(writer, request, http.StatusConflict, "REVIEW_VALIDATION_STALE", "审核输入或验证结果已经变化", map[string]any{})
+			return
+		}
+		server.databaseError(writer, request, err)
 		return
 	}
 	writeJSON(writer, http.StatusCreated, approved)

@@ -121,6 +121,7 @@ type Server struct {
 	reviewDetails           *libraryservice.ReviewDetails
 	reviewCoverUploads      *libraryservice.ReviewCoverUploads
 	reviewDiscards          *libraryservice.ReviewDiscards
+	reviewApprovals         *libraryservice.ReviewApprovals
 	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
@@ -268,6 +269,7 @@ func New(
 	server.reviewDetails = composition.NewLibraryReviewDetails(database)
 	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
 	server.reviewDiscards = composition.NewLibraryReviewDiscards(database, now)
+	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now)
 	server.jobService = composition.WithPegasusJobCancellation(server.jobService, pegasusImportService)
 	server.jobService = composition.WithEmulationStationJobCancellation(server.jobService, emulationStationImportService)
 	server.metadataEvidence = composition.NewMetadataEvidenceQueries(database)

@@ -8019,6 +8019,24 @@ export interface operations {
         requestBody: components["requestBodies"]["Approval"];
         responses: {
             201: components["responses"]["JSONResponse"];
+            /** @description REVIEW_VALIDATION_STALE or DUPLICATE_GAME_CONFIRMATION_REQUIRED; duplicate confirmation includes the complete current match set. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description INTERNAL_ERROR when persistence fails or persisted review evidence cannot be decoded. No publication is committed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     postAdminReviewDiscard: {
