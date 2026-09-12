@@ -148,3 +148,13 @@ fork 的完整即时状态包括 CPU、RAM、VIA、PSG、卡带银行、模拟�
 不能读取上游不完整的 VecX 状态。Provider 公共层按 `emulatorjs-state-v1-storage-v1`
 压缩一次，恢复到不同 Launch 后必须继续接受输入。
 开发候选的准入按 `ACC-VECTREX-001` 执行；候选声明不等于正式发行支持。
+
+### Uzebox / Uzem
+
+`emulatorjs/uzem` 的开发候选使用固定 libretro-uzem fork，接受 ATmega644 单卡带 `.uze`，
+通过 SNES 控制表传递方向、面键和 Start。只支持玩家一；不声明鼠标、SD 外部文件、
+ATmega1284、网络或多盘。核心 v1 即时状态包含 AVR 寄存器、SRAM、EEPROM、Flash、
+内部计时器/待处理 I/O、随机数状态、手柄锁存与软件画面，使用显式小端字段及版本、
+内容标识和完整性校验；宿主使用公共 gzip checkpoint，不解析核心字节。
+候选必须通过 [ACC-UZEBOX-001](./project-acceptance.md#acc-uzebox-001uzebox-单卡带产品验证)，
+且不同 Launch 恢复后继续接受输入。候选不代表正式发行或全库兼容。

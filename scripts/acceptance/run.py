@@ -41,7 +41,8 @@ OPENBOR_CASES = {"ACC-OPENBOR-001"}
 PC98_CASES = {"ACC-PC98-001"}
 PC88_CASES = {"ACC-PC88-001"}
 STORAGE_CASES = {"ACC-SAVE-004"}
-PRODUCT_CASES = OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
+UZEBOX_CASES = {"ACC-UZEBOX-001"}
+PRODUCT_CASES = UZEBOX_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -486,6 +487,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     },
     "ACC-TIC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs tic80"),
     "ACC-SAVE-004": (300, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/checkpoint_storage_product.mjs"),
+    "ACC-UZEBOX-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/uzebox_product.mjs"),
     "ACC-PC88-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/pc88_product.mjs"),
     "ACC-PC98-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/pc98_product.mjs"),
     "ACC-MSX-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/msx_product.mjs"),
@@ -1000,6 +1002,8 @@ def execute_case(case_id: str) -> int:
             product_filename = "rpgmaker-product.json"
             if case_id in STORAGE_CASES:
                 product_filename = "checkpoint-storage-product.json"
+            elif case_id in UZEBOX_CASES:
+                product_filename = "uzebox-product.json"
             elif case_id in PC88_CASES:
                 product_filename = "pc88-product.json"
             elif case_id in PC98_CASES:

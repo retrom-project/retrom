@@ -34,7 +34,8 @@
         "81",
         "same_cdi",
         "vecx",
-        "quasi88"
+        "quasi88",
+        "uzem"
       ]
     },
     {
@@ -304,6 +305,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/quasi88-libretro.git",
       "defaultBranch": "retrom/g459bbc6e90ca",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "uzem",
+      "path": "project/retrom-core/libretro-uzem",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/libretro-uzem.git",
+      "defaultBranch": "retrom/gd991ee94547c",
       "submodules": false,
       "dependsOn": []
     }

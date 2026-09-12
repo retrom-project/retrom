@@ -636,6 +636,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-uzem",
+      "coreId": "uzem",
+      "providerId": "emulatorjs",
+      "targetId": "uzem",
+      "platformIds": [
+        "uzebox"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-vecx",
       "coreId": "vecx",
       "providerId": "emulatorjs",
@@ -1380,6 +1394,12 @@
         "enabled": true
       },
       {
+        "id": "uzebox",
+        "name": "Uzebox",
+        "sortOrder": 610,
+        "enabled": true
+      },
+      {
         "id": "vectrex",
         "name": "GCE Vectrex",
         "sortOrder": 560,
@@ -1722,6 +1742,11 @@
       {
         "id": "tyranoscript",
         "name": "TyranoScript",
+        "enabled": true
+      },
+      {
+        "id": "uzem",
+        "name": "Uzem",
         "enabled": true
       },
       {
