@@ -9,6 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	firmwarepersistence "retrom/internal/persistence/firmware"
+	firmwareservice "retrom/internal/service/firmware"
+
 	savepersistence "retrom/internal/persistence/saves"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -28,7 +31,6 @@ import (
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
 	"retrom/internal/emulationstationimport"
-	"retrom/internal/firmware"
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
 	"retrom/internal/importdiscard"
@@ -101,7 +103,7 @@ type Server struct {
 	launcher                *launch.Service
 	jobService              *jobs.Service
 	immersive               *immersive.Service
-	firmware                *firmware.Service
+	firmware                *firmwareservice.Service
 	metadata                *metadatascrape.Service
 	gameContent             *gamecontent.Service
 	saveService             *saves.Service
@@ -194,7 +196,7 @@ func New(
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
 	importer.ResumeReviewBulkJobs(context.Background())
-	firmwareService := firmware.New(database, now).WithBlobStore(blobs).
+	firmwareService := firmwareservice.New(firmwarepersistence.New(database), now).WithBlobStore(blobs).
 		WithPayloadRelease(payloadReleaseService)
 	serverImportService := serverimport.New(
 		database,

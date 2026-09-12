@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	firmwareservice "retrom/internal/service/firmware"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -22,7 +24,6 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/firmware"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
 )
@@ -132,7 +133,7 @@ type Candidate struct {
 type Service struct {
 	database    *sql.DB
 	blobs       *blobstore.Store
-	firmware    *firmware.Service
+	firmware    *firmwareservice.Service
 	credentials *retromruntime.Credentials
 	roots       map[string]Root
 	now         func() time.Time
@@ -168,7 +169,7 @@ func defaultScanLimits() scanLimits {
 func New(
 	database *sql.DB,
 	blobs *blobstore.Store,
-	firmwareService *firmware.Service,
+	firmwareService *firmwareservice.Service,
 	credentials *retromruntime.Credentials,
 	configured []serversource.Root,
 	now func() time.Time,

@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	firmwareservice "retrom/internal/service/firmware"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -46,7 +48,7 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
@@ -114,8 +116,8 @@ WHERE f.id=?
 	}
 	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
-	service := New(database.SQL, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
-	result, err := service.Install(ctx, requirementID, version, InstallRequest{UploadFileID: upload.Files[0].ID})
+	service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
+	result, err := service.Install(ctx, requirementID, version, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "HASH_WARNING" }, func() bool { return !result.Active }), "installation = %#v", result)
 	var oldBlobID string
@@ -130,7 +132,7 @@ WHERE f.id=?
 		t, ctx, database.SQL, uploadService, "gba_bios.bin", []byte("retrom-replacement-bios\n"),
 	)
 	replaced, err := service.Install(
-		ctx, requirementID, version, InstallRequest{UploadFileID: replacementFileID},
+		ctx, requirementID, version, firmwareservice.InstallRequest{UploadFileID: replacementFileID},
 	)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, replaced.InstallationID == result.InstallationID, "replacement reused installation %s", replaced.InstallationID)
@@ -356,7 +358,7 @@ func TestDATMachineBIOSScansUploadAndAcceptsContentMatchedFilenameAlias(t *testi
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
@@ -447,14 +449,14 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 		testassert.Falsef(t, time.Now().After(deadline), "finalize state = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	result, err := New(database.SQL, time.Now).WithBlobStore(blobs).Install(
-		ctx, "requirement-test", 1, InstallRequest{UploadFileID: upload.Files[0].ID},
+	result, err := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).Install(
+		ctx, "requirement-test", 1, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID},
 	)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "MATCHED" }, func() bool { return !result.Active }), "installation = %#v", result)
 	warnings, ok := result.ValidationDetails["warnings"].([]string)
 	testassert.Falsef(t, testassert.Any(func() bool { return !ok }, func() bool { return len(warnings) != 1 }, func() bool { return !strings.Contains(warnings[0], "epr-19730.ic8") }), "alias warnings = %#v", result.ValidationDetails["warnings"])
-	inspection, err := New(database.SQL, time.Now).InspectArchive(ctx, "requirement-test")
+	inspection, err := firmwareservice.New(New(database.SQL), time.Now).InspectArchive(ctx, "requirement-test")
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return inspection.LogicalName != "stvbios.zip" }, func() bool { return inspection.InstallationStatus != "MATCHED" }, func() bool { return len(inspection.Entries) != 2 }), "inspection = %#v", inspection)
 	if comparison := inspection.Entries[0]; comparison.Status != "ALIASED" ||

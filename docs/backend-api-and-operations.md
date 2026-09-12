@@ -44,7 +44,9 @@ internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；
 internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
-internal/bios/            BIOS 要求、安装和状态聚合
+internal/firmware/        BIOS 文件与归档匹配、候选质量比较
+internal/service/firmware/ BIOS 安装、替换决策与归档检查
+internal/persistence/firmware/ BIOS 事实查询及安装、消费、替换与进度记录事务
 internal/runtimeprovider/ Provider Bundle 安装、激活、静态文件与只前进升级校验
 internal/runtimecatalog/  产品 Core 到 Provider Target 的纯 catalog 解析与类型
 internal/persistence/runtimecatalog/ 已验证目录定义的事务投影

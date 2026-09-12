@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	firmwareservice "retrom/internal/service/firmware"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/blobstore"
@@ -342,7 +344,7 @@ func (service *Service) commitCandidate(
 	selected *evaluatedCandidate,
 ) {
 	status, method := selectedStatus(selected)
-	_, err := service.firmware.InstallServerCandidate(ctx, firmware.ServerInstallRequest{
+	_, err := service.firmware.InstallServerCandidate(ctx, firmwareservice.ServerInstallRequest{
 		ServerImportID: unit.ImportID, JobID: unit.JobID,
 		CandidateID: selected.ID, RequirementID: item.RequirementID, RequirementVersion: item.RequirementVersion,
 		ProviderID: item.ProviderID, TargetID: item.TargetID,
@@ -355,7 +357,7 @@ func (service *Service) commitCandidate(
 		DATExpectedEntries: selected.ExpectedDATEntries, DATEvaluation: selected.DAT,
 	})
 	switch {
-	case errors.Is(err, firmware.ErrCatalogChanged):
+	case errors.Is(err, firmwareservice.ErrCatalogChanged):
 		service.completeItem(ctx, unit, item.RequirementID, "CATALOG_CHANGED", selected,
 			"BIOS_REQUIREMENT_CATALOG_CHANGED")
 	case err != nil:

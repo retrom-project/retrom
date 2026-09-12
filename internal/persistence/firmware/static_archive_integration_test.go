@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/firmware"
+	firmwareservice "retrom/internal/service/firmware"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	"retrom/internal/blobstore"
@@ -73,10 +76,10 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 				t.Fatal(err)
 			}
 			fileID := completeFirmwareUpload(t, ctx, database.SQL, upload, "fixture.zip", archive.Bytes())
-			service := New(database.SQL, time.Now).WithBlobStore(blobs)
-			installed, err := service.Install(ctx, "fixture", 1, InstallRequest{UploadFileID: fileID})
+			service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs)
+			installed, err := service.Install(ctx, "fixture", 1, firmwareservice.InstallRequest{UploadFileID: fileID})
 			if test.status == "INVALID" {
-				var invalid *ArchiveContentError
+				var invalid *firmware.ArchiveContentError
 				if !errors.As(err, &invalid) || invalid.Details == nil {
 					t.Fatalf("missing archive diagnostics: %v", err)
 				}

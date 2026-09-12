@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"net/http"
 
+	firmwareservice "retrom/internal/service/firmware"
+
 	"retrom/internal/firmware"
 )
 
 func (server *Server) biosEntries(writer http.ResponseWriter, request *http.Request) {
 	result, err := server.firmware.InspectArchive(request.Context(), request.PathValue("requirementId"))
 	if err != nil {
-		if errors.Is(err, firmware.ErrArchiveFactsNotFound) {
+		if errors.Is(err, firmwareservice.ErrArchiveFactsNotFound) {
 			writeError(
 				writer,
 				request,
@@ -37,7 +39,7 @@ func (server *Server) installBIOS(writer http.ResponseWriter, request *http.Requ
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
 		return
 	}
-	var body firmware.InstallRequest
+	var body firmwareservice.InstallRequest
 	if decodeJSON(writer, request, &body, 8<<10) != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "BIOS 安装请求无效", map[string]any{})
 		return
