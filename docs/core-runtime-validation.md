@@ -128,6 +128,19 @@ D-pad 对应数字小键盘 8/2/4/6，主确认键通过原生 Start 发送 Retu
 `emulatorjs-state-v1-storage-v1`，须验证不同 Launch 回到保存时的位置并继续输入。
 产品验收为 `ACC-PC88-001`，外部语料为作者公开发布的《The Librarian》v0.91。
 
+### Cave Story / NXEngine
+
+`cavestory` 平台使用 `retrom-runtime/nxengine` 的 `FILE_TREE` Target。输入为原版免费
+《洞窟物语》的 `Doukutsu.exe` 与完整 `data/` 目录；不执行 Windows 程序。候选采用
+libretro/nxengine-libretro 的固定源码，由独立 fork 构建 Emscripten 核心。
+不宣称 Cave Story+ 或任意修改版兼容性。标准手柄 A 确认/跳跃、B 射击、方向移动，
+键盘 Z/X/方向独立保留。取消能力按核心原生菜单处理，不使用叠加映射。
+
+存档语义为 `GAME_SAVE`：游戏内保存后，通过公共 gzip 边界提交原生 profile 文件；
+不同 Launch 在核心启动前导入明确指定的存档，用户在游戏菜单 Load 后继续。
+未选择存档的新 Launch 保持空保存目录。产品准入用例为 `ACC-NXENGINE-001`。
+开发阶段使用 PFB candidate；正式 Provider lock 只在获得发布授权和固定 release 后升级。
+
 ## 6. 升级验证
 
 Provider 升级必须在同一数据库上顺序启动旧版与更高版本，证明：

@@ -349,18 +349,9 @@ WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST' AND logica
 			return reviewPreviewContentSet{}, err
 		}
 		content.Files = files
-	case rpgProjectFormat:
-		return service.reviewPreviewRPGContent(ctx, source)
-	case "SCUMMVM_PROJECT":
-		return service.reviewPreviewScummVMContent(ctx, source)
-	case onsProjectFormat:
-		return service.reviewPreviewONSContent(ctx, source)
-	case kirikiriProjectFormat:
-		return service.reviewPreviewKiriKiriContent(ctx, source)
-	case butterscotchProjectFormat:
-		return service.reviewPreviewButterscotchContent(ctx, source)
-	case tyranoScriptProjectFormat:
-		return service.reviewPreviewTyranoScriptContent(ctx, source)
+	case rpgProjectFormat, "SCUMMVM_PROJECT", onsProjectFormat, kirikiriProjectFormat,
+		nxengineProjectFormat, butterscotchProjectFormat, tyranoScriptProjectFormat:
+		return service.reviewPreviewEngineContent(ctx, source)
 	default:
 		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
 	}
@@ -718,4 +709,27 @@ FROM review_preview_sessions WHERE id=?
 		return ErrCredential
 	}
 	return nil
+}
+
+func (service *Service) reviewPreviewEngineContent(
+	ctx context.Context, source reviewPreviewSource,
+) (reviewPreviewContentSet, error) {
+	switch source.ContentKind {
+	case rpgProjectFormat:
+		return service.reviewPreviewRPGContent(ctx, source)
+	case "SCUMMVM_PROJECT":
+		return service.reviewPreviewScummVMContent(ctx, source)
+	case onsProjectFormat:
+		return service.reviewPreviewONSContent(ctx, source)
+	case kirikiriProjectFormat:
+		return service.reviewPreviewKiriKiriContent(ctx, source)
+	case nxengineProjectFormat:
+		return service.reviewPreviewNXEngineContent(ctx, source)
+	case butterscotchProjectFormat:
+		return service.reviewPreviewButterscotchContent(ctx, source)
+	case tyranoScriptProjectFormat:
+		return service.reviewPreviewTyranoScriptContent(ctx, source)
+	default:
+		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
+	}
 }

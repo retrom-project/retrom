@@ -986,6 +986,7 @@ components:
             - ONS_PROJECT
             - KIRIKIRI_PROJECT
             - BUTTERSCOTCH_PROJECT
+            - NXENGINE_PROJECT
             - TYRANOSCRIPT_PROJECT
           default: STANDARD
     ApplyCandidateRequest:
