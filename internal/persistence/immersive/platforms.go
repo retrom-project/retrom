@@ -5,39 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"retrom/internal/service/immersive"
 )
 
-type Service struct {
-	database *sql.DB
-}
-
-type querier interface {
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}
-
-func New(database *sql.DB) *Service {
-	return &Service{database: database}
-}
-
-func nullableInt64Pointer(value sql.NullInt64) *int64 {
-	if !value.Valid {
-		return nil
-	}
-	result := value.Int64
-	return &result
-}
-
-func nullableStringPointer(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	result := value.String
-	return &result
-}
-
-func queryPlatforms(ctx context.Context, database querier, profileID string) ([]Platform, error) {
-	rows, err := database.QueryContext(ctx, `
+func (records platformRecords) Platforms(ctx context.Context, profileID string) ([]immersive.Platform, error) {
+	rows, err := records.database.QueryContext(ctx, `
 SELECT platform.id,
        platform.name,
        count(*),
@@ -61,9 +34,9 @@ ORDER BY platform.name COLLATE NOCASE,platform.id
 		return nil, fmt.Errorf("immersive: query platforms: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	platforms := make([]Platform, 0)
+	platforms := make([]immersive.Platform, 0)
 	for rows.Next() {
-		var platform Platform
+		var platform immersive.Platform
 		var lastPlayedAtMS sql.NullInt64
 		if err := rows.Scan(
 			&platform.ID,
@@ -82,32 +55,10 @@ ORDER BY platform.name COLLATE NOCASE,platform.id
 	return platforms, nil
 }
 
-func (service *Service) Platforms(ctx context.Context, profileID string) ([]Platform, error) {
-	transaction, err := service.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return nil, fmt.Errorf("immersive: begin platform transaction: %w", err)
-	}
-	defer func() { _ = transaction.Rollback() }()
-	platforms, err := queryPlatforms(ctx, transaction, profileID)
-	if err != nil {
-		return nil, err
-	}
-	featuredGames, err := queryFeaturedGames(ctx, transaction, profileID, "")
-	if err != nil {
-		return nil, err
-	}
-	attachFeaturedGames(platforms, featuredGames)
-	if err := transaction.Commit(); err != nil {
-		return nil, fmt.Errorf("immersive: commit platform transaction: %w", err)
-	}
-	return platforms, nil
-}
-
-func queryFeaturedGames(
+func (records platformRecords) Featured(
 	ctx context.Context,
-	database querier,
 	profileID, platformID string,
-) ([]FeaturedGame, error) {
+) ([]immersive.FeaturedGame, error) {
 	query := `
 WITH profile_play AS (
   SELECT session.game_id,max(session.started_at_ms) AS last_played_at_ms
@@ -151,14 +102,14 @@ FROM ranked
 WHERE platform_rank<=3
 ORDER BY platform_id,platform_rank
 `
-	rows, err := database.QueryContext(ctx, query, arguments...)
+	rows, err := records.database.QueryContext(ctx, query, arguments...)
 	if err != nil {
 		return nil, fmt.Errorf("immersive: query featured games: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	games := make([]FeaturedGame, 0)
+	games := make([]immersive.FeaturedGame, 0)
 	for rows.Next() {
-		var game FeaturedGame
+		var game immersive.FeaturedGame
 		var coverAssetID sql.NullString
 		var lastPlayedAtMS sql.NullInt64
 		if err := rows.Scan(
@@ -180,28 +131,13 @@ ORDER BY platform_id,platform_rank
 	return games, nil
 }
 
-func attachFeaturedGames(platforms []Platform, games []FeaturedGame) {
-	platformIndexes := make(map[string]int, len(platforms))
-	for index := range platforms {
-		platforms[index].FeaturedGames = make([]FeaturedGame, 0, 3)
-		platformIndexes[platforms[index].ID] = index
-	}
-	for _, game := range games {
-		index, found := platformIndexes[game.PlatformID]
-		if found {
-			platforms[index].FeaturedGames = append(platforms[index].FeaturedGames, game)
-		}
-	}
-}
-
-func queryPlatform(
+func (records platformRecords) Platform(
 	ctx context.Context,
-	database querier,
 	profileID, platformID string,
-) (Platform, error) {
-	var platform Platform
+) (immersive.Platform, error) {
+	var platform immersive.Platform
 	var lastPlayedAtMS sql.NullInt64
-	err := database.QueryRowContext(ctx, `
+	err := records.database.QueryRowContext(ctx, `
 SELECT platform.id,
        platform.name,
        count(*),
@@ -227,22 +163,21 @@ HAVING count(*)>0
 		&lastPlayedAtMS,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Platform{}, ErrPlatformNotFound
+		return immersive.Platform{}, immersive.ErrPlatformNotFound
 	}
 	if err != nil {
-		return Platform{}, fmt.Errorf("immersive: query platform: %w", err)
+		return immersive.Platform{}, fmt.Errorf("immersive: query platform: %w", err)
 	}
 	platform.LastPlayedAtMS = nullableInt64Pointer(lastPlayedAtMS)
 	return platform, nil
 }
 
-func queryGames(
+func (records platformRecords) Games(
 	ctx context.Context,
-	database querier,
 	profileID, platformID string,
 	limit int,
-	cursor *GameCursor,
-) ([]Game, error) {
+	cursor *immersive.GameCursor,
+) ([]immersive.Game, error) {
 	query := `
 SELECT game.id,
        metadata.title,
@@ -305,14 +240,14 @@ AND game.status='PUBLISHED'
 	}
 	query += "ORDER BY metadata.title_initial,metadata.title COLLATE NOCASE,game.id LIMIT ?"
 	arguments = append(arguments, limit+1)
-	rows, err := database.QueryContext(ctx, query, arguments...)
+	rows, err := records.database.QueryContext(ctx, query, arguments...)
 	if err != nil {
 		return nil, fmt.Errorf("immersive: query games: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	games := make([]Game, 0, limit+1)
+	games := make([]immersive.Game, 0, limit+1)
 	for rows.Next() {
-		var game Game
+		var game immersive.Game
 		var releaseYear, lastPlayedAtMS sql.NullInt64
 		var coverAssetID, videoAssetID sql.NullString
 		if err := rows.Scan(
@@ -344,40 +279,4 @@ AND game.status='PUBLISHED'
 		return nil, fmt.Errorf("immersive: iterate games: %w", err)
 	}
 	return games, nil
-}
-
-func (service *Service) Games(
-	ctx context.Context,
-	profileID, platformID string,
-	limit int,
-	cursor *GameCursor,
-) (GamePage, error) {
-	transaction, err := service.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return GamePage{}, fmt.Errorf("immersive: begin read transaction: %w", err)
-	}
-	defer func() { _ = transaction.Rollback() }()
-	platform, err := queryPlatform(ctx, transaction, profileID, platformID)
-	if err != nil {
-		return GamePage{}, err
-	}
-	featuredGames, err := queryFeaturedGames(ctx, transaction, profileID, platformID)
-	if err != nil {
-		return GamePage{}, err
-	}
-	platform.FeaturedGames = featuredGames
-	games, err := queryGames(ctx, transaction, profileID, platformID, limit, cursor)
-	if err != nil {
-		return GamePage{}, err
-	}
-	var next *GameCursor
-	if len(games) > limit {
-		last := games[limit-1]
-		next = &GameCursor{TitleInitial: last.TitleInitial, Title: last.Title, ID: last.ID}
-		games = games[:limit]
-	}
-	if err := transaction.Commit(); err != nil {
-		return GamePage{}, fmt.Errorf("immersive: commit read transaction: %w", err)
-	}
-	return GamePage{Platform: platform, Items: games, NextCursor: next}, nil
 }

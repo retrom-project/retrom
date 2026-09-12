@@ -333,7 +333,7 @@ data/
 
 ### 7.1 已登记 CAS 容量分析
 
-容量分析的唯一口径为 `REGISTERED_CAS_PAYLOAD_V1`：只计算 `blobs` 表中已登记 payload 的 `size_bytes`，按 Blob ID 去重，不读取文件系统目录大小，也不把相同 size 误当成相同内容。统计在独立只读连接池上的一个 read-only transaction 中完成，并与 GC 共用 `blob reference registry` 计算出的保护集合及“受保护 archive 单向保护已物化 member”闭包；不得在容量模块复制第二套保护规则。所有加法在 Go 中使用受检 `int64`，溢出使整次读取失败；HTTP 以十进制字符串返回 byte 数，避免 JavaScript `Number` 精度损失。
+容量分析的唯一口径为 `REGISTERED_CAS_PAYLOAD_V1`：只计算 `blobs` 表中已登记 payload 的 `size_bytes`，按 Blob ID 去重，不读取文件系统目录大小，也不把相同 size 误当成相同内容。`internal/persistence/storageanalysis` 在独立只读连接池上的一个 read-only transaction 中读取完整统计输入，`internal/service/storageanalysis` 在该一致快照上完成分类和汇总；保护集合与 GC 共用 `blob reference registry` 计算出的保护集合及“受保护 archive 单向保护已物化 member”闭包；不得在容量模块复制第二套保护规则。所有加法在 Go 中使用受检 `int64`，溢出使整次读取失败；HTTP 以十进制字符串返回 byte 数，避免 JavaScript `Number` 精度损失。
 
 每个已登记 Blob 必须且只能进入下列固定顺序的一类，零值类也保留：
 

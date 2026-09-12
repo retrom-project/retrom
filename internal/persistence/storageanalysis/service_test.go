@@ -3,78 +3,17 @@ package storageanalysis
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"math"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
-	"retrom/internal/blobregistry"
+	"retrom/internal/service/storageanalysis"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
 )
-
-func TestClassifyUsesDurablePrecedenceAndSharedFallback(t *testing.T) {
-	t.Parallel()
-	tests := map[string]struct {
-		protected bool
-		flags     usage
-		want      CategoryCode
-	}{
-		"unreferenced ignores flags": {false, usageGame, CategoryUnreferenced},
-		"durable wins over workflow": {true, usageGame | usageWorkflow, CategoryGameContent},
-		"durable wins over runtime":  {true, usageBIOS | usageRuntime, CategoryBIOS},
-		"shared durable":             {true, usageSaves | usageMedia, CategorySharedDurable},
-		"workflow before runtime":    {true, usageWorkflow | usageRuntime, CategoryWorkflow},
-		"runtime":                    {true, usageRuntime, CategoryRuntimeSnapshot},
-		"other protected":            {true, 0, CategoryOtherReferenced},
-	}
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			if got := classify(test.protected, test.flags); got != test.want {
-				t.Fatalf("classify() = %s, want %s", got, test.want)
-			}
-		})
-	}
-}
-
-func TestReferenceCoverageRejectsNewAndStaleEdges(t *testing.T) {
-	edges, err := blobregistry.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := validateReferenceCoverage(edges); err != nil {
-		t.Fatalf("current registry coverage: %v", err)
-	}
-	withNewEdge := append(append([]blobregistry.Edge(nil), edges...), blobregistry.Edge{
-		Table: "future_table", Column: "blob_id", Target: "BLOBS", Class: "PROTECTIVE",
-	})
-	if err := validateReferenceCoverage(withNewEdge); !errors.Is(err, errReferenceCoverage) {
-		t.Fatalf("new edge error = %v", err)
-	}
-	withoutEdge := make([]blobregistry.Edge, 0, len(edges)-1)
-	for _, edge := range edges {
-		if edge.Table != "upload_files" || edge.Column != "final_blob_id" {
-			withoutEdge = append(withoutEdge, edge)
-		}
-	}
-	if err := validateReferenceCoverage(withoutEdge); !errors.Is(err, errReferenceCoverage) {
-		t.Fatalf("stale capacity mapping error = %v", err)
-	}
-}
-
-func TestAddCheckedRejectsOverflow(t *testing.T) {
-	t.Parallel()
-	if _, err := addChecked(math.MaxInt64, 1); !errors.Is(err, errIntegerOverflow) {
-		t.Fatalf("positive overflow error = %v", err)
-	}
-	if _, err := addChecked(math.MinInt64, -1); !errors.Is(err, errIntegerOverflow) {
-		t.Fatalf("negative overflow error = %v", err)
-	}
-}
 
 func TestAnalyzeClassifiesRegisteredCASAndReferenceViews(t *testing.T) {
 	ctx := context.Background()
@@ -103,41 +42,41 @@ func TestAnalyzeClassifiesRegisteredCASAndReferenceViews(t *testing.T) {
 	seedBlobs(t, database.SQL, blobs)
 	seedReferences(t, database.SQL)
 	fixed := time.UnixMilli(1_800_000_000_123)
-	snapshot, err := New(database.ReadOnly, func() time.Time { return fixed }).Analyze(ctx)
+	snapshot, err := storageanalysis.New(New(database.ReadOnly), func() time.Time { return fixed }).Analyze(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Scope != Scope || snapshot.GeneratedAtMS != fixed.UnixMilli() {
+	if snapshot.Scope != storageanalysis.Scope || snapshot.GeneratedAtMS != fixed.UnixMilli() {
 		t.Fatalf("snapshot identity = %q/%d", snapshot.Scope, snapshot.GeneratedAtMS)
 	}
-	wantTotals := Totals{RegisteredBytes: 6125, ProtectedBytes: 4325, UnreferencedBytes: 1800, BlobCount: 12}
+	wantTotals := storageanalysis.Totals{RegisteredBytes: 6125, ProtectedBytes: 4325, UnreferencedBytes: 1800, BlobCount: 12}
 	if snapshot.Totals != wantTotals {
 		t.Fatalf("totals = %#v, want %#v", snapshot.Totals, wantTotals)
 	}
-	wantCategories := []Category{
-		{CategoryGameContent, 1600, 3},
-		{CategoryBIOS, 200, 1},
-		{CategorySaves, 650, 2},
-		{CategoryMedia, 400, 1},
-		{CategoryWorkflow, 500, 1},
-		{CategoryRuntimeSnapshot, 600, 1},
-		{CategorySharedDurable, 375, 1},
-		{CategoryOtherReferenced, 0, 0},
-		{CategoryUnreferenced, 1800, 2},
+	wantCategories := []storageanalysis.Category{
+		{Code: storageanalysis.CategoryGameContent, Bytes: 1600, BlobCount: 3},
+		{Code: storageanalysis.CategoryBIOS, Bytes: 200, BlobCount: 1},
+		{Code: storageanalysis.CategorySaves, Bytes: 650, BlobCount: 2},
+		{Code: storageanalysis.CategoryMedia, Bytes: 400, BlobCount: 1},
+		{Code: storageanalysis.CategoryWorkflow, Bytes: 500, BlobCount: 1},
+		{Code: storageanalysis.CategoryRuntimeSnapshot, Bytes: 600, BlobCount: 1},
+		{Code: storageanalysis.CategorySharedDurable, Bytes: 375, BlobCount: 1},
+		{Code: storageanalysis.CategoryOtherReferenced, Bytes: 0, BlobCount: 0},
+		{Code: storageanalysis.CategoryUnreferenced, Bytes: 1800, BlobCount: 2},
 	}
 	if !reflect.DeepEqual(snapshot.Categories, wantCategories) {
 		t.Fatalf("categories = %#v, want %#v", snapshot.Categories, wantCategories)
 	}
-	wantDetails := Details{
-		SaveStates: SaveStateDetails{
+	wantDetails := storageanalysis.Details{
+		SaveStates: storageanalysis.SaveStateDetails{
 			ActiveCount: 1, DeletedCount: 1, StateReferenceBytes: 675, ScreenshotReferenceBytes: 350,
 		},
-		CleanupCandidates: CleanupCandidateDetails{BlobCount: 1, Bytes: 900},
+		CleanupCandidates: storageanalysis.CleanupCandidateDetails{BlobCount: 1, Bytes: 900},
 	}
 	if snapshot.Details != wantDetails {
 		t.Fatalf("details = %#v, want %#v", snapshot.Details, wantDetails)
 	}
-	if !reflect.DeepEqual(snapshot.Excluded, Excluded[:]) {
+	if !reflect.DeepEqual(snapshot.Excluded, storageanalysis.Excluded[:]) {
 		t.Fatalf("excluded = %v", snapshot.Excluded)
 	}
 }
@@ -151,7 +90,7 @@ func TestAnalyzeSurfacesReadDatabaseFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.SQL.Close()) })
-	if _, err := New(database.ReadOnly, time.Now).Analyze(context.Background()); err == nil {
+	if _, err := storageanalysis.New(New(database.ReadOnly), time.Now).Analyze(context.Background()); err == nil {
 		t.Fatal("Analyze succeeded with closed read-only database")
 	}
 }

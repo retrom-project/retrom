@@ -10,11 +10,13 @@ import (
 	"testing"
 	"time"
 
+	storagepersistence "retrom/internal/persistence/storageanalysis"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/storageanalysis"
+	"retrom/internal/service/storageanalysis"
 	"retrom/internal/testassert"
 )
 
@@ -110,7 +112,7 @@ SELECT
 `, gameID, coverBlobID), &retiredAssets, &candidateCount)
 	testassert.Falsef(t, retiredAssets != 0 || candidateCount != 1,
 		"cover retirement = retired assets:%d GC candidates:%d", retiredAssets, candidateCount)
-	snapshot, err := storageanalysis.New(server.database, time.Now).Analyze(t.Context())
+	snapshot, err := storageanalysis.New(storagepersistence.New(server.database), time.Now).Analyze(t.Context())
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, snapshot.Totals.UnreferencedBytes < 4,
 		"unreferenced bytes = %d, wanted retired cover bytes", snapshot.Totals.UnreferencedBytes)

@@ -9,6 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	immersivepersistence "retrom/internal/persistence/immersive"
+	storagepersistence "retrom/internal/persistence/storageanalysis"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
 	"retrom/internal/accounts"
@@ -20,7 +23,6 @@ import (
 	"retrom/internal/firmware"
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
-	"retrom/internal/immersive"
 	"retrom/internal/importdiscard"
 	"retrom/internal/jobs"
 	"retrom/internal/launch"
@@ -40,9 +42,10 @@ import (
 	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
 	"retrom/internal/service/favorites"
+	"retrom/internal/service/immersive"
 	"retrom/internal/service/platforminstance"
+	"retrom/internal/service/storageanalysis"
 	"retrom/internal/service/tagging"
-	"retrom/internal/storageanalysis"
 	"retrom/internal/uploads"
 )
 
@@ -144,7 +147,7 @@ func (server *Server) WithNetplay(service *netplay.Service) *Server {
 func (server *Server) WithReadinessDatabase(database *sql.DB) *Server {
 	if database != nil {
 		server.readinessDatabase = database
-		server.storageAnalysis = storageanalysis.New(database, server.now)
+		server.storageAnalysis = storageanalysis.New(storagepersistence.New(database), server.now)
 	}
 	return server
 }
@@ -214,7 +217,7 @@ func New(
 		importer:                importer,
 		launcher:                launcher,
 		jobService:              jobs.New(database, now),
-		immersive:               immersive.New(database),
+		immersive:               immersive.New(immersivepersistence.New(database)),
 		firmware:                firmwareService,
 		serverImports:           serverImportService,
 		pegasusImports:          pegasusImportService,

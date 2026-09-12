@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"retrom/internal/authn"
-	"retrom/internal/storageanalysis"
+	"retrom/internal/service/storageanalysis"
 )
 
 var errStorageAnalysisDatabaseMissing = errors.New("storage analysis read-only database missing")

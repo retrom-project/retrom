@@ -82,22 +82,22 @@ type Snapshot struct {
 	Excluded      []string
 }
 
-type usage uint8
+type Usage uint8
 
 const (
-	usageGame usage = 1 << iota
-	usageBIOS
-	usageSaves
-	usageMedia
-	usageWorkflow
-	usageRuntime
+	UsageGame Usage = 1 << iota
+	UsageBIOS
+	UsageSaves
+	UsageMedia
+	UsageWorkflow
+	UsageRuntime
 )
 
-const durableUsage = usageGame | usageBIOS | usageSaves | usageMedia
+const durableUsage = UsageGame | UsageBIOS | UsageSaves | UsageMedia
 
 var errIntegerOverflow = errors.New("STORAGE_ANALYSIS_INTEGER_OVERFLOW")
 
-func classify(protected bool, flags usage) CategoryCode {
+func classify(protected bool, flags Usage) CategoryCode {
 	if !protected {
 		return CategoryUnreferenced
 	}
@@ -106,17 +106,17 @@ func classify(protected bool, flags usage) CategoryCode {
 		return CategorySharedDurable
 	}
 	switch {
-	case durable&usageGame != 0:
+	case durable&UsageGame != 0:
 		return CategoryGameContent
-	case durable&usageBIOS != 0:
+	case durable&UsageBIOS != 0:
 		return CategoryBIOS
-	case durable&usageSaves != 0:
+	case durable&UsageSaves != 0:
 		return CategorySaves
-	case durable&usageMedia != 0:
+	case durable&UsageMedia != 0:
 		return CategoryMedia
-	case flags&usageWorkflow != 0:
+	case flags&UsageWorkflow != 0:
 		return CategoryWorkflow
-	case flags&usageRuntime != 0:
+	case flags&UsageRuntime != 0:
 		return CategoryRuntimeSnapshot
 	default:
 		return CategoryOtherReferenced
