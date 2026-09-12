@@ -3,9 +3,7 @@ package launch
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"retrom/internal/persistence/contentquery"
 	persistence "retrom/internal/persistence/launch"
@@ -184,71 +182,4 @@ emulator_game_id=NULL,version=version+1,updated_at_ms=?
 		}
 	}
 	return created, nil
-}
-
-// ResumeQueuedValidationJobs is idempotent: each worker first claims its row.
-func (service *Service) ResumeQueuedValidationJobs() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	service.recoverStaleValidationJobs(ctx)
-	rows, err := service.database.QueryContext(ctx, `
-SELECT id FROM jobs WHERE kind='VARIANT_VALIDATE' AND state='QUEUED' ORDER BY created_at_ms,id
-`)
-	if err != nil {
-		return
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	jobIDs := make([]string, 0)
-	for rows.Next() {
-		var jobID string
-		if err := rows.Scan(&jobID); err != nil {
-			cleanup.Error("scan queued validation job", err)
-			return
-		}
-		jobIDs = append(jobIDs, jobID)
-	}
-	if err := rows.Err(); err != nil {
-		cleanup.Error("iterate queued validation jobs", err)
-		return
-	}
-	for _, jobID := range jobIDs {
-		go service.resumeValidationJob(context.Background(), jobID)
-	}
-}
-
-func (service *Service) recoverStaleValidationJobs(ctx context.Context) {
-	now := service.now().UnixMilli()
-	_, _ = service.database.ExecContext(ctx, `
-UPDATE jobs
-SET state='FAILED',error_code='LAUNCH_CORE_VALIDATION_UNAVAILABLE',error_retryable=1,
-finished_at_ms=?,leased_until_ms=NULL,version=version+1,updated_at_ms=?
-WHERE kind='VARIANT_VALIDATE' AND state='RUNNING' AND leased_until_ms<? AND attempt_count>=max_attempts;
-
-UPDATE jobs
-SET state='QUEUED',available_at_ms=?,execution_started_at_ms=NULL,execution_deadline_at_ms=NULL,
-leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,version=version+1,updated_at_ms=?
-WHERE kind='VARIANT_VALIDATE' AND state='RUNNING' AND leased_until_ms<? AND attempt_count<max_attempts
-`, now, now, now, now, now, now)
-}
-
-func (service *Service) resumeValidationJob(parent context.Context, jobID string) {
-	var inputJSON string
-	if err := service.database.QueryRowContext(parent, `
-SELECT snapshot.input_json
-FROM jobs job JOIN job_input_snapshots snapshot
- ON snapshot.job_id=job.id AND snapshot.execution_no=job.execution_no
-WHERE job.id=? AND job.kind='VARIANT_VALIDATE'
-`, jobID).Scan(&inputJSON); err != nil {
-		return
-	}
-	var snapshot validationSnapshot
-	if err := json.Unmarshal([]byte(inputJSON), &snapshot); err != nil ||
-		snapshot.SchemaVersion != 1 || snapshot.Kind != "VARIANT_VALIDATE" {
-		return
-	}
-	datID := sql.NullString{}
-	if value, ok := snapshot.Inputs.DATVersionID.(string); ok && value != "" {
-		datID = sql.NullString{String: value, Valid: true}
-	}
-	service.validateVariant(parent, jobID, snapshot.Inputs, datID)
 }

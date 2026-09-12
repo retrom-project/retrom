@@ -42,6 +42,7 @@ type (
 )
 
 type Service struct {
+	validationRuns           *validationWorkerRuns
 	database                 *sql.DB
 	dependencies             *dependencies.Set
 	credentials              *retromruntime.Credentials
@@ -68,7 +69,13 @@ func New(
 	credentials *retromruntime.Credentials,
 	now func() time.Time,
 ) *Service {
-	return &Service{database: database, dependencies: dependencySet, credentials: credentials, now: now}
+	return &Service{
+		database:       database,
+		dependencies:   dependencySet,
+		credentials:    credentials,
+		now:            now,
+		validationRuns: newValidationWorkerRuns(),
+	}
 }
 
 func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {

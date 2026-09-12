@@ -285,6 +285,7 @@ func New(
 }
 
 func (server *Server) Close() {
+	server.launcher.Close()
 	server.importDiscards.Close()
 	if server.netplay != nil {
 		server.netplayHub.Close()

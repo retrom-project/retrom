@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -102,4 +103,6 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 	server.importer.ResumeMultiDiscAttachmentJobs(request.Context())
 	server.importer.ResumeImportGroupJobs(request.Context())
 	writeJSON(writer, http.StatusAccepted, result)
+	ctx := context.WithoutCancel(request.Context())
+	afterIdempotencyCommit(writer, func() { go server.launcher.ResumeValidationJob(ctx, result.JobID) })
 }

@@ -11,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	reviewpersistence "retrom/internal/persistence/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimecatalog"
+	reviewservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
 
@@ -146,6 +148,7 @@ VALUES('01980000-0000-7000-8000-000000000901','RPG2000','RPG2K','RPG2000','MATCH
  ?,?,?,?,?)`, projectFingerprint, strings.Repeat("0", 64), target.ProviderID, target.TargetID,
 		dependency, now, now)
 
+	bindRPGFixtureValidation(t, database)
 	return fixture
 }
 
@@ -153,5 +156,23 @@ func mustRPGLaunchSQL(t *testing.T, database *sql.DB, query string, arguments ..
 	t.Helper()
 	if _, err := database.Exec(query, arguments...); err != nil {
 		t.Fatalf("RPG launch fixture SQL: %v\n%s", err, query)
+	}
+}
+
+func bindRPGFixtureValidation(t *testing.T, database *sql.DB) {
+	t.Helper()
+	reader := reviewpersistence.BindReviewValidation(database)
+	evidence, err := reader.Evidence(t.Context(), "rpg-core-validation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, current := evidence.CurrentInput()
+	if !current {
+		t.Fatal("RPG review fixture validation does not match its source")
+	}
+	mustRPGLaunchSQL(t, database, `UPDATE import_item_core_validations SET prepublish_input_digest=? WHERE id='rpg-core-validation'`, reviewservice.PrepublishDigest(input))
+	valid, err := reviewservice.NewReviewValidation(reader).Current(t.Context(), "rpg-core-validation")
+	if err != nil || !valid {
+		t.Fatalf("RPG fixture current validation: %v/%v", valid, err)
 	}
 }

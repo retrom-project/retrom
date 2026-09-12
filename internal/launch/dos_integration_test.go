@@ -294,7 +294,9 @@ WHERE id=?
 		Scan(&duplicateState, &duplicateAttempts); err != nil || duplicateState != "RUNNING" || duplicateAttempts != 1 {
 		t.Fatalf("duplicate validation resume = %s/%d, error=%v", duplicateState, duplicateAttempts, err)
 	}
-	service.recoverStaleValidationJobs(ctx)
+	if _, err := service.validationWorker().Recover(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&failedState); err != nil || failedState != "QUEUED" {
 		t.Fatalf("stale validation recovery = %s, error=%v", failedState, err)

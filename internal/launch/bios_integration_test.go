@@ -28,7 +28,6 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/payloadrelease"
 	retromruntime "retrom/internal/runtime"
@@ -168,14 +167,7 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 		return
 	}
 	assertProductSnapshotRejected(t, service, command, selected)
-	tx, err := database.SQL.BeginTx(ctx, nil)
-	testassert.False(t, err != nil, err)
-	lockedDigest, err := corevalidation.BIOSDependencyDigest(snapshot)
-	testassert.False(t, err != nil, err)
-	testassert.True(t, errors.Is(service.checkValidationBIOS(ctx, tx, validationInputs{
-		GameID: gameID, GameVariantID: variantID, ProviderID: target.ProviderID, TargetID: target.TargetID, BIOSDependencyDigest: lockedDigest,
-	}, sql.NullString{}), errValidationGameChanged), "late validation revived retired BIOS")
-	testassert.False(t, tx.Rollback() != nil, "rollback selection test")
+	assertValidationRejectsRetiredBIOS(t, ctx, database.SQL, selected, variantID)
 	pending, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "new BIOS validation = %#v, error=%v", pending, err)
 	waitForProductBIOSValidation(ctx, t, database.SQL, pending.JobID)

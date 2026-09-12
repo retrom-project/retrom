@@ -3,10 +3,7 @@ package launch
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"path/filepath"
-	"strings"
 
 	"retrom/internal/dbexec"
 	persistence "retrom/internal/persistence/launch"
@@ -16,32 +13,6 @@ import (
 
 	"retrom/internal/corevalidation"
 )
-
-type validationInputs struct {
-	GameID                string                   `json:"gameId"`
-	GameVariantID         string                   `json:"gameVariantId"`
-	GameVersion           int64                    `json:"gameVersion"`
-	SourceManifestDigest  string                   `json:"sourceManifestDigest"`
-	ProviderID            string                   `json:"providerId"`
-	TargetID              string                   `json:"targetId"`
-	ContentPolicy         contentcapability.Policy `json:"contentPolicy"`
-	DATVersionID          any                      `json:"datVersionId"`
-	ValidationInputDigest string                   `json:"validationInputDigest"`
-	BIOSDependencyDigest  string                   `json:"biosDependencyDigest"`
-}
-
-type validationSnapshot struct {
-	SchemaVersion int              `json:"schemaVersion"`
-	Kind          string           `json:"kind"`
-	Scope         validationScope  `json:"scope"`
-	ExecutionID   string           `json:"executionId"`
-	Inputs        validationInputs `json:"inputs"`
-}
-
-type validationScope struct {
-	Type string `json:"type"`
-	ID   string `json:"id"`
-}
 
 func (service *Service) resolveVariantBIOS(
 	ctx context.Context, database dbexec.Executor,
@@ -92,24 +63,6 @@ func (service *Service) validationDigests(
 	return digest, biosDigest, err
 }
 
-func (service *Service) currentValidationEvidence(
-	ctx context.Context, variantID, contentID, contentLogicalName, contentKind, providerID, targetID string,
-	contentPolicy contentcapability.Policy, datID sql.NullString,
-) (string, string, corevalidation.Snapshot, string, string, error) {
-	return service.variantValidationEvidence(
-		ctx,
-		service.database,
-		variantID,
-		contentID,
-		contentLogicalName,
-		contentKind,
-		providerID,
-		targetID,
-		contentPolicy,
-		datID,
-	)
-}
-
 func (service *Service) variantValidationEvidence(
 	ctx context.Context, database dbexec.Executor,
 	variantID, contentID, contentLogicalName, contentKind, providerID, targetID string,
@@ -151,44 +104,9 @@ func (service *Service) variantValidationEvidence(
 	return digest, biosDigest, evidence, status, code, nil
 }
 
-type arcadeSnapshotIdentity struct {
-	SchemaVersion int    `json:"schemaVersion"`
-	Kind          string `json:"kind"`
-	Machine       string `json:"machine"`
-	DATVersionID  string `json:"datVersionId"`
-}
-
 func validateLockedArcadeSnapshot(raw, contentLogicalName, datID string) error {
-	var identity arcadeSnapshotIdentity
-	if err := json.Unmarshal([]byte(raw), &identity); err != nil {
-		return corevalidation.ErrInvalidSnapshot
-	}
-	machine := strings.TrimSuffix(filepath.Base(contentLogicalName), filepath.Ext(contentLogicalName))
-	if identity.SchemaVersion != corevalidation.SnapshotSchemaVersion ||
-		identity.Kind != corevalidation.SnapshotKindArcade ||
-		identity.Machine != machine || identity.DATVersionID != datID {
-		return corevalidation.ErrInvalidSnapshot
-	}
-	if _, err := corevalidation.ParseRuntimeBIOSDependencies(raw); err != nil {
-		return fmt.Errorf("parse Arcade runtime dependency snapshot: %w", err)
+	if err := application.ValidateLockedArcadeSnapshot(raw, contentLogicalName, datID); err != nil {
+		return fmt.Errorf("validate locked Arcade snapshot: %w", err)
 	}
 	return nil
-}
-
-func (service *Service) lockedArcadeDependencySnapshot(
-	ctx context.Context,
-	variantID, contentID, contentLogicalName, datID string,
-) (string, error) {
-	var raw string
-	if err := service.database.QueryRowContext(ctx, `
-SELECT variant.dependency_snapshot_json
-FROM game_variants variant
-WHERE variant.id=? AND variant.game_id=? AND variant.dat_version_id=?
-`, variantID, contentID, datID).Scan(&raw); err != nil {
-		return "", fmt.Errorf("load locked Arcade dependency snapshot: %w", err)
-	}
-	if err := validateLockedArcadeSnapshot(raw, contentLogicalName, datID); err != nil {
-		return "", fmt.Errorf("validate locked Arcade dependency snapshot: %w", err)
-	}
-	return raw, nil
 }

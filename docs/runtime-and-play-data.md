@@ -41,6 +41,10 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 
 启动先按 Game 与所选 Core 定位已有 Variant，再验证其 Provider/Target 对应的当前 binding。一个 Core 对应多个运行目标时，显式选择、目录默认选择和存档继承选择都保留该 Variant 的目标；目标停用或不可用时拒绝启动。只有该 Game/Core 尚无 Variant 时才进入新变体校验流程，不能因选中了其他目标而重复创建 Variant。
 
+`VARIANT_VALIDATE` 的领取、校验与恢复由 Service 编排。领取与 STARTED 事件原子提交；提前可用时间、用尽的尝试预算和已被领取的任务不能启动。输入解析保留 JSON 原始错误，耗时校验读取独立一致快照，最终写事务重验原始 execution/attempt/worker、来源、运行目标、依赖及未改变的起止期限，再一起保存 Variant 和终态事件。恢复沿用原始 30 分钟期限，不能通过重领延长；自有执行到期必须收尾，被替换的执行不能覆盖新结果。heartbeat、失败清理与执行都受进程关闭管理，关闭先禁止新执行，再取消并等待已有执行和监控退出。
+
+通用 Job retry 成功后的校验唤醒等待幂等收据持久化，重放响应不重复启动；收据写入失败不发出本次唤醒。现有 retry 与通用 HTTP 收据仍是独立事务，收据失败时已经入队的执行保留。后台执行脱离请求取消后仍归属进程生命周期，不能在数据库关闭后继续访问。
+
 `providerId` 与 `targetId` 是跨升级稳定的语义身份。Provider 当前版本和 manifest 投影可以前移，但已创建的 `launch_sessions` 会冻结当次 `bundleSha256`、内容文件、外部依赖文件、Target、options 和恢复输入。Bundle 升级不会让现有审核结果或已发布 Variant 自动 stale；只有来源内容、Core/Target、DAT、依赖闭包、项目证据或其他真实验证输入改变时才需要重新检查。
 
 内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch/Netplay、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换仅原子切换当前安装；已创建的 Launch/Play/Netplay 保留冻结的旧 BIOS 文件与授权直到各自结束或过期，game-scoped 存档继续保留。新启动（包括从存档继续）按需核对当前 BIOS，变化时先重验；创建事务再次核对快照，避免并发替换混用版本。人工截图放行的 Variant 保留放行状态，在新 Launch 事务中只刷新已安装的受管 BIOS；不清除手动提供的无关 Arcade 文件。

@@ -40,9 +40,10 @@ var domainIdempotencyOperations = map[string]struct{}{
 }
 
 type bufferedResponse struct {
-	header http.Header
-	body   bytes.Buffer
-	status int
+	header      http.Header
+	body        bytes.Buffer
+	status      int
+	afterCommit []func()
 }
 
 func (response *bufferedResponse) Header() http.Header { return response.header }
@@ -149,6 +150,7 @@ AND principal_id=?
 		if response.status == 0 {
 			response.status = http.StatusOK
 		}
+		committed := false
 		if response.status >= 200 && response.status < 300 && response.body.Len() <= 1<<20 {
 			headers := responseHeadersForReplay(response.header)
 			encodedHeaders, _ := json.Marshal(headers)
@@ -189,8 +191,10 @@ expires_at_ms) VALUES(?,
 				server.databaseError(writer, request, err)
 				return
 			}
+			committed = true
 		}
 		copyResponse(writer, response)
+		response.runAfterCommit(committed)
 	})
 }
 

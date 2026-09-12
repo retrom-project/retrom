@@ -16,6 +16,10 @@ import (
 	"testing"
 	"time"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+	application "retrom/internal/service/launch"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -179,9 +183,9 @@ updated_at_ms) VALUES(?,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status, code := service.validateStaticBIOSForContent(
+	if _, status, code, err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(
 		ctx, fceummTarget.ProviderID, fceummTarget.TargetID, "Missing.fds",
-	); status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
+	); err != nil || status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
 		t.Fatalf("missing required FDS BIOS validation = %s/%s", status, code)
 	}
 	assertMissingFDSValidationFinishes(t, ctx, database.SQL, service, approved.GameID)
@@ -388,7 +392,7 @@ WHERE j.id=?
 		t.Fatal(err)
 	}
 	var payload map[string]any
-	var snapshot validationSnapshot
+	var snapshot application.ValidationSnapshot
 	testassert.Falsef(t, testassert.Any(func() bool { return json.Unmarshal([]byte(payloadJSON), &payload) != nil }, func() bool { return json.Unmarshal([]byte(inputJSON), &snapshot) != nil }, func() bool { return cancellable != 0 }, func() bool { return len(dedupeKey) != 64 }, func() bool { return dedupeKey == snapshot.Inputs.ValidationInputDigest }, func() bool { return payload["inputExecutionNo"] != float64(1) }, func() bool { return snapshot.Inputs.GameVariantID == "" }), "validation job contract = cancellable:%d dedupe:%s payload:%s snapshot:%s", cancellable, dedupeKey, payloadJSON, inputJSON)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string

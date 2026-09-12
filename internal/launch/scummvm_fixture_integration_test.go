@@ -43,9 +43,14 @@ type scummVMFixture struct {
 
 func newScummVMFixture(t *testing.T, roots []string) scummVMFixture {
 	t.Helper()
+	return newScummVMFixtureAt(t, roots, time.Now)
+}
+
+func newScummVMFixtureAt(t *testing.T, roots []string, now func() time.Time) scummVMFixture {
+	t.Helper()
 	ctx := t.Context()
 	dir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dir, "retrom.db"), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,15 +63,15 @@ func newScummVMFixture(t *testing.T, roots []string) scummVMFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs).WithScummVMDetector(scummVMFixtureDetector(t, roots))
-	itemID := uploadScummVMFixture(t, database.SQL, blobs, dir, importer)
+	importer := libraryimport.New(database.SQL, now).WithBlobStore(blobs).WithScummVMDetector(scummVMFixtureDetector(t, roots))
+	itemID := uploadScummVMFixture(t, database.SQL, blobs, dir, importer, now)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +80,7 @@ func newScummVMFixture(t *testing.T, roots []string) scummVMFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
+	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
 	return scummVMFixture{service, importer, database.SQL, itemID}
 }
 
@@ -100,7 +105,7 @@ func scummVMFixtureDetector(t *testing.T, roots []string) *scummvm.Detector {
 	})
 }
 
-func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store, dir string, importer *libraryimport.Service) string {
+func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
 	t.Helper()
 	ctx := t.Context()
 	var body bytes.Buffer
@@ -118,7 +123,7 @@ func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store
 		t.Fatal(err)
 	}
 	contents := body.Bytes()
-	service := uploads.New(uploadpersistence.New(database), blobs, dir, time.Now)
+	service := uploads.New(uploadpersistence.New(database), blobs, dir, now)
 	upload, err := service.Create(ctx, uploads.CreateRequest{Purpose: "PROJECT", SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "game", RelativePath: "scummvm.zip", SizeBytes: int64(len(contents))}}})
 	if err != nil {
 		t.Fatal(err)
