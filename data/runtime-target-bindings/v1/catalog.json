@@ -453,6 +453,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-neocd",
+      "coreId": "neocd",
+      "providerId": "emulatorjs",
+      "targetId": "neocd",
+      "platformIds": [
+        "neogeocd"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-nestopia",
       "coreId": "nestopia",
       "providerId": "emulatorjs",
@@ -1262,6 +1276,12 @@
         "enabled": true
       },
       {
+        "id": "neogeocd",
+        "name": "Neo Geo CD",
+        "sortOrder": 550,
+        "enabled": true
+      },
+      {
         "id": "nes",
         "name": "NES / Famicom",
         "sortOrder": 10,
@@ -1621,6 +1641,11 @@
       {
         "id": "mupen64plus_next",
         "name": "Mupen64Plus-Next",
+        "enabled": true
+      },
+      {
+        "id": "neocd",
+        "name": "NeoCD",
         "enabled": true
       },
       {

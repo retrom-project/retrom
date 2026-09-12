@@ -43,6 +43,12 @@ var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 		sourceURL: "https://docs.libretro.com/library/freeintv/",
 	},
 	{
+		coreID: "neocd", logical: "neocd.bin", mode: "REQUIRED", size: 524288,
+		md5: "f39572af7584cb5b3f70ae8cc848aba2", sha256: "2e93af5848080ea04d17a7841b742f009330d30e4ff40c3410547581d921c892",
+		sourceURL: "https://github.com/libretro/neocd_libretro/blob/3118c6901787e863e80e79170d02d47657b3b0ab/README.md",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/neocd/neocd.bin",
+	},
+	{
 		delivery: "EXTERNAL_FILE", emulatorPath: "/game/keropi/iplrom.dat",
 		coreID: "px68k", logical: "iplrom.dat", mode: "REQUIRED", size: 131072,
 		md5: "7fd4caabac1d9169e289f0f7bbf71d8e", sha256: "8ead1d0f4ebb9c59a7fa118596f819e191c310442a00c56ab5ec5e9e7a189677",

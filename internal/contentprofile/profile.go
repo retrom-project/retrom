@@ -52,6 +52,7 @@ type Profile struct {
 }
 
 var registry = map[string]Profile{
+	"neogeocd":      raw("neogeocd", ".chd"),
 	"vectrex":       single("vectrex", ".vec", ".bin"),
 	"intellivision": single("intellivision", ".int", ".rom", ".bin"),
 	"x68000":        single("x68000", ".dim", ".xdf", ".hdf"),

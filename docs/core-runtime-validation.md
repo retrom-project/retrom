@@ -44,7 +44,7 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 55 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 56 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 原始画面与锐利像素使用显式颜色直通、无滤波的 `retrom-passthrough` shader，避开 4.2.3 关闭 shader 后在原生分辨率切换时出现纯色/裁切的 GL fallback。浏览器画面必须与核心截图保持完整内容，启动和跨 Launch 恢复均需覆盖；不能用切换画面模式的人工操作替代默认模式验收。
 
@@ -157,3 +157,21 @@ fork 的完整即时状态包括 CPU、RAM、VIA、PSG、卡带银行、模拟�
 不能读取上游不完整的 VecX 状态。Provider 公共层按 `emulatorjs-state-v1-storage-v1`
 压缩一次，恢复到不同 Launch 后必须继续接受输入。
 开发候选的准入按 `ACC-VECTREX-001` 执行；候选声明不等于正式发行支持。
+
+## Neo Geo CD
+
+`neogeocd/neocd` 通过 `emulatorjs/neocd` 接入，首期只接受单文件 CHD；
+CUE/BIN、M3U 与换盘不在本次产品契约中。管理员安装 512 KiB CDZ `neocd.bin`，
+服务端按 BIOS catalog 校验并以 external file 交付到 `/neocd/neocd.bin`。
+不依赖上游实验性 HLE BIOS。推荐目录为“Neo Geo CD 游戏”。
+
+Provider 将 CHD 声明为 `SEEKABLE_BLOB`，通过 256 KiB Range 块按需读取，内存 LRU 上限 16 MiB。
+启动前不全量下载或扫描镜像。每个响应核对 206、Content-Range、长度与冻结 SHA-256 ETag；
+持久块缓存按内容摘要/大小/偏移隔离，命中时校验该块长度与本地摘要。缓存不可用时继续
+有界网络读取；服务器忽略 Range 则明确失败，不退回整文件下载。按需读取不显示全游戏
+下载进度。核心通过 Asyncify 等待缺失块，暂停、存档及退出协调在途读取。标准手柄使用 arcade 映射，
+一个按钮只对应一个原生输入。即时存档采用公共 `emulatorjs-state-v1-storage-v1`，
+按声明大小有界解压，并在新的 Launch 恢复后继续接收输入。
+
+产品证据见统一验收 `ACC-NEOCD-001`。正式 Provider lock 固定发布资产，开发候选
+只能用于显式 PFB 验证。通过样本不能推断整个游戏库或实体手柄兼容性。

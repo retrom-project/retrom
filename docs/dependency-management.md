@@ -38,7 +38,7 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 ## 3. 两个 Provider
 
-`emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 55 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
+`emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 56 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
 `retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08、Play! 和 Ruffle 在内的 22 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
@@ -245,3 +245,19 @@ EmulatorJS `forks` 固定已发布的 `retrom-core-g8f671cc9d737-r1`、commit、
 首次接入显式构建并验证完整 Provider 候选，再用 `pfb-provider-import` 导入为 PFB 基座。
 日常生命周期不重建核心或 Provider。正式更新按 core → runtime → Retrom 顺序发布，
 Retrom 固定正式 Provider lock 后重跑 ACC-VECTREX-001。
+
+### NeoCD 核心
+
+Retrom workspace catalog 新增 `neocd`，维护仓库为
+`retrom-project/neocd_libretro`，上游 commit 为
+`3118c6901787e863e80e79170d02d47657b3b0ab`，默认维护分支为
+`retrom/g3118c6901787`；`master` 只保留上游镜像。
+核心通过 PFB 显式 `pfb-core-build CORE=neocd` 构建，使用固定 Emscripten 镜像和
+EmulatorJS RetroArch commit。runtime 只验证并聚合锁定资产，不编译核心。
+正式来源固定为 `retrom-core-g3118c6901787-r1`；后续更新遵循 core → runtime → Retrom
+顺序，Retrom 固定正式 Provider lock 后重跑 ACC-NEOCD-001。
+
+发布包包含完整 NeoCD 源码归档、组件许可和字节摘要；源码未发布时普通 release
+构建必须拒绝。顶层 LGPLv3 不覆盖所有组件：Z80 源码带有非商业限制，链接的
+RetroArch 另带 GPLv3，不能将组合产物标为无限制 LGPL-only。游戏与 BIOS 不进入
+源码或 Provider；BIOS 通过现有管理员安装链路提供。
