@@ -49,6 +49,12 @@ var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 		delivery:  "EXTERNAL_FILE", emulatorPath: "/neocd/neocd.bin",
 	},
 	{
+		delivery: "EXTERNAL_FILE", emulatorPath: "/bios.min",
+		coreID: "gbe_plus", logical: "bios.min", mode: "REQUIRED", size: 4096,
+		md5: "1e4fb124a3a886865acb574f388c803d", sha256: "45a1c7f28b9ad585e67f047abe9c1c956724bfcab8c9011002af4274e7c50e8f",
+		sourceURL: "https://docs.libretro.com/library/pokemini/",
+	},
+	{
 		delivery: "EXTERNAL_FILE", emulatorPath: "/game/keropi/iplrom.dat",
 		coreID: "px68k", logical: "iplrom.dat", mode: "REQUIRED", size: 131072,
 		md5: "7fd4caabac1d9169e289f0f7bbf71d8e", sha256: "8ead1d0f4ebb9c59a7fa118596f819e191c310442a00c56ab5ec5e9e7a189677",

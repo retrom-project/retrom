@@ -287,3 +287,16 @@ checkpoint 同时封装机器、磁盘内容、帧计数及游戏摘要；新实
 只在明确选择存档时恢复，普通开始使用原始游戏。内存 DIM/XDF 的可写数据及读写位置由核心
 序列化；HDF 的可写文件由 adapter checkpoint 保存。内容缓存命中也校验大小和摘要，损坏命中
 会丢弃并重新获取；退出释放帧调度、输入、声音和原生状态。
+
+## Pokémon Mini / GBE+ 候选
+
+平台 `pokemini`、Core `gbe_plus` 绑定 `retrom-runtime/gbe-pokemini`。
+`POKEMINI_ROM` 接受单个 `.min` 或只含一个候选 ROM 的 ZIP 上传；多 ROM 归档不得猜选。
+Host 通过 `ROM_BLOB` 提供游戏，通过 `EXTERNAL_FILE_SET` 提供单独安装的 4096 字节
+`bios.min`；BIOS 精确哈希见 `internal/dependencies/bios_catalog.go`。
+
+Provider 在同源空白 iframe 中运行 GBE+ Pokémon Mini，支持标准手柄、暂停、音量、截图、
+帧计数和即时存档。原生状态同时绑定游戏 SHA-256 与状态 SHA-256，公共层写入
+`gbe-pokemini-state-v1-storage-v1`，上限 1 MiB。不同 Launch 恢复必须通过
+`ACC-POKEMINI-001`，不得以启动新游戏替代恢复成功。ROM 与 BIOS 按不可变 URL 持久缓存，
+再次 Launch 不重复下载；首次完整下载有公共进度。当前不声明红外联机。

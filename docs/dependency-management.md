@@ -261,3 +261,24 @@ EmulatorJS RetroArch commit。runtime 只验证并聚合锁定资产，不编译
 构建必须拒绝。顶层 LGPLv3 不覆盖所有组件：Z80 源码带有非商业限制，链接的
 RetroArch 另带 GPLv3，不能将组合产物标为无限制 LGPL-only。游戏与 BIOS 不进入
 源码或 Provider；BIOS 通过现有管理员安装链路提供。
+
+## GBE+ Pokémon Mini 候选输入
+
+核心源 `retrom-project/gbe-plus` 固定上游 `shonumi/gbe-plus` 的
+`05a05e931b3993ff3e6316b0d841a1fb4d3ac7a7`，维护分支 `retrom/g05a05e931b39`。
+当前 Retrom workspace catalog 声明该仓库；WASM 与浏览器宿主构建由 core fork 独占，
+ABI 为 `gbe-pokemini-host-v1`，不在 runtime 中编译核心。
+
+比较时（2026-09-12），GBE+ 为 600 stars、最近 push 2026-08-24，libretro/PokeMini
+为 37 stars、最近 push 2026-07-31。GBE+ 有专用 Mini 核心、EEPROM、原生状态与冲击输入；
+PokeMini 提供现成 libretro/Emscripten 路径，但文档记录部分游戏 EEPROM 限制。
+选择 GBE+ 综合考虑维护与功能，stars 仅作辅助。来源为各上游 GitHub 仓库与
+[libretro PokeMini 文档](https://docs.libretro.com/library/pokemini/)。
+
+本分支使用明确的 `developmentInputs` 与 PFB core candidate 聚合已校验 Provider 基座。
+未发布的候选不进入生产锁；正式发布仍需 core 维护分支评审、不可移动 core release、
+runtime 版本与发布、Retrom 正式 pin，并重跑产品 Case。
+
+Provider 安装校验保持完整 SHA-256 与大小检查；文件摘要使用有界的 1 MiB 读取缓冲，避免 Docker bind mount 上大量 32 KiB 读取消耗启动预检时限。该调整不跳过任何依赖字节。
+PFB 的测试模式使用既有配置允许的 5 分钟启动预检额度，为完整 Provider 校验留出 bind mount I/O 时间；生产服务的默认额度不变。
+显式 pfb-build 成功后总是更新工具链记录；仅镜像变化时复用已验证依赖，不重复 npm ci，并保证后续 up 接受新的工具链摘要。

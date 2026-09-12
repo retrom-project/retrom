@@ -24,6 +24,9 @@ func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
 		t.Fatalf("catalog = %#v", catalog)
 	}
 	for _, binding := range catalog.Bindings {
+		if binding.TargetID == "gbe-pokemini" && (binding.CoreID != "gbe_plus" || binding.DetectorProfile != "POKEMINI_ROM" || len(binding.PlatformIDs) != 1 || binding.PlatformIDs[0] != "pokemini") {
+			t.Fatalf("invalid Pokémon Mini binding: %#v", binding)
+		}
 		if binding.ID == "" || binding.CoreID == "" || binding.ProviderID == "" || binding.TargetID == "" {
 			t.Fatalf("incomplete binding = %#v", binding)
 		}

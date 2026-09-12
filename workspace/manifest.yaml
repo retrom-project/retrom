@@ -36,7 +36,8 @@
         "vecx",
         "quasi88",
         "bsnes",
-        "neocd"
+        "neocd",
+        "gbe-plus"
       ]
     },
     {
@@ -324,6 +325,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/neocd_libretro.git",
       "defaultBranch": "retrom/g3118c6901787",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "gbe-plus",
+      "path": "project/retrom-core/gbe-plus",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/gbe-plus.git",
+      "defaultBranch": "retrom/g05a05e931b39",
       "submodules": false,
       "dependsOn": []
     }
