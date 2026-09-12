@@ -32,7 +32,8 @@
         "cap32",
         "crocods",
         "81",
-        "same_cdi"
+        "same_cdi",
+        "vecx"
       ]
     },
     {
@@ -284,6 +285,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/same_cdi.git",
       "defaultBranch": "retrom/gcfb05d803f54",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "vecx",
+      "path": "project/retrom-core/libretro-vecx",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/libretro-vecx.git",
+      "defaultBranch": "retrom/g8f671cc9d737",
       "submodules": false,
       "dependsOn": []
     }

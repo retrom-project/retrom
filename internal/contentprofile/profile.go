@@ -52,6 +52,7 @@ type Profile struct {
 }
 
 var registry = map[string]Profile{
+	"vectrex":      single("vectrex", ".vec", ".bin"),
 	"x68000":       single("x68000", ".dim", ".xdf", ".hdf"),
 	"nes":          single("nes", ".nes", ".unf", ".unif", ".fds"),
 	"fds":          single("fds", ".fds"),

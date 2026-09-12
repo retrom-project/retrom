@@ -232,3 +232,16 @@ BIOS 由产品 BIOS 安装链提供：`iplrom.dat`（131072 bytes）和 `cgrom.d
 两者均为 REQUIRED / EXTERNAL_FILE；平台定义中的 SHA-256 与上游 MD5 对应。
 以逐文件 `EXTERNAL_FILE_SET` 交付真实字节长度与摘要，由 adapter 写入 `game/keropi/`。
 游戏与 BIOS 均不进入核心产物、Provider 包或 Git。
+
+### Vectrex
+
+VecX 的源码和构建归 `retrom-project/libretro-vecx`，维护基线为
+`retrom/g8f671cc9d737`，上游镜像 `master` 不接受 Retrom 补丁。
+Emscripten 工具链与 EmulatorJS RetroArch linker 固定在 fork 的 `retrom-fork.json`
+及构建配方中。`pfb-core-build CORE=vecx` 生成核心、许可、完整源归档和逐文件候选描述符。
+EmulatorJS `forks` 固定已发布的 `retrom-core-g8f671cc9d737-r1`、commit、许可、
+完整源归档和准确文件摘要；Provider 2.9.0 声明 `vecx` Target。后续未发布候选通过
+`developmentInputs` / `developmentForks` 显式登记，普通正式构建拒绝该输入。
+首次接入显式构建并验证完整 Provider 候选，再用 `pfb-provider-import` 导入为 PFB 基座。
+日常生命周期不重建核心或 Provider。正式更新按 core → runtime → Retrom 顺序发布，
+Retrom 固定正式 Provider lock 后重跑 ACC-VECTREX-001。
