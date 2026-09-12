@@ -19,10 +19,7 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 
-	"github.com/google/uuid"
-
 	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
@@ -40,7 +37,7 @@ var (
 	ErrSourceChanged        = errors.New("EMULATIONSTATION_SOURCE_CHANGED")
 	ErrMappingTargetChanged = errors.New("EMULATIONSTATION_MAPPING_TARGET_CHANGED")
 	ErrExpired              = errors.New("EMULATIONSTATION_PLAN_EXPIRED")
-	ErrActive               = errors.New("EMULATIONSTATION_IMPORT_ACTIVE")
+	ErrActive               = application.ErrActive
 	ErrInvalid              = application.ErrInvalid
 	ErrNotCancellable       = errors.New("EMULATIONSTATION_IMPORT_NOT_CANCELLABLE")
 	ErrNotRetryable         = errors.New("EMULATIONSTATION_IMPORT_NOT_RETRYABLE")
@@ -451,126 +448,6 @@ WHERE id=? AND state='RUNNING' AND worker_id='emulationstation-import-worker'
 `, now, now+60000, now, unit.JobID)
 		}
 	}
-}
-
-func (service *Service) Create(ctx context.Context, request CreateRequest, userID string) (Summary, error) {
-	root, err := service.validateCreateRequest(request)
-	if err != nil {
-		return Summary{}, err
-	}
-	if err := service.ensurePlanCapacity(ctx); err != nil {
-		return Summary{}, err
-	}
-	return service.createScanPlan(ctx, request, userID, root)
-}
-
-func (service *Service) validateCreateRequest(request CreateRequest) (Root, error) {
-	if err := serversource.ValidateRootID(request.RootID); err != nil {
-		return Root{}, fmt.Errorf("emulationstationimport/validate root ID: %w", err)
-	}
-	root, ok := service.roots[request.RootID]
-	if !ok {
-		return Root{}, serversource.ErrRootNotFound
-	}
-	if err := serversource.ValidateRelativePath(request.SourceRelativePath); err != nil {
-		return Root{}, fmt.Errorf("emulationstationimport/validate source path: %w", err)
-	}
-	directory, err := serversource.OpenSelectedDirectory(root.path, request.SourceRelativePath)
-	if err != nil {
-		return Root{}, serversource.ErrRootUnavailable
-	}
-	cleanup.Error("close", directory.Close())
-	return root, nil
-}
-
-func (service *Service) ensurePlanCapacity(ctx context.Context) error {
-	var plans int
-	if err := service.database.QueryRowContext(ctx, `
-SELECT count(*) FROM emulationstation_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
-`).Scan(&plans); err != nil {
-		return fmt.Errorf("emulationstationimport/count plans: %w", err)
-	}
-	if plans >= 20 {
-		return ErrActive
-	}
-	return nil
-}
-
-func (service *Service) createScanPlan(
-	ctx context.Context,
-	request CreateRequest,
-	userID string,
-	root Root,
-) (Summary, error) {
-	importID, _ := uuid.NewV7()
-	jobID, _ := uuid.NewV7()
-	executionID, _ := uuid.NewV7()
-	now := service.now().UnixMilli()
-	releaseYearMax := service.now().UTC().Year() + 1
-	input := map[string]any{
-		"schemaVersion": 1, "kind": "SERVER_EMULATIONSTATION_SCAN",
-		"scope":       map[string]any{"type": "EMULATIONSTATION_IMPORT", "id": importID.String()},
-		"executionId": executionID.String(),
-		"inputs": map[string]any{
-			"rootId":             root.ID,
-			"sourceRelativePath": request.SourceRelativePath,
-			"rootConfigDigest":   root.digest,
-			"releaseYearMax":     releaseYearMax,
-		},
-	}
-	inputJSON, _ := json.Marshal(input)
-	inputDigest := sha256.Sum256(inputJSON)
-	dedupe := jobDedupe("SERVER_EMULATIONSTATION_SCAN", importID.String())
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return Summary{}, fmt.Errorf("emulationstationimport/create transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
-attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'EMULATIONSTATION_IMPORT',?,'SERVER_EMULATIONSTATION_SCAN',?,1,'{"inputExecutionNo":1}',1,'QUEUED',0,4,1,?,?,?)
-`, jobID.String(), importID.String(), dedupe, now, now, now); err != nil {
-		return Summary{}, fmt.Errorf("emulationstationimport/create scan job: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms) VALUES(?,1,?,?,?)
-`, jobID.String(), string(inputJSON), hex.EncodeToString(inputDigest[:]), now); err != nil {
-		return Summary{}, fmt.Errorf("emulationstationimport/create input: %w", err)
-	}
-	if _, err := recordstore.CreateEmulationstationImports(ctx, transaction, `
-INSERT INTO emulationstation_imports(
-	id,root_id,root_label_snapshot,source_relative_path,root_config_digest,release_year_max,state,phase,
-	scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
-	VALUES(?,?,?,?,?,?,'SCANNING','DISCOVERING_GAMELISTS',?,?,?,?,?)
-	`,
-		importID.String(), root.ID, root.Label, request.SourceRelativePath, root.digest,
-		releaseYearMax, jobID.String(), userID, now, now,
-		now+int64((7*24*time.Hour)/time.Millisecond)); err != nil {
-		return Summary{}, fmt.Errorf("emulationstationimport/create plan: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'EMULATIONSTATION_IMPORT',?,'QUEUED','{"schemaVersion":1,"executionNo":1,"attempt":0}',?)
-`, jobID.String(), importID.String(), now); err != nil {
-		return Summary{}, fmt.Errorf("emulationstationimport/create event: %w", err)
-	}
-	auditID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
-before_json,after_json,diff_json,request_id,created_at_ms)
-VALUES(
- ?,'USER',?,NULL,'EMULATIONSTATION_IMPORT_CREATED','EMULATIONSTATION_IMPORT',?,
- NULL,'{"state":"SCANNING"}',NULL,NULL,?
-)
-`, auditID.String(), userID, importID.String(), now); err != nil {
-		return Summary{}, fmt.Errorf("emulationstationimport/create audit: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return Summary{}, fmt.Errorf("emulationstationimport/commit create: %w", err)
-	}
-	service.signal()
-	return service.Get(ctx, importID.String())
 }
 
 func jobDedupe(kind, value string) string {
