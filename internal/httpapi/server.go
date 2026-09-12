@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	jobpersistence "retrom/internal/persistence/jobs"
+
 	immersivepersistence "retrom/internal/persistence/immersive"
 	storagepersistence "retrom/internal/persistence/storageanalysis"
 
@@ -24,7 +26,6 @@ import (
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
 	"retrom/internal/importdiscard"
-	"retrom/internal/jobs"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/metadatascrape"
@@ -43,6 +44,7 @@ import (
 	"retrom/internal/serversource"
 	"retrom/internal/service/favorites"
 	"retrom/internal/service/immersive"
+	"retrom/internal/service/jobs"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/service/storageanalysis"
 	"retrom/internal/service/tagging"
@@ -216,7 +218,7 @@ func New(
 		uploads:                 uploads.New(database, blobs, config.DataDir, now),
 		importer:                importer,
 		launcher:                launcher,
-		jobService:              jobs.New(database, now),
+		jobService:              jobs.New(jobpersistence.New(database), now),
 		immersive:               immersive.New(immersivepersistence.New(database)),
 		firmware:                firmwareService,
 		serverImports:           serverImportService,

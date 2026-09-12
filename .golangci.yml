@@ -62,7 +62,7 @@ linters:
           deny:
             - pkg: retrom/internal/httpapi
               desc: storage must not depend on HTTP
-            - pkg: retrom/internal/jobs
+            - pkg: retrom/internal/service/jobs
               desc: storage must not depend on job orchestration
             - pkg: retrom/internal/libraryimport
               desc: storage must not depend on application modules
@@ -74,7 +74,7 @@ linters:
           deny:
             - pkg: retrom/internal/httpapi
               desc: DAT parsing must remain protocol independent
-            - pkg: retrom/internal/jobs
+            - pkg: retrom/internal/service/jobs
               desc: DAT parsing must remain orchestration independent
             - pkg: retrom/internal/metadatascrape
               desc: DAT evidence must not depend on metadata providers
@@ -93,7 +93,7 @@ linters:
             - "internal/saves/**/*.go"
             - "internal/uploads/**/*.go"
           deny:
-            - pkg: retrom/internal/jobs
+            - pkg: retrom/internal/service/jobs
               desc: application modules must not depend on job orchestration
     dogsled:
       max-blank-identifiers: 3

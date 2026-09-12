@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/payloadrelease"
+	"retrom/internal/service/blobgc"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
@@ -82,8 +85,9 @@ expires_at_ms) VALUES('response',
 `, protected.SHA256, now.UnixMilli(), now.Add(time.Hour).UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	service, err := New(database.SQL, blobs, func() time.Time { return now }, 7*24*time.Hour)
+	release, err := payloadrelease.New(database.SQL, blobs, func() time.Time { return now }, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
+	service := blobgc.New(New(database.SQL), release)
 	first, err := service.RunOnce(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first.Scheduled != 2 }, func() bool { return first.Deleted != 0 }), "first GC = %#v, error=%v", first, err)
 	if _, err := database.SQL.ExecContext(context.Background(), `

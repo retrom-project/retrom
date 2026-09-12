@@ -172,7 +172,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 2. `internal/store/**` 与 `internal/blobstore/**` 不得导入 `httpapi`、`jobs` 或上层功能模块；
 3. `internal/arcadedat/**` 是解析与依赖图底层，不得导入 `httpapi`、`jobs`、`metadata`、`bios` 或 `catalog`；
 4. `internal/httpapi/**` 可以调用应用模块，但 handler 不得绕过模块直接依赖具体 SQL 实现；
-5. `internal/jobs/**` 可以编排应用模块，但应用模块不得反向导入 `jobs`。
+5. `internal/service/jobs/**` 管理通用取消与重试；领域 Service 不得反向依赖该管理用例，领域 Worker 仍维护自身领取和执行协议。
 
 如果后续目录布局有经过评审的变化，应先更新架构专题和本节，再修改 `depguard`；不得为了修复循环依赖直接删掉规则。
 
