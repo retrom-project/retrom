@@ -30,7 +30,7 @@ var (
 	ErrCredential       = application.ErrCredential
 	ErrDOSEntryMissing  = errors.New("LAUNCH_DOS_ENTRY_MISSING")
 	ErrDOSEntryUnsafe   = errors.New("LAUNCH_DOS_ENTRY_UNSAFE")
-	ErrSaveIncompatible = errors.New("LAUNCH_SAVE_INCOMPATIBLE")
+	ErrSaveIncompatible = application.ErrSaveIncompatible
 )
 
 const reviewScreenshotOverrideCode = "REVIEW_SCREENSHOT_OVERRIDE"

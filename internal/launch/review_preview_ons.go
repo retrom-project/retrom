@@ -125,47 +125,6 @@ ORDER BY content.logical_name
 	return buildONSProjectIndex(projectRoot, title, profile, files)
 }
 
-func (service *Service) reviewPreviewONSContent(
-	ctx context.Context,
-	source reviewPreviewSource,
-) (reviewPreviewContentSet, error) {
-	profile, err := detector.ParseSnapshot(source.DependencySnapshot)
-	if err != nil {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-	}
-	var content reviewPreviewContentSet
-	content.Format = onsProjectFormat
-	if err := service.database.QueryRowContext(ctx, `
-SELECT blob_id,logical_name FROM import_item_source_snapshot_files
-WHERE source_snapshot_id=? AND role='PROJECT_FILE' AND logical_name=?
-`, source.SourceSnapshotID, profile.MarkerPath).Scan(&content.BlobID, &content.LogicalName); err != nil {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT logical_name,blob_id,sort_order FROM import_item_source_snapshot_files
-WHERE source_snapshot_id=? AND role='PROJECT_FILE' AND logical_name<>?
-ORDER BY sort_order,logical_name
-`, source.SourceSnapshotID, profile.MarkerPath)
-	if err != nil {
-		return reviewPreviewContentSet{}, fmt.Errorf("review ONS project files: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	content.Files = make([]reviewPreviewFile, 0)
-	for rows.Next() {
-		var file reviewPreviewFile
-		file.Role = "PROJECT_FILE"
-		if err := rows.Scan(&file.LogicalName, &file.BlobID, &file.SortOrder); err != nil ||
-			len(content.Files) >= maximumONSProjectFiles {
-			return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-		}
-		content.Files = append(content.Files, file)
-	}
-	if err := rows.Err(); err != nil || len(content.Files) == 0 {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-	}
-	return content, nil
-}
-
 func (service *Service) ReviewPreviewProjectIndex(
 	ctx context.Context,
 	previewID, capability string,

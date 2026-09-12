@@ -11,20 +11,6 @@ import (
 
 const maximumButterscotchProjectFiles = 10_000
 
-func (service *Service) reviewPreviewButterscotchContent(
-	ctx context.Context,
-	source reviewPreviewSource,
-) (reviewPreviewContentSet, error) {
-	profile, err := detector.ParseSnapshot(source.DependencySnapshot)
-	if err != nil {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-	}
-	return service.reviewPreviewProjectContent(
-		ctx, source, profile.MarkerPath, butterscotchProjectFormat,
-		"Butterscotch",
-	)
-}
-
 type butterscotchProjectIndex = runtimeProjectIndex
 
 type butterscotchProjectIndexFile = runtimeProjectIndexFile

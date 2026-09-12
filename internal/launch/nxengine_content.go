@@ -10,20 +10,6 @@ import (
 
 const maximumNXEngineProjectFiles = 4096
 
-func (service *Service) reviewPreviewNXEngineContent(
-	ctx context.Context,
-	source reviewPreviewSource,
-) (reviewPreviewContentSet, error) {
-	profile, err := detector.ParseSnapshot(source.DependencySnapshot)
-	if err != nil {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-	}
-	return service.reviewPreviewProjectContent(
-		ctx, source, profile.MarkerPath, nxengineProjectFormat,
-		"NXEngine",
-	)
-}
-
 type nxengineProjectIndex = runtimeProjectIndex
 
 type nxengineProjectIndexFile = runtimeProjectIndexFile

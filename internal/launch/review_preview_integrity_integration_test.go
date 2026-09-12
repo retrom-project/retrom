@@ -4,6 +4,7 @@ package launch
 
 import (
 	"testing"
+	"time"
 
 	"retrom/internal/persistence/recordstore"
 )
@@ -11,22 +12,20 @@ import (
 func TestReviewPreviewCreationRechecksItsOwnerInTheWriteTransaction(t *testing.T) {
 	t.Parallel()
 	fixture := newReviewCheckpointFixture(t)
-	source, err := fixture.launcher.reviewPreviewSource(t.Context(), fixture.itemID)
-	if err != nil {
-		t.Fatal(err)
+	originalClock := fixture.launcher.now
+	interleaved := false
+	fixture.launcher.now = func() time.Time {
+		if !interleaved {
+			interleaved = true
+			mustRPGLaunchSQL(t, fixture.database, `UPDATE import_items SET state='DISCARDED',completed_at_ms=?,updated_at_ms=?,version=version+1 WHERE id=?`, fixture.now.UnixMilli(), fixture.now.UnixMilli(), fixture.itemID)
+		}
+		return originalClock()
 	}
-	content, err := fixture.launcher.reviewPreviewContent(t.Context(), source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mustRPGLaunchSQL(t, fixture.database, `
-UPDATE import_items SET state='DISCARDED',completed_at_ms=?,updated_at_ms=?,version=version+1 WHERE id=?`,
-		fixture.now.UnixMilli(), fixture.now.UnixMilli(), fixture.itemID)
-	err = fixture.launcher.persistReviewPreview(t.Context(), ReviewPreviewRequest{
+	created, err := fixture.launcher.CreateReviewPreview(t.Context(), ReviewPreviewRequest{
 		ImportItemID: fixture.itemID, ActorUserID: "reviewer", IdempotencyKey: "stale-owner",
-	}, source, content, "stale-preview", make([]byte, 32))
-	if err == nil {
-		t.Fatal("a source read before review termination still created a new preview")
+	})
+	if err == nil || created.PreviewID != "" || !interleaved {
+		t.Fatalf("source read before review termination created a preview: id=%q error=%v", created.PreviewID, err)
 	}
 }
 

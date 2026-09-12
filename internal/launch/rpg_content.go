@@ -2,16 +2,12 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"path"
-	"strings"
-	"unicode/utf8"
 
+	"retrom/internal/dbexec"
 	application "retrom/internal/service/launch"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/rpgmaker/nativeweb"
 )
 
 const (
@@ -49,38 +45,38 @@ ORDER BY 2
 	return makeRPGContentPlan(files, requiredRole, nativeRuntime)
 }
 
-func requiredRPGContent(deliveryProfile string) (string, bool, error) {
-	switch deliveryProfile {
-	case "FILE_TREE_PROJECT":
-		return "RPG_EASYRPG_INDEX", false, nil
-	case "SEEKABLE_PROJECT_ARCHIVE":
-		return "RPG_MAKER_LAUNCH_BUNDLE", false, nil
-	case "ISOLATED_WEB_PROJECT":
-		return "", true, nil
-	default:
-		return "", false, ErrBlocked
+type rpgLockedFile struct{ blobID, logicalName, role string }
+
+func requiredRPGContent(delivery string) (string, bool, error) {
+	role, native, err := application.RPGContentPolicy(delivery)
+	if err != nil {
+		return "", false, fmt.Errorf("RPG content policy: %w", err)
 	}
+	return role, native, nil
 }
 
-type rpgLockedFile struct {
-	blobID      string
-	logicalName string
-	role        string
-}
-
-type rpgContentPlanBuilder struct {
-	locked        []lockedContentFile
-	seen          map[string]struct{}
-	projectFiles  int
-	nativeEntries int
-	requiredFiles int
+func makeRPGContentPlan(files []rpgLockedFile, required string, native bool) (launchContentPlan, error) {
+	inputs := make([]application.PreviewFile, 0, len(files))
+	for _, file := range files {
+		inputs = append(inputs, application.PreviewFile{BlobID: file.blobID, LogicalName: file.logicalName, Role: file.role})
+	}
+	prepared, err := application.RPGContentFiles(inputs, required, native)
+	if err != nil {
+		return launchContentPlan{}, fmt.Errorf("RPG content files: %w", err)
+	}
+	locked := make([]lockedContentFile, 0, len(prepared))
+	for _, file := range prepared {
+		locked = append(
+			locked,
+			lockedContentFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Format: rpgProjectFormat},
+		)
+	}
+	return launchContentPlan{ContentKind: rpgProjectFormat, Files: locked}, nil
 }
 
 func queryLockedContentFiles(
 	ctx context.Context,
-	queryer interface {
-		QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-	},
+	queryer dbexec.Executor,
 	query string,
 	arguments ...any,
 ) ([]rpgLockedFile, error) {
@@ -101,95 +97,4 @@ func queryLockedContentFiles(
 		return nil, fmt.Errorf("read RPG Maker launch content: %w", err)
 	}
 	return files, nil
-}
-
-func makeRPGContentPlan(
-	files []rpgLockedFile,
-	requiredRole string,
-	nativeRuntime bool,
-) (launchContentPlan, error) {
-	if len(files) == 0 || len(files) > 10_006 {
-		return launchContentPlan{}, ErrBlocked
-	}
-	builder := rpgContentPlanBuilder{
-		locked: make([]lockedContentFile, 0, len(files)),
-		seen:   make(map[string]struct{}, len(files)),
-	}
-	for _, file := range files {
-		if err := builder.add(file, requiredRole, nativeRuntime); err != nil {
-			return launchContentPlan{}, ErrBlocked
-		}
-	}
-	if builder.projectFiles == 0 || builder.projectFiles > 10_000 {
-		return launchContentPlan{}, ErrBlocked
-	}
-	if nativeRuntime && builder.nativeEntries != 1 {
-		return launchContentPlan{}, ErrBlocked
-	}
-	if requiredRole != "" && builder.requiredFiles != 1 {
-		return launchContentPlan{}, ErrBlocked
-	}
-	return launchContentPlan{ContentKind: rpgProjectFormat, Files: builder.locked}, nil
-}
-
-func (builder *rpgContentPlanBuilder) add(
-	file rpgLockedFile,
-	requiredRole string,
-	nativeRuntime bool,
-) error {
-	logicalName, project, valid := rpgLockedLogicalName(file)
-	if !valid {
-		return ErrBlocked
-	}
-	if !includeRPGContentFile(project, nativeRuntime, logicalName) {
-		return nil
-	}
-	if project {
-		builder.projectFiles++
-		if isNativeRPGEntry(nativeRuntime, logicalName) {
-			builder.nativeEntries++
-		}
-	}
-	if file.role == requiredRole && requiredRole != "" {
-		builder.requiredFiles++
-	}
-	if !validRPGProjectPath(logicalName) {
-		return ErrBlocked
-	}
-	if _, duplicate := builder.seen[logicalName]; duplicate {
-		return ErrBlocked
-	}
-	builder.seen[logicalName] = struct{}{}
-	builder.locked = append(builder.locked, lockedContentFile{
-		BlobID: file.blobID, LogicalName: logicalName, Format: rpgProjectFormat,
-	})
-	return nil
-}
-
-func includeRPGContentFile(project, nativeRuntime bool, logicalName string) bool {
-	return !project || !nativeRuntime || nativeweb.RuntimeFile(logicalName)
-}
-
-func isNativeRPGEntry(nativeRuntime bool, logicalName string) bool {
-	return nativeRuntime && logicalName == "index.html"
-}
-
-func rpgLockedLogicalName(file rpgLockedFile) (string, bool, bool) {
-	switch file.role {
-	case "PROJECT_FILE":
-		return file.logicalName, true, !strings.HasPrefix(file.logicalName, "__retrom__/")
-	case "RPG_EASYRPG_INDEX":
-		return rpgEasyIndexName, false, true
-	case "RPG_MAKER_LAUNCH_BUNDLE":
-		return rpgMKXPArchiveName, false, true
-	default:
-		return "", false, false
-	}
-}
-
-func validRPGProjectPath(value string) bool {
-	return value != "" && len(value) <= 512 && utf8.ValidString(value) &&
-		path.Clean(value) == value && !path.IsAbs(value) &&
-		value != "." && !strings.HasPrefix(value, "../") &&
-		!strings.Contains(value, "\\") && !strings.ContainsRune(value, 0)
 }

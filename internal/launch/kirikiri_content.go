@@ -11,19 +11,6 @@ import (
 
 const maximumKiriKiriProjectFiles = 10_000
 
-func (service *Service) reviewPreviewKiriKiriContent(
-	ctx context.Context,
-	source reviewPreviewSource,
-) (reviewPreviewContentSet, error) {
-	profile, err := detector.ParseSnapshot(source.DependencySnapshot)
-	if err != nil {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-	}
-	return service.reviewPreviewProjectContent(
-		ctx, source, profile.MarkerPath, kirikiriProjectFormat, "KiriKiri",
-	)
-}
-
 type kirikiriProjectIndex = runtimeProjectIndex
 
 type kirikiriProjectIndexFile = runtimeProjectIndexFile

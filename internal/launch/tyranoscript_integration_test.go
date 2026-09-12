@@ -76,6 +76,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
+	assertPreviewCreationRollback(t, service, ReviewPreviewRequest{ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "isolated-rollback"})
 	preview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "tyrano-preview-1",
 		ClientCapabilities: Capabilities{SecureContext: true},

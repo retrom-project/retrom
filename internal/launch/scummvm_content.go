@@ -11,31 +11,6 @@ import (
 	"retrom/internal/scummvm"
 )
 
-func (service *Service) reviewPreviewScummVMContent(
-	ctx context.Context,
-	source reviewPreviewSource,
-) (reviewPreviewContentSet, error) {
-	snapshot, err := scummvm.ParseSnapshot(source.DependencySnapshot)
-	if err != nil {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-	}
-	if _, err := snapshot.Selected(); err != nil {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-	}
-	// A primary blob anchors the existing preview file set. It does not select a game.
-	var first string
-	err = service.database.QueryRowContext(ctx, `
-SELECT logical_name
-FROM import_item_source_snapshot_files
-WHERE source_snapshot_id=? AND role='PROJECT_FILE'
-ORDER BY logical_name LIMIT 1
-`, source.SourceSnapshotID).Scan(&first)
-	if err != nil {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
-	}
-	return service.reviewPreviewProjectContent(ctx, source, first, scummvm.ContentKind, "ScummVM")
-}
-
 func (service *Service) scummVMProjectIndex(
 	ctx context.Context,
 	sessionID,

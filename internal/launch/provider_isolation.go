@@ -47,28 +47,3 @@ VALUES(?,?,?,?,?,NULL)
 	}
 	return nil
 }
-
-func (service *Service) lockIsolatedPreviewBootstrapTicket(
-	ctx context.Context,
-	transaction *sql.Tx,
-	previewID, actorUserID string,
-	createdAt int64,
-) error {
-	var profileID string
-	if err := transaction.QueryRowContext(ctx, `SELECT profile_id FROM users WHERE id=?`, actorUserID).
-		Scan(&profileID); err != nil {
-		return fmt.Errorf("load preview profile: %w", err)
-	}
-	origin, _, ticketHash, err := service.isolatedRuntimeTicket(previewID)
-	if err != nil {
-		return err
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO isolated_runtime_bootstrap_tickets(
- ticket_sha256,preview_id,profile_id,expected_origin,expires_at_ms,consumed_at_ms)
-VALUES(?,?,?,?,?,NULL)
-`, ticketHash[:], previewID, profileID, origin, createdAt+60_000); err != nil {
-		return fmt.Errorf("lock isolated preview bootstrap ticket: %w", err)
-	}
-	return nil
-}
