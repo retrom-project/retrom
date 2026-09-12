@@ -32,7 +32,7 @@ func handoffFixture(t *testing.T) (*Service, work, executionItem) {
  UPDATE pegasus_import_items SET execution_state='VALIDATING',library_import_job_id='handoff-job',
  library_import_item_id='handoff-item',metadata_json='{"Title":"Changed"}',completed_at_ms=NULL;`)
 	service.importer = libraryimport.New(db, service.now)
-	return service, work{JobID: "work", ImportID: "import", ExecutionNo: 1, Attempt: 1}, executionItem{ID: "item", MetadataJSON: `{"Title":"Changed"}`}
+	return service, work{JobID: "work", ImportID: "import", WorkerID: "pegasus-import-worker", ExecutionNo: 1, Attempt: 1}, executionItem{ID: "item", MetadataJSON: `{"Title":"Changed"}`}
 }
 
 const fixedHandoffDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

@@ -11,8 +11,8 @@ import (
 
 type (
 	ReviewHandoffRequest struct {
-		ItemID, ImportID, JobID, LibraryJobID, LibraryItemID string
-		ExecutionNo, Attempt                                 int64
+		ItemID, ImportID, JobID, LibraryJobID, LibraryItemID, WorkerID string
+		ExecutionNo, Attempt                                           int64
 	}
 	ReviewHandoffSnapshot struct {
 		Identity                                         ReviewHandoffRequest
@@ -107,6 +107,7 @@ func canCompleteReviewHandoff(before ReviewHandoffSnapshot, now int64) bool {
 	active := before.ImportState == "RUNNING" && before.JobState == "RUNNING"
 	canceling := before.ImportState == "CANCEL_REQUESTED" && before.JobState == "CANCEL_REQUESTED"
 	return (active || canceling) && before.Identity.ExecutionNo > 0 && before.Identity.Attempt > 0 &&
+		before.Identity.WorkerID != "" &&
 		before.LeaseUntilMS > now && before.DeadlineMS > now
 }
 

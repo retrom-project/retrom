@@ -19,19 +19,6 @@ import (
 	"retrom/internal/testassert"
 )
 
-func TestSelectServerImportItemUsesTheDeclaredPrimarySource(t *testing.T) {
-	t.Parallel()
-	items := []libraryimport.ServerImportItem{
-		{ItemID: "companion", SourceRelativePaths: []string{"arcade/neogeo.zip"}},
-		{ItemID: "primary", SourceRelativePaths: []string{"arcade/mslug.zip"}},
-	}
-	selected, ok := selectServerImportItem(items, []executionFile{{Path: "arcade/mslug.zip"}})
-	testassert.Falsef(t, testassert.Any(func() bool { return !ok }, func() bool { return selected.ItemID != "primary" }), "selected = %#v, %v", selected, ok)
-	if _, ok := selectServerImportItem(append(items, items[1]), []executionFile{{Path: "arcade/mslug.zip"}}); ok {
-		t.Fatal("ambiguous primary source must not be selected")
-	}
-}
-
 func TestArcadeCompanionsReleaseQueryBeforeRecordingCASBlob(t *testing.T) {
 	t.Parallel()
 	setupContext := context.Background()

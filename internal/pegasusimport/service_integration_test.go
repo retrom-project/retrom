@@ -351,7 +351,7 @@ WHERE id=?`, claimedWork.JobID)
 		t.Fatalf("resume did not reclaim original execution: %#v claimed=%v", resumedWork, claimed)
 	}
 	claimedWork = resumedWork
-	resumed, found, err := service.nextItem(ctx, importID)
+	resumed, found, err := service.nextItem(ctx, claimedWork)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !found }, func() bool { return resumed.LibraryImportJobID != resumedImportJobID }, func() bool { return resumed.LibraryImportItemID != resumedReviewItemID }), "resumed review handoff = %#v, found=%v, error=%v", resumed, found, err)
 	service.processItem(ctx, claimedWork, service.roots["games"], resumed)
 	err = service.finishImport(ctx, claimedWork)

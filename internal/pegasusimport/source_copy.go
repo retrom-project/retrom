@@ -108,38 +108,6 @@ func (service *Service) recordCopiedAsset(
 	return blobID, nil
 }
 
-func selectServerImportItem(
-	items []libraryimport.ServerImportItem,
-	source []executionFile,
-) (libraryimport.ServerImportItem, bool) {
-	if len(source) == 0 {
-		return libraryimport.ServerImportItem{}, false
-	}
-	wanted := make(map[string]struct{}, len(source))
-	for _, file := range source {
-		wanted[file.Path] = struct{}{}
-	}
-	var selected libraryimport.ServerImportItem
-	found := false
-	for _, item := range items {
-		matches := false
-		for _, relativePath := range item.SourceRelativePaths {
-			if _, exists := wanted[relativePath]; exists {
-				matches = true
-				break
-			}
-		}
-		if !matches {
-			continue
-		}
-		if found {
-			return libraryimport.ServerImportItem{}, false
-		}
-		selected, found = item, true
-	}
-	return selected, found
-}
-
 func (service *Service) arcadeCompanions(
 	ctx context.Context,
 	unit work,
@@ -352,8 +320,8 @@ func copiedAssetValid(handle io.ReadSeeker, asset executionAsset) bool {
 	if asset.Kind == "COVER" {
 		image, err := mediaasset.InspectImage(handle, asset.Size)
 		return err == nil && image.MediaType == asset.MediaType &&
-			asset.Width.Valid && asset.Height.Valid &&
-			image.WidthPX == asset.Width.Int64 && image.HeightPX == asset.Height.Int64
+			asset.Width != nil && asset.Height != nil &&
+			image.WidthPX == *asset.Width && image.HeightPX == *asset.Height
 	}
 	mediaType, err := mediaasset.InspectVideo(handle, asset.Size)
 	return err == nil && mediaType == asset.MediaType

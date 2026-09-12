@@ -12,81 +12,46 @@ import (
 	libraryservice "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/pegasusimport"
 
-	"retrom/internal/persistence/recordstore"
-
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 
-	"retrom/internal/contentcapability"
 	"retrom/internal/libraryimport"
 )
+
+func (service *Service) reviewPreparation() *application.ReviewPreparation {
+	return application.NewReviewPreparation(service.importer,
+		application.NewItemWork(repository.NewItemWork(service.database), service.now),
+		application.NewReviewHandoff(repository.NewReviewHandoff(service.database),
+			libraryservice.NewMetadataSeeder(nil, service.now), service.now))
+}
+
+func (service *Service) resumeLibraryReview(ctx context.Context, unit work, item executionItem) (bool, error) {
+	found, err := service.reviewPreparation().Resume(ctx, unit, item)
+	if err != nil {
+		return found, fmt.Errorf("pegasusimport/resume bound review: %w", err)
+	}
+	return found, nil
+}
 
 func (service *Service) prepareReviewItem(ctx context.Context, unit work, root Root, item executionItem) {
 	files, err := service.executionSourceFiles(ctx, unit, root, item)
 	if err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			service.itemFailure("SOURCE_ASSEMBLY", "ASSEMBLE_SOURCE_FILES", err, firstSourcePath(item)),
-		)
+		service.closeItemWithFailure(ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
+			service.itemFailure("SOURCE_ASSEMBLY", "ASSEMBLE_SOURCE_FILES", err, firstSourcePath(item)))
 		return
 	}
 	if err := service.updateExecutionPhase(ctx, unit.ImportID, "VALIDATING"); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)),
-		)
+		service.closeItemWithFailure(ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
+			service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)))
 		return
 	}
-	mode := contentcapability.ModeStandard
-	if len(item.Files) > 1 {
-		mode = contentcapability.ModeMultiDisc
+	if err := service.reviewPreparation().Create(ctx, unit, item, files); err != nil {
+		if errors.Is(err, application.ErrVersionConflict) || errors.Is(err, libraryservice.ErrVersionConflict) {
+			return
+		}
+		service.closeItemWithFailure(ctx, unit, item.ID, "COMMIT_FAILED", "PEGASUS_LIBRARY_IMPORT_FAILED", true,
+			service.libraryImportFailure(err, files))
 	}
-	result, err := service.importer.CreateServerSourceOnce(
-		ctx, "SERVER_PEGASUS_IMPORT:"+item.ID, item.TargetPlatformID, mode, files, item.TagIDs, unit.CreatedByUserID,
-	)
-	if err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "PEGASUS_LIBRARY_IMPORT_FAILED", true, "",
-			service.libraryImportFailure(err, files),
-		)
-		return
-	}
-	imported, found := selectServerImportItem(result.Items, item.Files)
-	if !found {
-		service.closeItem(
-			ctx, item.ID, "BLOCKED_CONTENT", "PEGASUS_CONTENT_FORMAT_UNSUPPORTED", false, "",
-		)
-		return
-	}
-	if err := service.attachLibraryResult(ctx, item.ID, result.Created.ImportJobID, imported); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
-			withLibraryImportIdentity(
-				service.itemFailure("RESULT_ATTACHMENT", "ATTACH_LIBRARY_RESULT", err, firstSourcePath(item)),
-				result.Created.ImportJobID,
-				imported.ItemID,
-			),
-		)
-		return
-	}
-	if imported.ExistingGameID != "" {
-		matches, _ := json.Marshal(imported.ExistingMatches)
-		_, _ = recordstore.UpdatePegasusImportItems(ctx, service.database, recordstore.Update{
-			Set: `existing_matches_json=?,updated_at_ms=?`,
-			Scope: recordstore.Scope{
-				Where: `id=?`,
-				Args:  []any{item.ID},
-			},
-			Values: []any{string(matches), service.now().UnixMilli()},
-		})
-		service.closeItem(ctx, item.ID, "SKIPPED_EXISTING", "", false, imported.ExistingGameID)
-		return
-	}
-	if imported.State != "REVIEW_PENDING" {
-		service.closeItem(ctx, item.ID, "BLOCKED_CONTENT", "PEGASUS_CONTENT_FORMAT_UNSUPPORTED", false, "")
-		return
-	}
-	service.prepareLibraryReview(ctx, unit, item, result.Created.ImportJobID, imported)
 }
 
 func (service *Service) prepareLibraryReview(
@@ -97,18 +62,18 @@ func (service *Service) prepareLibraryReview(
 	err := handoff.Complete(ctx, application.ReviewHandoffRequest{
 		ItemID: item.ID, ImportID: unit.ImportID,
 		JobID: unit.JobID, LibraryJobID: importJobID, LibraryItemID: imported.ItemID,
-		ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt,
+		ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt, WorkerID: unit.WorkerID,
 	})
 	if err == nil || errors.Is(err, application.ErrVersionConflict) {
 		return
 	}
 	service.closeItemWithFailure(
 		ctx,
+		unit,
 		item.ID,
 		"COMMIT_FAILED",
 		"INTERNAL_ERROR",
 		true,
-		"",
 
 		withLibraryImportIdentity(
 			service.itemFailure("REVIEW_HANDOFF", "COMPLETE_REVIEW_HANDOFF", err, firstSourcePath(item)),

@@ -27,19 +27,18 @@ import (
 )
 
 var (
-	ErrNotFound         = application.ErrNotFound
-	ErrMetadataAbsent   = application.ErrMetadataAbsent
-	ErrScanLimit        = application.ErrScanLimit
-	ErrMapping          = application.ErrMapping
-	ErrVersionConflict  = application.ErrVersionConflict
-	ErrNoSelection      = application.ErrNoSelection
-	ErrSourceChanged    = application.ErrSourceChanged
-	ErrExpired          = application.ErrExpired
-	ErrActive           = application.ErrActive
-	ErrInvalid          = application.ErrInvalid
-	ErrNotCancellable   = application.ErrNotCancellable
-	ErrNotRetryable     = application.ErrNotRetryable
-	errItemStateChanged = errors.New("item state changed")
+	ErrNotFound        = application.ErrNotFound
+	ErrMetadataAbsent  = application.ErrMetadataAbsent
+	ErrScanLimit       = application.ErrScanLimit
+	ErrMapping         = application.ErrMapping
+	ErrVersionConflict = application.ErrVersionConflict
+	ErrNoSelection     = application.ErrNoSelection
+	ErrSourceChanged   = application.ErrSourceChanged
+	ErrExpired         = application.ErrExpired
+	ErrActive          = application.ErrActive
+	ErrInvalid         = application.ErrInvalid
+	ErrNotCancellable  = application.ErrNotCancellable
+	ErrNotRetryable    = application.ErrNotRetryable
 )
 
 type Root struct {

@@ -70,7 +70,7 @@ func readHandoffState(t *testing.T, service *Service) handoffStoredState {
 }
 
 func handoffRequest(unit work) application.ReviewHandoffRequest {
-	return application.ReviewHandoffRequest{ItemID: "item", ImportID: unit.ImportID, JobID: unit.JobID, LibraryJobID: "handoff-job", LibraryItemID: "handoff-item", ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt}
+	return application.ReviewHandoffRequest{ItemID: "item", ImportID: unit.ImportID, JobID: unit.JobID, LibraryJobID: "handoff-job", LibraryItemID: "handoff-item", ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt, WorkerID: unit.WorkerID}
 }
 
 func TestReviewHandoffTransactionRollsBackEveryProjection(t *testing.T) {

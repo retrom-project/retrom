@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	repository "retrom/internal/persistence/pegasusimport"
@@ -13,100 +14,28 @@ import (
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
-
-	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
 )
 
-func (service *Service) attachLibraryResult(
-	ctx context.Context,
-	itemID, importJobID string,
-	imported libraryimport.ServerImportItem,
-) error {
-	now := service.now().UnixMilli()
-	result, err := recordstore.UpdatePegasusImportItems(ctx, service.database, recordstore.Update{
-		Set: `
-execution_state='VALIDATING',content_kind=?,source_manifest_json=?,source_manifest_digest=?,
-library_import_job_id=?,library_import_item_id=?,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND execution_state='COPYING'`,
-			Args:  []any{itemID},
-		},
-		Values: []any{
-			imported.ContentKind,
-			imported.SourceManifestJSON,
-			imported.SourceManifestDigest,
-			importJobID,
-			imported.ItemID,
-			now,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("pegasusimport/attach library result: %w", err)
-	}
-	if rowsAffected(result) != 1 {
-		return fmt.Errorf("pegasusimport/attach library result: %w", errItemStateChanged)
-	}
-	return nil
-}
-
-func (service *Service) closeItem(
-	ctx context.Context,
-	itemID, state, code string,
-	retryable bool,
-	existingGameID string,
-) {
-	service.closeItemWithFailure(ctx, itemID, state, code, retryable, existingGameID, nil)
+func (service *Service) closeItem(ctx context.Context, unit work, itemID, state, code string, retryable bool) {
+	service.closeItemWithFailure(ctx, unit, itemID, state, code, retryable, nil)
 }
 
 func (service *Service) closeItemWithFailure(
 	ctx context.Context,
+	unit work,
 	itemID, state, code string,
 	retryable bool,
-	existingGameID string,
 	failure *FailureDetails,
 ) {
-	now := service.now().UnixMilli()
-	var encodedFailure any
-	if failure != nil {
-		if encoded, err := json.Marshal(failure); err == nil {
-			encodedFailure = string(encoded)
-		}
+	outcome := application.ItemOutcome{State: state, Code: code, Retryable: retryable, Failure: failure}
+	service.finishItem(ctx, unit, itemID, outcome)
+}
+
+func (service *Service) finishItem(ctx context.Context, unit work, itemID string, outcome application.ItemOutcome) {
+	items := application.NewItemWork(repository.NewItemWork(service.database), service.now)
+	if err := items.Finish(ctx, unit.Identity(), itemID, outcome); err != nil {
+		slog.Error("Pegasus item completion failed", "error", service.sanitizeTechnicalDetail(err))
 	}
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return
-	}
-	defer dbexec.Rollback(transaction)
-	result, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
-		Set: `
-execution_state=?,error_code=?,retryable=?,
-error_details_json=?,
-existing_game_id=COALESCE(?,existing_game_id),
-completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND execution_state IN ('COPYING','VALIDATING')`,
-			Args:  []any{itemID},
-		},
-		Values: []any{
-			state,
-			nullIfEmpty(code),
-			boolInt(retryable),
-			encodedFailure,
-			nullIfEmpty(existingGameID),
-			now,
-			now,
-		},
-	})
-	if err != nil || rowsAffected(result) != 1 {
-		return
-	}
-	if _, err := payloadrelease.ScheduleTerminalPegasusItem(ctx, transaction, itemID, now); err != nil {
-		return
-	}
-	_ = transaction.Commit()
 }
 
 func (service *Service) closeAssetWarning(ctx context.Context, itemID, kind, code string) {

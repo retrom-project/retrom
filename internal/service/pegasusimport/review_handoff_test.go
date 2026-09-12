@@ -49,7 +49,7 @@ func (memory *handoffMemory) SaveMetadata(_ context.Context, change library.Meta
 func handoffClock() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
 func readyHandoffMemory() *handoffMemory {
 	return &handoffMemory{before: ReviewHandoffSnapshot{
-		Identity: ReviewHandoffRequest{ItemID: "item", ImportID: "import", JobID: "job", LibraryJobID: "library-job", LibraryItemID: "library-item", ExecutionNo: 2, Attempt: 3},
+		Identity: ReviewHandoffRequest{ItemID: "item", ImportID: "import", JobID: "job", LibraryJobID: "library-job", LibraryItemID: "library-item", ExecutionNo: 2, Attempt: 3, WorkerID: "worker"},
 		State:    "VALIDATING", ImportState: "RUNNING", JobState: "RUNNING", Version: 4, ImportVersion: 8,
 		LeaseUntilMS: handoffClock().UnixMilli() + 60_000, DeadlineMS: handoffClock().UnixMilli() + 120_000,
 		Metadata: library.ServerMetadata{Title: "Frozen title"}, Warnings: []map[string]any{{"code": "SOURCE_WARNING", "field": "file"}},
