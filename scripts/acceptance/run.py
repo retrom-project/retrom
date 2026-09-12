@@ -36,6 +36,7 @@ PROVIDER_CASES = {f"ACC-PROVIDER-{number:03d}" for number in range(1, 9)}
 FANTASY_CASES = {"ACC-TIC-001", "ACC-PICO-001"}
 FLASH_CASES = {"ACC-FLASH-001"}
 MSX_CASES = {"ACC-MSX-001"}
+PSP_CASES = {"ACC-PSP-001", "ACC-PSP-002"}
 PS2_CASES = {"ACC-PS2-001"}
 NXENGINE_CASES = {"ACC-NXENGINE-001"}
 OPENBOR_CASES = {"ACC-OPENBOR-001"}
@@ -44,7 +45,7 @@ PC98_CASES = {"ACC-PC98-001"}
 PC88_CASES = {"ACC-PC88-001"}
 STORAGE_CASES = {"ACC-SAVE-004"}
 UZEBOX_CASES = {"ACC-UZEBOX-001"}
-PRODUCT_CASES = UZEBOX_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
+PRODUCT_CASES = UZEBOX_CASES | PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -495,6 +496,8 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-PC98-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/pc98_product.mjs"),
     "ACC-MSX-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/msx_product.mjs"),
     "ACC-FLASH-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ruffle_product.mjs"),
+    "ACC-PSP-001": (900, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ppsspp_product.mjs"),
+    "ACC-PSP-002": (900, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ppsspp_range_product.mjs"),
     "ACC-PS2-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs"),
     "ACC-NXENGINE-001": (300, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/nxengine_product.mjs"),
     "ACC-OPENBOR-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/openbor_product.mjs"),
