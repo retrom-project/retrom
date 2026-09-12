@@ -197,3 +197,24 @@ Provider 将 CHD 声明为 `SEEKABLE_BLOB`，通过 256 KiB Range 块按需读�
 方向与确认、音频、暂停、截图、完整即时存档、不同 Launch 恢复后输入和跨实例内容缓存。
 用户提供的 Mini 游戏与 BIOS 不进入 fixture。GBE+ 桌面已有红外功能不意味着本浏览器
 Target 支持联机；当前只验证单机。
+
+
+## 独立 PSP / PPSSPP
+
+`coreId=ppsspp` 通过 `retrom-runtime/ppsspp`、`OPTICAL_DISC` 和 `SINGLE_FILE` 接入。
+Retrom 使用公共 SEEKABLE_BLOB、输入、截图、暂停和存档协议；核心源码、
+WebAssembly 构建与浏览器前端由 `retrom-project/ppsspp` 维护，宿主不加载 EmulatorJS PSP 前端。
+游戏通过独立 I/O Worker 按 256 KiB Range 读取，内存缓存有界，持久分块缓存按文件摘要、
+长度和块位置跨实例复用。不得启动前整包下载，不把未请求的全游戏字节作为 LOAD_PROGRESS。
+响应必须为 206，区间、长度及 SHA-256 身份 ETag 与冻结内容一致；本地块摘要检测缓存损坏，
+源内容身份依赖服务端不可变 CAS，不能声称客户端提前验证了全盘摘要。核心代码资源仍完整
+校验摘要。要求 Chrome 的 WebGL2、OffscreenCanvas、SharedArrayBuffer 与 cross-origin isolation。
+
+新存档为 `ppsspp-state-v1-storage-v1`，公共 gzip 内含完整执行状态和记忆棒文件，解压上限
+256 MiB。未验证 EmulatorJS PSP 存档与新核心兼容，因此不声明旧格式可读；旧存档不可恢复时
+按公共兼容性策略禁用恢复。已有游戏应经当前 binding 重新验证后启动。EmulatorJS Provider
+中的历史 Target 身份仍保留，产品 PSP binding 仅选择新的独立核心。
+
+PFB 开发使用同一 PFB 中的核心候选、已声明的来源覆盖与完整候选 Provider，不能将候选
+路径、摘要或未发布版本写入 production lock。发布顺序为 core fork → retrom-runtime → Retrom
+正式 Provider lock，每一步在授权后进行。产品门禁见 `ACC-PSP-001` 与 `ACC-PSP-002`。

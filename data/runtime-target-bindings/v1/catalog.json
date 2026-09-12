@@ -545,20 +545,6 @@
       "launchPolicy": "SUPPORTED"
     },
     {
-      "id": "emulatorjs-ppsspp",
-      "coreId": "ppsspp",
-      "providerId": "emulatorjs",
-      "targetId": "ppsspp",
-      "platformIds": [
-        "psp"
-      ],
-      "acceptedContentKinds": [
-        "SINGLE_FILE"
-      ],
-      "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "launchPolicy": "SUPPORTED"
-    },
-    {
       "id": "emulatorjs-prboom",
       "coreId": "prboom",
       "providerId": "emulatorjs",
@@ -958,6 +944,20 @@
       "targetId": "play-ps2",
       "platformIds": [
         "ps2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "OPTICAL_DISC",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-ppsspp",
+      "coreId": "ppsspp",
+      "providerId": "retrom-runtime",
+      "targetId": "ppsspp",
+      "platformIds": [
+        "psp"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
