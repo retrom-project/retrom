@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"retrom/internal/dbexec"
+	application "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 
@@ -274,10 +275,10 @@ WHERE job.id=? AND job.state='RUNNING' AND job.worker_id=?
 	if err != nil {
 		return queuedCreationWork{}, fmt.Errorf("libraryimport/group input: %w", err)
 	}
-	if _, digest := marshaledDigest(json.RawMessage(requestJSON)); digest != requestDigest {
+	if !application.MatchesImportDocumentDigest(requestJSON, requestDigest) {
 		return queuedCreationWork{}, ErrInvalid
 	}
-	if _, digest := marshaledDigest(json.RawMessage(targetJSON)); digest != targetDigest {
+	if !application.MatchesImportDocumentDigest(targetJSON, targetDigest) {
 		return queuedCreationWork{}, ErrInvalid
 	}
 	if uploadState != "COMPLETE" || currentUploadVersion != expectedUploadVersion ||

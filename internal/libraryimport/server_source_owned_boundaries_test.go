@@ -38,7 +38,7 @@ func TestOwnedSourceKeepsAllDuplicateMatchesInOneBoundItem(t *testing.T) {
 	}
 	expected := []string{original.GameID, duplicate.GameID}
 	slices.Sort(expected)
-	actual := []string{}
+	actual := make([]string, 0, len(result.Items[0].ExistingMatches))
 	for _, match := range result.Items[0].ExistingMatches {
 		actual = append(actual, match.GameID)
 	}
@@ -65,10 +65,10 @@ func TestOwnedSourcePlanRetainsCompanionInsideSelectedGroup(t *testing.T) {
 		{role: "COMPANION", file: importSourceFile{path: "parent.zip"}},
 	}}
 	plan := creationPlan{
-		request: CreateRequest{sourceCreation: &ownedSourceCreation{
+		sourceCreation: &ownedSourceCreation{
 			intent: application.SourceCreationIntent{PrimaryPaths: []string{"child.zip"}},
 			before: application.SourceCreationSnapshot{TargetVersion: 1},
-		}}, target: creationTarget{instanceVersion: 1}, groups: []preparedGroup{group},
+		}, target: creationTarget{instanceVersion: 1}, groups: []preparedGroup{group},
 	}
 	if err := validateOwnedCreationPlan(plan); err != nil {
 		t.Fatal(err)

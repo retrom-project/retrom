@@ -17,6 +17,7 @@ import (
 	"retrom/internal/libraryimport"
 	"retrom/internal/rpgmaker/detector"
 	"retrom/internal/rpgmaker/fileset"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
 )
 
@@ -358,7 +359,7 @@ func (server *Server) imports(writer http.ResponseWriter, request *http.Request)
 }
 
 func (server *Server) createImport(writer http.ResponseWriter, request *http.Request) {
-	var body libraryimport.CreateRequest
+	var body libraryservice.ImportRequest
 	if err := decodeJSON(writer, request, &body, 64<<10); err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "导入配置无效", map[string]any{})
 		return
@@ -369,7 +370,7 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 			return
 		}
 	}
-	created, err := server.importer.QueueCreate(request.Context(), body)
+	created, err := server.importAdmissions.Queue(request.Context(), body)
 	switch {
 	case errors.Is(err, libraryimport.ErrMultiDiscModeUnavailable):
 		writeError(
@@ -388,6 +389,10 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 		return
 	case err != nil:
 		status, code, message := importCreationError(err)
+		if status == http.StatusInternalServerError {
+			server.databaseError(writer, request, err)
+			return
+		}
 		writeError(writer, request, status, code, message, map[string]any{})
 		return
 	}
@@ -425,8 +430,10 @@ func importCreationError(err error) (int, string, string) {
 		return http.StatusUnprocessableEntity, "ARCHIVE_VOLUME_UNSUPPORTED", "不支持分卷项目归档"
 	case errors.Is(err, importing.ErrArchiveCasefoldCollision):
 		return http.StatusUnprocessableEntity, "RPG_PATH_COLLISION", "RPG Maker 项目路径发生冲突"
-	default:
+	case errors.Is(err, libraryservice.ErrInvalid), errors.Is(err, libraryservice.ErrVersionConflict):
 		return http.StatusConflict, "IMPORT_INPUT_INVALID", "上传或目标目录不可用于导入"
+	default:
+		return http.StatusInternalServerError, "INTERNAL_ERROR", "导入创建失败"
 	}
 }
 

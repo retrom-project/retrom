@@ -10,7 +10,8 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
-	"strings"
+
+	application "retrom/internal/service/libraryimport"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -139,17 +140,7 @@ func singleSourceGroup(file importSourceFile, logicalName string) *preparedGroup
 }
 
 func profileArchiveFormat(filePath string) (contentprofile.ArchiveFormat, string) {
-	extension := strings.ToLower(filepath.Ext(filePath))
-	switch {
-	case extension == ".zip":
-		return contentprofile.ArchiveZIP, ""
-	case extension == ".7z":
-		return contentprofile.ArchiveSevenZip, ""
-	case strings.HasSuffix(strings.ToLower(filePath), ".7z.001"):
-		return "", "ARCHIVE_VOLUME_UNSUPPORTED"
-	default:
-		return "", "UNSUPPORTED_CONTENT_FORMAT"
-	}
+	return application.ImportArchiveFormat(filePath)
 }
 
 func reasonOrUnsupported(reason string) string {

@@ -26,18 +26,10 @@ var (
 	ErrReimportRequiredPlatformChange = errors.New("REIMPORT_REQUIRED_FOR_PLATFORM_CHANGE")
 	ErrMultiDiscModeUnavailable       = libraryservice.ErrMultiDiscModeUnavailable
 	ErrMultiDiscPlaylistMissing       = errors.New("MULTI_DISC_PLAYLIST_MISSING")
-	errMetadataScraperNotConfigured   = errors.New("metadata scraper is not configured")
+	errMetadataScraperNotConfigured   = libraryservice.ErrMetadataScraperNotConfigured
 )
 
-type CreateRequest struct {
-	UploadID                 string   `json:"uploadId"`
-	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`
-	MetadataProvider         string   `json:"metadataProvider"`
-	ContentMode              string   `json:"contentMode,omitempty"`
-	TagIDs                   []string `json:"tagIds"`
-	reviewHandoffKind        string
-	sourceCreation           *ownedSourceCreation
-}
+type CreateRequest = libraryservice.ImportRequest
 
 type ReconfigureRequest struct {
 	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`

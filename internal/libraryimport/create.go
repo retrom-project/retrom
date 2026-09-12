@@ -47,10 +47,23 @@ func (service *Service) create(
 	ctx context.Context,
 	request CreateRequest,
 	reconfiguration *reconfigurationInput,
+	options ...creationOptions,
 ) (Created, error) {
 	plan, err := service.prepareCreation(ctx, request)
 	if err != nil {
 		return Created{}, err
+	}
+	if len(options) > 1 {
+		return Created{}, ErrInvalid
+	}
+	if len(options) == 1 {
+		plan.sourceCreation = options[0].sourceCreation
+		if options[0].reviewHandoffKind != "" {
+			plan.reviewHandoffKind = options[0].reviewHandoffKind
+		}
+	}
+	if plan.reviewHandoffKind != reviewHandoffDirect && plan.reviewHandoffKind != reviewHandoffEmulationStation {
+		return Created{}, ErrInvalid
 	}
 	if err := validateOwnedCreationPlan(plan); err != nil {
 		return Created{}, err

@@ -991,7 +991,7 @@ export interface paths {
         /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus or EmulationStation review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/pegasus-imports` and `/api/v1/admin/emulationstation-imports`. */
         get: operations["getAdminImports"];
         put?: never;
-        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
+        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
         post: operations["postAdminImport"];
         delete?: never;
         options?: never;
@@ -7594,6 +7594,24 @@ export interface operations {
         requestBody: components["requestBodies"]["CreateImport"];
         responses: {
             202: components["responses"]["JSONResponse"];
+            /** @description IMPORT_INPUT_INVALID when admission input is invalid or its upload or target version changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description INTERNAL_ERROR when admission persistence fails. No import is committed or dispatched. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     getAdminImport: {

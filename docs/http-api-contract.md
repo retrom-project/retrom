@@ -188,6 +188,8 @@ POST /api/v1/admin/imports
 
 创建端点只执行有界准入：校验 UploadSession 已 `COMPLETE`、用途/来源类型、目标目录与当前候选 Provider Target 能力，随后在一个短事务创建 `ImportJob(state=QUEUED)`、`IMPORT_GROUP Job`、每个 UploadFile 的 `PENDING` disposition、whole-session consumption 以及不可变 `import_group_requests` 输入快照，并立即返回 `202 {importJobId,jobId,state:"QUEUED",itemCount:0}`。浏览器收到 202 后直接进入 `/admin/imports/tasks`；不得继续把上传进度停在 92% 等待项目识别。
 
+准入由 `service/libraryimport.ImportAdmissions` 统一编排，`persistence/libraryimport` 在同一短事务读取完整上传文件集合、目标版本/能力、活动标签与操作者，并在写入前校验上传及目标版本。任何写入或提交失败都不返回创建结果，也不通知 worker；只有成功提交才派发。无效或发生版本漂移的业务输入返回 `409 IMPORT_INPUT_INVALID`，存储故障返回 `500 INTERNAL_ERROR`，不得把数据库故障伪装为输入冲突。
+
 归档安全扫描、解压、实际 member hash、CAS 物化、RPG Maker/ONS/KiriKiri/Butterscotch 项目检测、分组和运行依赖检查全部由并发度 1 的 `IMPORT_GROUP` archive worker 在 HTTP 响应之后执行。ZIP 在完整验证 central directory 后逐 member 单次解压，并把选中的 member 从临时候选原子提交到 CAS；不得为“扫描 hash”和“物化 CAS”再次解压同一 member，也不得把被规范器排除的候选发布进 CAS。7z 继续使用隔离 worker 的完整扫描与受限批量提取。任务以 `QUEUED/STARTED/PROGRESS/SUCCEEDED|FAILED` 事件投影 `WAITING_FOR_WORKER/INSPECTING/PERSISTING` 阶段；重启恢复遗留 RUNNING，取消在安全检查点收口并释放上传消费。
 
 请求 JSON、Upload 状态/用途、目标目录或 capability 在短准入阶段无效时仍在创建前返回 4xx。必须读取项目内容才能确定的错误（归档加密/越限/路径冲突、项目根缺失或歧义、RPG 世代不兼容、多盘播放列表缺失等）在 202 后把 ImportJob/Job 置 `FAILED`，并通过列表/详情的 `lastErrorCode/errorCode` 和事件返回稳定错误码；不得让原 POST 长时间占用连接。RPG Maker worker 从项目 bytes 唯一检测世代后，才把冻结的虚拟 core 绑定解析为 Provider Target；`bindingState=PENDING` 时详情的 `providerId/targetId/bundleSha256` 必须为 null，不能暴露尚未完成校验的内部候选。

@@ -85,8 +85,8 @@ func (service *Service) CreateOwnedServerSource(
 	}
 	_, err = service.create(ctx, CreateRequest{
 		UploadID: prepared.uploadID, TargetPlatformInstanceID: request.TargetPlatformInstanceID,
-		MetadataProvider: "NONE", ContentMode: prepared.contentMode, TagIDs: request.TagIDs, sourceCreation: binding,
-	}, nil)
+		MetadataProvider: "NONE", ContentMode: prepared.contentMode, TagIDs: request.TagIDs,
+	}, nil, creationOptions{sourceCreation: binding})
 	if err != nil {
 		service.removeUnusedClonedUpload(ctx, prepared.uploadID)
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)
@@ -128,7 +128,7 @@ func validateOwnedSourceReplay(
 }
 
 func validateOwnedCreationPlan(plan creationPlan) error {
-	binding := plan.request.sourceCreation
+	binding := plan.sourceCreation
 	if binding == nil {
 		return nil
 	}
@@ -158,7 +158,7 @@ func validateOwnedCreationPlan(plan creationPlan) error {
 }
 
 func (run *creationRun) revalidateOwnedSource() error {
-	binding := run.plan.request.sourceCreation
+	binding := run.plan.sourceCreation
 	if binding == nil {
 		return nil
 	}
@@ -178,7 +178,7 @@ func (run *creationRun) revalidateOwnedSource() error {
 }
 
 func (run *creationRun) bindOwnedSource() error {
-	binding := run.plan.request.sourceCreation
+	binding := run.plan.sourceCreation
 	if binding == nil {
 		return nil
 	}

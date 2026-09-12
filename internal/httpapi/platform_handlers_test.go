@@ -24,6 +24,7 @@ import (
 	"retrom/internal/libraryimport"
 	"retrom/internal/netplay"
 	"retrom/internal/platformcatalog"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -215,6 +216,9 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
+	server.importAdmissions = composition.NewLibraryImportAdmissions(server.database, server.importer, libraryservice.ImportAdmissionOptions{
+		Now: server.now, MultiDiscEnabled: true, MetadataScraperAvailable: true,
+	})
 	metadata, err := server.blobs.Put(strings.NewReader("MComprHDdeterministic CHD fixture"))
 	testassert.False(t, err != nil, err)
 	blobID, err := blobcatalog.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", now.UnixMilli())

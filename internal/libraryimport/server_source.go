@@ -110,8 +110,7 @@ func (service *Service) createPreparedServerSource(
 	created, err := service.create(ctx, CreateRequest{
 		UploadID: prepared.uploadID, TargetPlatformInstanceID: targetPlatformInstanceID,
 		MetadataProvider: "NONE", ContentMode: prepared.contentMode, TagIDs: tagIDs,
-		reviewHandoffKind: prepared.reviewHandoffKind(),
-	}, nil)
+	}, nil, creationOptions{reviewHandoffKind: prepared.reviewHandoffKind()})
 	if err != nil {
 		created, found, lookupErr := service.serverSourceCreation(
 			ctx, prepared.uploadID, targetPlatformInstanceID, prepared.contentMode,

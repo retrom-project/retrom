@@ -122,6 +122,7 @@ type Server struct {
 	reviewCoverUploads      *libraryservice.ReviewCoverUploads
 	reviewDiscards          *libraryservice.ReviewDiscards
 	reviewApprovals         *libraryservice.ReviewApprovals
+	importAdmissions        *libraryservice.ImportAdmissions
 	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
@@ -270,6 +271,11 @@ func New(
 	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
 	server.reviewDiscards = composition.NewLibraryReviewDiscards(database, now)
 	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now)
+	server.importAdmissions = composition.NewLibraryImportAdmissions(
+		database, importer, libraryservice.ImportAdmissionOptions{
+			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
+		},
+	)
 	server.jobService = composition.WithPegasusJobCancellation(server.jobService, pegasusImportService)
 	server.jobService = composition.WithEmulationStationJobCancellation(server.jobService, emulationStationImportService)
 	server.metadataEvidence = composition.NewMetadataEvidenceQueries(database)
