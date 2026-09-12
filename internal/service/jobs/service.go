@@ -22,8 +22,9 @@ type Result struct {
 }
 
 type Service struct {
-	repository Repository
-	now        func() time.Time
+	repository    Repository
+	cancellations map[string]DomainCanceller
+	now           func() time.Time
 }
 
 func New(repository Repository, now func() time.Time) *Service {
@@ -46,6 +47,7 @@ func (service *Service) Cancel(
 		return Result{}, false, ErrConflict
 	}
 	var result Result
+	var dispatch domainDispatch
 	pending := false
 	err := service.repository.WithWrite(ctx, func(records Records) error {
 		job, err := records.Get(ctx, jobID)
@@ -57,6 +59,13 @@ func (service *Service) Cancel(
 		}
 		if job.Kind == "REVIEW_BULK_APPROVE" {
 			return ErrRetryViaDomain
+		}
+		if handler := service.cancellations[job.Kind]; handler != nil {
+			dispatch = domainDispatch{handler: handler, command: DomainCancellation{
+				JobID: jobID, Kind: job.Kind, ScopeID: job.ScopeID,
+				Reason: strings.TrimSpace(reason), ExpectedVersion: expectedVersion,
+			}}
+			return nil
 		}
 		now := service.now().UnixMilli()
 		change := Cancellation{
@@ -86,6 +95,9 @@ func (service *Service) Cancel(
 	})
 	if err != nil {
 		return Result{}, false, fmt.Errorf("jobs/cancel: %w", err)
+	}
+	if dispatch.handler != nil {
+		return dispatch.cancel(ctx)
 	}
 	return result, pending, nil
 }
