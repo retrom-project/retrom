@@ -363,20 +363,9 @@ UPDATE games SET version=version+1,updated_at_ms=? WHERE id=?
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "new default core launch = %#v, error=%v", pending, err)
 	waitForHTTPJob(t, server.database, pending.JobID, "SUCCEEDED")
-	saved, err := server.launcher.Create(
-		ctx,
-		"local",
-		launch.CreateRequest{
-			GameID: gameID, SaveStateID: &saveID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities,
-		},
-	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return saved.LaunchID == "" }, func() bool { return saved.Status == "VALIDATION_PENDING" }), "old save launch = %#v, error=%v", saved, err)
-	var savedCore string
-	if err := server.database.QueryRowContext(ctx, `
-SELECT core_id FROM launch_sessions WHERE id=?
-`, saved.LaunchID).Scan(&savedCore); err != nil || savedCore != "mgba" {
-		t.Fatalf("save launch core = %s, error=%v", savedCore, err)
-	}
+	assertSavedCoreChoice(t, server, gameID, saveID, nil, "gambatte")
+	explicitCore := "mgba"
+	assertSavedCoreChoice(t, server, gameID, saveID, &explicitCore, "mgba")
 }
 
 func TestGameMetadataCurrentStateProjectionAndOptimisticEdit(t *testing.T) {

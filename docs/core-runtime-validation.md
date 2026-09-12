@@ -44,12 +44,21 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 53 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 55 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 原始画面与锐利像素使用显式颜色直通、无滤波的 `retrom-passthrough` shader，避开 4.2.3 关闭 shader 后在原生分辨率切换时出现纯色/裁切的 GL fallback。浏览器画面必须与核心截图保持完整内容，启动和跨 Launch 恢复均需覆盖；不能用切换画面模式的人工操作替代默认模式验收。
 
 
 新增 `fuse`、`gearcoleco`、`prboom`、`puae`、`vice-x128`、`vice-x64sc`、`vice-xvic` 与 `virtualjaguar` 只声明 `SINGLE_FILE`，`discSwitch=false` 且不开放 netplay。逐核产品验收按 [ACC-RUN-013](./project-acceptance.md#acc-run-013八个-emulatorjs-单文件候选的逐核产品验证) 执行；首次验收可从产品白名单任选一种扩展名，一个 Target 的结果不能替代另一个 Target。
+
+SNES 的 `bsnes` 通过独立 `emulatorjs/bsnes` Target 使用锁定的 EmulatorJS 4.3.0-pre
+前端与 `retrom-project/bsnes-libretro` 的单线程 WASM candidate，接收平台允许的单文件 ROM。它作为备用核心供显式选择，不改变 Snes9x 默认推荐目录，
+不新增推荐目录、不开放联机或多盘。标准 SNES 手柄和即时存档沿用 Provider 公共边界；bsnes 声明
+独立的 `bsnes-state-v1-storage-v1` 格式，不读取通用 EmulatorJS 格式。宿主按 `readFormats`
+检查兼容性，因此 bsnes 与 Snes9x 即时存档不能混用，不增加存档身份字段或按核心分支。该 PFB candidate 修复上游缺失的
+Asyncify 和协程重建能力、异步保存回调及原生内存所有权，来源基线为 `4b344745e3878e7c0675a60c624582935524b8f7`，
+仅允许 candidate 构建；正式发布前需先发布 fork 资产，再固定 Provider 来源。逐样本产品验证见
+[ACC-RUN-016](./project-acceptance.md#acc-run-016bsnes-备用核心产品验证)。
 
 Mega Drive 的 Genesis Plus GX、GX Wide 与 PicoDrive 由 Provider 在输入表建立前明确选择 Mega Drive 手柄布局，保留 Start、方向与 A/B/C/X/Y/Z；不能采用多平台核心自动推断出的 Master System 布局。键盘与标准手柄使用同一控制表，原始 `.md`/`.smd` 与归档内成员行为一致。固定 EmulatorJS 4.2.3 的六键布局使用等价的 `segaCD` 输入别名，4.3.0-pre 使用 `segaMD`；这只选择输入布局，不切换运行核心或内容类型。
 
