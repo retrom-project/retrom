@@ -42,6 +42,8 @@ internal/catalog/         Platform、PlatformInstance、Game、GameVariant
 internal/importing/       导入任务、分组、刮削与审核编排
 internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
 internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
+internal/service/emulationstationimport/ 查询分页、活动与冻结标签投影
+internal/persistence/emulationstationimport/ 导入查询、持久化诊断与运行依赖映射
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
 internal/firmware/        BIOS 文件与归档匹配、候选质量比较

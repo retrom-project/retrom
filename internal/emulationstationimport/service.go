@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"retrom/internal/dbexec"
+	application "retrom/internal/service/emulationstationimport"
 
 	tagpersistence "retrom/internal/persistence/tagging"
 
@@ -29,7 +30,7 @@ import (
 )
 
 var (
-	ErrNotFound             = errors.New("EMULATIONSTATION_IMPORT_NOT_FOUND")
+	ErrNotFound             = application.ErrNotFound
 	ErrGamelistAbsent       = errors.New("EMULATIONSTATION_GAMELIST_NOT_FOUND")
 	ErrNoValidGamelist      = errors.New("EMULATIONSTATION_NO_VALID_GAMELIST")
 	ErrScanLimit            = errors.New("EMULATIONSTATION_SCAN_LIMIT_EXCEEDED")
@@ -40,7 +41,7 @@ var (
 	ErrMappingTargetChanged = errors.New("EMULATIONSTATION_MAPPING_TARGET_CHANGED")
 	ErrExpired              = errors.New("EMULATIONSTATION_PLAN_EXPIRED")
 	ErrActive               = errors.New("EMULATIONSTATION_IMPORT_ACTIVE")
-	ErrInvalid              = errors.New("EMULATIONSTATION_IMPORT_INVALID")
+	ErrInvalid              = application.ErrInvalid
 	ErrNotCancellable       = errors.New("EMULATIONSTATION_IMPORT_NOT_CANCELLABLE")
 	ErrNotRetryable         = errors.New("EMULATIONSTATION_IMPORT_NOT_RETRYABLE")
 	errItemStateChanged     = errors.New("item state changed")
@@ -582,19 +583,6 @@ func boolInt(value bool) int {
 		return 1
 	}
 	return 0
-}
-
-func nullableString(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	return &value.String
-}
-
-func jsonStrings(value string) []string {
-	result := []string{}
-	_ = json.Unmarshal([]byte(value), &result)
-	return result
 }
 
 func errorCode(err error) string {

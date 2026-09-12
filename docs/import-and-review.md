@@ -448,6 +448,8 @@ Pegasus Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不�
 
 ## 15. EmulationStation 服务器目录导入
 
+查询通过 `internal/service/emulationstationimport` 的类型化端口调用 `internal/persistence/emulationstationimport`。Service 校验分页边界并区分等待映射时的活动标签与执行后的冻结选择；Repository 负责 SQL、游标排序、可空字段和持久化诊断解码。有效的空列表和诊断数组返回空数组；损坏或字段类型不符的清单、条目与运行依赖数据必须保留原因返回错误，不得静默伪装成没有 warning 或依赖。
+
 EmulationStation import 复用管理员服务器文件系统浏览和普通导入主链，不读取 `es_systems.cfg`。扫描从管理员选择的规范相对目录递归发现文件名精确为小写 `gamelist.xml` 的普通文件；不跟随符号链接，清单内引用仍限定在所选来源目录内，每份可解析清单形成一个独立 Collection。因而同一入口同时支持两种稳定形态：一个所选目录包含多个子目录、每个子目录各有自己的 `gamelist.xml`；或一个没有子目录的目录只含一份 `gamelist.xml` 与多份游戏文件。其他大小写的清单名不匹配，也不能把父子清单合并为一个 Collection。
 
 XML 必须是严格 UTF-8，可带 UTF-8 BOM，根元素必须是无 namespace 的 `gameList`。DTD、实体声明、外部实体、其他 processing instruction、namespace、非 UTF-8、未知根结构和重复必填字段均 fail closed；解析器只接受受限的 `game` 与已登记纯文本字段。`command/emulator/core` 即使出现也一律忽略，原值不得持久化、返回或记录；`folder` 只计数，`provider` 只保留存在性。每个 `game` 恰有一个非空 `path`，标题缺失时使用内容文件 basename；`players` 仅接受 `N` 或 `N-M` 并取最大值，日期只接受 `YYYYMMDD[THHMMSS]` 或 `DD/MM/YYYY`。`hidden/adult/kidgame` 只是管理员可见来源提示，不改变权限、兼容性或自动发布规则。
