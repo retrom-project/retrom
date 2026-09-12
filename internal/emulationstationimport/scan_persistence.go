@@ -2,226 +2,57 @@ package emulationstationimport
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
-	"retrom/internal/dbexec"
-
-	"retrom/internal/persistence/recordstore"
-
 	"retrom/internal/emulationstationmeta"
+	persistence "retrom/internal/persistence/emulationstationimport"
+	application "retrom/internal/service/emulationstationimport"
 )
 
-func (service *Service) persistScan(ctx context.Context, unit work, result scanResult) error {
-	now := service.now().UnixMilli()
-	if err := service.persistScanHeaders(ctx, unit, result, now); err != nil {
-		return err
-	}
-	if err := service.persistScanItems(ctx, unit, result.Items, now); err != nil {
-		return err
-	}
-	return service.finishScan(ctx, unit, result, now)
+func (service *Service) scanPublication() *application.ScanPublication {
+	return application.NewScanPublication(persistence.NewScanPublication(service.database), service.now)
 }
 
-func (service *Service) persistRejectedScan(ctx context.Context, unit work, result scanResult) error {
-	now := service.now().UnixMilli()
-	if err := service.persistScanHeaders(ctx, unit, result, now); err != nil {
-		return err
-	}
-	if _, err := recordstore.UpdateEmulationstationImports(ctx, service.database, recordstore.Update{
-		Set: `
-gamelist_count=?,invalid_gamelist_count=?,
-collection_count=0,folder_entry_count=0,game_count=0,estimated_source_bytes=0,
-processable_item_count=0,blocked_item_count=0,media_warning_count=0,
-discovered_cover_count=0,discovered_video_count=0,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND state='SCANNING'`,
-			Args:  []any{unit.ImportID},
-		},
-		Values: []any{len(result.Gamelists), result.InvalidGamelists, now},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/persist rejected scan evidence: %w", err)
+func (service *Service) persistScan(ctx context.Context, unit work, value scanResult) error {
+	if err := service.scanPublication().Publish(ctx, unit, application.ScanProjection(value)); err != nil {
+		return fmt.Errorf("persist EmulationStation scan: %w", err)
 	}
 	return nil
 }
 
-func (service *Service) persistScanHeaders(
-	ctx context.Context,
-	unit work,
-	result scanResult,
-	now int64,
-) error {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("emulationstationimport/start scan header transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	for _, gamelist := range result.Gamelists {
-		ignoredFields := gamelist.Document.IgnoredFields
-		if ignoredFields == nil {
-			ignoredFields = []string{}
-		}
-		ignoredJSON := string(compactJSON(ignoredFields))
-		if _, err := recordstore.CreateEmulationstationImportGamelists(ctx, transaction, `
-INSERT INTO emulationstation_import_gamelists(
-import_id,relative_path,size_bytes,content_digest,source_facts_digest,
-parse_state,error_code,game_count,folder_count,provider_present,
-ignored_fields_json,ignored_field_other_count,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, unit.ImportID, gamelist.Path, gamelist.Size, nullIfEmpty(gamelist.Digest),
-			gamelist.Facts, gamelist.State, nullIfEmpty(gamelist.ErrorCode),
-			len(gamelist.Document.Games), gamelist.Document.FolderEntryCount,
-			boolInt(gamelist.Document.ProviderPresent), ignoredJSON,
-			gamelist.Document.IgnoredFieldOtherCount, now); err != nil {
-			return fmt.Errorf("emulationstationimport/insert gamelist evidence: %w", err)
-		}
-	}
-	for _, collection := range result.Collections {
-		if _, err := recordstore.CreateEmulationstationImportCollections(ctx, transaction, `
-INSERT INTO emulationstation_import_collections(
-id,import_id,gamelist_relative_path,relative_directory,display_name,
-game_count,issue_count,folder_entry_count,hidden_game_count,adult_game_count,
-extension_summary_json,extension_other_count,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, collection.ID, unit.ImportID, collection.GamelistPath,
-			collection.RelativeDirectory, collection.DisplayName, collection.GameCount, collection.IssueCount,
-			collection.FolderEntryCount, collection.HiddenGameCount, collection.AdultGameCount,
-			collection.ExtensionSummaryJSON, collection.ExtensionOtherCount, now, now); err != nil {
-			return fmt.Errorf("emulationstationimport/insert collection: %w", err)
-		}
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("emulationstationimport/commit scan headers: %w", err)
+func (service *Service) persistRejectedScan(ctx context.Context, unit work, value scanResult) error {
+	if err := service.scanPublication().Rejected(ctx, unit, application.ScanProjection(value)); err != nil {
+		return fmt.Errorf("persist rejected EmulationStation scan: %w", err)
 	}
 	return nil
 }
 
-func (service *Service) persistScanItems(
-	ctx context.Context,
-	unit work,
-	items []scannedItem,
-	now int64,
-) error {
-	for offset := 0; offset < len(items); offset += 500 {
-		end := min(offset+500, len(items))
-		batch, beginErr := service.database.BeginTx(ctx, nil)
-		if beginErr != nil {
-			return fmt.Errorf("emulationstationimport/start item batch: %w", beginErr)
-		}
-		for _, item := range items[offset:end] {
-			if err := insertScannedItem(ctx, batch, unit.ImportID, item, now); err != nil {
-				dbexec.Rollback(batch)
-				return err
-			}
-		}
-		if err := batch.Commit(); err != nil {
-			return fmt.Errorf("emulationstationimport/commit item batch: %w", err)
-		}
+func (service *Service) persistScanHeaders(ctx context.Context, unit work, value scanResult) error {
+	if err := service.scanPublication().Headers(ctx, unit, application.ScanProjection(value)); err != nil {
+		return fmt.Errorf("persist EmulationStation scan headers: %w", err)
 	}
 	return nil
 }
 
-func insertScannedItem(ctx context.Context, batch *sql.Tx, importID string, item scannedItem, now int64) error {
-	if _, err := recordstore.CreateEmulationstationImportItems(ctx, batch, `
-INSERT INTO emulationstation_import_items(
-id,import_id,collection_id,gamelist_relative_path,game_ordinal,source_key,title,
-source_flags_json,discovery_state,execution_state,content_kind,metadata_json,
-warnings_json,source_manifest_json,source_manifest_digest,discovery_code,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,'PENDING',?,?,?,?,?,?,?,?)`, item.ID, importID,
-		item.CollectionID, item.GamelistPath, item.GameOrdinal, item.SourceKey,
-		item.Title, item.SourceFlagsJSON, item.DiscoveryState, item.ContentKind,
-		item.MetadataJSON, item.WarningsJSON,
-		item.SourceManifestJSON, item.SourceManifestDigest, nullIfEmpty(item.DiscoveryCode), now, now); err != nil {
-		return fmt.Errorf("emulationstationimport/insert item: %w", err)
-	}
-	for _, file := range item.Files {
-		if _, err := recordstore.CreateEmulationstationImportItemFiles(ctx, batch, `
-INSERT INTO emulationstation_import_item_files(
-item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,
-state,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,'DISCOVERED',?,?)`, item.ID, file.Ordinal, file.Kind,
-			file.Path, file.Size, file.Facts, now, now); err != nil {
-			return fmt.Errorf("emulationstationimport/insert item file: %w", err)
-		}
-	}
-	for _, asset := range item.Assets {
-		if _, err := recordstore.CreateEmulationstationImportItemAssets(ctx, batch, `
-INSERT INTO emulationstation_import_item_assets(
-item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,
-media_type,width_px,height_px,state,warning_code,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, item.ID, asset.Kind, asset.Method,
-			asset.Path, asset.Size, asset.Facts, asset.MediaType, asset.Width, asset.Height,
-			asset.State, nullIfEmpty(asset.WarningCode), now, now); err != nil {
-			return fmt.Errorf("emulationstationimport/insert asset: %w", err)
-		}
+func (service *Service) persistScanItems(ctx context.Context, unit work, items []scannedItem) error {
+	if err := service.scanPublication().Items(ctx, unit, items); err != nil {
+		return fmt.Errorf("persist EmulationStation scan items: %w", err)
 	}
 	return nil
 }
 
-func (service *Service) finishScan(ctx context.Context, unit work, result scanResult, now int64) error {
-	finish, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("emulationstationimport/start scan finish transaction: %w", err)
+func (service *Service) finishScan(ctx context.Context, unit work, value scanResult) error {
+	if err := service.scanPublication().Finish(ctx, unit, application.ScanProjection(value)); err != nil {
+		return fmt.Errorf("finish EmulationStation scan: %w", err)
 	}
-	defer dbexec.Rollback(finish)
-	processable := int64(len(result.Items)) - result.Blocked
-	if _, err := recordstore.UpdateEmulationstationImports(ctx, finish, recordstore.Update{
-		Set: `
-source_snapshot_digest=?,state='AWAITING_MAPPING',phase=NULL,
-gamelist_count=?,invalid_gamelist_count=?,collection_count=?,folder_entry_count=?,game_count=?,
-estimated_source_bytes=?,processable_item_count=?,blocked_item_count=?,
-media_warning_count=?,discovered_cover_count=?,discovered_video_count=?,
-scan_completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND state='SCANNING'`,
-			Args:  []any{unit.ImportID},
-		},
-		Values: []any{
-			result.SnapshotDigest,
-			len(result.Gamelists),
-			result.InvalidGamelists,
-			len(result.Collections),
-			result.FolderEntries,
-			len(result.Items),
-			result.EstimatedBytes,
-			processable,
-			result.Blocked,
-			result.MediaWarnings,
-			result.Covers,
-			result.Videos,
-			now,
-			now,
-		},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/finish scan aggregate: %w", err)
-	}
-	if _, err := finish.ExecContext(ctx, `
-UPDATE jobs
-SET state='SUCCEEDED',finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
-error_code=NULL,error_retryable=NULL,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING'`, now, now, unit.JobID); err != nil {
-		return fmt.Errorf("emulationstationimport/finish scan job: %w", err)
-	}
-	data, _ := json.Marshal(
-		map[string]any{
-			"schemaVersion":    1,
-			"gamelists":        len(result.Gamelists),
-			"collections":      len(result.Collections),
-			"games":            len(result.Items),
-			"invalidGamelists": result.InvalidGamelists,
-		},
-	)
-	if _, err := finish.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'EMULATIONSTATION_IMPORT',?,'SUCCEEDED',?,?)`,
-		unit.JobID, unit.ImportID, string(data), now); err != nil {
-		return fmt.Errorf("emulationstationimport/create scan success event: %w", err)
-	}
-	if err := finish.Commit(); err != nil {
-		return fmt.Errorf("emulationstationimport/commit scan finish: %w", err)
+	return nil
+}
+
+func (service *Service) clearScanStaging(ctx context.Context, unit work) error {
+	if err := service.scanPublication().Reset(ctx, unit); err != nil {
+		return fmt.Errorf("clear EmulationStation scan staging: %w", err)
 	}
 	return nil
 }
@@ -270,69 +101,6 @@ func parserErrorCode(err error) string {
 	}
 }
 
-func (service *Service) clearScanStaging(ctx context.Context, importID string) error {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("emulationstationimport/start scan staging cleanup: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	var state string
-	if err := transaction.QueryRowContext(
-		ctx, `SELECT state FROM emulationstation_imports WHERE id=?`, importID,
-	).Scan(&state); err != nil || state != "SCANNING" {
-		return ErrInvalid
-	}
-	if _, err := recordstore.DeleteEmulationstationImportItemAssets(ctx, transaction, recordstore.Scope{
-		Where: `
-item_id IN (
- SELECT id FROM emulationstation_import_items WHERE import_id=?)
-`,
-		Args: []any{importID},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
-	}
-	if _, err := recordstore.DeleteEmulationstationImportItemFiles(ctx, transaction, recordstore.Scope{
-		Where: `
-item_id IN (
- SELECT id FROM emulationstation_import_items WHERE import_id=?)
-`,
-		Args: []any{importID},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
-	}
-	if _, err := recordstore.DeleteEmulationstationImportItems(ctx, transaction, recordstore.Scope{
-		Where: `import_id=?`,
-		Args:  []any{importID},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
-	}
-	if _, err := recordstore.DeleteEmulationstationCollectionTags(ctx, transaction, recordstore.Scope{
-		Where: `
-collection_id IN (
- SELECT id FROM emulationstation_import_collections WHERE import_id=?)
-`,
-		Args: []any{importID},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
-	}
-	if _, err := recordstore.DeleteEmulationstationImportCollections(ctx, transaction, recordstore.Scope{
-		Where: `import_id=?`,
-		Args:  []any{importID},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
-	}
-	if _, err := recordstore.DeleteEmulationstationImportGamelists(ctx, transaction, recordstore.Scope{
-		Where: `import_id=?`,
-		Args:  []any{importID},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("emulationstationimport/commit scan staging cleanup: %w", err)
-	}
-	return nil
-}
-
 func stringPointer(value string) *string {
 	if value == "" {
 		return nil
@@ -348,5 +116,3 @@ func nullIfEmpty(value string) any {
 	}
 	return value
 }
-
-var _ = sql.ErrNoRows

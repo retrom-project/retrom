@@ -45,10 +45,10 @@ func TestNextESRecoveryClearsInterruptedScanBeforeTerminalFailure(t *testing.T) 
 	if len(result.Items) == 0 {
 		t.Fatal("fixture has no partial scan items")
 	}
-	if err := fixture.service.persistScanHeaders(fixture.context, unit, result, now); err != nil {
+	if err := fixture.service.persistScanHeaders(fixture.context, unit, result); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.service.persistScanItems(fixture.context, unit, result.Items, now); err != nil {
+	if err := fixture.service.persistScanItems(fixture.context, unit, result.Items); err != nil {
 		t.Fatal(err)
 	}
 	mustExecEmulationStationTest(t, fixture.database, `UPDATE jobs SET leased_until_ms=?,execution_deadline_at_ms=? WHERE id=?`, now-1, now, created.ScanJobID)

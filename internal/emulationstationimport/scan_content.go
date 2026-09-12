@@ -36,7 +36,7 @@ func (service *Service) projectGame(
 	game emulationstationmeta.Game,
 	files map[string]discoveredFile,
 	caches *scanCaches,
-) scannedItem {
+) (scannedItem, error) {
 	projection := service.projectContent(
 		ctx, root, selectedPath, gamelistPath, game.Path, game.BlockedCode, files, caches,
 	)
@@ -71,7 +71,10 @@ func (service *Service) projectGame(
 	keyDigest := sha256.Sum256([]byte(
 		"retrom:emulationstation:item:v1\x00" + gamelistPath + "\x00" + strconv.Itoa(game.Ordinal),
 	))
-	itemID, _ := uuid.NewV7()
+	itemID, err := uuid.NewV7()
+	if err != nil {
+		return scannedItem{}, fmt.Errorf("generate EmulationStation item identity: %w", err)
+	}
 	return scannedItem{
 		ID: itemID.String(), CollectionID: collectionID, GamelistPath: gamelistPath,
 		GameOrdinal: int64(game.Ordinal), SourceKey: hex.EncodeToString(keyDigest[:]),
@@ -82,7 +85,7 @@ func (service *Service) projectGame(
 		SourceManifestJSON:   string(manifestJSON),
 		SourceManifestDigest: hex.EncodeToString(manifestDigest[:]),
 		Files:                projection.files, Assets: assets,
-	}
+	}, nil
 }
 
 func boundedWarnings(values []map[string]any) []map[string]any {

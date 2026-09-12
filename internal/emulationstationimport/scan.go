@@ -10,9 +10,12 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"path"
 	"sort"
 	"strings"
+
+	application "retrom/internal/service/emulationstationimport"
 
 	"github.com/google/uuid"
 
@@ -34,73 +37,47 @@ type discoveredFile struct {
 	Size              int64
 }
 
-type scannedGamelist struct {
-	Path, Digest, Facts, State, ErrorCode string
-	Size                                  int64
-	Document                              emulationstationmeta.Document
-}
-
-type scannedCollection struct {
-	ID, GamelistPath, RelativeDirectory, DisplayName string
-	GameCount, IssueCount, FolderEntryCount          int64
-	HiddenGameCount, AdultGameCount                  int64
-	ExtensionSummaryJSON                             string
-	ExtensionOtherCount                              int64
-}
-
-type scannedItem struct {
-	ID, CollectionID, GamelistPath, SourceKey, Title string
-	GameOrdinal                                      int64
-	SourceFlagsJSON                                  string
-	DiscoveryState, DiscoveryCode                    string
-	ContentKind, MetadataJSON, WarningsJSON          string
-	SourceManifestJSON, SourceManifestDigest         string
-	Files                                            []scannedItemFile
-	Assets                                           []scannedAsset
-}
-
-type scannedItemFile struct {
-	Ordinal           int64
-	Kind, Path, Facts string
-	Size              int64
-}
-
-type scannedAsset struct {
-	Kind, Method, Path, State, WarningCode string
-	Facts, MediaType                       *string
-	Size, Width, Height                    *int64
-}
-
-type scanResult struct {
-	Gamelists                              []scannedGamelist
-	Collections                            []scannedCollection
-	Items                                  []scannedItem
-	SnapshotDigest                         string
-	EstimatedBytes                         int64
-	InvalidGamelists, FolderEntries        int64
-	Blocked, MediaWarnings, Covers, Videos int64
-}
+type (
+	scannedGamelist   = application.ScanGamelist
+	scannedCollection = application.ScanCollection
+	scannedItem       = application.ScanItem
+	scannedItemFile   = application.ScanItemFile
+	scannedAsset      = application.ScanAsset
+	scanResult        application.ScanProjection
+)
 
 func (service *Service) executeScan(ctx context.Context, unit work, root Root) {
-	if err := service.clearScanStaging(ctx, unit.ImportID); err != nil {
-		service.fail(ctx, unit, "INTERNAL_ERROR", true)
+	if err := service.clearScanStaging(ctx, unit); err != nil {
+		service.scanFailure(ctx, unit, err, "INTERNAL_ERROR", true)
 		return
 	}
 	result, err := service.scan(ctx, root, unit.RelativePath, unit.ReleaseYearMax)
 	if err != nil {
 		if errors.Is(err, ErrNoValidGamelist) {
 			if evidenceErr := service.persistRejectedScan(ctx, unit, result); evidenceErr != nil {
-				service.fail(ctx, unit, "INTERNAL_ERROR", true)
+				service.scanFailure(ctx, unit, evidenceErr, "INTERNAL_ERROR", true)
 				return
 			}
 		}
-		service.fail(ctx, unit, errorCode(err), errors.Is(err, serversource.ErrRootUnavailable))
+		service.scanFailure(ctx, unit, err, errorCode(err), errors.Is(err, serversource.ErrRootUnavailable))
 		return
 	}
 	if err := service.persistScan(ctx, unit, result); err != nil {
-		_ = service.clearScanStaging(ctx, unit.ImportID)
-		service.fail(ctx, unit, "INTERNAL_ERROR", true)
+		service.failedScanPublication(ctx, unit, err)
 	}
+}
+
+func (service *Service) failedScanPublication(ctx context.Context, unit work, err error) {
+	if errors.Is(err, ErrVersionConflict) {
+		return
+	}
+	if cleanupErr := service.clearScanStaging(ctx, unit); cleanupErr != nil {
+		if errors.Is(cleanupErr, ErrVersionConflict) {
+			return
+		}
+		slog.ErrorContext(ctx, "clear failed EmulationStation scan", "error", cleanupErr)
+	}
+	service.scanFailure(ctx, unit, err, "INTERNAL_ERROR", true)
 }
 
 func (service *Service) scan(
@@ -238,7 +215,10 @@ func (service *Service) projectGamelist(
 		return nil
 	}
 	gamelist.Document = document
-	collectionID, _ := uuid.NewV7()
+	collectionID, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("generate EmulationStation collection identity: %w", err)
+	}
 	relativeDirectory := path.Dir(gamelist.Path)
 	if relativeDirectory == "." {
 		relativeDirectory = ""
@@ -259,9 +239,12 @@ func (service *Service) projectGamelist(
 			return ErrScanLimit
 		}
 		game := document.Games[gameIndex]
-		item := service.projectGame(
+		item, err := service.projectGame(
 			ctx, root, selectedPath, gamelist.Path, collection.ID, game, files, caches,
 		)
+		if err != nil {
+			return err
+		}
 		if item.DiscoveryState != "READY" {
 			collection.IssueCount++
 			result.Blocked++
@@ -400,4 +383,15 @@ func extensionSummary(values map[string]int64) (string, int64) {
 		items = items[:32]
 	}
 	return string(compactJSON(items)), other
+}
+
+func (service *Service) scanFailure(ctx context.Context, unit work, err error, code string, retryable bool) {
+	if errors.Is(err, ErrVersionConflict) || errors.Is(err, context.Canceled) {
+		return
+	}
+	if errors.Is(err, ErrExpired) {
+		code, retryable = "EMULATIONSTATION_EXECUTION_TIMEOUT", false
+	}
+	slog.ErrorContext(ctx, "EmulationStation scan failed", "error", err)
+	service.fail(ctx, unit, code, retryable)
 }
