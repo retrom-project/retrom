@@ -61,11 +61,12 @@ internal/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢�
 internal/service/isolation/ unique-origin Host、票据及 capability 授权规则
 internal/persistence/isolation/ 票据、会话与 capability 读取及原子签发
 internal/netplay/         Room/Session 控制面、严格实时协议与有界内存 Hub
-internal/saves/           状态存档、截图与兼容性
+internal/service/saves/   存档授权、格式兼容、幂等和 GAME_SAVE 版本决策
+internal/persistence/saves/ 存档、Blob 登记、恢复绑定与幂等记录的原子读写
 internal/playtime/        PlaySession 和有效时长
 internal/blobstore/       CAS 写入、读取、引用与垃圾回收
-internal/service/jobs/    通用任务取消、重试资格与执行快照编排
-internal/persistence/jobs/ 任务状态、快照和事件的事务写入
+internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排
+internal/persistence/jobs/ 任务状态、快照和事件的事务读写
 internal/service/blobgc/  确定性 GC 维护入口与计数结果
 internal/persistence/blobgc/ Blob 计数与保护引用读取
 internal/store/           SQLite 连接、迁移和事务辅助

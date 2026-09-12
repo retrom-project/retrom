@@ -30,17 +30,17 @@ type parsedManual struct {
 	screenshotMediaType string
 }
 
-func (service *Service) parseManual(request *http.Request, launch launchSnapshot) (parsedManual, error) {
-	mediaType, parameters, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+func (service *Service) parseManual(request ManualUpload, launch Launch) (parsedManual, error) {
+	mediaType, parameters, err := mime.ParseMediaType(request.ContentType)
 	if err != nil || mediaType != "multipart/form-data" || parameters["boundary"] == "" {
 		return parsedManual{}, ErrInvalid
 	}
 	reader := multipart.NewReader(request.Body, parameters["boundary"])
-	result, seen, err := service.readManualParts(reader, launch.checkpointMaxBytes)
+	result, seen, err := service.readManualParts(reader, min(launch.Checkpoint.MaxBytes, maxStoredCheckpointBytes))
 	if err != nil {
 		return parsedManual{}, err
 	}
-	if !seen["metadata"] || !seen["payload"] || result.metadata.CheckpointFormat != launch.checkpointFormat {
+	if !seen["metadata"] || !seen["payload"] || result.metadata.CheckpointFormat != launch.Checkpoint.WriteFormat {
 		return parsedManual{}, ErrCheckpointInvalid
 	}
 	if !validMetadataForLaunch(result.metadata, launch) {
@@ -78,10 +78,11 @@ func (service *Service) readManualParts(
 }
 
 func classifyMultipartError(err error) error {
-	if strings.Contains(err.Error(), "request body too large") {
-		return ErrTooLarge
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		return fmt.Errorf("%w: %w", ErrTooLarge, err)
 	}
-	return ErrInvalid
+	return fmt.Errorf("%w: %w", ErrInvalid, err)
 }
 
 func (service *Service) parseManualPart(
@@ -173,8 +174,8 @@ func decodeMetadataField(decoder *json.Decoder, name string, metadata *manualMet
 	return nil
 }
 
-func validMetadataForLaunch(metadata manualMetadata, launch launchSnapshot) bool {
-	if metadata.CheckpointFormat != launch.checkpointFormat {
+func validMetadataForLaunch(metadata manualMetadata, launch Launch) bool {
+	if metadata.CheckpointFormat != launch.Checkpoint.WriteFormat {
 		return false
 	}
 	return validName(metadata.Name) && validManualDiscIndex(launch, metadata.DiscIndex)
@@ -194,9 +195,9 @@ func validName(name string) bool {
 	return count >= 1 && count <= 120
 }
 
-func validManualDiscIndex(launch launchSnapshot, discIndex *int) bool {
-	if launch.contentFormat != "RETROM_MULTIDISC_M3U_V1" {
+func validManualDiscIndex(launch Launch, discIndex *int) bool {
+	if launch.ContentFormat != "RETROM_MULTIDISC_M3U_V1" {
 		return discIndex == nil
 	}
-	return discIndex != nil && *discIndex >= 0 && *discIndex < launch.discCount
+	return discIndex != nil && *discIndex >= 0 && *discIndex < launch.DiscCount
 }

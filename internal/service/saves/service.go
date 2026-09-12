@@ -1,15 +1,13 @@
 package saves
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"retrom/internal/blobstore"
-	retromruntime "retrom/internal/runtime"
 )
 
 const (
@@ -30,19 +28,19 @@ var (
 )
 
 type Service struct {
-	database    *sql.DB
-	blobs       *blobstore.Store
-	credentials *retromruntime.Credentials
-	now         func() time.Time
+	repository Repository
+	blobs      *blobstore.Store
+	now        func() time.Time
 }
 
-func New(
-	database *sql.DB,
-	blobs *blobstore.Store,
-	credentials *retromruntime.Credentials,
-	now func() time.Time,
-) *Service {
-	return &Service{database: database, blobs: blobs, credentials: credentials, now: now}
+func New(repository Repository, blobs *blobstore.Store, now func() time.Time) *Service {
+	return &Service{repository: repository, blobs: blobs, now: now}
+}
+
+// ManualUpload contains only the streamed multipart input needed by the save use case.
+type ManualUpload struct {
+	ContentType string
+	Body        io.Reader
 }
 
 type ManualResult struct {
@@ -119,8 +117,4 @@ type CheckpointStatus struct {
 type CheckpointAvailability struct {
 	Available bool    `json:"available"`
 	Reason    *string `json:"reason"`
-}
-
-type queryRower interface {
-	QueryRowContext(context.Context, string, ...any) *sql.Row
 }

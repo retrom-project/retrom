@@ -20,7 +20,7 @@ import (
 	"retrom/internal/launch"
 	"retrom/internal/mediaasset"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/saves"
+	"retrom/internal/service/saves"
 )
 
 func (server *Server) writeStoredLaunchResponse(
@@ -384,7 +384,7 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 		request.PathValue("launchId"),
 		server.launchCapability(request),
 		key,
-		request,
+		saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body},
 	)
 	writeSaveStateResult(writer, request, result, replayed, err)
 }

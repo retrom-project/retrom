@@ -67,7 +67,7 @@ func TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves(t *tes
 
 func extensionDeclarations(t *testing.T) runtimecatalog.Catalog {
 	t.Helper()
-	contents, err := os.ReadFile("../../data/runtime-target-bindings/v1/catalog.json")
+	contents, err := os.ReadFile("../../../data/runtime-target-bindings/v1/catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}

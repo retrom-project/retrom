@@ -13,12 +13,14 @@ import (
 	"testing"
 	"time"
 
+	savepersistence "retrom/internal/persistence/saves"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/saves"
+	"retrom/internal/service/saves"
 	"retrom/internal/testsupport"
 )
 
@@ -61,7 +63,7 @@ VALUES('reviewer','local','reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	return reviewCheckpointFixture{
 		database: database.SQL, now: &now, itemID: source.itemID,
 		launcher: newRPGReviewLaunchService(t, t.Context(), database.SQL, credentials, clock),
-		saver:    saves.New(database.SQL, blobs, credentials, clock), releaser: releaser,
+		saver:    saves.New(savepersistence.New(database.SQL), blobs, clock), releaser: releaser,
 	}
 }
 
@@ -79,7 +81,7 @@ func (fixture reviewCheckpointFixture) preview(t *testing.T, key string) ReviewP
 	return preview
 }
 
-func reviewCheckpointRequest(t *testing.T, contents string) *http.Request {
+func reviewCheckpointRequest(t *testing.T, contents string) saves.ManualUpload {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -98,7 +100,7 @@ func reviewCheckpointRequest(t *testing.T, contents string) *http.Request {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/", &body)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	return request
+	return saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
 }
 
 func TestOrdinaryReviewPlayerCanReplaceItsTemporaryCheckpoint(t *testing.T) {

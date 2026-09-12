@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	savepersistence "retrom/internal/persistence/saves"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -34,7 +36,7 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/saves"
+	"retrom/internal/service/saves"
 	"retrom/internal/service/uploads"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
@@ -156,7 +158,7 @@ func fakeCHD(payload string) []byte {
 	return append([]byte("MComprHD"), []byte(payload)...)
 }
 
-func multiDiscSaveRequest(t *testing.T, discIndex int) *http.Request {
+func multiDiscSaveRequest(t *testing.T, discIndex int) saves.ManualUpload {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -185,7 +187,7 @@ func multiDiscSaveRequest(t *testing.T, discIndex int) *http.Request {
 	request, err := http.NewRequest(http.MethodPost, "/", &body)
 	testassert.False(t, err != nil, err)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	return request
+	return saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
 }
 
 func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *testing.T) {
@@ -318,7 +320,7 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	); !errors.Is(err, launch.ErrCredential) {
 		t.Fatalf("original disc name error = %v", err)
 	}
-	saveService := saves.New(database.SQL, blobs, credentials, time.Now)
+	saveService := saves.New(savepersistence.New(database.SQL), blobs, time.Now)
 	saved, replayed, err := saveService.CreateManual(
 		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "multi-disc-save-1",
 		multiDiscSaveRequest(t, 1),

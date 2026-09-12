@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 
@@ -23,20 +22,18 @@ func (service *Service) IsolatedStateDigest(ctx context.Context, launchID string
 }
 
 func (service *Service) stateDigestAuthorized(ctx context.Context, launchID string) (string, error) {
-	launch, digest, expectedSize, err := loadLaunchForRestore(
-		ctx, service.database, launchID,
-	)
+	restore, err := service.repository.Restore(ctx, launchID)
 	if err != nil {
-		if errors.Is(err, ErrCheckpointIncompatible) {
-			return "", err
-		}
-		return "", fmt.Errorf("saves/service: %w", err)
+		return "", fmt.Errorf("read checkpoint restore: %w", err)
 	}
-	_, err = service.readRestorePayload(digest, launch.checkpointMaxBytes, expectedSize)
-	if err != nil {
+	if !validRestore(restore) {
+		return "", ErrCheckpointIncompatible
+	}
+	maximum := min(restore.Checkpoint.MaxBytes, maxStoredCheckpointBytes)
+	if _, err := service.readRestorePayload(restore.Digest, maximum, restore.Size); err != nil {
 		return "", err
 	}
-	return digest, nil
+	return restore.Digest, nil
 }
 
 func (service *Service) readRestorePayload(digest string, maximum, expectedSize int64) ([]byte, error) {
@@ -64,7 +61,7 @@ func (service *Service) CheckpointStatus(
 		return CheckpointStatus{}, err
 	}
 	return CheckpointStatus{
-		CheckpointFormat: launch.checkpointFormat,
+		CheckpointFormat: launch.Checkpoint.WriteFormat,
 		Availability:     CheckpointAvailability{Available: true},
 	}, nil
 }

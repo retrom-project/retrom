@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	savepersistence "retrom/internal/persistence/saves"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -32,7 +34,7 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
-	retromsaves "retrom/internal/saves"
+	retromsaves "retrom/internal/service/saves"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -203,7 +205,7 @@ func assertONSProductRoundTrip(
 	if err != nil || content.Format != onsProjectFormat {
 		t.Fatalf("Content(ONS product) = %#v, %v", content, err)
 	}
-	saveService := retromsaves.New(database, blobs, service.credentials, time.Now)
+	saveService := retromsaves.New(savepersistence.New(database), blobs, time.Now)
 	checkpoint := []byte("RETROM ONS CHECKPOINT V1")
 	result, replayed, err := saveService.CreateManual(
 		ctx, created.LaunchID, created.Capability, "ons-product-save-1",
@@ -284,7 +286,7 @@ SELECT status FROM (`+storequery.SaveRuntimeCompatibility+`) WHERE save_state_id
 	}
 }
 
-func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) *http.Request {
+func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) retromsaves.ManualUpload {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -317,7 +319,7 @@ func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) *http.Request
 		t.Fatal(err)
 	}
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	return request
+	return retromsaves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
 }
 
 func createONSReviewItem(

@@ -83,6 +83,8 @@ Retrom 不再生成 RTP resources、安装文件索引或包下载地址，审�
 
 Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、`readFormats[]` 和 `maxBytes` 是唯一格式规则。创建存档时，来源 Launch 必须属于同一 Profile/Game 且允许存档，格式必须位于 `readFormats`、大小和 SHA-256 必须闭合；Host 不解析 Provider payload。
 
+`internal/service/saves` 统一编排写入授权、格式与大小判断、幂等重放和 GAME_SAVE 版本冲突；`internal/persistence/saves` 只读取事实并提交记录。请求体接收及 CAS 文件写入在数据库写事务之外执行；提交前重新读取当前会话、归属、到期时间及 Target 格式与大小上限。Blob 登记、存档/预览 checkpoint、GAME_SAVE 数据版本与 Launch 绑定、幂等响应必须在同一个短事务中提交，任何一步失败均回滚。相同 payload 不递增数据版本，不覆盖用户命名；本地草稿沿用账号归属及 GAME_SAVE 绑定规则，允许已结束或到期会话，不复用运行 capability 的存活要求。
+
 checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档；运行时可显式创建新原生存档，也可要求用户在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩会话暂存到浏览器，并在退出确认后提交。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
 
 GAME_SAVE 的 `availability.save` 可声明两个独立能力轴：`capture=RUNTIME/IN_GAME` 表示由运行时触发保存或由用户在游戏内保存，`restore=AUTOMATIC/IN_GAME` 表示支持指定槽位启动恢复或需要游戏内读档。`captureAvailable` 是当前能否创建新存档，与 `available`（是否存在尚未同步的原生数据）独立；尚无存档或内容已同步时仍可允许创建。`checkpoint({intent:"CAPTURE"})` 明确请求新原生保存；`checkpoint({intent:"EXPORT"})` 只导出已有文件，也是 GAME_SAVE 省略参数时的默认行为。后台同步必须使用 EXPORT。支持自动恢复的运行时也不能为无法确定槽位的文件包猜测槽位，此类包保留游戏内恢复路径。

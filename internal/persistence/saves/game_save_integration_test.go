@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	saveservice "retrom/internal/service/saves"
+
 	"github.com/google/uuid"
 )
 
@@ -21,7 +23,7 @@ WHERE (provider_id,target_id) IN (SELECT provider_id,target_id FROM game_variant
 	return f
 }
 
-func syncGameData(t *testing.T, f *saveFixture, launch saveLaunch, value string) ManualResult {
+func syncGameData(t *testing.T, f *saveFixture, launch saveLaunch, value string) saveservice.ManualResult {
 	t.Helper()
 	result, _, err := f.saves.CreateManual(f.ctx, launch.LaunchID, launch.Capability,
 		uuid.NewString(), manualRequest(t, "自动同步存档", []byte(value), screenshotPNG(t)))
@@ -90,12 +92,12 @@ func TestGameSaveRejectsStaleWriterAndDeletedSlot(t *testing.T) {
 	active := f.createLaunchFromSave(t, &a.SaveStateID)
 	syncGameData(t, f, active, "newer")
 	_, _, err := f.saves.CreateManual(f.ctx, stale.LaunchID, stale.Capability, uuid.NewString(), manualRequest(t, "stale", []byte("older"), screenshotPNG(t)))
-	if !errors.Is(err, ErrSyncConflict) {
+	if !errors.Is(err, saveservice.ErrSyncConflict) {
 		t.Fatal("stale writer replaced newer data")
 	}
 	mustSaveSQL(t, f.database.SQL, `UPDATE save_states SET deleted_at_ms=?,version=version+1 WHERE id=?`, f.now.UnixMilli(), a.SaveStateID)
 	_, _, err = f.saves.CreateManual(f.ctx, active.LaunchID, active.Capability, uuid.NewString(), manualRequest(t, "deleted", []byte("deleted"), screenshotPNG(t)))
-	if !errors.Is(err, ErrSyncConflict) {
+	if !errors.Is(err, saveservice.ErrSyncConflict) {
 		t.Fatal("deleted slot was recreated")
 	}
 }

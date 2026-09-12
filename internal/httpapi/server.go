@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	savepersistence "retrom/internal/persistence/saves"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	isolationpersistence "retrom/internal/persistence/isolation"
@@ -41,7 +43,6 @@ import (
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimecatalog"
 	"retrom/internal/runtimelaunch"
-	"retrom/internal/saves"
 	"retrom/internal/scummvm"
 	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
@@ -50,6 +51,7 @@ import (
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/platforminstance"
+	"retrom/internal/service/saves"
 	"retrom/internal/service/storageanalysis"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
@@ -234,7 +236,7 @@ func New(
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
 			WithPayloadRelease(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
-		saveService:      saves.New(database, blobs, credentials, now),
+		saveService:      saves.New(savepersistence.New(database), blobs, now),
 		rpgIsolation:     isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
 		favoriteService:  favorites.New(favoritepersistence.New(database), now),
 		tagService:       tagging.New(tagpersistence.New(database), now),

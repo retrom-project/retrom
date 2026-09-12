@@ -3,6 +3,8 @@ package saves
 import (
 	"encoding/json"
 	"testing"
+
+	"retrom/internal/runtimebundle"
 )
 
 func TestReviewCheckpointResultJSONUsesOpaqueProviderFormat(t *testing.T) {
@@ -30,7 +32,7 @@ func TestReviewCheckpointResultJSONUsesOpaqueProviderFormat(t *testing.T) {
 }
 
 func TestCheckpointMetadataAcceptsOnlyLaunchWriteFormat(t *testing.T) {
-	launch := launchSnapshot{purpose: "PRODUCT", checkpointFormat: "opaque-v2"}
+	launch := Launch{Purpose: "PRODUCT", Checkpoint: runtimebundle.Checkpoint{WriteFormat: "opaque-v2"}}
 	if !validMetadataForLaunch(manualMetadata{CheckpointFormat: "opaque-v2", Name: "slot"}, launch) {
 		t.Fatal("provider write format should be accepted without inspecting its payload")
 	}

@@ -45,7 +45,7 @@ case "$CASE_ID" in
       features/player/runtime/runtime-host.test.ts
     ;;
   ACC-PROVIDER-004)
-    (cd "$ROOT" && "$GO" test -tags=integration ./internal/saves ./internal/launch -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/persistence/saves ./internal/launch -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/httpapi \
       -run 'OrdinaryReviewCheckpointHTTP' -count=1)
     runtime_test src/providers/emulatorjs/state-restore.test.ts src/providers/retrom-runtime/module.test.ts
@@ -55,7 +55,7 @@ case "$CASE_ID" in
     ;;
   ACC-PROVIDER-005)
     (cd "$ROOT" && "$GO" test ./internal/runtimeprovider ./internal/service/runtimeprovider ./internal/persistence/runtimeprovider -count=1)
-    (cd "$ROOT" && "$GO" test -tags=integration ./internal/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/persistence/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/launch \
       -run 'TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC|TestPublishingReviewReleasesAllTemporaryPreviewOwners' -count=1)
     python_test scripts/test_runtime_providers.py
