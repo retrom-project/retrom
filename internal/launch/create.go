@@ -242,6 +242,7 @@ func (service *Service) selectSavedLaunchVariant(
 	var selection launchSelection
 	query := `SELECT ` + launchSelectionColumns + `,save.dos_entry_path,save.disc_index
 FROM save_states save
+JOIN launch_sessions source_launch ON source_launch.id=save.source_launch_session_id
 JOIN games game ON game.id=save.game_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
@@ -252,7 +253,7 @@ JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id A
 WHERE save.id=? AND save.game_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL
 	 AND game.status='PUBLISHED' AND instance.enabled=1 AND variant.status='READY'
 	 AND binding.core_id=variant.core_id AND binding.launch_policy!='DISABLED'
-	 AND variant.core_id=CASE WHEN ?='' THEN instance.default_core_id ELSE ? END
+	 AND variant.core_id=CASE WHEN ?='' THEN source_launch.core_id ELSE ? END
 	 AND target.checkpoint_json IS NOT NULL AND EXISTS(
 	   SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
 	   WHERE readable.type='text' AND readable.value=save.checkpoint_format

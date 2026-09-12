@@ -58,6 +58,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-bsnes",
+      "coreId": "bsnes",
+      "providerId": "emulatorjs",
+      "targetId": "bsnes",
+      "platformIds": [
+        "snes"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-cap32",
       "coreId": "cap32",
       "providerId": "emulatorjs",
@@ -431,6 +445,20 @@
       "targetId": "mupen64plus-next",
       "platformIds": [
         "n64"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-neocd",
+      "coreId": "neocd",
+      "providerId": "emulatorjs",
+      "targetId": "neocd",
+      "platformIds": [
+        "neogeocd"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -816,6 +844,20 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "FLASH_SWF",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-gbe-pokemini",
+      "coreId": "gbe_plus",
+      "providerId": "retrom-runtime",
+      "targetId": "gbe-pokemini",
+      "platformIds": [
+        "pokemini"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "POKEMINI_ROM",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -1262,6 +1304,12 @@
         "enabled": true
       },
       {
+        "id": "neogeocd",
+        "name": "Neo Geo CD",
+        "sortOrder": 550,
+        "enabled": true
+      },
+      {
         "id": "nes",
         "name": "NES / Famicom",
         "sortOrder": 10,
@@ -1340,6 +1388,12 @@
         "enabled": true
       },
       {
+        "id": "pokemini",
+        "name": "Nintendo Pok\u00e9mon Mini",
+        "sortOrder": 610,
+        "enabled": true
+      },
+      {
         "id": "ps2",
         "name": "PlayStation 2",
         "sortOrder": 205,
@@ -1396,7 +1450,7 @@
       {
         "id": "uzebox",
         "name": "Uzebox",
-        "sortOrder": 610,
+        "sortOrder": 620,
         "enabled": true
       },
       {
@@ -1467,6 +1521,11 @@
       {
         "id": "beetle_vb",
         "name": "Beetle VB",
+        "enabled": true
+      },
+      {
+        "id": "bsnes",
+        "name": "bsnes",
         "enabled": true
       },
       {
@@ -1542,6 +1601,11 @@
       {
         "id": "gambatte",
         "name": "Gambatte",
+        "enabled": true
+      },
+      {
+        "id": "gbe_plus",
+        "name": "GBE+ (Pok\u00e9mon Mini)",
         "enabled": true
       },
       {
@@ -1622,6 +1686,11 @@
       {
         "id": "mupen64plus_next",
         "name": "Mupen64Plus-Next",
+        "enabled": true
+      },
+      {
+        "id": "neocd",
+        "name": "NeoCD",
         "enabled": true
       },
       {

@@ -186,7 +186,7 @@ SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 
 
 ### 3.14 Runtime Provider 与 RPG Maker 虚拟 Core
 
-浏览器运行实现只由两个不可变 Provider Bundle 提供：`emulatorjs` 声明 44 个 Target，`retrom-runtime` 声明 17 个 Target。Provider manifest 是 Target 能力、资源输入、checkpoint 格式和 module 资产的公开唯一声明；Provider 内部可以使用私有 adapter/core，但 Retrom 数据库、Go、OpenAPI、Web 与验收不得复制或依赖该映射。Host 只维护 Product Core 到稳定 `(providerId,targetId)` 的 binding；Launch、Preview 和 Netplay session 才冻结当次 `bundleSha256`。
+浏览器运行实现只由两个不可变 Provider Bundle 提供：`emulatorjs` 声明 55 个 Target，`retrom-runtime` 声明 22 个 Target。Provider manifest 是 Target 能力、资源输入、checkpoint 格式和 module 资产的公开唯一声明；Provider 内部可以使用私有 adapter/core，但 Retrom 数据库、Go、OpenAPI、Web 与验收不得复制或依赖该映射。Host 只维护 Product Core 到稳定 `(providerId,targetId)` 的 binding；Launch、Preview 和 Netplay session 才冻结当次 `bundleSha256`。
 
 所有运行入口共享 `Launch Envelope V1`。Envelope 只包含 session、Provider/Target/Bundle 身份、capabilities、checkpoint declaration、授权 resources、target options、restore、validation 与 netplay；不暴露 Provider 私有实现。每个 Target 在 Provider declaration 中内联闭合 `targetOptionsSchema`；Host 签发前和 Provider Module mount 前分别精确校验，Web dispatcher 只保留 JSON-safe、深度和大小等通用门禁，不维护 `optionsKind` 或 Target 私有字段。Web 的唯一装载入口是共享 Provider dispatcher：它校验 module URL、SHA-256、Provider 身份和 API version，再调用 `createRuntime` 并只向 Player 暴露 `PlayerRuntimeV1`。Player Shell 不按 RPG 世代、引擎或 Target 分支，也不从项目内容重选实现。
 
@@ -210,8 +210,8 @@ flowchart LR
     N -->|HTTP：页面 / _next| W["retrom-web / Next.js + Player Shell"]
     N -->|HTTP：API / content / runtime| S["retrom / Go 模块化单体"]
     W --> PD["Provider dispatcher"]
-    PD --> EP["EmulatorJS Provider · 44 Targets"]
-    PD --> RP["retrom-runtime Provider · 13 Targets"]
+    PD --> EP["EmulatorJS Provider · 55 Targets"]
+    PD --> RP["retrom-runtime Provider · 22 Targets"]
     S --> D["SQLite WAL"]
     S --> B["本地 SHA-256 CAS"]
     S --> J["SQLite 队列 + 进程内 Worker"]
@@ -291,7 +291,7 @@ erDiagram
 | --- | --- | --- | --- |
 | NES / Famicom (`nes`) | `fceumm`、`nestopia` | NES 游戏 → `fceumm` | 统一接收 `.nes/.unf/.unif/.fds`；只有 FDS 内容需要 `disksys.rom` |
 | Famicom Disk System (`fds`) | `fceumm`、`nestopia` | 无独立推荐目录 | 基础平台 code 用于当前内容识别；FDS 内容统一导入 NES 游戏目录 |
-| SNES (`snes`) | `snes9x` | SNES 游戏 → `snes9x` | 标准游戏通常不要求 BIOS |
+| SNES (`snes`) | `snes9x`、`bsnes` | SNES 游戏 → `snes9x` | bsnes 为 4.3.0-pre 可选核心，不另建推荐目录；标准游戏通常不要求 BIOS |
 | Game Boy / Color (`gbc`) | `gambatte`、`mgba` | Game Boy 游戏 → `gambatte` | 两个 core 均可供本次启动切换 |
 | Game Boy Advance (`gba`) | `mgba` | GBA 游戏 → `mgba` | BIOS 可选 |
 | Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003`、`fbalpha2012_cps1`、`fbalpha2012_cps2` | FBNeo 游戏 → `fbneo`；MAME 2003 Plus 游戏 → `mame2003_plus`；FB Alpha 2012 CPS-1/2 游戏 → 对应核心 | MAME 2003 不另建推荐目录；Arcade 扩展名去重后仍为 `.zip`，每个核心继续使用独立 DAT |

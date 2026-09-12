@@ -89,7 +89,7 @@ GAME_SAVE 的 `availability.save` 可声明两个独立能力轴：`capture=RUNT
 
 核心自行退出时，公共 `EXIT_REQUESTED` 可携带 `finalSnapshot={checkpoint,screenshot}`；核心必须先关闭实时 checkpoint，再等原生写流及引擎清理阶段完成，冻结最终文件后交付。截图允许为 `null`。Provider 校验相同 checkpoint 格式和大小上限并复制 payload，立即结束核心；Host 直接保留并持久化最终数据，不再调用已退出实例的 checkpoint 或截图。最终包不需要向已关闭实例确认；活动会话仍仅在 Host 持久化成功后确认精确 payload。原生数据内容相同的重复写入不得改变 revision。
 
-`save_states` 只绑定 Profile、Game、checkpoint format、payload、可选截图/DOS 路径/disc index 和来源 Launch，不冻结 Provider 版本或 Variant。恢复时使用游戏当前默认或显式 Core 的 READY Variant；只要当前 Target 的 `readFormats` 包含该格式即可恢复。Provider 升级应继续声明仍受支持的旧格式；删除已被存档引用的可读格式会被安装门禁拒绝。不存在为了恢复而加载旧 Provider 的路径。
+`save_states` 只绑定 Profile、Game、checkpoint format、payload、可选截图/DOS 路径/disc index 和来源 Launch，不冻结 Provider 版本或 Variant。恢复时，显式 `coreId` 选择该 Core 的当前 READY Variant；未指定时选择来源 Launch 的 Core，避免目录默认核心或个人启动偏好改变后选错恢复核心。两种路径均使用当前 Provider，并要求 Target 的 `readFormats` 包含该格式；不按来源 Bundle 回退。Provider 升级应继续声明仍受支持的旧格式；安装门禁按来源 Launch 的 Core 匹配当前 Variant/Target，拒绝移除该核心持久存档仍引用的可读格式；不要求同一游戏的其他核心读取它。不存在为了恢复而加载旧 Provider 的路径。
 
 Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Target declaration 明确声明；解码后也必须满足大小上限。Host 存储、上传进度与界面显示的存档大小均使用实际 payload 字节数，不推算核心解压后的内存大小。
 
@@ -287,3 +287,16 @@ checkpoint 同时封装机器、磁盘内容、帧计数及游戏摘要；新实
 只在明确选择存档时恢复，普通开始使用原始游戏。内存 DIM/XDF 的可写数据及读写位置由核心
 序列化；HDF 的可写文件由 adapter checkpoint 保存。内容缓存命中也校验大小和摘要，损坏命中
 会丢弃并重新获取；退出释放帧调度、输入、声音和原生状态。
+
+## Pokémon Mini / GBE+
+
+平台 `pokemini`、Core `gbe_plus` 绑定 `retrom-runtime/gbe-pokemini`。
+`POKEMINI_ROM` 接受单个 `.min` 或只含一个候选 ROM 的 ZIP 上传；多 ROM 归档不得猜选。
+Host 通过 `ROM_BLOB` 提供游戏，通过 `EXTERNAL_FILE_SET` 提供单独安装的 4096 字节
+`bios.min`；BIOS 精确哈希见 `internal/dependencies/bios_catalog.go`。
+
+Provider 在同源空白 iframe 中运行 GBE+ Pokémon Mini，支持标准手柄、暂停、音量、截图、
+帧计数和即时存档。原生状态同时绑定游戏 SHA-256 与状态 SHA-256，公共层写入
+`gbe-pokemini-state-v1-storage-v1`，上限 1 MiB。不同 Launch 恢复必须通过
+`ACC-POKEMINI-001`，不得以启动新游戏替代恢复成功。ROM 与 BIOS 按不可变 URL 持久缓存，
+再次 Launch 不重复下载；首次完整下载有公共进度。当前不声明红外联机。

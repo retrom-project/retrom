@@ -9,12 +9,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RuntimeTargetBindingsTest(unittest.TestCase):
+    def test_bsnes_is_an_enabled_snes_alternative_with_exact_target_binding(self):
+        catalog = load_runtime_target_bindings(ROOT / "data/runtime-target-bindings/v1/catalog.json")
+        bindings = {item["coreId"]: item for item in catalog["bindings"]}
+        self.assertEqual(bindings["bsnes"], {
+            "id": "emulatorjs-bsnes", "coreId": "bsnes", "providerId": "emulatorjs",
+            "targetId": "bsnes", "platformIds": ["snes"], "acceptedContentKinds": ["SINGLE_FILE"],
+            "detectorProfile": "EMULATORJS_SINGLE_FILE", "launchPolicy": "SUPPORTED",
+        })
+        self.assertEqual(bindings["snes9x"]["targetId"], "snes9x")
+        cores = {item["id"]: item for item in catalog["definitions"]["cores"]}
+        self.assertEqual(cores["bsnes"], {"id": "bsnes", "name": "bsnes", "enabled": True})
+
     def test_catalog_is_closed_complete_and_maps_product_cores_without_defaults(self):
         catalog = load_runtime_target_bindings(
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 77)
+        self.assertEqual(len(catalog["bindings"]), 80)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -39,6 +51,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         expected_single_file_targets = {
             "uzem": ("uzem", ["uzebox"]),
             "vecx": ("vecx", ["vectrex"]),
+            "neocd": ("neocd", ["neogeocd"]),
             "81": ("81", ["zx81"]),
             "cap32": ("cap32", ["amstradcpc"]),
             "crocods": ("crocods", ["amstradcpc"]),
