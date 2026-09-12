@@ -64,12 +64,16 @@ func (service *RoomQueries) Get(ctx context.Context, roomID, viewerProfileID str
 	if err != nil {
 		return Room{}, serviceError("get room", err)
 	}
+	return roomForViewer(result, viewerProfileID, service.now().UnixMilli()), nil
+}
+
+func roomForViewer(result Room, viewerProfileID string, now int64) Room {
 	if result.Game != nil {
 		game := *result.Game
 		game.Availability = game.Status
 		result.Game = &game
 	}
-	result.ServerNowMS = service.now().UnixMilli()
+	result.ServerNowMS = now
 	result.Permissions = RoomPermissions{}
 	result.SelfMemberID = nil
 	for _, member := range result.Members {
@@ -82,7 +86,7 @@ func (service *RoomQueries) Get(ctx context.Context, roomID, viewerProfileID str
 		}
 	}
 	setRoomPermissions(&result)
-	return result, nil
+	return result
 }
 
 func setRoomPermissions(room *Room) {

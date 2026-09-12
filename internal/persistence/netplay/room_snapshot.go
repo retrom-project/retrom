@@ -27,7 +27,7 @@ func (repository *RoomQueries) Snapshot(ctx context.Context, roomID string) (net
 	return room, nil
 }
 
-func loadRoomSnapshot(ctx context.Context, transaction *sql.Tx, roomID string) (netplay.Room, error) {
+func loadRoomSnapshot(ctx context.Context, transaction dbexec.Executor, roomID string) (netplay.Room, error) {
 	var result netplay.Room
 	var gameID, variantID, profileID, digest, sessionID, reason sql.NullString
 	var maxPlayers, endedAt sql.NullInt64
@@ -88,7 +88,7 @@ SELECT id,session_no,state FROM netplay_sessions WHERE id=?
 }
 
 func loadRoomMembers(
-	ctx context.Context, transaction *sql.Tx, roomID string, sessionID sql.NullString,
+	ctx context.Context, transaction dbexec.Executor, roomID string, sessionID sql.NullString,
 ) ([]netplay.RoomMember, error) {
 	rows, err := transaction.QueryContext(ctx, `
 SELECT member.id,member.profile_id,member.player_no,member.role,profile.display_name,member.ready,

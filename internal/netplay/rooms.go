@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	application "retrom/internal/service/netplay"
 
@@ -13,51 +12,6 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 )
-
-func (service *Service) CreateRoom(ctx context.Context, profileID string) (Room, error) {
-	now := service.clock.Now().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return Room{}, fmt.Errorf("netplay/create room: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	var active int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT count(*) FROM netplay_rooms WHERE state IN ('DRAFT','WAITING','STARTING','RUNNING')
-`).Scan(&active); err != nil {
-		return Room{}, fmt.Errorf("netplay/create room: %w", err)
-	}
-	if active >= service.options.MaxActiveRooms {
-		return Room{}, ErrCapacity
-	}
-	roomID, memberID := newV7(), newV7()
-	if roomID == "" || memberID == "" {
-		return Room{}, errUUIDUnavailable
-	}
-	expires := now + service.options.DraftIdle.Milliseconds()
-	if _, err := recordstore.CreateNetplayRooms(ctx, transaction, `
-INSERT INTO netplay_rooms(id,host_profile_id,state,version,expires_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,'DRAFT',1,?,?,?)
-`, roomID, profileID, expires, now, now); err != nil {
-		if strings.Contains(err.Error(), "netplay_rooms_one_active_host") {
-			return Room{}, ErrRoomConflict
-		}
-		return Room{}, fmt.Errorf("netplay/create room: %w", err)
-	}
-	if _, err := recordstore.CreateNetplayRoomMembers(ctx, transaction, `
-INSERT INTO netplay_room_members(id,room_id,profile_id,role,player_no,ready,version,joined_at_ms,updated_at_ms)
-VALUES(?,?,?,'HOST',1,0,1,?,?)
-`, memberID, roomID, profileID, now, now); err != nil {
-		return Room{}, fmt.Errorf("netplay/create host: %w", err)
-	}
-	if err := appendEvent(ctx, transaction, roomID, nil, &profileID, intPointer(1), "ROOM_CREATED", nil, now); err != nil {
-		return Room{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Room{}, fmt.Errorf("netplay/create room: %w", err)
-	}
-	return service.Room(ctx, roomID, profileID)
-}
 
 func (service *Service) SelectGame(
 	ctx context.Context, roomID, actorProfileID, gameID, profileID string, expectedVersion int64,

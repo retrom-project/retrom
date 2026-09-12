@@ -34,7 +34,6 @@ var (
 	ErrProfileStale    = application.ErrProfileStale
 	ErrCapacity        = application.ErrCapacity
 	ErrPrecondition    = application.ErrPrecondition
-	errUUIDUnavailable = errors.New("netplay: UUID unavailable")
 	errEventData       = errors.New("netplay: event data invalid")
 )
 

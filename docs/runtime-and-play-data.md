@@ -120,6 +120,8 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 房间列表和详情通过同一 Service 查询入口装配权限；Repository 在一个读事务内加载房间、成员和会话。活动房间只包含本人仍占座的记录，退出后的房间继续按最近 24 小时终态窗口进入历史列表。
 
+创建房间由 Service 检查活动容量与房主唯一性；Repository 在同一写事务中创建房间、房主 P1 席位及创建事件，并在提交前读取完整投影。重复房主返回稳定房间冲突，存储或提交失败不返回成功房间。
+
 ## 9. PlaySession 生命周期
 
 Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat 以连续序号报告上一时段的 running/visible/paused，服务端按接收时间计费；页面隐藏、暂停、失联、重放或跳号不能伪造时长。用户菜单退出、游戏自身退出和异常退出最终都幂等 finish Launch；卸载失败由 hard expiry 收口。

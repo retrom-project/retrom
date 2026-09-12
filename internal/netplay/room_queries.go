@@ -28,3 +28,15 @@ func (service *Service) Room(ctx context.Context, id, viewer string) (Room, erro
 	}
 	return room, nil
 }
+
+func (service *Service) CreateRoom(ctx context.Context, profileID string) (Room, error) {
+	creator := application.NewRoomCreation(
+		repository.NewRoomCreation(service.database), service.options.MaxActiveRooms,
+		service.options.DraftIdle, service.clock.Now,
+	)
+	room, err := creator.Create(ctx, profileID)
+	if err != nil {
+		return Room{}, serviceError("create room", err)
+	}
+	return room, nil
+}
