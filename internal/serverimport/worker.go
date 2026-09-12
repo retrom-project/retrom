@@ -149,11 +149,13 @@ func (service *Service) executeDiscovery(
 		}
 		return candidates, true
 	}
-	_ = service.clearEvaluation(ctx, unit)
+	if err := service.clearEvaluation(ctx, unit); err != nil {
+		service.failTask(ctx, unit, "INTERNAL_ERROR")
+		return nil, false
+	}
 	service.progress(ctx, unit, "DISCOVERING", 0, int64(len(items)))
 	byRequirement, counts, err := service.discoverCandidates(ctx, unit, directory, items)
 	if err != nil {
-		_ = service.clearEvaluation(ctx, unit)
 		service.failDiscovery(ctx, unit, err)
 		return nil, false
 	}

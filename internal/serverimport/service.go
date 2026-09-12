@@ -147,13 +147,6 @@ func (service *Service) Directories(rootID, relativePath string) ([]Directory, e
 
 type catalogItem = importservice.CatalogItem
 
-func boolInteger(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
-}
-
 func (service *Service) signal() {
 	select {
 	case service.wake <- struct{}{}:

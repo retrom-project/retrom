@@ -441,6 +441,8 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 EmulationStation 单实例至多一个 active execution、20 个未开始/等待映射计划，等待映射 7 天过期。扫描上限固定为深度 64、目录 250,000、普通文件 2,000,000、精确小写 `gamelist.xml` 1,000、单 XML 8 MiB、XML 总量 64 MiB、XML depth/attributes 16、单 token 1 MiB、总 token 1,000,000、游戏 100,000、单 Item source file 64、warning 64、预计来源 2 TiB与单 execution 8 小时；HTTP 不能放宽。扫描只读取 XML/facts/M3U/媒体与 CHD 头，执行才复制完整内容。
 
+BIOS 发现结果的排序、未选中原因和证据编码由 Service 在写事务前完成，Repository 原子保存候选、条目计数与发现阶段；无法编码的证据不能留下部分结果，归档安全标志必须保留评估原值。重置发现结果也在同一执行的事务栅栏内，重置失败不得继续扫描。
+
 BIOS 候选恢复先由 Repository 完整读取并关闭结果集，再由 Service 重建静态/DAT 评估、应用归档完整性规则与加载冻结的期望条目；不得持有结果集时嵌套查询。损坏的评估证据、缺失的目录关联或可用候选缺少评估均应中止恢复，不得伪装成空证据继续安装。
 
 BIOS 每次领取生成独立 worker 身份，并携带 Job execution number；领取、心跳和进度更新由 Service/Repository 协作完成。进度、候选写入、条目结果与 BIOS 安装事务必须锁定同一执行和 worker，旧 worker 不得写入被接管或手动重试后的执行。自动接管保留原执行 deadline，事务失败不得发布可执行的 work。
