@@ -39,6 +39,7 @@ try {
     const prior = JSON.parse(previous);
     assert.equal(prior.caseId, evidence.caseId);
     assert.deepEqual(prior.disk, evidence.disk);
+    assert.deepEqual(prior.errors, []);
     for (const name of ["bios", "import", "review-preview", "publish"]) {assert.ok(prior.stages.includes(name));}
     assert.ok(prior.gameId && prior.previewId && prior.runtimes.length >= 2);
     evidence.resume = {evidenceSha256: hash(previous), previousStatus: prior.status};
@@ -93,7 +94,13 @@ async function picture(opened, name) {
 async function verifySavedGame(context, client, gameId) {
   const launch = await launchCart(client, gameId);
   const opened = await openPC88(context, base, launch, evidence);
-  if (evidence.resume) {
+  if (env.RETROM_PC88_EXPECTED_BUNDLE_SHA256) {
+    assert.match(env.RETROM_PC88_EXPECTED_BUNDLE_SHA256, /^[0-9a-f]{64}$/u);
+    assert.match(env.RETROM_PC88_EXPECTED_CORE_SHA256 ?? "", /^[0-9a-f]{64}$/u);
+    assert.equal(opened.config.runtime.bundleSha256, env.RETROM_PC88_EXPECTED_BUNDLE_SHA256);
+    assert.equal(opened.coreSha256, env.RETROM_PC88_EXPECTED_CORE_SHA256);
+    evidence.formalBundle = {bundleSha256: opened.config.runtime.bundleSha256, coreSha256: opened.coreSha256};
+  } else if (evidence.resume) {
     for (const key of ["providerId", "providerVersion", "targetId", "moduleSha256", "bundleSha256"]) {
       assert.equal(opened.config.runtime[key], evidence.runtimes[0][key], "PC88_RESUME_CANDIDATE_CHANGED");
     }

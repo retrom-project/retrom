@@ -34,9 +34,17 @@ export async function openPC88(context, base, launch, evidence) {
   const disk = config.resources.find(item => item.kind === "ROM_BLOB");
   assert.equal(disk.sha256, evidence.disk.sha256);
   assert.equal(disk.sizeBytes, evidence.disk.sizeBytes);
-  evidence.runtimes.push({id, ...config.runtime, runtimeBaseUrl: undefined, moduleUrl: undefined});
+  const coreSha256 = await page.evaluate(async runtimeBase => {
+    const response = await fetch(runtimeBase + "assets/4.2.3/data/cores/quasi88-wasm.data");
+    if (!response.ok) {throw Error("PC88_CORE_FETCH_FAILED");}
+    const digest = await crypto.subtle.digest("SHA-256", await response.arrayBuffer());
+    return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+  }, config.runtime.runtimeBaseUrl);
+  const expectedCore = process.env.RETROM_PC88_EXPECTED_CORE_SHA256;
+  if (expectedCore) {assert.equal(coreSha256, expectedCore, "PC88_CORE_DIGEST_MISMATCH");}
+  evidence.runtimes.push({id, coreSha256, ...config.runtime, runtimeBaseUrl: undefined, moduleUrl: undefined});
   await canvas.click();
-  return {page, frame, canvas, config};
+  return {page, frame, canvas, config, coreSha256};
 }
 
 export async function pressPC88(opened, button, duration = 100) {

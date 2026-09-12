@@ -113,7 +113,8 @@ Native Web 必须使用每 Launch unique origin，拒绝应用 cookie、普通 A
 EmulatorJS Provider 的 `quasi88` Target 接收单文件 D88/U88，默认 N88 V2。
 目录推荐 `pc88`，独立 BIOS 目录负责七个 NEC ROM 的摘要、大小和安装状态；
 通过 EXTERNAL_FILE 装入 `/retroarch/userdata/system/quasi88/`，不随游戏或 Provider 分发。
-D-pad 对应数字小键盘方向，主确认键通过原生 Start 发送 Return；真实键盘独立。
+D-pad 对应数字小键盘 8/2/4/6，主确认键通过原生 Start 发送 Return；真实键盘独立。
+《The Librarian》的六边形地图使用 7/9/4/6/1/3，四个斜向和事件字母键需要键盘。
 首版不声明多盘切换、联机或未验证的媒体格式。共享 gzip 即时状态使用
 `emulatorjs-state-v1-storage-v1`，须验证不同 Launch 回到保存时的位置并继续输入。
 产品验收为 `ACC-PC88-001`，外部语料为作者公开发布的《The Librarian》v0.91。
