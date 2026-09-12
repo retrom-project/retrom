@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	application "retrom/internal/service/launch"
+
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
 
@@ -487,57 +489,12 @@ func validPreviewFileSet(contentName string, files []reviewPreviewFile) bool {
 	return true
 }
 
-func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capability string) (Config, error) {
-	var source providerConfigSource
-	err := service.database.QueryRowContext(ctx, `
-SELECT preview.credential_sha256,preview.state,preview.provider_id,preview.target_id,
-	 preview.bundle_sha256,
- binding.core_id,core.name,binding.detector_profile,binding.delivery_profile,
- 'REVIEW_PREVIEW',preview.title,instance.name,
- '/admin/reviews/' || preview.import_item_id,preview.content_kind,preview.dependency_snapshot_json,'',
-	 NULL,preview.default_dos_entry,NULL,NULL,NULL,NULL,
- preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,NULL,0
-FROM review_preview_sessions preview
-JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
-JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
-JOIN cores core ON core.id=binding.core_id
-WHERE preview.id=?
-`, previewID).Scan(
-		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
-		&source.bundleDigest, &source.coreID, &source.coreName,
-		&source.detectorProfile, &source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
-		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
-		&source.dosEntry, &source.netplayID, &source.netplayPlayer,
-		&source.netplayRoom, &source.netplayProfile, &source.bootstrapEnd, &source.hardEnd, &source.idleEnd,
-		&source.initialDisc,
-	)
-	if err != nil || service.runtimeBuilder == nil ||
-		!retromruntime.MatchesCapability(capability, source.credentialHash) ||
-		!validConfigLifetime(source.state, source.bootstrapEnd, source.hardEnd, source.idleEnd, service.now().UnixMilli()) {
-		return Config{}, ErrCredential
+func (service *Service) ReviewPreviewConfig(ctx context.Context, id, capability string) (Config, error) {
+	configuration, err := service.configIssuer().Issue(ctx, application.SessionRef{ID: id, Preview: true}, capability)
+	if err != nil {
+		return Config{}, fmt.Errorf("review config: %w", err)
 	}
-	if err := service.activateReviewPreview(ctx, previewID, source.state); err != nil {
-		return Config{}, err
-	}
-	return service.providerEnvelope(ctx, previewID, capability, source)
-}
-
-func (service *Service) activateReviewPreview(ctx context.Context, previewID, state string) error {
-	if state != "CREATED" {
-		return nil
-	}
-	now := service.now().UnixMilli()
-	if _, err := recordstore.UpdateReviewPreviewSessions(ctx, service.database, recordstore.Update{
-		Set: `state='ACTIVE',activated_at_ms=?,updated_at_ms=?,version=version+1`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND state='CREATED'`,
-			Args:  []any{previewID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("activate review preview: %w", err)
-	}
-	return nil
+	return configuration, nil
 }
 
 type ReviewScreenshot struct {

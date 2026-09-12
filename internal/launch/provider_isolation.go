@@ -72,24 +72,3 @@ VALUES(?,?,?,?,?,NULL)
 	}
 	return nil
 }
-
-func (service *Service) isolatedRuntimeAccess(ctx context.Context, sessionID string) (string, string, error) {
-	origin, ticket, ticketHash, err := service.isolatedRuntimeTicket(sessionID)
-	if err != nil {
-		return "", "", err
-	}
-	now := service.now().UnixMilli()
-	var valid int
-	if err := service.database.QueryRowContext(ctx, `
-SELECT
- EXISTS(SELECT 1 FROM isolated_runtime_bootstrap_tickets
-  WHERE (launch_id=? OR preview_id=?) AND ticket_sha256=? AND expected_origin=?
-    AND consumed_at_ms IS NULL AND expires_at_ms>?)
- OR EXISTS(SELECT 1 FROM isolated_runtime_capabilities
-  WHERE (launch_id=? OR preview_id=?) AND expected_origin=? AND revoked_at_ms IS NULL AND expires_at_ms>?)
-	`, sessionID, sessionID, ticketHash[:], origin, now,
-		sessionID, sessionID, origin, now).Scan(&valid); err != nil || valid != 1 {
-		return "", "", ErrBlocked
-	}
-	return origin, ticket, nil
-}

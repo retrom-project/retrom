@@ -221,7 +221,7 @@ SELECT state,error_code FROM jobs WHERE id=?
 		)
 		testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "create launch after BIOS dependency revalidation = %#v, error=%v", createdLaunch, err)
 	}
-	if _, err := service.Config(ctx, createdLaunch.LaunchID, "bad-capability"); err != ErrCredential {
+	if _, err := service.Config(ctx, createdLaunch.LaunchID, "bad-capability"); !errors.Is(err, ErrCredential) {
 		t.Fatalf("bad credential error = %v", err)
 	}
 	configuration, err := service.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
@@ -333,15 +333,7 @@ WHERE launch_session_id=?
 	testassert.Falsef(t, err != nil, "locked save quick launch: %v", err)
 	quickConfig, err := service.Config(ctx, quickLaunch.LaunchID, quickLaunch.Capability)
 	if err != nil {
-		source, sourceErr := service.productConfigSource(ctx, quickLaunch.LaunchID)
-		target, _ := service.runtimeBuilder.Target(source.providerID, source.targetID)
-		resources, resourcesErr := service.providerResources(
-			ctx, quickLaunch.LaunchID, quickLaunch.Capability, source, target,
-		)
-		options, optionsErr := providerTargetOptions(target.TargetOptionsSchema, source)
-		restore, _, restoreErr := service.providerRestore(ctx, quickLaunch.LaunchID, source, target)
-		t.Fatalf("quick launch config: %v; source=%#v/%v resources=%#v/%v options=%#v/%v restore=%#v/%v",
-			err, source, sourceErr, resources, resourcesErr, options, optionsErr, restore, restoreErr)
+		t.Fatalf("quick launch config: %v", err)
 	}
 	quickEnvelope := testsupport.RuntimeEnvelope(t, quickConfig)
 	quickRuntime := testsupport.RuntimeEnvelopeObject(t, quickEnvelope, "runtime")

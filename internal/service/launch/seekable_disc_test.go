@@ -6,20 +6,20 @@ import (
 )
 
 func TestSeekableDiscUsesFrozenBlobIdentityAndRange(t *testing.T) {
-	source := providerConfigSource{
-		coreID: "play", providerID: "retrom-runtime", targetID: "play-ps2",
-		bundleDigest: strings.Repeat("b", 64), contentKind: "SINGLE_FILE",
+	source := ConfigSource{
+		CoreID: "play", ProviderID: "retrom-runtime", TargetID: "play-ps2",
+		BundleDigest: strings.Repeat("b", 64), ContentKind: "SINGLE_FILE",
 	}
-	files := []lockedProviderFile{{
-		logicalName: "disc.chd", format: "SOURCE_V1",
-		digest: strings.Repeat("a", 64), size: 8_000_000_000,
+	files := []ConfigFile{{
+		LogicalName: "disc.chd", Format: "SOURCE_V1",
+		Digest: strings.Repeat("a", 64), Size: 8_000_000_000,
 	}}
 	resource, err := providerBlobResource(source, "SEEKABLE_BLOB", files)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if resource["rangeRequired"] != true || resource["sizeBytes"] != int64(8_000_000_000) ||
-		resource["sha256"] != files[0].digest {
+		resource["sha256"] != files[0].Digest {
 		t.Fatalf("incorrect seekable disc: %#v", resource)
 	}
 	url, ok := resource["url"].(string)

@@ -9,13 +9,15 @@ import (
 	"net/url"
 	"strings"
 
+	application "retrom/internal/service/launch"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
 	"retrom/internal/ons/detector"
 	retromruntime "retrom/internal/runtime"
 )
 
-const maximumONSProjectFiles = 100_000
+const maximumONSProjectFiles = application.MaximumProjectFiles
 
 type ProjectIndexView struct {
 	Contents []byte

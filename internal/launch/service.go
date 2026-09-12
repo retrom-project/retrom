@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/url"
 	"time"
 
 	application "retrom/internal/service/launch"
@@ -95,23 +94,6 @@ func (service *Service) WithRPGRuntimeOriginTemplate(template string) *Service {
 func (service *Service) WithPublicOrigin(origin string) *Service {
 	service.publicOrigin = origin
 	return service
-}
-
-func (service *Service) netplaySocketURL(roomID string) (string, error) {
-	origin, err := url.Parse(service.publicOrigin)
-	if err != nil || origin.Host == "" || origin.RawQuery != "" || origin.Fragment != "" || origin.Path != "" {
-		return "", ErrCredential
-	}
-	switch origin.Scheme {
-	case "http":
-		origin.Scheme = "ws"
-	case "https":
-		origin.Scheme = "wss"
-	default:
-		return "", ErrCredential
-	}
-	origin.Path = "/runtime/netplay/rooms/" + roomID + "/socket"
-	return origin.String(), nil
 }
 
 func (service *Service) SaveAccess(ctx context.Context, launchID, capability string) (string, error) {

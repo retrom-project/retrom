@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	application "retrom/internal/service/launch"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/rpgmaker/nativeweb"
 )
@@ -15,8 +17,8 @@ import (
 const (
 	rpgProjectFormat         = "RPG_MAKER_PROJECT"
 	rpgEasyIndexName         = "__retrom__/index.json"
-	rpgMKXPArchiveName       = "__retrom__/game.mkxpz"
-	rpgMKXPArchivePublicName = "game.mkxpz"
+	rpgMKXPArchiveName       = application.MKXPArchiveName
+	rpgMKXPArchivePublicName = application.MKXPArchivePublicName
 )
 
 func (service *Service) buildRPGProductContentPlan(
