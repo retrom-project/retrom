@@ -70,7 +70,7 @@ Provider 安装和数据库 reconcile 在对外 ready 之前完成。激活事�
 
 ## 6. PFB 开发层与 production
 
-PFB 只消费同一命名 worktree 中的 Retrom 与 `retrom-runtime` 源码，不再构建或锁定完整 candidate Bundle。workspace 中已安装的基座 Provider 必须先通过正式 Bundle schema、integrity、Target declaration 与静态文件验证；runtime watcher 从基座读取 asset index，只重建 `client.mjs` 和 `provider-sources.json` 已声明的本地 adapter 资源。
+PFB 只消费同一命名 worktree 中的 Retrom 与 `retrom-runtime` 源码，不再构建或锁定完整 candidate Bundle。workspace 中已安装的基座 Provider 必须先通过正式 Bundle schema、integrity、Target declaration 与静态文件验证；runtime watcher 从基座读取 asset index，只重建 `client.mjs` 和 `provider-sources.json` 已声明的本地 adapter 资源。显式选择已构建的 EmulatorJS 维护 fork candidate 时，按 [PFB 开发契约](./pfb-development.md) 验证闭合资产、来源、许可及摘要，并将核心身份编译进开发 client；此入口不构建核心、不增加 Target，也不修改正式来源坐标。
 
 loose descriptor 只能覆盖同一 provider/base bundle 中已有的公开路径，不能注入 Target、改写 Retrom binding、伪造 Release 坐标或替换未知大体积 core。Go 启动逐文件验证 size/SHA-256/media type与内含字节，并只在合法test PFB中接受；release 和普通非 PFB 进程拒绝 `RETROM_PROVIDER_DEV_ROOT`。
 

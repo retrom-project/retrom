@@ -53,6 +53,14 @@ type Profile struct {
 }
 
 var registry = map[string]Profile{
+	"gamegear":    single("gamegear", ".gg"),
+	"sg1000":      single("sg1000", ".sg"),
+	"multivision": single("multivision", ".sg"),
+	"pico":        single("pico", ".md", ".bin"),
+	"sega32x":     single("sega32x", ".32x"),
+	"supergrafx":  single("supergrafx", ".pce", ".sgx"),
+	"gx4000":      single("gx4000", ".cpr"),
+
 	"neogeocd":      raw("neogeocd", ".chd"),
 	"pokemini":      single("pokemini", ".min"),
 	"vectrex":       single("vectrex", ".vec", ".bin"),
