@@ -1,28 +1,16 @@
 package serverimport
 
 import (
-	"bytes"
-	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	importservice "retrom/internal/service/serverimport"
 
 	firmwareservice "retrom/internal/service/firmware"
-
-	"retrom/internal/dbexec"
-
-	"retrom/internal/persistence/recordstore"
-
-	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -32,9 +20,9 @@ import (
 
 var (
 	ErrQuery          = importservice.ErrQuery
-	ErrActive         = errors.New("SERVER_BIOS_IMPORT_ACTIVE")
-	ErrCatalogEmpty   = errors.New("BIOS_CATALOG_EMPTY")
-	ErrCatalogInvalid = errors.New("BIOS_CATALOG_INVALID")
+	ErrActive         = importservice.ErrActive
+	ErrCatalogEmpty   = importservice.ErrCatalogEmpty
+	ErrCatalogInvalid = importservice.ErrCatalogInvalid
 	ErrScanLimit      = errors.New("SERVER_IMPORT_SCAN_LIMIT_EXCEEDED")
 	ErrNotCancellable = importservice.ErrNotCancellable
 	ErrNotRetryable   = importservice.ErrNotRetryable
@@ -49,12 +37,7 @@ type Root struct {
 	digest string
 }
 
-type CreateRequest struct {
-	Kind               string `json:"kind"`
-	RootID             string `json:"rootId"`
-	SourceRelativePath string `json:"sourceRelativePath"`
-	ReplaceIfBetter    bool   `json:"replaceIfBetter"`
-}
+type CreateRequest = importservice.CreateRequest
 
 type (
 	Counts    = importservice.Counts
@@ -162,296 +145,13 @@ func (service *Service) Directories(rootID, relativePath string) ([]Directory, e
 	return listDirectories(root.path, relativePath)
 }
 
-type catalogItem struct {
-	State                     string  `json:"-"`
-	RequirementID             string  `json:"requirementId"`
-	RequirementVersion        int64   `json:"requirementVersion"`
-	CoreID                    string  `json:"coreId"`
-	CoreName                  string  `json:"coreName"`
-	ProviderID                string  `json:"providerId"`
-	TargetID                  string  `json:"targetId"`
-	SourceKind                string  `json:"sourceKind"`
-	ArchiveMembersJSON        *string `json:"archiveMembersJson"`
-	LogicalName               string  `json:"logicalName"`
-	RequirementMode           string  `json:"requirementMode"`
-	ConditionCode             *string `json:"conditionCode"`
-	ActivationOptionsJSON     *string `json:"activationOptionsJson"`
-	DeliveryKind              string  `json:"deliveryKind"`
-	EmulatorPath              *string `json:"emulatorPath"`
-	SourceVersion             string  `json:"sourceVersion"`
-	CatalogDigest             string  `json:"catalogDigest"`
-	DATVersionID              *string `json:"datVersionId"`
-	DATMachineName            *string `json:"datMachineName"`
-	ExpectedSize              *int64  `json:"expectedSizeBytes"`
-	ExpectedMD5               *string `json:"expectedMd5"`
-	ExpectedSHA1              *string `json:"expectedSha1"`
-	ExpectedSHA256            *string `json:"expectedSha256"`
-	ActiveInstallationID      *string `json:"activeInstallationId"`
-	ActiveInstallationVersion *int64  `json:"activeInstallationVersion"`
-	ActiveBlobSHA256          *string `json:"activeBlobSha256"`
-	ActiveStatus              *string `json:"activeStatus"`
-	ActiveValidatedVersion    *int64  `json:"activeValidatedRequirementVersion"`
-}
-
-// Validation, catalog freezing and task/item creation share one atomic create contract.
-func (service *Service) Create(ctx context.Context, request CreateRequest, userID string) (Summary, error) {
-	root, items, catalogDigest, err := service.prepareCreate(ctx, request)
-	if err != nil {
-		return Summary{}, err
-	}
-	return service.persistCreate(ctx, request, userID, root, items, catalogDigest)
-}
-
-func (service *Service) prepareCreate(
-	ctx context.Context,
-	request CreateRequest,
-) (Root, []catalogItem, string, error) {
-	if request.Kind != "BIOS_DIRECTORY" {
-		return Root{}, nil, "", ErrCatalogInvalid
-	}
-	if err := ValidateRootID(request.RootID); err != nil {
-		return Root{}, nil, "", err
-	}
-	root, ok := service.roots[request.RootID]
-	if !ok {
-		return Root{}, nil, "", ErrRootNotFound
-	}
-	if err := ValidateRelativePath(request.SourceRelativePath); err != nil {
-		return Root{}, nil, "", err
-	}
-	directory, err := openSelectedDirectory(root.path, request.SourceRelativePath)
-	if err != nil {
-		return Root{}, nil, "", ErrRootUnavailable
-	}
-	cleanup.Error("close", directory.Close())
-	items, err := service.freezeCatalog(ctx)
-	if err != nil {
-		return Root{}, nil, "", err
-	}
-	if len(items) == 0 {
-		return Root{}, nil, "", ErrCatalogEmpty
-	}
-	encoded, err := canonicalCatalogJSON(items)
-	if err != nil {
-		return Root{}, nil, "", fmt.Errorf("serverimport/catalog snapshot: %w", err)
-	}
-	digest := sha256.Sum256(encoded)
-	return root, items, hex.EncodeToString(digest[:]), nil
-}
-
-func (service *Service) persistCreate(
-	ctx context.Context,
-	request CreateRequest,
-	userID string,
-	root Root,
-	items []catalogItem,
-	catalogDigest string,
-) (Summary, error) {
-	importID, _ := uuid.NewV7()
-	jobID, _ := uuid.NewV7()
-	executionID, _ := uuid.NewV7()
-	now := service.now().UnixMilli()
-	input := map[string]any{
-		"schemaVersion": 1, "kind": "SERVER_BIOS_IMPORT",
-		"scope":       map[string]any{"type": "SERVER_IMPORT", "id": importID.String()},
-		"executionId": executionID.String(),
-		"inputs": map[string]any{
-			"serverImportVersion": 1, "rootId": root.ID, "sourceRelativePath": request.SourceRelativePath,
-			"rootConfigDigest": root.digest, "catalogSnapshotDigest": catalogDigest,
-			"replaceIfBetter": request.ReplaceIfBetter,
-		},
-	}
-	inputJSON, _ := json.Marshal(input)
-	inputDigest := sha256.Sum256(inputJSON)
-	dedupe := sha256.Sum256([]byte(importID.String()))
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return Summary{}, fmt.Errorf("serverimport/begin create transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
-attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'SERVER_IMPORT',?,'SERVER_BIOS_IMPORT',?,1,'{"inputExecutionNo":1}',1,'QUEUED',0,4,1,?,?,?)
-`, jobID.String(), importID.String(), hex.EncodeToString(dedupe[:]), now, now, now); err != nil {
-		if strings.Contains(err.Error(), "server_imports_one_active_kind") {
-			return Summary{}, ErrActive
-		}
-		return Summary{}, fmt.Errorf("serverimport/create job: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms) VALUES(?,1,?,?,?)
-`, jobID.String(), string(inputJSON), hex.EncodeToString(inputDigest[:]), now); err != nil {
-		return Summary{}, fmt.Errorf("serverimport/create input snapshot: %w", err)
-	}
-	if _, err := recordstore.CreateServerImports(ctx, transaction, `
-INSERT INTO server_imports(id,kind,root_id,root_label_snapshot,source_relative_path,root_config_digest,
-catalog_snapshot_digest,replace_if_better,state,catalog_item_count,job_id,created_by_user_id,
-version,created_at_ms,updated_at_ms)
-VALUES(?,'BIOS_DIRECTORY',?,?,?,?,?,?,'QUEUED',?,?,?,?,?,?)
-`, importID.String(), root.ID, root.Label, request.SourceRelativePath, root.digest, catalogDigest,
-		boolInteger(request.ReplaceIfBetter), len(items), jobID.String(), userID, 1, now, now); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed: server_imports.kind") {
-			return Summary{}, ErrActive
-		}
-		return Summary{}, fmt.Errorf("serverimport/create: %w", err)
-	}
-	for _, item := range items {
-		if err := insertCatalogItem(ctx, transaction, importID.String(), item, now); err != nil {
-			return Summary{}, fmt.Errorf("serverimport/create catalog item: %w", err)
-		}
-	}
-	eventID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'SERVER_IMPORT',?,'QUEUED','{"schemaVersion":1}',?)
-`, jobID.String(), importID.String(), now); err != nil {
-		return Summary{}, fmt.Errorf("serverimport/create queued event: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
-before_json,after_json,diff_json,request_id,created_at_ms)
-VALUES(?,'USER',?,NULL,'SERVER_IMPORT_CREATED','SERVER_IMPORT',?,NULL,?,NULL,NULL,?)
-`, eventID.String(), userID, importID.String(), `{"state":"QUEUED"}`, now); err != nil {
-		return Summary{}, fmt.Errorf("serverimport/create audit event: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return Summary{}, fmt.Errorf("serverimport/commit create transaction: %w", err)
-	}
-	service.signal()
-	return service.Get(ctx, importID.String())
-}
-
-func canonicalCatalogJSON(items []catalogItem) ([]byte, error) {
-	encoded, err := json.Marshal(items)
-	if err != nil {
-		return nil, fmt.Errorf("marshal catalog snapshot: %w", err)
-	}
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.UseNumber()
-	var value any
-	if err := decoder.Decode(&value); err != nil {
-		return nil, fmt.Errorf("decode catalog snapshot for canonicalization: %w", err)
-	}
-	var output bytes.Buffer
-	encoder := json.NewEncoder(&output)
-	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(value); err != nil {
-		return nil, fmt.Errorf("encode canonical catalog snapshot: %w", err)
-	}
-	return bytes.TrimSuffix(output.Bytes(), []byte("\n")), nil
-}
+type catalogItem = importservice.CatalogItem
 
 func boolInteger(value bool) int {
 	if value {
 		return 1
 	}
 	return 0
-}
-
-// Catalog validation keeps source readiness predicates together for auditability.
-func (service *Service) freezeCatalog(ctx context.Context) ([]catalogItem, error) {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT requirement.id,requirement.version,requirement.core_id,core.name,requirement.provider_id,
-requirement.target_id,requirement.source_kind,requirement.archive_members_json,
-requirement.logical_name,requirement.requirement_mode,
-requirement.condition_code,requirement.activation_options_json,requirement.delivery_kind,requirement.emulator_path,
-requirement.source_version,requirement.catalog_digest,
-CASE WHEN requirement.source_kind='DAT_MACHINE' THEN dat.id END,requirement.dat_machine_name,
-requirement.size_bytes,requirement.md5,requirement.sha1,requirement.sha256,
-installation.id,installation.version,blob.sha256,installation.status,installation.validated_requirement_version,
-dat.parse_status,dat.is_active
-FROM bios_requirements requirement
-JOIN cores core ON core.id=requirement.core_id
-JOIN runtime_targets target ON target.provider_id=requirement.provider_id AND target.target_id=requirement.target_id
-LEFT JOIN dat_versions dat ON dat.id=requirement.source_version AND dat.provider_id=requirement.provider_id
- AND dat.target_id=requirement.target_id
-LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
- AND installation.is_active=1
-LEFT JOIN blobs blob ON blob.id=installation.blob_id
-WHERE requirement.enabled=1
-ORDER BY requirement.id COLLATE BINARY
-`)
-	if err != nil {
-		return nil, fmt.Errorf("serverimport/query catalog: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]catalogItem, 0)
-	for rows.Next() {
-		var item catalogItem
-		var datStatus sql.NullString
-		var datActive sql.NullInt64
-		if err := rows.Scan(
-			&item.RequirementID, &item.RequirementVersion, &item.CoreID, &item.CoreName, &item.ProviderID,
-			&item.TargetID, &item.SourceKind, &item.ArchiveMembersJSON, &item.LogicalName, &item.RequirementMode,
-			&item.ConditionCode, &item.ActivationOptionsJSON, &item.DeliveryKind, &item.EmulatorPath,
-			&item.SourceVersion, &item.CatalogDigest, &item.DATVersionID,
-			&item.DATMachineName, &item.ExpectedSize, &item.ExpectedMD5, &item.ExpectedSHA1, &item.ExpectedSHA256,
-			&item.ActiveInstallationID, &item.ActiveInstallationVersion, &item.ActiveBlobSHA256, &item.ActiveStatus,
-			&item.ActiveValidatedVersion, &datStatus, &datActive,
-		); err != nil {
-			return nil, fmt.Errorf("serverimport/scan catalog item: %w", err)
-		}
-		if err := item.validateSource(datStatus, datActive); err != nil {
-			return nil, err
-		}
-
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("serverimport/iterate catalog: %w", err)
-	}
-	return items, nil
-}
-
-func insertCatalogItem(ctx context.Context, transaction *sql.Tx, importID string, item catalogItem, now int64) error {
-	_, err := recordstore.CreateServerBiosImportItems(
-		ctx, transaction,
-		`
-INSERT INTO server_bios_import_items(
-server_import_id,requirement_id,requirement_version,core_id,core_name_snapshot,provider_id,target_id,
-source_kind,archive_members_json,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,
-activation_options_json,source_version,catalog_digest,dat_version_id,dat_machine_name,expected_size_bytes,
-expected_md5,expected_sha1,expected_sha256,
-active_installation_id_snapshot,active_installation_version_snapshot,active_blob_sha256_snapshot,
-active_status_snapshot,active_validated_requirement_version_snapshot,state,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
-`,
-		importID,
-		item.RequirementID,
-		item.RequirementVersion,
-		item.CoreID,
-		item.CoreName,
-		item.ProviderID,
-		item.TargetID,
-		item.SourceKind,
-		item.ArchiveMembersJSON,
-		item.LogicalName,
-		item.RequirementMode,
-		item.ConditionCode,
-		item.DeliveryKind,
-		item.EmulatorPath,
-		item.ActivationOptionsJSON,
-		item.SourceVersion,
-		item.CatalogDigest,
-		item.DATVersionID,
-		item.DATMachineName,
-		item.ExpectedSize,
-		item.ExpectedMD5,
-		item.ExpectedSHA1,
-		item.ExpectedSHA256,
-		item.ActiveInstallationID,
-		item.ActiveInstallationVersion,
-		item.ActiveBlobSHA256,
-		item.ActiveStatus,
-		item.ActiveValidatedVersion,
-		now,
-		now,
-	)
-	if err != nil {
-		return fmt.Errorf("serverimport/catalog item: %w", err)
-	}
-	return nil
 }
 
 func (service *Service) signal() {

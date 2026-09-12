@@ -150,13 +150,13 @@ ORDER BY requirement_id COLLATE BINARY,COALESCE(rank_ordinal,9223372036854775807
 			SHA256: candidate.Metadata.SHA256, CRC32: candidate.Metadata.CRC32,
 		}
 		switch {
-		case !item.isArchive() && exactHash.Valid:
+		case !item.IsArchive() && exactHash.Valid:
 			candidate.Static = &firmware.StaticEvaluation{
 				Facts: facts, ExactHash: exactHash.Int64 == 1, ExpectedSizeMatched: expectedSize.Int64 == 1,
 				ExactBasename: exactName.Int64 == 1,
 			}
 			candidate.Static.Status, candidate.Static.Method = staticStatusMethod(*candidate.Static)
-		case item.isArchive() && safeArchive.Valid:
+		case item.IsArchive() && safeArchive.Valid:
 			candidate.DAT = &firmware.DATEvaluation{
 				Facts: facts, SafeArchive: safeArchive.Int64 == 1, Launchable: launchable.Int64 == 1,
 				MatchedCount: int(matched.Int64), AliasedCount: int(aliased.Int64),
@@ -164,7 +164,7 @@ ORDER BY requirement_id COLLATE BINARY,COALESCE(rank_ordinal,9223372036854775807
 				ExtraCount: int(extra.Int64), ExactBasename: exactName.Int64 == 1,
 			}
 			candidate.DAT.Status, candidate.DAT.Method = datStatusMethod(*candidate.DAT)
-			item.applyArchivePolicy(candidate.DAT)
+			item.ApplyArchivePolicy(candidate.DAT)
 			expected, exists := datExpected[requirementID]
 			if !exists {
 				expected, err = service.expectedDATEntries(ctx, item)
