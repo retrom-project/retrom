@@ -13,12 +13,9 @@ import (
 
 	persistence "retrom/internal/persistence/emulationstationimport"
 
-	"retrom/internal/dbexec"
 	application "retrom/internal/service/emulationstationimport"
 
 	tagpersistence "retrom/internal/persistence/tagging"
-
-	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/libraryimport"
@@ -101,7 +98,9 @@ func (service *Service) signal() {
 }
 
 func (service *Service) runLoop() {
-	_ = service.recoverWork(context.Background())
+	if err := service.recoverWork(context.Background()); err != nil {
+		slog.Error("recover EmulationStation executions", "error", err)
+	}
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
@@ -111,7 +110,9 @@ func (service *Service) runLoop() {
 		case <-service.wake:
 		case <-ticker.C:
 		}
-		_ = service.recoverWork(context.Background())
+		if err := service.recoverWork(context.Background()); err != nil {
+			slog.Error("recover EmulationStation executions", "error", err)
+		}
 		_ = service.ExpirePlans(context.Background())
 		for {
 			unit, ok, err := service.claim(context.Background())
@@ -127,192 +128,9 @@ func (service *Service) runLoop() {
 	}
 }
 
-const recoverTerminalImportsSQLAssignments = `state='FAILED',phase=NULL,
-last_error_code=(
- SELECT job.error_code
- FROM jobs job
- WHERE job.scope_type='EMULATIONSTATION_IMPORT'
- AND job.scope_id=emulationstation_imports.id
- AND job.state='FAILED'
- ORDER BY job.updated_at_ms DESC
- LIMIT 1
-),
-retryable=0,
-failed_item_count=(
- SELECT count(*)
- FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id
- AND item.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
-),
-skipped_mapping_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state='SKIPPED_MAPPING'
-),
-review_pending_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state='REVIEW_PENDING'
-),
-published_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state='PUBLISHED'
-),
-review_discarded_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state='REVIEW_DISCARDED'
-),
-existing_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state='SKIPPED_EXISTING'
-),
-blocked_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')
-),
-cancelled_item_count=(
- SELECT count(*) FROM emulationstation_import_items item
- WHERE item.import_id=emulationstation_imports.id AND item.execution_state='CANCELLED'
-),
-completed_at_ms=?,version=version+1,updated_at_ms=?`
-
-const recoverTerminalImportsSQLScope = `state IN ('SCANNING','RUNNING') AND EXISTS(
- SELECT 1 FROM jobs job WHERE job.scope_type='EMULATIONSTATION_IMPORT' AND job.scope_id=emulationstation_imports.id
- AND job.state='FAILED'
- AND job.finished_at_ms=?
- AND job.error_code IN ('EMULATIONSTATION_EXECUTION_TIMEOUT','EMULATIONSTATION_WORKER_ATTEMPTS_EXHAUSTED')
-)`
-
-const automaticRetryDelaySQL = `CASE attempt_count
- WHEN 1 THEN 1000
- WHEN 2 THEN 5000
- WHEN 3 THEN 30000
- ELSE 120000
-END`
-
 func (service *Service) recoverWork(ctx context.Context) error {
-	now := service.now().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("emulationstationimport/start recovery transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	if err := recoverCancelledExecutions(ctx, transaction, now); err != nil {
-		return err
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-SELECT job.id,'EMULATIONSTATION_IMPORT',job.scope_id,'FAILED',json_object('schemaVersion',1,'code',
- CASE WHEN job.execution_deadline_at_ms<=?+`+automaticRetryDelaySQL+`
-   THEN 'EMULATIONSTATION_EXECUTION_TIMEOUT'
-   ELSE 'EMULATIONSTATION_WORKER_ATTEMPTS_EXHAUSTED'
- END),?
-FROM jobs job WHERE job.scope_type='EMULATIONSTATION_IMPORT' AND job.state='RUNNING' AND job.leased_until_ms<=?
-AND (job.execution_deadline_at_ms<=?+`+automaticRetryDelaySQL+` OR job.attempt_count>=job.max_attempts)
-`, now, now, now, now); err != nil {
-		return fmt.Errorf("emulationstationimport/recover terminal event: %w", err)
-	}
-	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
-		Set: `
-execution_state='COMMIT_FAILED',error_code=(
- SELECT CASE WHEN job.execution_deadline_at_ms<=?+CASE attempt_count
- WHEN 1 THEN 1000
- WHEN 2 THEN 5000
- WHEN 3 THEN 30000
- ELSE 120000
-END
-  THEN 'EMULATIONSTATION_EXECUTION_TIMEOUT'
-  ELSE 'EMULATIONSTATION_WORKER_ATTEMPTS_EXHAUSTED'
- END FROM jobs job WHERE job.scope_type='EMULATIONSTATION_IMPORT'
- AND job.scope_id=emulationstation_import_items.import_id
- AND job.state='RUNNING'
-),
-retryable=0,completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-import_id IN (SELECT scope_id FROM jobs WHERE scope_type='EMULATIONSTATION_IMPORT' AND state='RUNNING'
- AND leased_until_ms<=? AND (execution_deadline_at_ms<=?+CASE attempt_count
- WHEN 1 THEN 1000
- WHEN 2 THEN 5000
- WHEN 3 THEN 30000
- ELSE 120000
-END OR attempt_count>=max_attempts))
-AND execution_state IN ('PENDING','COPYING','VALIDATING')
-`,
-			Args: []any{now, now},
-		},
-		Values: []any{now, now, now},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/recover terminal item: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE jobs
-SET state='FAILED',finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
-error_code=CASE WHEN execution_deadline_at_ms<=?+`+automaticRetryDelaySQL+`
-  THEN 'EMULATIONSTATION_EXECUTION_TIMEOUT'
-  ELSE 'EMULATIONSTATION_WORKER_ATTEMPTS_EXHAUSTED'
-END,
-error_retryable=0,worker_id=NULL,version=version+1,updated_at_ms=?
-WHERE scope_type='EMULATIONSTATION_IMPORT' AND state='RUNNING' AND leased_until_ms<=?
-AND (execution_deadline_at_ms<=?+`+automaticRetryDelaySQL+` OR attempt_count>=max_attempts)`,
-		now, now, now, now, now,
-	); err != nil {
-		return fmt.Errorf("emulationstationimport/recover terminal job: %w", err)
-	}
-	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
-		Set: recoverTerminalImportsSQLAssignments,
-		Scope: recordstore.Scope{
-			Where: recoverTerminalImportsSQLScope,
-			Args:  []any{now},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/recover terminal aggregate: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-SELECT job.id,'EMULATIONSTATION_IMPORT',job.scope_id,'RETRY_SCHEDULED',json_object(
- 'schemaVersion',1,'executionNo',job.execution_no,'attempt',job.attempt_count,
- 'retryAtMs',?+`+automaticRetryDelaySQL+`,'errorCode','EMULATIONSTATION_WORKER_LEASE_EXPIRED',
- 'errorRetryable',json('true')
-),?
-FROM jobs job WHERE job.scope_type='EMULATIONSTATION_IMPORT' AND job.state='RUNNING'
-AND job.leased_until_ms<=? AND job.attempt_count<job.max_attempts
-AND job.execution_deadline_at_ms>?+`+automaticRetryDelaySQL+`
-`, now, now, now, now); err != nil {
-		return fmt.Errorf("emulationstationimport/recover retry event: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE jobs SET state='QUEUED',available_at_ms=?+`+automaticRetryDelaySQL+`,
-leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,
-version=version+1,updated_at_ms=? WHERE scope_type='EMULATIONSTATION_IMPORT' AND state='RUNNING' AND leased_until_ms<=?
-AND execution_deadline_at_ms>?+`+automaticRetryDelaySQL+` AND attempt_count<max_attempts`,
-		now, now, now, now,
-	); err != nil {
-		return fmt.Errorf("emulationstationimport/recover job: %w", err)
-	}
-	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
-		Set: `
-state=CASE WHEN state='RUNNING' THEN 'QUEUED' ELSE state END,
-phase=CASE WHEN state='SCANNING' THEN 'DISCOVERING_GAMELISTS' ELSE NULL END,
-version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-id IN (
- SELECT scope_id FROM jobs WHERE scope_type='EMULATIONSTATION_IMPORT' AND state='QUEUED'
-)
-AND state IN ('SCANNING','RUNNING')
-`,
-		},
-		Values: []any{now},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/recover aggregate: %w", err)
-	}
-	if err := scheduleAllTerminalItems(ctx, transaction, now); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("emulationstationimport/commit recovery: %w", err)
+	if err := application.NewRecovery(persistence.NewRecovery(service.database), service.now).Recover(ctx); err != nil {
+		return fmt.Errorf("recover EmulationStation work: %w", err)
 	}
 	return nil
 }
