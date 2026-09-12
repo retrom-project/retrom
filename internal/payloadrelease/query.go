@@ -8,6 +8,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/recordstore"
+	application "retrom/internal/service/payloadrelease"
 )
 
 func collectIDs(ctx context.Context, transaction *sql.Tx, query string, args ...any) ([]string, error) {
@@ -62,27 +63,12 @@ func execBatches(ctx context.Context, transaction *sql.Tx, batch deletionBatch, 
 	}
 }
 
-func terminalImportItem(state string) bool {
-	switch state {
-	case "PUBLISHED", "DISCARDED", "FAILED_FINAL", "CANCELLED":
-		return true
-	default:
-		return false
-	}
-}
+func terminalImportItem(state string) bool { return application.TerminalImportItem(state) }
 
 func terminalPegasusItem(state string, retryable bool) bool {
-	switch state {
-	case "PUBLISHED", "REVIEW_DISCARDED", "SKIPPED_EXISTING", "SKIPPED_MAPPING",
-		"BLOCKED_SOURCE", "BLOCKED_CONTENT", "CANCELLED":
-		return true
-	case "SOURCE_CHANGED", "READ_FAILED", "COMMIT_FAILED":
-		return !retryable
-	default:
-		return false
-	}
+	return application.TerminalSourceItem(state, retryable)
 }
 
 func terminalEmulationStationItem(state string, retryable bool) bool {
-	return terminalPegasusItem(state, retryable)
+	return application.TerminalSourceItem(state, retryable)
 }

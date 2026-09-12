@@ -175,6 +175,9 @@ func runReviewRestoreTransaction(ctx context.Context, db *sql.DB) error {
 	if _, err := records.StopExternalImports(ctx, 10); err != nil {
 		return err
 	}
+	if err := application.ScheduleRestoredPayloads(ctx, records.Imports().Payloads, 10); err != nil {
+		return err
+	}
 	if err := records.StopBulkApprovals(ctx, 10); err != nil {
 		return err
 	}
@@ -189,7 +192,7 @@ func reviewRestoreSnapshot(t *testing.T, db *sql.DB) string {
 	snapshot := map[string][][]any{}
 	for _, table := range []string{
 		"auth_sessions", "account_links", "launch_sessions", "audit_events", "jobs",
-		"job_events", "import_jobs", "import_items", "review_drafts", "review_events", "server_import_upload_owners",
+		"job_events", "job_input_snapshots", "import_jobs", "import_items", "review_drafts", "review_events", "server_import_upload_owners",
 		"pegasus_imports", "pegasus_import_items", "emulationstation_imports", "emulationstation_import_items",
 	} {
 		snapshot[table] = restoredTableRows(t, db, table)

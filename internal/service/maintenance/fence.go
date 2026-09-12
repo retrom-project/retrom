@@ -19,12 +19,16 @@ func (service *Service) fenceRestore(ctx context.Context, path string) error {
 		if err != nil {
 			return fmt.Errorf("revoke restored access: %w", err)
 		}
-		if err := CompleteRestoredReviews(ctx, records.Reviews(), instant); err != nil {
+		resources := records.Imports()
+		if err := CompleteRestoredReviews(ctx, resources.Reviews, instant); err != nil {
 			return fmt.Errorf("preserve restored reviews: %w", err)
 		}
 		imports, err := records.StopExternalImports(ctx, now)
 		if err != nil {
 			return fmt.Errorf("stop restored external imports: %w", err)
+		}
+		if err := ScheduleRestoredPayloads(ctx, resources.Payloads, now); err != nil {
+			return fmt.Errorf("schedule restored terminal payloads: %w", err)
 		}
 		if err := records.StopBulkApprovals(ctx, now); err != nil {
 			return fmt.Errorf("stop restored bulk approvals: %w", err)

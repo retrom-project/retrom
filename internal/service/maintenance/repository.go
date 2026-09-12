@@ -47,7 +47,7 @@ type FenceAudit struct {
 	Counts FenceCounts
 }
 type RestoreRecords interface {
-	Reviews() RestoredReviewScope
+	Imports() RestoredImportScope
 	RevokeAccess(context.Context, int64) (AccessCounts, error)
 	StopExternalImports(context.Context, int64) (ImportCounts, error)
 	StopBulkApprovals(context.Context, int64) error

@@ -9,6 +9,7 @@ import (
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
+	application "retrom/internal/service/payloadrelease"
 )
 
 func (service *Service) releaseImportJob(ctx context.Context, job claimedJob) error {
@@ -162,11 +163,4 @@ func (service *Service) releaseImportChild(
 	return nil
 }
 
-func terminalImportJob(state string) bool {
-	switch state {
-	case "COMPLETED", "CANCELLED", "FAILED":
-		return true
-	default:
-		return false
-	}
-}
+func terminalImportJob(state string) bool { return application.TerminalImportJob(state) }

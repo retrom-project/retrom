@@ -325,6 +325,7 @@ data/
 
 - GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；不把可变 `ref_count` 作为事实源。
 - 业务释放同时使用代码内 `payload ownership registry`，其边集必须与 Blob registry 双向完全一致，并把每条边唯一归入 Game、运行时、ImportItem、PegasusItem、EmulationStationItem、ScrapeRun、Upload、全局 TTL、全局耐久、Archive 或记账生命周期。PayloadRelease 只解除其 scope 被授权的边；BIOS 等全局耐久引用不受 Game/Import 清理影响。
+- 释放调度由 `service/payloadrelease.Scheduler` 判断终态、重放与来源共享关系；`persistence/payloadrelease` 参与调用者的终态事务，原子登记 Job、不可变输入、排队事件与 owner 的 `RELEASING` 转换。更新必须核对读取到的版本、状态、可重试标记和普通审核绑定；受影响行数读取失败保留原始原因，未更新唯一 owner 时整体回滚。已绑定普通 ImportItem 的来源复用该 Item 的释放 Job，不创建第二份释放任务。
 - GC 保护集先取所有 `PROTECTIVE` Blob，再对其中的 archive Blob 加入该 ArchiveEntry 已物化的 entry Blob；一期从不递归展开嵌套 archive，DOS 与 RPG Maker 都只保留内层 archive 文件本身的一层原始 entry bytes，因此一层闭包即完整。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能直接采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括尚在 GC 宽限期的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
 - Game/GameFiles、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariant 和 DAT 均可能引用 Blob。
 - Pegasus 与 EmulationStation 扫描阶段都不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 分别在格式专属 file/asset 表中形成 protective 边。发布后的 Game/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
@@ -482,6 +483,8 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 候选 bytes 可由 SHA-256 CAS 去重；只有 Installation、ImportItem、来源 Item 或 Game 等业务引用保护 Blob，无引用候选由统一 GC 回收。backup 保留 ServerImport/Item/Candidate 审计和已经导入的 CAS bytes，但不打包外部目录。restore 在开放 HTTP 前把所有非终态 `SERVER_BIOS_IMPORT`、`SERVER_PEGASUS_SCAN|IMPORT` 与 `SERVER_EMULATIONSTATION_SCAN|IMPORT` Job 及对应 aggregate 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，即使恢复主机存在同名 root 也不得自动继续。已经进入普通审核或发布 Game 的 CAS 内容继续随完整数据根恢复。
 
 停止外部 execution 前，恢复 Service 在同一安全围栏事务内完成已经形成的普通待审核交接：Pegasus 永久关联与 EmulationStation 预留关系必须指向唯一普通 Item，绑定不能属于其他来源。来源仍在准备阶段时，复用冻结 metadata、搜索字段和审核审计，再将来源置为 `REVIEW_PENDING` 并刷新聚合；已经交接完成的人工草稿保持原样。EmulationStation 复用计划冻结的年份上限，允许按既有状态路径接续仍有待审预留的可重试失败。每次最多读取 100 条，全部分页、权限撤销、任务收口和最终审计仍共用一次提交；任何读取、解码、所有权变化或写入失败都使恢复整体失败。恢复不打开外部来源、不重新创建 Game，也不复用活动 worker 的租约权限。
+
+停止外部 execution 后，恢复 Service 在这同一事务中分页读取仍保留 payload 的来源，由共享释放调度规则为最终失败等终态登记释放任务。待审核记录继续保留引用；恢复生成的终态不能停留在未登记释放任务的 `RETAINED` 状态，否则会违反正常启动时的 payload 生命周期校验。调度、owner 转换或最终审计失败时，权限撤销和审核交接也一起回滚。
 
 ## 12. 审核运行预览的存储边界
 

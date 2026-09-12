@@ -56,8 +56,8 @@ library_import_job_id='handoff-job',library_import_item_id='handoff-item' WHERE 
 			var events, payloads int
 			err = db.QueryRowContext(t.Context(), `SELECT json_extract(metadata_json,'$.title'),
 (SELECT count(*) FROM review_events WHERE import_item_id='handoff-item'),
-(SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE')
-FROM review_drafts WHERE import_item_id='handoff-item'`).Scan(&title, &events, &payloads)
+(SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE' AND scope_id IN ('handoff-item','handoff-job',?))
+FROM review_drafts WHERE import_item_id='handoff-item'`, id).Scan(&title, &events, &payloads)
 			if err != nil || title != "Original" || events != 0 || payloads != 0 {
 				t.Fatalf("restore overwrote user decision: title=%q events=%d payloads=%d err=%v", title, events, payloads, err)
 			}

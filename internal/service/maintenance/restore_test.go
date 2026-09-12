@@ -44,9 +44,17 @@ func (emptyRestoredReviews) Pending(context.Context, RestoredReviewQuery) ([]Res
 	return nil, nil
 }
 
-func (records *restoreRecords) Reviews() RestoredReviewScope {
+func (records *restoreRecords) Imports() RestoredImportScope {
 	records.calls = append(records.calls, "reviews")
-	return RestoredReviewScope{Records: emptyRestoredReviews{}}
+	return RestoredImportScope{
+		Reviews:  RestoredReviewScope{Records: emptyRestoredReviews{}},
+		Payloads: RestoredPayloadScope{Records: records},
+	}
+}
+
+func (records *restoreRecords) RetainedSources(_ context.Context, query RestoredPayloadQuery) ([]string, error) {
+	records.calls = append(records.calls, string(query.Kind))
+	return nil, nil
 }
 
 func (records *restoreRecords) RevokeAccess(_ context.Context, _ int64) (AccessCounts, error) {
@@ -78,7 +86,9 @@ func TestRestoreFenceHasOneClockAndOneAtomicScope(t *testing.T) {
 	if err := service.fenceRestore(t.Context(), "staged.db"); err != nil {
 		t.Fatal(err)
 	}
-	if clockCalls != 1 || !repository.committed || repository.writes != 1 || !reflect.DeepEqual(records.calls, []string{"revoke", "reviews", "external", "bulk", "audit"}) {
+	if clockCalls != 1 || !repository.committed || repository.writes != 1 || !reflect.DeepEqual(records.calls, []string{
+		"revoke", "reviews", "external", "PEGASUS_IMPORT_ITEM", "EMULATIONSTATION_IMPORT_ITEM", "bulk", "audit",
+	}) {
 		t.Fatalf("fence escaped atomic scope: %+v %+v", repository, records)
 	}
 	if records.audit.Now != 17 || records.audit.ID == "" || records.audit.Counts != (FenceCounts{1, 2, 3, 4, 5, 6}) {

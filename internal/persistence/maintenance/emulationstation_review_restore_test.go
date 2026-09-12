@@ -84,7 +84,7 @@ func TestRestoreRetainsReservedEmulationStationReviews(t *testing.T) {
 			t.Parallel()
 			db, path := restoredEmulationStationReview(t, window != "reserved", window == "seeded")
 			err := New().WithRestore(t.Context(), path, func(records application.RestoreRecords) error {
-				if err := application.CompleteRestoredReviews(t.Context(), records.Reviews(), time.UnixMilli(10)); err != nil {
+				if err := application.CompleteRestoredReviews(t.Context(), records.Imports().Reviews, time.UnixMilli(10)); err != nil {
 					return err
 				}
 				_, err := records.StopExternalImports(t.Context(), 10)
