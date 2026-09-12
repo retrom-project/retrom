@@ -1,4 +1,4 @@
-package importdiscard
+package importdiscard_test
 
 import (
 	"strings"

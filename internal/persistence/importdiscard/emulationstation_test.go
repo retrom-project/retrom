@@ -1,4 +1,4 @@
-package importdiscard
+package importdiscard_test
 
 import (
 	"bytes"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/composition"
 
 	"retrom/internal/emulationstationimport"
 	"retrom/internal/libraryimport"
@@ -31,7 +33,7 @@ func (f *fixture) emulationStationSource(t *testing.T, file libraryimport.Server
 	service := emulationstationimport.New(f.db, f.blobs, f.importer, credentials, []serversource.Root{{ID: "games", Label: "Games", Path: dir}}, f.now)
 	service.Start()
 	t.Cleanup(service.Close)
-	f.service.emulationstation = service
+	f.service = composition.NewImportDiscard(f.db, f.importer, nil, service, f.now)
 	created, err := service.Create(f.ctx, emulationstationimport.CreateRequest{RootID: "games"}, adminID)
 	if err != nil {
 		t.Fatal(err)

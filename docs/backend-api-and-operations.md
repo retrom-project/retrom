@@ -68,6 +68,9 @@ internal/persistence/saves/ 存档、Blob 登记、恢复绑定与幂等记录�
 internal/playtime/        PlaySession 和有效时长
 internal/blobstore/       CAS 写入、读取、引用与垃圾回收
 internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排
+internal/service/importdiscard/ 导入批次丢弃、取消与归属判断
+internal/persistence/importdiscard/ 处置快照、归属恢复与原子释放写入
+internal/composition/     Repository 注入和跨模块端口适配
 internal/persistence/jobs/ 任务状态、快照和事件的事务读写
 internal/service/blobgc/  确定性 GC 维护入口与计数结果
 internal/persistence/blobgc/ Blob 计数与保护引用读取

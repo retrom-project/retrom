@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"retrom/internal/composition"
+
 	firmwarepersistence "retrom/internal/persistence/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
@@ -33,7 +35,6 @@ import (
 	"retrom/internal/emulationstationimport"
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
-	"retrom/internal/importdiscard"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/metadatascrape"
@@ -50,6 +51,7 @@ import (
 	"retrom/internal/serversource"
 	"retrom/internal/service/favorites"
 	"retrom/internal/service/immersive"
+	"retrom/internal/service/importdiscard"
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/platforminstance"
@@ -247,7 +249,13 @@ func New(
 		netplayObservers: make(map[string]int),
 		runtimeProvider:  http.NotFoundHandler(),
 	}
-	server.importDiscards = importdiscard.New(database, importer, pegasusImportService, emulationStationImportService, now)
+	server.importDiscards = composition.NewImportDiscard(
+		database,
+		importer,
+		pegasusImportService,
+		emulationStationImportService,
+		now,
+	)
 	server.importDiscards.Start()
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	payloadReleaseService.Start()

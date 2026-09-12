@@ -1,12 +1,11 @@
 package httpapi
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 
 	"retrom/internal/authn"
-	"retrom/internal/importdiscard"
+	"retrom/internal/service/importdiscard"
 )
 
 func (server *Server) getImportBatchDiscard(writer http.ResponseWriter, request *http.Request) {
@@ -41,7 +40,7 @@ func (server *Server) discardImportBatch(writer http.ResponseWriter, request *ht
 
 func writeImportDiscardError(writer http.ResponseWriter, request *http.Request, err error) {
 	switch {
-	case errors.Is(err, sql.ErrNoRows):
+	case errors.Is(err, importdiscard.ErrNotFound):
 		serverNotFound(writer, request)
 	case errors.Is(err, importdiscard.ErrInvalid):
 		writeError(writer, request, http.StatusConflict, "IMPORT_BATCH_DISCARD_INVALID", "当前批次没有可丢弃的未处置内容", map[string]any{})
