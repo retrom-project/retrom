@@ -20,31 +20,31 @@ import (
 	"retrom/internal/rpgmaker/materializer"
 )
 
-type preparedRPGMakerReplacement struct {
-	profile            detector.Profile
-	projectRoot        string
-	excludedFiles      []string
-	fileCount          int
-	totalBytes         int64
-	projectFingerprint string
-	requirementsSHA256 string
-	analysisJSON       []byte
-	variantFiles       []preparedRPGMakerVariantFile
+type PreparedRPGMakerReplacement struct {
+	Profile            detector.Profile
+	ProjectRoot        string
+	ExcludedFiles      []string
+	FileCount          int
+	TotalBytes         int64
+	ProjectFingerprint string
+	RequirementsSHA256 string
+	AnalysisJSON       []byte
+	VariantFiles       []PreparedRPGMakerVariantFile
 }
 
-type preparedRPGMakerVariantFile struct {
-	role, logicalName string
-	metadata          blobstore.Metadata
+type PreparedRPGMakerVariantFile struct {
+	Role, LogicalName string
+	Metadata          blobstore.Metadata
 }
 
 type rpgReplacementIndex struct {
-	files   []detector.File
-	digests map[string]string
-	blobs   *blobstore.Store
+	sourceFiles []detector.File
+	digests     map[string]string
+	blobs       *blobstore.Store
 }
 
 func (index rpgReplacementIndex) Files() []detector.File {
-	return append([]detector.File(nil), index.files...)
+	return append([]detector.File(nil), index.sourceFiles...)
 }
 
 func (index rpgReplacementIndex) Open(logicalPath string) (io.ReadCloser, error) {
@@ -61,18 +61,18 @@ func (index rpgReplacementIndex) Open(logicalPath string) (io.ReadCloser, error)
 
 func (service *Service) prepareRPGMakerReplacement(
 	ctx context.Context,
-	snapshot jobSnapshot,
-	files []uploadedFile,
-) (preparedReplacement, error) {
+	snapshot JobSnapshot,
+	files []UploadedFile,
+) (PreparedReplacement, error) {
 	if service.blobs == nil || snapshot.RPGGeneration == "" || len(files) == 0 {
-		return preparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_INPUT_INVALID"}
+		return PreparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_INPUT_INVALID"}
 	}
 	project, profile, err := service.detectRPGMakerReplacement(files)
 	if err != nil {
-		return preparedReplacement{}, err
+		return PreparedReplacement{}, err
 	}
 	if string(profile.ExpectedGeneration) != snapshot.RPGGeneration {
-		return preparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_GENERATION_MISMATCH"}
+		return PreparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_GENERATION_MISMATCH"}
 	}
 	projectFiles, sessionState := fileset.ExcludeSessionState(profile.ExpectedGeneration, project.Files)
 	replacement, materializerSources, manifestFiles := buildRPGMakerReplacementFiles(
@@ -80,44 +80,44 @@ func (service *Service) prepareRPGMakerReplacement(
 	)
 	fingerprint, totalBytes, err := contentmanifest.FilesDigest(manifestFiles)
 	if err != nil {
-		return preparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_MANIFEST_INVALID"}
+		return PreparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_MANIFEST_INVALID"}
 	}
-	manifest, manifestDigest, err := contentmanifest.Build(replacement.contentKind, manifestFiles)
+	manifest, manifestDigest, err := contentmanifest.Build(replacement.ContentKind, manifestFiles)
 	if err != nil {
-		return preparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_MANIFEST_INVALID"}
+		return PreparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_MANIFEST_INVALID"}
 	}
 	requirementsJSON, requirementsSHA := rpgReplacementRequirements(profile)
 	if requirementsSHA != snapshot.RPGRequirementsSHA256 {
-		return preparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_DEPENDENCIES_CHANGED"}
+		return PreparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_DEPENDENCIES_CHANGED"}
 	}
 	excluded := append(append([]string(nil), project.RemovedNoise...), sessionState...)
 	sort.Strings(excluded)
 	analysis, err := rpgReplacementAnalysis(profile, project.Root, excluded, requirementsJSON)
 	if err != nil {
-		return preparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_INPUT_INVALID"}
+		return PreparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_INPUT_INVALID"}
 	}
 	variantFiles, err := service.materializeRPGMakerReplacement(ctx, profile.ExpectedGeneration, materializerSources)
 	if err != nil {
-		return preparedReplacement{}, err
+		return PreparedReplacement{}, err
 	}
-	replacement.manifest = manifest
-	replacement.manifestDigest = manifestDigest
-	replacement.firstContentLogicalName = replacement.files[0].logicalName
-	replacement.rpgMaker = &preparedRPGMakerReplacement{
-		profile: profile, projectRoot: project.Root, excludedFiles: excluded,
-		fileCount: len(replacement.files), totalBytes: totalBytes, projectFingerprint: fingerprint,
-		requirementsSHA256: requirementsSHA, analysisJSON: analysis, variantFiles: variantFiles,
+	replacement.Manifest = manifest
+	replacement.ManifestDigest = manifestDigest
+	replacement.FirstContentLogicalName = replacement.Files[0].LogicalName
+	replacement.RPGMaker = &PreparedRPGMakerReplacement{
+		Profile: profile, ProjectRoot: project.Root, ExcludedFiles: excluded,
+		FileCount: len(replacement.Files), TotalBytes: totalBytes, ProjectFingerprint: fingerprint,
+		RequirementsSHA256: requirementsSHA, AnalysisJSON: analysis, VariantFiles: variantFiles,
 	}
 	return replacement, nil
 }
 
 func (service *Service) detectRPGMakerReplacement(
-	files []uploadedFile,
+	files []UploadedFile,
 ) (fileset.Project, detector.Profile, error) {
 	sources := make([]fileset.SourceFile, 0, len(files))
 	for index, file := range files {
 		sources = append(sources, fileset.SourceFile{
-			Path: file.logicalName, SizeBytes: file.sizeBytes, SourceIndex: index,
+			Path: file.LogicalName, SizeBytes: file.SizeBytes, SourceIndex: index,
 		})
 	}
 	project, err := fileset.NormalizeProject(sources)
@@ -125,15 +125,15 @@ func (service *Service) detectRPGMakerReplacement(
 		return fileset.Project{}, detector.Profile{}, rpgReplacementProjectError(err)
 	}
 	detectionIndex := rpgReplacementIndex{
-		files:   make([]detector.File, 0, len(project.Files)),
-		digests: make(map[string]string, len(project.Files)), blobs: service.blobs,
+		sourceFiles: make([]detector.File, 0, len(project.Files)),
+		digests:     make(map[string]string, len(project.Files)), blobs: service.blobs,
 	}
 	for _, projectFile := range project.Files {
 		source := files[projectFile.SourceIndex]
-		detectionIndex.files = append(detectionIndex.files, detector.File{
+		detectionIndex.sourceFiles = append(detectionIndex.sourceFiles, detector.File{
 			Path: projectFile.Path, Size: projectFile.SizeBytes,
 		})
-		detectionIndex.digests[projectFile.Path] = source.sha256
+		detectionIndex.digests[projectFile.Path] = source.SHA256
 	}
 	profile, err := detector.Detect(detector.VirtualCoreID, detectionIndex)
 	if err != nil {
@@ -143,28 +143,28 @@ func (service *Service) detectRPGMakerReplacement(
 }
 
 func buildRPGMakerReplacementFiles(
-	files []uploadedFile,
+	files []UploadedFile,
 	projectFiles []fileset.SourceFile,
 	blobs *blobstore.Store,
-) (preparedReplacement, []materializer.SourceFile, []contentmanifest.File) {
-	replacement := preparedReplacement{contentKind: string(contentprofile.ContentKindRPGMakerProject)}
-	replacement.files = make([]replacementFile, 0, len(projectFiles))
+) (PreparedReplacement, []materializer.SourceFile, []contentmanifest.File) {
+	replacement := PreparedReplacement{ContentKind: string(contentprofile.ContentKindRPGMakerProject)}
+	replacement.Files = make([]ReplacementFile, 0, len(projectFiles))
 	materializerSources := make([]materializer.SourceFile, 0, len(projectFiles))
 	manifestFiles := make([]contentmanifest.File, 0, len(projectFiles))
 	for index, projectFile := range projectFiles {
 		source := files[projectFile.SourceIndex]
-		replacement.files = append(replacement.files, replacementFile{
-			role: "PROJECT_FILE", logicalName: projectFile.Path, blobID: source.blobID,
-			sha256: source.sha256, sizeBytes: source.sizeBytes, sortOrder: index,
+		replacement.Files = append(replacement.Files, ReplacementFile{
+			Role: "PROJECT_FILE", LogicalName: projectFile.Path, BlobID: source.BlobID,
+			SHA256: source.SHA256, SizeBytes: source.SizeBytes, SortOrder: index,
 		})
-		digest := source.sha256
+		digest := source.SHA256
 		materializerSources = append(materializerSources, materializer.SourceFile{
-			Path: projectFile.Path, Size: source.sizeBytes,
+			Path: projectFile.Path, Size: source.SizeBytes,
 			Open: func() (io.ReadCloser, error) { return blobs.OpenDigest(digest) },
 		})
 		manifestFiles = append(manifestFiles, contentmanifest.File{
 			Role: "PROJECT_FILE", LogicalName: projectFile.Path,
-			BlobSHA256: source.sha256, SizeBytes: source.sizeBytes,
+			BlobSHA256: source.SHA256, SizeBytes: source.SizeBytes,
 		})
 	}
 	return replacement, materializerSources, manifestFiles
@@ -174,7 +174,7 @@ func (service *Service) materializeRPGMakerReplacement(
 	ctx context.Context,
 	generation detector.Generation,
 	files []materializer.SourceFile,
-) ([]preparedRPGMakerVariantFile, error) {
+) ([]PreparedRPGMakerVariantFile, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("materialize RPG replacement: %w", err)
 	}
@@ -188,16 +188,16 @@ func (service *Service) materializeRPGMakerReplacement(
 		if err != nil {
 			return nil, fmt.Errorf("materialize RPG replacement index: %w", err)
 		}
-		return []preparedRPGMakerVariantFile{{
-			role: "RPG_EASYRPG_INDEX", logicalName: "index.json", metadata: metadata,
+		return []PreparedRPGMakerVariantFile{{
+			Role: "RPG_EASYRPG_INDEX", LogicalName: "index.json", Metadata: metadata,
 		}}, nil
 	case detector.RPGXP, detector.RPGVX, detector.RPGVXAce:
 		metadata, err := service.writeRPGMakerReplacementArchive(files)
 		if err != nil {
 			return nil, err
 		}
-		return []preparedRPGMakerVariantFile{{
-			role: "RPG_MAKER_LAUNCH_BUNDLE", logicalName: "game.mkxpz", metadata: metadata,
+		return []PreparedRPGMakerVariantFile{{
+			Role: "RPG_MAKER_LAUNCH_BUNDLE", LogicalName: "game.mkxpz", Metadata: metadata,
 		}}, nil
 	case detector.RPGMV, detector.RPGMZ:
 		return nil, nil

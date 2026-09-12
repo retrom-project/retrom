@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	gamecontentpersistence "retrom/internal/persistence/gamecontent"
+
 	"retrom/internal/composition"
 
 	firmwarepersistence "retrom/internal/persistence/firmware"
@@ -33,7 +35,6 @@ import (
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
 	"retrom/internal/emulationstationimport"
-	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -50,6 +51,7 @@ import (
 	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
 	"retrom/internal/service/favorites"
+	"retrom/internal/service/gamecontent"
 	"retrom/internal/service/immersive"
 	"retrom/internal/service/importdiscard"
 	"retrom/internal/service/isolation"
@@ -237,7 +239,7 @@ func New(
 		payloadReleases:         payloadReleaseService,
 		platformDirectories:     platforminstance.New(platformpersistence.New(database), now),
 		metadata:                scraper,
-		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
+		gameContent: gamecontent.New(gamecontentpersistence.New(database, payloadReleaseService), now).WithBlobStore(blobs).
 			WithPayloadRelease(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(savepersistence.New(database), blobs, now),

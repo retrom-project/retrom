@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/service/gamecontent"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -46,7 +48,7 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
@@ -78,16 +80,16 @@ SELECT id,version FROM games WHERE id=?
 	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releases.Close)
-	service := New(database.SQL, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
+	service := gamecontent.New(New(database.SQL, releases), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load RPG replacement binding: %v", bindingErr)
-	} else if binding.rpgGeneration != "RPG2000" {
+	} else if binding.RPGGeneration != "RPG2000" {
 		t.Fatalf("RPG replacement binding = %#v", binding)
 	}
 	installRPGMakerRuntimeUpgrade(t, ctx, database.SQL)
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load upgraded RPG replacement binding: %v", bindingErr)
-	} else if binding.rpgGeneration != "RPG2000" {
+	} else if binding.RPGGeneration != "RPG2000" {
 		t.Fatalf("upgraded RPG replacement binding = %#v", binding)
 	}
 
@@ -95,9 +97,7 @@ SELECT id,version FROM games WHERE id=?
 	sameGenerationUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2000)
 	uploadValidationTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	if validationErr := validateReplacementUpload(
-		ctx, uploadValidationTx, sameGenerationUpload, "RPG_MAKER_PROJECT", "rpgmaker",
-	); validationErr != nil {
+	if validationErr := validateUploadFixture(ctx, uploadValidationTx, sameGenerationUpload, "RPG_MAKER_PROJECT", "rpgmaker"); validationErr != nil {
 		t.Fatalf("validate RPG replacement upload: %v", validationErr)
 	}
 	dbexec.Rollback(uploadValidationTx)
@@ -278,7 +278,7 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
@@ -315,7 +315,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := New(database.SQL, time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService)
+	service := gamecontent.New(New(database.SQL, releaseService), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService)
 	saveID, launchID, savePayloads := seedReplacementSave(
 		t, ctx, database.SQL, blobs, published.GameID,
 	)
@@ -327,6 +327,9 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		t, ctx, database.SQL, unchanged.JobID, "GAME_CONTENT_UNCHANGED", published.GameID,
 		originalContent, saveID,
 	)
+
+	assertLatePublicationRollback(t, database.SQL, blobs, uploadService, releaseService,
+		published.GameID, initialVersion, originalBlobID, saveID)
 
 	replacementUpload := completeUpload(t, ctx, database.SQL, uploadService, "replacement.gba", []byte("replacement"))
 	idempotencyKey := "01980000-0000-7000-8000-000000000099"
@@ -351,7 +354,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replayedSchedule.JobID != scheduled.JobID }), "idempotent replay = %#v, replayed=%v, error=%v", replayedSchedule, replayed, err)
 	if _, _, err := service.ScheduleIdempotent(ctx, published.GameID, replacementUpload, initialVersion, idempotencyKey, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"); !errors.Is(
 		err,
-		ErrIdempotencyKeyReused,
+		gamecontent.ErrIdempotencyKeyReused,
 	) {
 		t.Fatalf("idempotency conflict error = %v", err)
 	}
@@ -430,7 +433,7 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
@@ -473,7 +476,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := New(database.SQL, time.Now).WithBlobStore(blobs).
+	service := gamecontent.New(New(database.SQL, releaseService), time.Now).WithBlobStore(blobs).
 		WithPayloadRelease(releaseService).WithMultiDiscImportEnabled(true)
 	scheduled, err := service.ScheduleMode(
 		ctx, published.GameID, replacementUpload, "MULTI_DISC", gameVersion,

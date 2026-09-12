@@ -17,9 +17,9 @@ import (
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/gamecontent"
 	"retrom/internal/gametitle"
 	"retrom/internal/payloadrelease"
+	"retrom/internal/service/gamecontent"
 )
 
 type gameMetadata struct {

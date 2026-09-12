@@ -43,6 +43,9 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 
 内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch/Netplay、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换仅原子切换当前安装；已创建的 Launch/Play/Netplay 保留冻结的旧 BIOS 文件与授权直到各自结束或过期，game-scoped 存档继续保留。新启动（包括从存档继续）按需核对当前 BIOS，变化时先重验；创建事务再次核对快照，避免并发替换混用版本。人工截图放行的 Variant 保留放行状态，在新 Launch 事务中只刷新已安装的受管 BIOS；不清除手动提供的无关 Arcade 文件。
 
+内容替换由 `internal/service/gamecontent` 编排，`internal/persistence/gamecontent` 负责查询和写事务。执行读取并校验持久化输入摘要，领取任务时匹配游戏 scope、执行次数与输入摘要，使用每次独立的 worker 身份。发布事务重新核对未过期的租约和执行期限、当前绑定与内容身份，并在同一事务中解析 BIOS 引用、退役旧内容、发布新内容、推进任务和事件以及释放上传消费。取消请求由当前 worker 确认为取消；已终态或已更换执行身份的任务不接受旧 worker 的失败回调。释放信号只能在事务提交后发出。
+
+
 ## 3. Launch Envelope V1
 
 `GET /runtime/launches/{launchId}/config` 只返回 `LaunchEnvelopeV1`：
