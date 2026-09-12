@@ -120,8 +120,10 @@ export async function reviewForImport(client, importJobId, options = {}) {
 }
 
 export function requireFreshImportReview(queue, job) {
+  const hasDuplicates = Number.isInteger(job?.alreadyImportedItemCount) && job.alreadyImportedItemCount > 0 ||
+    Array.isArray(job?.alreadyImportedMatches) && job.alreadyImportedMatches.length > 0;
   if (Array.isArray(queue?.items) && queue.items.length === 0 &&
-      Number.isInteger(job?.alreadyImportedItemCount) && job.alreadyImportedItemCount > 0) {
+      hasDuplicates) {
     throw new SecurityInputBlocked("RPG_ACCEPTANCE_SECURITY_FRESH_DATABASE_REQUIRED");
   }
 }
