@@ -48,7 +48,7 @@ func TestJobCancellationRetainsOriginalETagAfterGenericRead(t *testing.T) {
 			}
 		},
 	})
-	response := cancelHTTPScan(t, server, jobID, 1)
+	response := cancelHTTPScan(t, server, jobID)
 	if response.Code != http.StatusConflict || hits != 1 {
 		t.Fatalf("stale Job ETag accepted: HTTP %d hits=%d", response.Code, hits)
 	}

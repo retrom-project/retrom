@@ -29,7 +29,7 @@ func TestJobCancellationSQLFailureIsAnInfrastructureError(t *testing.T) {
 		},
 	})
 	server.jobService = jobs.New(jobpersistence.New(fault), time.Now)
-	response := cancelHTTPScan(t, server, jobID, 1)
+	response := cancelHTTPScan(t, server, jobID)
 	if response.Code != http.StatusInternalServerError || hits != 1 {
 		t.Fatalf("job SQL failure=%d hits=%d body=%s", response.Code, hits, response.Body.String())
 	}

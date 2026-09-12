@@ -71,13 +71,13 @@ leased_until_ms=?,heartbeat_at_ms=?,execution_started_at_ms=?,execution_deadline
 	return planID, jobID
 }
 
-func cancelHTTPScan(t *testing.T, server *Server, jobID string, version int64) *httptest.ResponseRecorder {
+func cancelHTTPScan(t *testing.T, server *Server, jobID string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/jobs/"+jobID+"/cancel",
 		strings.NewReader(`{"reason":"Stop scan"}`))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", uuid.NewString())
-	request.Header.Set("If-Match", fmt.Sprintf(`"v%d"`, version))
+	request.Header.Set("If-Match", `"v1"`)
 	cookie, csrf := testSessionCredentials()
 	setCSRFCredentials(request, cookie, csrf)
 	response := httptest.NewRecorder()
@@ -90,7 +90,7 @@ func TestJobHTTPScanCancellationChangesPegasusPlanInSameCommit(t *testing.T) {
 		t.Run(fmt.Sprintf("running=%v", running), func(t *testing.T) {
 			server := newTestServer(t)
 			planID, jobID := seedHTTPPegasusScan(t, server, running)
-			response := cancelHTTPScan(t, server, jobID, 1)
+			response := cancelHTTPScan(t, server, jobID)
 			expectedState, status := "CANCELLED", http.StatusOK
 			if running {
 				expectedState, status = "CANCEL_REQUESTED", http.StatusAccepted
