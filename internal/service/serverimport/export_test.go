@@ -64,5 +64,5 @@ func (service *Service) SetFileLimitForTest(limit int64) { service.scanLimits.ma
 func (service *Service) ResetScanLimitsForTest()         { service.scanLimits = defaultScanLimits() }
 
 func WalkFilesForTest(root *os.File, visit func(serversource.File) error) (serversource.Counts, error) {
-	return walkFiles(root, defaultScanLimits(), visit)
+	return walkFiles(context.Background(), root, defaultScanLimits(), visit)
 }

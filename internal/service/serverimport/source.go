@@ -1,6 +1,7 @@
 package serverimport
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -52,14 +53,19 @@ func listDirectories(rootPath, relativePath string) ([]Directory, error) {
 	return directories, nil
 }
 
-func walkFiles(root *os.File, limits scanLimits, visit func(discoveredFile) error) (walkCounts, error) {
-	counts, err := serversource.WalkFiles(root, serversource.Limits{
+func walkFiles(
+	ctx context.Context, root *os.File, limits scanLimits, visit func(discoveredFile) error,
+) (walkCounts, error) {
+	counts, err := serversource.WalkFilesContext(ctx, root, serversource.Limits{
 		MaxDepth:       limits.maxDepth,
 		MaxDirectories: limits.maxDirectories,
 		MaxFiles:       limits.maxFiles,
 	}, visit)
 	if errors.Is(err, serversource.ErrScanLimit) {
 		err = ErrScanLimit
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		err = fmt.Errorf("%w: %w", errExecutionDeadline, err)
 	}
 	return counts, err
 }

@@ -95,7 +95,7 @@ func (service *Service) startCandidateWalk(
 	go func() {
 		var physicalCandidates int64
 		var hashPhase sync.Once
-		counts, err := walkFiles(directory, service.scanLimits, func(file discoveredFile) error {
+		counts, err := walkFiles(ctx, directory, service.scanLimits, func(file discoveredFile) error {
 			if service.cancelRequested(ctx, unit) {
 				return errCancelled
 			}
