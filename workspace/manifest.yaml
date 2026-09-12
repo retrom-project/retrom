@@ -37,7 +37,8 @@
         "quasi88",
         "bsnes",
         "neocd",
-        "gbe-plus"
+        "gbe-plus",
+        "nxengine"
       ]
     },
     {
@@ -334,6 +335,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/gbe-plus.git",
       "defaultBranch": "retrom/g05a05e931b39",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "nxengine",
+      "path": "project/retrom-core/nxengine-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/nxengine-libretro.git",
+      "defaultBranch": "retrom/gfd1c0686f8b4",
       "submodules": false,
       "dependsOn": []
     }

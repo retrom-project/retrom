@@ -2164,6 +2164,15 @@ PSP 补充场景：同一 Case 的 `scripts/acceptance/psp_checkpoint_storage_pr
 体积至少减少一半。保留原存档、上传截图、前后菜单截图及 `psp-checkpoint-storage-product.json`。
 PSP 原生加载完成回执必须启用，不能用取消超时检查或放行未完成恢复代替。
 
+### ACC-NXENGINE-001：洞窟物语原生存档与产品链
+
+- 类型：操作者提供原版免费 Cave Story 完整 ZIP 的手动语料验收，不加入 CI 游戏下载或 Git fixture。
+- 硬超时：300 秒。入口 `make acceptance-case CASE=ACC-NXENGINE-001`；等价命令为 `timeout 300 env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/nxengine_product.mjs`。
+- 输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`、`RETROM_NXENGINE_GAME`。使用独立 PFB；动作针对原版英文 Cave Story 的 Start Point，不能据此声称任意修改版兼容。
+- 步骤：普通上传完整项目包，生成审核项，审核试玩进入游戏并保存真实审核截图；批准后建立 Product Launch。验证标准手柄确认和方向移动、独立键盘输入、非零音频、暂停/继续与截图；跳到 Start Point 右侧的原生保存点，由游戏写出 profile。在 Player 选择“存档并退出”，验证公共 gzip 包的完整原生字节、项目身份与非空上限；不同 Launch 明确指定该存档，启动前原生 profile 必须完全一致，再从原生 Load 菜单进入同一保存点并继续响应方向。不选存档的新 Launch 必须为空存档目录。
+- 通过标准：所选样本完整执行上述链路，无浏览器异常；格式为 `nxengine-game-save-v1-storage-v1`、GAME_SAVE，保存位置按游戏内保存点而非即时画面断言。持续缓存复用与大小边界由 runtime 的两个实例回归验证；实际硬件手柄仍需另行 smoke，虚拟标准手柄不代表硬件覆盖。
+- 证据：`nxengine-product.json`、各阶段 PNG、游戏项目/归档与存档摘要、非秘密 Review/Game/Launch/Save ID、Provider Bundle/Target/Module 摘要和浏览器版本；不记录凭据、游戏字节、授权 URL 或本机来源路径。
+
 ### ACC-OPENBOR-001：OpenBOR 原生进度与真实产品链
 
 - 类型：操作者授权 PAK 的手动语料验收；不加入默认 CI 下载，游戏文件不进入 Git 或发布包。

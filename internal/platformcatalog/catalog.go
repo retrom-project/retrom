@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 25
+const Version = 26
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -199,6 +199,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "pokemini/gbe_plus", PlatformID: "pokemini", DefaultCoreID: "gbe_plus",
 		Name: "Pokémon Mini 游戏", CatalogOrder: 610,
 	},
+	{Key: "cavestory/nxengine", PlatformID: "cavestory", DefaultCoreID: "nxengine", Name: "洞窟物语", CatalogOrder: 620},
 }}
 
 func Current() Catalog {
