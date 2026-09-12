@@ -61,12 +61,14 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 	now := recorder.now().UnixMilli()
 	created := false
 	err = recorder.repository.WithWrite(ctx, func(scope ResultScope) error {
-		writable, err := scope.Read.Writable(ctx, attempt.RunID)
+		claim := attempt.Claim
+		claim.Now = recorder.now().UnixMilli()
+		writable, err := scope.Read.Writable(ctx, claim)
 		if err != nil {
 			return fmt.Errorf("read scrape result owner: %w", err)
 		}
 		if !writable {
-			return ErrGameDeleted
+			return ErrExecutionLost
 		}
 		responseID, source, err := recordResponse(ctx, scope.Write, attempt.Lookup, blob.blob, now)
 		if err != nil {
@@ -81,7 +83,7 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 			number = 1
 		}
 		if err := scope.Write.Attempt(ctx, AttemptRecord{
-			ID: attemptID, RunID: attempt.RunID, EvidenceID: attempt.EvidenceID,
+			ID: attemptID, RunID: attempt.Claim.RunID, EvidenceID: attempt.EvidenceID,
 			ResponseID: responseID, Source: source, AttemptNo: number, Now: now,
 		}); err != nil {
 			return fmt.Errorf("record scrape attempt: %w", err)

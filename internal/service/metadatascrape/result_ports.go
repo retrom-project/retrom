@@ -8,10 +8,11 @@ import (
 )
 
 type LookupAttempt struct {
-	RunID, EvidenceID string
-	Lookup            ResolvedLookup
-	AttemptNo         int
-	AllowCandidate    bool
+	Claim          WorkerClaim
+	EvidenceID     string
+	Lookup         ResolvedLookup
+	AttemptNo      int
+	AllowCandidate bool
 }
 type ResponseRecord struct {
 	ID, RequestDigest string
@@ -44,7 +45,7 @@ type CandidateAsset struct {
 	Now                         int64
 }
 type ResultReader interface {
-	Writable(context.Context, string) (bool, error)
+	Writable(context.Context, WorkerClaim) (bool, error)
 	Hashes(context.Context, string) (Hashes, error)
 }
 type ResultWriter interface {

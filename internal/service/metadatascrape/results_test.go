@@ -36,7 +36,7 @@ func (memory *resultMemory) WithWrite(_ context.Context, work func(ResultScope) 
 	return memory.lateError
 }
 
-func (memory *resultMemory) Writable(context.Context, string) (bool, error) {
+func (memory *resultMemory) Writable(context.Context, WorkerClaim) (bool, error) {
 	return memory.readable, nil
 }
 
@@ -92,7 +92,7 @@ func TestRawResponseIsPreparedBeforeResultTransaction(t *testing.T) {
 	blobs := &responseBlobs{t: t, records: records}
 	recorder := NewRecorder(records, blobs, func() time.Time { return time.UnixMilli(100) })
 	created, err := recorder.Record(t.Context(), LookupAttempt{
-		RunID: "run", EvidenceID: "evidence", AttemptNo: 2,
+		Claim: WorkerClaim{RunID: "run"}, EvidenceID: "evidence", AttemptNo: 2,
 		Lookup: ResolvedLookup{Result: hasheous.LookupResult{Outcome: hasheous.OutcomeMiss, RawResponse: []byte("raw")}},
 	})
 	if err != nil {
@@ -108,7 +108,7 @@ func TestCachedCandidateHitReusesResponseAndDoesNotDuplicateAssets(t *testing.T)
 	blobs := &responseBlobs{t: t, records: records}
 	recorder := NewRecorder(records, blobs, func() time.Time { return time.UnixMilli(100) })
 	created, err := recorder.Record(t.Context(), LookupAttempt{
-		RunID: "run", EvidenceID: "evidence", AttemptNo: 3, AllowCandidate: true,
+		Claim: WorkerClaim{RunID: "run"}, EvidenceID: "evidence", AttemptNo: 3, AllowCandidate: true,
 		Lookup: ResolvedLookup{CachedResponseID: "cached", Result: hasheous.LookupResult{
 			Outcome: hasheous.OutcomeHit, RawResponse: []byte("raw"),
 			Candidate: &hasheous.Candidate{ProviderGameID: "provider-game", Metadata: map[string]any{"title": "title"}, Assets: []hasheous.AssetRef{{ProviderAssetID: "asset"}}},
@@ -141,7 +141,7 @@ func TestResultCommitFailureDoesNotReportCreatedCandidate(t *testing.T) {
 	records := &resultMemory{readable: true, candidate: CandidateIdentity{Created: true}, lateError: context.DeadlineExceeded}
 	recorder := NewRecorder(records, &responseBlobs{t: t, records: records}, time.Now)
 	created, err := recorder.Record(t.Context(), LookupAttempt{
-		RunID: "run", EvidenceID: "evidence", AttemptNo: 1, AllowCandidate: true,
+		Claim: WorkerClaim{RunID: "run"}, EvidenceID: "evidence", AttemptNo: 1, AllowCandidate: true,
 		Lookup: ResolvedLookup{CachedResponseID: "cached", Result: hasheous.LookupResult{Candidate: &hasheous.Candidate{ProviderGameID: "game"}}},
 	})
 	if created || !errors.Is(err, context.DeadlineExceeded) {

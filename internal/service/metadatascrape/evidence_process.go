@@ -1,0 +1,96 @@
+package metadatascrape
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"retrom/internal/hasheous"
+)
+
+func hashString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func (processor *EvidenceProcessor) processScrapeEvidence(
+	ctx context.Context,
+	claim WorkerClaim,
+	evidenceList []WorkerEvidence,
+	bypassCache bool,
+) (int, string, error) {
+	candidateCount := 0
+	for _, item := range evidenceList {
+		created, code, err := processor.processEvidenceItem(ctx, claim, item, bypassCache, candidateCount < 20)
+		if err != nil {
+			return 0, code, err
+		}
+		if created {
+			candidateCount++
+		}
+	}
+	return candidateCount, "", nil
+}
+
+func (processor *EvidenceProcessor) processEvidenceItem(
+	ctx context.Context,
+	claim WorkerClaim,
+	item WorkerEvidence,
+	bypassCache, allowCandidate bool,
+) (bool, string, error) {
+	hashes := hasheous.ContentHashes{
+		CRC32: hashString(
+			item.Hashes.CRC32,
+		), MD5: hashString(
+			item.Hashes.MD5,
+		), SHA1: hashString(
+			item.Hashes.SHA1,
+		), SHA256: hashString(
+			item.Hashes.SHA256,
+		),
+	}
+	for attempt := 1; attempt <= 3; attempt++ {
+		resolved, err := processor.lookup.Lookup(ctx, hashes, bypassCache)
+		if err != nil {
+			return false, "METADATA_REQUEST_INVALID", fmt.Errorf("metadata_request_invalid: %w", err)
+		}
+		created, err := processor.results.Record(
+			ctx,
+			LookupAttempt{
+				Claim:          claim,
+				EvidenceID:     item.ID,
+				Lookup:         resolved,
+				AttemptNo:      attempt,
+				AllowCandidate: allowCandidate,
+			},
+		)
+		if err != nil {
+			return false, "METADATA_PERSIST_FAILED", fmt.Errorf("metadata_persist_failed: %w", err)
+		}
+		if resolved.CachedResponseID != "" || !retryableOutcome(resolved.Result.Outcome) || attempt == 3 {
+			return created, "", nil
+		}
+		if err := waitRetry(ctx, time.Duration(100*(1<<(attempt-1)))*time.Millisecond); err != nil {
+			return false, "METADATA_CANCELLED", err
+		}
+	}
+	return false, "", nil
+}
+
+func retryableOutcome(outcome hasheous.ProviderOutcome) bool {
+	return outcome == hasheous.OutcomeRateLimited || outcome == hasheous.OutcomeTimeout ||
+		outcome == hasheous.OutcomeNetworkError
+}
+
+func waitRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("metadatascrape/service: %w", ctx.Err())
+	case <-timer.C:
+		return nil
+	}
+}

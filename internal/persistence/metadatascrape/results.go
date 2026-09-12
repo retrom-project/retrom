@@ -34,20 +34,27 @@ func (repository *ResultRepository) WithWrite(ctx context.Context, work func(met
 	return nil
 }
 
-func (records resultRecords) Writable(ctx context.Context, id string) (bool, error) {
-	var count int
+func (records resultRecords) Writable(ctx context.Context, claim metadatascrape.WorkerClaim) (bool, error) {
+	var allowed bool
 	err := records.transaction.QueryRowContext(
 		ctx,
-		`SELECT count(*) FROM metadata_scrape_runs run
- LEFT JOIN games game ON game.id=run.game_id WHERE run.id=? AND (run.game_id IS NULL OR game.status='PUBLISHED')`,
-		id,
+		`SELECT EXISTS(SELECT 1 FROM metadata_scrape_runs r
+ JOIN jobs j ON j.id=r.job_id LEFT JOIN games g ON g.id=r.game_id WHERE r.id=? AND j.id=? AND j.execution_no=?
+ AND j.worker_id=? AND j.state='RUNNING' AND r.state='RUNNING' AND j.leased_until_ms>? AND j.execution_deadline_at_ms>?
+ AND (r.game_id IS NULL OR g.status='PUBLISHED'))`,
+		claim.RunID,
+		claim.JobID,
+		claim.ExecutionNo,
+		claim.WorkerID,
+		claim.Now,
+		claim.Now,
 	).Scan(
-		&count,
+		&allowed,
 	)
 	if err != nil {
-		return false, fmt.Errorf("query scrape result owner: %w", err)
+		return false, fmt.Errorf("query result execution ownership: %w", err)
 	}
-	return count == 1, nil
+	return allowed, nil
 }
 
 func (records resultRecords) Hashes(ctx context.Context, id string) (metadatascrape.Hashes, error) {

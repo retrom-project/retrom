@@ -19,7 +19,7 @@ func recordCandidate(
 		return false, err
 	}
 	candidate, err := scope.Write.Candidate(ctx, CandidateRecord{
-		ID: id, RunID: attempt.RunID, ResponseID: responseID,
+		ID: id, RunID: attempt.Claim.RunID, ResponseID: responseID,
 		ProviderGameID: prepared.value.ProviderGameID,
 		MetadataJSON:   prepared.metadata, EvidenceJSON: prepared.evidence, Now: now,
 	})

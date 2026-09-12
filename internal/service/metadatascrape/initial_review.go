@@ -21,6 +21,10 @@ func (service *InitialReviewService) Complete(ctx context.Context, runID string,
 	if err := service.applyCandidate(ctx, runID, item.ItemID, now); err != nil {
 		return err
 	}
+	return service.advanceReview(ctx, item, now)
+}
+
+func (service *InitialReviewService) advanceReview(ctx context.Context, item InitialImport, now int64) error {
 	change := initialProgress(item, now)
 	change.ItemState = "REVIEW_PENDING"
 	change.ReviewDelta = 1

@@ -42,6 +42,7 @@ type InitialProgressChange struct {
 	ItemID, ImportJobID, ItemState, JobState                        string
 	FailedStage, ErrorCode                                          *string
 	ExpectedRunning, ExpectedVersion, ReviewDelta, FailedDelta, Now int64
+	CancelledDelta                                                  int64
 }
 type InitialWriter interface {
 	Apply(context.Context, InitialDraftChange) error

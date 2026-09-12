@@ -59,8 +59,8 @@ func (records initialRecords) Advance(ctx context.Context, change metadatascrape
 	}
 	query := `UPDATE import_jobs SET running_item_count=running_item_count-1,
  review_pending_item_count=review_pending_item_count+?,failed_item_count=failed_item_count+?,
- state=?,version=version+1,updated_at_ms=?`
-	args := []any{change.ReviewDelta, change.FailedDelta, change.JobState, change.Now}
+ cancelled_item_count=cancelled_item_count+?,state=?,version=version+1,updated_at_ms=?`
+	args := []any{change.ReviewDelta, change.FailedDelta, change.CancelledDelta, change.JobState, change.Now}
 	if change.ErrorCode != nil {
 		query += `,last_error_code=?`
 		args = append(args, *change.ErrorCode)
