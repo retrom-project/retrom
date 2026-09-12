@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/accounts"
 )
 
@@ -29,20 +28,8 @@ func (records passwordRecords) Rotate(ctx context.Context, plan accounts.Passwor
 		return err
 	}
 	if plan.ClearTestDefault {
-		if _, err := recordstore.UpdateInstanceState(
-			ctx,
-			records.executor,
-			recordstore.Update{
-				Set: `test_default_password_active=0,version=version+1,updated_at_ms=?`,
-				Scope: recordstore.Scope{
-					Where: `id=1 AND test_default_password_active=1`,
-				},
-				Values: []any{
-					plan.Now,
-				},
-			},
-		); err != nil {
-			return fmt.Errorf("clear default credential flag: %w", err)
+		if err := authRecords(records).clearDefaultCredential(ctx, plan.Now); err != nil {
+			return err
 		}
 	}
 	if err := authRecords(records).insertSession(ctx, plan.Session); err != nil {
@@ -67,25 +54,5 @@ func (records passwordRecords) Rotate(ctx context.Context, plan accounts.Passwor
 }
 
 func (records passwordRecords) revokePasswordSessions(ctx context.Context, plan accounts.PasswordPlan) error {
-	_, err := records.executor.ExecContext(ctx, `UPDATE auth_sessions SET revoked_at_ms=?,revoked_reason='PASSWORD_CHANGED'
- WHERE user_id=? AND revoked_at_ms IS NULL`, plan.Now, plan.Actor.UserID)
-	if err != nil {
-		return fmt.Errorf("revoke password-change sessions: %w", err)
-	}
-	_, err = recordstore.UpdateAccountLinks(ctx, records.executor, recordstore.Update{
-		Set: `revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1`, Scope: recordstore.Scope{
-			Where: `kind='PASSWORD_RESET' AND target_user_id=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL
- AND expires_at_ms>?`,
-			Args: []any{
-				plan.Actor.UserID,
-				plan.Now,
-			},
-		}, Values: []any{
-			plan.Now,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("revoke password-reset links: %w", err)
-	}
-	return nil
+	return authRecords(records).revokeCredentialSecurity(ctx, plan.Actor.UserID, "PASSWORD_CHANGED", plan.Now)
 }
