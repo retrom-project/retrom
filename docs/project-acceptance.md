@@ -2267,6 +2267,8 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 - 输出 `neocd-storage-product.json` 和阶段 PNG；自动化先标记 `AWAITING_VISUAL_REVIEW`，
   逐图确认可操作游戏场景、状态恢复与输入生效后才能记录 PASS。仅有 BIOS 或标题画面不算通过。
   `product-input.json` 允许失败重试复用当前样本；已发布样本复测需与首次审核证据一起保留。
+  已发布样本复测可额外传 `RETROM_NEOCD_PREVIEW_REVIEW_ID`，指定同一 CHD 的待审核项
+  重跑当前 Provider 预览并保留该审核项；此复测不再次批准重复游戏。
   冷启动样本可设置 `RETROM_NEOCD_GAMEPLAY_WAIT_MS`（0–120000），在启动按键序列后
   再确认一次并等待指定时长，以越过角色选择或开场动画；仍须逐图判定实际场景。
 - 实体手柄事件、听觉质量、全部游戏兼容性、CUE/BIN 与多盘不在本 Case 的通过范围。

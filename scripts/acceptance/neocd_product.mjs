@@ -52,7 +52,14 @@ async function prepare(client) {
     await preview.page.close(); evidence.stages.push("import-review-preview");
     progress.gameId = (await approveCart(client, progress.review.itemId)).gameId;
     writeFileSync(file, JSON.stringify(progress));
-  } else {evidence.stages.push("reuse-previously-published-game");}
+  } else {
+    evidence.stages.push("reuse-previously-published-game");
+    if (env.RETROM_NEOCD_PREVIEW_REVIEW_ID) {
+      const preview = await open(await previewCart(client, env.RETROM_NEOCD_PREVIEW_REVIEW_ID));
+      await preview.page.waitForTimeout(10000); await preview.canvas.screenshot({path: join(directory, "preview.png")});
+      await preview.page.close(); evidence.stages.push("review-preview");
+    }
+  }
   return progress;
 }
 async function open(launch) {
@@ -174,7 +181,7 @@ try {
   await gamepad(next.page, 1, 150); await next.page.waitForTimeout(1000);
   await next.canvas.screenshot({path: join(directory, "restored-secondary.png")}); await next.page.close();
   const fresh = await open(await launchCart(client, progress.gameId));
-  assert.equal(fresh.config.restore, null); await fresh.canvas.screenshot({path: join(directory, "fresh.png")}); await fresh.page.close();
+  assert.equal(fresh.config.restore, null); await fresh.page.waitForTimeout(2000); await fresh.canvas.screenshot({path: join(directory, "fresh.png")}); await fresh.page.close();
   evidence.checkpoint = {storedBytes: bytes.length, rawBytes: raw.length, rawSha256: hash(raw), storedSha256: hash(bytes)};
   evidence.launches = {original: original.launchId, restored: restored.launchId};
   evidence.range = await ranges.verify(discUrl, discSize);
