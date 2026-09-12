@@ -33,7 +33,8 @@
         "crocods",
         "81",
         "same_cdi",
-        "vecx"
+        "vecx",
+        "quasi88"
       ]
     },
     {
@@ -294,6 +295,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/libretro-vecx.git",
       "defaultBranch": "retrom/g8f671cc9d737",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "quasi88",
+      "path": "project/retrom-core/quasi88-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/quasi88-libretro.git",
+      "defaultBranch": "retrom/g459bbc6e90ca",
       "submodules": false,
       "dependsOn": []
     }
