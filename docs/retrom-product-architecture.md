@@ -285,7 +285,7 @@ erDiagram
 
 ## 6. 平台、核心与推荐游戏目录
 
-空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 51 个 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
+空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 64 个 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
 
 | 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |
@@ -301,6 +301,13 @@ erDiagram
 | Atari 5200 (`atari5200`) | `a5200` | Atari 5200 游戏 → `a5200` | `.a52`；需要 `5200.rom` |
 | Atari 7800 (`atari7800`) | `prosystem` | Atari 7800 游戏 → `prosystem` | `.a78`；需要 `7800 BIOS (U).rom` |
 | Atari Lynx (`lynx`) | `handy` | Atari Lynx 游戏 → `handy` | `.lnx`；需要 `lynxboot.img` |
+| Game Gear (`gamegear`) | `genesis_plus_gx` | Game Gear 游戏 → `genesis_plus_gx` | 单卡带 `.gg` |
+| SG-1000 (`sg1000`) | `genesis_plus_gx` | SG-1000 游戏 → `genesis_plus_gx` | 单卡带 `.sg` |
+| Multivision (`multivision`) | `genesis_plus_gx` | Multivision 游戏 → `genesis_plus_gx` | SG-1000 兼容卡带 `.sg`；独立内容身份 |
+| Sega Pico (`pico`) | `picodrive` | Sega Pico 游戏 → `picodrive` | `.md/.bin`；与 PICO-8 无关；专用外设按实际样本验证 |
+| Sega 32X (`sega32x`) | `picodrive` | Sega 32X 游戏 → `picodrive` | 单卡带 `.32x`；不包含 CD32X |
+| SuperGrafx (`supergrafx`) | `mednafen_pce` | SuperGrafx 游戏 → `mednafen_pce` | `.pce/.sgx`；使用包含 SGX 的锁定 EmulatorJS 构建 |
+| GX4000 (`gx4000`) | `cap32` | GX4000 游戏 → `cap32` | 单卡带 `.cpr`；Provider 选择 Plus 机型 |
 | Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`、`.smd`、`.bin`；Wide 为可选核心，不另建目录 |
 | PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏 → `mednafen_pce` | `.pce` |
 | PC Engine CD (`pcecd`) | `mednafen_pce` | PC Engine CD 游戏 → `mednafen_pce` | 单文件 CHD；需要 `syscard3.pce`，卡带不受此条件影响 |
