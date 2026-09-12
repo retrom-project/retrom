@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/composition"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/cleanup"
@@ -443,10 +445,11 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 	testassert.False(t, err != nil, err)
 	service.registry, err = parseRegistry(manifest, fixtureDependencySet())
 	testassert.False(t, err != nil, err)
+	service.Service = composition.NewNetplay(database.SQL, service.registry, nil, service.options, service.clock.Now)
 	games, err := service.Games(ctx, hostID, "SUPPORTED")
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return len(games) != 1 }, func() bool { return games[0].GameID != gameID }, func() bool { return len(games[0].NetplayProfiles) != 1 }, func() bool { return games[0].NetplayProfiles[0].ID != "fceumm-423-v1" }, func() bool { return games[0].BlockerCode != nil }), "eligible games = %#v", games)
-	eligible, err := service.eligibleProfiles(ctx, gameID)
+	eligible, err := service.eligibility().Profiles(ctx, gameID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(eligible) != 1 }), "eligible profile for retry = %#v, %v", eligible, err)
 	_, retryDigest, err := service.registry.CanonicalProfile(CanonicalProfileInput{
 		ManifestProfile:        eligible[0].Manifest,

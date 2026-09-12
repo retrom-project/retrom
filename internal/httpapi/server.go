@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	netplayservice "retrom/internal/service/netplay"
+
 	gamecontentpersistence "retrom/internal/persistence/gamecontent"
 
 	"retrom/internal/composition"
@@ -128,7 +130,7 @@ type Server struct {
 	idempotencyQueueDrained *sync.Cond
 	authenticator           Authenticator
 	accounts                *accounts.Service
-	netplay                 *netplay.Service
+	netplay                 *netplayservice.Service
 	netplayHub              *netplay.Hub
 	netplayObserversMu      sync.Mutex
 	netplayObservers        map[string]int
@@ -151,9 +153,12 @@ func (server *Server) WithRuntimeProvider(
 	return server.WithRuntimeProviderHandler(handler)
 }
 
-func (server *Server) WithNetplay(service *netplay.Service) *Server {
+func (server *Server) WithNetplay(service *netplayservice.Service) *Server {
 	server.netplay = service
-	server.netplayHub = netplay.NewHub(service)
+	server.netplayHub = netplay.NewHub(
+		netplay.HubServices{Sessions: service, Peers: service, Termination: service},
+		netplay.HubOptions{ReconnectLease: server.config.NetplayReconnectLease, Now: server.now},
+	)
 	service.StartMaintenance()
 	return server
 }

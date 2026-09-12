@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/composition"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -38,7 +40,7 @@ func TestAdminPlatformsProjectsManifestBoundNetplayCapability(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	credentials, err := netplay.LoadOrCreateCredentials(server.config.DataDir)
 	testassert.False(t, err != nil, err)
-	server.WithNetplay(netplay.NewService(server.database, registry, credentials, netplay.Options{}, time.Now))
+	server.WithNetplay(composition.NewNetplay(server.database, registry, credentials, netplay.Options{}, time.Now))
 
 	response := httptest.NewRecorder()
 	server.platforms(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/platforms", nil))

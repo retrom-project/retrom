@@ -14,7 +14,7 @@ import (
 )
 
 func (session *realtimeSession) handleMismatchLocked(ctx context.Context) {
-	now := session.service.clock.Now()
+	now := session.options.Now()
 	cutoff := now.Add(-time.Minute)
 	kept := session.resyncTimes[:0]
 	for _, occurredAt := range session.resyncTimes {
@@ -32,7 +32,7 @@ func (session *realtimeSession) handleMismatchLocked(ctx context.Context) {
 }
 
 func (session *realtimeSession) prepareHashResync(ctx context.Context) {
-	if err := session.service.PrepareHashResync(ctx, session.roomID, session.sessionID); err != nil {
+	if err := session.services.Sessions.PrepareHashResync(ctx, session.roomID, session.sessionID); err != nil {
 		session.fail(ctx, "INTERNAL_ERROR", "")
 		return
 	}
@@ -176,7 +176,7 @@ func (session *realtimeSession) maybeStartLocked(ctx context.Context) {
 	session.inputs = make(map[int64]map[int][24]int16)
 	session.hashes = make(map[int64]map[int]string)
 	session.running = true
-	if err := session.service.MarkSessionRunning(ctx, session.roomID, session.sessionID); err != nil &&
+	if err := session.services.Sessions.MarkSessionRunning(ctx, session.roomID, session.sessionID); err != nil &&
 		!errors.Is(err, ErrRoomConflict) {
 		go session.fail(context.WithoutCancel(ctx), "INTERNAL_ERROR", "")
 		return
@@ -293,9 +293,9 @@ func (session *realtimeSession) fail(ctx context.Context, reason, profileID stri
 	}
 	var endErr error
 	if actor == "" {
-		endErr = session.service.endRoomSystem(workContext, session.roomID, reason)
+		endErr = session.services.Termination.EndSystem(workContext, session.roomID, reason)
 	} else {
-		endErr = session.service.EndRoom(workContext, session.roomID, actor, reason, nil)
+		endErr = session.services.Termination.EndRoom(workContext, session.roomID, actor, reason, nil)
 	}
 	if endErr != nil {
 		slog.ErrorContext(workContext, "netplay terminal persistence failed",
@@ -358,9 +358,11 @@ func (hub *Hub) Pause(ctx context.Context, roomID, sessionID, profileID string) 
 		session.mu.Unlock()
 		return ErrForbidden
 	}
-	if err := session.service.SetSessionState(ctx, roomID, sessionID, profileID, "PAUSED_RECONNECT"); err != nil {
+	if err := session.services.Sessions.SetSessionState(
+		ctx, roomID, sessionID, profileID, "PAUSED_RECONNECT",
+	); err != nil {
 		session.mu.Unlock()
-		return err
+		return serviceError("pause session", err)
 	}
 	session.beginPauseLocked(ctx, "HOST_PAUSE", 1, pauseActionHost)
 	session.mu.Unlock()
@@ -381,8 +383,8 @@ func (hub *Hub) Resume(ctx context.Context, roomID, sessionID, profileID string)
 		session.peers[1] == nil || session.peers[1].participant.ProfileID != profileID {
 		return ErrForbidden
 	}
-	if err := session.service.PrepareHostResync(ctx, roomID, sessionID); err != nil {
-		return err
+	if err := session.services.Sessions.PrepareHostResync(ctx, roomID, sessionID); err != nil {
+		return serviceError("resume session", err)
 	}
 	session.pause = nil
 	session.beginTransferLocked(ctx, "HOST_RESUME", session.nextFrame)

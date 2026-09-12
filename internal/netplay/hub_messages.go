@@ -46,9 +46,9 @@ func (session *realtimeSession) handleRuntimeReady(
 		message.BundleSHA256 != session.bundleSHA256 {
 		return ErrProtocol
 	}
-	allReady, err := session.service.MarkRuntimeReady(ctx, client.participant)
+	allReady, err := session.services.Peers.MarkRuntimeReady(ctx, client.participant)
 	if err != nil {
-		return err
+		return serviceError("runtime ready", err)
 	}
 	if allReady {
 		session.mu.Lock()
@@ -65,7 +65,7 @@ func (session *realtimeSession) handleInput(
 	messageBytes int,
 ) error {
 	if messageBytes > MaxInputMessageBytes || message.PlayerNo != client.participant.PlayerNo ||
-		len(message.Controls) != ControlCount || !client.allowInput(session.service.clock.Now()) {
+		len(message.Controls) != ControlCount || !client.allowInput(session.options.Now()) {
 		return ErrProtocol
 	}
 	return session.acceptInput(ctx, client.participant.PlayerNo, message.Frame, message.Controls)

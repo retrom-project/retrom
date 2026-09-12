@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	netplayservice "retrom/internal/service/netplay"
+
 	"retrom/internal/composition"
 
 	providerpersistence "retrom/internal/persistence/runtimeprovider"
@@ -468,8 +470,8 @@ func initializeRuntimeServices(
 	ctx context.Context,
 	configuration config.Config,
 	resources serverResources,
-) (*netplay.Service, *accounts.Service, error) {
-	netplayService := netplay.NewService(
+) (*netplayservice.Service, *accounts.Service, error) {
+	netplayService := composition.NewNetplay(
 		resources.database.SQL, resources.netplayRegistry, resources.netplayCredentials,
 		netplay.Options{
 			MaxActiveRooms: configuration.NetplayMaxActiveRooms,
