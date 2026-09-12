@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	ErrBlocked          = errors.New("LAUNCH_BLOCKED")
+	ErrBlocked          = application.ErrBlocked
 	ErrCredential       = application.ErrCredential
 	ErrDOSEntryMissing  = errors.New("LAUNCH_DOS_ENTRY_MISSING")
 	ErrDOSEntryUnsafe   = errors.New("LAUNCH_DOS_ENTRY_UNSAFE")

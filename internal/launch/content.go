@@ -62,21 +62,8 @@ func (service *Service) ExternalBlob(ctx context.Context, launchID, capability, 
 	return view.Digest, err
 }
 
-type Interval struct {
-	Running bool `json:"running"`
-	Visible bool `json:"visible"`
-	Paused  bool `json:"paused"`
-}
-
-type PlayEvent struct {
-	ClientSequence     int64     `json:"clientSequence"`
-	ClientObservedAtMS int64     `json:"clientObservedAtMs"`
-	PreviousInterval   *Interval `json:"previousInterval"`
-}
-
-type PlayResult struct {
-	PlaySessionID    any    `json:"playSessionId"`
-	ClientSequence   int64  `json:"clientSequence"`
-	AcceptedDuration int64  `json:"acceptedDurationMs"`
-	State            string `json:"state"`
-}
+type (
+	Interval   = application.Interval
+	PlayEvent  = application.PlayEvent
+	PlayResult = application.PlayResult
+)
