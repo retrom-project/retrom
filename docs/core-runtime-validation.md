@@ -178,7 +178,7 @@ Provider 将 CHD 声明为 `SEEKABLE_BLOB`，通过 256 KiB Range 块按需读�
 
 ### Pokémon Mini / GBE+
 
-候选 `gbe-pokemini` 必须通过 `ACC-POKEMINI-001` 的真实产品流程，验证标准手柄
+`gbe-pokemini` 必须通过 `ACC-POKEMINI-001` 的真实产品流程，验证标准手柄
 方向与确认、音频、暂停、截图、完整即时存档、不同 Launch 恢复后输入和跨实例内容缓存。
 用户提供的 Mini 游戏与 BIOS 不进入 fixture。GBE+ 桌面已有红外功能不意味着本浏览器
-候选支持联机；当前只验证单机。
+Target 支持联机；当前只验证单机。
