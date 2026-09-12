@@ -16,6 +16,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
+	assetservice "retrom/internal/service/metadatascrape"
 )
 
 type Service struct {
@@ -30,8 +31,7 @@ var (
 	errArcadeSnapshotInvalid = errors.New("ARCADE_EVIDENCE_SNAPSHOT_INVALID")
 	errReviewVersionConflict = errors.New("REVIEW_VERSION_CONFLICT")
 	errGameVersionConflict   = errors.New("GAME_VERSION_CONFLICT")
-	errAssetStateConflict    = errors.New("ASSET_STATE_CONFLICT")
-	errGameDeleted           = errors.New("METADATA_GAME_DELETED")
+	errGameDeleted           = assetservice.ErrGameDeleted
 	errInitialItemState      = errors.New("initial review item state changed")
 	errInitialProgressState  = errors.New("initial import progress state changed")
 )

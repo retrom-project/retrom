@@ -211,6 +211,10 @@ ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.
 
 ## 7. Hasheous 适配器
 
+缓存命中、绕过缓存和无效缓存回源由 `internal/service/metadatascrape` 决策，缓存查询留在 Repository。响应缓存到期时间从本次持久化的抓取时刻计算，避免重复读取时钟造成记录不一致；数据库查询失败必须保留原因，不能当作缓存未命中继续请求上游。
+
+元数据素材下载由 `internal/service/metadatascrape` 管理每次抓取的容量预算、下载失败分类与 CAS 文件准备；`internal/persistence/metadatascrape` 查询待处理素材，并在短事务内登记 Blob、重新检查素材和游戏可写状态、更新引用。素材发布冲突必须回滚 Blob 登记并释放数据库连接，不能保留未结束事务。
+
 ~~~go
 type ContentHashes struct {
     MD5    string

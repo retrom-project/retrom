@@ -232,7 +232,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         180,
         "go test -tags=integration ./internal/libraryimport -run '^TestUploadImportReviewPublishPipeline$' -count=1",
     ),
-    "ACC-IMP-005": (180, "go test -tags=integration ./internal/hasheous ./internal/metadatascrape -count=1"),
+    "ACC-IMP-005": (180, "go test -tags=integration ./internal/hasheous ./internal/metadatascrape ./internal/service/metadatascrape ./internal/persistence/metadatascrape -count=1"),
     "ACC-IMP-006": (
         180,
         "go test -tags=integration ./internal/metadatascrape -run '^TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly$' -count=1",

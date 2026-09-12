@@ -5,9 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"retrom/internal/dbexec"
@@ -17,6 +15,8 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
+	lookuppersistence "retrom/internal/persistence/metadatascrape"
+	lookupservice "retrom/internal/service/metadatascrape"
 )
 
 type scrapeEvidence struct {
@@ -151,12 +151,12 @@ func (service *Service) processEvidenceItem(
 			return false, "METADATA_REQUEST_INVALID", err
 		}
 		created, err := service.persistResult(
-			ctx, runID, item.id, resolved.result, resolved.cachedResponseID, attempt, allowCandidate,
+			ctx, runID, item.id, resolved.Result, resolved.CachedResponseID, attempt, allowCandidate,
 		)
 		if err != nil {
 			return false, "METADATA_PERSIST_FAILED", err
 		}
-		if resolved.cachedResponseID != "" || !retryableOutcome(resolved.result.Outcome) || attempt == 3 {
+		if resolved.CachedResponseID != "" || !retryableOutcome(resolved.Result.Outcome) || attempt == 3 {
 			return created, "", nil
 		}
 		if err := waitRetry(ctx, time.Duration(100*(1<<(attempt-1)))*time.Millisecond); err != nil {
@@ -166,82 +166,24 @@ func (service *Service) processEvidenceItem(
 	return false, "", nil
 }
 
-type resolvedLookup struct {
-	result           hasheous.LookupResult
-	cachedResponseID string
-}
-
 func (service *Service) lookup(
 	ctx context.Context,
 	hashes hasheous.ContentHashes,
 	bypassCache bool,
-) (resolvedLookup, error) {
-	digest, err := hasheous.RequestDigest(hashes)
+) (lookupservice.ResolvedLookup, error) {
+	lookup := lookupservice.NewLookup(
+		lookuppersistence.NewCache(
+			service.database,
+		),
+		service.blobs,
+		service.provider,
+		service.now,
+	)
+	result, err := lookup.Lookup(ctx, hashes, bypassCache)
 	if err != nil {
-		return resolvedLookup{}, fmt.Errorf("metadatascrape/service: %w", err)
+		return lookupservice.ResolvedLookup{}, fmt.Errorf("resolve scrape lookup: %w", err)
 	}
-	if !bypassCache {
-		cached, found, err := service.cachedLookup(ctx, digest, hashes)
-		if err != nil {
-			return resolvedLookup{}, err
-		}
-		if found {
-			return cached, nil
-		}
-	}
-	result, err := service.provider.LookupByHash(ctx, hashes)
-	if err != nil {
-		return resolvedLookup{}, fmt.Errorf("look up metadata by hash: %w", err)
-	}
-	return resolvedLookup{result: result}, nil
-}
-
-func (service *Service) cachedLookup(
-	ctx context.Context,
-	digest string,
-	hashes hasheous.ContentHashes,
-) (resolvedLookup, bool, error) {
-	var responseID, outcome string
-	var status sql.NullInt64
-	var rawSHA sql.NullString
-	err := service.database.QueryRowContext(ctx, `
-SELECT r.id,r.outcome,r.http_status,b.sha256 FROM metadata_provider_cache c
-JOIN metadata_provider_responses r ON r.id=c.current_response_id
-LEFT JOIN blobs b ON b.id=r.raw_response_blob_id
-WHERE c.provider='HASHEOUS' AND c.request_digest=? AND c.expires_at_ms>?
-`, digest, service.now().UnixMilli()).Scan(&responseID, &outcome, &status, &rawSHA)
-	if errors.Is(err, sql.ErrNoRows) {
-		return resolvedLookup{}, false, nil
-	}
-	if err != nil {
-		return resolvedLookup{}, false, fmt.Errorf("metadatascrape/service: %w", err)
-	}
-	raw := service.readCachedResponse(rawSHA)
-	if outcome != string(hasheous.OutcomeMiss) && len(raw) == 0 {
-		return resolvedLookup{}, false, nil
-	}
-	if restored, restoreErr := service.provider.RestoreCached(
-		hashes, hasheous.ProviderOutcome(outcome), int(status.Int64), raw,
-	); restoreErr == nil {
-		return resolvedLookup{result: restored, cachedResponseID: responseID}, true, nil
-	}
-	return resolvedLookup{}, false, nil
-}
-
-func (service *Service) readCachedResponse(rawSHA sql.NullString) []byte {
-	if !rawSHA.Valid {
-		return nil
-	}
-	file, err := service.blobs.OpenDigest(rawSHA.String)
-	if err != nil {
-		return nil
-	}
-	raw, err := io.ReadAll(io.LimitReader(file, (4<<20)+1))
-	cleanup.Error("close", file.Close())
-	if err != nil || len(raw) > 4<<20 {
-		return nil
-	}
-	return raw
+	return result, nil
 }
 
 func retryableOutcome(outcome hasheous.ProviderOutcome) bool {
@@ -328,16 +270,7 @@ func (service *Service) persistRawResponse(
 }
 
 func (service *Service) providerResponseExpiry(outcome hasheous.ProviderOutcome, now int64) int64 {
-	switch outcome {
-	case hasheous.OutcomeHit:
-		return service.now().Add(7 * 24 * time.Hour).UnixMilli()
-	case hasheous.OutcomeMiss:
-		return service.now().Add(24 * time.Hour).UnixMilli()
-	case hasheous.OutcomeRateLimited, hasheous.OutcomeTimeout,
-		hasheous.OutcomeInvalidResponse, hasheous.OutcomeNetworkError:
-		return now
-	}
-	return now
+	return lookupservice.ResponseExpiry(outcome, now)
 }
 
 // Contract branches stay contiguous for a single auditable decision.
