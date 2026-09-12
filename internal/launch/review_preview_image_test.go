@@ -22,11 +22,11 @@ func TestInspectReviewScreenshotAcceptsRuntimeJPEG(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := (&Service{blobs: blobs}).inspectReviewScreenshot(bytes.NewReader(payload.Bytes()))
+	result, err := (screenshotImages{blobs: blobs}).Read(t.Context(), bytes.NewReader(payload.Bytes()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Image.MediaType != "image/jpeg" || result.Image.WidthPX != 2 || result.Image.HeightPX != 2 {
-		t.Fatalf("review JPEG=%#v", result.Image)
+	if result.MediaType != "image/jpeg" || result.WidthPX != 2 || result.HeightPX != 2 {
+		t.Fatalf("review JPEG=%#v", result)
 	}
 }
