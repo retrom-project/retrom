@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 77)
+        self.assertEqual(len(catalog["bindings"]), 78)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -50,6 +50,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("emulatorjs", "desmume2015")]["coreId"], "desmume2015")
         expected_single_file_targets = {
             "vecx": ("vecx", ["vectrex"]),
+            "neocd": ("neocd", ["neogeocd"]),
             "81": ("81", ["zx81"]),
             "cap32": ("cap32", ["amstradcpc"]),
             "crocods": ("crocods", ["amstradcpc"]),

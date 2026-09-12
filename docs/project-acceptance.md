@@ -2248,3 +2248,32 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
   `REVIEW_REQUIRED` 经本次画面复核后方可记录 PASS；记录没有实体手柄时的硬件验证限制。
 - 证据：导入/审核/发布记录、预览与不同产品 Launch、压缩状态长度/hash、原生状态版本、
   浏览器与渲染器、连续画面和退出清理。单个样本的结论不外推到全部 Vectrex 游戏或外围设备。
+
+### ACC-NEOCD-001：Neo Geo CD CHD、标准手柄与即时恢复
+
+- 显式命令：`timeout 600 node scripts/acceptance/neocd_product.mjs`，使用 PFB 固定 Node 和 Chrome。
+  输入 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_NEOCD_CHD`、`RETROM_NEOCD_BIOS_DIR`，
+  `RETROM_ACCEPTANCE_CASE_DIR` 指向忽略的证据目录。BIOS 目录含 `neocd.bin`。
+  普通测试不扫描或下载私有游戏。本 Case 只处理操作者显式指定的文件。
+- 经产品上传安装 BIOS、上传 CHD、导入、审核预览、批准和 Product Launch；通过标准
+  虚拟手柄启动并操作游戏，记录方向与确认前后截图、实际 Web Audio 非零缓冲。
+- 用 Player 创建非空即时存档；关闭原页面，在不同 Launch 恢复，核验公共 gzip
+  格式、传输大小/摘要，以及解压后完整原始状态摘要。恢复后继续方向、确认输入；
+  不选存档另建 Launch 应重新启动。NeoCD 游戏资源必须为 `SEEKABLE_BLOB`/`rangeRequired=true`；
+  所有游戏请求均携带 Range 并返回 206，单块不超过 256 KiB。记录首次 ready 耗时、
+  启动时已传输字节、各范围与总下载量；同一浏览器上下文跨实例不应重复请求已缓存块。
+  大于 32 MiB 的样本在本 Case 中累计下载量必须小于镜像的一半，不得整包预取。
+- 输出 `neocd-storage-product.json` 和阶段 PNG；自动化先标记 `AWAITING_VISUAL_REVIEW`，
+  逐图确认可操作游戏场景、状态恢复与输入生效后才能记录 PASS。仅有 BIOS 或标题画面不算通过。
+  `product-input.json` 允许失败重试复用当前样本；已发布样本复测需与首次审核证据一起保留。
+  已发布样本复测可额外传 `RETROM_NEOCD_PREVIEW_REVIEW_ID`，指定同一 CHD 的待审核项
+  重跑当前 Provider 预览并保留该审核项；此复测不再次批准重复游戏。
+  冷启动样本可设置 `RETROM_NEOCD_GAMEPLAY_WAIT_MS`（0–120000），在启动按键序列后
+  再确认一次并等待指定时长，以越过角色选择或开场动画；仍须逐图判定实际场景。
+- 实体手柄事件、听觉质量、全部游戏兼容性、CUE/BIN 与多盘不在本 Case 的通过范围。
+
+- 复测可提供 `RETROM_NEOCD_SEED_SAVE_ID` 从已验证关卡状态开始；必须保留同一游戏首次
+  导入、预览、发布的证据，并明确复测复用了已发布游戏。实体按键语义以 NeoCD 原生
+  A/B/C/D 为准：标准手柄底/右/左/上四个面键分别映射 A/B/C/D；B 是游戏的次要动作，
+  不一概声称为取消。原生肩键组合宏不绑定标准手柄按钮。
