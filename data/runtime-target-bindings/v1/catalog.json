@@ -199,6 +199,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-freeintv",
+      "coreId": "freeintv",
+      "providerId": "emulatorjs",
+      "targetId": "freeintv",
+      "platformIds": [
+        "intellivision"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-fuse",
       "coreId": "fuse",
       "providerId": "emulatorjs",
@@ -1166,6 +1180,12 @@
         "enabled": true
       },
       {
+        "id": "intellivision",
+        "name": "Mattel Intellivision",
+        "sortOrder": 560,
+        "enabled": true
+      },
+      {
         "id": "j2me",
         "name": "Java ME",
         "sortOrder": 82,
@@ -1467,6 +1487,11 @@
       {
         "id": "flycast",
         "name": "Flycast",
+        "enabled": true
+      },
+      {
+        "id": "freeintv",
+        "name": "FreeIntv",
         "enabled": true
       },
       {
