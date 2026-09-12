@@ -566,6 +566,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-quasi88",
+      "coreId": "quasi88",
+      "providerId": "emulatorjs",
+      "targetId": "quasi88",
+      "platformIds": [
+        "pc88"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-same-cdi",
       "coreId": "same_cdi",
       "providerId": "emulatorjs",
@@ -1264,6 +1278,12 @@
         "enabled": true
       },
       {
+        "id": "pc88",
+        "name": "NEC PC-88",
+        "sortOrder": 570,
+        "enabled": true
+      },
+      {
         "id": "pc98",
         "name": "NEC PC-98",
         "sortOrder": 460,
@@ -1652,6 +1672,11 @@
       {
         "id": "px68k",
         "name": "PX68K",
+        "enabled": true
+      },
+      {
+        "id": "quasi88",
+        "name": "QUASI88",
         "enabled": true
       },
       {
