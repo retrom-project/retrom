@@ -17,6 +17,7 @@ from pfb.common import canonical_bytes, remove_tree
 from pfb.docker import (
     _runtime_git_mount_arguments,
     app_restart,
+    build_toolchain,
     app_up,
     build_toolchain,
     import_provider_base,
@@ -28,6 +29,24 @@ from pfb.identity import app_origin, pfb_id, runtime_origin_template, validate_p
 from pfb.registry import empty_registry, locked_registry, register_spec, save_registry, state_root
 from pfb.source_tree import git_common_dir, source_tree_sha256, worktree_identity
 from pfb.spec import HOST_MODE, validate_spec
+
+
+class ToolchainReceiptTests(unittest.TestCase):
+    def test_image_change_refreshes_receipt_without_reinstalling_dependencies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            marker = root / "toolchain.json"
+            marker.write_text(json.dumps({"schemaVersion": 1, "toolchainSha256": "old",
+                                         "inputsSha256": "same-inputs"}))
+            with mock.patch("pfb.docker.ensure_workspace", return_value={"root": root}), \
+                    mock.patch("pfb.docker._toolchain_digest", return_value="new"), \
+                    mock.patch("pfb.docker._development_inputs_digest", return_value="same-inputs"), \
+                    mock.patch("pfb.docker.subprocess.run", return_value=mock.Mock(returncode=0)), \
+                    mock.patch("pfb.docker._run_dev_command") as install:
+                result = build_toolchain(root, {})
+            self.assertFalse(result["dependenciesChanged"])
+            install.assert_not_called()
+            self.assertEqual(json.loads(marker.read_text())["toolchainSha256"], "new")
 
 
 class IdentityTests(unittest.TestCase):
