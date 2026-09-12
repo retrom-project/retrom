@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 
+	application "retrom/internal/service/launch"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -34,17 +36,10 @@ func (configuration Config) MarshalJSON() ([]byte, error) {
 	return slices.Clone(configuration.contents), nil
 }
 
-type MultiDiscTelemetryDimensions struct {
-	PlatformKey  string
-	TargetKey    string
-	BundleDigest string
-	DiscCount    int
-}
-
-type BundleFile struct {
-	LogicalName string
-	SHA256      string
-}
+type (
+	MultiDiscTelemetryDimensions = application.MultiDiscTelemetryDimensions
+	BundleFile                   = application.BundleFile
+)
 
 type DiscSet struct {
 	ContentKind      string
@@ -686,68 +681,17 @@ func (service *Service) MultiDiscTelemetryDimensions(
 	ctx context.Context,
 	launchID, capability string,
 ) (MultiDiscTelemetryDimensions, error) {
-	var credentialHash []byte
-	var state, platformKey, targetKey, bundleDigest, contentFormat string
-	var hardEnd int64
-	var discCount int
-	err := service.database.QueryRowContext(ctx, `
-SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,platform.id,
- launch.target_id,launch.bundle_sha256,content.format_version,
- (SELECT count(*) FROM launch_external_files file WHERE file.launch_session_id=launch.id AND file.kind='DISC')
-FROM launch_sessions launch
-JOIN games game ON game.id=launch.game_id
-JOIN platform_instances instance ON instance.id=game.platform_instance_id
-JOIN platforms platform ON platform.id=instance.platform_id
-JOIN launch_content_files content ON content.launch_session_id=launch.id
-WHERE launch.id=? AND content.format_version='RETROM_MULTIDISC_M3U_V1'
-`, launchID).Scan(
-		&credentialHash, &state, &hardEnd, &platformKey, &targetKey, &bundleDigest, &contentFormat, &discCount,
-	)
-	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
-		hardEnd <= service.now().UnixMilli() ||
-		state != "ACTIVE" || discCount < 2 || discCount > 8 {
-		return MultiDiscTelemetryDimensions{}, ErrCredential
+	result, err := service.sessionQueries().MultiDiscTelemetryDimensions(ctx, launchID, capability)
+	if err != nil {
+		return result, fmt.Errorf("launch resource query: %w", err)
 	}
-	return MultiDiscTelemetryDimensions{
-		PlatformKey: platformKey, TargetKey: targetKey, BundleDigest: bundleDigest, DiscCount: discCount,
-	}, nil
+	return result, nil
 }
 
 func (service *Service) BundleFiles(ctx context.Context, launchID, capability, kind string) ([]BundleFile, error) {
-	if kind != "BIOS_BUNDLE" && kind != "PARENT" {
-		return nil, ErrCredential
-	}
-	var credentialHash []byte
-	var state string
-	var hardEnd int64
-	if err := service.database.QueryRowContext(ctx, `
-SELECT credential_sha256,state,hard_expires_at_ms FROM launch_sessions WHERE id=?
-	`, launchID).Scan(&credentialHash, &state, &hardEnd); err != nil ||
-		!retromruntime.MatchesCapability(capability, credentialHash) || state != "ACTIVE" ||
-		hardEnd <= service.now().UnixMilli() {
-		return nil, ErrCredential
-	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT file.logical_name,blob.sha256
-FROM launch_sessions launch
-JOIN launch_external_files file ON file.launch_session_id=launch.id
-JOIN blobs blob ON blob.id=file.blob_id
-WHERE launch.id=? AND file.kind=? ORDER BY file.logical_name
-	`, launchID, kind)
+	result, err := service.sessionQueries().BundleFiles(ctx, application.SessionRef{ID: launchID}, capability, kind)
 	if err != nil {
-		return nil, fmt.Errorf("load launch bundle files: %w", err)
+		return result, fmt.Errorf("launch resource query: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	files := make([]BundleFile, 0)
-	for rows.Next() {
-		var file BundleFile
-		if err := rows.Scan(&file.LogicalName, &file.SHA256); err != nil {
-			return nil, fmt.Errorf("scan launch bundle file: %w", err)
-		}
-		files = append(files, file)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate launch bundle files: %w", err)
-	}
-	return files, nil
+	return result, nil
 }

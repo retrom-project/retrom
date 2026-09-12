@@ -28,7 +28,7 @@ import (
 
 var (
 	ErrBlocked          = errors.New("LAUNCH_BLOCKED")
-	ErrCredential       = errors.New("LAUNCH_CREDENTIAL_INVALID")
+	ErrCredential       = application.ErrCredential
 	ErrDOSEntryMissing  = errors.New("LAUNCH_DOS_ENTRY_MISSING")
 	ErrDOSEntryUnsafe   = errors.New("LAUNCH_DOS_ENTRY_UNSAFE")
 	ErrSaveIncompatible = errors.New("LAUNCH_SAVE_INCOMPATIBLE")
@@ -115,19 +115,11 @@ func (service *Service) netplaySocketURL(roomID string) (string, error) {
 }
 
 func (service *Service) SaveAccess(ctx context.Context, launchID, capability string) (string, error) {
-	var credentialHash []byte
-	var state, access string
-	var hardExpires int64
-	if err := service.database.QueryRowContext(ctx, `
-SELECT credential_sha256,state,hard_expires_at_ms,save_access FROM launch_sessions WHERE id=?
-UNION ALL
-SELECT credential_sha256,state,hard_expires_at_ms,'NORMAL' FROM review_preview_sessions WHERE id=?
-`, launchID, launchID).Scan(&credentialHash, &state, &hardExpires, &access); err != nil ||
-		!retromruntime.MatchesCapability(capability, credentialHash) || hardExpires <= service.now().UnixMilli() ||
-		state == "FINISHED" || state == "EXPIRED" || state == "REVOKED" {
-		return "", ErrCredential
+	result, err := service.sessionQueries().SaveAccess(ctx, launchID, capability)
+	if err != nil {
+		return result, fmt.Errorf("launch resource query: %w", err)
 	}
-	return access, nil
+	return result, nil
 }
 
 // CreateNetplay creates the participant-owned launch from a server-locked

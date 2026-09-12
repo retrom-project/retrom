@@ -60,6 +60,8 @@ internal/persistence/datindex/ DAT 索引与需求记录写入
 internal/runtimebundle/   Bundle 与 Launch Envelope V1 的闭合解析/语义校验
 internal/runtimelaunch/   Provider-neutral Launch Envelope 投影
 internal/launch/          启动预检、LaunchSession/capability 与产品编排
+internal/service/launch/ 内容、项目路径、会话授权与资源选择规则
+internal/persistence/launch/ 冻结内容、会话及 Bundle 授权快照查询
 internal/rpgmaker/        RPG 项目识别、Target binding、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
 internal/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢复协议
 internal/service/isolation/ unique-origin Host、票据及 capability 授权规则

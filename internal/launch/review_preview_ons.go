@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"strings"
 
-	"retrom/internal/contentprofile"
-
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
 	"retrom/internal/ons/detector"
@@ -286,69 +284,11 @@ func (service *Service) ReviewPreviewProjectContent(
 	ctx context.Context,
 	previewID, capability, logicalName string,
 ) (ContentView, error) {
-	content, credential, state, expires, err := service.reviewPreviewProjectFile(ctx, previewID, logicalName, true)
-	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credential, state, expires) {
-		return ContentView{}, ErrCredential
+	result, err := service.contentAccess().PreviewProjectContent(ctx, previewID, capability, logicalName)
+	if err != nil {
+		return result, fmt.Errorf("launch resource query: %w", err)
 	}
-	return content, nil
-}
-
-// The caller must authenticate the isolated runtime credential before using this
-// path. Both access paths read the same frozen files and enforce session lifetime.
-func (service *Service) reviewPreviewProjectContentAuthorized(
-	ctx context.Context, previewID, logicalName string, foldedRPGPath bool,
-) (ContentView, error) {
-	content, _, state, expires, err := service.reviewPreviewProjectFile(ctx, previewID, logicalName, foldedRPGPath)
-	if err != nil || state != "ACTIVE" || expires <= service.now().UnixMilli() {
-		return ContentView{}, ErrCredential
-	}
-	return content, nil
-}
-
-func (service *Service) reviewPreviewProjectFile(
-	ctx context.Context, previewID, logicalName string, foldedRPGPath bool,
-) (ContentView, []byte, string, int64, error) {
-	normalized, err := importing.ValidateLogicalPath(logicalName)
-	if err != nil || normalized != logicalName {
-		return ContentView{}, nil, "", 0, ErrCredential
-	}
-	var credentialHash []byte
-	var digest, state, format, coreID, providerID, targetID, bundleSHA256, platformKey string
-	var hardExpires int64
-	err = service.database.QueryRowContext(ctx, `
-WITH preview_files AS (
- SELECT id AS preview_session_id,content_logical_name AS logical_name,content_blob_id AS blob_id
- FROM review_preview_sessions WHERE id=?
- UNION ALL
- SELECT preview_session_id,logical_name,blob_id FROM review_preview_files
- WHERE preview_session_id=? AND role IN ('PROJECT_FILE','RUNTIME_FILE')
-)
-SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
-preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
-preview.bundle_sha256,platform.id
-FROM review_preview_sessions preview
-JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
-JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
-JOIN platforms platform ON platform.id=instance.platform_id
-JOIN preview_files file ON file.preview_session_id=preview.id AND (
- file.logical_name=? OR ? AND preview.content_format='RPG_MAKER_PROJECT' AND lower(file.logical_name)=lower(?)
- AND NOT EXISTS(SELECT 1 FROM preview_files exact WHERE exact.logical_name=?)
- AND (SELECT count(*) FROM preview_files folded WHERE lower(folded.logical_name)=lower(?))=1
-)
-JOIN blobs blob ON blob.id=file.blob_id
-WHERE preview.id=?
-
-`, previewID, previewID, normalized, foldedRPGPath, normalized, normalized, normalized, previewID).Scan(
-		&credentialHash, &state, &hardExpires, &digest, &format, &coreID,
-		&providerID, &targetID, &bundleSHA256, &platformKey,
-	)
-	if err != nil || !contentprofile.IsProjectContentKind(contentprofile.ContentKind(format)) {
-		return ContentView{}, nil, "", 0, ErrCredential
-	}
-	return ContentView{
-		Digest: digest, Format: format, CoreID: coreID, ProviderID: providerID, TargetID: targetID,
-		BundleSHA256: bundleSHA256, PlatformKey: platformKey,
-	}, credentialHash, state, hardExpires, nil
+	return result, nil
 }
 
 func escapeProjectPath(logicalName string) string {
