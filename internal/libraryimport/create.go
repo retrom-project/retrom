@@ -52,6 +52,9 @@ func (service *Service) create(
 	if err != nil {
 		return Created{}, err
 	}
+	if err := validateOwnedCreationPlan(plan); err != nil {
+		return Created{}, err
+	}
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return Created{}, fmt.Errorf("libraryimport/service: %w", err)

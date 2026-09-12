@@ -3,7 +3,6 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -21,11 +20,7 @@ import (
 	"retrom/internal/cleanup"
 )
 
-type ServerSourceFile struct {
-	RelativePath string
-	BlobID       string
-	SizeBytes    int64
-}
+type ServerSourceFile = libraryservice.ServerSourceFile
 
 const ServerSourceFileLimit = 64
 
@@ -34,31 +29,11 @@ const (
 	reviewHandoffEmulationStation = "EMULATIONSTATION"
 )
 
-type ServerImportItem struct {
-	ItemID                 string
-	State                  string
-	ValidationStatus       string
-	CompatibilityCode      string
-	CoreID                 string
-	CoreName               string
-	DependencySnapshotJSON string
-	ContentKind            string
-	SourceManifestJSON     string
-	SourceManifestDigest   string
-	ExistingGameID         string
-	ExistingMatches        []ServerDuplicateMatch
-	SourceRelativePaths    []string
-}
-
-type ServerDuplicateMatch struct {
-	GameID string `json:"gameId"`
-}
-
-type ServerImportResult struct {
-	Created       Created
-	Items         []ServerImportItem
-	RejectedCodes []string
-}
+type (
+	ServerImportItem     = libraryservice.ServerImportItem
+	ServerDuplicateMatch = libraryservice.ServerDuplicateMatch
+	ServerImportResult   = libraryservice.ServerImportResult
+)
 
 type (
 	ServerMetadata        = libraryservice.ServerMetadata
@@ -186,7 +161,13 @@ func (service *Service) validateServerFiles(
 			`SELECT size_bytes FROM blobs WHERE id=?`,
 			file.BlobID,
 		).Scan(&size)
-		if err != nil || size != file.SizeBytes {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil, 0, ErrInvalid
+		}
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("read server source blob: %w", err)
+		}
+		if size != file.SizeBytes {
 			return nil, nil, 0, ErrInvalid
 		}
 		seen[folded] = struct{}{}
@@ -228,102 +209,13 @@ VALUES(?,?,?)`, uploadID, ownerKind, ownerItemID); err != nil {
 }
 
 func (service *Service) serverImportResult(ctx context.Context, created Created) (ServerImportResult, error) {
-	result := ServerImportResult{Created: created}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT item.id,item.state,COALESCE(validation.status,''),COALESCE(validation.compatibility_code,''),
-COALESCE(validation.core_id,''),COALESCE(core.name,''),COALESCE(validation.dependency_snapshot_json,''),
-snapshot.content_kind,snapshot.source_manifest_json,snapshot.source_manifest_digest,
-COALESCE(duplicate.existing_game_id,''),
-COALESCE((SELECT json_group_array(relative_path) FROM (
- SELECT DISTINCT upload.relative_path AS relative_path
- FROM import_item_source_files source JOIN upload_files upload ON upload.id=source.upload_file_id
- WHERE source.import_item_id=item.id AND source.role IN ('CONTENT','DOS_SOURCE','PLAYLIST_SOURCE','DISC')
- ORDER BY upload.relative_path
-)),'[]')
-FROM import_items item
-JOIN import_item_source_snapshots snapshot ON snapshot.import_item_id=item.id AND snapshot.created_by='IDENTIFICATION'
-LEFT JOIN review_drafts draft ON draft.import_item_id=item.id
-LEFT JOIN import_item_core_validations validation ON validation.id=COALESCE(
- draft.selected_validation_id,
- (SELECT candidate.id FROM import_item_core_validations candidate
-  WHERE candidate.import_item_id=item.id
-  AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
-  AND candidate.target_platform_instance_id=draft.target_platform_instance_id
-  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1)
-)
-LEFT JOIN cores core ON core.id=validation.core_id
-LEFT JOIN import_item_duplicate_matches duplicate ON duplicate.import_item_id=item.id
-WHERE item.import_job_id=?
-ORDER BY item.id,duplicate.existing_game_id
-`, created.ImportJobID)
+	result, err := librarypersistence.BindSourceResults(service.database).Read(ctx, created)
 	if err != nil {
-		return ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	itemIndexes := map[string]int{}
-	for rows.Next() {
-		var item ServerImportItem
-		var sourcePaths string
-		if err := rows.Scan(&item.ItemID, &item.State, &item.ValidationStatus, &item.CompatibilityCode,
-			&item.CoreID, &item.CoreName, &item.DependencySnapshotJSON,
-			&item.ContentKind, &item.SourceManifestJSON, &item.SourceManifestDigest,
-			&item.ExistingGameID, &sourcePaths); err != nil {
-			return ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
-		}
-		_ = json.Unmarshal([]byte(sourcePaths), &item.SourceRelativePaths)
-		if index, exists := itemIndexes[item.ItemID]; exists {
-			if item.ExistingGameID != "" {
-				result.Items[index].ExistingMatches = append(
-					result.Items[index].ExistingMatches,
-					ServerDuplicateMatch{GameID: item.ExistingGameID},
-				)
-			}
-			continue
-		}
-		if item.ExistingGameID != "" {
-			item.ExistingMatches = append(
-				item.ExistingMatches,
-				ServerDuplicateMatch{GameID: item.ExistingGameID},
-			)
-		}
-		itemIndexes[item.ItemID] = len(result.Items)
-		result.Items = append(result.Items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
-	}
-	result.RejectedCodes, err = service.serverImportRejectedCodes(ctx, created.ImportJobID)
-	if err != nil {
-		return ServerImportResult{}, err
+		return ServerImportResult{}, fmt.Errorf("read server source result: %w", err)
 	}
 	return result, nil
 }
 
-func (service *Service) serverImportRejectedCodes(ctx context.Context, importJobID string) ([]string, error) {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT DISTINCT COALESCE(reason_code,'IMPORT_INVALID') FROM import_job_files
-WHERE import_job_id=? AND disposition='REJECTED' ORDER BY 1
-`, importJobID)
-	if err != nil {
-		return nil, fmt.Errorf("libraryimport/server source: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	codes := make([]string, 0)
-	for rows.Next() {
-		var code string
-		if err := rows.Scan(&code); err != nil {
-			return nil, fmt.Errorf("libraryimport/server source: %w", err)
-		}
-		codes = append(codes, code)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("libraryimport/server source: %w", err)
-	}
-	return codes, nil
-}
-
-// SeedServerReviewMetadata applies trusted server-import text fields to
-// the ordinary review draft. Publication remains an explicit review decision.
 func (service *Service) SeedServerReviewMetadata(
 	ctx context.Context,
 	importItemID string,

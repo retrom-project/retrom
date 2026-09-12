@@ -152,9 +152,19 @@ func (service *Service) releaseLinkedSourceImportItem(
 ) error {
 	var terminal int
 	terminalQuery := fmt.Sprintf(`
-SELECT count(*) FROM %s WHERE id=? AND execution_state IN ('PUBLISHED','REVIEW_DISCARDED')
+SELECT count(*) FROM %s source WHERE source.id=? AND (
+ source.execution_state IN ('PUBLISHED','REVIEW_DISCARDED') OR
+ source.execution_state='SKIPPED_EXISTING' AND EXISTS(
+  SELECT 1 FROM import_items item JOIN import_item_duplicate_matches duplicate ON duplicate.import_item_id=item.id
+  WHERE item.id=source.library_import_item_id AND item.state='DISCARDED'
+  AND duplicate.existing_game_id=source.existing_game_id
+ )
+)
 `, spec.itemsTable)
-	if err := transaction.QueryRowContext(ctx, terminalQuery, itemID).Scan(&terminal); err != nil || terminal != 1 {
+	if err := transaction.QueryRowContext(ctx, terminalQuery, itemID).Scan(&terminal); err != nil {
+		return fmt.Errorf("payloadrelease/read linked source terminal state: %w", err)
+	}
+	if terminal != 1 {
 		return releaseFailure("PAYLOAD_RELEASE_SOURCE_NOT_TERMINAL")
 	}
 	linkQuery := recordstore.Update{

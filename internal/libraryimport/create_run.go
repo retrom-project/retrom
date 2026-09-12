@@ -19,6 +19,7 @@ import (
 
 	"retrom/internal/contentcapability"
 	"retrom/internal/corevalidation"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
 )
@@ -44,6 +45,7 @@ type creationRun struct {
 	duplicateCounts map[string]int
 	duplicateItems  int
 	queued          *queuedCreationWork
+	sourceSnapshot  libraryservice.SourceCreationSnapshot
 }
 
 func newCreationRun(
@@ -75,6 +77,9 @@ func newQueuedCreationRun(
 
 func (run *creationRun) execute() error {
 	defer dbexec.Rollback(run.transaction)
+	if err := run.revalidateOwnedSource(); err != nil {
+		return err
+	}
 	if err := run.initialize(); err != nil {
 		return fmt.Errorf("libraryimport/service: initialize import: %w", err)
 	}
@@ -88,6 +93,9 @@ func (run *creationRun) execute() error {
 	}
 	if err := run.finalize(); err != nil {
 		return fmt.Errorf("libraryimport/service: finalize import: %w", err)
+	}
+	if err := run.bindOwnedSource(); err != nil {
+		return err
 	}
 	if err := run.transaction.Commit(); err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)

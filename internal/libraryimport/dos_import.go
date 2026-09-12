@@ -38,6 +38,7 @@ type CreateRequest struct {
 	ContentMode              string   `json:"contentMode,omitempty"`
 	TagIDs                   []string `json:"tagIds"`
 	reviewHandoffKind        string
+	sourceCreation           *ownedSourceCreation
 }
 
 type ReconfigureRequest struct {
@@ -46,12 +47,7 @@ type ReconfigureRequest struct {
 	TagIDs                   []string `json:"tagIds"`
 }
 
-type Created struct {
-	ImportJobID string `json:"importJobId"`
-	JobID       string `json:"jobId"`
-	State       string `json:"state"`
-	ItemCount   int    `json:"itemCount"`
-}
+type Created = libraryservice.ServerCreated
 
 type initialImportProgress struct {
 	state              string
