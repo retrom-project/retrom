@@ -18,6 +18,8 @@ type (
 		NowMS, AvailableAtMS                          int64
 		JobState, ImportState, ItemState, Phase, Code string
 		Retryable                                     bool
+		ClearScan, TerminalItems, SchedulePayload     bool
+		RetryFailedItems                              bool
 	}
 	ExecutionReader interface {
 		Current(context.Context, string) (LeaseSnapshot, bool, error)
@@ -82,7 +84,12 @@ func (service *ExecutionControl) CloseCancelled(ctx context.Context, unit Execut
 			if state != LeaseCancelled || before.LeaseUntilMS <= now || before.DeadlineAtMS <= now {
 				return ErrVersionConflict
 			}
-			before, more, err = service.completeReviews(ctx, scope, before)
+			before, more, err = completeExecutionReviews(
+				ctx,
+				ExecutionReviewScope{Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata},
+				before,
+				service.now,
+			)
 			if err != nil {
 				return err
 			}
@@ -96,6 +103,7 @@ func (service *ExecutionControl) CloseCancelled(ctx context.Context, unit Execut
 				ImportState: "CANCELLED",
 				ItemState:   "CANCELLED",
 			}
+			planExecutionProjection(&change)
 			if err := scope.Write.Finish(ctx, change); err != nil {
 				return fmt.Errorf("persist EmulationStation cancellation acknowledgement: %w", err)
 			}
@@ -112,7 +120,7 @@ func (service *ExecutionControl) CloseCancelled(ctx context.Context, unit Execut
 	return closed, nil
 }
 
-func currentExecution(ctx context.Context, reader ExecutionReader, unit Execution) (LeaseSnapshot, error) {
+func currentExecution(ctx context.Context, reader ExecutionSnapshotReader, unit Execution) (LeaseSnapshot, error) {
 	before, found, err := reader.Current(ctx, unit.JobID)
 	if err != nil {
 		return LeaseSnapshot{}, fmt.Errorf("read current EmulationStation execution: %w", err)

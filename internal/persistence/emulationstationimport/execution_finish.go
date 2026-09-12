@@ -12,13 +12,11 @@ func (records executionRecords) Finish(ctx context.Context, change application.E
 	if err := records.fence(ctx, change); err != nil {
 		return err
 	}
-	scan := change.Before.Kind == "SERVER_EMULATIONSTATION_SCAN"
-	clearScan := scan && change.JobState != "FAILED"
-	if clearScan {
+	if change.ClearScan {
 		if err := clearUnpublishedScan(ctx, records.executor, change.Before.ImportID); err != nil {
 			return err
 		}
-	} else if !scan && change.JobState != "QUEUED" {
+	} else if change.TerminalItems {
 		if err := records.terminalItems(ctx, change); err != nil {
 			return err
 		}
@@ -26,10 +24,10 @@ func (records executionRecords) Finish(ctx context.Context, change application.E
 	if err := records.finishJob(ctx, change); err != nil {
 		return err
 	}
-	if err := records.finishAggregate(ctx, change, clearScan); err != nil {
+	if err := records.finishAggregate(ctx, change, change.ClearScan); err != nil {
 		return err
 	}
-	if !scan && change.JobState != "QUEUED" {
+	if change.SchedulePayload {
 		if err := ScheduleTerminalItems(ctx, records.transaction, change.Before.ImportID, change.NowMS); err != nil {
 			return err
 		}
@@ -96,7 +94,7 @@ func (records executionRecords) finishAggregate(
 	if change.JobState == "FAILED" {
 		code = change.Code
 	}
-	set := `state=?,phase=?,last_error_code=?,completed_at_ms=?,retryable=EXISTS(
+	set := `state=?,phase=?,last_error_code=?,completed_at_ms=?,retryable=? AND EXISTS(
 SELECT 1 FROM emulationstation_import_items WHERE import_id=? AND retryable=1
 AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),
 skipped_mapping_item_count=?,review_pending_item_count=?,published_item_count=?,review_discarded_item_count=?,
@@ -108,7 +106,15 @@ skipped_collection_count=0,processable_item_count=0,media_warning_count=0,
 discovered_cover_count=0,discovered_video_count=0`
 	}
 	values := make([]any, 0, 14)
-	values = append(values, change.ImportState, optionalText(change.Phase), code, finished, change.Before.ImportID)
+	values = append(
+		values,
+		change.ImportState,
+		optionalText(change.Phase),
+		code,
+		finished,
+		change.RetryFailedItems,
+		change.Before.ImportID,
+	)
 	values = append(values, terminalCountValues(counts)...)
 	values = append(values, change.NowMS)
 	result, err := recordstore.UpdateEmulationstationImports(ctx, records.executor, recordstore.Update{

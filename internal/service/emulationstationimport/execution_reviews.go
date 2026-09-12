@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	library "retrom/internal/service/libraryimport"
 )
@@ -12,17 +13,36 @@ type ExecutionReview struct {
 	ItemID, State, LibraryJobID, LibraryItemID, ReservedJobID, ReservedItemID string
 	MetadataJSON, WarningsJSON                                                string
 	Version                                                                   int64
+	Retryable                                                                 bool
 }
 
 type ExecutionReviewCompletion struct {
 	Before       LeaseSnapshot
 	Review       ExecutionReview
 	WarningsJSON string
+	Preparation  []string
 	NowMS        int64
 }
 
-func (service *ExecutionControl) completeReviews(
-	ctx context.Context, scope ExecutionScope, before LeaseSnapshot,
+type ExecutionSnapshotReader interface {
+	Current(context.Context, string) (LeaseSnapshot, bool, error)
+}
+type ExecutionReviewReader interface {
+	Current(context.Context, string) (LeaseSnapshot, bool, error)
+	Reviews(context.Context, string, int) ([]ExecutionReview, error)
+}
+type ExecutionReviewWriter interface {
+	Fence(context.Context, LeaseSnapshot, int64) error
+	CompleteReview(context.Context, ExecutionReviewCompletion) error
+}
+type ExecutionReviewScope struct {
+	Read     ExecutionReviewReader
+	Write    ExecutionReviewWriter
+	Metadata library.MetadataScope
+}
+
+func completeExecutionReviews(
+	ctx context.Context, scope ExecutionReviewScope, before LeaseSnapshot, clock func() time.Time,
 ) (LeaseSnapshot, bool, error) {
 	if before.Kind != "SERVER_EMULATIONSTATION_IMPORT" {
 		return before, false, nil
@@ -32,7 +52,11 @@ func (service *ExecutionControl) completeReviews(
 		return LeaseSnapshot{}, false, fmt.Errorf("read interrupted EmulationStation reviews: %w", err)
 	}
 	for _, review := range reviews[:min(len(reviews), 100)] {
-		now := service.now().UnixMilli()
+		preparation, err := reviewPreparation(review)
+		if err != nil {
+			return LeaseSnapshot{}, false, err
+		}
+		now := clock().UnixMilli()
 		if err := scope.Write.Fence(ctx, before, now); err != nil {
 			return LeaseSnapshot{}, false, fmt.Errorf("fence interrupted EmulationStation review: %w", err)
 		}
@@ -40,7 +64,7 @@ func (service *ExecutionControl) completeReviews(
 		if err := json.Unmarshal([]byte(review.MetadataJSON), &metadata); err != nil {
 			return LeaseSnapshot{}, false, fmt.Errorf("decode interrupted EmulationStation review metadata: %w", err)
 		}
-		_, additions, err := library.NewMetadataSeeder(nil, service.now).SeedInScope(
+		_, additions, err := library.NewMetadataSeeder(nil, clock).SeedInScope(
 			ctx, scope.Metadata, review.ReservedItemID, metadata, before.ReleaseYearMax)
 		if err != nil {
 			return LeaseSnapshot{}, false, fmt.Errorf("seed interrupted EmulationStation review: %w", err)
@@ -50,7 +74,7 @@ func (service *ExecutionControl) completeReviews(
 			return LeaseSnapshot{}, false, err
 		}
 		err = scope.Write.CompleteReview(ctx, ExecutionReviewCompletion{
-			Before: before, Review: review, WarningsJSON: warnings, NowMS: now,
+			Before: before, Review: review, WarningsJSON: warnings, Preparation: preparation, NowMS: now,
 		})
 		if err != nil {
 			return LeaseSnapshot{}, false, fmt.Errorf("complete interrupted EmulationStation review: %w", err)

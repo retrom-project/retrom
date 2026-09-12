@@ -48,7 +48,12 @@ func (service *ExecutionControl) failInScope(
 	}
 	if change.JobState != "QUEUED" {
 		var more bool
-		before, more, err = service.completeReviews(ctx, scope, before)
+		before, more, err = completeExecutionReviews(
+			ctx,
+			ExecutionReviewScope{Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata},
+			before,
+			service.now,
+		)
 		if err != nil || more {
 			return "", more, err
 		}
@@ -73,6 +78,7 @@ func planExecutionFailure(
 		ItemState: "COMMIT_FAILED", Code: failure.Code, Retryable: failure.Retryable,
 	}
 	if !failure.Retryable {
+		planExecutionProjection(&change)
 		return change, nil
 	}
 	delay := RecoveryDelayMS(before.Attempt)
@@ -88,5 +94,14 @@ func planExecutionFailure(
 			change.ImportState, change.Phase = "SCANNING", "DISCOVERING_GAMELISTS"
 		}
 	}
+	planExecutionProjection(&change)
 	return change, nil
+}
+
+func planExecutionProjection(change *ExecutionFinish) {
+	scan := change.Before.Kind == "SERVER_EMULATIONSTATION_SCAN"
+	change.ClearScan = scan && change.JobState != "FAILED"
+	change.TerminalItems = !scan && change.JobState != "QUEUED"
+	change.SchedulePayload = change.TerminalItems
+	change.RetryFailedItems = !scan && change.JobState == "FAILED"
 }

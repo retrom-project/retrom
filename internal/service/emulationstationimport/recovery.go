@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	library "retrom/internal/service/libraryimport"
 )
 
 type (
@@ -12,16 +14,21 @@ type (
 		Before                                               LeaseSnapshot
 		JobState, ImportState, Phase, ItemState, Code, Event string
 		NowMS, AvailableAtMS                                 int64
+		ClearScan, TerminalItems, SchedulePayload            bool
 	}
 	RecoveryReader interface {
 		Current(context.Context, string) (LeaseSnapshot, bool, error)
+		Reviews(context.Context, string, int) ([]ExecutionReview, error)
 	}
 	RecoveryWriter interface {
 		Apply(context.Context, RecoveryChange) error
+		Fence(context.Context, LeaseSnapshot, int64) error
+		CompleteReview(context.Context, ExecutionReviewCompletion) error
 	}
 	RecoveryScope struct {
-		Read  RecoveryReader
-		Write RecoveryWriter
+		Read     RecoveryReader
+		Write    RecoveryWriter
+		Metadata library.MetadataScope
 	}
 	RecoveryRepository interface {
 		Expired(context.Context, int64, int) ([]LeaseSnapshot, error)
@@ -44,24 +51,7 @@ func (service *Recovery) Recover(ctx context.Context) error {
 	}
 	for _, candidate := range candidates {
 		err := service.repository.WithRecovery(ctx, func(scope RecoveryScope) error {
-			current, found, err := scope.Read.Current(ctx, candidate.JobID)
-			if err != nil {
-				return fmt.Errorf("read EmulationStation recovery candidate: %w", err)
-			}
-			if !found {
-				return nil
-			}
-			if !sameRecoverySnapshot(current, candidate) {
-				return ErrVersionConflict
-			}
-			change, err := planRecovery(current, service.now().UnixMilli())
-			if err != nil {
-				return err
-			}
-			if err := scope.Write.Apply(ctx, change); err != nil {
-				return fmt.Errorf("persist EmulationStation recovery: %w", err)
-			}
-			return nil
+			return service.recoverInScope(ctx, scope, candidate)
 		})
 		if errors.Is(err, ErrVersionConflict) {
 			continue
@@ -69,6 +59,39 @@ func (service *Recovery) Recover(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("recover EmulationStation execution %s: %w", candidate.JobID, err)
 		}
+	}
+	return nil
+}
+
+func (service *Recovery) recoverInScope(ctx context.Context, scope RecoveryScope, candidate LeaseSnapshot) error {
+	current, found, err := scope.Read.Current(ctx, candidate.JobID)
+	if err != nil {
+		return fmt.Errorf("read EmulationStation recovery candidate: %w", err)
+	}
+	if !found {
+		return nil
+	}
+	if !sameRecoverySnapshot(current, candidate) {
+		return ErrVersionConflict
+	}
+	if _, err := planRecovery(current, service.now().UnixMilli()); err != nil {
+		return err
+	}
+	current, more, err := completeExecutionReviews(ctx, ExecutionReviewScope{
+		Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata,
+	}, current, service.now)
+	if err != nil {
+		return err
+	}
+	if more {
+		return nil
+	}
+	change, err := planRecovery(current, service.now().UnixMilli())
+	if err != nil {
+		return err
+	}
+	if err := scope.Write.Apply(ctx, change); err != nil {
+		return fmt.Errorf("persist EmulationStation recovery: %w", err)
 	}
 	return nil
 }

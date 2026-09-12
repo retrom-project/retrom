@@ -16,13 +16,14 @@ func (records executionRecords) Reviews(
 ) ([]application.ExecutionReview, error) {
 	rows, err := records.executor.QueryContext(ctx, `SELECT source.id,source.execution_state,source.version,
 COALESCE(source.library_import_job_id,''),COALESCE(source.library_import_item_id,''),
-source.metadata_json,source.warnings_json,item.import_job_id,item.id,
+source.metadata_json,source.warnings_json,source.retryable,item.import_job_id,item.id,
 (SELECT count(*) FROM import_items sibling WHERE sibling.import_job_id=item.import_job_id)
 FROM emulationstation_import_items source
 JOIN server_import_upload_owners owner ON owner.kind='EMULATIONSTATION' AND owner.source_item_id=source.id
 JOIN import_jobs ordinary ON ordinary.upload_session_id=owner.upload_session_id
 JOIN import_items item ON item.import_job_id=ordinary.id
-WHERE source.import_id=? AND source.execution_state IN ('PENDING','COPYING','VALIDATING')
+WHERE source.import_id=? AND (source.execution_state IN ('PENDING','COPYING','VALIDATING')
+OR source.retryable=1 AND source.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED'))
 AND item.state='REVIEW_PENDING' AND item.review_handoff_kind='EMULATIONSTATION'
 ORDER BY source.id,item.id LIMIT ?`, id, limit)
 	if err != nil {
@@ -33,8 +34,20 @@ ORDER BY source.id,item.id LIMIT ?`, id, limit)
 	for rows.Next() {
 		var value application.ExecutionReview
 		var count int
-		if err := rows.Scan(&value.ItemID, &value.State, &value.Version, &value.LibraryJobID, &value.LibraryItemID,
-			&value.MetadataJSON, &value.WarningsJSON, &value.ReservedJobID, &value.ReservedItemID, &count); err != nil {
+		if err := rows.Scan(
+			&value.ItemID,
+			&value.State,
+			&value.Version,
+			&value.LibraryJobID,
+			&value.LibraryItemID,
+
+			&value.MetadataJSON,
+			&value.WarningsJSON,
+			&value.Retryable,
+			&value.ReservedJobID,
+			&value.ReservedItemID,
+			&count,
+		); err != nil {
 			return nil, fmt.Errorf("read interrupted EmulationStation review: %w", err)
 		}
 		if count != 1 || value.LibraryJobID != "" &&
@@ -60,18 +73,18 @@ func (records executionRecords) CompleteReview(
 	if err := records.Fence(ctx, change.Before, change.NowMS); err != nil {
 		return err
 	}
+	return records.completeReviewProjection(ctx, change)
+}
+
+func (records executionRecords) completeReviewProjection(
+	ctx context.Context, change application.ExecutionReviewCompletion,
+) error {
 	item := change.Review
-	if item.State == "PENDING" {
-		if err := records.reviewState(ctx, item, "COPYING", change.NowMS); err != nil {
+	for _, state := range change.Preparation {
+		if err := records.reviewState(ctx, item, state, change.NowMS); err != nil {
 			return err
 		}
-		item.State, item.Version = "COPYING", item.Version+1
-	}
-	if item.State == "COPYING" {
-		if err := records.reviewState(ctx, item, "VALIDATING", change.NowMS); err != nil {
-			return err
-		}
-		item.State, item.Version = "VALIDATING", item.Version+1
+		item.State, item.Version, item.Retryable = state, item.Version+1, false
 	}
 	result, err := recordstore.UpdateEmulationstationImportItems(ctx, records.executor, recordstore.Update{
 		Set: `execution_state='REVIEW_PENDING',library_import_job_id=?,library_import_item_id=?,
@@ -101,10 +114,11 @@ func (records executionRecords) reviewState(
 	now int64,
 ) error {
 	result, err := recordstore.UpdateEmulationstationImportItems(ctx, records.executor, recordstore.Update{
-		Set: `execution_state=?,version=version+1,updated_at_ms=?`, Values: []any{state, now},
+		Set: `execution_state=?,version=version+1,updated_at_ms=?,
+error_code=NULL,error_details_json=NULL,retryable=0,completed_at_ms=NULL`, Values: []any{state, now},
 		Scope: recordstore.Scope{
-			Where: `id=? AND version=? AND execution_state=?`,
-			Args:  []any{item.ItemID, item.Version, item.State},
+			Where: `id=? AND version=? AND execution_state=? AND retryable=?`,
+			Args:  []any{item.ItemID, item.Version, item.State, item.Retryable},
 		},
 	})
 	return requireWorkflowChange(result, err, application.ErrVersionConflict)

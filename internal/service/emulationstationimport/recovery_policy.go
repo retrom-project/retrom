@@ -24,6 +24,7 @@ func planRecovery(before LeaseSnapshot, now int64) (RecoveryChange, error) {
 	if before.JobState == "CANCEL_REQUESTED" && before.ImportState == "CANCEL_REQUESTED" {
 		change.JobState, change.ImportState, change.Phase = "CANCELLED", "CANCELLED", ""
 		change.ItemState, change.Event = "CANCELLED", "CANCELLED"
+		planRecoveryProjection(&change)
 		return change, nil
 	}
 	if !recoverableState(before) {
@@ -41,12 +42,14 @@ func planRecovery(before LeaseSnapshot, now int64) (RecoveryChange, error) {
 	if change.Code != "" {
 		change.JobState, change.ImportState, change.Phase = "FAILED", "FAILED", ""
 		change.ItemState, change.Event = "COMMIT_FAILED", "FAILED"
+		planRecoveryProjection(&change)
 		return change, nil
 	}
 	if before.JobState == "QUEUED" {
 		return RecoveryChange{}, ErrVersionConflict
 	}
 	change.AvailableAtMS = now + delay
+	planRecoveryProjection(&change)
 	return change, nil
 }
 
@@ -88,4 +91,10 @@ func RecoveryDelayMS(attempt int64) int64 {
 	default:
 		return 120000
 	}
+}
+
+func planRecoveryProjection(change *RecoveryChange) {
+	change.ClearScan = change.Before.Kind == "SERVER_EMULATIONSTATION_SCAN"
+	change.TerminalItems = !change.ClearScan && change.JobState != "QUEUED"
+	change.SchedulePayload = change.TerminalItems
 }

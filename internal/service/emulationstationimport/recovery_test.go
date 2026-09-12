@@ -97,3 +97,11 @@ func TestRecoveryIgnoresReplacedCandidate(t *testing.T) {
 		t.Fatalf("error=%v changes=%#v", err, memory.changes)
 	}
 }
+
+func (*recoveryMemory) Reviews(context.Context, string, int) ([]ExecutionReview, error) {
+	return nil, nil
+}
+
+func (*recoveryMemory) Fence(context.Context, LeaseSnapshot, int64) error { return nil }
+
+func (*recoveryMemory) CompleteReview(context.Context, ExecutionReviewCompletion) error { return nil }

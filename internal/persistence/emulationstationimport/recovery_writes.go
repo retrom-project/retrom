@@ -13,11 +13,11 @@ func (records recoveryRecords) Apply(ctx context.Context, change application.Rec
 	if err := records.fence(ctx, change); err != nil {
 		return err
 	}
-	if change.Before.Kind == "SERVER_EMULATIONSTATION_SCAN" {
+	if change.ClearScan {
 		if err := clearUnpublishedScan(ctx, records.executor, change.Before.ImportID); err != nil {
 			return err
 		}
-	} else if change.JobState != "QUEUED" {
+	} else if change.TerminalItems {
 		if err := records.terminalItems(ctx, change); err != nil {
 			return err
 		}
@@ -28,7 +28,7 @@ func (records recoveryRecords) Apply(ctx context.Context, change application.Rec
 	if err := records.aggregate(ctx, change); err != nil {
 		return err
 	}
-	if change.JobState != "QUEUED" && change.Before.Kind == "SERVER_EMULATIONSTATION_IMPORT" {
+	if change.SchedulePayload {
 		if err := ScheduleTerminalItems(ctx, records.transaction, change.Before.ImportID, change.NowMS); err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func (records recoveryRecords) aggregate(ctx context.Context, change application
 	set := `state=?,phase=?,last_error_code=?,retryable=0,completed_at_ms=?,
 skipped_mapping_item_count=?,review_pending_item_count=?,published_item_count=?,review_discarded_item_count=?,
 existing_item_count=?,blocked_item_count=?,failed_item_count=?,cancelled_item_count=?,version=version+1,updated_at_ms=?`
-	if change.Before.Kind == "SERVER_EMULATIONSTATION_SCAN" {
+	if change.ClearScan {
 		set += `,source_snapshot_digest=NULL,scan_completed_at_ms=NULL,gamelist_count=0,invalid_gamelist_count=0,
 collection_count=0,folder_entry_count=0,game_count=0,estimated_source_bytes=0,mapped_collection_count=0,
 skipped_collection_count=0,processable_item_count=0,media_warning_count=0,

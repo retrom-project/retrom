@@ -7,6 +7,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
+	library "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 
@@ -20,7 +21,9 @@ func (repository *Recovery) WithRecovery(ctx context.Context, work func(applicat
 	}
 	defer dbexec.Rollback(tx)
 	records := recoveryRecords{transaction: tx, executor: tx}
-	if err := work(application.RecoveryScope{Read: records, Write: records}); err != nil {
+	if err := work(
+		application.RecoveryScope{Read: records, Write: records, Metadata: library.BindMetadata(tx)},
+	); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -72,11 +75,14 @@ AND ((state IN ('RUNNING','CANCEL_REQUESTED') AND leased_until_ms<=?)
 OR (state='QUEUED' AND leased_until_ms IS NULL AND worker_id IS NULL
 AND (execution_deadline_at_ms<=? OR attempt_count>=max_attempts)))
 AND EXISTS(SELECT 1 FROM emulationstation_imports plan WHERE plan.id=? AND plan.version=? AND plan.state=?
+AND plan.root_id=? AND plan.root_config_digest=? AND plan.source_relative_path=?
+AND plan.created_by_user_id=? AND plan.release_year_max=?
 AND ((jobs.kind='SERVER_EMULATIONSTATION_SCAN' AND plan.scan_job_id=jobs.id AND plan.import_job_id IS NULL)
 OR (jobs.kind='SERVER_EMULATIONSTATION_IMPORT' AND plan.import_job_id=jobs.id)))`,
 		before.JobID, before.JobVersion, before.JobState, before.Kind, before.ImportID, before.ExecutionNo, before.Attempt,
 		before.MaxAttempts, before.WorkerID, before.LeaseUntilMS, before.StartedAtMS, before.DeadlineAtMS,
 		change.NowMS, change.NowMS,
-		before.ImportID, before.ImportVersion, before.ImportState)
+		before.ImportID, before.ImportVersion, before.ImportState, before.RootID, before.RootDigest, before.RelativePath,
+		before.CreatedByUserID, before.ReleaseYearMax)
 	return requireWorkflowChange(result, err, application.ErrVersionConflict)
 }
