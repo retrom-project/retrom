@@ -58,6 +58,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-bsnes",
+      "coreId": "bsnes",
+      "providerId": "emulatorjs",
+      "targetId": "bsnes",
+      "platformIds": [
+        "snes"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-cap32",
       "coreId": "cap32",
       "providerId": "emulatorjs",
@@ -1447,6 +1461,11 @@
       {
         "id": "beetle_vb",
         "name": "Beetle VB",
+        "enabled": true
+      },
+      {
+        "id": "bsnes",
+        "name": "bsnes",
         "enabled": true
       },
       {

@@ -291,7 +291,7 @@ erDiagram
 | --- | --- | --- | --- |
 | NES / Famicom (`nes`) | `fceumm`、`nestopia` | NES 游戏 → `fceumm` | 统一接收 `.nes/.unf/.unif/.fds`；只有 FDS 内容需要 `disksys.rom` |
 | Famicom Disk System (`fds`) | `fceumm`、`nestopia` | 无独立推荐目录 | 基础平台 code 用于当前内容识别；FDS 内容统一导入 NES 游戏目录 |
-| SNES (`snes`) | `snes9x` | SNES 游戏 → `snes9x` | 标准游戏通常不要求 BIOS |
+| SNES (`snes`) | `snes9x`、`bsnes` | SNES 游戏 → `snes9x` | bsnes 为 4.3.0-pre 可选核心，不另建推荐目录；标准游戏通常不要求 BIOS |
 | Game Boy / Color (`gbc`) | `gambatte`、`mgba` | Game Boy 游戏 → `gambatte` | 两个 core 均可供本次启动切换 |
 | Game Boy Advance (`gba`) | `mgba` | GBA 游戏 → `mgba` | BIOS 可选 |
 | Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003`、`fbalpha2012_cps1`、`fbalpha2012_cps2` | FBNeo 游戏 → `fbneo`；MAME 2003 Plus 游戏 → `mame2003_plus`；FB Alpha 2012 CPS-1/2 游戏 → 对应核心 | MAME 2003 不另建推荐目录；Arcade 扩展名去重后仍为 `.zip`，每个核心继续使用独立 DAT |
