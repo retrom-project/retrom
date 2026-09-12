@@ -27,6 +27,11 @@ OR(jobs.kind='SERVER_PEGASUS_SCAN' AND plan.scan_job_id=jobs.id AND plan.import_
 		return err
 	}
 	version := before.ImportVersion
+	if before.Kind == "SERVER_PEGASUS_SCAN" {
+		if err := clearUnpublishedScan(ctx, records.tx, before.ImportID); err != nil {
+			return err
+		}
+	}
 	if before.Kind == "SERVER_PEGASUS_IMPORT" {
 		if err := records.items(ctx, change); err != nil {
 			return err

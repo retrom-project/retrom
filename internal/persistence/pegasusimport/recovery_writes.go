@@ -83,7 +83,11 @@ version=version+1,updated_at_ms=?
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
 	}
-	if err := records.recoverItems(ctx, change, finished); err != nil {
+	if before.Kind == "SERVER_PEGASUS_SCAN" {
+		if err := clearUnpublishedScan(ctx, records.tx, before.ImportID); err != nil {
+			return err
+		}
+	} else if err := records.recoverItems(ctx, change, finished); err != nil {
 		return err
 	}
 	// Refresh all mutually constrained counts in one write before closing the parent.

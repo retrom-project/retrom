@@ -39,32 +39,12 @@ type scannedMetadata struct {
 	Document                              pegasusmeta.Document
 }
 
-type scannedCollection struct {
-	ID, MetadataPath, Name, Description, IgnoredJSON, WarningJSON string
-	ShortName                                                     *string
-	SegmentOrdinal, GameCount, IssueCount                         int64
-}
-
-type scannedItem struct {
-	ID, CollectionID, MetadataPath, SourceKey, Title          string
-	GameOrdinal                                               int64
-	DiscoveryState, DiscoveryCode, MetadataJSON, WarningsJSON string
-	SourceManifestJSON, SourceManifestDigest                  string
-	Files                                                     []scannedItemFile
-	Assets                                                    []scannedAsset
-}
-
-type scannedItemFile struct {
-	Ordinal           int64
-	Kind, Path, Facts string
-	Size              int64
-}
-
-type scannedAsset struct {
-	Kind, Method, Path, Facts, MediaType string
-	Size                                 int64
-	Width, Height                        *int64
-}
+type (
+	scannedCollection = application.ScanCollection
+	scannedItem       = application.ScanItem
+	scannedItemFile   = application.ScanFile
+	scannedAsset      = application.ScanAsset
+)
 
 type scanResult struct {
 	Metadata                                []scannedMetadata
