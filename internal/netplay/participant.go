@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	application "retrom/internal/service/netplay"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -16,12 +18,7 @@ import (
 	"retrom/internal/launch"
 )
 
-type Event struct {
-	ID        int64          `json:"id"`
-	EventType string         `json:"eventType"`
-	Data      map[string]any `json:"data"`
-	CreatedAt int64          `json:"createdAtMs"`
-}
+type Event = application.Event
 
 type ParticipantLaunch struct {
 	Launch           launch.Created
