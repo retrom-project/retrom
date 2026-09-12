@@ -16,7 +16,7 @@ func TestRetryableCurrentFailureCanBeRecheckedWithoutRescanning(t *testing.T) {
 	t.Parallel()
 	database := newPegasusRetryDatabase(t)
 	now := time.UnixMilli(10)
-	service := &Service{database: database, now: func() time.Time { return now }, wake: make(chan struct{}, 1)}
+	service := &Service{database: database, now: func() time.Time { return now }}
 	summary, err := service.Get(context.Background(), "import")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !summary.Retryable }), "current summary = %#v, error=%v", summary, err)
 	queued, err := service.Retry(context.Background(), "import", summary.Version, "user")

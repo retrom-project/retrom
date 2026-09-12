@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sort"
 	"strings"
 	"sync"
@@ -74,9 +73,8 @@ type Service struct {
 	roots        map[string]Root
 	now          func() time.Time
 	tags         *tagging.Service
-	wake         chan struct{}
-	stop         chan struct{}
-	stopOnce     sync.Once
+	workerOnce   sync.Once
+	worker       *application.Worker
 }
 
 func New(
@@ -104,53 +102,14 @@ func New(
 			),
 			now,
 		),
-		wake: make(chan struct{}, 1), stop: make(chan struct{}),
 	}
 }
 
-func (service *Service) Start() {
-	go service.runLoop()
-	service.signal()
-}
+func (service *Service) Start() { service.backgroundWorker().Start() }
 
-func (service *Service) Close() { service.stopOnce.Do(func() { close(service.stop) }) }
+func (service *Service) Close() { service.backgroundWorker().Close() }
 
-func (service *Service) signal() {
-	select {
-	case service.wake <- struct{}{}:
-	default:
-	}
-}
-
-func (service *Service) runLoop() {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-service.stop:
-			return
-		case <-service.wake:
-		case <-ticker.C:
-		}
-
-		if err := service.maintain(context.Background()); err != nil {
-			slog.Error("Pegasus worker maintenance failed", "error", service.sanitizeTechnicalDetail(err))
-			continue
-		}
-
-		for {
-			unit, ok, err := service.claim(context.Background())
-			if err != nil {
-				slog.Error("Pegasus worker claim failed", "error", service.sanitizeTechnicalDetail(err))
-				break
-			}
-			if !ok {
-				break
-			}
-			service.execute(context.Background(), unit)
-		}
-	}
-}
+func (service *Service) signal() { service.backgroundWorker().Signal() }
 
 type work = application.Work
 
@@ -163,16 +122,13 @@ func (service *Service) claim(ctx context.Context) (work, bool, error) {
 }
 
 func (service *Service) execute(ctx context.Context, unit work) {
-	if unit.DeadlineAtMS > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithDeadline(ctx, time.UnixMilli(unit.DeadlineAtMS))
-		defer cancel()
+	service.backgroundWorker().Run(ctx, unit)
+}
+
+func (service *Service) executeContent(ctx context.Context, unit work) {
+	if ctx.Err() != nil {
+		return
 	}
-	ctx, cancelWork := context.WithCancel(ctx)
-	defer cancelWork()
-	heartbeatDone := make(chan struct{})
-	go func() { defer close(heartbeatDone); service.heartbeat(ctx, unit, cancelWork) }()
-	defer func() { cancelWork(); <-heartbeatDone }()
 	root, ok := service.roots[unit.RootID]
 	if !ok || root.digest != unit.RootDigest {
 		service.fail(ctx, unit, "SERVER_IMPORT_ROOT_CHANGED", false)
@@ -183,27 +139,6 @@ func (service *Service) execute(ctx context.Context, unit work) {
 		return
 	}
 	service.executeImport(ctx, unit, root)
-}
-
-func (service *Service) heartbeat(ctx context.Context, unit work, cancel context.CancelFunc) {
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-service.stop:
-			cancel()
-			return
-		case <-ticker.C:
-			leases := application.NewLeases(repository.NewLeases(service.database), service.now)
-			if err := leases.Renew(ctx, unit.Identity()); err != nil {
-				slog.Error("Pegasus worker lease renewal failed", "error", service.sanitizeTechnicalDetail(err))
-				cancel()
-				return
-			}
-		}
-	}
 }
 
 func (service *Service) Create(ctx context.Context, request CreateRequest, actorID string) (Summary, error) {

@@ -1,9 +1,15 @@
 package pegasusimport
 
 import (
+	"context"
+	"database/sql/driver"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"retrom/internal/testsupport"
 )
 
 func TestRecoveryLoopClosesLeaseThatExpiresAfterStartup(t *testing.T) {
@@ -13,16 +19,25 @@ func TestRecoveryLoopClosesLeaseThatExpiresAfterStartup(t *testing.T) {
 	var now atomic.Int64
 	now.Store(10)
 	service.now = func() time.Time { return time.UnixMilli(now.Load()) }
-	service.wake = make(chan struct{})
-	service.stop = make(chan struct{})
-	done := make(chan struct{})
-	go func() { defer close(done); service.runLoop() }()
-	t.Cleanup(func() { service.Close(); <-done })
-	// Two rendezvous ensure a complete maintenance cycle with a still-live lease.
-	service.wake <- struct{}{}
-	service.wake <- struct{}{}
+	observed := make(chan struct{})
+	var first sync.Once
+	service.database = testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
+		BeforeQuery: func(_ context.Context, query string, args []driver.NamedValue) error {
+			if strings.Contains(query, "ORDER BY job.leased_until_ms,job.id LIMIT ?") && len(args) == 3 {
+				first.Do(func() { close(observed) })
+			}
+			return nil
+		},
+	})
+	service.Start()
+	t.Cleanup(service.Close)
+	select {
+	case <-observed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("initial maintenance never ran")
+	}
 	now.Store(30)
-	service.wake <- struct{}{}
+	service.signal()
 	deadline := time.NewTimer(2 * time.Second)
 	defer deadline.Stop()
 	tick := time.NewTicker(10 * time.Millisecond)

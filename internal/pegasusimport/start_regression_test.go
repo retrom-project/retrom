@@ -59,7 +59,7 @@ error_details_json=NULL,retryable=0,collection_id='019b0000-0000-7000-8000-00000
 	if err := db.QueryRowContext(t.Context(), `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&target); err != nil {
 		t.Fatal(err)
 	}
-	service := &Service{database: db, roots: map[string]Root{"games": root}, now: func() time.Time { return time.UnixMilli(10) }, tags: tagging.New(tagrepository.New(db), time.Now), wake: make(chan struct{}, 1)}
+	service := &Service{database: db, roots: map[string]Root{"games": root}, now: func() time.Time { return time.UnixMilli(10) }, tags: tagging.New(tagrepository.New(db), time.Now)}
 	mapped, err := service.UpdateMappings(t.Context(), "import", 4, []Mapping{{CollectionID: startCollection, Action: "IMPORT", PlatformInstanceID: target, TagIDs: []string{}}})
 	if err != nil {
 		t.Fatal(err)

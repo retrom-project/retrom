@@ -11,7 +11,7 @@ import (
 func TestRetryClearsOnlyResolvedFailureCounts(t *testing.T) {
 	t.Parallel()
 	db := newPegasusRetryDatabase(t)
-	service := &Service{database: db, now: func() time.Time { return time.UnixMilli(10) }, wake: make(chan struct{}, 1)}
+	service := &Service{database: db, now: func() time.Time { return time.UnixMilli(10) }}
 	value, err := service.Retry(t.Context(), "import", 4, "user")
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +24,7 @@ func TestRetryClearsOnlyResolvedFailureCounts(t *testing.T) {
 // Sequential: restore uuid's global reader before parallel cases can run.
 func TestRetryPropagatesEntropyFailureWithoutResettingItems(t *testing.T) {
 	db := newPegasusRetryDatabase(t)
-	service := &Service{database: db, now: func() time.Time { return time.UnixMilli(10) }, wake: make(chan struct{}, 1)}
+	service := &Service{database: db, now: func() time.Time { return time.UnixMilli(10) }}
 	uuid.SetRand(unavailableCreationEntropy{})
 	value, err := func() (Summary, error) {
 		defer uuid.SetRand(nil)

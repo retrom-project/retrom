@@ -23,7 +23,7 @@ func TestCreatePropagatesEntropyFailureWithoutPersistingPlan(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(root, "Roms"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	service := &Service{database: db, now: time.Now, wake: make(chan struct{}, 1), roots: map[string]Root{"games": {ID: "games", Label: "Games", path: root, digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}
+	service := &Service{database: db, now: time.Now, roots: map[string]Root{"games": {ID: "games", Label: "Games", path: root, digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}
 	uuid.SetRand(unavailableCreationEntropy{})
 	value, err := func() (Summary, error) {
 		defer uuid.SetRand(nil)
