@@ -157,3 +157,18 @@ fork 的完整即时状态包括 CPU、RAM、VIA、PSG、卡带银行、模拟�
 不能读取上游不完整的 VecX 状态。Provider 公共层按 `emulatorjs-state-v1-storage-v1`
 压缩一次，恢复到不同 Launch 后必须继续接受输入。
 开发候选的准入按 `ACC-VECTREX-001` 执行；候选声明不等于正式发行支持。
+
+## Neo Geo CD 开发候选
+
+`neogeocd/neocd` 通过 `emulatorjs/neocd` 接入，首期只接受单文件 CHD；
+CUE/BIN、M3U 与换盘不在本次产品契约中。管理员安装 512 KiB CDZ `neocd.bin`，
+服务端按 BIOS catalog 校验并以 external file 交付到 `/neocd/neocd.bin`。
+不依赖上游实验性 HLE BIOS。推荐目录为“Neo Geo CD 游戏”。
+
+Provider 使用独立 OPFS 命名空间缓存 CHD，每次读取验证长度与 SHA-256；无缓存时
+报告下载进度，OPFS 不可用或写入失败仍可正常网络启动。标准手柄使用 arcade 映射，
+一个按钮只对应一个原生输入。即时存档采用公共 `emulatorjs-state-v1-storage-v1`，
+按声明大小有界解压，并在新的 Launch 恢复后继续接收输入。
+
+产品证据见统一验收 `ACC-NEOCD-001`。目前为源码固定的 PFB 候选，未修改正式
+Provider lock。通过样本不能推断整个游戏库或实体手柄兼容性。

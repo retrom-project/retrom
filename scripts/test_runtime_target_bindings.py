@@ -50,6 +50,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("emulatorjs", "desmume2015")]["coreId"], "desmume2015")
         expected_single_file_targets = {
             "vecx": ("vecx", ["vectrex"]),
+            "neocd": ("neocd", ["neogeocd"]),
             "81": ("81", ["zx81"]),
             "cap32": ("cap32", ["amstradcpc"]),
             "crocods": ("crocods", ["amstradcpc"]),
