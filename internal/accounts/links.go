@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"time"
 
+	accountpersistence "retrom/internal/persistence/accounts"
+	accountservice "retrom/internal/service/accounts"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -16,7 +19,6 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 )
 
 type AcceptInvitationRequest struct {
@@ -104,7 +106,7 @@ VALUES(?,'INVITATION',?,NULL,?,?,?,1)
 	}
 	if err := insertUserAudit(
 		ctx, transaction, principal, "INVITATION_CREATED", "ACCOUNT_LINK", linkID,
-		nil, map[string]any{"kind": "INVITATION", "role": role, "expiresAtMs": expires}, now,
+		map[string]any{"kind": "INVITATION", "role": role, "expiresAtMs": expires}, now,
 	); err != nil {
 		return AccountLink{}, false, err
 	}
@@ -122,36 +124,29 @@ VALUES(?,'INVITATION',?,NULL,?,?,?,1)
 	return result, false, nil
 }
 
-func (service *Service) InspectAccountLink(
-	ctx context.Context,
-	expectedKind, token string,
-) (LinkInspection, error) {
-	if expectedKind != "INVITATION" && expectedKind != "PASSWORD_RESET" {
-		return LinkInspection{}, ErrAccountLinkUnavailable
+func (service *Service) links() *accountservice.LinkService {
+	return accountservice.NewLinks(
+		accountpersistence.NewLinks(
+			service.database,
+		),
+		service.credentials,
+		func() time.Time {
+			return service.now()
+		},
+	)
+}
+
+func (service *Service) InspectAccountLink(ctx context.Context, kind, token string) (LinkInspection, error) {
+	value, err := service.links().Inspect(ctx, kind, token)
+	if err != nil {
+		return LinkInspection{}, fmt.Errorf("inspect account link: %w", err)
 	}
-	linkID, valid := service.credentials.ParseAccountLinkToken(expectedKind, token)
-	if !valid {
-		return LinkInspection{}, ErrAccountLinkUnavailable
+	result := LinkInspection{Kind: value.Kind, ExpiresAtMS: value.ExpiresAtMS}
+	if value.Role != nil {
+		result.Role = *value.Role
 	}
-	var kind string
-	var role, username sql.NullString
-	var expiresAt int64
-	var consumedAt, revokedAt sql.NullInt64
-	err := service.database.QueryRowContext(ctx, `
-SELECT link.kind,link.invited_role,user.username,link.expires_at_ms,link.consumed_at_ms,link.revoked_at_ms
-FROM account_links link
-LEFT JOIN users user ON user.id=link.target_user_id
-WHERE link.id=? AND link.kind=?
-`, linkID.String(), expectedKind).Scan(&kind, &role, &username, &expiresAt, &consumedAt, &revokedAt)
-	if err != nil || accountLinkState(consumedAt, revokedAt, expiresAt, service.now().UTC().UnixMilli()) != "ACTIVE" {
-		return LinkInspection{}, ErrAccountLinkUnavailable
-	}
-	result := LinkInspection{Kind: kind, Role: nil, Username: nil, ExpiresAtMS: expiresAt}
-	if role.Valid {
-		result.Role = role.String
-	}
-	if username.Valid {
-		result.Username = username.String
+	if value.Username != nil {
+		result.Username = *value.Username
 	}
 	return result, nil
 }
@@ -186,7 +181,7 @@ func (service *Service) AcceptInvitation(
 	principal := authn.Principal{UserID: input.userID, Username: input.username}
 	if err := insertUserAudit(
 		ctx, transaction, principal, "INVITATION_ACCEPTED", "ACCOUNT_LINK", input.linkID.String(),
-		nil, map[string]any{"role": role, "status": "CONSUMED", "userId": input.userID}, input.now,
+		map[string]any{"role": role, "status": "CONSUMED", "userId": input.userID}, input.now,
 	); err != nil {
 		return Session{}, err
 	}
@@ -402,7 +397,7 @@ VALUES(?,'PASSWORD_RESET',NULL,?,?,?,?,1)
 	}
 	if err := insertUserAudit(
 		ctx, transaction, principal, "PASSWORD_RESET_CREATED", "ACCOUNT_LINK", linkID,
-		nil, map[string]any{"targetUserId": targetUserID, "expiresAtMs": expires}, now,
+		map[string]any{"targetUserId": targetUserID, "expiresAtMs": expires}, now,
 	); err != nil {
 		return AccountLink{}, false, err
 	}
@@ -570,7 +565,7 @@ WHERE user_id=? AND revoked_at_ms IS NULL
 	principal := authn.Principal{UserID: input.targetUserID, Username: input.username}
 	if err := insertUserAudit(
 		ctx, transaction, principal, "PASSWORD_RESET_COMPLETED", "USER", input.targetUserID,
-		nil, map[string]any{"status": currentStatus}, input.now,
+		map[string]any{"status": currentStatus}, input.now,
 	); err != nil {
 		return PasswordResetResult{}, err
 	}
@@ -599,182 +594,54 @@ WHERE user_id=? AND revoked_at_ms IS NULL
 func (service *Service) RevokeAccountLink(
 	ctx context.Context,
 	principal authn.Principal,
-	linkID string,
-	expectedVersion int64,
-	idempotencyKey string,
+	id string,
+	version int64,
+	key string,
 ) (bool, error) {
-	digest := operationDigest("deleteAdminAccountLink", principal.UserID, map[string]any{
-		"accountLinkId":   linkID,
-		"expectedVersion": expectedVersion,
-	})
-	now := service.now().UTC().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return false, fmt.Errorf("begin account-link revocation: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	_, replayed, err := loadIdempotency(
-		ctx, transaction, principal.UserID, "deleteAdminAccountLink", idempotencyKey, digest, now,
-	)
-	if err != nil || replayed {
-		return replayed, err
-	}
-	var expiresAt, version int64
-	var kind string
-	var consumedAt, revokedAt sql.NullInt64
-	if err := transaction.QueryRowContext(ctx, `
-SELECT kind,expires_at_ms,consumed_at_ms,revoked_at_ms,version FROM account_links WHERE id=?
-`, linkID).Scan(&kind, &expiresAt, &consumedAt, &revokedAt, &version); errors.Is(err, sql.ErrNoRows) {
-		return false, ErrAccountLinkNotActive
-	} else if err != nil {
-		return false, fmt.Errorf("read account link: %w", err)
-	}
-	if version != expectedVersion {
-		return false, ErrUserVersion
-	}
-	if accountLinkState(consumedAt, revokedAt, expiresAt, now) != "ACTIVE" {
-		return false, ErrAccountLinkNotActive
-	}
-	result, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
-		Set: `revoked_at_ms=?,revoked_by_kind='USER',revoked_by_user_id=?,version=version+1`,
-		Scope: recordstore.Scope{
-			Where: `
-id=? AND version=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`,
-			Args: []any{linkID, expectedVersion, now},
-		},
-		Values: []any{now, principal.UserID},
-	})
+	replayed, err := service.links().Revoke(ctx, principal.UserID, id, version, key)
 	if err != nil {
 		return false, fmt.Errorf("revoke account link: %w", err)
 	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return false, ErrAccountLinkNotActive
-	}
-	action := "PASSWORD_RESET_REVOKED"
-	if kind == "INVITATION" {
-		action = "INVITATION_REVOKED"
-	}
-	if err := insertUserAudit(
-		ctx, transaction, principal, action, "ACCOUNT_LINK", linkID,
-		map[string]any{"state": "ACTIVE"}, map[string]any{"state": "REVOKED"}, now,
-	); err != nil {
-		return false, err
-	}
-	if err := storeIdempotency(
-		ctx, transaction, principal.UserID, "deleteAdminAccountLink", idempotencyKey, digest,
-		http.StatusNoContent, nil, now,
-	); err != nil {
-		return false, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return false, fmt.Errorf("commit account-link revocation: %w", err)
-	}
-	return false, nil
+	return replayed, nil
 }
 
-func (service *Service) ListAccountLinks(
-	ctx context.Context,
-	filter LinkListFilter,
-) ([]AccountLink, error) {
-	filter, err := validateLinkListFilter(filter)
-	if err != nil {
-		return nil, err
-	}
-	now := service.now().UTC().UnixMilli()
-	query, arguments := buildLinkListQuery(filter, now)
-	rows, err := service.database.QueryContext(ctx, query, arguments...)
+func (service *Service) ListAccountLinks(ctx context.Context, filter LinkListFilter) ([]AccountLink, error) {
+	values, err := service.links().List(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("list account links: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]AccountLink, 0, filter.Limit)
-	for rows.Next() {
-		item, err := scanAccountLink(rows, now)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
+	result := make([]AccountLink, len(values))
+	for index, value := range values {
+		result[index] = legacyAccountLink(value)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate account links: %w", err)
-	}
-	return items, nil
+	return result, nil
 }
 
-func validateLinkListFilter(filter LinkListFilter) (LinkListFilter, error) {
-	if filter.Kind != "INVITATION" && filter.Kind != "PASSWORD_RESET" {
-		return filter, ErrAccountLinkUnavailable
+func legacyAccountLink(value accountservice.AccountLink) AccountLink {
+	result := AccountLink{
+		AccountLinkID:   value.AccountLinkID,
+		Kind:            value.Kind,
+		State:           value.State,
+		Version:         value.Version,
+		CreatedAtMS:     value.CreatedAtMS,
+		ExpiresAtMS:     value.ExpiresAtMS,
+		TargetVersion:   value.TargetVersion,
+		CapabilityToken: value.CapabilityToken,
 	}
-	if filter.State == "" {
-		filter.State = "ACTIVE"
+	if value.Role != nil {
+		result.Role = *value.Role
 	}
-	if filter.State != "ACTIVE" && filter.State != "CONSUMED" && filter.State != "REVOKED" &&
-		filter.State != "EXPIRED" && filter.State != "ALL" {
-		return filter, ErrAccountLinkUnavailable
+	if value.TargetUserID != nil {
+		result.TargetUserID = *value.TargetUserID
 	}
-	return filter, nil
-}
-
-func buildLinkListQuery(filter LinkListFilter, now int64) (string, []any) {
-	query := `
-SELECT link.id,link.kind,link.invited_role,link.target_user_id,
-creator.id,creator.username,link.version,link.created_at_ms,link.expires_at_ms,
-link.consumed_at_ms,link.revoked_at_ms
-FROM account_links link
-JOIN users creator ON creator.id=link.created_by_user_id
-WHERE link.kind=?`
-	arguments := []any{filter.Kind}
-	if filter.TargetUserID != "" {
-		query += " AND link.target_user_id=?"
-		arguments = append(arguments, filter.TargetUserID)
+	if value.CreatedBy != nil {
+		result.CreatedBy = map[string]any{"userId": value.CreatedBy.UserID, "username": value.CreatedBy.Username}
 	}
-	switch filter.State {
-	case "ACTIVE":
-		query += " AND link.consumed_at_ms IS NULL AND link.revoked_at_ms IS NULL AND link.expires_at_ms>?"
-		arguments = append(arguments, now)
-	case "CONSUMED":
-		query += " AND link.consumed_at_ms IS NOT NULL"
-	case "REVOKED":
-		query += " AND link.consumed_at_ms IS NULL AND link.revoked_at_ms IS NOT NULL"
-	case "EXPIRED":
-		query += ` AND link.consumed_at_ms IS NULL AND link.revoked_at_ms IS NULL
-AND link.expires_at_ms<=?`
-		arguments = append(arguments, now)
+	if value.ConsumedAtMS != nil {
+		result.ConsumedAtMS = *value.ConsumedAtMS
 	}
-	if filter.AfterID != "" {
-		query += " AND (link.created_at_ms<? OR (link.created_at_ms=? AND link.id<?))"
-		arguments = append(arguments, filter.AfterAtMS, filter.AfterAtMS, filter.AfterID)
+	if value.RevokedAtMS != nil {
+		result.RevokedAtMS = *value.RevokedAtMS
 	}
-	query += " ORDER BY link.created_at_ms DESC,link.id DESC LIMIT ?"
-	arguments = append(arguments, filter.Limit)
-	return query, arguments
-}
-
-func scanAccountLink(scanner interface{ Scan(...any) error }, now int64) (AccountLink, error) {
-	var item AccountLink
-	var role, target sql.NullString
-	var creatorID, creatorUsername string
-	var consumed, revoked sql.NullInt64
-	if err := scanner.Scan(
-		&item.AccountLinkID, &item.Kind, &role, &target, &creatorID, &creatorUsername,
-		&item.Version, &item.CreatedAtMS, &item.ExpiresAtMS, &consumed, &revoked,
-	); err != nil {
-		return AccountLink{}, fmt.Errorf("scan account link: %w", err)
-	}
-	if role.Valid {
-		item.Role = role.String
-	}
-	if target.Valid {
-		item.TargetUserID = target.String
-	}
-	item.CreatedBy = map[string]any{"userId": creatorID, "username": creatorUsername}
-	if consumed.Valid {
-		item.ConsumedAtMS = consumed.Int64
-	}
-	if revoked.Valid {
-		item.RevokedAtMS = revoked.Int64
-	}
-	item.State = accountLinkState(consumed, revoked, item.ExpiresAtMS, now)
-	return item, nil
+	return result
 }

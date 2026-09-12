@@ -335,7 +335,11 @@ func (server *Server) adminAccountLinks(
 	}
 	items, err := server.accounts.ListAccountLinks(request.Context(), filter)
 	if err != nil {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "链接筛选无效", map[string]any{})
+		if errors.Is(err, accounts.ErrAccountLinkUnavailable) {
+			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "链接筛选无效", map[string]any{})
+		} else {
+			server.databaseError(writer, request, err)
+		}
 		return
 	}
 	var nextCursor any
