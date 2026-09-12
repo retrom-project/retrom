@@ -85,3 +85,25 @@ func writeTwoFaultValues(t *testing.T, db *sql.DB) error {
 	_, err = tx.ExecContext(t.Context(), `INSERT INTO values_under_test VALUES(?)`, "second")
 	return err
 }
+
+func TestSQLFaultQueryHookPreservesCauseAndBoundArguments(t *testing.T) {
+	t.Parallel()
+	db := sqlFaultTestDatabase(t)
+	cause := errors.New("injected query read failure")
+	hits := 0
+	fault := OpenSQLFaultDatabase(t, db, SQLFaultHooks{BeforeQuery: func(_ context.Context, query string, args []driver.NamedValue) error {
+		if query == "SELECT value FROM values_under_test WHERE value=?" && len(args) == 1 && args[0].Value == "blocked" {
+			hits++
+			return cause
+		}
+		return nil
+	}})
+	var value string
+	err := fault.QueryRowContext(t.Context(), "SELECT value FROM values_under_test WHERE value=?", "blocked").Scan(&value)
+	if !errors.Is(err, cause) || hits != 1 {
+		t.Fatalf("query cause=%v hits=%d", err, hits)
+	}
+	if err := fault.QueryRowContext(t.Context(), "SELECT 'available'").Scan(&value); err != nil || value != "available" {
+		t.Fatalf("unrelated query=%s %v", value, err)
+	}
+}

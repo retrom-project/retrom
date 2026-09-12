@@ -102,11 +102,11 @@ func TestStartEvidenceBoundsPreserveOversizedInvalidFactsOnly(t *testing.T) {
 			case "empty":
 				m.snapshot.Gamelists = nil
 			case "count":
-				m.snapshot.Gamelists = make([]GamelistEvidence, MaxStartGamelists+1)
+				m.snapshot.Gamelists = make([]GamelistEvidence, MaxSnapshotGamelists+1)
 			case "per-file":
-				m.snapshot.Gamelists[0].SizeBytes = MaxStartGamelistBytes + 1
+				m.snapshot.Gamelists[0].SizeBytes = MaxSnapshotGamelistBytes + 1
 			case "total":
-				evidence.SizeBytes = MaxStartGamelistBytes
+				evidence.SizeBytes = MaxSnapshotGamelistBytes
 				m.snapshot.Gamelists = make([]GamelistEvidence, 9)
 				for i := range m.snapshot.Gamelists {
 					m.snapshot.Gamelists[i] = evidence

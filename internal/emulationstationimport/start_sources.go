@@ -12,9 +12,9 @@ import (
 	application "retrom/internal/service/emulationstationimport"
 )
 
-type startSources struct{ creationSourceSelector }
+type frozenSources struct{ creationSourceSelector }
 
-func (source startSources) VerifyGamelists(
+func (source frozenSources) VerifyGamelists(
 	ctx context.Context, rootID, path string, evidence []application.GamelistEvidence,
 ) error {
 	root, ok := source.roots[rootID]
@@ -46,7 +46,7 @@ func verifyStartGamelist(ctx context.Context, root Root, path string, expected a
 	if expected.ContentDigest == nil {
 		return nil
 	}
-	if expected.SizeBytes < 0 || expected.SizeBytes > application.MaxStartGamelistBytes {
+	if expected.SizeBytes < 0 || expected.SizeBytes > application.MaxSnapshotGamelistBytes {
 		return ErrSourceChanged
 	}
 	digest := sha256.New()

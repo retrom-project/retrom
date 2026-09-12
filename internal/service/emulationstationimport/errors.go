@@ -3,6 +3,8 @@ package emulationstationimport
 import "errors"
 
 var (
+	ErrNotCancellable       = errors.New("EMULATIONSTATION_IMPORT_NOT_CANCELLABLE")
+	ErrNotRetryable         = errors.New("EMULATIONSTATION_IMPORT_NOT_RETRYABLE")
 	ErrNoSelection          = errors.New("EMULATIONSTATION_NO_COLLECTION_SELECTED")
 	ErrSourceChanged        = errors.New("EMULATIONSTATION_SOURCE_CHANGED")
 	ErrMappingTargetChanged = errors.New("EMULATIONSTATION_MAPPING_TARGET_CHANGED")

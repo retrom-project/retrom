@@ -133,7 +133,7 @@ SELECT 'import-0',printf('extra-%04d/gamelist.xml',n),1,?,?, 'VALID',1 FROM sequ
 		t.Fatal(err)
 	}
 	snapshot, err := NewStarter(db).Inspect(t.Context(), "import-0")
-	if err != nil || len(snapshot.Gamelists) != application.MaxStartGamelists+1 {
+	if err != nil || len(snapshot.Gamelists) != application.MaxSnapshotGamelists+1 {
 		t.Fatalf("bounded gamelists=%d error=%v", len(snapshot.Gamelists), err)
 	}
 }

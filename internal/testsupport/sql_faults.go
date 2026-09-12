@@ -13,8 +13,9 @@ import (
 // receive a real *sql.Tx. Hooks may run concurrently and must synchronize state.
 // A hook must match the intended statement and bound arguments, never all writes.
 type SQLFaultHooks struct {
-	BeforeExec func(context.Context, string, []driver.NamedValue) error
-	AfterExec  func(context.Context, string, []driver.NamedValue, driver.Result) (driver.Result, error)
+	BeforeQuery func(context.Context, string, []driver.NamedValue) error
+	BeforeExec  func(context.Context, string, []driver.NamedValue) error
+	AfterExec   func(context.Context, string, []driver.NamedValue, driver.Result) (driver.Result, error)
 }
 
 // OpenSQLFaultDatabase opens another connection pool to a file-backed test database.
@@ -108,6 +109,11 @@ func (connection sqlFaultConnection) ExecContext(
 func (connection sqlFaultConnection) QueryContext(
 	ctx context.Context, query string, args []driver.NamedValue,
 ) (driver.Rows, error) {
+	if connection.hooks.BeforeQuery != nil {
+		if err := connection.hooks.BeforeQuery(ctx, query, args); err != nil {
+			return nil, err
+		}
+	}
 	reader, ok := connection.Conn.(driver.QueryerContext)
 	if !ok {
 		return nil, driver.ErrSkip

@@ -38,8 +38,8 @@ var (
 	ErrExpired              = application.ErrExpired
 	ErrActive               = application.ErrActive
 	ErrInvalid              = application.ErrInvalid
-	ErrNotCancellable       = errors.New("EMULATIONSTATION_IMPORT_NOT_CANCELLABLE")
-	ErrNotRetryable         = errors.New("EMULATIONSTATION_IMPORT_NOT_RETRYABLE")
+	ErrNotCancellable       = application.ErrNotCancellable
+	ErrNotRetryable         = application.ErrNotRetryable
 	errItemStateChanged     = errors.New("item state changed")
 )
 

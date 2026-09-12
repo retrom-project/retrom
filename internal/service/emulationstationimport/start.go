@@ -10,24 +10,11 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	MaxStartGamelists            = 1000
-	MaxStartGamelistBytes  int64 = 8 << 20
-	MaxStartGamelistsBytes int64 = 64 << 20
-)
-
 type (
-	GamelistEvidence struct {
-		RelativePath, FactsDigest, ParseState string
-		ContentDigest                         *string
-		SizeBytes                             int64
-	}
 	StartSnapshot struct {
-		Summary                                Summary
-		RootConfigDigest, SourceSnapshotDigest string
-		ReleaseYearMax                         int
-		Gamelists                              []GamelistEvidence
-		TagsValid, TargetsValid, OtherActive   bool
+		Summary Summary
+		FrozenSourceSnapshot
+		TagsValid, TargetsValid, OtherActive bool
 	}
 	StartScope struct {
 		Read  StartReader
@@ -43,10 +30,6 @@ type (
 		Inspect(context.Context, string) (StartSnapshot, error)
 		WithStart(context.Context, func(StartScope) error) error
 	}
-	StartSources interface {
-		Select(context.Context, string, string) (SelectedRoot, error)
-		VerifyGamelists(context.Context, string, string, []GamelistEvidence) error
-	}
 	StartPlan struct {
 		Before                                          StartSnapshot
 		JobID, ExecutionID, AuditID, ActorID, DedupeKey string
@@ -54,12 +37,12 @@ type (
 	}
 	Starter struct {
 		repository StartRepository
-		sources    StartSources
+		sources    FrozenSources
 		now        func() time.Time
 	}
 )
 
-func NewStarter(repository StartRepository, sources StartSources, now func() time.Time) *Starter {
+func NewStarter(repository StartRepository, sources FrozenSources, now func() time.Time) *Starter {
 	return &Starter{repository: repository, sources: sources, now: now}
 }
 
@@ -78,7 +61,7 @@ func (service *Starter) Start(ctx context.Context, id string, version int64, act
 	if err := readyToStart(before, service.now().UnixMilli()); err != nil {
 		return Summary{}, false, err
 	}
-	if err := service.verifySource(ctx, before); err != nil {
+	if err := verifyFrozenSource(ctx, service.sources, before.Summary, before.FrozenSourceSnapshot); err != nil {
 		return Summary{}, false, err
 	}
 	plan, err := newStartPlan(before, actorID)
@@ -86,25 +69,6 @@ func (service *Starter) Start(ctx context.Context, id string, version int64, act
 		return Summary{}, false, err
 	}
 	return service.queue(ctx, plan, version)
-}
-
-func (service *Starter) verifySource(ctx context.Context, before StartSnapshot) error {
-	if before.SourceSnapshotDigest == "" || !validStartEvidence(before.Gamelists) {
-		return ErrSourceChanged
-	}
-	root, err := service.sources.Select(ctx, before.Summary.Root.ID, before.Summary.SourceRelativePath)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrSourceChanged, err)
-	}
-	if root.ID != before.Summary.Root.ID || root.Digest != before.RootConfigDigest {
-		return ErrSourceChanged
-	}
-	if err := service.sources.VerifyGamelists(
-		ctx, root.ID, before.Summary.SourceRelativePath, before.Gamelists,
-	); err != nil {
-		return fmt.Errorf("verify EmulationStation start evidence: %w", err)
-	}
-	return nil
 }
 
 func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64) (Summary, bool, error) {
@@ -127,7 +91,12 @@ func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64
 		if err := readyToStart(current, plan.NowMS); err != nil {
 			return err
 		}
-		if !sameStartSnapshot(plan.Before, current) {
+		if !sameFrozenSource(
+			plan.Before.Summary,
+			current.Summary,
+			plan.Before.FrozenSourceSnapshot,
+			current.FrozenSourceSnapshot,
+		) {
 			return ErrSourceChanged
 		}
 		plan.Before = current

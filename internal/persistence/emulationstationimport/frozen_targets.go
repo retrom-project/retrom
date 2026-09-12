@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func (records startRecords) targetsValid(ctx context.Context, id string) (bool, error) {
+func (records frozenSourceRecords) targetsValid(ctx context.Context, id string) (bool, error) {
 	var valid bool
 	err := records.executor.QueryRowContext(ctx, `
 SELECT NOT EXISTS(

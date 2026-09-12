@@ -221,50 +221,6 @@ VALUES(?,'EMULATIONSTATION_IMPORT',?,'PROGRESS',?,?)`,
 	return nil
 }
 
-type terminalItemCounts struct {
-	SkippedMapping  int64
-	ReviewPending   int64
-	Published       int64
-	ReviewDiscarded int64
-	Existing        int64
-	Blocked         int64
-	Failed          int64
-	Cancelled       int64
-}
-
-func loadTerminalItemCounts(
-	ctx context.Context,
-	transaction *sql.Tx,
-	importID string,
-) (terminalItemCounts, error) {
-	var counts terminalItemCounts
-	err := transaction.QueryRowContext(ctx, `
-SELECT
- count(*) FILTER(WHERE execution_state='SKIPPED_MAPPING'),
- count(*) FILTER(WHERE execution_state='REVIEW_PENDING'),
- count(*) FILTER(WHERE execution_state='PUBLISHED'),
- count(*) FILTER(WHERE execution_state='REVIEW_DISCARDED'),
- count(*) FILTER(WHERE execution_state='SKIPPED_EXISTING'),
- count(*) FILTER(WHERE execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')),
- count(*) FILTER(WHERE execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),
- count(*) FILTER(WHERE execution_state='CANCELLED')
-FROM emulationstation_import_items
-WHERE import_id=?`, importID).Scan(
-		&counts.SkippedMapping,
-		&counts.ReviewPending,
-		&counts.Published,
-		&counts.ReviewDiscarded,
-		&counts.Existing,
-		&counts.Blocked,
-		&counts.Failed,
-		&counts.Cancelled,
-	)
-	if err != nil {
-		return terminalItemCounts{}, fmt.Errorf("emulationstationimport/read terminal counts: %w", err)
-	}
-	return counts, nil
-}
-
 func (service *Service) closeCancelled(ctx context.Context, unit work) (bool, error) {
 	var state string
 	if err := service.database.QueryRowContext(
