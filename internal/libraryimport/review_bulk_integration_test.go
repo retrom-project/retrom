@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -126,27 +128,38 @@ SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
 		Scan(&importState); err != nil || importState != "COMPLETED" {
 		t.Fatalf("import aggregate = %s, %v", importState, err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET scope_json='{}' WHERE id=?
-`, created.BulkApprovalID); err == nil {
+	if _, err := recordstore.UpdateReviewBulkApprovals(ctx, database.SQL, recordstore.Update{
+		Set: `scope_json='{"tampered":true}'`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{created.BulkApprovalID},
+		},
+	}); err == nil {
 		t.Fatal("bulk approval accepted a frozen scope update")
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE review_bulk_approval_items SET expected_review_version=expected_review_version+1
-WHERE bulk_approval_id=? AND import_item_id=(
+	if _, err := recordstore.UpdateReviewBulkApprovalItems(ctx, database.SQL, recordstore.Update{
+		Set: `expected_review_version=expected_review_version+1`,
+		Scope: recordstore.Scope{
+			Where: `
+bulk_approval_id=? AND import_item_id=(
   SELECT min(import_item_id) FROM review_bulk_approval_items WHERE bulk_approval_id=?
 )
-`, created.BulkApprovalID, created.BulkApprovalID); err == nil {
+`,
+			Args: []any{created.BulkApprovalID, created.BulkApprovalID},
+		},
+	}); err == nil {
 		t.Fatal("bulk approval item accepted a frozen review version update")
 	}
 
 	createImport("bulk-stale.gba", "bulk-ready-stale")
 	stalePreview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return stalePreview.Counts.StrictReady != 1 }), "stale preview = %#v, %v", stalePreview, err)
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE review_drafts SET version=version+1,updated_at_ms=updated_at_ms+1
-WHERE import_item_id=(SELECT id FROM import_items WHERE state='REVIEW_PENDING' LIMIT 1)
-`); err != nil {
+	if _, err := recordstore.UpdateReviewDrafts(ctx, database.SQL, recordstore.Update{
+		Set: `version=version+1,updated_at_ms=updated_at_ms+1`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=(SELECT id FROM import_items WHERE state='REVIEW_PENDING' LIMIT 1)`,
+		},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := importer.CreateReviewBulk(ctx, ReviewBulkCreateRequest{

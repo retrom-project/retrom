@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/testassert"
 
-	_ "modernc.org/sqlite"
+	"retrom/internal/store"
 )
 
 func TestProjectRuntimeCheckReturnsActionableArcadeDependencies(t *testing.T) {
@@ -27,51 +27,7 @@ func TestProjectRuntimeCheckReturnsActionableArcadeDependencies(t *testing.T) {
 
 func TestRetryableCurrentFailureCanBeRecheckedWithoutRescanning(t *testing.T) {
 	t.Parallel()
-	database, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "retry.db"))
-	testassert.False(t, err != nil, err)
-	t.Cleanup(func() { _ = database.Close() })
-	if _, err := database.ExecContext(context.Background(), `
-CREATE TABLE users(id TEXT PRIMARY KEY,display_name TEXT);
-CREATE TABLE pegasus_imports(
- id TEXT PRIMARY KEY,root_id TEXT,root_label_snapshot TEXT,source_relative_path TEXT,state TEXT,phase TEXT,
- scan_job_id TEXT,import_job_id TEXT,metadata_count INTEGER,invalid_metadata_count INTEGER,collection_count INTEGER,
- game_count INTEGER,estimated_source_bytes INTEGER,mapped_collection_count INTEGER,skipped_collection_count INTEGER,
- processable_item_count INTEGER,blocked_item_count INTEGER,review_pending_item_count INTEGER,
- published_item_count INTEGER,review_discarded_item_count INTEGER,existing_item_count INTEGER,
- failed_item_count INTEGER,cancelled_item_count INTEGER,media_warning_count INTEGER,discovered_cover_count INTEGER,
- discovered_video_count INTEGER,mapping_version INTEGER,version INTEGER,created_by_user_id TEXT,last_error_code TEXT,
- retryable INTEGER,created_at_ms INTEGER,updated_at_ms INTEGER,expires_at_ms INTEGER,completed_at_ms INTEGER
-);
-CREATE TABLE pegasus_import_items(id TEXT PRIMARY KEY,import_id TEXT,execution_state TEXT,error_code TEXT,error_details_json TEXT,retryable INTEGER,completed_at_ms INTEGER,version INTEGER,updated_at_ms INTEGER);
-CREATE TABLE jobs(
- id TEXT PRIMARY KEY,execution_no INTEGER,state TEXT,payload_json TEXT,attempt_count INTEGER,available_at_ms INTEGER,
- execution_started_at_ms INTEGER,execution_deadline_at_ms INTEGER,leased_until_ms INTEGER,heartbeat_at_ms INTEGER,
- finished_at_ms INTEGER,worker_id TEXT,error_code TEXT,error_retryable INTEGER,cancel_requested_at_ms INTEGER,
- cancel_reason TEXT,version INTEGER,updated_at_ms INTEGER
-);
-CREATE TABLE job_input_snapshots(job_id TEXT,execution_no INTEGER,input_json TEXT,input_digest TEXT,created_at_ms INTEGER);
-CREATE TABLE job_events(job_id TEXT,scope_type TEXT,scope_id TEXT,event_type TEXT,data_json TEXT,created_at_ms INTEGER);
-INSERT INTO users VALUES('user','Admin');
-INSERT INTO pegasus_imports(
- id,root_id,root_label_snapshot,source_relative_path,state,phase,scan_job_id,import_job_id,
- metadata_count,invalid_metadata_count,collection_count,game_count,estimated_source_bytes,
- mapped_collection_count,skipped_collection_count,processable_item_count,blocked_item_count,
- review_pending_item_count,published_item_count,review_discarded_item_count,existing_item_count,
- failed_item_count,cancelled_item_count,media_warning_count,discovered_cover_count,discovered_video_count,
- mapping_version,version,created_by_user_id,last_error_code,retryable,created_at_ms,updated_at_ms,
- expires_at_ms,completed_at_ms
-) VALUES(
- 'import','games','Games','Roms','PARTIAL_FAILURE',NULL,'scan','work',1,0,1,1,1,1,0,1,0,
- 0,0,0,0,1,0,0,0,0,1,4,'user',NULL,1,1,2,9999999999999,2
-);
-INSERT INTO pegasus_import_items VALUES(
- 'item','import','COMMIT_FAILED','PEGASUS_LIBRARY_IMPORT_FAILED',
- '{"schemaVersion":1,"stage":"LIBRARY_IMPORT"}',1,2,1,2
-);
-INSERT INTO jobs VALUES('work',1,'SUCCEEDED','{}',1,1,1,1,NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,1,2);
-`); err != nil {
-		t.Fatal(err)
-	}
+	database := newPegasusRetryDatabase(t)
 	now := time.UnixMilli(10)
 	service := &Service{database: database, now: func() time.Time { return now }, wake: make(chan struct{}, 1)}
 	summary, err := service.Get(context.Background(), "import")
@@ -98,4 +54,53 @@ func TestProjectRuntimeCheckReturnsMissingBIOSAndDiscs(t *testing.T) {
 		sql.NullString{String: snapshot, Valid: true},
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return result == nil }, func() bool { return len(result.BIOS) != 1 }, func() bool { return result.BIOS[0].LogicalName != "saturn_bios.bin" }, func() bool { return len(result.MissingDiscs) != 1 }, func() bool { return result.MissingDiscs[0].SourceReference != "Disc 2.chd" }), "runtime check = %#v", result)
+}
+
+func newPegasusRetryDatabase(t *testing.T) *sql.DB {
+	t.Helper()
+	owner, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "retry.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := owner.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	db := owner.SQL
+	if _, err := db.ExecContext(t.Context(), `
+ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('retry-profile','Admin',1);
+ INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
+ VALUES('user','retry-profile','retry-admin','Admin','ADMIN','ENABLED',1,1);
+ INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+ attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms,finished_at_ms)
+ VALUES('scan','PEGASUS_IMPORT','import','SERVER_PEGASUS_SCAN',
+ 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1,'{}',1,'SUCCEEDED',1,4,1,1,2,2),
+ ('work','PEGASUS_IMPORT','import','SERVER_PEGASUS_IMPORT',
+ 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1,'{}',1,'SUCCEEDED',1,4,1,1,2,2);
+INSERT INTO pegasus_imports(
+ id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,scan_job_id,import_job_id,
+ metadata_count,invalid_metadata_count,collection_count,game_count,estimated_source_bytes,
+ mapped_collection_count,skipped_collection_count,processable_item_count,blocked_item_count,
+ review_pending_item_count,published_item_count,review_discarded_item_count,existing_item_count,
+ failed_item_count,cancelled_item_count,media_warning_count,discovered_cover_count,discovered_video_count,
+ mapping_version,version,created_by_user_id,last_error_code,retryable,created_at_ms,updated_at_ms,
+ expires_at_ms,completed_at_ms
+) VALUES(
+ 'import','games','Games','Roms','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','PARTIAL_FAILURE',NULL,'scan','work',1,0,1,1,1,1,0,1,0,
+ 0,0,0,0,1,0,0,0,0,1,4,'user',NULL,1,1,2,9999999999999,2
+);
+
+ INSERT INTO pegasus_import_items(id,import_id,metadata_relative_path,game_ordinal,source_key,title,
+ discovery_state,execution_state,metadata_json,source_manifest_json,source_manifest_digest,
+ error_code,error_details_json,retryable,completed_at_ms,version,created_at_ms,updated_at_ms)
+ VALUES('item','import','metadata.pegasus.txt',0,
+ 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc','Retry game',
+ 'READY','COMMIT_FAILED','{}','{}',
+ 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+ 'PEGASUS_LIBRARY_IMPORT_FAILED','{"schemaVersion":1,"stage":"LIBRARY_IMPORT"}',1,2,1,1,2);
+ `); err != nil {
+		t.Fatal(err)
+	}
+	return db
 }

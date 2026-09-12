@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 )
 
@@ -88,7 +90,7 @@ func upsertBuiltInDAT(
 	id, coreID string, target runtimeTarget, relativePath, digest string,
 	now time.Time,
 ) error {
-	_, err := transaction.ExecContext(ctx, `
+	_, err := recordstore.CreateDatVersions(ctx, transaction, `
 INSERT INTO dat_versions(id,
  core_id,
  provider_id,

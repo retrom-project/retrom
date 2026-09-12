@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"retrom/internal/storequery"
+
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/cursor"
@@ -137,7 +139,7 @@ normalized_path
 SELECT count(*)
 FROM save_states save
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
-JOIN save_state_runtime_compatibility compatibility
+JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.game_id=?
 AND save.profile_id=?
@@ -188,7 +190,7 @@ FROM save_states s
 LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN launch_sessions source_launch ON source_launch.id=s.source_launch_session_id
 JOIN cores c ON c.id=source_launch.core_id
-JOIN save_state_runtime_compatibility compatibility
+JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility
   ON compatibility.save_state_id=s.id AND compatibility.status='AVAILABLE'
 WHERE s.game_id=?
 AND s.profile_id=?

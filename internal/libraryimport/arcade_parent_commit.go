@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
@@ -54,36 +56,61 @@ func (service *Service) commitAcceptedParentAttachment(
 		"attachmentKind": "ARCADE_PARENT", "machine": candidate.machine,
 		"validationStatus": validation.validationStatus, "state": "ACCEPTED",
 	})
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_arcade_parent_attachments SET state='ACCEPTED',accepted_blob_id=?,
+	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='ACCEPTED',accepted_blob_id=?,
 result_source_snapshot_id=?,observed_size_bytes=?,observed_sha256=?,diagnostics_json=?,error_code=NULL,
 finished_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING'
-`, candidate.blobID, newSnapshotID, candidate.blobSize, candidate.blobSHA,
-		string(diagnosticsJSON), now, now, candidate.attachmentID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{candidate.attachmentID},
+		},
+		Values: []any{
+			candidate.blobID,
+			newSnapshotID,
+			candidate.blobSize,
+			candidate.blobSHA,
+			string(diagnosticsJSON),
+			now,
+			now,
+		},
+	})
 	if err := requireParentCommitChange(result, err, "accept attachment"); err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateUploadConsumptions(ctx, transaction, `
 INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
 VALUES(?,?,?,'REVIEW_ARCADE_PARENT',?,?)
 	`, consumptionID.String(), candidate.uploadSessionID, candidate.uploadFileID,
 		candidate.attachmentID, now); err != nil {
 		return parentStoreError("consume parent upload", err)
 	}
-	result, err = transaction.ExecContext(ctx, `
-UPDATE review_drafts SET effective_source_snapshot_id=?,selected_validation_id=?,
-version=version+1,updated_at_ms=? WHERE id=? AND effective_source_snapshot_id=?
-`, newSnapshotID, selectedValidation, now, candidate.draftID, candidate.baseSnapshotID)
+	result, err = recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+		Set: `
+effective_source_snapshot_id=?,selected_validation_id=?,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND effective_source_snapshot_id=?`,
+			Args:  []any{candidate.draftID, candidate.baseSnapshotID},
+		},
+		Values: []any{newSnapshotID, selectedValidation, now},
+	})
 	if err := requireParentCommitChange(result, err, "advance review source"); err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE import_items SET version=version+1,updated_at_ms=? WHERE id=? AND state='REVIEW_PENDING';
-	`, now, candidate.itemID); err != nil {
+	if _, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='REVIEW_PENDING'`,
+			Args:  []any{candidate.itemID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return parentStoreError("advance import item", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,
 config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
@@ -204,7 +231,7 @@ func insertParentCoreValidation(
 		DependencySnapshot:  json.RawMessage(validation.dependencySnapshot),
 		Status:              validation.validationStatus, CompatibilityCode: validation.compatibilityCode,
 	})
-	_, err := transaction.ExecContext(ctx, `
+	_, err := recordstore.CreateImportItemCoreValidations(ctx, transaction, `
 INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
   provider_id,target_id,
@@ -365,11 +392,17 @@ func (service *Service) finishRejectedParentAttachment(
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_arcade_parent_attachments SET state='REJECTED',error_code=?,diagnostics_json=?,
+	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='REJECTED',error_code=?,diagnostics_json=?,
 observed_size_bytes=?,observed_sha256=?,finished_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING'
-`, code, string(diagnostics), candidate.blobSize, candidate.blobSHA, now, now, candidate.attachmentID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{candidate.attachmentID},
+		},
+		Values: []any{code, string(diagnostics), candidate.blobSize, candidate.blobSHA, now, now},
+	}); err != nil {
 		return
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -386,7 +419,7 @@ VALUES(?,'IMPORT_ITEM',?,'PARENT_REJECTED',?,?),(?,'IMPORT_ITEM',?,'FAILED',?,?)
 		fmt.Sprintf(`{"errorCode":%q}`, code), now); err != nil {
 		return
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,
 config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
@@ -411,11 +444,18 @@ func (service *Service) finishRetryableParentAttachment(
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_arcade_parent_attachments SET state='FAILED_RETRYABLE',error_code=?,
-diagnostics_json=?,observed_size_bytes=?,observed_sha256=?,finished_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING'
-`, code, diagnostics, candidate.blobSize, candidate.blobSHA, now, now, candidate.attachmentID); err != nil {
+	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED_RETRYABLE',error_code=?,
+diagnostics_json=?,observed_size_bytes=?,observed_sha256=?,finished_at_ms=?,version=version+1,
+updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{candidate.attachmentID},
+		},
+		Values: []any{code, diagnostics, candidate.blobSize, candidate.blobSHA, now, now},
+	}); err != nil {
 		return
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -436,13 +476,21 @@ VALUES(?,'IMPORT_ITEM',?,'FAILED',?,?)
 
 func (service *Service) SyncParentAttachmentCancellation(ctx context.Context, jobID string) {
 	now := service.now().UnixMilli()
-	_, _ = service.database.ExecContext(ctx, `
-UPDATE review_arcade_parent_attachments SET state='CANCELLED',error_code='CANCELLED',
+	_, _ = recordstore.UpdateReviewArcadeParentAttachments(ctx, service.database, recordstore.Update{
+		Set: `
+state='CANCELLED',error_code='CANCELLED',
 diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
 version=version+1,updated_at_ms=?
-WHERE job_id=? AND state IN ('QUEUED','RUNNING','FAILED_RETRYABLE')
+`,
+		Scope: recordstore.Scope{
+			Where: `
+job_id=? AND state IN ('QUEUED','RUNNING','FAILED_RETRYABLE')
 AND EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='CANCELLED')
-`, now, now, jobID, jobID)
+`,
+			Args: []any{jobID, jobID},
+		},
+		Values: []any{now, now},
+	})
 }
 
 func (service *Service) finishParentAttachmentCancellation(
@@ -461,11 +509,18 @@ func (service *Service) finishParentAttachmentCancellation(
 		return false
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_arcade_parent_attachments SET state='CANCELLED',error_code='CANCELLED',
+	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',error_code='CANCELLED',
 diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
-version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'
-`, now, now, candidate.attachmentID)
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{candidate.attachmentID},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return false
 	}

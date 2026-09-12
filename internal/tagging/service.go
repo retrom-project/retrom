@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -324,10 +326,16 @@ SELECT count(*) FROM tags WHERE status='ACTIVE' AND name_key=? AND id<>?
 			return ErrNameConflict
 		}
 		now := service.now().UnixMilli()
-		updated, err := connection.ExecContext(ctx, `
-UPDATE tags SET name=?,name_key=?,search_text=?,version=version+1,updated_by_user_id=?,updated_at_ms=?
-WHERE id=? AND status='ACTIVE' AND version=?
-`, name, nameKey, searchText, actorUserID, now, tagID, expectedVersion)
+		updated, err := recordstore.UpdateTags(ctx, connection, recordstore.Update{
+			Set: `
+name=?,name_key=?,search_text=?,version=version+1,updated_by_user_id=?,updated_at_ms=?
+`,
+			Scope: recordstore.Scope{
+				Where: `id=? AND status='ACTIVE' AND version=?`,
+				Args:  []any{tagID, expectedVersion},
+			},
+			Values: []any{name, nameKey, searchText, actorUserID, now},
+		})
 		if err != nil {
 			return fmt.Errorf("tagging: rename tag: %w", err)
 		}
@@ -370,59 +378,89 @@ func (service *Service) Delete(
 		}
 		impact = DeleteImpact(before.Usage)
 		now := service.now().UnixMilli()
-		updated, err := connection.ExecContext(ctx, `
-UPDATE tags SET status='DELETED',version=version+1,updated_by_user_id=?,updated_at_ms=?,deleted_at_ms=?
-WHERE id=? AND status='ACTIVE' AND version=?
-`, actorUserID, now, now, tagID, expectedVersion)
+		updated, err := recordstore.UpdateTags(ctx, connection, recordstore.Update{
+			Set: `
+status='DELETED',version=version+1,updated_by_user_id=?,updated_at_ms=?,deleted_at_ms=?
+`,
+			Scope: recordstore.Scope{
+				Where: `id=? AND status='ACTIVE' AND version=?`,
+				Args:  []any{tagID, expectedVersion},
+			},
+			Values: []any{actorUserID, now, now},
+		})
 		if err != nil {
 			return fmt.Errorf("tagging: delete tag: %w", err)
 		}
 		if affected, _ := updated.RowsAffected(); affected != 1 {
 			return ErrVersionConflict
 		}
-		if _, err := connection.ExecContext(ctx, `
-UPDATE games SET version=version+1,updated_at_ms=?
-WHERE id IN (SELECT game_id FROM game_tags WHERE tag_id=?)
-`, now, tagID); err != nil {
+		if _, err := recordstore.UpdateGames(ctx, connection, recordstore.Update{
+			Set: `version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id IN (SELECT game_id FROM game_tags WHERE tag_id=?)`,
+				Args:  []any{tagID},
+			},
+			Values: []any{now},
+		}); err != nil {
 			return fmt.Errorf("tagging: advance games after delete: %w", err)
 		}
-		if _, err := connection.ExecContext(ctx, `
-UPDATE review_drafts SET version=version+1,updated_at_ms=?
-WHERE id IN (
+		if _, err := recordstore.UpdateReviewDrafts(ctx, connection, recordstore.Update{
+			Set: `version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `
+id IN (
   SELECT relation.review_draft_id FROM review_draft_tags relation
   JOIN review_drafts draft ON draft.id=relation.review_draft_id
   JOIN import_items item ON item.id=draft.import_item_id AND item.state='REVIEW_PENDING'
   WHERE relation.tag_id=?
 )
-`, now, tagID); err != nil {
+`,
+				Args: []any{tagID},
+			},
+			Values: []any{now},
+		}); err != nil {
 			return fmt.Errorf("tagging: advance reviews after delete: %w", err)
 		}
-		if _, err := connection.ExecContext(ctx, `
-UPDATE pegasus_imports
-SET version=version+1,
+		if _, err := recordstore.UpdatePegasusImports(ctx, connection, recordstore.Update{
+			Set: `
+version=version+1,
     mapping_version=mapping_version+CASE WHEN state='AWAITING_MAPPING' THEN 1 ELSE 0 END,
     updated_at_ms=?
-WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
+`,
+			Scope: recordstore.Scope{
+				Where: `
+state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
 AND id IN (
   SELECT collection.import_id FROM pegasus_collection_tags relation
   JOIN pegasus_import_collections collection ON collection.id=relation.collection_id
   WHERE relation.tag_id=?
 )
-`, now, tagID); err != nil {
+`,
+				Args: []any{tagID},
+			},
+			Values: []any{now},
+		}); err != nil {
 			return fmt.Errorf("tagging: advance Pegasus plans after delete: %w", err)
 		}
-		if _, err := connection.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET version=version+1,
+		if _, err := recordstore.UpdateEmulationstationImports(ctx, connection, recordstore.Update{
+			Set: `
+version=version+1,
     mapping_version=mapping_version+CASE WHEN state='AWAITING_MAPPING' THEN 1 ELSE 0 END,
     updated_at_ms=?
-WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
+`,
+			Scope: recordstore.Scope{
+				Where: `
+state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
 AND id IN (
   SELECT collection.import_id FROM emulationstation_collection_tags relation
   JOIN emulationstation_import_collections collection ON collection.id=relation.collection_id
   WHERE relation.tag_id=?
 )
-`, now, tagID); err != nil {
+`,
+				Args: []any{tagID},
+			},
+			Values: []any{now},
+		}); err != nil {
 			return fmt.Errorf("tagging: advance EmulationStation plans after delete: %w", err)
 		}
 		result, err = adminItemByID(ctx, connection, tagID)
@@ -601,9 +639,14 @@ func (service *Service) ReplaceGameTags(
 			result = GameTagResult{GameID: gameID, Version: currentVersion, Tags: before}
 			return nil
 		}
-		updated, err := connection.ExecContext(ctx, `
-UPDATE games SET version=version+1,updated_at_ms=? WHERE id=? AND version=?
-`, now, gameID, expectedVersion)
+		updated, err := recordstore.UpdateGames(ctx, connection, recordstore.Update{
+			Set: `version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=? AND version=?`,
+				Args:  []any{gameID, expectedVersion},
+			},
+			Values: []any{now},
+		})
 		if err != nil {
 			return fmt.Errorf("tagging: advance game version: %w", err)
 		}

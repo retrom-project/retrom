@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/tagging"
@@ -50,12 +52,20 @@ func (service *Service) UpdateMappings(
 	if err := service.applyMappings(ctx, transaction, importID, actorUserID, now, mappings, seen); err != nil {
 		return Summary{}, err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_imports SET
-mapped_collection_count=(SELECT count(*) FROM pegasus_import_collections WHERE import_id=? AND mapping_action='IMPORT'),
-skipped_collection_count=(SELECT count(*) FROM pegasus_import_collections WHERE import_id=? AND mapping_action='SKIP'),
+	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: `
+mapped_collection_count=(SELECT count(*) FROM pegasus_import_collections WHERE import_id=? AND
+mapping_action='IMPORT'),
+skipped_collection_count=(SELECT count(*) FROM pegasus_import_collections WHERE import_id=? AND
+mapping_action='SKIP'),
 mapping_version=mapping_version+1,version=version+1,updated_at_ms=?
-WHERE id=?`, importID, importID, now, importID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{importID},
+		},
+		Values: []any{importID, importID, now},
+	}); err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/update mapping counts: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -139,9 +149,9 @@ func (service *Service) skipCollection(
 	); err != nil {
 		return fmt.Errorf("pegasusimport/clear skipped collection tags: %w", err)
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_collections
-SET mapping_action='SKIP',
+	result, err := recordstore.UpdatePegasusImportCollections(ctx, transaction, recordstore.Update{
+		Set: `
+mapping_action='SKIP',
 	tag_snapshot_json='[]',
 target_platform_instance_id=NULL,
 target_platform_instance_version=NULL,
@@ -151,8 +161,16 @@ target_provider_id=NULL,
 target_id=NULL,
 target_dat_version_id=NULL,
 updated_at_ms=?
-WHERE id=?
-AND import_id=?`, now, mapping.CollectionID, importID)
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
+AND import_id=?
+`,
+			Args: []any{mapping.CollectionID, importID},
+		},
+		Values: []any{now},
+	})
 	if err != nil || rowsAffected(result) != 1 {
 		return ErrInvalid
 	}
@@ -201,9 +219,9 @@ AND instance.deleted_at_ms IS NULL`, mapping.PlatformInstanceID).
 	if err != nil {
 		return fmt.Errorf("pegasusimport/encode tag snapshot: %w", err)
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_collections
-SET mapping_action='IMPORT',
+	result, err := recordstore.UpdatePegasusImportCollections(ctx, transaction, recordstore.Update{
+		Set: `
+mapping_action='IMPORT',
 	tag_snapshot_json=?,
 target_platform_instance_id=?,
 target_platform_instance_version=?,
@@ -213,9 +231,26 @@ target_provider_id=?,
 target_id=?,
 target_dat_version_id=?,
 updated_at_ms=?
-WHERE id=?
-AND import_id=?`, string(tagSnapshot), mapping.PlatformInstanceID, instanceVersion, platformID, coreID, providerID,
-		targetID, nullable(datID), now, mapping.CollectionID, importID)
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
+AND import_id=?
+`,
+			Args: []any{mapping.CollectionID, importID},
+		},
+		Values: []any{
+			string(tagSnapshot),
+			mapping.PlatformInstanceID,
+			instanceVersion,
+			platformID,
+			coreID,
+			providerID,
+			targetID,
+			nullable(datID),
+			now,
+		},
+	})
 	if err != nil || rowsAffected(result) != 1 {
 		return ErrInvalid
 	}

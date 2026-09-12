@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 
@@ -67,13 +69,14 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, root R
 	}
 	if imported.ExistingGameID != "" {
 		matches, _ := json.Marshal(imported.ExistingMatches)
-		_, _ = service.database.ExecContext(
-			ctx,
-			`UPDATE pegasus_import_items SET existing_matches_json=?,updated_at_ms=? WHERE id=?`,
-			string(matches),
-			service.now().UnixMilli(),
-			item.ID,
-		)
+		_, _ = recordstore.UpdatePegasusImportItems(ctx, service.database, recordstore.Update{
+			Set: `existing_matches_json=?,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{item.ID},
+			},
+			Values: []any{string(matches), service.now().UnixMilli()},
+		})
 		service.closeItem(ctx, item.ID, "SKIPPED_EXISTING", "", false, imported.ExistingGameID)
 		return
 	}
@@ -162,11 +165,17 @@ func (service *Service) finalizeReviewHandoff(
 		)
 		return
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items
-SET execution_state='REVIEW_PENDING',error_code=NULL,retryable=0,
+	result, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='REVIEW_PENDING',error_code=NULL,retryable=0,
 completed_at_ms=?,updated_at_ms=?
-WHERE id=? AND execution_state='VALIDATING'`, now, now, item.ID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND execution_state='VALIDATING'`,
+			Args:  []any{item.ID},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil || rowsAffected(result) != 1 {
 		cleanup.Rollback(transaction)
 		service.closeItemWithFailure(
@@ -239,10 +248,14 @@ func appendServerMetadataWarnings(
 	if err != nil {
 		return fmt.Errorf("encode metadata warnings: %w", err)
 	}
-	if _, err := transaction.ExecContext(
-		ctx, `UPDATE pegasus_import_items SET warnings_json=?,updated_at_ms=? WHERE id=?`,
-		string(updated), now, itemID,
-	); err != nil {
+	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+		Set: `warnings_json=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{itemID},
+		},
+		Values: []any{string(updated), now},
+	}); err != nil {
 		return fmt.Errorf("update metadata warnings: %w", err)
 	}
 	return nil

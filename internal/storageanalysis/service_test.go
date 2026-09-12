@@ -178,13 +178,6 @@ VALUES(?,?,?,?,?,?,?,0)`, item.id, fmt.Sprintf("%064x", value), item.size,
 func seedReferences(t *testing.T, database *sql.DB) {
 	t.Helper()
 	statements := []string{
-		`DROP TRIGGER save_states_disc_insert`,
-		`DROP TRIGGER save_states_published_insert`,
-		`DROP TRIGGER save_states_runtime_target_insert`,
-		`DROP TRIGGER game_files_owner_insert`,
-		`DROP TRIGGER game_assets_owner_insert`,
-		`DROP TRIGGER launch_content_files_published_insert`,
-		`DROP TRIGGER variant_files_published_insert`,
 		`INSERT INTO game_files(game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
 VALUES('content-rev','CONTENT','game.rom','game','game-archive',0,0),
 ('shared-rev','CONTENT','shared.rom','shared',NULL,NULL,0)`,

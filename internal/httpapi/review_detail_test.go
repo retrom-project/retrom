@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -146,9 +148,14 @@ WHERE provider_id=?
 	testassert.Falsef(t, anyTrue(staleCover.Code != http.StatusConflict,
 		!strings.Contains(staleCover.Body.String(), `"code":"REVIEW_VERSION_CONFLICT"`)),
 		"stale review cover upload = %d %s", staleCover.Code, staleCover.Body.String())
-	if _, err := server.database.ExecContext(context.Background(), `
-UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
-`, readyCoverAssetID, itemID); err == nil || !strings.Contains(err.Error(), "invalid review uploaded cover") {
+	if _, err := recordstore.UpdateReviewDrafts(context.Background(), server.database, recordstore.Update{
+		Set: `cover_candidate_asset_id=?`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=?`,
+			Args:  []any{itemID},
+		},
+		Values: []any{readyCoverAssetID},
+	}); err == nil || !strings.Contains(err.Error(), "invalid review uploaded cover") {
 		t.Fatalf("manual and candidate cover database invariant error = %v", err)
 	}
 	list := httptest.NewRecorder()

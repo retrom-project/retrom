@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -255,7 +257,7 @@ FROM instance_state WHERE id=1
 	if users != 0 || profiles != 0 {
 		return Session{}, ErrInitializationState
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateProfiles(ctx, transaction, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)
 `, input.profileID, input.displayName, now); err != nil {
 		return Session{}, fmt.Errorf("create profile: %w", err)
@@ -278,11 +280,16 @@ VALUES(?,?,'ARGON2ID_V1',?,?)
 		testDefault = 1
 		actorLabel = "startup-test-bootstrap"
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE instance_state SET state='COMPLETED',bootstrap_kind=?,initial_admin_user_id=?,
+	result, err := recordstore.UpdateInstanceState(ctx, transaction, recordstore.Update{
+		Set: `
+state='COMPLETED',bootstrap_kind=?,initial_admin_user_id=?,
 test_default_password_active=?,version=version+1,updated_at_ms=?,initialized_at_ms=?
-WHERE id=1 AND state='PENDING'
-`, kind, input.userID, testDefault, now, now)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=1 AND state='PENDING'`,
+		},
+		Values: []any{kind, input.userID, testDefault, now, now},
+	})
 	if err != nil {
 		return Session{}, fmt.Errorf("complete initialization: %w", err)
 	}
@@ -327,10 +334,14 @@ func (service *Service) Login(ctx context.Context, usernameInput, passwordInput 
 		return Session{}, fmt.Errorf("begin login: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(ctx, `
-UPDATE users SET last_login_at_ms=?,updated_at_ms=?
-WHERE id=? AND status='ENABLED' AND session_version=?
-`, now, now, identity.userID, identity.sessionVersion)
+	result, err := recordstore.UpdateUsers(ctx, transaction, recordstore.Update{
+		Set: `last_login_at_ms=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND status='ENABLED' AND session_version=?`,
+			Args:  []any{identity.userID, identity.sessionVersion},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return Session{}, fmt.Errorf("record login: %w", err)
 	}
@@ -537,21 +548,30 @@ WHERE user_id=? AND revoked_at_ms IS NULL
 	`, input.now, principal.UserID); err != nil {
 		return Session{}, fmt.Errorf("revoke password-change sessions: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE account_links SET revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1
-WHERE kind='PASSWORD_RESET'
+	if _, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
+		Set: `revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `
+kind='PASSWORD_RESET'
 AND target_user_id=?
 AND consumed_at_ms IS NULL
 AND revoked_at_ms IS NULL
 AND expires_at_ms>?
-`, input.now, principal.UserID, input.now); err != nil {
+`,
+			Args: []any{principal.UserID, input.now},
+		},
+		Values: []any{input.now},
+	}); err != nil {
 		return Session{}, fmt.Errorf("revoke password-reset links: %w", err)
 	}
 	if principal.Username == "test" {
-		_, _ = transaction.ExecContext(ctx, `
-UPDATE instance_state SET test_default_password_active=0,version=version+1,updated_at_ms=?
-WHERE id=1 AND test_default_password_active=1
-`, input.now)
+		_, _ = recordstore.UpdateInstanceState(ctx, transaction, recordstore.Update{
+			Set: `test_default_password_active=0,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=1 AND test_default_password_active=1`,
+			},
+			Values: []any{input.now},
+		})
 	}
 	if err := insertPreparedSession(ctx, transaction, input.session, principal.UserID, version, input.now); err != nil {
 		return Session{}, err

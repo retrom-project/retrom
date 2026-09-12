@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/arcadedat"
@@ -275,23 +277,23 @@ ORDER BY 1
 			return err
 		}
 	}
-	_, err = transaction.ExecContext(
-		ctx,
-		`
-UPDATE bios_requirements
-SET enabled=0,
+	_, err = recordstore.UpdateBiosRequirements(ctx, transaction, recordstore.Update{
+		Set: `
+enabled=0,
 version=version+1,
 updated_at_ms=?
-WHERE provider_id=? AND target_id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+provider_id=? AND target_id=?
 AND source_kind='DAT_MACHINE'
 AND enabled=1
 AND source_version!=?
 `,
-		now.UnixMilli(),
-		providerID,
-		targetID,
-		datID,
-	)
+			Args: []any{providerID, targetID, datID},
+		},
+		Values: []any{now.UnixMilli()},
+	})
 	if err != nil {
 		return fmt.Errorf("disable stale DAT BIOS requirements: %w", err)
 	}
@@ -320,7 +322,7 @@ func syncRequirement(ctx context.Context, transaction *sql.Tx, input requirement
 	requirementID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
 		"retrom:bios:"+input.providerID+":"+input.targetID+":"+logicalName,
 	)).String()
-	_, err = transaction.ExecContext(ctx, `
+	_, err = recordstore.CreateBiosRequirements(ctx, transaction, `
 INSERT INTO bios_requirements(
  id,core_id,provider_id,target_id,source_kind,dat_machine_name,
  logical_name,requirement_mode,condition_code,activation_options_json,catalog_digest,

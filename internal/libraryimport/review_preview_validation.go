@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -31,10 +33,14 @@ WHERE item.id=? AND item.state='REVIEW_PENDING'
 		return err
 	}
 	if validationID != selected {
-		_, err = transaction.ExecContext(ctx, `
-UPDATE review_drafts SET selected_validation_id=NULLIF(?,''),version=version+1,updated_at_ms=?
-WHERE import_item_id=?
-`, validationID, service.now().UnixMilli(), itemID)
+		_, err = recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+			Set: `selected_validation_id=NULLIF(?,''),version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `import_item_id=?`,
+				Args:  []any{itemID},
+			},
+			Values: []any{validationID, service.now().UnixMilli()},
+		})
 		if err != nil {
 			return fmt.Errorf("select review preview validation: %w", err)
 		}

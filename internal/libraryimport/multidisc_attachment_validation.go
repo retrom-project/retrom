@@ -8,6 +8,8 @@ import (
 	"errors"
 	"io"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/contentcapability"
 	"retrom/internal/contentmanifest"
@@ -293,7 +295,7 @@ VALUES(?,?,?,?,?,NULL,NULL,?,?)
 		}
 	}
 	for _, entry := range candidate.resultEntries {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateImportItemMultidiscEntries(ctx, transaction, `
 INSERT INTO import_item_multidisc_entries(source_snapshot_id,ordinal,source_reference,
 normalized_reference,canonical_name,state,upload_file_id,blob_id,source_logical_name,created_at_ms)
 VALUES(?,?,?,?,?,'PRESENT',?,?,?,?)
@@ -327,7 +329,7 @@ func insertMultiDiscValidation(
 		DependencySnapshot:  json.RawMessage(dependencyJSON), Status: candidate.validationStatus,
 		CompatibilityCode: candidate.compatibilityCode,
 	})
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateImportItemCoreValidations(ctx, transaction, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
 platform_instance_version,core_id,provider_id,target_id,
 dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,

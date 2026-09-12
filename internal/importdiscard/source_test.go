@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/libraryimport"
@@ -85,7 +87,17 @@ func TestDiscardSourceRejectedBeforeReviewReleasesInternalEnvelope(t *testing.T)
 			if n := f.count(t, `SELECT count(*) FROM review_events`); n != 0 {
 				t.Fatal("fabricated review for rejected input")
 			}
-			if _, err := f.db.ExecContext(f.ctx, `UPDATE `+table+` SET state='QUEUED',completed_at_ms=NULL WHERE id=?`, batch); err == nil {
+			restart := recordstore.UpdatePegasusImports
+			if kind == "EMULATIONSTATION" {
+				restart = recordstore.UpdateEmulationstationImports
+			}
+			if _, err := restart(f.ctx, f.db, recordstore.Update{
+				Set: "state='QUEUED',completed_at_ms=NULL",
+				Scope: recordstore.Scope{
+					Where: "id=?",
+					Args:  []any{batch},
+				},
+			}); err == nil {
 				t.Fatal("discarded source could restart")
 			}
 		})

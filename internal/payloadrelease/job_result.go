@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -148,26 +150,26 @@ VALUES(?,?,?,?,?,?)
 }
 
 func markDomainFailedTx(ctx context.Context, transaction *sql.Tx, job claimedJob, code string, now int64) error {
-	table := map[ScopeType]string{
-		ScopeImportItem: "import_items", ScopeImportJob: "import_jobs",
-		ScopePegasusImportItem:          "pegasus_import_items",
-		ScopeEmulationStationImportItem: "emulationstation_import_items",
-		ScopeGame:                       "games",
-	}[job.ScopeType]
-	if table == "" {
+	change := recordstore.Update{
+		Set:    "payload_state='FAILED',payload_last_error_code=?",
+		Values: []any{code},
+		Scope: recordstore.Scope{
+			Where: "id=? AND payload_release_job_id=?",
+			Args:  []any{job.ScopeID, job.ID},
+		},
+	}
+	if job.ScopeType == ScopeGame {
+		change.Set += ",version=version+1,updated_at_ms=?"
+		change.Values = append(change.Values, now)
+	}
+	if job.ScopeType != ScopeImportItem &&
+		job.ScopeType != ScopeImportJob &&
+		job.ScopeType != ScopePegasusImportItem &&
+		job.ScopeType != ScopeEmulationStationImportItem &&
+		job.ScopeType != ScopeGame {
 		return nil
 	}
-	update := `UPDATE ` + table + `
-SET payload_state='FAILED',payload_last_error_code=?
-WHERE id=? AND payload_release_job_id=?`
-	arguments := []any{code, job.ScopeID, job.ID}
-	if job.ScopeType == ScopeGame {
-		update = `UPDATE games
-SET payload_state='FAILED',payload_last_error_code=?,version=version+1,updated_at_ms=?
-WHERE id=? AND payload_release_job_id=?`
-		arguments = []any{code, now, job.ScopeID, job.ID}
-	}
-	_, err := transaction.ExecContext(ctx, update, arguments...)
+	_, err := updatePayloadOwner(ctx, transaction, job.ScopeType, change)
 	if err != nil {
 		return fmt.Errorf("payloadrelease/mark domain failed: %w", err)
 	}

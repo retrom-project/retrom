@@ -17,6 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
@@ -103,8 +106,6 @@ WHERE f.id=?
 	}
 	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
-	releases.Start()
-	t.Cleanup(releases.Close)
 	service := New(database.SQL, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
 	result, err := service.Install(ctx, requirementID, version, InstallRequest{UploadFileID: upload.Files[0].ID})
 	testassert.False(t, err != nil, err)
@@ -209,7 +210,13 @@ VALUES('firmware-save','firmware-profile','firmware-game','test-checkpoint-v1',?
 		},
 	}
 	for _, statement := range statements {
-		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+		execute := transaction.ExecContext
+		if strings.HasPrefix(statement.query, "INSERT INTO launch_sessions(") {
+			execute = func(ctx context.Context, query string, args ...any) (sql.Result, error) {
+				return sessionstore.CreateLaunch(ctx, transaction, query, args...)
+			}
+		}
+		if _, err := execute(ctx, statement.query, statement.args...); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -456,4 +463,18 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM archive_entries`).Scan(&indexed); err != nil || indexed != 2 {
 		t.Fatalf("archive entries = %d, error=%v", indexed, err)
 	}
+}
+
+func updateFirmwareLaunch(t *testing.T, db *sql.DB, change recordstore.Update) (sql.Result, error) {
+	t.Helper()
+	tx, err := db.BeginTx(t.Context(), nil)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup.Rollback(tx)
+	result, err := sessionstore.ChangeLaunch(t.Context(), tx, change)
+	if err != nil {
+		return nil, err
+	}
+	return result, tx.Commit()
 }

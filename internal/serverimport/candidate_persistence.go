@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/firmware"
 )
@@ -38,14 +40,18 @@ DELETE FROM server_bios_import_candidates WHERE server_import_id=?
 `, importID); err != nil {
 		return fmt.Errorf("clear server import candidates: %w", err)
 	}
-	_, err := service.database.ExecContext(
-		ctx,
-		`UPDATE server_bios_import_items SET state='PENDING',candidate_count=0,match_method=NULL,selection_details_json=NULL,
-previous_installation_id=NULL,new_installation_id=NULL,outcome_code=NULL,completed_at_ms=NULL,updated_at_ms=?
-WHERE server_import_id=? AND state IN ('PENDING','EVALUATING')`,
-		service.now().UnixMilli(),
-		importID,
-	)
+	_, err := recordstore.UpdateServerBiosImportItems(ctx, service.database, recordstore.Update{
+		Set: `
+state='PENDING',candidate_count=0,match_method=NULL,selection_details_json=NULL,
+previous_installation_id=NULL,new_installation_id=NULL,outcome_code=NULL,completed_at_ms=NULL,
+updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `server_import_id=? AND state IN ('PENDING','EVALUATING')`,
+			Args:  []any{importID},
+		},
+		Values: []any{service.now().UnixMilli()},
+	})
 	if err != nil {
 		return fmt.Errorf("reset server import items: %w", err)
 	}
@@ -117,10 +123,14 @@ func persistCandidateGroup(
 			return 0, false, err
 		}
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state='EVALUATING',candidate_count=?,updated_at_ms=?
-WHERE server_import_id=? AND requirement_id=?
-`, len(candidates), now, unit.ImportID, requirementID); err != nil {
+	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+		Set: `state='EVALUATING',candidate_count=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `server_import_id=? AND requirement_id=?`,
+			Args:  []any{unit.ImportID, requirementID},
+		},
+		Values: []any{len(candidates), now},
+	}); err != nil {
 		return 0, false, fmt.Errorf("update server import candidate count: %w", err)
 	}
 	return len(candidates), len(candidates) > 1, nil
@@ -245,11 +255,17 @@ func (service *Service) completeItem(
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state=?,match_method=?,selection_details_json=?,outcome_code=?,
+	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state=?,match_method=?,selection_details_json=?,outcome_code=?,
 previous_installation_id=?,new_installation_id=?,completed_at_ms=?,updated_at_ms=?
-WHERE server_import_id=? AND requirement_id=? AND state IN ('PENDING','EVALUATING')
-`, state, method, details, code, nil, nil, now, now, unit.ImportID, requirementID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `server_import_id=? AND requirement_id=? AND state IN ('PENDING','EVALUATING')`,
+			Args:  []any{unit.ImportID, requirementID},
+		},
+		Values: []any{state, method, details, code, nil, nil, now, now},
+	}); err != nil {
 		return
 	}
 	if candidate != nil {
@@ -347,10 +363,14 @@ func (service *Service) failTask(ctx context.Context, unit work, code string) {
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state='COMMIT_FAILED',outcome_code=?,completed_at_ms=?,updated_at_ms=?
-WHERE server_import_id=? AND state IN ('PENDING','EVALUATING')
-`, code, now, now, unit.ImportID); err != nil {
+	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+		Set: `state='COMMIT_FAILED',outcome_code=?,completed_at_ms=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `server_import_id=? AND state IN ('PENDING','EVALUATING')`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{code, now, now},
+	}); err != nil {
 		return
 	}
 	counts, err := itemStateCounts(ctx, transaction, unit.ImportID)
@@ -408,11 +428,18 @@ DELETE FROM server_bios_import_candidates WHERE server_import_id=?
 `, unit.ImportID); err != nil {
 		return false
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state='PENDING',candidate_count=0,match_method=NULL,
+	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='PENDING',candidate_count=0,match_method=NULL,
 selection_details_json=NULL,previous_installation_id=NULL,new_installation_id=NULL,outcome_code=NULL,
-completed_at_ms=NULL,updated_at_ms=? WHERE server_import_id=?
-`, now, unit.ImportID); err != nil {
+completed_at_ms=NULL,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `server_import_id=?`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return false
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -453,10 +480,17 @@ func (service *Service) cancelTask(ctx context.Context, unit work) {
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state='CANCELLED',outcome_code='CANCELLED',
-completed_at_ms=?,updated_at_ms=? WHERE server_import_id=? AND state IN ('PENDING','EVALUATING')
-`, now, now, unit.ImportID); err != nil {
+	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',outcome_code='CANCELLED',
+completed_at_ms=?,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `server_import_id=? AND state IN ('PENDING','EVALUATING')`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return
 	}
 	counts, err := itemStateCounts(ctx, transaction, unit.ImportID)

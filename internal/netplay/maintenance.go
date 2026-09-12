@@ -9,6 +9,8 @@ import (
 	"slices"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -112,10 +114,16 @@ func (service *Service) expirePassiveRoom(
 		return serviceError("expire room transaction", err)
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='EXPIRED',ended_at_ms=?,end_reason='HARD_EXPIRED',version=version+1,updated_at_ms=?
-WHERE id=? AND state IN ('DRAFT','WAITING') AND expires_at_ms<=?
-`, now, now, item.roomID, now)
+	result, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `
+state='EXPIRED',ended_at_ms=?,end_reason='HARD_EXPIRED',version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state IN ('DRAFT','WAITING') AND expires_at_ms<=?`,
+			Args:  []any{item.roomID, now},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return serviceError("expire room", err)
 	}

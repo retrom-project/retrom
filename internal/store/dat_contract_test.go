@@ -31,7 +31,7 @@ id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,par
 is_active,version,created_at_ms,updated_at_ms)
 VALUES('unbound-dat','undeclared-core','unknown-provider','unknown-target','test.dat',
 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','current','PENDING',0,1,0,0)`)
-	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid runtime target snapshot"),
+	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "FOREIGN KEY constraint failed"),
 		"unbound DAT was accepted: %v", err)
 	testassert.False(t, database.IntegrityCheck(t.Context()) != nil, "DAT schema integrity")
 }

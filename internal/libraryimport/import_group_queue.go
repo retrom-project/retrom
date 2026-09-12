@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"sort"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -265,7 +267,7 @@ VALUES(?,1,?,?,?)
 `, jobID, string(inputJSON), inputDigest, now); err != nil {
 		return Created{}, fmt.Errorf("libraryimport/queue: insert job input: %w", err)
 	}
-	_, err = transaction.ExecContext(ctx, insertImportJobSQL,
+	_, err = recordstore.CreateImportJobs(ctx, transaction, insertImportJobSQL,
 		importID, request.UploadID, request.TargetPlatformInstanceID,
 		provisional.instanceVersion, provisional.platformID, provisional.defaultCoreID,
 		provisional.providerID, provisional.targetID,
@@ -289,7 +291,7 @@ INSERT INTO import_group_requests(
 		return Created{}, fmt.Errorf("libraryimport/queue: insert request: %w", err)
 	}
 	consumptionID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateUploadConsumptions(ctx, transaction, `
 INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
 VALUES(?,?,NULL,'IMPORT_JOB',?,?)
 `, consumptionID.String(), request.UploadID, importID, now); err != nil {

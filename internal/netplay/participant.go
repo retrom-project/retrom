@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -88,10 +90,14 @@ func (service *Service) MarkRuntimeReady(ctx context.Context, participant Socket
 		return false, serviceError("mark runtime ready transaction", err)
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_session_participants SET state='RUNTIME_READY',version=version+1,updated_at_ms=?
-WHERE netplay_session_id=? AND profile_id=? AND state='LAUNCH_READY'
-`, now, participant.SessionID, participant.ProfileID)
+	result, err := recordstore.UpdateNetplaySessionParticipants(ctx, transaction, recordstore.Update{
+		Set: `state='RUNTIME_READY',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `netplay_session_id=? AND profile_id=? AND state='LAUNCH_READY'`,
+			Args:  []any{participant.SessionID, participant.ProfileID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return false, serviceError("mark runtime ready participant", err)
 	}
@@ -129,10 +135,14 @@ SELECT
 func advanceSessionToSynchronizing(
 	ctx context.Context, transaction *sql.Tx, participant SocketParticipant, now int64,
 ) error {
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_sessions SET state='SYNCHRONIZING',version=version+1,updated_at_ms=?
-WHERE id=? AND state='LOADING'
-`, now, participant.SessionID)
+	result, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `state='SYNCHRONIZING',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='LOADING'`,
+			Args:  []any{participant.SessionID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return serviceError("mark runtime ready session", err)
 	}
@@ -166,26 +176,40 @@ func (service *Service) MarkSessionRunning(ctx context.Context, roomID, sessionI
 	if fromState != "SYNCHRONIZING" && fromState != "RESYNCHRONIZING" {
 		return ErrRoomConflict
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_session_participants SET state='CONNECTED',version=version+1,updated_at_ms=?
-WHERE netplay_session_id=? AND state IN ('RUNTIME_READY','SYNCHRONIZED')
-	`, now, sessionID); err != nil {
+	if _, err := recordstore.UpdateNetplaySessionParticipants(ctx, transaction, recordstore.Update{
+		Set: `state='CONNECTED',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `netplay_session_id=? AND state IN ('RUNTIME_READY','SYNCHRONIZED')`,
+			Args:  []any{sessionID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return serviceError("mark session participants connected", err)
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_sessions SET state='RUNNING',started_at_ms=COALESCE(started_at_ms,?),version=version+1,updated_at_ms=?
-WHERE id=? AND room_id=? AND state IN ('SYNCHRONIZING','RESYNCHRONIZING')
-`, now, now, sessionID, roomID)
+	result, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `
+state='RUNNING',started_at_ms=COALESCE(started_at_ms,?),version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND room_id=? AND state IN ('SYNCHRONIZING','RESYNCHRONIZING')`,
+			Args:  []any{sessionID, roomID},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return serviceError("mark session running", err)
 	}
 	if affected, _ := result.RowsAffected(); affected != 1 {
 		return ErrRoomConflict
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='RUNNING',version=version+1,updated_at_ms=?
-WHERE id=? AND current_session_id=? AND state='STARTING'
-	`, now, roomID, sessionID); err != nil {
+	if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `state='RUNNING',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND current_session_id=? AND state='STARTING'`,
+			Args:  []any{roomID, sessionID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return serviceError("mark room running", err)
 	}
 	if err := appendEvent(ctx, transaction, roomID, &sessionID, nil, nil, "SESSION_STATE_CHANGED",
@@ -387,9 +411,14 @@ WHERE netplay_session_id=? AND state='LOCKED'
 	if remaining != 0 {
 		return nil
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_sessions SET state='LOADING',version=version+1,updated_at_ms=? WHERE id=? AND state='PREPARING'
-`, now, sessionID)
+	result, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `state='LOADING',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='PREPARING'`,
+			Args:  []any{sessionID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return serviceError("advance session to loading", err)
 	}

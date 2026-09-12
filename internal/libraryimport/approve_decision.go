@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/payloadrelease"
 )
 
@@ -20,7 +22,7 @@ type approvalEvidence struct {
 func (run *approvalRun) persistDecision() error {
 	evidence := run.marshalApprovalEvidence()
 	actor := reviewActor(run.ctx)
-	_, err := run.transaction.ExecContext(run.ctx, `
+	_, err := recordstore.CreateReviewEvents(run.ctx, run.transaction, `
 INSERT INTO review_events(
   id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
   after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,
@@ -46,11 +48,14 @@ INSERT INTO review_events(
 }
 
 func (run *approvalRun) markItemPublished() error {
-	_, err := run.transaction.ExecContext(run.ctx, `
-UPDATE import_items
-SET state='PUBLISHED',version=version+1,updated_at_ms=?,completed_at_ms=?
-WHERE id=?
-`, run.now, run.now, run.itemID)
+	_, err := recordstore.UpdateImportItems(run.ctx, run.transaction, recordstore.Update{
+		Set: `state='PUBLISHED',version=version+1,updated_at_ms=?,completed_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{run.itemID},
+		},
+		Values: []any{run.now, run.now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}

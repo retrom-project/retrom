@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/tagging"
@@ -46,15 +48,22 @@ func discardReviewItemAndAggregate(
 	importID string,
 	now int64,
 ) error {
-	itemResult, itemErr := transaction.ExecContext(ctx, `
-UPDATE import_items
-SET state='DISCARDED',
+	itemResult, itemErr := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='DISCARDED',
 version=version+1,
 updated_at_ms=?,
 completed_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND state='REVIEW_PENDING'
-`, now, now, itemID)
+`,
+			Args: []any{itemID},
+		},
+		Values: []any{now, now},
+	})
 	if err := requireSingleReviewMutation(itemResult, itemErr, "discard item"); err != nil {
 		return err
 	}
@@ -202,41 +211,53 @@ func cancelDiscardedReviewAttachments(
 	itemID string,
 	now int64,
 ) error {
-	statements := []struct {
-		query     string
-		arguments []any
-	}{
-		{`UPDATE jobs
+	if _, err := transaction.ExecContext(ctx, `UPDATE jobs
 SET state=CASE WHEN state='QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,
   cancel_requested_at_ms=?,cancel_reason='review discarded',
   finished_at_ms=CASE WHEN state='QUEUED' THEN ? ELSE NULL END,
   version=version+1,updated_at_ms=?
 WHERE id IN (SELECT job_id FROM review_arcade_parent_attachments
   WHERE import_item_id=? AND state IN ('QUEUED','RUNNING'))
-  AND state IN ('QUEUED','RUNNING')`, []any{now, now, now, itemID}},
-		{`UPDATE review_arcade_parent_attachments
-SET state='CANCELLED',error_code='CANCELLED',
+  AND state IN ('QUEUED','RUNNING')`, now, now, now, itemID); err != nil {
+		return fmt.Errorf("libraryimport/review: %w", err)
+	}
+	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',error_code='CANCELLED',
   diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
   version=version+1,updated_at_ms=?
-WHERE import_item_id=? AND state IN ('QUEUED','RUNNING')`, []any{now, now, itemID}},
-		{`UPDATE jobs
+`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=? AND state IN ('QUEUED','RUNNING')`,
+			Args:  []any{itemID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
+		return fmt.Errorf("libraryimport/review: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `UPDATE jobs
 SET state=CASE WHEN state='RUNNING' THEN 'CANCEL_REQUESTED' ELSE 'CANCELLED' END,
   cancel_requested_at_ms=?,cancel_reason='review discarded',
   finished_at_ms=CASE WHEN state='RUNNING' THEN NULL ELSE ? END,
   version=version+1,updated_at_ms=?
 WHERE id IN (SELECT job_id FROM review_multidisc_attachments
   WHERE import_item_id=? AND state IN ('QUEUED','RUNNING','FAILED_RETRYABLE'))
-  AND (state IN ('QUEUED','RUNNING') OR state='FAILED' AND error_retryable=1)`, []any{now, now, now, itemID}},
-		{`UPDATE review_multidisc_attachments
-SET state='CANCELLED',error_code='CANCELLED',
+  AND (state IN ('QUEUED','RUNNING') OR state='FAILED' AND error_retryable=1)`, now, now, now, itemID); err != nil {
+		return fmt.Errorf("libraryimport/review: %w", err)
+	}
+	if _, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',error_code='CANCELLED',
   diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
   version=version+1,updated_at_ms=?
-WHERE import_item_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')`, []any{now, now, itemID}},
-	}
-	for _, statement := range statements {
-		if _, err := transaction.ExecContext(ctx, statement.query, statement.arguments...); err != nil {
-			return fmt.Errorf("libraryimport/review: %w", err)
-		}
+`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')`,
+			Args:  []any{itemID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
+		return fmt.Errorf("libraryimport/review: %w", err)
 	}
 	return nil
 }
@@ -252,7 +273,7 @@ func insertDiscardReviewEvent(
 	beforeJSON, configJSON, datJSON, providerJSON := marshalDiscardEvidence(evidence)
 	eventID, _ := uuid.NewV7()
 	actor := reviewActor(ctx)
-	_, err := transaction.ExecContext(ctx, `
+	_, err := recordstore.CreateReviewEvents(ctx, transaction, `
 INSERT INTO review_events(
   id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
   after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,
@@ -360,15 +381,20 @@ updated_at_ms) VALUES(?,
 	); err != nil {
 		return RetryResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	itemResult, err := transaction.ExecContext(ctx, `
-UPDATE import_items
-SET state='QUEUED',
+	itemResult, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='QUEUED',
 failed_stage=NULL,
 last_error_code=NULL,
 version=version+1,
 updated_at_ms=?
-WHERE id=? AND state='FAILED_RETRYABLE'
-`, now, itemID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='FAILED_RETRYABLE'`,
+			Args:  []any{itemID},
+		},
+		Values: []any{now},
+	})
 	if err := requireSingleReviewMutation(itemResult, err, "retry item"); err != nil {
 		return RetryResult{}, err
 	}
@@ -458,19 +484,26 @@ func (service *Service) cancelImport(
 	if pending {
 		newState = "CANCEL_REQUESTED"
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE import_items
-SET state='CANCELLED',
+	if _, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',
 failed_stage=NULL,
 last_error_code=NULL,
 completed_at_ms=?,
 updated_at_ms=?,
 version=version+1
-WHERE import_job_id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+import_job_id=?
 AND state IN ('QUEUED',
 'REVIEW_PENDING',
 'FAILED_RETRYABLE') AND (state<>'REVIEW_PENDING' OR ?=0)
-`, now, now, importID, preserveReviews); err != nil {
+`,
+			Args: []any{importID, preserveReviews},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review: cancel items: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `

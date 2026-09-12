@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/emulationstationimport"
 	"retrom/internal/libraryimport"
@@ -182,10 +184,19 @@ AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED')`,
 	if kind == "EMULATIONSTATION" {
 		skipped = "skipped_mapping_item_count=0,"
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE `+itemsTable+` SET execution_state='REVIEW_DISCARDED',retryable=0,
-completed_at_ms=COALESCE(completed_at_ms,?),updated_at_ms=?,version=version+1
-WHERE import_id=? AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED')`,
-		now, now, id); err != nil {
+	updateItems := recordstore.UpdatePegasusImportItems
+	updateBatch := recordstore.UpdatePegasusImports
+	if kind == "EMULATIONSTATION" {
+		updateItems = recordstore.UpdateEmulationstationImportItems
+		updateBatch = recordstore.UpdateEmulationstationImports
+	}
+	if _, err := updateItems(ctx, tx, recordstore.Update{
+		Set: `execution_state='REVIEW_DISCARDED',retryable=0,
+ completed_at_ms=COALESCE(completed_at_ms,?),updated_at_ms=?,version=version+1`, Values: []any{now, now},
+		Scope: recordstore.Scope{Where: `
+import_id=? AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED')
+`, Args: []any{id}},
+	}); err != nil {
 		return false, fmt.Errorf("importdiscard/discard source items: %w", err)
 	}
 	ids, err := payloadrelease.CollectScopeIDs(ctx, tx, `
@@ -198,13 +209,14 @@ SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, i
 			return false, err
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `
-UPDATE `+table+` SET `+skipped+`state='COMPLETED',phase=NULL,cancel_reason=NULL,retryable=0,
-completed_at_ms=COALESCE(completed_at_ms,?),updated_at_ms=?,version=version+1,
-review_pending_item_count=0,blocked_item_count=0,failed_item_count=0,cancelled_item_count=0,
-review_discarded_item_count=(SELECT count(*) FROM `+itemsTable+`
- WHERE import_id=? AND execution_state='REVIEW_DISCARDED')
-WHERE id=?`, now, now, id, id); err != nil {
+	if _, err := updateBatch(ctx, tx, recordstore.Update{
+		Set: skipped + `state='COMPLETED',phase=NULL,cancel_reason=NULL,retryable=0,
+ completed_at_ms=COALESCE(completed_at_ms,?),updated_at_ms=?,version=version+1,
+ review_pending_item_count=0,blocked_item_count=0,failed_item_count=0,cancelled_item_count=0,
+ review_discarded_item_count=(SELECT count(*) FROM ` + itemsTable + `
+ WHERE import_id=? AND execution_state='REVIEW_DISCARDED')`, Values: []any{now, now, id},
+		Scope: recordstore.Scope{Where: "id=?", Args: []any{id}},
+	}); err != nil {
 		return false, fmt.Errorf("importdiscard/close source batch: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

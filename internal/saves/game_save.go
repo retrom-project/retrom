@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 )
 
@@ -37,8 +39,14 @@ FROM launch_game_save_bindings WHERE launch_session_id=?`, launchID).Scan(&bindi
 		}
 		result, err = service.insertProductSave(ctx, tx, launchID, launch, parsed, payloadID, now)
 		if err == nil {
-			_, err = tx.ExecContext(ctx, `UPDATE game_save_versions SET last_synced_at_ms=?,last_writer_launch_session_id=?
-WHERE save_state_id=?`, now, launchID, result.SaveStateID)
+			_, err = recordstore.UpdateGameSaveVersions(ctx, tx, recordstore.Update{
+				Set: `last_synced_at_ms=?,last_writer_launch_session_id=?`,
+				Scope: recordstore.Scope{
+					Where: `save_state_id=?`,
+					Args:  []any{result.SaveStateID},
+				},
+				Values: []any{now, launchID},
+			})
 		}
 	} else {
 		result, err = service.updateGameSave(ctx, tx, launchID, launch, parsed, payloadID, binding, now)
@@ -89,9 +97,14 @@ WHERE save.id=? AND profile_id=? AND game_id=? AND checkpoint_format=? AND delet
 	if err != nil {
 		return ManualResult{}, fmt.Errorf("store native save image: %w", err)
 	}
-	updated, err := tx.ExecContext(ctx, `UPDATE game_save_versions
-SET last_synced_at_ms=?,last_writer_launch_session_id=?,data_version=data_version+1
-WHERE save_state_id=? AND data_version=?`, now, launchID, result.SaveStateID, binding.expected)
+	updated, err := recordstore.UpdateGameSaveVersions(ctx, tx, recordstore.Update{
+		Set: `last_synced_at_ms=?,last_writer_launch_session_id=?,data_version=data_version+1`,
+		Scope: recordstore.Scope{
+			Where: `save_state_id=? AND data_version=?`,
+			Args:  []any{result.SaveStateID, binding.expected},
+		},
+		Values: []any{now, launchID},
+	})
 	if err != nil {
 		return ManualResult{}, fmt.Errorf("update native save: %w", err)
 	}
@@ -102,12 +115,21 @@ WHERE save_state_id=? AND data_version=?`, now, launchID, result.SaveStateID, bi
 	if affected != 1 {
 		return ManualResult{}, ErrSyncConflict
 	}
-	_, err = tx.ExecContext(ctx, `UPDATE save_states SET payload_blob_id=?,payload_sha256=?,payload_size_bytes=?,
+	_, err = recordstore.UpdateSaveStates(ctx, tx, recordstore.Update{
+		Set: `
+payload_blob_id=?,payload_sha256=?,payload_size_bytes=?,
 screenshot_blob_id=?,updated_at_ms=?,
 active_duration_ms=(SELECT binding.initial_active_duration_ms+COALESCE(play.active_duration_ms,0)
- FROM launch_game_save_bindings binding LEFT JOIN play_sessions play ON play.launch_session_id=binding.launch_session_id
- WHERE binding.launch_session_id=?),version=version+1 WHERE id=? AND deleted_at_ms IS NULL`,
-		payloadID, parsed.payload.SHA256, parsed.payload.Size, imageID, now, launchID, result.SaveStateID)
+ FROM launch_game_save_bindings binding LEFT JOIN play_sessions play ON
+play.launch_session_id=binding.launch_session_id
+ WHERE binding.launch_session_id=?),version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND deleted_at_ms IS NULL`,
+			Args:  []any{result.SaveStateID},
+		},
+		Values: []any{payloadID, parsed.payload.SHA256, parsed.payload.Size, imageID, now, launchID},
+	})
 	if err != nil {
 		return ManualResult{}, fmt.Errorf("write native save payload: %w", err)
 	}

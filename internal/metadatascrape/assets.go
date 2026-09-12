@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
@@ -113,11 +115,9 @@ func (service *Service) fetchPendingAsset(
 	var updated int64
 	if registerErr == nil {
 		var updateResult interface{ RowsAffected() (int64, error) }
-		updateResult, registerErr = transaction.ExecContext(
-			ctx,
-			`
-UPDATE scrape_candidate_assets
-SET status='READY',
+		updateResult, registerErr = recordstore.UpdateScrapeCandidateAssets(ctx, transaction, recordstore.Update{
+			Set: `
+status='READY',
 blob_id=?,
 width_px=?,
 height_px=?,
@@ -125,7 +125,10 @@ media_type=?,
 fetched_at_ms=?,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+			Scope: recordstore.Scope{
+				Where: `
+id=?
 AND status='PENDING'
 AND EXISTS(
   SELECT 1 FROM scrape_candidates candidate
@@ -135,14 +138,17 @@ AND EXISTS(
     AND (run.game_id IS NULL OR game.status='PUBLISHED')
 )
 `,
-			blobID,
-			data.Width,
-			data.Height,
-			data.MediaType,
-			service.now().UnixMilli(),
-			service.now().UnixMilli(),
-			asset.id,
-		)
+				Args: []any{asset.id},
+			},
+			Values: []any{
+				blobID,
+				data.Width,
+				data.Height,
+				data.MediaType,
+				service.now().UnixMilli(),
+				service.now().UnixMilli(),
+			},
+		})
 		if registerErr == nil {
 			updated, registerErr = updateResult.RowsAffected()
 		}
@@ -164,23 +170,23 @@ AND EXISTS(
 
 func (service *Service) markAssetFailed(ctx context.Context, assetID, code string) error {
 	now := service.now().UnixMilli()
-	result, err := service.database.ExecContext(
-		ctx,
-		`
-UPDATE scrape_candidate_assets
-SET status='FAILED',
+	result, err := recordstore.UpdateScrapeCandidateAssets(ctx, service.database, recordstore.Update{
+		Set: `
+status='FAILED',
 error_code=?,
 fetched_at_ms=?,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND status='PENDING'
 `,
-		code,
-		now,
-		now,
-		assetID,
-	)
+			Args: []any{assetID},
+		},
+		Values: []any{code, now, now},
+	})
 	if err != nil {
 		return fmt.Errorf("metadatascrape/service: %w", err)
 	}

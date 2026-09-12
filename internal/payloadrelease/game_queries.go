@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"retrom/internal/recordstore"
 )
 
 func gameBlobIDs(ctx context.Context, transaction *sql.Tx, gameID string) ([]string, error) {
@@ -94,10 +96,13 @@ SELECT state,payload_state,payload_release_job_id FROM import_items WHERE id=?
 			return releaseFailure("PAYLOAD_RELEASE_SOURCE_NOT_TERMINAL")
 		}
 		if payloadState != "RELEASED" {
-			if _, err := transaction.ExecContext(ctx, `
-UPDATE import_items SET payload_state='RELEASING',payload_last_error_code=NULL
-WHERE id=? AND payload_state='FAILED'
-`, itemID); err != nil {
+			if _, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+				Set: `payload_state='RELEASING',payload_last_error_code=NULL`,
+				Scope: recordstore.Scope{
+					Where: `id=? AND payload_state='FAILED'`,
+					Args:  []any{itemID},
+				},
+			}); err != nil {
 				return fmt.Errorf("payloadrelease/retry source item: %w", err)
 			}
 			if err := service.releaseImportItemTx(ctx, transaction, itemID, reasonForImportState(state), now); err != nil {

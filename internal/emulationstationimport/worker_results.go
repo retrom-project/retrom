@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
@@ -18,16 +20,16 @@ func (service *Service) attachLibraryResult(
 	imported libraryimport.ServerImportItem,
 ) error {
 	now := service.now().UnixMilli()
-	result, err := service.database.ExecContext(
-		ctx,
-		`UPDATE emulationstation_import_items
-SET execution_state='VALIDATING',library_import_job_id=?,library_import_item_id=?,updated_at_ms=?
-WHERE id=? AND execution_state='COPYING'`,
-		importJobID,
-		imported.ItemID,
-		now,
-		itemID,
-	)
+	result, err := recordstore.UpdateEmulationstationImportItems(ctx, service.database, recordstore.Update{
+		Set: `
+execution_state='VALIDATING',library_import_job_id=?,library_import_item_id=?,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND execution_state='COPYING'`,
+			Args:  []any{itemID},
+		},
+		Values: []any{importJobID, imported.ItemID, now},
+	})
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/attach library result: %w", err)
 	}
@@ -65,23 +67,27 @@ func (service *Service) closeItemWithFailure(
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(
-		ctx,
-		`UPDATE emulationstation_import_items
-SET execution_state=?,error_code=?,retryable=?,
+	result, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state=?,error_code=?,retryable=?,
 error_details_json=?,
 existing_game_id=COALESCE(?,existing_game_id),
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND execution_state IN ('COPYING','VALIDATING')`,
-		state,
-		nullIfEmpty(code),
-		boolInt(retryable),
-		encodedFailure,
-		nullIfEmpty(existingGameID),
-		now,
-		now,
-		itemID,
-	)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND execution_state IN ('COPYING','VALIDATING')`,
+			Args:  []any{itemID},
+		},
+		Values: []any{
+			state,
+			nullIfEmpty(code),
+			boolInt(retryable),
+			encodedFailure,
+			nullIfEmpty(existingGameID),
+			now,
+			now,
+		},
+	})
 	if err != nil || rowsAffected(result) != 1 {
 		return
 	}
@@ -97,15 +103,14 @@ func (service *Service) closeAssetWarning(ctx context.Context, itemID, kind, cod
 	if code == "EMULATIONSTATION_SOURCE_CHANGED" {
 		state = "SOURCE_CHANGED"
 	}
-	_, _ = service.database.ExecContext(
-		ctx,
-		`UPDATE emulationstation_import_item_assets SET state=?,warning_code=?,updated_at_ms=? WHERE item_id=? AND kind=?`,
-		state,
-		code,
-		now,
-		itemID,
-		kind,
-	)
+	_, _ = recordstore.UpdateEmulationstationImportItemAssets(ctx, service.database, recordstore.Update{
+		Set: `state=?,warning_code=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `item_id=? AND kind=?`,
+			Args:  []any{itemID, kind},
+		},
+		Values: []any{state, code, now},
+	})
 	var encoded string
 	if err := service.database.QueryRowContext(
 		ctx, `SELECT warnings_json FROM emulationstation_import_items WHERE id=?`, itemID,
@@ -116,13 +121,14 @@ func (service *Service) closeAssetWarning(ctx context.Context, itemID, kind, cod
 	_ = json.Unmarshal([]byte(encoded), &warnings)
 	warnings = boundedWarnings(append(warnings, scanMediaWarning(code, kind)))
 	encodedBytes, _ := json.Marshal(warnings)
-	_, _ = service.database.ExecContext(
-		ctx,
-		`UPDATE emulationstation_import_items SET warnings_json=?,updated_at_ms=? WHERE id=?`,
-		string(encodedBytes),
-		now,
-		itemID,
-	)
+	_, _ = recordstore.UpdateEmulationstationImportItems(ctx, service.database, recordstore.Update{
+		Set: `warnings_json=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{itemID},
+		},
+		Values: []any{string(encodedBytes), now},
+	})
 }
 
 func mediaWarning(kind string, err error) string {
@@ -142,9 +148,9 @@ func (service *Service) refreshCountsAndEvent(
 	itemID, outcome string,
 	now int64,
 ) error {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET review_pending_item_count=(
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: `
+review_pending_item_count=(
   SELECT count(*) FROM emulationstation_import_items
   WHERE import_id=? AND execution_state='REVIEW_PENDING'
 ),
@@ -179,8 +185,23 @@ media_warning_count=(
   AND json_extract(warning.value,'$.pathKind') IN ('COVER','VIDEO')
 ),
 version=version+1,updated_at_ms=?
-WHERE id=?`, unit.ImportID, unit.ImportID, unit.ImportID, unit.ImportID, unit.ImportID,
-		unit.ImportID, unit.ImportID, unit.ImportID, now, unit.ImportID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			now,
+		},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/refresh aggregate counts: %w", err)
 	}
 	data, _ := json.Marshal(map[string]any{"schemaVersion": 1, "itemId": itemID, "outcome": outcome})
@@ -259,36 +280,47 @@ func (service *Service) closeCancelled(ctx context.Context, unit work) (bool, er
 		return false, fmt.Errorf("emulationstationimport/start cancellation close: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_items
-SET execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_id=? AND execution_state='PENDING'`, now, now, unit.ImportID); err != nil {
+	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `import_id=? AND execution_state='PENDING'`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return false, fmt.Errorf("emulationstationimport/cancel remaining items: %w", err)
 	}
 	counts, err := loadTerminalItemCounts(ctx, transaction, unit.ImportID)
 	if err != nil {
 		return false, err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET state='CANCELLED',phase=NULL,
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',phase=NULL,
 skipped_mapping_item_count=?,review_pending_item_count=?,published_item_count=?,
 review_discarded_item_count=?,existing_item_count=?,blocked_item_count=?,
 failed_item_count=?,cancelled_item_count=?,
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=?`,
-		counts.SkippedMapping,
-		counts.ReviewPending,
-		counts.Published,
-		counts.ReviewDiscarded,
-		counts.Existing,
-		counts.Blocked,
-		counts.Failed,
-		counts.Cancelled,
-		now,
-		now,
-		unit.ImportID,
-	); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{
+			counts.SkippedMapping,
+			counts.ReviewPending,
+			counts.Published,
+			counts.ReviewDiscarded,
+			counts.Existing,
+			counts.Blocked,
+			counts.Failed,
+			counts.Cancelled,
+			now,
+			now,
+		},
+	}); err != nil {
 		return false, fmt.Errorf("emulationstationimport/close cancelled import: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -354,14 +386,31 @@ WHERE import_id=?`, unit.ImportID).
 	if blocked+failed > 0 {
 		state = "PARTIAL_FAILURE"
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET state=?,phase=NULL,review_pending_item_count=?,published_item_count=?,
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: `
+state=?,phase=NULL,review_pending_item_count=?,published_item_count=?,
 review_discarded_item_count=?,existing_item_count=?,
 blocked_item_count=?,failed_item_count=?,cancelled_item_count=?,retryable=?,
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=?`, state, reviewPending, published, reviewDiscarded, existing, blocked, failed, cancelled,
-		boolInt(retryableFailed > 0), now, now, unit.ImportID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{
+			state,
+			reviewPending,
+			published,
+			reviewDiscarded,
+			existing,
+			blocked,
+			failed,
+			cancelled,
+			boolInt(retryableFailed > 0),
+			now,
+			now,
+		},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/finish import: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `

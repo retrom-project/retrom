@@ -26,17 +26,13 @@
 - 开发仓库依赖由当前分支的 `workspace/manifest.yaml` 管理。新增核心或调整依赖时，与 Retrom 集成改动一起提交并运行 `make workspace-check`；PFB 使用自身 worktree 的清单，不修改根工作区引导条目或其他分支清单。清单记录维护分支，功能分支与本机路径只进入本地 PFB 状态。
 - 核心手柄准入至少要求方向移动和确认；取消为可选能力，缺少取消不阻断接入，已有正常取消保留。一个手柄按钮在同一映射配置中只能对应一个目标输入，不得同时发送原生按钮和键盘按键来补足确认/取消；真实键盘与宿主菜单 B 返回保持各自职责。具体输入与验收边界见 `docs/core-runtime-validation.md`、`docs/project-acceptance.md`。
 - `data/dat/` 的 Git 内容只保存受版本约束的真实来源 manifest、SHA、DAT/许可物化配方与说明；约 53 MiB DAT、runtime、许可原文和生成 notice 由 `make prepare-deps` 写入被忽略目录，不得提交、手工改写或用 mock 替换。
-- 第三方浏览器核心 fork 的分支与 tag 不在本仓库临场管理：进入 `retrom-project/Player`、
-  `retrom-project/mkxp-z-libretro-emscripten`、`retrom-project/OnscripterYuri`、
-  `retrom-project/kirikiroid2-web`、`retrom-project/Butterscotch` 或 `retrom-project/tyranoscript`
-  工作前必须先读取该仓库根 `AGENTS.md` 和
-  `retrom-fork.json`。Player `master`、mkxp wrapper `main`、ONS `master` 与
-  KiriKiri `web` 只允许作为上游 fast-forward 镜像；Retrom 修改只能进入各 fork 当前默认的
+- 第三方浏览器核心 fork 的分支与 tag 由各自仓库管理；工作前必须先读取该仓库根 `AGENTS.md` 和
+  `retrom-fork.json`。上游镜像分支只允许 fast-forward 同步；Retrom 修改只能进入各 fork 当前默认的
   `retrom/<baseline>` 维护分支并从该分支打 `retrom-core-<baseline>-rN` tag。
   禁止把固定版本补丁合入移动的上游镜像、从镜像直接发布、恢复
   `rpg-runtime-*`/`retrom-web-*` tag，或新建 `runtime-clean` 等平行长期分支；已有旧前缀 tag
   只作为不可移动的历史记录保留。
-- 自动化测试不得读取或下载操作者私有 ROM、BIOS 与来源归档。可提交 fixture 目前只有 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/`（含 MAME、FBNeo、FBA2012）与 `testdata/public-roms/rpgmaker-smoke/`：它们都必须同时具备项目所有权或明确再分发许可、仓库内唯一且确定性的生成源、固定并受测试锁定的完整 bytes、真实 Retrom 产品消费者，且不得包含第三方游戏、BIOS、密钥或上游二进制片段。RPG Maker fixture 只允许 Retrom 自有的 LCF/RGSS/项目数据与锁定的 MIT MV CoreScript；不得提交厂商 RTP、运行时、专有游戏或 ignored 的 MZ 官方样例。Arcade 的测试 BIOS 角色归档不包含第三方 BIOS且不被目标驱动执行。新增其他可提交二进制必须满足相同条件，不能借此提交第三方游戏或 BIOS。`.dev-data/dev.mk`、`.dev-data/data` 与 `.dev-data/dev-state` 保存标准开发实例的配置、数据和启动状态，`.dev-data/bios` 与 `.dev-data/roms` 保存 `make dev` 暴露给服务器导入功能的操作者语料；整个 `.dev-data/` 都不是测试 fixture。核心是否已接入必须通过 Retrom 实际导入、Launch、内容端点与 Player 链路验证，不得再建立绕过产品代码的独立示例页或私有 fixture 根目录。
+- 自动化测试不得读取或下载操作者私有 ROM、BIOS 与来源归档。可提交 fixture 统一存放在 `testdata/public-roms/` 下，不在本文件逐项列举子目录；所有 fixture 都必须同时具备项目所有权或明确再分发许可、仓库内唯一且确定性的生成源、固定并受测试锁定的完整 bytes、真实 Retrom 产品消费者，且不得包含第三方游戏、BIOS、密钥或上游二进制片段。RPG Maker fixture 只允许 Retrom 自有的 LCF/RGSS/项目数据与锁定的 MIT MV CoreScript；不得提交厂商 RTP、运行时、专有游戏或 ignored 的 MZ 官方样例。Arcade 的测试 BIOS 角色归档不包含第三方 BIOS且不被目标驱动执行。新增其他可提交二进制必须满足相同条件，不能借此提交第三方游戏或 BIOS。`.dev-data/dev.mk`、`.dev-data/data` 与 `.dev-data/dev-state` 保存标准开发实例的配置、数据和启动状态，`.dev-data/bios` 与 `.dev-data/roms` 保存 `make dev` 暴露给服务器导入功能的操作者语料；整个 `.dev-data/` 都不是测试 fixture。核心是否已接入必须通过 Retrom 实际导入、Launch、内容端点与 Player 链路验证，不得再建立绕过产品代码的独立示例页或私有 fixture 根目录。
 - 不得提交凭据、launch capability/cookie、本机 `launch-capability.key`、用户主机绝对路径、专有游戏内容或来源不明的二进制文件。非秘密 `launchId` 不得被误当成授权凭据。
 
 修改生成物前先找到唯一源文件，并从源文件重新生成。具体事实源以 `docs/README.md` 为准；禁止只改导出文件造成源稿、清单或快照漂移。
@@ -69,6 +65,7 @@
 
 ### 4.1 Go 后端
 
+- 禁止使用数据库 VIEW 和 TRIGGER；迁移与运行时代码不得创建或依赖它们，相关查询、校验与联动使用应用层显式 SQL，并在事务中保证一致性。
 - HTTP handler 负责协议解析、校验和错误映射；业务规则进入对应应用模块；SQL 与持久化细节留在存储层。
 - 后台任务只负责编排、租约和重试，不复制领域规则。耗时哈希、网络访问、归档扫描和 DAT 解析不得占用长数据库写事务。
 - 依赖方向遵循 `httpapi/jobs -> 应用模块 -> store/blobstore`。底层包不得反向依赖 HTTP、任务编排或进程入口。

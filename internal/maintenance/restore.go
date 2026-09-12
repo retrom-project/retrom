@@ -9,6 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
+
 	"github.com/google/uuid"
 	// Register the modernc SQLite driver used by openDatabase.
 	_ "modernc.org/sqlite"
@@ -138,17 +142,25 @@ func publishRestore(staging, output string) error {
 }
 
 func fenceRestoredReviewBulk(ctx context.Context, transaction *sql.Tx, nowMS int64) error {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approval_items SET state='CANCELLED',outcome_code='RESTORE_INTERRUPTED',
+	if _, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',outcome_code='RESTORE_INTERRUPTED',
 outcome_details_json=json_object('schemaVersion',1,'code','RESTORE_INTERRUPTED'),completed_at_ms=?
-WHERE bulk_approval_id IN (
+`,
+		Scope: recordstore.Scope{
+			Where: `
+bulk_approval_id IN (
   SELECT id FROM review_bulk_approvals WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 ) AND state IN ('PENDING','RUNNING')
-`, nowMS); err != nil {
+`,
+		},
+		Values: []any{nowMS},
+	}); err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored review bulk items: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET state='FAILED',last_error_code='RESTORE_INTERRUPTED',
+	if _, err := recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED',last_error_code='RESTORE_INTERRUPTED',
 processed_count=candidate_count,
 published_count=(SELECT count(*) FROM review_bulk_approval_items item
   WHERE item.bulk_approval_id=review_bulk_approvals.id AND item.state='PUBLISHED'),
@@ -163,8 +175,12 @@ failed_count=(SELECT count(*) FROM review_bulk_approval_items item
 cancelled_count=(SELECT count(*) FROM review_bulk_approval_items item
   WHERE item.bulk_approval_id=review_bulk_approvals.id AND item.state='CANCELLED'),
 cancel_requested_at_ms=NULL,cancel_reason=NULL,completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
-`, nowMS, nowMS); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')`,
+		},
+		Values: []any{nowMS, nowMS},
+	}); err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored review bulk approvals: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -192,17 +208,24 @@ UPDATE auth_sessions SET revoked_at_ms=?,revoked_reason='RESTORE' WHERE revoked_
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored sessions: %w", err)
 	}
-	links, err := transaction.ExecContext(ctx, `
-UPDATE account_links SET revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1
-WHERE consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, nowMS, nowMS)
+	links, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
+		Set: `revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?`,
+			Args:  []any{nowMS},
+		},
+		Values: []any{nowMS},
+	})
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored account links: %w", err)
 	}
-	launches, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1
-WHERE state IN ('CREATED','ACTIVE')
-`, nowMS, nowMS)
+	launches, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `state IN ('CREATED','ACTIVE')`,
+		},
+		Values: []any{nowMS, nowMS},
+	})
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored launches: %w", err)
 	}
@@ -231,12 +254,20 @@ WHERE kind IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT') AND state IN ('QUE
 	if err := fenceRestoredReviewBulk(ctx, transaction, nowMS); err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state='COMMIT_FAILED',outcome_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
-completed_at_ms=?,updated_at_ms=? WHERE server_import_id IN (
+	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='COMMIT_FAILED',outcome_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
+completed_at_ms=?,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+server_import_id IN (
   SELECT id FROM server_imports WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 ) AND state IN ('PENDING','EVALUATING')
-`, nowMS, nowMS); err != nil {
+`,
+		},
+		Values: []any{nowMS, nowMS},
+	}); err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored server import items: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -263,16 +294,26 @@ WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 `, nowMS, nowMS); err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored server imports: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items SET execution_state='COMMIT_FAILED',error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
-retryable=0,completed_at_ms=?,updated_at_ms=? WHERE import_id IN (
-  SELECT id FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
+	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='COMMIT_FAILED',error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
+retryable=0,completed_at_ms=?,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id IN (
+  SELECT id FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING',
+'CANCEL_REQUESTED')
 ) AND execution_state IN ('PENDING','COPYING','VALIDATING')
-`, nowMS, nowMS); err != nil {
+`,
+		},
+		Values: []any{nowMS, nowMS},
+	}); err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored Pegasus items: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_imports SET state='FAILED',phase=NULL,last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
+	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED',phase=NULL,last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
 retryable=0,cancel_reason=NULL,
 published_item_count=(SELECT count(*) FROM pegasus_import_items item
   WHERE item.import_id=pegasus_imports.id AND item.execution_state='PUBLISHED'),
@@ -287,8 +328,12 @@ failed_item_count=(SELECT count(*) FROM pegasus_import_items item
 cancelled_item_count=(SELECT count(*) FROM pegasus_import_items item
   WHERE item.import_id=pegasus_imports.id AND item.execution_state='CANCELLED'),
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
-`, nowMS, nowMS); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')`,
+		},
+		Values: []any{nowMS, nowMS},
+	}); err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored Pegasus imports: %w", err)
 	}
 	return finishRestoreSecurityFence(

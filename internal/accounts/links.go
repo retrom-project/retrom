@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -278,7 +280,7 @@ func persistInvitedIdentity(
 	input invitationAcceptance,
 	role string,
 ) error {
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateProfiles(ctx, transaction, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)
 `, input.profileID, input.displayName, input.now); err != nil {
 		return fmt.Errorf("create invited profile: %w", err)
@@ -302,10 +304,14 @@ VALUES(?,?,'ARGON2ID_V1',?,?)
 `, input.userID, input.encodedPassword, input.now, input.now); err != nil {
 		return fmt.Errorf("create invited credential: %w", err)
 	}
-	result, err = transaction.ExecContext(ctx, `
-UPDATE account_links SET consumed_at_ms=?,consumed_by_user_id=?,version=version+1
-WHERE id=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, input.now, input.userID, input.linkID.String(), input.now)
+	result, err = recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
+		Set: `consumed_at_ms=?,consumed_by_user_id=?,version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?`,
+			Args:  []any{input.linkID.String(), input.now},
+		},
+		Values: []any{input.now, input.userID},
+	})
 	if err != nil {
 		return fmt.Errorf("consume invitation: %w", err)
 	}
@@ -350,21 +356,31 @@ func (service *Service) CreatePasswordReset(
 	if err := validatePasswordResetTarget(ctx, transaction, targetUserID, expectedVersion); err != nil {
 		return AccountLink{}, false, err
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE users SET version=version+1,updated_at_ms=? WHERE id=? AND version=? AND status!='DELETED'
-`, now, targetUserID, expectedVersion)
+	result, err := recordstore.UpdateUsers(ctx, transaction, recordstore.Update{
+		Set: `version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=? AND status!='DELETED'`,
+			Args:  []any{targetUserID, expectedVersion},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return AccountLink{}, false, fmt.Errorf("version password-reset target: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return AccountLink{}, false, ErrUserVersion
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE account_links
-SET revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1
-WHERE kind='PASSWORD_RESET' AND target_user_id=?
+	if _, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
+		Set: `revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `
+kind='PASSWORD_RESET' AND target_user_id=?
 AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, now, targetUserID, now); err != nil {
+`,
+			Args: []any{targetUserID, now},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return AccountLink{}, false, fmt.Errorf("revoke prior password-reset links: %w", err)
 	}
 	linkID := newID()
@@ -512,11 +528,17 @@ RETURNING role,profile_id,status,session_version
 `, input.now, input.targetUserID).Scan(&role, &profileID, &currentStatus, &sessionVersion); err != nil {
 		return PasswordResetResult{}, ErrAccountLinkUnavailable
 	}
-	consume, err := transaction.ExecContext(ctx, `
-UPDATE account_links SET consumed_at_ms=?,consumed_by_user_id=?,version=version+1
-WHERE id=? AND kind='PASSWORD_RESET'
+	consume, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
+		Set: `consumed_at_ms=?,consumed_by_user_id=?,version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `
+id=? AND kind='PASSWORD_RESET'
 AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, input.now, input.targetUserID, input.linkID.String(), input.now)
+`,
+			Args: []any{input.linkID.String(), input.now},
+		},
+		Values: []any{input.now, input.targetUserID},
+	})
 	if err != nil {
 		return PasswordResetResult{}, fmt.Errorf("consume password-reset link: %w", err)
 	}
@@ -535,10 +557,13 @@ WHERE user_id=? AND revoked_at_ms IS NULL
 		return PasswordResetResult{}, fmt.Errorf("revoke reset sessions: %w", err)
 	}
 	if input.username == "test" {
-		_, _ = transaction.ExecContext(ctx, `
-UPDATE instance_state SET test_default_password_active=0,version=version+1,updated_at_ms=?
-WHERE id=1 AND test_default_password_active=1
-`, input.now)
+		_, _ = recordstore.UpdateInstanceState(ctx, transaction, recordstore.Update{
+			Set: `test_default_password_active=0,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=1 AND test_default_password_active=1`,
+			},
+			Values: []any{input.now},
+		})
 	}
 	principal := authn.Principal{UserID: input.targetUserID, Username: input.username}
 	if err := insertUserAudit(
@@ -608,11 +633,16 @@ SELECT kind,expires_at_ms,consumed_at_ms,revoked_at_ms,version FROM account_link
 	if accountLinkState(consumedAt, revokedAt, expiresAt, now) != "ACTIVE" {
 		return false, ErrAccountLinkNotActive
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE account_links
-SET revoked_at_ms=?,revoked_by_kind='USER',revoked_by_user_id=?,version=version+1
-WHERE id=? AND version=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, now, principal.UserID, linkID, expectedVersion, now)
+	result, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
+		Set: `revoked_at_ms=?,revoked_by_kind='USER',revoked_by_user_id=?,version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `
+id=? AND version=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
+`,
+			Args: []any{linkID, expectedVersion, now},
+		},
+		Values: []any{now, principal.UserID},
+	})
 	if err != nil {
 		return false, fmt.Errorf("revoke account link: %w", err)
 	}

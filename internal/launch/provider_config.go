@@ -9,6 +9,10 @@ import (
 	"slices"
 	"strings"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/cleanup"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimebundle"
@@ -637,12 +641,24 @@ func (service *Service) activateLaunch(ctx context.Context, launchID, state stri
 	if state != "CREATED" {
 		return nil
 	}
+	tx, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin launch activation: %w", err)
+	}
+	defer cleanup.Rollback(tx)
 	now := service.now().UnixMilli()
-	if _, err := service.database.ExecContext(ctx, `
-UPDATE launch_sessions SET state='ACTIVE',activated_at_ms=?,updated_at_ms=?,version=version+1
-WHERE id=? AND state='CREATED'
-`, now, now, launchID); err != nil {
+	if _, err := sessionstore.ChangeLaunch(ctx, tx, recordstore.Update{
+		Set: `state='ACTIVE',activated_at_ms=?,updated_at_ms=?,version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='CREATED'`,
+			Args:  []any{launchID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("activate launch: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit launch activation: %w", err)
 	}
 	return nil
 }
