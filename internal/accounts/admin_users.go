@@ -7,10 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
-	"unicode"
-	"unicode/utf8"
+	"time"
+
+	accountpersistence "retrom/internal/persistence/accounts"
+	accountservice "retrom/internal/service/accounts"
 
 	"retrom/internal/dbexec"
 
@@ -18,216 +19,34 @@ import (
 
 	"retrom/internal/persistence/sessionstore"
 
-	"golang.org/x/text/unicode/norm"
-
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 )
 
-func normalizeUserQuery(value string) (string, error) {
-	if !utf8.ValidString(value) {
-		return "", ErrUserNotFound
-	}
-	value = norm.NFC.String(strings.TrimFunc(value, unicode.IsSpace))
-	count := 0
-	for _, character := range value {
-		if unicode.IsControl(character) {
-			return "", ErrUserNotFound
-		}
-		count++
-	}
-	if count > 80 {
-		return "", ErrUserNotFound
-	}
-	return value, nil
+func (service *Service) directory() *accountservice.DirectoryService {
+	return accountservice.NewDirectory(
+		accountpersistence.NewDirectory(
+			service.database,
+		),
+		func() time.Time {
+			return service.now()
+		},
+	)
 }
 
-func scanAdminUser(scanner interface{ Scan(...any) error }) (AdminUser, error) {
-	var user AdminUser
-	var displayName string
-	var lastLogin sql.NullInt64
-	if err := scanner.Scan(
-		&user.UserID, &user.Username, &displayName, &user.Role, &user.Status, &user.Version,
-		&user.CreatedAtMS, &lastLogin, &user.ActiveSessionCount,
-	); err != nil {
-		return AdminUser{}, fmt.Errorf("scan admin user projection: %w", err)
-	}
-	user.DisplayName = displayName
-	if user.Status == "DELETED" {
-		user.DisplayName = "已删除用户"
-	}
-	user.LastLoginAtMS = nil
-	if lastLogin.Valid {
-		user.LastLoginAtMS = lastLogin.Int64
-	}
-	return user, nil
-}
-
-func (service *Service) GetUser(ctx context.Context, userID string) (AdminUser, error) {
-	now := service.now().UTC().UnixMilli()
-	user, err := scanAdminUser(service.database.QueryRowContext(ctx, `
-SELECT u.id,u.username,u.display_name,u.role,u.status,u.version,u.created_at_ms,u.last_login_at_ms,
-(SELECT count(*) FROM auth_sessions session
- WHERE session.user_id=u.id AND session.revoked_at_ms IS NULL
- AND session.user_session_version=u.session_version
- AND session.idle_expires_at_ms>? AND session.absolute_expires_at_ms>?
- AND u.status='ENABLED')
-FROM users u WHERE u.id=?
-`, now, now, userID))
-	if errors.Is(err, sql.ErrNoRows) {
-		return AdminUser{}, ErrUserNotFound
-	}
+func (service *Service) GetUser(ctx context.Context, id string) (AdminUser, error) {
+	result, err := service.directory().Get(ctx, id)
 	if err != nil {
-		return AdminUser{}, fmt.Errorf("read admin user: %w", err)
+		return AdminUser{}, fmt.Errorf("get admin user: %w", err)
 	}
-	return user, nil
+	return result, nil
 }
 
 func (service *Service) ListUsers(ctx context.Context, filter UserListFilter) ([]AdminUser, error) {
-	filter, queryText, err := validateUserListFilter(filter)
-	if err != nil {
-		return nil, err
-	}
-	now := service.now().UTC().UnixMilli()
-	builder := userListQuery{query: `
-SELECT u.id,u.username,u.display_name,u.role,u.status,u.version,u.created_at_ms,u.last_login_at_ms,
-(SELECT count(*) FROM auth_sessions session
- WHERE session.user_id=u.id AND session.revoked_at_ms IS NULL
- AND session.user_session_version=u.session_version
- AND session.idle_expires_at_ms>? AND session.absolute_expires_at_ms>?
- AND u.status='ENABLED')
-FROM users u WHERE 1=1`, arguments: []any{now, now}}
-	if queryText != "" {
-		builder.add(" AND (instr(u.username,lower(?))>0 OR instr(u.display_name,?)>0)", queryText, queryText)
-	}
-	if filter.Role != "" {
-		builder.add(" AND u.role=?", filter.Role)
-	}
-	builder.addStatus(filter.Status)
-	if err := builder.addSort(filter); err != nil {
-		return nil, err
-	}
-	builder.add(" LIMIT ?", filter.Limit)
-	rows, err := service.database.QueryContext(ctx, builder.query, builder.arguments...)
+	result, err := service.directory().List(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("list admin users: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]AdminUser, 0, filter.Limit)
-	for rows.Next() {
-		item, scanErr := scanAdminUser(rows)
-		if scanErr != nil {
-			return nil, fmt.Errorf("scan admin user: %w", scanErr)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate admin users: %w", err)
-	}
-	return items, nil
-}
-
-type userListQuery struct {
-	query     string
-	arguments []any
-}
-
-func (builder *userListQuery) add(fragment string, arguments ...any) {
-	builder.query += fragment
-	builder.arguments = append(builder.arguments, arguments...)
-}
-
-func validateUserListFilter(filter UserListFilter) (UserListFilter, string, error) {
-	queryText, err := normalizeUserQuery(filter.Query)
-	if err != nil || filter.Role != "" && filter.Role != "ADMIN" && filter.Role != "USER" {
-		return filter, "", ErrUserNotFound
-	}
-	if filter.Status == "" {
-		filter.Status = "NON_DELETED"
-	}
-	validStatus := map[string]bool{
-		"NON_DELETED": true, "ALL": true, "ENABLED": true, "DISABLED": true, "DELETED": true,
-	}
-	if !validStatus[filter.Status] {
-		return filter, "", ErrUserNotFound
-	}
-	if filter.Sort == "" {
-		filter.Sort = "CREATED_DESC"
-	}
-	validSort := map[string]bool{"CREATED_DESC": true, "USERNAME_ASC": true, "LAST_LOGIN_DESC": true}
-	if !validSort[filter.Sort] {
-		return filter, "", ErrUserNotFound
-	}
-	return filter, queryText, nil
-}
-
-func (builder *userListQuery) addStatus(status string) {
-	if status == "NON_DELETED" {
-		builder.add(" AND u.status!='DELETED'")
-	}
-	if status == "ENABLED" || status == "DISABLED" || status == "DELETED" {
-		builder.add(" AND u.status=?", status)
-	}
-}
-
-func (builder *userListQuery) addSort(filter UserListFilter) error {
-	switch filter.Sort {
-	case "CREATED_DESC":
-		return builder.addCreatedSort(filter)
-	case "USERNAME_ASC":
-		builder.addUsernameSort(filter)
-	case "LAST_LOGIN_DESC":
-		return builder.addLastLoginSort(filter)
-	}
-	return nil
-}
-
-func (builder *userListQuery) addCreatedSort(filter UserListFilter) error {
-	if filter.AfterID != "" && len(filter.AfterValues) == 1 {
-		created, err := strconv.ParseInt(filter.AfterValues[0], 10, 64)
-		if err != nil {
-			return ErrUserNotFound
-		}
-		builder.add(" AND (u.created_at_ms<? OR (u.created_at_ms=? AND u.id<?))", created, created, filter.AfterID)
-	}
-	builder.add(" ORDER BY u.created_at_ms DESC,u.id DESC")
-	return nil
-}
-
-func (builder *userListQuery) addUsernameSort(filter UserListFilter) {
-	if filter.AfterID != "" && len(filter.AfterValues) == 1 {
-		builder.add(
-			" AND (u.username>? OR (u.username=? AND u.id>?))",
-			filter.AfterValues[0], filter.AfterValues[0], filter.AfterID,
-		)
-	}
-	builder.add(" ORDER BY u.username ASC,u.id ASC")
-}
-
-func (builder *userListQuery) addLastLoginSort(filter UserListFilter) error {
-	if filter.AfterID != "" && len(filter.AfterValues) == 2 {
-		last, lastErr := strconv.ParseInt(filter.AfterValues[0], 10, 64)
-		created, createdErr := strconv.ParseInt(filter.AfterValues[1], 10, 64)
-		if lastErr != nil || createdErr != nil {
-			return ErrUserNotFound
-		}
-		if last >= 0 {
-			builder.add(
-				" AND (u.last_login_at_ms IS NULL OR u.last_login_at_ms<? OR "+
-					"(u.last_login_at_ms=? AND u.id<?))",
-				last, last, filter.AfterID,
-			)
-		} else {
-			builder.add(
-				" AND u.last_login_at_ms IS NULL "+
-					"AND (u.created_at_ms<? OR (u.created_at_ms=? AND u.id<?))",
-				created, created, filter.AfterID,
-			)
-		}
-	}
-	builder.add(" ORDER BY (u.last_login_at_ms IS NULL) ASC,u.last_login_at_ms DESC," +
-		"CASE WHEN u.last_login_at_ms IS NULL THEN u.created_at_ms END DESC,u.id DESC")
-	return nil
+	return result, nil
 }
 
 func readUserState(ctx context.Context, transaction *sql.Tx, userID string) (AdminUser, string, error) {
@@ -249,7 +68,7 @@ FROM users WHERE id=?
 	}
 	user.LastLoginAtMS = nil
 	if lastLogin.Valid {
-		user.LastLoginAtMS = lastLogin.Int64
+		user.LastLoginAtMS = &lastLogin.Int64
 	}
 	return user, profileID, nil
 }

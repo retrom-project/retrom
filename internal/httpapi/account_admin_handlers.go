@@ -160,7 +160,11 @@ func (server *Server) adminUsers(writer http.ResponseWriter, request *http.Reque
 	}
 	items, err := server.accounts.ListUsers(request.Context(), filter)
 	if err != nil {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "用户筛选无效", map[string]any{})
+		if errors.Is(err, accounts.ErrUserQuery) {
+			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "用户筛选无效", map[string]any{})
+		} else {
+			server.databaseError(writer, request, err)
+		}
 		return
 	}
 	var nextCursor any
@@ -189,8 +193,8 @@ func adminUserCursorSortValues(user accounts.AdminUser, sortCode string) []strin
 		return []string{user.Username}
 	case "LAST_LOGIN_DESC":
 		lastLogin := int64(-1)
-		if value, ok := user.LastLoginAtMS.(int64); ok {
-			lastLogin = value
+		if user.LastLoginAtMS != nil {
+			lastLogin = *user.LastLoginAtMS
 		}
 		return []string{strconv.FormatInt(lastLogin, 10), strconv.FormatInt(user.CreatedAtMS, 10)}
 	default:

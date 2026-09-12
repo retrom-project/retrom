@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	accountservice "retrom/internal/service/accounts"
+
 	"retrom/internal/authn"
 )
 
@@ -17,7 +19,8 @@ var (
 	ErrAccountLinkUnavailable = errors.New("ACCOUNT_LINK_UNAVAILABLE")
 	ErrAccountLinkNotActive   = errors.New("ACCOUNT_LINK_NOT_ACTIVE")
 	ErrUsernameUnavailable    = errors.New("USERNAME_UNAVAILABLE")
-	ErrUserNotFound           = errors.New("USER_NOT_FOUND")
+	ErrUserNotFound           = accountservice.ErrUserNotFound
+	ErrUserQuery              = accountservice.ErrUserQuery
 	ErrUserVersion            = errors.New("USER_VERSION_CONFLICT")
 	ErrUserNoChange           = errors.New("USER_NO_STATE_CHANGE")
 	ErrUserSelfChange         = errors.New("USER_SELF_CHANGE_FORBIDDEN")
@@ -29,17 +32,7 @@ var (
 	ErrIdempotencyReused      = errors.New("IDEMPOTENCY_KEY_REUSED")
 )
 
-type AdminUser struct {
-	UserID             string `json:"userId"`
-	Username           string `json:"username"`
-	DisplayName        string `json:"displayName"`
-	Role               string `json:"role"`
-	Status             string `json:"status"`
-	Version            int64  `json:"version"`
-	CreatedAtMS        int64  `json:"createdAtMs"`
-	LastLoginAtMS      any    `json:"lastLoginAtMs"`
-	ActiveSessionCount int64  `json:"activeSessionCount"`
-}
+type AdminUser = accountservice.AdminUser
 
 type AccountLink struct {
 	AccountLinkID   string `json:"accountLinkId"`
@@ -70,15 +63,7 @@ type UserPatch struct {
 	ConfirmAdminRole bool
 }
 
-type UserListFilter struct {
-	Query       string
-	Role        string
-	Status      string
-	Sort        string
-	AfterValues []string
-	AfterID     string
-	Limit       int
-}
+type UserListFilter = accountservice.UserListFilter
 
 type LinkListFilter struct {
 	Kind         string
