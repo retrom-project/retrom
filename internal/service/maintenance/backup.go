@@ -2,30 +2,23 @@ package maintenance
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
-	"time"
-
-	// Register the modernc SQLite driver used by openDatabase.
-	_ "modernc.org/sqlite"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
-	"retrom/internal/persistence/blobregistry"
 	"retrom/internal/processlock"
-	"retrom/internal/store"
 )
 
 var (
 	ErrBackupOffline      = errors.New("BACKUP_REQUIRES_OFFLINE")
 	ErrInvalidBundle      = errors.New("BACKUP_BUNDLE_INVALID")
 	ErrDependencyMismatch = errors.New("RESTORE_DEPENDENCY_CONFIG_MISMATCH")
-	errCheckpointFailed   = errors.New("BACKUP_CHECKPOINT_FAILED")
+	ErrCheckpointFailed   = errors.New("BACKUP_CHECKPOINT_FAILED")
 )
 
 type FileEntry struct {
@@ -64,11 +57,10 @@ type Manifest struct {
 	Counts                  Counts               `json:"counts"`
 }
 
-func Backup(
+func (service *Service) Backup(
 	ctx context.Context,
 	configuration config.Maintenance,
 	output string,
-	now func() time.Time,
 ) (Manifest, error) {
 	if err := validateBackupConfiguration(configuration, output); err != nil {
 		return Manifest{}, err
@@ -81,8 +73,8 @@ func Backup(
 		return Manifest{}, fmt.Errorf("maintenance/bundle: %w", err)
 	}
 	defer func() { cleanup.Error("close", lock.Close()) }()
-	if err := checkpointBackupDatabase(ctx, configuration.DBPath); err != nil {
-		return Manifest{}, err
+	if err := service.repository.Checkpoint(ctx, configuration.DBPath); err != nil {
+		return Manifest{}, fmt.Errorf("prepare backup snapshot: %w", err)
 	}
 	staging, err := createStaging(output)
 	if err != nil {
@@ -90,11 +82,11 @@ func Backup(
 	}
 	manifest := Manifest{
 		SchemaVersion:           2,
-		CreatedAtMS:             now().UnixMilli(),
+		CreatedAtMS:             service.now().UnixMilli(),
 		ActiveEmulatorjsVersion: configuration.ActiveEJSVersion,
 		DependencyVersions:      append([]string(nil), configuration.DependencyVersions...),
 	}
-	if err := stageBackupDatabase(ctx, configuration, staging, &manifest); err != nil {
+	if err := service.stageBackupDatabase(ctx, configuration, staging, &manifest); err != nil {
 		return Manifest{}, err
 	}
 	if err := stageBackupSecrets(configuration, staging, &manifest); err != nil {
@@ -124,34 +116,7 @@ func validateBackupConfiguration(configuration config.Maintenance, output string
 	return nil
 }
 
-func checkpointBackupDatabase(ctx context.Context, databasePath string) error {
-	database, err := openDatabase(ctx, databasePath)
-	if err != nil {
-		return err
-	}
-	if err := checkDatabase(ctx, database); err != nil {
-		cleanup.Error("close", database.Close())
-		return err
-	}
-	if _, err := store.ValidateCurrentMigrationLineage(ctx, database); err != nil {
-		cleanup.Error("close", database.Close())
-		return ErrInvalidBundle
-	}
-	var busy, logFrames, checkpointed int
-	if err := database.QueryRowContext(ctx, `
-PRAGMA wal_checkpoint(TRUNCATE)
-`).Scan(&busy, &logFrames, &checkpointed); err != nil ||
-		busy != 0 {
-		cleanup.Error("close", database.Close())
-		return errCheckpointFailed
-	}
-	if err := database.Close(); err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	return nil
-}
-
-func stageBackupDatabase(
+func (service *Service) stageBackupDatabase(
 	ctx context.Context,
 	configuration config.Maintenance,
 	staging string,
@@ -169,128 +134,17 @@ func stageBackupDatabase(
 	}
 	manifest.Files = append(manifest.Files, databaseEntry)
 	manifest.DatabaseSHA256 = databaseEntry.SHA256
-	stagingDatabase, err := openDatabase(ctx, filepath.Join(staging, "retrom.db"))
+
+	snapshot, err := service.repository.Inspect(ctx, filepath.Join(staging, "retrom.db"))
 	if err != nil {
+		return fmt.Errorf("inspect staged backup: %w", err)
+	}
+	manifest.DatabaseSchemaVersion = snapshot.Lineage.Version
+	manifest.MigrationLineageDigest = snapshot.Lineage.Digest
+	if err := copyBackupContents(ctx, snapshot, configuration.DataDir, staging, manifest); err != nil {
 		return err
-	}
-	if err := checkDatabase(ctx, stagingDatabase); err != nil {
-		cleanup.Error("close", stagingDatabase.Close())
-		return err
-	}
-	if err := blobregistry.ValidateSchema(ctx, stagingDatabase); err != nil {
-		cleanup.Error("close", stagingDatabase.Close())
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	lineage, err := store.ValidateCurrentMigrationLineage(ctx, stagingDatabase)
-	if err != nil {
-		cleanup.Error("close", stagingDatabase.Close())
-		return ErrInvalidBundle
-	}
-	manifest.DatabaseSchemaVersion = lineage.Version
-	manifest.MigrationLineageDigest = lineage.Digest
-	if err := copyBackupBlobs(ctx, stagingDatabase, configuration.DataDir, staging, manifest); err != nil {
-		cleanup.Error("close", stagingDatabase.Close())
-		return err
-	}
-	if err := copyBackupParts(ctx, stagingDatabase, configuration.DataDir, staging, manifest); err != nil {
-		cleanup.Error("close", stagingDatabase.Close())
-		return err
-	}
-	if err := stagingDatabase.Close(); err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
 	}
 	return removeBackupSidecars(staging)
-}
-
-func copyBackupBlobs(
-	ctx context.Context,
-	database *sql.DB,
-	dataDir, staging string,
-	manifest *Manifest,
-) error {
-	blobRows, err := database.QueryContext(ctx, `
-SELECT sha256,
-size_bytes
-FROM blobs
-ORDER BY sha256
-`)
-	if err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	defer func() { cleanup.Error("close", blobRows.Close()) }()
-	for blobRows.Next() {
-		var digest string
-		var size int64
-		if err := blobRows.Scan(&digest, &size); err != nil {
-			return fmt.Errorf("maintenance/bundle: %w", err)
-		}
-		relative := filepath.ToSlash(filepath.Join("blobs", "sha256", digest[:2], digest[2:4], digest))
-		entry, err := copyVerified(
-			filepath.Join(dataDir, filepath.FromSlash(relative)),
-			filepath.Join(staging, filepath.FromSlash(relative)),
-			relative,
-			"CAS_BLOB",
-			digest,
-		)
-		if err != nil || entry.SizeBytes != size {
-			return ErrInvalidBundle
-		}
-		manifest.Files = append(manifest.Files, entry)
-		manifest.Counts.BlobCount++
-	}
-	if err := blobRows.Err(); err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	return nil
-}
-
-func copyBackupParts(
-	ctx context.Context,
-	database *sql.DB,
-	dataDir, staging string,
-	manifest *Manifest,
-) error {
-	partRows, err := database.QueryContext(
-		ctx,
-		`
-SELECT p.storage_key,
-p.size_bytes,
-p.sha256
-FROM upload_parts p
-JOIN upload_files f ON f.id=p.upload_file_id
-JOIN upload_sessions u ON u.id=f.upload_session_id
-WHERE u.state!='COMPLETE'
-ORDER BY p.storage_key
-`,
-	)
-	if err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	defer func() { cleanup.Error("close", partRows.Close()) }()
-	for partRows.Next() {
-		var key, digest string
-		var size int64
-		if err := partRows.Scan(&key, &size, &digest); err != nil || !safeStorageKey(key) {
-			return ErrInvalidBundle
-		}
-		relative := "tmp/uploads/" + key
-		entry, err := copyVerified(
-			filepath.Join(dataDir, filepath.FromSlash(relative)),
-			filepath.Join(staging, filepath.FromSlash(relative)),
-			relative,
-			"UPLOAD_PART",
-			digest,
-		)
-		if err != nil || entry.SizeBytes != size {
-			return ErrInvalidBundle
-		}
-		manifest.Files = append(manifest.Files, entry)
-		manifest.Counts.UploadPartCount++
-	}
-	if err := partRows.Err(); err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	return nil
 }
 
 func removeBackupSidecars(staging string) error {

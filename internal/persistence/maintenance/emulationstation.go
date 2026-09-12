@@ -53,7 +53,10 @@ AND execution_state IN ('PENDING','COPYING','VALIDATING')
 	}); err != nil {
 		return 0, fmt.Errorf("maintenance/bundle: fence restored EmulationStation imports: %w", err)
 	}
-	count, _ := jobs.RowsAffected()
+	count, err := jobs.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("count restored source jobs: %w", err)
+	}
 	return count, nil
 }
 

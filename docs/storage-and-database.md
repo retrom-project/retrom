@@ -363,6 +363,8 @@ data/
 
 ## 8. 备份与恢复
 
+离线维护由 `internal/service/maintenance` 编排，数据库连接、检查点、lineage 和引用清单查询归 `internal/persistence/maintenance`。Service 验证完整文件清单、摘要与依赖配置后，才通过一个恢复事务撤销访问、停止外部来源任务与快速审批并写入审计；时刻由同一可注入时钟给出。数据库取消保留原始原因，清单只接受一个完整 JSON 值，尾随第二个值或垃圾内容必须拒绝。
+
 一期备份/恢复是显式离线维护命令，不伪装成不存在的 HTTP 管理 API：
 
 ```bash

@@ -1,9 +1,7 @@
 package maintenance
 
 import (
-	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -17,16 +15,13 @@ import (
 	"syscall"
 
 	"github.com/google/uuid"
-	// Register the modernc SQLite driver used by openDatabase.
-	_ "modernc.org/sqlite"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
-	"retrom/internal/store"
 )
 
-func validateBundle(root string) (Manifest, error) {
-	manifest, err := loadBundleManifest(root)
+func validateBundle(root string, lineage Lineage) (Manifest, error) {
+	manifest, err := loadBundleManifest(root, lineage)
 	if err != nil {
 		return Manifest{}, err
 	}
@@ -43,7 +38,7 @@ func validateBundle(root string) (Manifest, error) {
 	return manifest, nil
 }
 
-func loadBundleManifest(root string) (Manifest, error) {
+func loadBundleManifest(root string, lineage Lineage) (Manifest, error) {
 	contents, err := os.ReadFile(
 		filepath.Join(root, "backup.json"),
 	)
@@ -53,12 +48,14 @@ func loadBundleManifest(root string) (Manifest, error) {
 	var manifest Manifest
 	decoder := json.NewDecoder(strings.NewReader(string(contents)))
 	decoder.DisallowUnknownFields()
-	lineage, lineageErr := store.CurrentMigrationLineage()
-	if err := decoder.Decode(&manifest); err != nil || lineageErr != nil || manifest.SchemaVersion != 2 ||
+	if err := decoder.Decode(&manifest); err != nil || manifest.SchemaVersion != 2 ||
 		manifest.DatabaseSchemaVersion != lineage.Version || manifest.MigrationLineageDigest != lineage.Digest ||
 		manifest.Counts.FileCount != int64(len(manifest.Files)) ||
 		manifest.Counts.DependencyVersionCount != int64(len(manifest.DependencyVersions)) ||
 		len(manifest.DependencyManifests) != len(manifest.DependencyVersions) {
+		return Manifest{}, ErrInvalidBundle
+	}
+	if err := decoder.Decode(new(json.RawMessage)); !errors.Is(err, io.EOF) {
 		return Manifest{}, ErrInvalidBundle
 	}
 	return manifest, nil
@@ -359,39 +356,6 @@ func writeExclusive(path string, contents []byte) error {
 	return nil
 }
 
-func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	for _, pragma := range []string{"PRAGMA foreign_keys=ON", "PRAGMA busy_timeout=5000"} {
-		if _, err = db.ExecContext(ctx, pragma); err != nil {
-			cleanup.Error("close", db.Close())
-			return nil, fmt.Errorf("maintenance/bundle: %w", err)
-		}
-	}
-	return db, nil
-}
-
-func checkDatabase(ctx context.Context, db *sql.DB) error {
-	var integrity string
-	if err := db.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil || integrity != "ok" {
-		return ErrInvalidBundle
-	}
-	rows, err := db.QueryContext(ctx, "PRAGMA foreign_key_check")
-	if err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	if rows.Next() {
-		return ErrInvalidBundle
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("scan foreign-key violations: %w", err)
-	}
-	return nil
-}
-
 func safeStorageKey(value string) bool {
 	_, err := importing.ValidateLogicalPath(value)
 	return !strings.HasPrefix(value, "tmp/uploads/") && err == nil
@@ -474,75 +438,6 @@ func syncTree(root string) error {
 		if err := syncDirectory(directory); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func validateRestoredFiles(ctx context.Context, database *sql.DB, root string) error {
-	if err := validateRestoredBlobs(ctx, database, root); err != nil {
-		return err
-	}
-	return validateRestoredUploadParts(ctx, database, root)
-}
-
-func validateRestoredBlobs(ctx context.Context, database *sql.DB, root string) error {
-	rows, err := database.QueryContext(ctx, `
-SELECT sha256,
-size_bytes
-FROM blobs
-`)
-	if err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	for rows.Next() {
-		var digest string
-		var size int64
-		if rows.Scan(&digest, &size) != nil {
-			return ErrInvalidBundle
-		}
-		path := filepath.Join(root, "blobs", "sha256", digest[:2], digest[2:4], digest)
-		actualDigest, actualSize, err := digestRegular(path)
-		if err != nil || actualDigest != digest || actualSize != size {
-			return ErrInvalidBundle
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	return nil
-}
-
-func validateRestoredUploadParts(ctx context.Context, database *sql.DB, root string) error {
-	parts, err := database.QueryContext(
-		ctx,
-		`
-SELECT storage_key,
-size_bytes,
-sha256
-FROM upload_parts p
-JOIN upload_files f ON f.id=p.upload_file_id
-JOIN upload_sessions u ON u.id=f.upload_session_id
-WHERE u.state!='COMPLETE'
-`,
-	)
-	if err != nil {
-		return fmt.Errorf("maintenance/bundle: %w", err)
-	}
-	defer func() { cleanup.Error("close", parts.Close()) }()
-	for parts.Next() {
-		var key, digest string
-		var size int64
-		if parts.Scan(&key, &size, &digest) != nil || !safeStorageKey(key) {
-			return ErrInvalidBundle
-		}
-		actualDigest, actualSize, err := digestRegular(filepath.Join(root, "tmp", "uploads", filepath.FromSlash(key)))
-		if err != nil || actualDigest != digest || actualSize != size {
-			return ErrInvalidBundle
-		}
-	}
-	if err := parts.Err(); err != nil {
-		return fmt.Errorf("scan upload parts: %w", err)
 	}
 	return nil
 }

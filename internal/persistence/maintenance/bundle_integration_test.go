@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/service/maintenance"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -171,7 +173,7 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	root := t.TempDir()
 	dataDir := filepath.Join(root, "source")
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencyRoot := filepath.Join(repositoryRoot, "data")
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
@@ -287,9 +289,9 @@ VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCO
 	}
 	lock, err := processlock.Acquire(dataDir)
 	testassert.False(t, err != nil, err)
-	if _, err := Backup(ctx, configuration, filepath.Join(root, "online-backup"), time.Now); !errors.Is(
+	if _, err := maintenance.New(New(), time.Now).Backup(ctx, configuration, filepath.Join(root, "online-backup")); !errors.Is(
 		err,
-		ErrBackupOffline,
+		maintenance.ErrBackupOffline,
 	) {
 		t.Fatalf("online backup error = %v", err)
 	}
@@ -297,11 +299,11 @@ VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCO
 		t.Fatal(err)
 	}
 	bundle := filepath.Join(root, "bundle")
-	manifest, err := Backup(ctx, configuration, bundle, time.Now)
+	manifest, err := maintenance.New(New(), time.Now).Backup(ctx, configuration, bundle)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return manifest.SchemaVersion != 2 }, func() bool { return manifest.DatabaseSchemaVersion != 13 }, func() bool { return len(manifest.MigrationLineageDigest) != 64 }, func() bool { return manifest.Counts.UploadPartCount != 1 }, func() bool { return manifest.Counts.DependencyVersionCount != 1 }), "backup manifest = %#v", manifest)
 	restored := filepath.Join(root, "restored")
-	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); err != nil {
+	if _, err := maintenance.New(New(), time.Now).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); err != nil {
 		t.Fatal(err)
 	}
 	restoredDatabase, err := openDatabase(ctx, filepath.Join(restored, "retrom.db"))
@@ -352,9 +354,9 @@ SELECT
 			err,
 		)
 	}
-	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(
+	if _, err := maintenance.New(New(), time.Now).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(
 		err,
-		ErrInvalidBundle,
+		maintenance.ErrInvalidBundle,
 	) {
 		t.Fatalf("overwrite restore error = %v", err)
 	}
@@ -377,7 +379,7 @@ SELECT
 	if err := os.WriteFile(manifestPath, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, filepath.Join(root, "obsolete-restored")); !errors.Is(err, ErrInvalidBundle) {
+	if _, err := maintenance.New(New(), time.Now).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, filepath.Join(root, "obsolete-restored")); !errors.Is(err, maintenance.ErrInvalidBundle) {
 		t.Fatalf("obsolete backup manifest error = %v", err)
 	}
 }
@@ -388,7 +390,11 @@ func assertRestoredUploadPart(t *testing.T, database *sql.DB, root, fileID strin
 	if err := database.QueryRowContext(t.Context(), "SELECT storage_key FROM upload_parts WHERE upload_file_id=? AND part_no=0", fileID).Scan(&key); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := digestRegular(filepath.Join(root, "tmp", "uploads", filepath.FromSlash(key))); err != nil {
+	contents, err := os.ReadFile(filepath.Join(root, "tmp", "uploads", filepath.FromSlash(key)))
+	if err != nil {
 		t.Fatal(err)
+	}
+	if !bytes.Equal(contents, []byte("data")) {
+		t.Fatal("restored upload part bytes differ")
 	}
 }

@@ -33,13 +33,14 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/httpapi"
 	"retrom/internal/importing"
-	"retrom/internal/maintenance"
 	"retrom/internal/netplay"
+	maintenancepersistence "retrom/internal/persistence/maintenance"
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimeprovider"
 	"retrom/internal/scummvm"
+	"retrom/internal/service/maintenance"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/store"
 )
@@ -143,7 +144,14 @@ func executeBackup(arguments []string) error {
 	if err != nil {
 		return fmt.Errorf("retrom/main: %w", err)
 	}
-	manifest, err := maintenance.Backup(context.Background(), configuration, *output, time.Now)
+	manifest, err := maintenance.New(
+		maintenancepersistence.New(),
+		time.Now,
+	).Backup(
+		context.Background(),
+		configuration,
+		*output,
+	)
 	if err != nil {
 		return fmt.Errorf("retrom/main: %w", err)
 	}
@@ -163,7 +171,15 @@ func executeRestore(arguments []string) error {
 	if err != nil {
 		return fmt.Errorf("retrom/main: %w", err)
 	}
-	manifest, err := maintenance.Restore(context.Background(), configuration, *input, *output)
+	manifest, err := maintenance.New(
+		maintenancepersistence.New(),
+		time.Now,
+	).Restore(
+		context.Background(),
+		configuration,
+		*input,
+		*output,
+	)
 	if err != nil {
 		return fmt.Errorf("retrom/main: %w", err)
 	}
