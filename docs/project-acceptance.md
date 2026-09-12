@@ -1046,6 +1046,14 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 通过标准：依赖 snapshot 包含两份正确 BIOS；单游戏 `ROM_BLOB`、Provider/Target、gzip checkpoint 格式和摘要与配置一致；画面明确证明方向、确认、恢复位置与恢复后输入。`REVIEW_REQUIRED` 经当次画面复核才能记 PASS，错误读档、重开局或无输入响应均失败。物理手柄验收与虚拟标准手柄证据分开记录。
 - 证据：导入、缺失 BIOS 阻断及安装、预览、发布记录，逐样本 A/B/C/恢复 B/恢复后输入截图，Provider/Bundle/module 与内容 size/SHA、存档与不同 Launch 身份。结论仅覆盖当次样本，不外推 ECS 或全库兼容。
 
+### ACC-RUN-016：bsnes 备用核心产品验证
+
+- 上限：每个样本 240 秒；入口、scenario 与环境参数沿用 ACC-RUN-013 的 `web/smoke/emulatorjs-single-file.mjs`，`coreId` 固定为 `bsnes`。
+- 前置：在目标 PFB 完成操作者授权 SNES 游戏的正常上传、导入、审核预览及发布。推荐目录仍只有 Snes9x；详情页可显式选择 bsnes；可为审核预览手动建立测试目录，不能将其加入推荐模板。私有游戏不进入普通 CI 或可提交 fixture。
+- 流程：核对 Launch 绑定 `emulatorjs/bsnes` 和 4.3.0-pre 前端及固定 fork Release（PFB 联调时为 candidate）的源码、产物摘要；记录初始 A、标准手柄方向及确认后的 B，显式保存 B，再继续输入到 C。关闭旧页面，通过不同 Launch 恢复 B，验证恢复位置、继续输入与退出清理。保留审核预览截图；键盘与手柄分别使用既有 SNES 输入映射。
+- 通过标准：复核方向、确认的可见响应，以及 C→B 的位置或菜单状态恢复；已支持的取消保持有效。非空存档、哈希变化、帧计数或 HTTP 200 不能代替画面证据；`REVIEW_REQUIRED` 经本次画面复核后才记 PASS。Snes9x 仍可独立选择；bsnes 使用独立 checkpoint format，两个核心的存档不能混用。测试目录默认核心切回 Snes9x 后，普通“从存档继续”仍应通过未指定 `coreId` 的请求恢复 bsnes 存档，并在 Launch 中确认 `targetId=bsnes`；bsnes 不出现在联机 profile 中。
+- 证据：导入/审核/发布记录、Provider/Target/Bundle/module 与内容 digest、A/B/C/恢复 B/恢复后输入截图、存档格式/大小/摘要和退出结果。仅证明当次样本，不外推 Super Game Boy、Satellaview、MSU-1 或 SNES 全库兼容。
+
 ### ACC-SAVE-001：手动状态存档与截图
 
 - 上限：180 秒。
@@ -2240,6 +2248,50 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
   `REVIEW_REQUIRED` 经本次画面复核后方可记录 PASS；记录没有实体手柄时的硬件验证限制。
 - 证据：导入/审核/发布记录、预览与不同产品 Launch、压缩状态长度/hash、原生状态版本、
   浏览器与渲染器、连续画面和退出清理。单个样本的结论不外推到全部 Vectrex 游戏或外围设备。
+
+### ACC-NEOCD-001：Neo Geo CD CHD、标准手柄与即时恢复
+
+- 显式命令：`timeout 600 node scripts/acceptance/neocd_product.mjs`，使用 PFB 固定 Node 和 Chrome。
+  输入 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_NEOCD_CHD`、`RETROM_NEOCD_BIOS_DIR`，
+  `RETROM_ACCEPTANCE_CASE_DIR` 指向忽略的证据目录。BIOS 目录含 `neocd.bin`。
+  普通测试不扫描或下载私有游戏。本 Case 只处理操作者显式指定的文件。
+- 经产品上传安装 BIOS、上传 CHD、导入、审核预览、批准和 Product Launch；通过标准
+  虚拟手柄启动并操作游戏，记录方向与确认前后截图、实际 Web Audio 非零缓冲。
+- 用 Player 创建非空即时存档；关闭原页面，在不同 Launch 恢复，核验公共 gzip
+  格式、传输大小/摘要，以及解压后完整原始状态摘要。恢复后继续方向、确认输入；
+  不选存档另建 Launch 应重新启动。NeoCD 游戏资源必须为 `SEEKABLE_BLOB`/`rangeRequired=true`；
+  所有游戏请求均携带 Range 并返回 206，单块不超过 256 KiB。记录首次 ready 耗时、
+  启动时已传输字节、各范围与总下载量；同一浏览器上下文跨实例不应重复请求已缓存块。
+  大于 32 MiB 的样本在本 Case 中累计下载量必须小于镜像的一半，不得整包预取。
+- 输出 `neocd-storage-product.json` 和阶段 PNG；自动化先标记 `AWAITING_VISUAL_REVIEW`，
+  逐图确认可操作游戏场景、状态恢复与输入生效后才能记录 PASS。仅有 BIOS 或标题画面不算通过。
+  `product-input.json` 允许失败重试复用当前样本；已发布样本复测需与首次审核证据一起保留。
+  已发布样本复测可额外传 `RETROM_NEOCD_PREVIEW_REVIEW_ID`，指定同一 CHD 的待审核项
+  重跑当前 Provider 预览并保留该审核项；此复测不再次批准重复游戏。
+  冷启动样本可设置 `RETROM_NEOCD_GAMEPLAY_WAIT_MS`（0–120000），在启动按键序列后
+  再确认一次并等待指定时长，以越过角色选择或开场动画；仍须逐图判定实际场景。
+- 实体手柄事件、听觉质量、全部游戏兼容性、CUE/BIN 与多盘不在本 Case 的通过范围。
+
+- 复测可提供 `RETROM_NEOCD_SEED_SAVE_ID` 从已验证关卡状态开始；必须保留同一游戏首次
+  导入、预览、发布的证据，并明确复测复用了已发布游戏。实体按键语义以 NeoCD 原生
+  A/B/C/D 为准：标准手柄底/右/左/上四个面键分别映射 A/B/C/D；B 是游戏的次要动作，
+  不一概声称为取消。原生肩键组合宏不绑定标准手柄按钮。
+
+### ACC-POKEMINI-001：GBE+ Pokémon Mini 输入与即时恢复
+
+显式提供 `RETROM_ACCEPTANCE_BASE_URL`、验收用户名/密码、`RETROM_CHROME_EXECUTABLE`、
+`RETROM_POKEMINI_ROM`（Pokémon Puzzle Collection USA/Europe 的单个 MIN 文件）、
+`RETROM_POKEMINI_BIOS_DIR`（含 `bios.min`）。不提交、不自动下载游戏和 BIOS；缺少输入为 BLOCKED。
+
+入口 `scripts/acceptance/pokemini_product.mjs` 执行 BIOS 安装、Upload/Import/Review Preview、
+审核发布、Product Launch、标准手柄方向与确认、音频、暂停截图、非空公共 gzip 存档，
+再以不同 Launch 恢复同一执行位置并验证后续输入。三个运行实例只允许一次 ROM 网络下载。
+证据 `pokemini-product.json` 记录非秘密身份、内容摘要、截图和各阶段断言，任何必需步骤
+失败均不能判为 PASS。用标准手柄确认首次 BIOS 时钟设置，以标题区指纹等待片头结束。
+恢复画面对比仅排除关卡菜单的动画缩略图，并保留静态网格与光标；还需进入实际关卡。
+本地输入记录支持发布前继续同一导入项；完整重跑需未导入该游戏的测试数据。
+成功样本不代表所有游戏兼容，虚拟标准手柄也不证明实体控制器的硬件采集。
 
 ### ACC-UZEBOX-001：Uzebox 单卡带产品验证
 

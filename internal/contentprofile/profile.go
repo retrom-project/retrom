@@ -52,6 +52,9 @@ type Profile struct {
 }
 
 var registry = map[string]Profile{
+	"neogeocd":      raw("neogeocd", ".chd"),
+	"pokemini":      single("pokemini", ".min"),
+
 	"uzebox":        single("uzebox", ".uze"),
 	"vectrex":       single("vectrex", ".vec", ".bin"),
 	"intellivision": single("intellivision", ".int", ".rom", ".bin"),

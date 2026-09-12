@@ -9,6 +9,9 @@ esac
 mkdir -p /pfb-workspace/{data,dev-state,home,providers/dev,providers/installed}
 
 export RETROM_MODE=test
+# Full Provider verification on development bind mounts can exceed the server's
+# 60-second default. Use the existing supported limit without skipping checks.
+export RETROM_STARTUP_CHECK_TIMEOUT=5m
 export RETROM_PUBLIC_ORIGIN="http://${PFB_ID}.localhost:3000"
 export RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true
 export RETROM_PFB_ID="$PFB_ID"
