@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	service "retrom/internal/service/runtimeprovider"
+
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
 )
@@ -14,7 +16,7 @@ import (
 func TestDeclaredCoreCanBeAddedToInitializedDatabaseWithoutSchemaChange(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	if err := Reconcile(t.Context(), database.SQL, initial, time.UnixMilli(1)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(t.Context(), `
@@ -79,15 +81,15 @@ func assertExtensionPreservesFolder(t *testing.T, database *sql.DB, schemaBefore
 	}
 }
 
-func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial Projection, catalog runtimecatalog.Catalog) error {
+func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial service.Projection, catalog runtimecatalog.Catalog) error {
 	t.Helper()
-	provider := initial.providers[0].active
+	provider := initial.Providers[0].Active
 	provider.ProviderVersion = "1.1.0"
 	provider.BundleSHA256 = strings.Repeat("b", 64)
 	provider.ManifestSHA256 = provider.BundleSHA256
 	provider.ModuleSHA256 = provider.BundleSHA256
 	provider.InstallationPath = "fixture/" + provider.BundleSHA256
-	target := initial.providers[0].targets[0].target
+	target := initial.Providers[0].Targets[0].Target
 	extra := target
 	extra.ID = "extra"
 	provider.Targets = append(provider.Targets, runtimebundle.ActiveTarget{ID: extra.ID, Checkpoint: extra.Checkpoint})
@@ -95,33 +97,33 @@ func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial Projectio
 		SchemaVersion: 1, Source: "candidate", SourceTreeSHA256: &provider.BundleSHA256,
 		Providers: []runtimebundle.ActiveProvider{provider},
 	}
-	candidate, err := NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
+	candidate, err := service.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: provider.ProviderVersion, ProviderAPI: 1,
 		ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{extra, target},
 	}}, catalog)
 	if err != nil {
 		return err
 	}
-	if err := Reconcile(t.Context(), database, candidate, time.UnixMilli(2)); err != nil {
+	if err := service.New(New(database)).Reconcile(t.Context(), candidate, time.UnixMilli(2)); err != nil {
 		return err
 	}
-	return Reconcile(t.Context(), database, candidate, time.UnixMilli(3))
+	return service.New(New(database)).Reconcile(t.Context(), candidate, time.UnixMilli(3))
 }
 
 func TestDeclaredCoreRemovalCannotOrphanUserConfiguration(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	if err := Reconcile(t.Context(), database.SQL, initial, time.UnixMilli(1)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(t.Context(), `INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms) VALUES('custom','gbc','gambatte','My folder','custom',1,1,1,1,1)`); err != nil {
 		t.Fatal(err)
 	}
 	candidate := projectionFixture("1.1.0", "b", []string{"state-v1"})
-	candidate.definitions.Cores[0].ID = "replacement"
-	candidate.bindings[0].CoreID = "replacement"
-	candidate.catalogSHA256 = strings.Repeat("c", 64)
-	if err := Reconcile(t.Context(), database.SQL, candidate, time.UnixMilli(2)); err == nil {
+	candidate.Definitions.Cores[0].ID = "replacement"
+	candidate.Bindings[0].CoreID = "replacement"
+	candidate.CatalogSHA256 = strings.Repeat("c", 64)
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), candidate, time.UnixMilli(2)); err == nil {
 		t.Fatal("omitting a referenced core was silently accepted")
 	}
 	var version, core string
@@ -136,13 +138,13 @@ func TestDeclaredCoreRemovalCannotOrphanUserConfiguration(t *testing.T) {
 func TestUnusedProductDefinitionCanBeRemovedWithoutSchemaChange(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	initial.definitions.Cores = append([]runtimecatalog.CoreDefinition{{ID: "dormant", Name: "Unused", Enabled: true}}, initial.definitions.Cores...)
-	initial.catalogSHA256 = strings.Repeat("c", 64)
-	if err := Reconcile(t.Context(), database.SQL, initial, time.UnixMilli(1)); err != nil {
+	initial.Definitions.Cores = append([]runtimecatalog.CoreDefinition{{ID: "dormant", Name: "Unused", Enabled: true}}, initial.Definitions.Cores...)
+	initial.CatalogSHA256 = strings.Repeat("c", 64)
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	current := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	if err := Reconcile(t.Context(), database.SQL, current, time.UnixMilli(2)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), current, time.UnixMilli(2)); err != nil {
 		t.Fatal(err)
 	}
 	var count int

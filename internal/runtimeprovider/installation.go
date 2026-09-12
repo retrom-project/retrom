@@ -1,16 +1,15 @@
 package runtimeprovider
 
 import (
-	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
+
+	service "retrom/internal/service/runtimeprovider"
 
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
@@ -42,7 +41,7 @@ type Installation struct {
 	Manifests     map[string]runtimebundle.Manifest
 	Integrity     map[string][]runtimebundle.IntegrityFile
 	Catalog       runtimecatalog.Catalog
-	Projection    Projection
+	Projection    service.Projection
 	Handler       http.Handler
 	Builder       *runtimelaunch.Builder
 }
@@ -81,7 +80,7 @@ func LoadInstallation(paths Paths) (Installation, error) {
 	if err != nil {
 		return Installation{}, installationInvalid(err)
 	}
-	projection, err := NewProjection(active, manifests, catalog)
+	projection, err := service.NewProjection(active, manifests, catalog)
 	if err != nil {
 		return Installation{}, installationInvalid(err)
 	}
@@ -169,10 +168,6 @@ func installedProviderMatches(
 		unpackedSize += file.SizeBytes
 	}
 	return unpackedSize == provider.UnpackedSizeBytes
-}
-
-func (installation Installation) Reconcile(ctx context.Context, database *sql.DB, now time.Time) error {
-	return Reconcile(ctx, database, installation.Projection, now)
 }
 
 func readMetadata(path string) ([]byte, error) {

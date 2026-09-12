@@ -5,13 +5,15 @@ import (
 	"testing"
 	"time"
 
+	service "retrom/internal/service/runtimeprovider"
+
 	"retrom/internal/runtimecatalog"
 )
 
 func TestProviderPackDeclarationsDoNotCreateInstallableProductDefinitions(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	if err := Reconcile(t.Context(), database.SQL, initial, time.UnixMilli(1)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	var before string
@@ -19,15 +21,15 @@ func TestProviderPackDeclarationsDoNotCreateInstallableProductDefinitions(t *tes
 		t.Fatal(err)
 	}
 	candidate := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	candidate.definitions.AssetPacks = []runtimecatalog.AssetPackDefinition{{
+	candidate.Definitions.AssetPacks = []runtimecatalog.AssetPackDefinition{{
 		ID: "additional-rtp", Kind: "RPG2003_RTP", Generation: "RPG2003", DeclaredName: "Extra Assets",
 		NormalizedDeclaredName: "extra assets", DisplayName: "Additional assets", RequiredLayoutVersion: "easy-rtp-layout-v1", Enabled: true,
 	}}
-	candidate.catalogSHA256 = strings.Repeat("c", 64)
-	if err := Reconcile(t.Context(), database.SQL, candidate, time.UnixMilli(2)); err != nil {
+	candidate.CatalogSHA256 = strings.Repeat("c", 64)
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), candidate, time.UnixMilli(2)); err != nil {
 		t.Fatal(err)
 	}
-	if err := Reconcile(t.Context(), database.SQL, candidate, time.UnixMilli(3)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), candidate, time.UnixMilli(3)); err != nil {
 		t.Fatal(err)
 	}
 	var after string

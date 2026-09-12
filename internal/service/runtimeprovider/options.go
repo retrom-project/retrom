@@ -8,11 +8,11 @@ import (
 	"retrom/internal/runtimeoptions"
 )
 
-func validateHostOptionStrategies(catalog runtimecatalog.Catalog, providers []providerProjection) error {
+func validateHostOptionStrategies(catalog runtimecatalog.Catalog, providers []ProviderProjection) error {
 	schemas := make(map[string]runtimebundle.TargetOptionsSchema)
 	for _, provider := range providers {
-		for _, target := range provider.targets {
-			schemas[provider.active.ProviderID+"\x00"+target.target.ID] = target.target.TargetOptionsSchema
+		for _, target := range provider.Targets {
+			schemas[provider.Active.ProviderID+"\x00"+target.Target.ID] = target.Target.TargetOptionsSchema
 		}
 	}
 	for _, binding := range catalog.Bindings {

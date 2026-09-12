@@ -54,7 +54,7 @@ case "$CASE_ID" in
       features/player/player-checkpoint-availability.test.ts
     ;;
   ACC-PROVIDER-005)
-    (cd "$ROOT" && "$GO" test ./internal/runtimeprovider -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/runtimeprovider ./internal/service/runtimeprovider ./internal/persistence/runtimeprovider -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/launch \
       -run 'TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC|TestPublishingReviewReleasesAllTemporaryPreviewOwners' -count=1)

@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	providerpersistence "retrom/internal/persistence/runtimeprovider"
+	providerservice "retrom/internal/service/runtimeprovider"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
@@ -43,7 +46,7 @@ INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('fixture','fixtur
 `); err != nil {
 		t.Fatal(err)
 	}
-	if err := installation.Reconcile(ctx, database.SQL, time.UnixMilli(1700000000000)); err != nil {
+	if err := providerservice.New(providerpersistence.New(database.SQL)).Reconcile(ctx, installation.Projection, time.UnixMilli(1700000000000)); err != nil {
 		t.Fatal(err)
 	}
 	var providerCount, targetCount int

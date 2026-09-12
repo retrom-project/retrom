@@ -17,6 +17,9 @@ import (
 	"syscall"
 	"time"
 
+	providerpersistence "retrom/internal/persistence/runtimeprovider"
+	providerservice "retrom/internal/service/runtimeprovider"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -426,7 +429,8 @@ func openAndBootstrapDatabase(
 		return fmt.Errorf("retrom/main: %w", err)
 	}
 	resources.database = database
-	if err := resources.runtimeProviders.Reconcile(ctx, database.SQL, time.Now()); err != nil {
+	providers := providerservice.New(providerpersistence.New(database.SQL))
+	if err := providers.Reconcile(ctx, resources.runtimeProviders.Projection, time.Now()); err != nil {
 		return fmt.Errorf("reconcile runtime providers: %w", err)
 	}
 	dependencies := dependencyservice.New(resources.dependencies, dependencypersistence.New(database.SQL))

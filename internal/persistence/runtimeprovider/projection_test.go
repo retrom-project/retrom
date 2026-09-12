@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	service "retrom/internal/service/runtimeprovider"
+
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
 	"retrom/internal/store"
@@ -18,10 +20,10 @@ func TestReconcileProjectsProviderTargetsAndCatalogAtomically(t *testing.T) {
 	database := openProjectionDatabase(t)
 	candidate := projectionFixture("1.0.0", "a", []string{"state-v1"})
 
-	if err := Reconcile(t.Context(), database.SQL, candidate, time.UnixMilli(1234)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), candidate, time.UnixMilli(1234)); err != nil {
 		t.Fatal(err)
 	}
-	if err := Reconcile(t.Context(), database.SQL, candidate, time.UnixMilli(5678)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), candidate, time.UnixMilli(5678)); err != nil {
 		t.Fatalf("idempotent reconcile: %v", err)
 	}
 
@@ -79,18 +81,18 @@ SELECT count(*) FROM audit_events WHERE action='RUNTIME_PROVIDER_RECONCILED'
 func TestReconcileRejectsNonForwardProviderChanges(t *testing.T) {
 	for _, test := range []struct {
 		name      string
-		candidate Projection
+		candidate service.Projection
 		expected  error
 	}{
-		{"provider downgrade", projectionFixture("0.9.0", "b", []string{"state-v1"}), ErrProviderDowngrade},
-		{"same provider version rebuilt", projectionFixture("1.0.0", "b", []string{"state-v1"}), ErrProviderVersionRebuilt},
+		{"provider downgrade", projectionFixture("0.9.0", "b", []string{"state-v1"}), service.ErrProviderDowngrade},
+		{"same provider version rebuilt", projectionFixture("1.0.0", "b", []string{"state-v1"}), service.ErrProviderVersionRebuilt},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			database := openProjectionDatabase(t)
-			if err := Reconcile(t.Context(), database.SQL, projectionFixture("1.0.0", "a", []string{"state-v1"}), time.UnixMilli(1)); err != nil {
+			if err := service.New(New(database.SQL)).Reconcile(t.Context(), projectionFixture("1.0.0", "a", []string{"state-v1"}), time.UnixMilli(1)); err != nil {
 				t.Fatal(err)
 			}
-			if err := Reconcile(t.Context(), database.SQL, test.candidate, time.UnixMilli(2)); !errors.Is(err, test.expected) {
+			if err := service.New(New(database.SQL)).Reconcile(t.Context(), test.candidate, time.UnixMilli(2)); !errors.Is(err, test.expected) {
 				t.Fatalf("error = %v, want %v", err, test.expected)
 			}
 		})
@@ -99,11 +101,11 @@ func TestReconcileRejectsNonForwardProviderChanges(t *testing.T) {
 
 func TestReconcileAllowsOnlyForwardCompatibleProviderUpgrade(t *testing.T) {
 	database := openProjectionDatabase(t)
-	if err := Reconcile(t.Context(), database.SQL, projectionFixture("1.0.0", "a", []string{"state-v1"}), time.UnixMilli(1)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), projectionFixture("1.0.0", "a", []string{"state-v1"}), time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	upgrade := projectionFixture("1.1.0", "b", []string{"state-v1", "state-v2"})
-	if err := Reconcile(t.Context(), database.SQL, upgrade, time.UnixMilli(2)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), upgrade, time.UnixMilli(2)); err != nil {
 		t.Fatal(err)
 	}
 	var version, checkpointJSON string
@@ -121,12 +123,12 @@ FROM runtime_providers provider JOIN runtime_targets target ON target.provider_i
 func TestCatalogContentChangeNeedsNoIndependentVersionCounter(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	if err := Reconcile(t.Context(), database.SQL, initial, time.UnixMilli(1)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	changed := initial
-	changed.catalogSHA256 = strings.Repeat("b", 64)
-	if err := Reconcile(t.Context(), database.SQL, changed, time.UnixMilli(2)); err != nil {
+	changed.CatalogSHA256 = strings.Repeat("b", 64)
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), changed, time.UnixMilli(2)); err != nil {
 		t.Fatalf("current catalog change required an unrelated version counter: %v", err)
 	}
 }
@@ -134,7 +136,7 @@ func TestCatalogContentChangeNeedsNoIndependentVersionCounter(t *testing.T) {
 func TestReconcileRejectsReferencedTargetRemoval(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixtureForTarget("target", "1.0.0", "a", []string{"state-v1"})
-	if err := Reconcile(t.Context(), database.SQL, initial, time.UnixMilli(1)); err != nil {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(t.Context(), `
@@ -147,7 +149,7 @@ INSERT INTO bios_requirements(
 		t.Fatal(err)
 	}
 	candidate := projectionFixtureForTarget("replacement", "1.1.0", "b", []string{"state-v1"})
-	if err := Reconcile(t.Context(), database.SQL, candidate, time.UnixMilli(2)); !errors.Is(err, ErrProviderTargetReferenced) {
+	if err := service.New(New(database.SQL)).Reconcile(t.Context(), candidate, time.UnixMilli(2)); !errors.Is(err, service.ErrProviderTargetReferenced) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -171,7 +173,7 @@ INSERT INTO save_states(game_id,checkpoint_format) VALUES('game','state-v1');
 		t.Fatal(err)
 	}
 	upgrade := projectionFixture("1.1.0", "b", []string{"state-v2"})
-	if err := validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.providers[0].targets[0]); !errors.Is(err, ErrProviderCheckpointUnreadable) {
+	if err := validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.Providers[0].Targets[0]); !errors.Is(err, service.ErrProviderCheckpointUnreadable) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -186,11 +188,11 @@ func openProjectionDatabase(t *testing.T) *store.DB {
 	return database
 }
 
-func projectionFixture(version, digestByte string, readFormats []string) Projection {
+func projectionFixture(version, digestByte string, readFormats []string) service.Projection {
 	return projectionFixtureForTarget("target", version, digestByte, readFormats)
 }
 
-func projectionFixtureForTarget(targetID, version, digestByte string, readFormats []string) Projection {
+func projectionFixtureForTarget(targetID, version, digestByte string, readFormats []string) service.Projection {
 	digest := strings.Repeat(digestByte, 64)
 	checkpoint := &runtimebundle.Checkpoint{WriteFormat: readFormats[len(readFormats)-1], ReadFormats: readFormats, MaxBytes: 1024}
 	target := runtimebundle.Target{
@@ -224,7 +226,7 @@ func projectionFixtureForTarget(targetID, version, digestByte string, readFormat
 		Cores:        []runtimecatalog.CoreDefinition{{ID: "gambatte", Name: "Gambatte", Enabled: true}},
 		ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecatalog.AssetPackDefinition{},
 	}
-	projection, err := NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
+	projection, err := service.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,
 		ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target},
 	}}, catalog)
@@ -236,15 +238,15 @@ func projectionFixtureForTarget(targetID, version, digestByte string, readFormat
 
 func TestProjectionRejectsOptionsOutsideRegisteredAccessStrategy(t *testing.T) {
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	provider := initial.providers[0].active
-	target := initial.providers[0].targets[0].target
+	provider := initial.Providers[0].Active
+	target := initial.Providers[0].Targets[0].Target
 	target.TargetOptionsSchema = runtimebundle.TargetOptionsSchema{
 		"type": "object", "additionalProperties": false,
 		"properties": map[string]any{"unknownProperty": map[string]any{"type": "string"}}, "required": []any{"unknownProperty"},
 	}
-	_, err := NewProjection(runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimebundle.ActiveProvider{provider}},
+	_, err := service.NewProjection(runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimebundle.ActiveProvider{provider}},
 		map[string]runtimebundle.Manifest{"fixture": {SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1, ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target}}},
-		runtimecatalog.Catalog{SchemaVersion: 1, Definitions: initial.definitions, Bindings: initial.bindings})
+		runtimecatalog.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings})
 	if err == nil {
 		t.Fatal("unsupported Host option access was accepted until launch time")
 	}
