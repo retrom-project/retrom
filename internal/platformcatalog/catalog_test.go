@@ -159,3 +159,12 @@ func TestCatalogIncludesScummVMProjectDirectory(t *testing.T) {
 	}
 	t.Fatal("ScummVM directory is missing")
 }
+
+func TestCatalogContainsPokemonMiniDirectory(t *testing.T) {
+	for _, template := range Current().Templates {
+		if template.Key == "pokemini/gbe_plus" && template.PlatformID == "pokemini" && template.DefaultCoreID == "gbe_plus" {
+			return
+		}
+	}
+	t.Fatal("Pokémon Mini directory template missing")
+}
