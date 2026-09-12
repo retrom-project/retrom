@@ -1050,7 +1050,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：每个样本 240 秒；入口、scenario 与环境参数沿用 ACC-RUN-013 的 `web/smoke/emulatorjs-single-file.mjs`，`coreId` 固定为 `bsnes`。
 - 前置：在目标 PFB 完成操作者授权 SNES 游戏的正常上传、导入、审核预览及发布。推荐目录仍只有 Snes9x；详情页可显式选择 bsnes；可为审核预览手动建立测试目录，不能将其加入推荐模板。私有游戏不进入普通 CI 或可提交 fixture。
-- 流程：核对 Launch 绑定 `emulatorjs/bsnes` 和 4.3.0-pre 前端及 fork candidate 的源码、产物摘要；记录初始 A、标准手柄方向及确认后的 B，显式保存 B，再继续输入到 C。关闭旧页面，通过不同 Launch 恢复 B，验证恢复位置、继续输入与退出清理。保留审核预览截图；键盘与手柄分别使用既有 SNES 输入映射。
+- 流程：核对 Launch 绑定 `emulatorjs/bsnes` 和 4.3.0-pre 前端及固定 fork Release（PFB 联调时为 candidate）的源码、产物摘要；记录初始 A、标准手柄方向及确认后的 B，显式保存 B，再继续输入到 C。关闭旧页面，通过不同 Launch 恢复 B，验证恢复位置、继续输入与退出清理。保留审核预览截图；键盘与手柄分别使用既有 SNES 输入映射。
 - 通过标准：复核方向、确认的可见响应，以及 C→B 的位置或菜单状态恢复；已支持的取消保持有效。非空存档、哈希变化、帧计数或 HTTP 200 不能代替画面证据；`REVIEW_REQUIRED` 经本次画面复核后才记 PASS。Snes9x 仍可独立选择；bsnes 使用独立 checkpoint format，两个核心的存档不能混用。测试目录默认核心切回 Snes9x 后，普通“从存档继续”仍应通过未指定 `coreId` 的请求恢复 bsnes 存档，并在 Launch 中确认 `targetId=bsnes`；bsnes 不出现在联机 profile 中。
 - 证据：导入/审核/发布记录、Provider/Target/Bundle/module 与内容 digest、A/B/C/恢复 B/恢复后输入截图、存档格式/大小/摘要和退出结果。仅证明当次样本，不外推 Super Game Boy、Satellaview、MSU-1 或 SNES 全库兼容。
 
