@@ -327,6 +327,7 @@ erDiagram
 | Commodore 64 (`c64`) | `vice_x64sc`、`vice_x64` | Commodore 64 游戏 → `vice_x64sc` | 单文件；不接受 CMD/VFL/M3U 引用 |
 | Commodore 128 (`c128`) | `vice_x128` | Commodore 128 游戏 → `vice_x128` | 单文件；不提供换盘 |
 | Commodore VIC-20 (`vic20`) | `vice_xvic` | Commodore VIC-20 游戏 → `vice_xvic` | 单文件；不提供换盘 |
+| Intellivision (`intellivision`) | `freeintv` | Intellivision 游戏 → `freeintv` | 需要 `exec.bin` 与 `grom.bin` |
 | ColecoVision (`colecovision`) | `gearcoleco` | ColecoVision 游戏 → `gearcoleco` | 需要 `colecovision.rom` |
 | Atari Jaguar (`atarijaguar`) | `virtualjaguar` | Atari Jaguar 游戏 → `virtualjaguar` | 单文件 cartridge |
 | Doom (`doom`) | `prboom` | Doom 游戏 → `prboom` | 单一 IWAD；需要 `prboom.wad` 辅助资源 |

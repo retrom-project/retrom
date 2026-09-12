@@ -103,8 +103,6 @@ WHERE f.id=?
 	}
 	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
-	releases.Start()
-	t.Cleanup(releases.Close)
 	service := New(database.SQL, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
 	result, err := service.Install(ctx, requirementID, version, InstallRequest{UploadFileID: upload.Files[0].ID})
 	testassert.False(t, err != nil, err)

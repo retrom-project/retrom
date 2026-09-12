@@ -33,6 +33,16 @@ type staticBIOS struct {
 
 var staticBIOSCatalog = []staticBIOS{
 	{
+		coreID: "freeintv", logical: "exec.bin", mode: "REQUIRED", size: 8192,
+		md5: "62e761035cb657903761800f4437b8af", sha256: "1aeb614856beba95463166daf09304b414d5617d3f37d221724b3337fc4b2722",
+		sourceURL: "https://docs.libretro.com/library/freeintv/",
+	},
+	{
+		coreID: "freeintv", logical: "grom.bin", mode: "REQUIRED", size: 2048,
+		md5: "0cd5946c6473e42e8e4c2137785e427f", sha256: "a80b6841182547d08635ad30a6af71441c4c9eed9391b3dd22feb30d8e50cc85",
+		sourceURL: "https://docs.libretro.com/library/freeintv/",
+	},
+	{
 		delivery: "EXTERNAL_FILE", emulatorPath: "/game/keropi/iplrom.dat",
 		coreID: "px68k", logical: "iplrom.dat", mode: "REQUIRED", size: 131072,
 		md5: "7fd4caabac1d9169e289f0f7bbf71d8e", sha256: "8ead1d0f4ebb9c59a7fa118596f819e191c310442a00c56ab5ec5e9e7a189677",
