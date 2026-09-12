@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 27
+const Version = 28
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -200,6 +200,8 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Name: "Pokémon Mini 游戏", CatalogOrder: 610,
 	},
 	{Key: "cavestory/nxengine", PlatformID: "cavestory", DefaultCoreID: "nxengine", Name: "洞窟物语", CatalogOrder: 620},
+	{Key: "uzebox/uzem", PlatformID: "uzebox", DefaultCoreID: "uzem", Name: "Uzebox 游戏", CatalogOrder: 630},
+
 	{
 		Key: "gamegear/genesis_plus_gx", PlatformID: "gamegear", DefaultCoreID: "genesis_plus_gx",
 		Name: "Game Gear 游戏", CatalogOrder: 700,
