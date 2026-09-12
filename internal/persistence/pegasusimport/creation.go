@@ -37,6 +37,7 @@ func (records creationRecords) PendingPlans(ctx context.Context) (int, error) {
 	var count int
 	if err := records.executor.QueryRowContext(ctx, `
 SELECT count(*) FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
+OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL)
 `).Scan(
 
 		&count,
@@ -60,7 +61,8 @@ func (records creationRecords) Insert(ctx context.Context, plan application.Crea
 INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,
 scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
 SELECT ?,?,?,?,?,'SCANNING','DISCOVERING_METADATA',?,?,?,?,?
-WHERE (SELECT count(*) FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING'))<20
+WHERE (SELECT count(*) FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
+OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL))<20
 `,
 		plan.ImportID,
 		plan.Root.ID,
