@@ -288,7 +288,7 @@ checkpoint 同时封装机器、磁盘内容、帧计数及游戏摘要；新实
 序列化；HDF 的可写文件由 adapter checkpoint 保存。内容缓存命中也校验大小和摘要，损坏命中
 会丢弃并重新获取；退出释放帧调度、输入、声音和原生状态。
 
-## Pokémon Mini / GBE+ 候选
+## Pokémon Mini / GBE+
 
 平台 `pokemini`、Core `gbe_plus` 绑定 `retrom-runtime/gbe-pokemini`。
 `POKEMINI_ROM` 接受单个 `.min` 或只含一个候选 ROM 的 ZIP 上传；多 ROM 归档不得猜选。
