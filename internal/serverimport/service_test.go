@@ -118,24 +118,7 @@ func verifyServerImportRecovery(
 	releases *payloadrelease.Service,
 ) string {
 	t.Helper()
-	var rootDigest, catalogDigest string
-	if err := database.QueryRowContext(ctx, `
-SELECT root_config_digest,catalog_snapshot_digest FROM server_imports WHERE id=?
-`, created.ID).Scan(&rootDigest, &catalogDigest); err != nil {
-		t.Fatal(err)
-	}
-	now := time.Now().UnixMilli()
-	if _, err := database.ExecContext(ctx, `
-UPDATE server_imports SET state='RUNNING',phase='INSTALLING',completed_at_ms=NULL,updated_at_ms=? WHERE id=?;
-UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,leased_until_ms=?,heartbeat_at_ms=?,
-worker_id='server-import-worker',updated_at_ms=? WHERE id=?
-`, now, created.ID, now+60000, now, now, created.JobID); err != nil {
-		t.Fatal(err)
-	}
-	service.execute(ctx, work{
-		ImportID: created.ID, JobID: created.JobID, RootID: "bios-root", RootDigest: rootDigest,
-		CatalogDigest: catalogDigest, DeadlineAtMS: now + int64(time.Hour/time.Millisecond),
-	})
+	reclaimCompletedImport(ctx, t, service, database, created)
 	var installationCount int
 	if err := database.QueryRowContext(ctx, `
 SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement'
@@ -331,4 +314,20 @@ func TestWalkFilesReadsMetadataFromAuthorizedDirectoryDescriptor(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return counts.Files != 1 }, func() bool { return counts.SkippedSpecial != 0 }, func() bool { return len(visited) != 1 }), "walk counts = %#v, visited = %#v", counts, visited)
 	testassert.Falsef(t, testassert.Any(func() bool { return visited[0].RelativePath != "bios.bin" }, func() bool { return visited[0].SizeBytes != int64(len(contents)) }), "visited file = %#v", visited[0])
+}
+
+func reclaimCompletedImport(ctx context.Context, t *testing.T, service *Service, database *sql.DB, created Summary) {
+	t.Helper()
+	now := time.Now().UnixMilli()
+	if _, err := database.ExecContext(ctx, `UPDATE server_imports SET state='RUNNING',phase='INSTALLING',completed_at_ms=NULL,updated_at_ms=? WHERE id=?`, now, created.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,leased_until_ms=?,heartbeat_at_ms=?,worker_id='expired-worker',updated_at_ms=? WHERE id=?`, now-1, now, now, created.JobID); err != nil {
+		t.Fatal(err)
+	}
+	recoveredUnit, ok, err := service.claim(ctx)
+	if err != nil || !ok {
+		t.Fatalf("recovery claim: %v %v", ok, err)
+	}
+	service.execute(ctx, recoveredUnit)
 }

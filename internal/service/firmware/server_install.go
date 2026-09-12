@@ -21,6 +21,12 @@ func (service *Service) InstallServerCandidate(
 	}
 	var result ServerInstallResult
 	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		if err := scope.Server.LockExecution(ctx, ServerExecution{
+			ImportID: request.ServerImportID, JobID: request.JobID, WorkerID: request.WorkerID,
+			ExecutionNo: request.ExecutionNo, AtMS: service.now().UnixMilli(),
+		}); err != nil {
+			return fmt.Errorf("lock server BIOS execution: %w", err)
+		}
 		requirement, found, err := scope.Requirements.Get(ctx, request.RequirementID)
 		if err != nil {
 			return fmt.Errorf("recheck server BIOS catalog: %w", err)

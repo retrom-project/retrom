@@ -31,6 +31,8 @@ type ArchiveInspection struct {
 type ServerInstallRequest struct {
 	ServerImportID     string
 	JobID              string
+	WorkerID           string
+	ExecutionNo        int64
 	CandidateID        string
 	RequirementID      string
 	RequirementVersion int64

@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	importservice "retrom/internal/service/serverimport"
+
+	importpersistence "retrom/internal/persistence/serverimport"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -15,13 +19,29 @@ import (
 )
 
 // Clearing candidates and their item projections is one resumable-discovery reset.
-func (service *Service) clearEvaluation(ctx context.Context, importID string) error {
-	if _, err := service.database.ExecContext(ctx, `
+func (service *Service) clearEvaluation(ctx context.Context, unit work) error {
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin evaluation reset: %w", err)
+	}
+	defer dbexec.Rollback(transaction)
+	if err := importpersistence.LockWorker(
+		ctx,
+		transaction,
+		unit,
+		service.now().UnixMilli(),
+		importpersistence.RunningWorker,
+	); err != nil {
+		return fmt.Errorf("lock evaluation reset: %w", err)
+	}
+	importID := unit.ImportID
+
+	if _, err := transaction.ExecContext(ctx, `
 DELETE FROM server_bios_import_candidates WHERE server_import_id=?
 `, importID); err != nil {
 		return fmt.Errorf("clear server import candidates: %w", err)
 	}
-	_, err := recordstore.UpdateServerBiosImportItems(ctx, service.database, recordstore.Update{
+	_, err = recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
 		Set: `
 state='PENDING',candidate_count=0,match_method=NULL,selection_details_json=NULL,
 previous_installation_id=NULL,new_installation_id=NULL,outcome_code=NULL,completed_at_ms=NULL,
@@ -35,6 +55,9 @@ updated_at_ms=?
 	})
 	if err != nil {
 		return fmt.Errorf("reset server import items: %w", err)
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("commit evaluation reset: %w", err)
 	}
 	return nil
 }
@@ -51,6 +74,15 @@ func (service *Service) persistCandidates(
 		return fmt.Errorf("begin server import candidate persistence: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
+	if err := importpersistence.LockWorker(
+		ctx,
+		transaction,
+		unit,
+		service.now().UnixMilli(),
+		importpersistence.RunningWorker,
+	); err != nil {
+		return fmt.Errorf("lock candidate persistence: %w", err)
+	}
 	now := service.now().UnixMilli()
 	total := 0
 	multi := 0
@@ -185,34 +217,8 @@ func candidateNotSelectedReason(candidate *evaluatedCandidate, rank int) any {
 	}
 }
 
-// Progress updates deliberately mirror import, lease and event state in one helper.
 func (service *Service) progress(ctx context.Context, unit work, phase string, current, total int64) {
-	now := service.now().UnixMilli()
-	data, _ := json.Marshal(map[string]any{"schemaVersion": 1, "phase": phase, "completed": current, "total": total})
-	_, _ = service.database.ExecContext(
-		ctx,
-		`UPDATE server_imports SET phase=?,version=version+1,updated_at_ms=? WHERE id=?`,
-		phase,
-		now,
-		unit.ImportID,
-	)
-	_, _ = service.database.ExecContext(
-		ctx,
-		`UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=? WHERE id=?`,
-		now,
-		now+60000,
-		now,
-		unit.JobID,
-	)
-	_, _ = service.database.ExecContext(
-		ctx,
-		`INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'SERVER_IMPORT',?,'PROGRESS',?,?)`,
-		unit.JobID,
-		unit.ImportID,
-		string(data),
-		now,
-	)
+	service.workerError("progress", service.leases().Progress(ctx, unit, phase, current, total))
 }
 
 // Item outcome, selected candidate and progress event are committed together.
@@ -236,6 +242,16 @@ func (service *Service) completeItem(
 		return
 	}
 	defer dbexec.Rollback(transaction)
+	if err := importpersistence.LockWorker(
+		ctx,
+		transaction,
+		unit,
+		service.now().UnixMilli(),
+		importpersistence.RunningWorker,
+	); err != nil {
+		service.workerError("completeItem", err)
+		return
+	}
 	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
 		Set: `
 state=?,match_method=?,selection_details_json=?,outcome_code=?,
@@ -276,19 +292,10 @@ func (service *Service) cancelRequested(ctx context.Context, jobID string) bool 
 		(state == "CANCEL_REQUESTED" || state == "CANCELLED")
 }
 
-// Polling renews the lease before reading cancellation state.
 func (service *Service) pollCancellation(ctx context.Context, unit work) bool {
-	now := service.now().UnixMilli()
-	_, _ = service.database.ExecContext(
-		ctx,
-		`UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING'`,
-		now,
-		now+60000,
-		now,
-		unit.JobID,
-	)
-	return service.cancelRequested(ctx, unit.JobID)
+	err := service.leases().Heartbeat(ctx, unit)
+	service.workerError("poll cancellation", err)
+	return err != nil
 }
 
 // Terminal import/job/event state is committed as one transaction.
@@ -299,6 +306,16 @@ func (service *Service) finishTask(ctx context.Context, unit work) {
 		return
 	}
 	defer dbexec.Rollback(transaction)
+	if err := importpersistence.LockWorker(
+		ctx,
+		transaction,
+		unit,
+		service.now().UnixMilli(),
+		importpersistence.RunningWorker,
+	); err != nil {
+		service.workerError("finishTask", err)
+		return
+	}
 	counts, err := itemStateCounts(ctx, transaction, unit.ImportID)
 	if err != nil {
 		return
@@ -344,6 +361,18 @@ func (service *Service) failTask(ctx context.Context, unit work, code string) {
 		return
 	}
 	defer dbexec.Rollback(transaction)
+	if err := importpersistence.LockWorker(
+		ctx,
+		transaction,
+		unit,
+		service.now().UnixMilli(),
+		workerFailureAccess(
+			unit,
+		),
+	); err != nil {
+		service.workerError("failTask", err)
+		return
+	}
 	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
 		Set: `state='COMMIT_FAILED',outcome_code=?,completed_at_ms=?,updated_at_ms=?`,
 		Scope: recordstore.Scope{
@@ -379,6 +408,16 @@ func (service *Service) scheduleAutomaticRetry(ctx context.Context, unit work, c
 		return false
 	}
 	defer dbexec.Rollback(transaction)
+	if err := importpersistence.LockWorker(
+		ctx,
+		transaction,
+		unit,
+		service.now().UnixMilli(),
+		importpersistence.RunningWorker,
+	); err != nil {
+		service.workerError("scheduleAutomaticRetry", err)
+		return false
+	}
 	var attempt, maximum int64
 	var deadline sql.NullInt64
 	var terminalItems int64
@@ -388,20 +427,11 @@ SELECT job.attempt_count,job.max_attempts,job.execution_deadline_at_ms,
   AND item.state NOT IN ('PENDING','EVALUATING'))
 FROM jobs job JOIN server_imports import ON import.job_id=job.id
 WHERE job.id=? AND job.state='RUNNING'
-`, unit.JobID).Scan(&attempt, &maximum, &deadline, &terminalItems); err != nil ||
-		terminalItems != 0 || attempt >= maximum || !deadline.Valid {
+`, unit.JobID).Scan(&attempt, &maximum, &deadline, &terminalItems); err != nil {
 		return false
 	}
-	delays := []time.Duration{time.Second, 5 * time.Second, 30 * time.Second, 120 * time.Second}
-	delayIndex := int(attempt - 1)
-	if delayIndex < 0 {
-		delayIndex = 0
-	}
-	if delayIndex >= len(delays) {
-		delayIndex = len(delays) - 1
-	}
-	availableAt := now + delays[delayIndex].Milliseconds()
-	if availableAt >= deadline.Int64 {
+	availableAt, retry := importservice.AutomaticRetryAt(attempt, maximum, terminalItems, deadline.Int64, now)
+	if !retry {
 		return false
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -449,7 +479,7 @@ VALUES(?,'SERVER_IMPORT',?,'RETRY_SCHEDULED',?,?)
 	if err := transaction.Commit(); err != nil {
 		return false
 	}
-	time.AfterFunc(delays[delayIndex], service.signal)
+	time.AfterFunc(time.Duration(availableAt-now)*time.Millisecond, service.signal)
 	return true
 }
 
@@ -461,6 +491,16 @@ func (service *Service) cancelTask(ctx context.Context, unit work) {
 		return
 	}
 	defer dbexec.Rollback(transaction)
+	if err := importpersistence.LockWorker(
+		ctx,
+		transaction,
+		unit,
+		service.now().UnixMilli(),
+		importpersistence.CancelledWorker,
+	); err != nil {
+		service.workerError("cancelTask", err)
+		return
+	}
 	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
 		Set: `
 state='CANCELLED',outcome_code='CANCELLED',

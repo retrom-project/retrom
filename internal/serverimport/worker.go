@@ -2,7 +2,6 @@ package serverimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -12,28 +11,17 @@ import (
 
 	firmwareservice "retrom/internal/service/firmware"
 
-	"retrom/internal/dbexec"
-
 	"retrom/internal/cleanup"
 )
 
 var (
-	errCancelled         = errors.New("server import cancelled")
-	errClaimConflict     = errors.New("server import claim conflict")
+	errCancelled = errors.New("server import cancelled")
+
 	errSourceChanged     = errors.New("server import source changed")
 	errExecutionDeadline = errors.New("server import execution deadline exceeded")
 )
 
-type work struct {
-	ImportID        string
-	JobID           string
-	RootID          string
-	RelativePath    string
-	RootDigest      string
-	CatalogDigest   string
-	ReplaceIfBetter bool
-	DeadlineAtMS    int64
-}
+type work = importservice.Work
 
 type evaluatedCandidate = importservice.EvaluatedCandidate
 
@@ -65,94 +53,22 @@ func (service *Service) runLoop() {
 	}
 }
 
-// Lease claim SQL is kept contiguous so its compare-and-set predicate remains auditable.
 func (service *Service) claim(ctx context.Context) (work, bool, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
+	unit, found, err := service.leases().Claim(ctx)
 	if err != nil {
-		return work{}, false, fmt.Errorf("begin server import claim: %w", err)
+		return work{}, false, fmt.Errorf("claim server import: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	var unit work
-	var replace int
-	var jobState string
-	var deadline sql.NullInt64
-	now := service.now().UnixMilli()
-	err = transaction.QueryRowContext(ctx, `
-SELECT import.id,import.job_id,import.root_id,import.source_relative_path,import.root_config_digest,
-import.catalog_snapshot_digest,import.replace_if_better,job.execution_deadline_at_ms,job.state
-FROM server_imports import JOIN jobs job ON job.id=import.job_id
-WHERE import.state IN ('QUEUED','RUNNING') AND job.attempt_count<job.max_attempts AND (
- (job.state='QUEUED' AND job.available_at_ms<=?) OR
- (job.state='RUNNING' AND job.leased_until_ms IS NOT NULL AND job.leased_until_ms<=?)
-)
-ORDER BY import.created_at_ms,import.id LIMIT 1
-`, now, now).Scan(
-		&unit.ImportID, &unit.JobID, &unit.RootID, &unit.RelativePath, &unit.RootDigest,
-		&unit.CatalogDigest, &replace, &deadline, &jobState,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return work{}, false, nil
-	}
-	if err != nil {
-		return work{}, false, fmt.Errorf("scan server import claim: %w", err)
-	}
-	unit.ReplaceIfBetter = replace == 1
-	unit.DeadlineAtMS = now + int64(8*time.Hour/time.Millisecond)
-	if deadline.Valid {
-		unit.DeadlineAtMS = deadline.Int64
-	}
-	changed, err := transaction.ExecContext(ctx, `
-UPDATE jobs SET state='RUNNING',attempt_count=attempt_count+1,
-execution_started_at_ms=COALESCE(execution_started_at_ms,?),
-execution_deadline_at_ms=COALESCE(execution_deadline_at_ms,?),leased_until_ms=?,heartbeat_at_ms=?,
-worker_id='server-import-worker',
-version=version+1,updated_at_ms=? WHERE id=? AND attempt_count<max_attempts AND (
- (state='QUEUED' AND available_at_ms<=?) OR (state='RUNNING' AND leased_until_ms IS NOT NULL AND leased_until_ms<=?)
-)
-`, now, unit.DeadlineAtMS, now+60000, now, now, unit.JobID, now, now)
-	if err != nil {
-		return work{}, false, fmt.Errorf("claim job: %w", err)
-	}
-	if rows, rowsErr := changed.RowsAffected(); rowsErr != nil {
-		return work{}, false, fmt.Errorf("read claimed job row count: %w", rowsErr)
-	} else if rows != 1 {
-		return work{}, false, fmt.Errorf("claim job changed %d rows: %w", rows, errClaimConflict)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE server_imports SET state='RUNNING',phase=CASE WHEN state='QUEUED' THEN 'PREPARING_ROOT' ELSE phase END,
-version=version+1,updated_at_ms=?
-WHERE id=? AND state IN ('QUEUED','RUNNING')
-`, now, unit.ImportID); err != nil {
-		return work{}, false, fmt.Errorf("claim import: %w", err)
-	}
-	if jobState == "RUNNING" {
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'SERVER_IMPORT',?,'RETRY_SCHEDULED',json_object('schemaVersion',1,'reason','LEASE_EXPIRED'),?)
-`, unit.JobID, unit.ImportID, now); err != nil {
-			return work{}, false, fmt.Errorf("claim retry event: %w", err)
-		}
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'SERVER_IMPORT',?,'STARTED','{"schemaVersion":1,"phase":"PREPARING_ROOT"}',?)
-`, unit.JobID, unit.ImportID, now); err != nil {
-		return work{}, false, fmt.Errorf("claim event: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return work{}, false, fmt.Errorf("commit server import claim: %w", err)
-	}
-	return unit, true, nil
+	return unit, found, nil
 }
 
 func (service *Service) claimCancellation(ctx context.Context) (work, bool) {
 	var unit work
 	err := service.database.QueryRowContext(ctx, `
-SELECT import.id,import.job_id FROM server_imports import
+SELECT import.id,import.job_id,job.execution_no,COALESCE(job.worker_id,'') FROM server_imports import
 JOIN jobs job ON job.id=import.job_id
 WHERE import.state='CANCEL_REQUESTED' AND job.state='CANCEL_REQUESTED'
 ORDER BY import.updated_at_ms,import.id LIMIT 1
-`).Scan(&unit.ImportID, &unit.JobID)
+`).Scan(&unit.ImportID, &unit.JobID, &unit.Execution, &unit.Owner)
 	return unit, err == nil
 }
 
@@ -160,12 +76,13 @@ func (service *Service) exhaustedStaleWork(ctx context.Context) (work, bool) {
 	var unit work
 	now := service.now().UnixMilli()
 	err := service.database.QueryRowContext(ctx, `
-SELECT import.id,import.job_id FROM server_imports import
+SELECT import.id,import.job_id,job.execution_no,COALESCE(job.worker_id,'') FROM server_imports import
 JOIN jobs job ON job.id=import.job_id
 WHERE import.state='RUNNING' AND job.state='RUNNING' AND job.attempt_count>=job.max_attempts
 AND job.leased_until_ms IS NOT NULL AND job.leased_until_ms<=?
 ORDER BY import.updated_at_ms,import.id LIMIT 1
-`, now).Scan(&unit.ImportID, &unit.JobID)
+`, now).Scan(&unit.ImportID, &unit.JobID, &unit.Execution, &unit.Owner)
+	unit.Recovery = true
 	return unit, err == nil
 }
 
@@ -232,11 +149,11 @@ func (service *Service) executeDiscovery(
 		}
 		return candidates, true
 	}
-	_ = service.clearEvaluation(ctx, unit.ImportID)
+	_ = service.clearEvaluation(ctx, unit)
 	service.progress(ctx, unit, "DISCOVERING", 0, int64(len(items)))
 	byRequirement, counts, err := service.discoverCandidates(ctx, unit, directory, items)
 	if err != nil {
-		_ = service.clearEvaluation(ctx, unit.ImportID)
+		_ = service.clearEvaluation(ctx, unit)
 		service.failDiscovery(ctx, unit, err)
 		return nil, false
 	}
@@ -332,7 +249,7 @@ func (service *Service) commitCandidate(
 ) {
 	status, method := selectedStatus(selected)
 	_, err := service.firmware.InstallServerCandidate(ctx, firmwareservice.ServerInstallRequest{
-		ServerImportID: unit.ImportID, JobID: unit.JobID,
+		ServerImportID: unit.ImportID, JobID: unit.JobID, WorkerID: unit.Owner, ExecutionNo: unit.Execution,
 		CandidateID: selected.ID, RequirementID: item.RequirementID, RequirementVersion: item.RequirementVersion,
 		ProviderID: item.ProviderID, TargetID: item.TargetID,
 		SourceVersion: item.SourceVersion, ArchiveMembersJSON: item.ArchiveMembersJSON,
@@ -362,11 +279,10 @@ func (service *Service) heartbeatLoop(ctx context.Context, unit work, done <-cha
 		case <-service.stop:
 			return
 		case <-ticker.C:
-			now := service.now().UnixMilli()
-			_, _ = service.database.ExecContext(ctx, `
-UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING' AND worker_id='server-import-worker'
-`, now, now+60000, now, unit.JobID)
+			if err := service.leases().Heartbeat(ctx, unit); err != nil {
+				service.workerError("heartbeat", err)
+				return
+			}
 		}
 	}
 }

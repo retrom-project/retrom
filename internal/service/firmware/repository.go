@@ -50,8 +50,13 @@ type RetirementRecords interface {
 	Supersede(context.Context, string, int64) error
 }
 type ServerRecords interface {
+	LockExecution(context.Context, ServerExecution) error
 	SelectCandidate(context.Context, Selection) error
 	Finish(context.Context, ServerOutcome) error
+}
+type ServerExecution struct {
+	ImportID, JobID, WorkerID string
+	ExecutionNo, AtMS         int64
 }
 type BlobRecords interface {
 	Ensure(context.Context, blobstore.Metadata, int64) (string, error)

@@ -443,6 +443,8 @@ EmulationStation 单实例至多一个 active execution、20 个未开始/等待
 
 BIOS 候选恢复先由 Repository 完整读取并关闭结果集，再由 Service 重建静态/DAT 评估、应用归档完整性规则与加载冻结的期望条目；不得持有结果集时嵌套查询。损坏的评估证据、缺失的目录关联或可用候选缺少评估均应中止恢复，不得伪装成空证据继续安装。
 
+BIOS 每次领取生成独立 worker 身份，并携带 Job execution number；领取、心跳和进度更新由 Service/Repository 协作完成。进度、候选写入、条目结果与 BIOS 安装事务必须锁定同一执行和 worker，旧 worker 不得写入被接管或手动重试后的执行。自动接管保留原执行 deadline，事务失败不得发布可执行的 work。
+
 Worker lease 为 60 秒、每 15 秒 heartbeat，并每读取 8 MiB 检查 cancel/deadline。进程恢复复用完整发现结果和终态 Item；root 暂不可用或内部瞬时错误只在零终态 Item 时按 1/5/30/120 秒有界自动重试，最多 4 attempt。日志、JobEvent 和 diagnostics 仅记录 root ID、相对路径的必要脱敏投影和稳定错误码，不记录绝对路径、basename/hash 或底层 `os.PathError`。
 
 ## 14. 关联文档
