@@ -482,6 +482,8 @@ XML 必须是严格 UTF-8，可带 UTF-8 BOM，根元素必须是无 namespace �
 
 扫描和导入取消共用 EmulationStation Service 的领域事务。通用 Job 入口传递原始 Job ETag、kind、scope 与操作者，事务内检查计划关联和版本，并原子保存 Job、计划、事件、审计及响应快照；真实存储错误返回服务器错误。未领取的扫描同时清除未拥有映射、CAS、审核或 Game 的暂存投影并归零计数，已领取扫描先进入 `CANCEL_REQUESTED`。尚未收口的扫描取消仍占未开始计划容量，但不占正式导入 execution 的唯一名额。恢复同样通过该所有权检查清理未发布扫描，再以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 关闭，任一步失败整体回滚。
 
+活动 worker 的失败、自动重试和取消确认由 Service 决定，写事务同时检查 Job 与计划版本、原始 execution/attempt、worker、租约、deadline 和冻结输入。重试沿用原始截止时刻及已复制进度；旧 worker 或已过期执行不能用活动执行权限收口。永久失败或取消前，已预留普通 `REVIEW_PENDING` 的来源必须复用该条目完成关联、冻结 metadata、搜索字段、审核审计和来源状态；每个事务至多处理 100 条，后续批次重验权限。尚未 attach、已 attach 但未写 metadata、以及 metadata 已写但来源未收口的中断都不能遗留隐藏审核。最后再原子关闭未完成来源、任务、聚合与进度事件，扫描取消同时清除未发布投影并归零计数；任何写入或提交失败都保留原因并回滚当前事务。
+
 每个有效 Collection 必须由管理员显式选择 `IMPORT + PlatformInstance + tagIds` 或 `SKIP`；没有默认映射，不依据清单路径、扩展名、外部平台名或同名目录猜测。批量标签只以去重 union 追加到尚未跳过的 Collection，`SKIP` 清空标签。start 前要求至少一个非空 `IMPORT` Collection，并以 plan ETag 同时校验 source snapshot、root snapshot、目标 PlatformInstance/version/default Provider Target/DAT 与 Tag 状态；目标漂移返回可修复的重新映射冲突，来源漂移要求新建计划，不能沿旧 mapping 静默执行。
 
 执行阶段重新 no-follow 打开冻结 source manifest，流式复制到 CAS，再复用普通 import 的格式分组、内容身份、CoreValidation、DAT、BIOS、重复检查、审核与发布服务。M3U 只接受与清单同目录的 2–8 个现存 CHD；其他多文件格式不猜分组。Arcade companion 只允许来自同一次 execution、同一目标目录与同一冻结 DAT 的显式 ZIP 依赖闭包。封面按 `image → boxart → mix → thumbnail/s` 选择，video 独立；缺失或坏媒体只写 warning，不阻断可运行内容。

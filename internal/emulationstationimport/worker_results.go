@@ -222,84 +222,11 @@ VALUES(?,'EMULATIONSTATION_IMPORT',?,'PROGRESS',?,?)`,
 }
 
 func (service *Service) closeCancelled(ctx context.Context, unit work) (bool, error) {
-	var state string
-	if err := service.database.QueryRowContext(
-		ctx, `SELECT state FROM emulationstation_imports WHERE id=?`, unit.ImportID,
-	).Scan(&state); err != nil {
-		return false, fmt.Errorf("emulationstationimport/read cancellation state: %w", err)
-	}
-	if state != "CANCEL_REQUESTED" {
-		return false, nil
-	}
-	now := service.now().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
+	closed, err := service.executionControl().CloseCancelled(ctx, unit)
 	if err != nil {
-		return false, fmt.Errorf("emulationstationimport/start cancellation close: %w", err)
+		return false, fmt.Errorf("close cancelled EmulationStation execution: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
-		Set: `
-execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `import_id=? AND execution_state='PENDING'`,
-			Args:  []any{unit.ImportID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return false, fmt.Errorf("emulationstationimport/cancel remaining items: %w", err)
-	}
-	counts, err := loadTerminalItemCounts(ctx, transaction, unit.ImportID)
-	if err != nil {
-		return false, err
-	}
-	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
-		Set: `
-state='CANCELLED',phase=NULL,
-skipped_mapping_item_count=?,review_pending_item_count=?,published_item_count=?,
-review_discarded_item_count=?,existing_item_count=?,blocked_item_count=?,
-failed_item_count=?,cancelled_item_count=?,
-completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{unit.ImportID},
-		},
-		Values: []any{
-			counts.SkippedMapping,
-			counts.ReviewPending,
-			counts.Published,
-			counts.ReviewDiscarded,
-			counts.Existing,
-			counts.Blocked,
-			counts.Failed,
-			counts.Cancelled,
-			now,
-			now,
-		},
-	}); err != nil {
-		return false, fmt.Errorf("emulationstationimport/close cancelled import: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE jobs
-SET state='CANCELLED',finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
-version=version+1,updated_at_ms=?
-WHERE id=?`, now, now, unit.JobID); err != nil {
-		return false, fmt.Errorf("emulationstationimport/close cancelled job: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'EMULATIONSTATION_IMPORT',?,'CANCELLED','{"schemaVersion":1}',?)`,
-		unit.JobID, unit.ImportID, now); err != nil {
-		return false, fmt.Errorf("emulationstationimport/create cancelled event: %w", err)
-	}
-	if err := scheduleTerminalItems(ctx, transaction, unit.ImportID, now); err != nil {
-		return false, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return false, fmt.Errorf("emulationstationimport/commit cancellation: %w", err)
-	}
-	return true, nil
+	return closed, nil
 }
 
 func (service *Service) finishImport(ctx context.Context, unit work) error {

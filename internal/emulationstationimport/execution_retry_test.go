@@ -149,6 +149,10 @@ func TestAutomaticRetryExhaustionBecomesTerminal(t *testing.T) {
 	testassert.True(t, found, "scan work was not claimable")
 	mustExecEmulationStationTest(t, fixture.database, `
 UPDATE jobs SET attempt_count=max_attempts WHERE id=?`, unit.JobID)
+	if err := fixture.database.QueryRowContext(fixture.context,
+		`SELECT attempt_count FROM jobs WHERE id=?`, unit.JobID).Scan(&unit.Attempt); err != nil {
+		t.Fatal(err)
+	}
 
 	fixture.service.fail(fixture.context, unit, "INTERNAL_ERROR", true)
 
@@ -168,7 +172,7 @@ func TestDeadlineFailurePersistsStableTimeoutWithFreshContext(t *testing.T) {
 		t.Fatal(claimErr)
 	}
 	testassert.True(t, found, "scan work was not claimable")
-	unit.DeadlineAtMS = fixture.now.UnixMilli()
+	*fixture.now = time.UnixMilli(unit.DeadlineAtMS)
 	deadlineContext, cancel := context.WithDeadline(fixture.context, fixture.now.Add(-time.Second))
 	defer cancel()
 

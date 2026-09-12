@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"retrom/internal/emulationstationmeta"
@@ -61,29 +62,26 @@ func (service *Service) fail(ctx context.Context, unit work, code string, retrya
 	now := service.now().UnixMilli()
 	deadlineExpired := errors.Is(ctx.Err(), context.DeadlineExceeded) ||
 		(unit.DeadlineAtMS > 0 && unit.DeadlineAtMS <= now)
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancel()
 	if deadlineExpired {
-		code = "EMULATIONSTATION_EXECUTION_TIMEOUT"
-		retryable = false
+		code, retryable = "EMULATIONSTATION_EXECUTION_TIMEOUT", false
 	}
-	if retryable {
-		outcome, err := service.scheduleAutomaticRetry(ctx, unit, code, now)
-		if err == nil {
-			switch outcome {
-			case retryScheduled:
-				return
-			case retryDeadlineExhausted:
-				code = "EMULATIONSTATION_EXECUTION_TIMEOUT"
-				retryable = false
-			case retryAttemptsExhausted:
-				code = "EMULATIONSTATION_WORKER_ATTEMPTS_EXHAUSTED"
-				retryable = false
-			case retryNotEligible:
-			}
-		}
+	_, err := service.executionControl().Fail(
+		cleanup,
+		unit,
+		application.ExecutionFailure{Code: code, Retryable: retryable},
+	)
+	if errors.Is(err, application.ErrExpired) {
+		err = service.recoverWork(cleanup)
 	}
-	service.persistExecutionFailure(ctx, unit, code, retryable, now)
+	if err != nil && !errors.Is(err, ErrVersionConflict) {
+		slog.ErrorContext(cleanup, "settle EmulationStation execution failure", "error", err)
+	}
+}
+
+func (service *Service) executionControl() *application.ExecutionControl {
+	return application.NewExecutionControl(persistence.NewExecutionControl(service.database), service.now)
 }
 
 func parserErrorCode(err error) string {
