@@ -29,7 +29,11 @@ func (records authRecords) Login(
 	if err := authChanged(result, err, accounts.ErrAuthentication); err != nil {
 		return err
 	}
-	_, err = records.executor.ExecContext(
+	return records.insertSession(ctx, value)
+}
+
+func (records authRecords) insertSession(ctx context.Context, value accounts.SessionRecord) error {
+	_, err := records.executor.ExecContext(
 		ctx,
 		`INSERT INTO auth_sessions(id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,
  idle_expires_at_ms,absolute_expires_at_ms)
