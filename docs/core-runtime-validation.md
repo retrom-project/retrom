@@ -185,10 +185,10 @@ Target 支持联机；当前只验证单机。
 
 ### Uzebox / Uzem
 
-`emulatorjs/uzem` 的开发候选使用固定 libretro-uzem fork，接受 ATmega644 单卡带 `.uze`，
+`emulatorjs/uzem` 使用固定 libretro-uzem fork 的 `retrom-core-gd991ee94547c-r1` 发行，接受 ATmega644 单卡带 `.uze`，
 通过 SNES 控制表传递方向、面键和 Start。只支持玩家一；不声明鼠标、SD 外部文件、
 ATmega1284、网络或多盘。核心 v1 即时状态包含 AVR 寄存器、SRAM、EEPROM、Flash、
 内部计时器/待处理 I/O、随机数状态、手柄锁存与软件画面，使用显式小端字段及版本、
 内容标识和完整性校验；宿主使用公共 gzip checkpoint，不解析核心字节。
-候选必须通过 [ACC-UZEBOX-001](./project-acceptance.md#acc-uzebox-001uzebox-单卡带产品验证)，
-且不同 Launch 恢复后继续接受输入。候选不代表正式发行或全库兼容。
+接入必须通过 [ACC-UZEBOX-001](./project-acceptance.md#acc-uzebox-001uzebox-单卡带产品验证)，
+且不同 Launch 恢复后继续接受输入。已验证游戏不代表全库兼容。
