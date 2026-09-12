@@ -120,28 +120,11 @@ func (service *Recovery) recoverExecution(ctx context.Context, scope RecoverySco
 func (service *Recovery) recoverReview(
 	ctx context.Context, scope RecoveryScope, execution RecoverySnapshot, review ReviewHandoffSnapshot, now time.Time,
 ) error {
-	if review.Identity.JobID != execution.JobID || review.Identity.ImportID != execution.ImportID ||
-		review.Identity.ExecutionNo != execution.ExecutionNo || review.Identity.Attempt != execution.Attempt ||
-		review.Identity.LibraryItemID == "" || review.Identity.LibraryJobID == "" ||
-		review.Version < 1 || review.Version == math.MaxInt64 {
-		return ErrVersionConflict
-	}
-	if review.State != "PENDING" && review.State != "COPYING" && review.State != "VALIDATING" {
-		return ErrVersionConflict
-	}
-	_, warnings, err := service.metadata.SeedInScope(
-		ctx,
-		scope.Metadata,
-		review.Identity.LibraryItemID,
-		review.Metadata,
-		now.UTC().Year()+1,
-	)
+	change, err := prepareRecoveryReview(ctx, service.metadata, scope.Metadata, execution, review, now)
 	if err != nil {
-		return fmt.Errorf("seed recovered Pegasus review: %w", err)
+		return err
 	}
-	err = scope.Records.CompleteReview(ctx, RecoveryReviewChange{Execution: execution, Handoff: ReviewHandoffChange{
-		Before: review, Warnings: mergeReviewMetadataWarnings(review.Warnings, warnings), NowMS: now.UnixMilli(),
-	}})
+	err = scope.Records.CompleteReview(ctx, change)
 	if err != nil {
 		return fmt.Errorf("complete recovered Pegasus review: %w", err)
 	}

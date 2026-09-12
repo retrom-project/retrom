@@ -260,13 +260,6 @@ func (service *Service) validateCreateRequest(request CreateRequest) (Root, erro
 	return root, nil
 }
 
-func boolInt(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
-}
-
 func stableStrings(values []string) []string {
 	sort.Strings(values)
 	result := values[:0]

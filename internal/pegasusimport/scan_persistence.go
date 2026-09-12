@@ -191,49 +191,6 @@ VALUES(?,'PEGASUS_IMPORT',?,'SUCCEEDED',?,?)`,
 	return nil
 }
 
-func (service *Service) fail(ctx context.Context, unit work, code string, retryable bool) {
-	now := service.now().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return
-	}
-	defer dbexec.Rollback(transaction)
-	_, _ = transaction.ExecContext(
-		ctx,
-		`UPDATE jobs
-SET state='FAILED',finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
-error_code=?,error_retryable=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING'`,
-		now,
-		code,
-		boolInt(retryable),
-		now,
-		unit.JobID,
-	)
-	_, _ = recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
-		Set: `
-state='FAILED',phase=NULL,last_error_code=?,retryable=?,completed_at_ms=?,
-version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{unit.ImportID},
-		},
-		Values: []any{code, boolInt(retryable), now, now},
-	})
-	data, _ := json.Marshal(map[string]any{"schemaVersion": 1, "code": code, "retryable": retryable})
-	_, _ = transaction.ExecContext(
-		ctx,
-		`INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'FAILED',?,?)`,
-		unit.JobID,
-		unit.ImportID,
-		string(data),
-		now,
-	)
-	_ = transaction.Commit()
-}
-
 func parserErrorCode(err error) string {
 	switch {
 	case errors.Is(err, pegasusmeta.ErrTooLarge):
