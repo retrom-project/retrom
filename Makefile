@@ -338,9 +338,9 @@ build-images: build-backend-image build-web-image
 acceptance-prepare:
 	@scripts/acceptance/run.sh prepare
 
-acceptance-case: prepare-go
+acceptance-case: prepare-go prepare-node
 	@test -n "$(CASE)" || { echo 'CASE is required' >&2; exit 2; }
-	@scripts/acceptance/run.sh case "$(CASE)"
+	@NODE_HOME="$(NODE_HOME)" scripts/acceptance/run.sh case "$(CASE)"
 
 acceptance-report:
 	@scripts/acceptance/run.sh report

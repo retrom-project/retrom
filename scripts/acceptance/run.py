@@ -880,8 +880,11 @@ def run_command(
     environment = os.environ.copy()
     if extra_environment:
         environment.update(extra_environment)
+    node_home = environment.get("NODE_HOME", "")
+    if node_home:
+        environment["PATH"] = str(Path(node_home) / "bin") + os.pathsep + environment.get("PATH", "")
     process = subprocess.Popen(
-        ["bash", "-lc", command], cwd=ROOT, env=environment,
+        ["bash", "-c", command], cwd=ROOT, env=environment,
         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         start_new_session=True,
     )

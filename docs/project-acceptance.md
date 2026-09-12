@@ -1895,6 +1895,8 @@ red/green/root cause/fix/result/rerun 映射、green command 非零或超时的�
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧实际 Retrom 产品 E2E 或 UI runner 断言。不得用“只能人工复现”免除固化，也不得新增绕过产品链路的独立 example 页面代替回归。
 
+验收命令使用 `make acceptance-case` 选择的仓库 Node 工具链；`NODE_HOME` 的显式覆盖也传入产品 Case 和缺陷回归命令。子命令继承已选择的 PATH，不加载登录 shell 配置，避免宿主机版本改变同一 Case 的执行环境。
+
 ## 25. 最终通过标准
 
 一期项目只有同时满足以下条件才可标记 `PASS`：
