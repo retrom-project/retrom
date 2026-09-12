@@ -31,8 +31,8 @@ var (
 	ErrGamelistAbsent       = errors.New("EMULATIONSTATION_GAMELIST_NOT_FOUND")
 	ErrNoValidGamelist      = errors.New("EMULATIONSTATION_NO_VALID_GAMELIST")
 	ErrScanLimit            = errors.New("EMULATIONSTATION_SCAN_LIMIT_EXCEEDED")
-	ErrMapping              = errors.New("EMULATIONSTATION_MAPPING_INCOMPLETE")
-	ErrVersionConflict      = errors.New("VERSION_CONFLICT")
+	ErrMapping              = application.ErrMapping
+	ErrVersionConflict      = application.ErrVersionConflict
 	ErrNoSelection          = errors.New("EMULATIONSTATION_NO_COLLECTION_SELECTED")
 	ErrSourceChanged        = errors.New("EMULATIONSTATION_SOURCE_CHANGED")
 	ErrMappingTargetChanged = errors.New("EMULATIONSTATION_MAPPING_TARGET_CHANGED")

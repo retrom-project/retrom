@@ -1,0 +1,200 @@
+package emulationstationimport
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math"
+	"time"
+
+	"retrom/internal/service/tagging"
+)
+
+type (
+	MappingScope struct {
+		Read  MappingReader
+		Write MappingWriter
+		Tags  tagging.WriteScope
+	}
+	MappingReader interface {
+		Import(context.Context, string) (Summary, error)
+		Collection(context.Context, string) (MappingCollection, error)
+		EligibleTarget(context.Context, string) (MappingTarget, bool, error)
+	}
+	MappingWriter interface {
+		Put(context.Context, CollectionMapping) error
+		Advance(context.Context, MappingAdvance) error
+	}
+	MappingRepository interface {
+		WithMappings(context.Context, func(MappingScope) error) error
+	}
+	MappingTagWriter interface {
+		ReplaceEmulationStationCollectionTags(
+			context.Context, tagging.WriteScope, string, []string, string, int64,
+		) ([]tagging.Reference, error)
+	}
+	MappingCollection struct {
+		ImportID  string
+		GameCount int64
+	}
+	MappingTarget struct {
+		InstanceID                               string
+		InstanceVersion                          int64
+		PlatformID, CoreID, ProviderID, TargetID string
+		DATVersionID                             *string
+	}
+	CollectionMapping struct {
+		ImportID string
+		Mapping  Mapping
+		Target   *MappingTarget
+		Tags     []tagging.Reference
+		NowMS    int64
+	}
+	MappingAdvance struct {
+		Before Summary
+		NowMS  int64
+	}
+	Mappings struct {
+		repository MappingRepository
+		tags       MappingTagWriter
+		now        func() time.Time
+	}
+)
+
+func NewMappings(repository MappingRepository, tags MappingTagWriter, now func() time.Time) *Mappings {
+	return &Mappings{repository: repository, tags: tags, now: now}
+}
+
+func (service *Mappings) Update(
+	ctx context.Context,
+	id string,
+	version int64,
+	mappings []Mapping,
+	actorID string,
+) (Summary, error) {
+	if !validMappingBatch(mappings) {
+		return Summary{}, ErrInvalid
+	}
+	var result Summary
+	err := service.repository.WithMappings(ctx, func(scope MappingScope) error {
+		before, err := scope.Read.Import(ctx, id)
+		if err != nil {
+			return fmt.Errorf("read EmulationStation mapping plan: %w", err)
+		}
+		if before.State != "AWAITING_MAPPING" {
+			return ErrMapping
+		}
+		if before.Version != version || version < 1 || version == math.MaxInt64 || before.MappingVersion == math.MaxInt64 {
+			return ErrVersionConflict
+		}
+		prepared, err := prepareMappings(ctx, scope.Read, id, mappings, service.now().UnixMilli())
+		if err != nil {
+			return err
+		}
+		if actorID == "" {
+			actorID = before.CreatedBy.ID
+		}
+		if err := service.saveMappings(ctx, scope, prepared, actorID); err != nil {
+			return err
+		}
+		if err := scope.Write.Advance(ctx, MappingAdvance{Before: before, NowMS: prepared[0].NowMS}); err != nil {
+			return fmt.Errorf("advance EmulationStation mappings: %w", err)
+		}
+		result, err = scope.Read.Import(ctx, id)
+		if err != nil {
+			return fmt.Errorf("read updated EmulationStation mappings: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Summary{}, fmt.Errorf("finish EmulationStation mappings: %w", err)
+	}
+	return result, nil
+}
+
+func validMappingBatch(mappings []Mapping) bool {
+	if len(mappings) < 1 || len(mappings) > 100 {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, mapping := range mappings {
+		if mapping.CollectionID == "" || seen[mapping.CollectionID] || mapping.TagIDs == nil {
+			return false
+		}
+		seen[mapping.CollectionID] = true
+		switch mapping.Action {
+		case "SKIP":
+			if mapping.PlatformInstanceID != "" || len(mapping.TagIDs) != 0 {
+				return false
+			}
+		case "IMPORT":
+			if mapping.PlatformInstanceID == "" {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func prepareMappings(
+	ctx context.Context,
+	reader MappingReader,
+	id string,
+	mappings []Mapping,
+	now int64,
+) ([]CollectionMapping, error) {
+	result := make([]CollectionMapping, 0, len(mappings))
+	for _, mapping := range mappings {
+		collection, err := reader.Collection(ctx, mapping.CollectionID)
+		if err != nil {
+			return nil, fmt.Errorf("read EmulationStation mapping owner: %w", err)
+		}
+		if collection.ImportID != id || mapping.Action == "IMPORT" && collection.GameCount < 1 {
+			return nil, ErrInvalid
+		}
+		change := CollectionMapping{ImportID: id, Mapping: mapping, NowMS: now}
+		if mapping.Action == "IMPORT" {
+			target, found, err := reader.EligibleTarget(ctx, mapping.PlatformInstanceID)
+			if err != nil {
+				return nil, fmt.Errorf("read EmulationStation mapping target: %w", err)
+			}
+			if !found {
+				return nil, ErrInvalid
+			}
+			change.Target = &target
+		}
+		result = append(result, change)
+	}
+	return result, nil
+}
+
+func (service *Mappings) saveMappings(
+	ctx context.Context,
+	scope MappingScope,
+	changes []CollectionMapping,
+	actorID string,
+) error {
+	for _, change := range changes {
+		references, err := service.tags.ReplaceEmulationStationCollectionTags(
+			ctx,
+			scope.Tags,
+			change.Mapping.CollectionID,
+			change.Mapping.TagIDs,
+			actorID,
+			change.NowMS,
+		)
+		if errors.Is(err, tagging.ErrInvalid) {
+			return fmt.Errorf("%w: %w", ErrInvalid, err)
+		}
+		if err != nil {
+			return fmt.Errorf("replace EmulationStation mapping tags: %w", err)
+		}
+		change.Tags = references
+		if err := scope.Write.Put(ctx, change); err != nil {
+			return fmt.Errorf("save EmulationStation collection mapping: %w", err)
+		}
+	}
+	return nil
+}
