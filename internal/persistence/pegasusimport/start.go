@@ -74,7 +74,8 @@ FROM pegasus_imports WHERE id=?`, id, id, id).
 
 func (records startRecords) metadata(ctx context.Context, id string) ([]application.MetadataEvidence, error) {
 	rows, err := records.transaction.QueryContext(ctx, `
-SELECT relative_path,size_bytes,content_digest,source_facts_digest FROM pegasus_import_metadata_files
+SELECT relative_path,size_bytes,COALESCE(content_digest,''),source_facts_digest,
+parse_state,COALESCE(error_code,'') FROM pegasus_import_metadata_files
 WHERE import_id=? ORDER BY relative_path LIMIT ?`, id, application.MaxMetadataFiles+1)
 	if err != nil {
 		return nil, fmt.Errorf("read Pegasus metadata evidence: %w", err)
@@ -83,7 +84,14 @@ WHERE import_id=? ORDER BY relative_path LIMIT ?`, id, application.MaxMetadataFi
 	result := []application.MetadataEvidence{}
 	for rows.Next() {
 		var value application.MetadataEvidence
-		if err := rows.Scan(&value.RelativePath, &value.SizeBytes, &value.ContentDigest, &value.FactsDigest); err != nil {
+		if err := rows.Scan(
+			&value.RelativePath,
+			&value.SizeBytes,
+			&value.ContentDigest,
+			&value.FactsDigest,
+			&value.ParseState,
+			&value.ErrorCode,
+		); err != nil {
 			return nil, fmt.Errorf("scan Pegasus metadata evidence: %w", err)
 		}
 		result = append(result, value)

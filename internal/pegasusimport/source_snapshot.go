@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/pegasusmeta"
 	"retrom/internal/serversource"
 	application "retrom/internal/service/pegasusimport"
 )
@@ -58,6 +59,13 @@ func verifyMetadataFile(
 	}
 	defer func() { cleanup.Error("close Pegasus verification file", file.Close()) }()
 	if before.Size() != expected.SizeBytes || serversource.FactsDigest(before) != expected.FactsDigest {
+		return ErrSourceChanged
+	}
+	if expected.ContentDigest == "" {
+		if expected.SizeBytes > pegasusmeta.MaxMetadataBytes && expected.ParseState == "INVALID" &&
+			expected.ErrorCode == pegasusmeta.ErrTooLarge.Error() {
+			return nil
+		}
 		return ErrSourceChanged
 	}
 	hash := sha256.New()

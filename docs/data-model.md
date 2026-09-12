@@ -82,6 +82,10 @@ RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、P
 
 原生存档格式与槽位属于 Provider payload，数据库只记录公共 checkpoint format/大小/摘要；预览存档与正式用户存档继续使用既有 owner、冻结恢复输入和释放规则。
 
+### 服务器 metadata 扫描证据
+
+`pegasus_import_metadata_files` 保存来源相对路径、实际大小、文件特征、解析状态与错误。大小不超过 8 MiB 的记录必须保存内容摘要；仅超过该上限且状态为 `INVALID/PEGASUS_METADATA_TOO_LARGE` 时允许摘要为 NULL，此时扫描和启动重验都不得读取超限内容。无摘要不能表示正常 metadata 或其他解析错误，相关组合由表级 CHECK 保证。
+
 ### 批次丢弃与服务器上传归属
 
 `import_batch_discards` 对 `(kind,import_id)` 只保留一个当前处置，kind 为普通导入、Pegasus 或 EmulationStation。`REQUESTED → COMPLETED|FAILED`，失败可回到 REQUESTED；记录请求管理员、错误码和毫秒时间，不增加试玩 revision 或按运行次数累积记录。来源批次由服务校验；请求落库后，发布/重试事务通过 `storequery.DiscardedImportJobs` 查询与 `recordstore` 状态校验共同阻止批次再次发布、重试导入。

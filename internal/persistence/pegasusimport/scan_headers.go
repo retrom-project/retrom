@@ -21,7 +21,7 @@ func (records scanRecords) Headers(
 	for _, metadata := range headers.Metadata {
 		result, err := records.tx.ExecContext(ctx, `INSERT INTO pegasus_import_metadata_files(
 import_id,relative_path,size_bytes,content_digest,source_facts_digest,parse_state,error_code,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?)`, owner.Before.ImportID, metadata.Path, metadata.Size, metadata.Digest,
+) VALUES(?,?,?,?,?,?,?,?)`, owner.Before.ImportID, metadata.Path, metadata.Size, optionalText(metadata.Digest),
 			metadata.Facts, metadata.State, optionalText(metadata.ErrorCode), owner.NowMS)
 		if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 			return fmt.Errorf("insert Pegasus scan metadata evidence: %w", err)

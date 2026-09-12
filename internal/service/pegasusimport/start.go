@@ -18,6 +18,7 @@ type (
 		RelativePath               string
 		SizeBytes                  int64
 		ContentDigest, FactsDigest string
+		ParseState, ErrorCode      string
 	}
 	StartSnapshot struct {
 		Summary                                Summary

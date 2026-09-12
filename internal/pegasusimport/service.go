@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -193,17 +192,6 @@ func (service *Service) validateCreateRequest(request CreateRequest) (Root, erro
 	}
 	cleanup.Error("close", directory.Close())
 	return root, nil
-}
-
-func stableStrings(values []string) []string {
-	sort.Strings(values)
-	result := values[:0]
-	for _, value := range values {
-		if len(result) == 0 || result[len(result)-1] != value {
-			result = append(result, value)
-		}
-	}
-	return result
 }
 
 func errorCode(err error) string {

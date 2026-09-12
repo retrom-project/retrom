@@ -1,24 +1,23 @@
 package pegasusimport
 
 import (
+	"context"
 	"errors"
-	"io/fs"
-	"os"
+	"fmt"
 	"path"
 	"strings"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/mediaasset"
 	"retrom/internal/serversource"
 )
 
-func (service *Service) chooseAsset(
-	root Root,
-	selectedPath, metadataPath, kind, title string,
+func (service *Scanner) chooseAsset(
+	ctx context.Context,
+	metadataPath, kind, title string,
 	declaredFiles, gameCandidates, collectionCandidates []string,
 	files map[string]discoveredFile,
 	folded map[string][]string,
-) (*scannedAsset, []map[string]any) {
+) (*scannedAsset, []map[string]any, error) {
 	candidates, warnings := buildAssetCandidates(
 		metadataPath, kind, title, declaredFiles, gameCandidates, collectionCandidates,
 	)
@@ -29,17 +28,20 @@ func (service *Service) chooseAsset(
 			continue
 		}
 		seen[key] = struct{}{}
-		asset, warning := service.resolveAssetCandidate(
-			root, selectedPath, kind, candidate, files, folded,
+		asset, warning, err := service.resolveAssetCandidate(
+			ctx, kind, candidate, files, folded,
 		)
+		if err != nil {
+			return nil, nil, err
+		}
 		if warning != nil {
 			warnings = append(warnings, warning)
 		}
 		if asset != nil {
-			return asset, warnings
+			return asset, warnings, nil
 		}
 	}
-	return nil, warnings
+	return nil, warnings, nil
 }
 
 type assetCandidate struct {
@@ -115,35 +117,45 @@ func automaticAssetCandidates(
 	return candidates
 }
 
-func (service *Service) resolveAssetCandidate(
-	root Root,
-	selectedPath, kind string,
+func (service *Scanner) resolveAssetCandidate(
+	ctx context.Context,
+	kind string,
 	candidate assetCandidate,
 	files map[string]discoveredFile,
 	folded map[string][]string,
-) (*scannedAsset, map[string]any) {
+) (*scannedAsset, map[string]any, error) {
 	resolved, warning := resolvedAssetPath(candidate, kind, folded)
 	if warning != nil || resolved == "" {
-		return nil, warning
+		return nil, warning, nil
 	}
 	entry, exists := files[resolved]
 	if !exists || len(folded[asciiFold(resolved)]) > 1 {
 		if candidate.folded {
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, assetWarning("PEGASUS_MEDIA_MISSING", kind)
+		return nil, assetWarning("PEGASUS_MEDIA_MISSING", kind), nil
 	}
-	handle, before, err := serversource.OpenRelativeFile(root.path, selectedPath, resolved)
-	if err != nil || serversource.FactsDigest(before) != entry.Facts {
-		if handle != nil {
-			cleanup.Error("close", handle.Close())
+	inspection, err := service.source.Asset(ctx, entry, kind)
+	if ctx.Err() != nil {
+		return nil, nil, fmt.Errorf("inspect Pegasus asset: %w", ctx.Err())
+	}
+	if errors.Is(err, ErrSourceChanged) {
+		return nil, nil, nil
+	}
+	if err != nil {
+		code := "PEGASUS_IMAGE_INVALID"
+		if kind == "VIDEO" {
+			code = "PEGASUS_VIDEO_UNSUPPORTED"
+			if errors.Is(err, mediaasset.ErrVideoTooLarge) {
+				code = "PEGASUS_VIDEO_TOO_LARGE"
+			}
 		}
-		return nil, nil
+		return nil, assetWarning(code, kind), nil
 	}
-	asset := scannedAsset{
+	return &scannedAsset{
 		Kind: kind, Method: candidate.method, Path: resolved, Facts: entry.Facts, Size: entry.Size,
-	}
-	return inspectScannedAsset(handle, before, entry, asset)
+		MediaType: inspection.MediaType, Width: inspection.Width, Height: inspection.Height,
+	}, nil, nil
 }
 
 func resolvedAssetPath(
@@ -162,37 +174,6 @@ func resolvedAssetPath(
 		return "", nil
 	}
 	return matches[0], nil
-}
-
-func inspectScannedAsset(
-	handle *os.File,
-	before fs.FileInfo,
-	entry discoveredFile,
-	asset scannedAsset,
-) (*scannedAsset, map[string]any) {
-	if asset.Kind == "COVER" {
-		image, inspectErr := mediaasset.InspectImage(handle, entry.Size)
-		after, statErr := handle.Stat()
-		cleanup.Error("close", handle.Close())
-		if inspectErr != nil || statErr != nil || !serversource.SameFileFacts(before, after) {
-			return nil, assetWarning("PEGASUS_IMAGE_INVALID", asset.Kind)
-		}
-		asset.MediaType = image.MediaType
-		asset.Width, asset.Height = int64Pointer(image.WidthPX), int64Pointer(image.HeightPX)
-		return &asset, nil
-	}
-	mediaType, inspectErr := mediaasset.InspectVideo(handle, entry.Size)
-	after, statErr := handle.Stat()
-	cleanup.Error("close", handle.Close())
-	if inspectErr == nil && statErr == nil && serversource.SameFileFacts(before, after) {
-		asset.MediaType = mediaType
-		return &asset, nil
-	}
-	code := "PEGASUS_VIDEO_UNSUPPORTED"
-	if errors.Is(inspectErr, mediaasset.ErrVideoTooLarge) {
-		code = "PEGASUS_VIDEO_TOO_LARGE"
-	}
-	return nil, assetWarning(code, asset.Kind)
 }
 
 func assetWarning(code, kind string) map[string]any {

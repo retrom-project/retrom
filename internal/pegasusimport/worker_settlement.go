@@ -20,6 +20,9 @@ func (service *Service) workerSettlement() *application.WorkerSettlement {
 }
 
 func (service *Service) fail(ctx context.Context, unit work, code string, retryable bool) {
+	if ctx.Err() != nil {
+		return
+	}
 	err := service.workerSettlement().Fail(
 		ctx,
 		unit.Identity(),
