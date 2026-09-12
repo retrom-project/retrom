@@ -21,15 +21,15 @@ var (
 	ErrUsernameUnavailable    = errors.New("USERNAME_UNAVAILABLE")
 	ErrUserNotFound           = accountservice.ErrUserNotFound
 	ErrUserQuery              = accountservice.ErrUserQuery
-	ErrUserVersion            = errors.New("USER_VERSION_CONFLICT")
-	ErrUserNoChange           = errors.New("USER_NO_STATE_CHANGE")
-	ErrUserSelfChange         = errors.New("USER_SELF_CHANGE_FORBIDDEN")
-	ErrLastAdmin              = errors.New("LAST_ENABLED_ADMIN")
-	ErrUserDeleted            = errors.New("USER_ALREADY_DELETED")
-	ErrUserTransition         = errors.New("USER_INVALID_TRANSITION")
-	ErrConfirmation           = errors.New("CONFIRMATION_MISMATCH")
-	ErrRoleConfirmation       = errors.New("ADMIN_ROLE_CONFIRMATION_REQUIRED")
-	ErrIdempotencyReused      = errors.New("IDEMPOTENCY_KEY_REUSED")
+	ErrUserVersion            = accountservice.ErrUserVersion
+	ErrUserNoChange           = accountservice.ErrUserNoChange
+	ErrUserSelfChange         = accountservice.ErrUserSelfChange
+	ErrLastAdmin              = accountservice.ErrLastAdmin
+	ErrUserDeleted            = accountservice.ErrUserDeleted
+	ErrUserTransition         = accountservice.ErrUserTransition
+	ErrConfirmation           = accountservice.ErrConfirmation
+	ErrRoleConfirmation       = accountservice.ErrRoleConfirmation
+	ErrIdempotencyReused      = accountservice.ErrIdempotencyReused
 )
 
 type AdminUser = accountservice.AdminUser
@@ -57,11 +57,7 @@ type LinkInspection struct {
 	ExpiresAtMS int64  `json:"expiresAtMs"`
 }
 
-type UserPatch struct {
-	Role             *string
-	Status           *string
-	ConfirmAdminRole bool
-}
+type UserPatch = accountservice.UserPatch
 
 type UserListFilter = accountservice.UserListFilter
 
