@@ -83,6 +83,7 @@ func TestPlatformDefaultsSelectBindingsOnlyByProductCore(t *testing.T) {
 	for _, expected := range []struct{ platform, core, target string }{
 		{platform: "snes", core: "bsnes", target: "bsnes"},
 		{platform: "gbc", core: "gambatte", target: "gambatte"},
+		{platform: "neogeocd", core: "neocd", target: "neocd"},
 		{platform: "nds", core: "desmume2015", target: "desmume2015"},
 	} {
 		found := false
