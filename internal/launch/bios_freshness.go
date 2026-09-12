@@ -6,13 +6,17 @@ import (
 	"fmt"
 	"slices"
 
+	"retrom/internal/dbexec"
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 )
 
 func (service *Service) currentBIOSMatchesDependencySnapshot(
 	ctx context.Context,
-	database corevalidation.Queryer,
+	database dbexec.Executor,
 	selection launchSelection,
 ) (bool, error) {
 	if selection.compatibilityCode == reviewScreenshotOverrideCode {
@@ -22,8 +26,15 @@ func (service *Service) currentBIOSMatchesDependencySnapshot(
 	if selection.datID.Valid {
 		return service.currentDATBIOSMatchesLockedFiles(ctx, database, selection)
 	}
-	current, _, _, err := corevalidation.ResolveBIOS(
-		ctx, database, selection.providerID, selection.targetID, selection.contentLogicalName,
+	current, _, _, err := validationservice.New(
+		validationpersistence.New(
+			database,
+		),
+	).ResolveBIOS(
+		ctx,
+		selection.providerID,
+		selection.targetID,
+		selection.contentLogicalName,
 	)
 	if err != nil {
 		return false, fmt.Errorf("launch/resolve current BIOS: %w", err)
@@ -55,7 +66,7 @@ func (service *Service) currentBIOSMatchesDependencySnapshot(
 
 func (service *Service) currentDATBIOSMatchesLockedFiles(
 	ctx context.Context,
-	database corevalidation.Queryer,
+	database dbexec.Executor,
 	selection launchSelection,
 ) (bool, error) {
 	current, _, _, err := service.resolveVariantBIOS(

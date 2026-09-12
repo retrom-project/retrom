@@ -11,6 +11,9 @@ import (
 	"sort"
 	"strings"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/service/tagging"
@@ -255,8 +258,15 @@ func (service *Service) dependencySnapshotCurrent(ctx context.Context, row eligi
 	if !valid {
 		return false, nil
 	}
-	current, status, _, err := corevalidation.ResolveBIOS(
-		ctx, service.database, row.providerID, row.targetID, logicalName,
+	current, status, _, err := validationservice.New(
+		validationpersistence.New(
+			service.database,
+		),
+	).ResolveBIOS(
+		ctx,
+		row.providerID,
+		row.targetID,
+		logicalName,
 	)
 	if err != nil {
 		return false, serviceError("resolve BIOS snapshot", err)

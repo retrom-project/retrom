@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
 
@@ -878,12 +881,10 @@ func validationFixture(
 	contentID, logicalName string,
 ) (string, string) {
 	t.Helper()
-	snapshot, _, _, err := corevalidation.ResolveBIOS(
-		context.Background(), database, target.ProviderID, target.TargetID, logicalName,
-	)
+	snapshot, _, _, err := validationservice.New(validationpersistence.New(database)).ResolveBIOS(context.Background(), target.ProviderID, target.TargetID, logicalName)
 	testassert.False(t, err != nil, err)
 	digest, err := corevalidation.ProviderValidationInputDigest(
-		target.ProviderID, target.TargetID, contentID, sql.NullString{}, snapshot,
+		target.ProviderID, target.TargetID, contentID, nil, snapshot,
 	)
 	testassert.False(t, err != nil, err)
 	encoded, err := snapshot.JSON()

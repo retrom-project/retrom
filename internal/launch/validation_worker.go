@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -422,7 +425,16 @@ func (service *Service) validateStaticBIOSForContent(
 	ctx context.Context,
 	providerID, targetID, logicalName string,
 ) (string, string) {
-	_, status, code, err := corevalidation.ResolveBIOS(ctx, service.database, providerID, targetID, logicalName)
+	_, status, code, err := validationservice.New(
+		validationpersistence.New(
+			service.database,
+		),
+	).ResolveBIOS(
+		ctx,
+		providerID,
+		targetID,
+		logicalName,
+	)
 	if err != nil {
 		return "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
 	}

@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/runtimecatalog"
+
 	"retrom/internal/persistence/recordstore"
 )
 
 // SynchronizeDefinitions projects validated Host declarations in the caller's startup transaction.
 // It never updates user-created platform instances, defaults or installations.
-func SynchronizeDefinitions(ctx context.Context, transaction *sql.Tx, catalog Catalog, now int64) error {
+func SynchronizeDefinitions(ctx context.Context, transaction *sql.Tx, catalog runtimecatalog.Catalog, now int64) error {
 	if err := pruneUnreferencedDefinitions(ctx, transaction, catalog.Definitions); err != nil {
 		return err
 	}
@@ -44,7 +46,7 @@ INSERT INTO content_kinds(id) VALUES(?) ON CONFLICT(id) DO NOTHING
 	return writeProductRelations(ctx, transaction, catalog)
 }
 
-func writeProductRelations(ctx context.Context, transaction *sql.Tx, catalog Catalog) error {
+func writeProductRelations(ctx context.Context, transaction *sql.Tx, catalog runtimecatalog.Catalog) error {
 	bindings, err := json.Marshal(catalog.Bindings)
 	if err != nil {
 		return fmt.Errorf("encode product relations: %w", err)
@@ -83,7 +85,11 @@ ON CONFLICT(platform_id,core_id) DO UPDATE SET enabled=excluded.enabled
 // Foreign keys reject removal of referenced definitions; no product table has
 // cascading deletion into user-owned data. The caller rolls back the entire
 // projection (including provider activation and audit) on any failure.
-func pruneUnreferencedDefinitions(ctx context.Context, transaction *sql.Tx, definitions Definitions) error {
+func pruneUnreferencedDefinitions(
+	ctx context.Context,
+	transaction *sql.Tx,
+	definitions runtimecatalog.Definitions,
+) error {
 	encoded, err := json.Marshal(definitions)
 	if err != nil {
 		return fmt.Errorf("encode product definitions: %w", err)
@@ -103,7 +109,7 @@ func pruneUnreferencedDefinitions(ctx context.Context, transaction *sql.Tx, defi
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement, string(encoded)); err != nil {
-			return fmt.Errorf("%w: referenced product definition cannot be removed: %w", ErrCatalogInvalid, err)
+			return fmt.Errorf("%w: referenced product definition cannot be removed: %w", runtimecatalog.ErrCatalogInvalid, err)
 		}
 	}
 	return nil

@@ -11,6 +11,9 @@ import (
 	"fmt"
 	"net/http"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -89,18 +92,24 @@ AND g.status='PUBLISHED'
 		return gameMoveImpact{}, errStaleImpact
 	}
 	status, code := "NEEDS_VALIDATION", "VARIANT_VALIDATION_REQUIRED"
-	biosSnapshot, _, _, err := corevalidation.ResolveBIOS(
+	biosSnapshot, _, _, err := validationservice.New(
+		validationpersistence.New(
+			server.database,
+		),
+	).ResolveBIOS(
 		request.Context(),
-		server.database,
+
 		providerID,
+
 		runtimeTargetID,
+
 		contentLogicalName,
 	)
 	if err != nil {
 		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
 	}
 	inputDigest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, runtimeTargetID, request.PathValue("gameId"), datID, biosSnapshot,
+		providerID, runtimeTargetID, request.PathValue("gameId"), dbexec.StringPointer(datID), biosSnapshot,
 	)
 	if err != nil {
 		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
@@ -220,7 +229,14 @@ func (server *Server) previewGameMove(writer http.ResponseWriter, request *http.
 		}
 		impact, err = server.calculateMoveImpact(request, body.TargetPlatformInstanceID, expected)
 		if err != nil || impact.VariantStatus == "NEEDS_VALIDATION" {
-			writeError(writer, request, http.StatusConflict, "IMPACT_PREVIEW_STALE", "验证完成后移动输入已变化", map[string]any{})
+			writeError(
+				writer,
+				request,
+				http.StatusConflict,
+				"IMPACT_PREVIEW_STALE",
+				"验证完成后移动输入已变化",
+				map[string]any{},
+			)
 			return
 		}
 	}
@@ -368,12 +384,26 @@ func (server *Server) scrapeGame(writer http.ResponseWriter, request *http.Reque
 		MetadataProvider string `json:"metadataProvider"`
 	}
 	if decodeJSON(writer, request, &body, 4096) != nil || body.MetadataProvider != "HASHEOUS" {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "游戏只支持显式 Hasheous 重刮削", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusBadRequest,
+			"INVALID_REQUEST",
+			"游戏只支持显式 Hasheous 重刮削",
+			map[string]any{},
+		)
 		return
 	}
 	scheduled, version, err := server.metadata.ScheduleGame(request.Context(), request.PathValue("gameId"), expected)
 	if err != nil {
-		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏内容或版本已经变化", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"VERSION_CONFLICT",
+			"游戏内容或版本已经变化",
+			map[string]any{},
+		)
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))

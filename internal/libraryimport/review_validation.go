@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"sort"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/contentcapability"
@@ -350,7 +353,16 @@ func resolveDraftBIOSState(
 	if err != nil {
 		return draftDependencyState{}, err
 	}
-	snapshot, status, code, err := corevalidation.ResolveBIOS(ctx, transaction, providerID, targetID, logicalName)
+	snapshot, status, code, err := validationservice.New(
+		validationpersistence.New(
+			transaction,
+		),
+	).ResolveBIOS(
+		ctx,
+		providerID,
+		targetID,
+		logicalName,
+	)
 	if err != nil {
 		return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
 	}

@@ -11,6 +11,8 @@ import (
 	"sort"
 	"time"
 
+	runtimecatalogpersistence "retrom/internal/persistence/runtimecatalog"
+
 	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
@@ -503,7 +505,7 @@ func writeProjection(
 	if err := clearHostBindings(ctx, transaction); err != nil {
 		return err
 	}
-	if err := runtimecatalog.SynchronizeDefinitions(ctx, transaction, runtimecatalog.Catalog{
+	if err := runtimecatalogpersistence.SynchronizeDefinitions(ctx, transaction, runtimecatalog.Catalog{
 		SchemaVersion: 1, Definitions: candidate.definitions, Bindings: candidate.bindings,
 	}, now); err != nil {
 		return fmt.Errorf("project Host definitions: %w", err)

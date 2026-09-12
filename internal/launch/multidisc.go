@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/contentcapability"
 
 	"retrom/internal/cleanup"
@@ -80,7 +82,7 @@ func (service *Service) multiDiscRevalidationInputs(
 		GameVariantID: variantID, GameID: gameID,
 		ContentKind: corevalidation.MultiDiscContentKind, ProviderID: providerID, TargetID: targetID,
 		ContentPolicySHA256: contentPolicy.Digest(),
-		DATVersionID:        datID, BIOSDependencySHA256: biosDigest,
+		DATVersionID:        dbexec.StringPointer(datID), BIOSDependencySHA256: biosDigest,
 		OrderedDiscSHA256: ordered, CanonicalPlaylistSHA256: canonicalDigest,
 	})
 	if err != nil {

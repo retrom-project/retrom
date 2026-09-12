@@ -8,6 +8,9 @@ import (
 	"errors"
 	"io"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/persistence/recordstore"
@@ -148,8 +151,15 @@ func (service *Service) resolveMultiDiscAttachmentValidation(
 	if len(candidate.resultEntries) < multidisc.MinDiscs {
 		return nil, "", ErrInvalid
 	}
-	snapshot, status, code, err := corevalidation.ResolveBIOS(
-		ctx, transaction, candidate.input.ProviderID, candidate.input.TargetID,
+	snapshot, status, code, err := validationservice.New(
+		validationpersistence.New(
+			transaction,
+		),
+	).ResolveBIOS(
+		ctx,
+		candidate.input.ProviderID,
+		candidate.input.TargetID,
+
 		candidate.resultEntries[0].File.LogicalName,
 	)
 	if err != nil {

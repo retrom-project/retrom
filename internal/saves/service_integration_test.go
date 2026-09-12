@@ -21,6 +21,9 @@ import (
 	"testing"
 	"time"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
 
@@ -30,7 +33,6 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/persistence/sessionstore"
 	retromruntime "retrom/internal/runtime"
@@ -89,9 +91,7 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	testassert.False(t, err != nil, err)
 	gameID := uuid.NewString()
 	variantID := uuid.NewString()
-	dependencySnapshot, status, _, err := corevalidation.ResolveBIOS(
-		ctx, database.SQL, target.ProviderID, target.TargetID, "save.gba",
-	)
+	dependencySnapshot, status, _, err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(ctx, target.ProviderID, target.TargetID, "save.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return status != "READY" }), "save fixture dependencies = %#v/%s, error=%v", dependencySnapshot, status, err)
 	dependencySnapshotJSON, err := dependencySnapshot.JSON()
 	testassert.False(t, err != nil, err)

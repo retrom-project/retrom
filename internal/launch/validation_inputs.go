@@ -10,6 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"retrom/internal/dbexec"
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/contentcapability"
 
 	"retrom/internal/cleanup"
@@ -139,7 +143,7 @@ func nullInt64Pointer(value sql.NullInt64) *int64 {
 
 func (service *Service) resolveVariantBIOS(
 	ctx context.Context,
-	database corevalidation.Queryer,
+	database dbexec.Executor,
 	variantID, contentID, providerID, targetID, contentLogicalName string,
 	datID sql.NullString,
 ) (corevalidation.Snapshot, string, string, error) {
@@ -148,8 +152,15 @@ func (service *Service) resolveVariantBIOS(
 			SchemaVersion: 1, Kind: corevalidation.SnapshotKindStatic, BIOS: []corevalidation.BIOSDependency{},
 		}, "READY", "READY", nil
 	}
-	snapshot, status, code, err := corevalidation.ResolveBIOS(
-		ctx, database, providerID, targetID, contentLogicalName,
+	snapshot, status, code, err := validationservice.New(
+		validationpersistence.New(
+			database,
+		),
+	).ResolveBIOS(
+		ctx,
+		providerID,
+		targetID,
+		contentLogicalName,
 	)
 	if err != nil {
 		return snapshot, status, code, fmt.Errorf("launch validation static BIOS: %w", err)
@@ -237,7 +248,7 @@ func (service *Service) validationDigests(
 		return digest, biosDigest, digestErr
 	}
 	digest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, targetID, contentID, datID, biosSnapshot,
+		providerID, targetID, contentID, dbexec.StringPointer(datID), biosSnapshot,
 	)
 	if err != nil {
 		return "", "", fmt.Errorf("launch validation digest: %w", err)
@@ -270,7 +281,7 @@ func (service *Service) currentValidationEvidence(
 		return digest, biosDigest, snapshot, biosStatus, biosCode, digestErr
 	}
 	digest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, targetID, contentID, datID, biosSnapshot,
+		providerID, targetID, contentID, dbexec.StringPointer(datID), biosSnapshot,
 	)
 	if err != nil {
 		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation digest: %w", err)

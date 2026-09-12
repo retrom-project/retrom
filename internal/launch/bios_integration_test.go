@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
 
@@ -115,9 +118,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 	testassert.False(t, err != nil, err)
 	gameBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, gameMetadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
-	snapshot, status, _, err := corevalidation.ResolveBIOS(
-		ctx, database.SQL, target.ProviderID, target.TargetID, "game.nds",
-	)
+	snapshot, status, _, err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(ctx, target.ProviderID, target.TargetID, "game.nds")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return status != "READY" }), "MelonDS BIOS snapshot = %#v/%s, error=%v", snapshot, status, err)
 	gameID, variantID := newUUID(), newUUID()
 	snapshotJSON, err := snapshot.JSON()

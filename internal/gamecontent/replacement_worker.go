@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
 
@@ -99,8 +102,15 @@ func (service *Service) runPreparedReplacement(
 		service.persistRPGMakerReplacement(ctx, jobID, snapshot, prepared, now)
 		return
 	}
-	biosSnapshot, biosStatus, biosCode, err := corevalidation.ResolveBIOS(
-		ctx, service.database, snapshot.ProviderID, snapshot.TargetID, prepared.firstContentLogicalName,
+	biosSnapshot, biosStatus, biosCode, err := validationservice.New(
+		validationpersistence.New(
+			service.database,
+		),
+	).ResolveBIOS(
+		ctx,
+		snapshot.ProviderID,
+		snapshot.TargetID,
+		prepared.firstContentLogicalName,
 	)
 	if err != nil {
 		service.fail(ctx, jobID, "GAME_CONTENT_INPUT_UNAVAILABLE")

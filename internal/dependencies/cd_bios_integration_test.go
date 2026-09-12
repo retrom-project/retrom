@@ -9,8 +9,10 @@ import (
 	"testing"
 	"time"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
 	"retrom/internal/testsupport"
 )
 
@@ -37,7 +39,7 @@ func TestCDRequirementsDoNotBlockPCECartridges(t *testing.T) {
 		{"same-cdi", "disc.chd", "BLOCKED", "LAUNCH_BIOS_MISSING", 3},
 	} {
 		t.Run(test.target+"/"+test.name, func(t *testing.T) {
-			snapshot, status, blocker, err := corevalidation.ResolveBIOS(ctx, database.SQL, "emulatorjs", test.target, test.name)
+			snapshot, status, blocker, err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(ctx, "emulatorjs", test.target, test.name)
 			if err != nil || status != test.status || blocker != test.blocker || len(snapshot.BIOS) != test.count {
 				t.Fatalf("BIOS resolution = %#v, %s, %s, %v", snapshot, status, blocker, err)
 			}

@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"testing"
 
+	runtimecatalogpersistence "retrom/internal/persistence/runtimecatalog"
+
 	"retrom/internal/runtimecatalog"
 )
 
@@ -39,7 +41,7 @@ func seedSchemaProductDefinitions(t *testing.T, database *sql.DB) {
 		t.Fatal(err)
 	}
 	defer func() { _ = transaction.Rollback() }()
-	if err := runtimecatalog.SynchronizeDefinitions(t.Context(), transaction, catalog, 0); err != nil {
+	if err := runtimecatalogpersistence.SynchronizeDefinitions(t.Context(), transaction, catalog, 0); err != nil {
 		t.Fatal(err)
 	}
 	if err := transaction.Commit(); err != nil {

@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/dbexec"
 
 	tagpersistence "retrom/internal/persistence/tagging"
@@ -122,8 +125,14 @@ func (run *creationRun) initialize() error {
 		return fmt.Errorf("libraryimport/service: validate import tags: %w", err)
 	}
 	run.tagReferences = tagReferences
-	biosCatalog, err := corevalidation.Catalog(
-		run.ctx, run.transaction, run.plan.target.providerID, run.plan.target.targetID,
+	biosCatalog, err := validationservice.New(
+		validationpersistence.New(
+			run.transaction,
+		),
+	).Catalog(
+		run.ctx,
+		run.plan.target.providerID,
+		run.plan.target.targetID,
 	)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)

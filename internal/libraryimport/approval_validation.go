@@ -9,6 +9,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/dbexec"
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/corevalidation"
@@ -131,8 +135,15 @@ func prepareStaticBIOSDependencies(
 		if logicalName == "" {
 			return ErrInvalid
 		}
-		snapshot, status, code, err := corevalidation.ResolveBIOS(
-			ctx, transaction, providerID, targetID, logicalName,
+		snapshot, status, code, err := validationservice.New(
+			validationpersistence.New(
+				transaction,
+			),
+		).ResolveBIOS(
+			ctx,
+			providerID,
+			targetID,
+			logicalName,
 		)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
@@ -329,8 +340,15 @@ func validateCurrentApprovalSnapshot(
 	if err != nil {
 		return err
 	}
-	currentSnapshot, validationStatus, _, err := corevalidation.ResolveBIOS(
-		ctx, transaction, providerID, targetID, contentLogicalName,
+	currentSnapshot, validationStatus, _, err := validationservice.New(
+		validationpersistence.New(
+			transaction,
+		),
+	).ResolveBIOS(
+		ctx,
+		providerID,
+		targetID,
+		contentLogicalName,
 	)
 	if err != nil || validationStatus != "READY" {
 		return ErrInvalid
@@ -527,7 +545,7 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 	}
 	if input.ContentKind != multidisc.ContentKind {
 		digest, err := corevalidation.ProviderValidationInputDigest(
-			input.ProviderID, input.TargetID, input.ContentID, input.DATID, input.Snapshot,
+			input.ProviderID, input.TargetID, input.ContentID, dbexec.StringPointer(input.DATID), input.Snapshot,
 		)
 		if err != nil {
 			return "", fmt.Errorf("libraryimport/service: %w", err)
@@ -545,7 +563,7 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 		GameVariantID: input.VariantID, GameID: input.ContentID,
 		ContentKind: input.ContentKind, ProviderID: input.ProviderID, TargetID: input.TargetID,
 		ContentPolicySHA256: input.ContentPolicy.Digest(),
-		DATVersionID:        input.DATID, BIOSDependencySHA256: biosDigest,
+		DATVersionID:        dbexec.StringPointer(input.DATID), BIOSDependencySHA256: biosDigest,
 		OrderedDiscSHA256:       input.Snapshot.MultiDisc.OrderedDiscSHA256,
 		CanonicalPlaylistSHA256: input.Snapshot.MultiDisc.CanonicalPlaylistSHA256,
 	})
