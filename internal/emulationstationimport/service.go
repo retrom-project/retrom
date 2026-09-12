@@ -2,7 +2,6 @@ package emulationstationimport
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -33,10 +32,10 @@ var (
 	ErrScanLimit            = errors.New("EMULATIONSTATION_SCAN_LIMIT_EXCEEDED")
 	ErrMapping              = application.ErrMapping
 	ErrVersionConflict      = application.ErrVersionConflict
-	ErrNoSelection          = errors.New("EMULATIONSTATION_NO_COLLECTION_SELECTED")
-	ErrSourceChanged        = errors.New("EMULATIONSTATION_SOURCE_CHANGED")
-	ErrMappingTargetChanged = errors.New("EMULATIONSTATION_MAPPING_TARGET_CHANGED")
-	ErrExpired              = errors.New("EMULATIONSTATION_PLAN_EXPIRED")
+	ErrNoSelection          = application.ErrNoSelection
+	ErrSourceChanged        = application.ErrSourceChanged
+	ErrMappingTargetChanged = application.ErrMappingTargetChanged
+	ErrExpired              = application.ErrExpired
 	ErrActive               = application.ErrActive
 	ErrInvalid              = application.ErrInvalid
 	ErrNotCancellable       = errors.New("EMULATIONSTATION_IMPORT_NOT_CANCELLABLE")
@@ -448,11 +447,6 @@ WHERE id=? AND state='RUNNING' AND worker_id='emulationstation-import-worker'
 `, now, now+60000, now, unit.JobID)
 		}
 	}
-}
-
-func jobDedupe(kind, value string) string {
-	digest := sha256.Sum256([]byte("retrom-job-dedupe-v1\x00" + kind + "\x00" + value))
-	return hex.EncodeToString(digest[:])
 }
 
 func boolInt(value bool) int {
