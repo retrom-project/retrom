@@ -9,6 +9,7 @@ import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import {fantasyClient, previewCart, launchCart, saveCart} from "./fantasy_product_client.mjs";
 import {singleFile, reviewForImport} from "./rpgmaker_security_upload.mjs";
 import {observeFantasyAudio, fantasyAudioEvidence} from "./fantasy_fixture.mjs";
+import {observePSPRange, rangeSummary, assertPartialStartup} from "./ppsspp_range_observation.mjs";
 import {observePSP, openPSP, capturePSP, pressPSP, pausePSP, pspFrames, skyMenu, waitSkyMenu,
   waitHalfMinuteMenu, halfMinuteSelection, exitPSP, checkPSPLayout} from "./ppsspp_product_browser.mjs";
 
@@ -34,6 +35,7 @@ try {
     args: ["--autoplay-policy=no-user-gesture-required", ...(env.RETROM_ACCEPTANCE_SOFTWARE_GL === "1" ? ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] : [])]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   await installVirtualStandardGamepad(context); await observeFantasyAudio(context); await observePSP(context, evidence);
+  const network = observePSPRange(context);
   const client = await fantasyClient(context, base);
   await client.json("POST", "/api/v1/admin/platform-instances/recommendations/apply", {headers: client.writeHeaders(), data: {}});
   const platforms = await client.json("GET", "/api/v1/admin/platform-instances?platformId=psp&limit=100");
@@ -50,6 +52,8 @@ try {
     }
     const preview = await openPSP(context, base, await previewCart(client, progress[key].review.itemId), evidence);
     if (key === "sky") await waitSkyMenu(preview); else await waitHalfMinuteMenu(preview);
+    await pausePSP(preview); await network.flush();
+    (evidence.coldStarts ??= {})[key] = assertPartialStartup(rangeSummary(network.requests, preview.config.resources.find(item => item.role === "game")));
     await capturePSP(preview, directory, `review-${key}`); await preview.page.close(); stage(`preview-${key}`);
     const snapshot = await client.raw("GET", `/api/v1/admin/reviews/${progress[key].review.itemId}`);
     assert.equal(snapshot.status(), 200);
@@ -83,6 +87,8 @@ try {
   const requests = evidence.contentRequests, restoredLaunch = await launchCart(client, progress.sky.gameId, saved.saveStateId);
   assert.notEqual(restoredLaunch.launchId, firstLaunch.launchId);
   const restored = await openPSP(context, base, restoredLaunch, evidence);
+  await pausePSP(restored); await network.flush();
+  evidence.cache = {additionalRequests: evidence.contentRequests - requests}; assert.equal(evidence.cache.additionalRequests, 0, "PSP_CACHE_MISS");
   const response = await client.raw("GET", restored.config.restore.url);
   assert.equal(response.status(), 200); const stored = await response.body();
   assert.equal(stored.length, restored.config.restore.sizeBytes);
@@ -98,8 +104,9 @@ try {
   assert.equal((await skyMenu(restored)).selected, initial.selected, "PSP_RESTORED_INPUT_MISSING");
   await pressPSP(restored, 0); await restored.page.waitForTimeout(2500); await capturePSP(restored, directory, "confirmed");
   assert.notDeepEqual(await skyMenu(restored), initial, "PSP_CONFIRM_MISSING");
-  evidence.cache = {additionalRequests: evidence.contentRequests - requests}; assert.equal(evidence.cache.additionalRequests, 0, "PSP_CACHE_MISS");
-  assert.equal(evidence.rangeRequests, 0, "PSP_UNEXPECTED_RANGE");
+  rangeSummary(network.requests, restored.config.resources.find(item => item.role === "game"));
+  assert.ok(evidence.rangeRequests > 0, "PSP_RANGE_MISSING");
+  assert.equal(evidence.rangeRequests, evidence.contentRequests, "PSP_WHOLE_DISC_REQUEST");
   evidence.checkpoint.restoredLaunchId = restoredLaunch.launchId;
   await exitPSP(restored, restoredLaunch.launchId, evidence, base + `/games/${progress.sky.gameId}`); stage("restored-input-confirm");
   const secondLaunch = await launchCart(client, progress.second.gameId);

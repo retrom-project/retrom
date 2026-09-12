@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import {join} from "node:path";
 import {gamepad} from "./fantasy_product_client.mjs";
 import {resumePreview, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {isPSPDiscRequest} from "./ppsspp_range_observation.mjs";
 
 export async function observePSP(context, evidence) {
-  evidence.stoppedHosts = 0;
+  evidence.stoppedHosts ??= 0;
   await context.exposeBinding("__pspStopped", () => {evidence.stoppedHosts++;});
   await context.addInitScript(() => {
     Object.defineProperty(window, "__RETROM_PPSSPP_V1__", {
@@ -13,7 +14,7 @@ export async function observePSP(context, evidence) {
       set(value) {
         const create = value.createPPSSPPHost;
         value.createPPSSPPHost = async function(options) {
-          const core = await create(options);
+          const core = await create(options).catch(error => {console.error("PSP_CREATE_FAILED", error.message); throw error;});
           window.__pspAcceptanceFrames = () => core.frameCount();
           const stop = core.stop;
           core.stop = async function() {await stop(); await window.__pspStopped();};
@@ -32,10 +33,11 @@ export async function openPSP(context, base, launch, evidence) {
   });
   page.on("console", message => {
     if (message.type() === "error") console.log("PSP_BROWSER", message.text().slice(0, 500));
+    if (message.type() === "warning" && message.text().startsWith("PPSSPP:")) console.log("PSP_DIAGNOSTIC", message.text().slice(0, 500));
     if (/memory access out of bounds|WebGL: INVALID|PPSSPP_RESTORE_FAILED/u.test(message.text())) evidence.errors.push(message.text());
   });
   page.on("request", request => {
-    if (/\/content\//u.test(request.url()) && !request.url().endsWith("index.json")) {
+    if (isPSPDiscRequest(request.url())) {
       evidence.contentRequests++; if (request.headers().range) evidence.rangeRequests++;
     }
   });
