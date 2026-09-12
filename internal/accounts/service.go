@@ -2,16 +2,13 @@ package accounts
 
 import (
 	"context"
-	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	accountpersistence "retrom/internal/persistence/accounts"
@@ -29,15 +26,9 @@ import (
 	retromruntime "retrom/internal/runtime"
 )
 
-const (
-	idleDuration     = 8 * time.Hour
-	absoluteDuration = 24 * time.Hour
-	refreshInterval  = 5 * time.Minute
-)
-
 var (
-	ErrAuthentication       = errors.New("AUTHENTICATION_FAILED")
-	ErrAuthenticationNeeded = errors.New("AUTHENTICATION_REQUIRED")
+	ErrAuthentication       = accountservice.ErrAuthentication
+	ErrAuthenticationNeeded = accountservice.ErrAuthenticationNeeded
 	ErrInitialization       = errors.New("INITIALIZATION_REQUIRED")
 	ErrInitializationDone   = errors.New("INITIALIZATION_ALREADY_COMPLETED")
 	ErrInitializationProof  = errors.New("INITIALIZATION_PROOF_INVALID")
@@ -59,21 +50,10 @@ type Service struct {
 	dummyPHC    string
 }
 
-type User struct {
-	UserID      string `json:"userId"`
-	Username    string `json:"username"`
-	DisplayName string `json:"displayName"`
-	Role        string `json:"role"`
-}
-
-type Session struct {
-	Principal           authn.Principal
-	User                User
-	CSRFToken           string
-	IdleExpiresAtMS     int64
-	AbsoluteExpiresAtMS int64
-	CookieToken         string
-}
+type (
+	User    = accountservice.User
+	Session = accountservice.Session
+)
 
 type Context struct {
 	InstanceState            string
@@ -325,147 +305,43 @@ VALUES(?,'SYSTEM',NULL,?,'INSTANCE_INITIALIZED','USER',?,NULL,'{}','{}',NULL,?)
 	), nil
 }
 
-// Authentication deliberately keeps the dummy-hash and real-user paths indistinguishable.
-func (service *Service) Login(ctx context.Context, usernameInput, passwordInput string) (Session, error) {
-	identity, err := service.verifyLogin(ctx, usernameInput, passwordInput)
-	if err != nil {
-		return Session{}, err
-	}
-	prepared, err := service.prepareSession()
-	if err != nil {
-		return Session{}, err
-	}
-	now := service.now().UTC().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return Session{}, fmt.Errorf("begin login: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	result, err := recordstore.UpdateUsers(ctx, transaction, recordstore.Update{
-		Set: `last_login_at_ms=?,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND status='ENABLED' AND session_version=?`,
-			Args:  []any{identity.userID, identity.sessionVersion},
+func (service *Service) authentication() *accountservice.Authentication {
+	return accountservice.NewAuthentication(
+		accountpersistence.NewAuthentication(
+			service.database,
+		),
+		service.hasher,
+		func() (accountservice.SessionMaterial, error) {
+			prepared, err := service.prepareSession()
+			if err != nil {
+				return accountservice.SessionMaterial{}, err
+			}
+			return accountservice.SessionMaterial{ID: prepared.id, Token: prepared.token, Hash: prepared.hash}, nil
 		},
-		Values: []any{now, now},
-	})
-	if err != nil {
-		return Session{}, fmt.Errorf("record login: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return Session{}, ErrAuthentication
-	}
-	if err := insertPreparedSession(
-		ctx, transaction, prepared, identity.userID, identity.sessionVersion, now,
-	); err != nil {
-		return Session{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Session{}, fmt.Errorf("commit login: %w", err)
-	}
-	return prepared.view(
-		User{
-			UserID: identity.userID, Username: identity.username,
-			DisplayName: identity.displayName, Role: identity.role,
-		},
-		identity.profileID, identity.sessionVersion, now,
-	), nil
+		service.dummyPHC,
+		func() time.Time { return service.now() },
+	)
 }
 
-type loginIdentity struct {
-	userID, profileID, username, displayName, role string
-	sessionVersion                                 int64
-}
-
-func (service *Service) verifyLogin(
-	ctx context.Context,
-	usernameInput, passwordInput string,
-) (loginIdentity, error) {
-	username, usernameErr := authn.NormalizeUsername(usernameInput)
-	password, passwordErr := authn.NormalizeLoginPassword(passwordInput)
-	var userID, profileID, displayName, role, status, encoded string
-	var sessionVersion int64
-	lookupErr := sql.ErrNoRows
-	if usernameErr == nil {
-		lookupErr = service.database.QueryRowContext(ctx, `
-SELECT u.id,u.profile_id,u.display_name,u.role,u.status,u.session_version,c.password_hash
-FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE u.username=?
-`, username).Scan(&userID, &profileID, &displayName, &role, &status, &sessionVersion, &encoded)
+func (service *Service) Login(ctx context.Context, username, password string) (Session, error) {
+	result, err := service.authentication().Login(ctx, username, password)
+	if err != nil {
+		return Session{}, fmt.Errorf("authenticate login: %w", err)
 	}
-	if lookupErr != nil {
-		encoded = service.dummyPHC
-	}
-	if passwordErr != nil {
-		password = strings.Repeat("x", 24)
-	}
-	verified, verifyErr := service.hasher.Verify(ctx, password, encoded)
-	if verifyErr != nil {
-		return loginIdentity{}, fmt.Errorf("verify login password: %w", verifyErr)
-	}
-	if usernameErr != nil || passwordErr != nil || lookupErr != nil || !verified || status != "ENABLED" {
-		return loginIdentity{}, ErrAuthentication
-	}
-	return loginIdentity{
-		userID: userID, profileID: profileID, username: username,
-		displayName: displayName, role: role, sessionVersion: sessionVersion,
-	}, nil
+	return result, nil
 }
 
 func (service *Service) Authenticate(ctx context.Context, token string) (Session, error) {
-	raw, err := decodeToken(token)
-	if err != nil {
-		return Session{}, ErrAuthenticationNeeded
-	}
-	digest := sha256.Sum256(raw)
-	var sessionID, userID, profileID, username, displayName, role, status string
-	var userVersion, sessionVersion, lastSeen, idleExpiry, absoluteExpiry int64
-	var revoked sql.NullInt64
-	err = service.database.QueryRowContext(ctx, `
-SELECT s.id,u.id,u.profile_id,u.username,u.display_name,u.role,u.status,u.session_version,
-s.user_session_version,s.last_seen_at_ms,s.idle_expires_at_ms,s.absolute_expires_at_ms,s.revoked_at_ms
-FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_sha256=?
-`, digest[:]).Scan(
-		&sessionID, &userID, &profileID, &username, &displayName, &role, &status, &userVersion,
-		&sessionVersion, &lastSeen, &idleExpiry, &absoluteExpiry, &revoked,
-	)
-	now := service.now().UTC().UnixMilli()
-	if errors.Is(err, sql.ErrNoRows) {
-		return Session{}, ErrAuthenticationNeeded
-	}
+	result, err := service.authentication().Authenticate(ctx, token)
 	if err != nil {
 		return Session{}, fmt.Errorf("authenticate session: %w", err)
 	}
-	if revoked.Valid || status != "ENABLED" || userVersion != sessionVersion ||
-		now >= idleExpiry || now >= absoluteExpiry {
-		return Session{}, ErrAuthenticationNeeded
-	}
-	if now-lastSeen >= refreshInterval.Milliseconds() {
-		newIdle := min(now+idleDuration.Milliseconds(), absoluteExpiry)
-		_, _ = service.database.ExecContext(ctx, `
-UPDATE auth_sessions SET last_seen_at_ms=?,idle_expires_at_ms=?
-WHERE id=? AND revoked_at_ms IS NULL AND last_seen_at_ms=?
-`, now, newIdle, sessionID, lastSeen)
-		idleExpiry = newIdle
-	}
-	principal := authn.Principal{
-		UserID: userID, ProfileID: profileID, Username: username, DisplayName: displayName,
-		Role: role, SessionID: sessionID, SessionVersion: sessionVersion, SessionToken: token,
-	}
-	return Session{
-		Principal: principal, User: User{UserID: userID, Username: username, DisplayName: displayName, Role: role},
-		CSRFToken: csrfToken(raw), IdleExpiresAtMS: idleExpiry, AbsoluteExpiresAtMS: absoluteExpiry,
-		CookieToken: token,
-	}, nil
+	return result, nil
 }
 
-func (service *Service) Logout(ctx context.Context, sessionID string) error {
-	now := service.now().UTC().UnixMilli()
-	_, err := service.database.ExecContext(ctx, `
-UPDATE auth_sessions SET revoked_at_ms=?,revoked_reason='LOGOUT'
-WHERE id=? AND revoked_at_ms IS NULL
-`, now, sessionID)
-	if err != nil {
-		return fmt.Errorf("revoke auth session: %w", err)
+func (service *Service) Logout(ctx context.Context, id string) error {
+	if err := service.authentication().Logout(ctx, id); err != nil {
+		return fmt.Errorf("logout session: %w", err)
 	}
 	return nil
 }
@@ -614,6 +490,8 @@ func (service *Service) Context(ctx context.Context, cookie string) (Context, er
 	session, err := service.Authenticate(ctx, cookie)
 	if err == nil {
 		result.Session = &session
+	} else if !errors.Is(err, ErrAuthenticationNeeded) {
+		return Context{}, fmt.Errorf("read authentication context: %w", err)
 	}
 	return result, nil
 }
@@ -655,12 +533,13 @@ func insertPreparedSession(
 	userID string,
 	sessionVersion, now int64,
 ) error {
+	record := (accountservice.SessionMaterial{ID: prepared.id, Hash: prepared.hash}).Record(userID, sessionVersion, now)
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO auth_sessions(id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,
 idle_expires_at_ms,absolute_expires_at_ms)
 VALUES(?,?,?,?,?,?,?,?)
 `, prepared.id, userID, prepared.hash[:], sessionVersion, now, now,
-		now+idleDuration.Milliseconds(), now+absoluteDuration.Milliseconds())
+		record.IdleExpiry, record.AbsoluteExpiry)
 	if err != nil {
 		return fmt.Errorf("create auth session: %w", err)
 	}
@@ -668,39 +547,20 @@ VALUES(?,?,?,?,?,?,?,?)
 }
 
 func (prepared preparedSession) view(user User, profileID string, version, now int64) Session {
-	raw, _ := base64.RawURLEncoding.DecodeString(prepared.token)
-	principal := authn.Principal{
-		UserID: user.UserID, ProfileID: profileID, Username: user.Username, DisplayName: user.DisplayName,
-		Role: user.Role, SessionID: prepared.id, SessionVersion: version, SessionToken: prepared.token,
-	}
-	return Session{
-		Principal: principal, User: user, CSRFToken: csrfToken(raw),
-		IdleExpiresAtMS:     now + idleDuration.Milliseconds(),
-		AbsoluteExpiresAtMS: now + absoluteDuration.Milliseconds(), CookieToken: prepared.token,
-	}
-}
-
-func csrfToken(raw []byte) string {
-	mac := hmac.New(sha256.New, raw)
-	_, _ = mac.Write([]byte("retrom-csrf-v1"))
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	return (accountservice.SessionMaterial{
+		ID:    prepared.id,
+		Token: prepared.token,
+		Hash:  prepared.hash,
+	}).View(
+		user,
+		profileID,
+		version,
+		now,
+	)
 }
 
 func MatchesCSRF(sessionToken, supplied string) bool {
-	raw, err := decodeToken(sessionToken)
-	if err != nil {
-		return false
-	}
-	expected := csrfToken(raw)
-	return subtle.ConstantTimeCompare([]byte(expected), []byte(supplied)) == 1
-}
-
-func decodeToken(encoded string) ([]byte, error) {
-	raw, err := base64.RawURLEncoding.Strict().DecodeString(encoded)
-	if err != nil || len(raw) != 32 || base64.RawURLEncoding.EncodeToString(raw) != encoded {
-		return nil, ErrAuthenticationNeeded
-	}
-	return raw, nil
+	return accountservice.MatchesCSRF(sessionToken, supplied)
 }
 
 func newID() string {
