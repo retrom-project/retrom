@@ -14,7 +14,7 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 20 }, func() bool { return len(catalog.Templates) != 57 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 25 }, func() bool { return len(catalog.Templates) != 62 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
 	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
 }
@@ -22,6 +22,9 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 func TestCatalogContainsNewEmulatorJSSingleFileDirectories(t *testing.T) {
 	t.Parallel()
 	want := map[string]string{
+		"vectrex/vecx":              "Vectrex 游戏",
+		"intellivision/freeintv":    "Intellivision 游戏",
+		"neogeocd/neocd":            "Neo Geo CD 游戏",
 		"zxspectrum/fuse":           "ZX Spectrum 游戏",
 		"c64/vice_x64sc":            "Commodore 64 游戏",
 		"colecovision/gearcoleco":   "ColecoVision 游戏",
@@ -155,4 +158,13 @@ func TestCatalogIncludesScummVMProjectDirectory(t *testing.T) {
 		}
 	}
 	t.Fatal("ScummVM directory is missing")
+}
+
+func TestCatalogContainsPokemonMiniDirectory(t *testing.T) {
+	for _, template := range Current().Templates {
+		if template.Key == "pokemini/gbe_plus" && template.PlatformID == "pokemini" && template.DefaultCoreID == "gbe_plus" {
+			return
+		}
+	}
+	t.Fatal("Pokémon Mini directory template missing")
 }

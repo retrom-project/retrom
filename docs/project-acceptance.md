@@ -1038,6 +1038,22 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 无头 Chrome 无法推进动画帧的环境可使用 `RETROM_SMOKE_HEADED=1 xvfb-run -a node web/smoke/emulatorjs-single-file.mjs`，其余输入、截图和超时门禁保持一致，证据记录浏览器版本与软件渲染器。
 
+### ACC-INTV-001：Intellivision / FreeIntv 产品验证
+
+- 上限：每个样本 240 秒。使用 `web/smoke/emulatorjs-single-file.mjs` 的 `freeintv` scenario，环境、输入结构、证据与画面复核规则同 ACC-RUN-013。
+- 前置：操作者授权的单卡带经真实上传、导入、审核预览与发布；确认缺少 `exec.bin` 或 `grom.bin` 时阻断，并通过 BIOS 管理安装两项，普通自动测试不读取私有游戏和 BIOS。
+- 流程：在审核预览和 Product Launch 确认真实游戏画面；使用标准手柄完成方向与确认，保存状态 B，继续到 C，结束旧 Launch 后由不同 Launch 恢复 B，再验证输入和退出。真实键盘独立验证；同一手柄按钮不得重复发送两个目标输入。
+- 通过标准：依赖 snapshot 包含两份正确 BIOS；单游戏 `ROM_BLOB`、Provider/Target、gzip checkpoint 格式和摘要与配置一致；画面明确证明方向、确认、恢复位置与恢复后输入。`REVIEW_REQUIRED` 经当次画面复核才能记 PASS，错误读档、重开局或无输入响应均失败。物理手柄验收与虚拟标准手柄证据分开记录。
+- 证据：导入、缺失 BIOS 阻断及安装、预览、发布记录，逐样本 A/B/C/恢复 B/恢复后输入截图，Provider/Bundle/module 与内容 size/SHA、存档与不同 Launch 身份。结论仅覆盖当次样本，不外推 ECS 或全库兼容。
+
+### ACC-RUN-016：bsnes 备用核心产品验证
+
+- 上限：每个样本 240 秒；入口、scenario 与环境参数沿用 ACC-RUN-013 的 `web/smoke/emulatorjs-single-file.mjs`，`coreId` 固定为 `bsnes`。
+- 前置：在目标 PFB 完成操作者授权 SNES 游戏的正常上传、导入、审核预览及发布。推荐目录仍只有 Snes9x；详情页可显式选择 bsnes；可为审核预览手动建立测试目录，不能将其加入推荐模板。私有游戏不进入普通 CI 或可提交 fixture。
+- 流程：核对 Launch 绑定 `emulatorjs/bsnes` 和 4.3.0-pre 前端及固定 fork Release（PFB 联调时为 candidate）的源码、产物摘要；记录初始 A、标准手柄方向及确认后的 B，显式保存 B，再继续输入到 C。关闭旧页面，通过不同 Launch 恢复 B，验证恢复位置、继续输入与退出清理。保留审核预览截图；键盘与手柄分别使用既有 SNES 输入映射。
+- 通过标准：复核方向、确认的可见响应，以及 C→B 的位置或菜单状态恢复；已支持的取消保持有效。非空存档、哈希变化、帧计数或 HTTP 200 不能代替画面证据；`REVIEW_REQUIRED` 经本次画面复核后才记 PASS。Snes9x 仍可独立选择；bsnes 使用独立 checkpoint format，两个核心的存档不能混用。测试目录默认核心切回 Snes9x 后，普通“从存档继续”仍应通过未指定 `coreId` 的请求恢复 bsnes 存档，并在 Launch 中确认 `targetId=bsnes`；bsnes 不出现在联机 profile 中。
+- 证据：导入/审核/发布记录、Provider/Target/Bundle/module 与内容 digest、A/B/C/恢复 B/恢复后输入截图、存档格式/大小/摘要和退出结果。仅证明当次样本，不外推 Super Game Boy、Satellaview、MSU-1 或 SNES 全库兼容。
+
 ### ACC-SAVE-001：手动状态存档与截图
 
 - 上限：180 秒。
@@ -2081,6 +2097,32 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 通过标准：无浏览器异常，`play-state-v1` 新存档在不同 Launch 精确恢复命名状态，方向/确认/取消、暂停、截图、音频与缓存断言通过。证据为 `play-product.json` 与各阶段 PNG。自动化使用标准映射虚拟手柄；实体设备、完整比赛、跨游戏图形兼容性与声音质量不属于该 Case 的通过结论。《Ridge Racer V》上下跳动及三维场景缺失作为已知图形兼容性问题记录，不更改正常核心绑定与启动行为。
 
 
+### ACC-PC88-001：QUASI88 PC-88 磁盘与即时状态
+
+以作者公开发布的《The Librarian》v0.91 D88 为外部语料，运行
+`scripts/acceptance/pc88_product.mjs`，完成 BIOS 安装、正常导入、审核预览、发布、
+Product Launch、标准手柄确认/方向、创建即时存档、不同 Launch 恢复与恢复后输入。
+场景固定 1280×900 viewport：用确认键跳过剧情进入六边形地图，向右移动后保存 B，
+再向左移动到 C；新会话须直接恢复 B 的整幅地图像素，继续向左须到达 C 的角色位置。
+另外从 B 创建新会话，以真实键盘 Numpad4 向左移动到 C。移动比较角色身体位置，
+避免随机遭遇和角色边缘重绘差异；每次恢复仍严格比较整幅地图。
+输入前先证明静止地图不随时间改变，当前运行的 A/B/C/恢复截图仍须目视复核角色位置。
+保存截图不能是空白，音频须有非零采样。虚拟标准手柄不替代实体手柄验收。
+
+运行变量为 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、
+`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_PC88_DISC`、
+`RETROM_PC88_BIOS_DIR`。游戏 SHA-256 固定为
+`e98b5084ee0392351d1c9a1dc49dc07ba2f799d7cc0ca53a186a28786b8a296a`。
+缺少输入时输出 BLOCKED；硬超时 600 秒。失败在发布前时可通过 `RETROM_PC88_REVIEW_ID`
+继续同一待审核项。若已发布，可用 `RETROM_PC88_RESUME_EVIDENCE` 指向完整记录导入、预览、发布的
+此前 JSON，重新验证同一游戏；结果保留此前证据摘要，且 Provider、模块和 Bundle 必须完全相同。
+正式发行包复测可同时指定 `RETROM_PC88_EXPECTED_BUNDLE_SHA256` 和
+`RETROM_PC88_EXPECTED_CORE_SHA256`：正常下载并核对核心 bytes，允许 Provider 版本升级，
+保留此前导入/预览证据引用，并重新执行产品启动、存档和不同 Launch 恢复。
+驱动不会替换已有 BIOS 安装。输出 `pc88-product.json` 和普通游戏截图，
+不下载、提交游戏/BIOS，也不记录授权凭据。首版仅声明单张 D88/U88 和即时状态，
+一个样本不能证明全部 PC-88 软件、多盘切换或磁盘写入兼容性。
+
 ### ACC-PC98-001：NP2kai PC-98 磁盘与即时状态
 
 以作者公开发布的《囚人へのペル・エム・フル》2025-12-31 HDI 为外部语料，使用
@@ -2189,6 +2231,67 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
   键盘移动与射击生效，恢复后输入仍生效。通过后在 `px68k-input-product.json` 写入视觉检查结果并将 status 标记为 PASS。
   调色板循环在暂停时仍可能改变像素，不能仅凭画面摘要不同判断游戏未暂停。本步骤使用《超连射 68K》游戏中的存档；
   其他样本须有同等明确的动作判据。实体手柄的硬件事件采集不在虚拟标准手柄验收结论内。
+
+### ACC-VECTREX-001：Vectrex 单卡带产品验证
+
+- 上限：每个样本 240 秒，样本分别记录。入口为 `web/smoke/emulatorjs-single-file.mjs`，
+  环境变量与 scenario 字段沿用 ACC-RUN-013；`coreId` 固定为 `vecx`。
+- Linux 本机使用 `RETROM_SMOKE_HEADED=1 xvfb-run -a node web/smoke/emulatorjs-single-file.mjs`；
+  `startupMs` 应覆盖卡带的开机动画；保存点必须位于能辨认角色位置的实际游戏场景。
+- 输入：操作者提供的 `.vec/.bin` 或 ZIP/7z 单游戏归档，仅用于本机验收，不进入普通测试 fixture。
+- 前置：正常上传、导入、审核 Preview 和发布；预览必须产生真实可辨画面，记录 Provider/Target、
+  内容摘要及预览 Launch。缺少外部 BIOS 上传时仍可运行。
+- 流程：A 初始画面，标准手柄方向与确认后的 B，显式保存 B；继续操作得到 C，退出并关闭旧页面，
+  从存档创建不同 Launch 恢复 B，再输入和退出。另验证独立键盘可响应。
+- 通过标准：本次 A/B/C/恢复 B 与恢复后输入截图证明游戏内方向、确认、保存位置和继续执行；
+  帧数、hash 或非空存档不能单独证明通过。状态必须经公共 gzip 压缩一次且绑定同一游戏与 Target。
+  `REVIEW_REQUIRED` 经本次画面复核后方可记录 PASS；记录没有实体手柄时的硬件验证限制。
+- 证据：导入/审核/发布记录、预览与不同产品 Launch、压缩状态长度/hash、原生状态版本、
+  浏览器与渲染器、连续画面和退出清理。单个样本的结论不外推到全部 Vectrex 游戏或外围设备。
+
+### ACC-NEOCD-001：Neo Geo CD CHD、标准手柄与即时恢复
+
+- 显式命令：`timeout 600 node scripts/acceptance/neocd_product.mjs`，使用 PFB 固定 Node 和 Chrome。
+  输入 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_NEOCD_CHD`、`RETROM_NEOCD_BIOS_DIR`，
+  `RETROM_ACCEPTANCE_CASE_DIR` 指向忽略的证据目录。BIOS 目录含 `neocd.bin`。
+  普通测试不扫描或下载私有游戏。本 Case 只处理操作者显式指定的文件。
+- 经产品上传安装 BIOS、上传 CHD、导入、审核预览、批准和 Product Launch；通过标准
+  虚拟手柄启动并操作游戏，记录方向与确认前后截图、实际 Web Audio 非零缓冲。
+- 用 Player 创建非空即时存档；关闭原页面，在不同 Launch 恢复，核验公共 gzip
+  格式、传输大小/摘要，以及解压后完整原始状态摘要。恢复后继续方向、确认输入；
+  不选存档另建 Launch 应重新启动。NeoCD 游戏资源必须为 `SEEKABLE_BLOB`/`rangeRequired=true`；
+  所有游戏请求均携带 Range 并返回 206，单块不超过 256 KiB。记录首次 ready 耗时、
+  启动时已传输字节、各范围与总下载量；同一浏览器上下文跨实例不应重复请求已缓存块。
+  大于 32 MiB 的样本在本 Case 中累计下载量必须小于镜像的一半，不得整包预取。
+- 输出 `neocd-storage-product.json` 和阶段 PNG；自动化先标记 `AWAITING_VISUAL_REVIEW`，
+  逐图确认可操作游戏场景、状态恢复与输入生效后才能记录 PASS。仅有 BIOS 或标题画面不算通过。
+  `product-input.json` 允许失败重试复用当前样本；已发布样本复测需与首次审核证据一起保留。
+  已发布样本复测可额外传 `RETROM_NEOCD_PREVIEW_REVIEW_ID`，指定同一 CHD 的待审核项
+  重跑当前 Provider 预览并保留该审核项；此复测不再次批准重复游戏。
+  冷启动样本可设置 `RETROM_NEOCD_GAMEPLAY_WAIT_MS`（0–120000），在启动按键序列后
+  再确认一次并等待指定时长，以越过角色选择或开场动画；仍须逐图判定实际场景。
+- 实体手柄事件、听觉质量、全部游戏兼容性、CUE/BIN 与多盘不在本 Case 的通过范围。
+
+- 复测可提供 `RETROM_NEOCD_SEED_SAVE_ID` 从已验证关卡状态开始；必须保留同一游戏首次
+  导入、预览、发布的证据，并明确复测复用了已发布游戏。实体按键语义以 NeoCD 原生
+  A/B/C/D 为准：标准手柄底/右/左/上四个面键分别映射 A/B/C/D；B 是游戏的次要动作，
+  不一概声称为取消。原生肩键组合宏不绑定标准手柄按钮。
+
+### ACC-POKEMINI-001：GBE+ Pokémon Mini 输入与即时恢复
+
+显式提供 `RETROM_ACCEPTANCE_BASE_URL`、验收用户名/密码、`RETROM_CHROME_EXECUTABLE`、
+`RETROM_POKEMINI_ROM`（Pokémon Puzzle Collection USA/Europe 的单个 MIN 文件）、
+`RETROM_POKEMINI_BIOS_DIR`（含 `bios.min`）。不提交、不自动下载游戏和 BIOS；缺少输入为 BLOCKED。
+
+入口 `scripts/acceptance/pokemini_product.mjs` 执行 BIOS 安装、Upload/Import/Review Preview、
+审核发布、Product Launch、标准手柄方向与确认、音频、暂停截图、非空公共 gzip 存档，
+再以不同 Launch 恢复同一执行位置并验证后续输入。三个运行实例只允许一次 ROM 网络下载。
+证据 `pokemini-product.json` 记录非秘密身份、内容摘要、截图和各阶段断言，任何必需步骤
+失败均不能判为 PASS。用标准手柄确认首次 BIOS 时钟设置，以标题区指纹等待片头结束。
+恢复画面对比仅排除关卡菜单的动画缩略图，并保留静态网格与光标；还需进入实际关卡。
+本地输入记录支持发布前继续同一导入项；完整重跑需未导入该游戏的测试数据。
+成功样本不代表所有游戏兼容，虚拟标准手柄也不证明实体控制器的硬件采集。
 
 
 ### ACC-PSP-001：独立 PPSSPP 的产品启动与即时存档

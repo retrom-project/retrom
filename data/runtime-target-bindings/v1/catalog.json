@@ -58,6 +58,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-bsnes",
+      "coreId": "bsnes",
+      "providerId": "emulatorjs",
+      "targetId": "bsnes",
+      "platformIds": [
+        "snes"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-cap32",
       "coreId": "cap32",
       "providerId": "emulatorjs",
@@ -191,6 +205,20 @@
       "targetId": "flycast",
       "platformIds": [
         "dreamcast"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-freeintv",
+      "coreId": "freeintv",
+      "providerId": "emulatorjs",
+      "targetId": "freeintv",
+      "platformIds": [
+        "intellivision"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -425,6 +453,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-neocd",
+      "coreId": "neocd",
+      "providerId": "emulatorjs",
+      "targetId": "neocd",
+      "platformIds": [
+        "neogeocd"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-nestopia",
       "coreId": "nestopia",
       "providerId": "emulatorjs",
@@ -538,6 +580,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-quasi88",
+      "coreId": "quasi88",
+      "providerId": "emulatorjs",
+      "targetId": "quasi88",
+      "platformIds": [
+        "pc88"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-same-cdi",
       "coreId": "same_cdi",
       "providerId": "emulatorjs",
@@ -586,6 +642,20 @@
       "targetId": "stella2014",
       "platformIds": [
         "atari2600"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-vecx",
+      "coreId": "vecx",
+      "providerId": "emulatorjs",
+      "targetId": "vecx",
+      "platformIds": [
+        "vectrex"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -746,6 +816,20 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "FLASH_SWF",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-gbe-pokemini",
+      "coreId": "gbe_plus",
+      "providerId": "retrom-runtime",
+      "targetId": "gbe-pokemini",
+      "platformIds": [
+        "pokemini"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "POKEMINI_ROM",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -1152,6 +1236,12 @@
         "enabled": true
       },
       {
+        "id": "intellivision",
+        "name": "Mattel Intellivision",
+        "sortOrder": 560,
+        "enabled": true
+      },
+      {
         "id": "j2me",
         "name": "Java ME",
         "sortOrder": 82,
@@ -1200,6 +1290,12 @@
         "enabled": true
       },
       {
+        "id": "neogeocd",
+        "name": "Neo Geo CD",
+        "sortOrder": 550,
+        "enabled": true
+      },
+      {
         "id": "nes",
         "name": "NES / Famicom",
         "sortOrder": 10,
@@ -1227,6 +1323,12 @@
         "id": "openbor",
         "name": "OpenBOR",
         "sortOrder": 85,
+        "enabled": true
+      },
+      {
+        "id": "pc88",
+        "name": "NEC PC-88",
+        "sortOrder": 570,
         "enabled": true
       },
       {
@@ -1269,6 +1371,12 @@
         "id": "plus4",
         "name": "Commodore Plus/4",
         "sortOrder": 530,
+        "enabled": true
+      },
+      {
+        "id": "pokemini",
+        "name": "Nintendo Pokémon Mini",
+        "sortOrder": 610,
         "enabled": true
       },
       {
@@ -1323,6 +1431,12 @@
         "id": "tyranoscript",
         "name": "TyranoScript",
         "sortOrder": 79,
+        "enabled": true
+      },
+      {
+        "id": "vectrex",
+        "name": "GCE Vectrex",
+        "sortOrder": 560,
         "enabled": true
       },
       {
@@ -1390,6 +1504,11 @@
         "enabled": true
       },
       {
+        "id": "bsnes",
+        "name": "bsnes",
+        "enabled": true
+      },
+      {
         "id": "butterscotch",
         "name": "Butterscotch",
         "enabled": true
@@ -1450,6 +1569,11 @@
         "enabled": true
       },
       {
+        "id": "freeintv",
+        "name": "FreeIntv",
+        "enabled": true
+      },
+      {
         "id": "fuse",
         "name": "Fuse",
         "enabled": true
@@ -1457,6 +1581,11 @@
       {
         "id": "gambatte",
         "name": "Gambatte",
+        "enabled": true
+      },
+      {
+        "id": "gbe_plus",
+        "name": "GBE+ (Pokémon Mini)",
         "enabled": true
       },
       {
@@ -1540,6 +1669,11 @@
         "enabled": true
       },
       {
+        "id": "neocd",
+        "name": "NeoCD",
+        "enabled": true
+      },
+      {
         "id": "nestopia",
         "name": "Nestopia UE",
         "enabled": true
@@ -1610,6 +1744,11 @@
         "enabled": true
       },
       {
+        "id": "quasi88",
+        "name": "QUASI88",
+        "enabled": true
+      },
+      {
         "id": "rpgmaker",
         "name": "RPG Maker",
         "enabled": true
@@ -1652,6 +1791,11 @@
       {
         "id": "tyranoscript",
         "name": "TyranoScript",
+        "enabled": true
+      },
+      {
+        "id": "vecx",
+        "name": "VecX",
         "enabled": true
       },
       {

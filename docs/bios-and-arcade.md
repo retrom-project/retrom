@@ -94,6 +94,7 @@ EmulatorJS 4.2.3 manifest 另声明下列 14 个静态 Requirement；精确 size
 | `opera` | `panafz10.bin` | `REQUIRED` | `BIOS_BUNDLE` |
 | `prosystem` | `7800 BIOS (U).rom` | `REQUIRED` | `BIOS_BUNDLE` |
 | `mednafen_pcfx` | `pcfx.rom` | `REQUIRED` | `BIOS_BUNDLE` |
+| `freeintv` | `exec.bin`、`grom.bin` | `REQUIRED` | `BIOS_BUNDLE` |
 | `gearcoleco` | `colecovision.rom` | `REQUIRED` | `BIOS_BUNDLE` |
 | `prboom` | `prboom.wad` | `REQUIRED` | `BIOS_BUNDLE` |
 

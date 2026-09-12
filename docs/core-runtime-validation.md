@@ -44,12 +44,21 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 51 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 56 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 原始画面与锐利像素使用显式颜色直通、无滤波的 `retrom-passthrough` shader，避开 4.2.3 关闭 shader 后在原生分辨率切换时出现纯色/裁切的 GL fallback。浏览器画面必须与核心截图保持完整内容，启动和跨 Launch 恢复均需覆盖；不能用切换画面模式的人工操作替代默认模式验收。
 
 
 新增 `fuse`、`gearcoleco`、`prboom`、`puae`、`vice-x128`、`vice-x64sc`、`vice-xvic` 与 `virtualjaguar` 只声明 `SINGLE_FILE`，`discSwitch=false` 且不开放 netplay。逐核产品验收按 [ACC-RUN-013](./project-acceptance.md#acc-run-013八个-emulatorjs-单文件候选的逐核产品验证) 执行；首次验收可从产品白名单任选一种扩展名，一个 Target 的结果不能替代另一个 Target。
+
+SNES 的 `bsnes` 通过独立 `emulatorjs/bsnes` Target 使用锁定的 EmulatorJS 4.3.0-pre
+前端与 `retrom-project/bsnes-libretro` 的单线程 WASM candidate，接收平台允许的单文件 ROM。它作为备用核心供显式选择，不改变 Snes9x 默认推荐目录，
+不新增推荐目录、不开放联机或多盘。标准 SNES 手柄和即时存档沿用 Provider 公共边界；bsnes 声明
+独立的 `bsnes-state-v1-storage-v1` 格式，不读取通用 EmulatorJS 格式。宿主按 `readFormats`
+检查兼容性，因此 bsnes 与 Snes9x 即时存档不能混用，不增加存档身份字段或按核心分支。该 PFB candidate 修复上游缺失的
+Asyncify 和协程重建能力、异步保存回调及原生内存所有权，来源基线为 `4b344745e3878e7c0675a60c624582935524b8f7`，
+仅允许 candidate 构建；正式发布前需先发布 fork 资产，再固定 Provider 来源。逐样本产品验证见
+[ACC-RUN-016](./project-acceptance.md#acc-run-016bsnes-备用核心产品验证)。
 
 Mega Drive 的 Genesis Plus GX、GX Wide 与 PicoDrive 由 Provider 在输入表建立前明确选择 Mega Drive 手柄布局，保留 Start、方向与 A/B/C/X/Y/Z；不能采用多平台核心自动推断出的 Master System 布局。键盘与标准手柄使用同一控制表，原始 `.md`/`.smd` 与归档内成员行为一致。固定 EmulatorJS 4.2.3 的六键布局使用等价的 `segaCD` 输入别名，4.3.0-pre 使用 `segaMD`；这只选择输入布局，不切换运行核心或内容类型。
 
@@ -78,6 +87,10 @@ Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏
 使暂停后的 Canvas 截图仍可读取最后画面；退出时恢复该 iframe 的上下文创建方法。
 操作者语料的验收规则见 `ACC-FLYCAST-001`；单个样本结果不能外推为 Dreamcast 全库兼容。
 
+Intellivision 使用 EmulatorJS 4.3.0-pre 的 `freeintv`，仅声明单卡带、标准手柄与即时存档，
+不开放多盘或联机。ECS 扩展不在支持范围。通过 `ACC-INTV-001` 对操作者提供的样本验证；
+Provider declaration 与构建成功不能代替该次产品链路结果。
+
 ## 5. retrom-runtime 特殊边界
 
 WebMSX 使用独立 `msx-webmsx` Target，固定 MSX2+ 日本机器，接收单媒体 Blob。
@@ -104,6 +117,17 @@ Native Web 必须使用每 Launch unique origin，拒绝应用 cookie、普通 A
 总量有界，恢复必须匹配基盘摘要。原生队列接口须同步完成后才能返回，不能提早删除尚未加载的状态文件。
 软件帧缓冲须在暂停时保持可读截图。产品门禁为 `ACC-PC98-001`。
 
+### PC-88 / QUASI88
+
+EmulatorJS Provider 的 `quasi88` Target 接收单文件 D88/U88，默认 N88 V2。
+目录推荐 `pc88`，独立 BIOS 目录负责七个 NEC ROM 的摘要、大小和安装状态；
+通过 EXTERNAL_FILE 装入 `/retroarch/userdata/system/quasi88/`，不随游戏或 Provider 分发。
+D-pad 对应数字小键盘 8/2/4/6，主确认键通过原生 Start 发送 Return；真实键盘独立。
+《The Librarian》的六边形地图使用 7/9/4/6/1/3，四个斜向和事件字母键需要键盘。
+首版不声明多盘切换、联机或未验证的媒体格式。共享 gzip 即时状态使用
+`emulatorjs-state-v1-storage-v1`，须验证不同 Launch 回到保存时的位置并继续输入。
+产品验收为 `ACC-PC88-001`，外部语料为作者公开发布的《The Librarian》v0.91。
+
 ## 6. 升级验证
 
 Provider 升级必须在同一数据库上顺序启动旧版与更高版本，证明：
@@ -124,8 +148,43 @@ PFB只能证明当前worktree、基座Provider与当前开发模块组合的产�
 
 EmulatorJS 4.2.3 的恢复就绪以 native serializer 成功返回非空状态为准，不对所有核心统一要求诊断 frame counter 大于零。MAME 2003 Plus 的原生 unserialize 拒绝第零帧，因此该 Target 还必须完成首帧后才能读档；其他核心不继承这个条件。写入恢复状态后仍必须等待 native 读档完成信号，不能把超时视为成功。
 
+### Vectrex / VecX
 
-## 独立 PSP 候选
+`emulatorjs/vecx` 使用 libretro-vecx 的固定 fork，以软件向量渲染运行 `.vec/.bin` 单卡带；
+不要求管理员另行上传 BIOS，不声明多盘、联机、Light Pen 或 3D Imager 支持。
+标准方向键和四个面键各自只映射一个原生输入。原始键盘输入保持独立。
+fork 的完整即时状态包括 CPU、RAM、VIA、PSG、卡带银行、模拟电路与向量画面；
+不能读取上游不完整的 VecX 状态。Provider 公共层按 `emulatorjs-state-v1-storage-v1`
+压缩一次，恢复到不同 Launch 后必须继续接受输入。
+开发候选的准入按 `ACC-VECTREX-001` 执行；候选声明不等于正式发行支持。
+
+## Neo Geo CD
+
+`neogeocd/neocd` 通过 `emulatorjs/neocd` 接入，首期只接受单文件 CHD；
+CUE/BIN、M3U 与换盘不在本次产品契约中。管理员安装 512 KiB CDZ `neocd.bin`，
+服务端按 BIOS catalog 校验并以 external file 交付到 `/neocd/neocd.bin`。
+不依赖上游实验性 HLE BIOS。推荐目录为“Neo Geo CD 游戏”。
+
+Provider 将 CHD 声明为 `SEEKABLE_BLOB`，通过 256 KiB Range 块按需读取，内存 LRU 上限 16 MiB。
+启动前不全量下载或扫描镜像。每个响应核对 206、Content-Range、长度与冻结 SHA-256 ETag；
+持久块缓存按内容摘要/大小/偏移隔离，命中时校验该块长度与本地摘要。缓存不可用时继续
+有界网络读取；服务器忽略 Range 则明确失败，不退回整文件下载。按需读取不显示全游戏
+下载进度。核心通过 Asyncify 等待缺失块，暂停、存档及退出协调在途读取。标准手柄使用 arcade 映射，
+一个按钮只对应一个原生输入。即时存档采用公共 `emulatorjs-state-v1-storage-v1`，
+按声明大小有界解压，并在新的 Launch 恢复后继续接收输入。
+
+产品证据见统一验收 `ACC-NEOCD-001`。正式 Provider lock 固定发布资产，开发候选
+只能用于显式 PFB 验证。通过样本不能推断整个游戏库或实体手柄兼容性。
+
+### Pokémon Mini / GBE+
+
+`gbe-pokemini` 必须通过 `ACC-POKEMINI-001` 的真实产品流程，验证标准手柄
+方向与确认、音频、暂停、截图、完整即时存档、不同 Launch 恢复后输入和跨实例内容缓存。
+用户提供的 Mini 游戏与 BIOS 不进入 fixture。GBE+ 桌面已有红外功能不意味着本浏览器
+Target 支持联机；当前只验证单机。
+
+
+## 独立 PSP / PPSSPP
 
 `coreId=ppsspp` 通过 `retrom-runtime/ppsspp`、`OPTICAL_DISC` 和 `SINGLE_FILE` 接入。
 Retrom 使用公共 SEEKABLE_BLOB、输入、截图、暂停和存档协议；核心源码、
@@ -143,4 +202,4 @@ WebAssembly 构建与浏览器前端由 `retrom-project/ppsspp` 维护，宿主�
 
 PFB 开发使用 `provider-sources.json` 的 development input 与完整候选 Provider，不能将候选
 路径、摘要或未发布版本写入 production lock。发布顺序为 core fork → retrom-runtime → Retrom
-正式 Provider lock，每一步在授权后进行。产品门禁见 `ACC-PSP-001`。
+正式 Provider lock，每一步在授权后进行。产品门禁见 `ACC-PSP-001` 与 `ACC-PSP-002`。
