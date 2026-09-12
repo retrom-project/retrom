@@ -12,9 +12,11 @@ import (
 	"testing"
 	"time"
 
+	isolationpersistence "retrom/internal/persistence/isolation"
+
 	"retrom/internal/libraryimport"
-	"retrom/internal/rpgmaker/isolation"
 	"retrom/internal/runtimelaunch"
+	"retrom/internal/service/isolation"
 	"retrom/internal/testsupport"
 )
 
@@ -106,7 +108,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 	server := newTestServer(t)
 	const template = "http://{launchId}.rpg.localhost:3000"
 	server.launcher.WithRPGRuntimeOriginTemplate(template)
-	server.rpgIsolation = isolation.New(server.database, template, time.Now)
+	server.rpgIsolation = isolation.New(isolationpersistence.New(server.database), template, time.Now)
 	active, manifests, err := testsupport.RuntimeProviderInputs(t.Context(), server.database)
 	if err != nil {
 		t.Fatal(err)

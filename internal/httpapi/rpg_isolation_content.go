@@ -17,9 +17,9 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/launch"
-	"retrom/internal/rpgmaker/isolation"
 	"retrom/internal/rpgmaker/nativeweb"
 	"retrom/internal/saves"
+	"retrom/internal/service/isolation"
 )
 
 const maxNativeEntryBytes = 2 << 20

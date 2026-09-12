@@ -14,11 +14,13 @@ import (
 	"testing"
 	"time"
 
+	isolationpersistence "retrom/internal/persistence/isolation"
+
 	_ "modernc.org/sqlite"
 
 	"retrom/internal/config"
 	"retrom/internal/launch"
-	"retrom/internal/rpgmaker/isolation"
+	"retrom/internal/service/isolation"
 )
 
 func TestRPGFrameDocumentsCanBeEmbeddedOnlyThroughTheirCSP(t *testing.T) {
@@ -389,7 +391,7 @@ CREATE TABLE isolated_runtime_capabilities(
 			t.Fatal(err)
 		}
 	}
-	service := isolation.New(database, "https://{launchId}.rpg-runtime.example", func() time.Time {
+	service := isolation.New(isolationpersistence.New(database), "https://{launchId}.rpg-runtime.example", func() time.Time {
 		return time.UnixMilli(nowMS)
 	})
 	return database, service, &nowMS, launchID, origin, ticket

@@ -18,12 +18,14 @@ import (
 	"testing"
 	"time"
 
+	isolationpersistence "retrom/internal/persistence/isolation"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
-	"retrom/internal/rpgmaker/isolation"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/isolation"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
@@ -97,7 +99,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 		t.Fatalf("TyranoScript preview content identity=%q, %v", identity, err)
 	}
 	isolationService := isolation.New(
-		database.SQL, "https://{launchId}.rpg-runtime.example", time.Now,
+		isolationpersistence.New(database.SQL), "https://{launchId}.rpg-runtime.example", time.Now,
 	)
 	previewCredential, previewAccess, err := isolationService.ConsumeTicket(
 		ctx, preview.PreviewID, previewOrigin, previewTicket,

@@ -7,46 +7,13 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
+	"retrom/internal/service/isolation"
+
 	_ "modernc.org/sqlite"
 )
-
-func TestResolveHostRequiresCanonicalUUIDAsCompleteLeftmostLabel(t *testing.T) {
-	t.Parallel()
-	service := New(nil, "http://{launchId}.rpg.feature-a1b2c3d4e5f6.localhost:3000", time.Now)
-	launchID := "018fdb34-4f5d-7abc-8def-0123456789ab"
-	access, ok := service.ResolveHost(launchID + ".rpg.feature-a1b2c3d4e5f6.localhost:3000")
-	if !ok || access.LaunchID != launchID || access.Origin != "http://"+launchID+".rpg.feature-a1b2c3d4e5f6.localhost:3000" {
-		t.Fatalf("resolved access = %#v, %t", access, ok)
-	}
-	for _, host := range []string{
-		strings.ToUpper(launchID) + ".rpg.feature-a1b2c3d4e5f6.localhost:3000",
-		"prefix." + launchID + ".rpg.feature-a1b2c3d4e5f6.localhost:3000",
-		launchID + ".extra.rpg.feature-a1b2c3d4e5f6.localhost:3000",
-		"not-a-uuid.rpg.feature-a1b2c3d4e5f6.localhost:3000",
-		launchID + ".rpg.feature-a1b2c3d4e5f6.localhost:443",
-	} {
-		if _, accepted := service.ResolveHost(host); accepted {
-			t.Fatalf("invalid runtime host accepted: %s", host)
-		}
-	}
-}
-
-func TestRuntimeHostCandidateFailsClosedWithoutClaimingApplicationHosts(t *testing.T) {
-	t.Parallel()
-	service := New(nil, "http://{launchId}.rpg.localhost:8080", time.Now)
-	if !service.IsRuntimeHostCandidate("invalid.rpg.localhost:8080") {
-		t.Fatal("invalid runtime-suffix host was not recognized as a candidate")
-	}
-	for _, host := range []string{"localhost:8080", "app.localhost:3000", "rpg.localhost:8080"} {
-		if service.IsRuntimeHostCandidate(host) {
-			t.Fatalf("application host claimed as runtime candidate: %s", host)
-		}
-	}
-}
 
 func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.T) {
 	t.Parallel()
@@ -65,12 +32,12 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 	}
 	if _, err := fixture.service.InspectBootstrap(
 		context.Background(), fixture.launchID, fixture.origin,
-	); !errors.Is(err, ErrCredential) {
+	); !errors.Is(err, isolation.ErrCredential) {
 		t.Fatalf("consumed bootstrap inspect error = %v", err)
 	}
 	if _, _, err := fixture.service.ConsumeTicket(
 		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
-	); !errors.Is(err, ErrCredential) {
+	); !errors.Is(err, isolation.ErrCredential) {
 		t.Fatalf("ticket replay error = %v", err)
 	}
 	authorized, err := fixture.service.Authenticate(
@@ -92,23 +59,23 @@ func assertInvalidCapabilities(t *testing.T, fixture isolationFixture, credentia
 	} {
 		if _, err := fixture.service.Authenticate(
 			context.Background(), invalid.launchID, invalid.origin, invalid.credential,
-		); !errors.Is(err, ErrCredential) {
+		); !errors.Is(err, isolation.ErrCredential) {
 			t.Fatalf("invalid capability authentication error = %v", err)
 		}
 	}
 }
 
-func assertRevokedCapability(t *testing.T, fixture isolationFixture, credential string, authorized Access) {
+func assertRevokedCapability(t *testing.T, fixture isolationFixture, credential string, authorized isolation.Access) {
 	t.Helper()
 	if err := fixture.service.Revoke(context.Background(), authorized); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fixture.service.Authenticate(
 		context.Background(), fixture.launchID, fixture.origin, credential,
-	); !errors.Is(err, ErrCredential) {
+	); !errors.Is(err, isolation.ErrCredential) {
 		t.Fatalf("revoked capability authentication error = %v", err)
 	}
-	if err := fixture.service.Revoke(context.Background(), authorized); !errors.Is(err, ErrCredential) {
+	if err := fixture.service.Revoke(context.Background(), authorized); !errors.Is(err, isolation.ErrCredential) {
 		t.Fatalf("repeated capability revocation error = %v", err)
 	}
 }
@@ -140,7 +107,7 @@ func TestTyranoScriptPreviewTicketCreatesPreviewScopedCapability(t *testing.T) {
 	}
 	if _, err := fixture.service.Authenticate(
 		context.Background(), fixture.launchID, fixture.origin, credential,
-	); !errors.Is(err, ErrCredential) {
+	); !errors.Is(err, isolation.ErrCredential) {
 		t.Fatalf("revoked preview capability error = %v", err)
 	}
 }
@@ -152,12 +119,12 @@ func TestBootstrapAndCapabilityExpiryFailClosed(t *testing.T) {
 		*fixture.nowMS += 60_000
 		if _, err := fixture.service.InspectBootstrap(
 			context.Background(), fixture.launchID, fixture.origin,
-		); !errors.Is(err, ErrCredential) {
+		); !errors.Is(err, isolation.ErrCredential) {
 			t.Fatalf("expired bootstrap inspect error = %v", err)
 		}
 		if _, _, err := fixture.service.ConsumeTicket(
 			context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
-		); !errors.Is(err, ErrCredential) {
+		); !errors.Is(err, isolation.ErrCredential) {
 			t.Fatalf("expired bootstrap consumption error = %v", err)
 		}
 	})
@@ -172,18 +139,19 @@ func TestBootstrapAndCapabilityExpiryFailClosed(t *testing.T) {
 		*fixture.nowMS += 120_000
 		if _, err := fixture.service.Authenticate(
 			context.Background(), fixture.launchID, fixture.origin, credential,
-		); !errors.Is(err, ErrCredential) {
+		); !errors.Is(err, isolation.ErrCredential) {
 			t.Fatalf("expired capability authentication error = %v", err)
 		}
 	})
 }
 
 type isolationFixture struct {
-	service  *Service
-	nowMS    *int64
-	launchID string
-	origin   string
-	ticket   string
+	repository *Repository
+	service    *isolation.Service
+	nowMS      *int64
+	launchID   string
+	origin     string
+	ticket     string
 }
 
 func newIsolationFixture(t *testing.T) isolationFixture {
@@ -253,10 +221,11 @@ CREATE TABLE isolated_runtime_capabilities(
 			t.Fatal(err)
 		}
 	}
-	service := New(database, "https://{launchId}.rpg-runtime.example", func() time.Time {
+	repository := New(database)
+	service := isolation.New(repository, "https://{launchId}.rpg-runtime.example", func() time.Time {
 		return time.UnixMilli(nowMS)
 	})
 	return isolationFixture{
-		service: service, nowMS: &nowMS, launchID: launchID, origin: origin, ticket: ticket,
+		repository: repository, service: service, nowMS: &nowMS, launchID: launchID, origin: origin, ticket: ticket,
 	}
 }

@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	isolationpersistence "retrom/internal/persistence/isolation"
+
 	jobpersistence "retrom/internal/persistence/jobs"
 
 	immersivepersistence "retrom/internal/persistence/immersive"
@@ -34,7 +36,6 @@ import (
 	"retrom/internal/pegasusimport"
 	favoritepersistence "retrom/internal/persistence/favorites"
 	platformpersistence "retrom/internal/persistence/platforminstance"
-	"retrom/internal/rpgmaker/isolation"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimecatalog"
 	"retrom/internal/runtimelaunch"
@@ -44,6 +45,7 @@ import (
 	"retrom/internal/serversource"
 	"retrom/internal/service/favorites"
 	"retrom/internal/service/immersive"
+	"retrom/internal/service/isolation"
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/service/storageanalysis"
@@ -231,7 +233,7 @@ func New(
 			WithPayloadRelease(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(database, blobs, credentials, now),
-		rpgIsolation:     isolation.New(database, config.RPGRuntimeOriginTemplate, now),
+		rpgIsolation:     isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
 		favoriteService:  favorites.New(favoritepersistence.New(database), now),
 		tagService:       tagging.New(tagpersistence.New(database), now),
 		now:              now,
