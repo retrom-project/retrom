@@ -8,6 +8,8 @@ services:
     environment:
       PFB_ID: ${PFB_ID:?}
       PFB_GATEWAY_IP: ${PFB_GATEWAY_IP:?}
+      # Large development catalogs can exceed the production startup budget on cold storage.
+      RETROM_STARTUP_CHECK_TIMEOUT: ${RETROM_STARTUP_CHECK_TIMEOUT:-5m}
       HOME: /pfb-workspace/home
       GOCACHE: /pfb-workspace/go-cache/build
       GOMODCACHE: /pfb-workspace/go-cache/mod

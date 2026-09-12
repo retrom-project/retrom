@@ -34,7 +34,8 @@
         "81",
         "same_cdi",
         "vecx",
-        "quasi88"
+        "quasi88",
+        "bsnes"
       ]
     },
     {
@@ -304,6 +305,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/quasi88-libretro.git",
       "defaultBranch": "retrom/g459bbc6e90ca",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "bsnes",
+      "path": "project/retrom-core/bsnes-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/bsnes-libretro.git",
+      "defaultBranch": "retrom/g4b344745e387",
       "submodules": false,
       "dependsOn": []
     }
