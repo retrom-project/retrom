@@ -25,9 +25,10 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
 	"retrom/internal/netplay"
+	tagpersistence "retrom/internal/persistence/tagging"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
@@ -109,7 +110,7 @@ SELECT value FROM (
 
 func seedBackupTags(t *testing.T, ctx context.Context, database *sql.DB, userID string) {
 	t.Helper()
-	service := tagging.New(database, func() time.Time { return time.UnixMilli(3_000) })
+	service := tagging.New(tagpersistence.New(database), func() time.Time { return time.UnixMilli(3_000) })
 	active, err := service.Create(ctx, userID, "合作")
 	testassert.False(t, err != nil, err)
 	deleted, err := service.Create(ctx, userID, "历史标签")

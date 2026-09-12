@@ -12,7 +12,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 func requireVersion(writer http.ResponseWriter, request *http.Request) (int64, bool) {
@@ -86,29 +86,44 @@ func handleReviewAttachment[Request any](
 }
 
 var arcadeParentAttachmentErrors = map[string]attachmentHTTPError{
-	libraryimport.ParentErrorInvalid:       {http.StatusBadRequest, "Parent ROM 上传请求无效"},
-	libraryimport.ParentErrorNotFound:      {http.StatusNotFound, "审核项不存在"},
-	libraryimport.ParentErrorVersion:       {http.StatusConflict, "审核条目已发生变化"},
-	libraryimport.ParentErrorInProgress:    {http.StatusConflict, "已有 Parent ROM 正在校验"},
-	libraryimport.ParentErrorInputStale:    {http.StatusConflict, "运行验证输入已经变化"},
-	libraryimport.ParentErrorFinalized:     {http.StatusConflict, "审核项已经完成决策"},
-	libraryimport.ParentErrorNotRequired:   {http.StatusUnprocessableEntity, "当前依赖不需要此 Parent ROM"},
-	libraryimport.ParentErrorStructure:     {http.StatusUnprocessableEntity, "当前 Arcade 结构不支持补充 Parent ROM"},
+	libraryimport.ParentErrorInvalid:     {http.StatusBadRequest, "Parent ROM 上传请求无效"},
+	libraryimport.ParentErrorNotFound:    {http.StatusNotFound, "审核项不存在"},
+	libraryimport.ParentErrorVersion:     {http.StatusConflict, "审核条目已发生变化"},
+	libraryimport.ParentErrorInProgress:  {http.StatusConflict, "已有 Parent ROM 正在校验"},
+	libraryimport.ParentErrorInputStale:  {http.StatusConflict, "运行验证输入已经变化"},
+	libraryimport.ParentErrorFinalized:   {http.StatusConflict, "审核项已经完成决策"},
+	libraryimport.ParentErrorNotRequired: {http.StatusUnprocessableEntity, "当前依赖不需要此 Parent ROM"},
+	libraryimport.ParentErrorStructure: {
+		http.StatusUnprocessableEntity,
+		"当前 Arcade 结构不支持补充 Parent ROM",
+	},
 	libraryimport.ParentErrorArchiveUnsafe: {http.StatusUnprocessableEntity, "Parent ROM 归档不安全"},
 	libraryimport.ParentErrorMismatch:      {http.StatusUnprocessableEntity, "Parent ROM 内容与 DAT 不匹配"},
 }
 
 var multiDiscAttachmentErrors = map[string]attachmentHTTPError{
-	libraryimport.MultiDiscAttachmentErrorInvalid:         {http.StatusBadRequest, "缺失光盘上传请求无效"},
-	libraryimport.MultiDiscAttachmentErrorNotFound:        {http.StatusNotFound, "审核项不存在"},
-	libraryimport.MultiDiscAttachmentErrorVersion:         {http.StatusConflict, "审核条目已发生变化"},
-	libraryimport.MultiDiscAttachmentErrorInProgress:      {http.StatusConflict, "已有缺失光盘正在校验"},
-	libraryimport.MultiDiscAttachmentErrorRetryRequired:   {http.StatusConflict, "请先重试或取消失败的校验任务"},
-	libraryimport.MultiDiscAttachmentErrorInputStale:      {http.StatusConflict, "多盘验证输入已经变化"},
-	libraryimport.MultiDiscAttachmentErrorFinalized:       {http.StatusConflict, "审核项已经完成决策"},
-	libraryimport.MultiDiscAttachmentErrorContentInvalid:  {http.StatusUnprocessableEntity, "多盘内容无效或当前无需补传"},
-	libraryimport.MultiDiscAttachmentErrorSetMismatch:     {http.StatusUnprocessableEntity, "上传文件与全部缺失光盘不一致"},
-	libraryimport.MultiDiscAttachmentErrorModeUnavailable: {http.StatusUnprocessableEntity, "当前平台或核心不支持多盘内容"},
+	libraryimport.MultiDiscAttachmentErrorInvalid:    {http.StatusBadRequest, "缺失光盘上传请求无效"},
+	libraryimport.MultiDiscAttachmentErrorNotFound:   {http.StatusNotFound, "审核项不存在"},
+	libraryimport.MultiDiscAttachmentErrorVersion:    {http.StatusConflict, "审核条目已发生变化"},
+	libraryimport.MultiDiscAttachmentErrorInProgress: {http.StatusConflict, "已有缺失光盘正在校验"},
+	libraryimport.MultiDiscAttachmentErrorRetryRequired: {
+		http.StatusConflict,
+		"请先重试或取消失败的校验任务",
+	},
+	libraryimport.MultiDiscAttachmentErrorInputStale: {http.StatusConflict, "多盘验证输入已经变化"},
+	libraryimport.MultiDiscAttachmentErrorFinalized:  {http.StatusConflict, "审核项已经完成决策"},
+	libraryimport.MultiDiscAttachmentErrorContentInvalid: {
+		http.StatusUnprocessableEntity,
+		"多盘内容无效或当前无需补传",
+	},
+	libraryimport.MultiDiscAttachmentErrorSetMismatch: {
+		http.StatusUnprocessableEntity,
+		"上传文件与全部缺失光盘不一致",
+	},
+	libraryimport.MultiDiscAttachmentErrorModeUnavailable: {
+		http.StatusUnprocessableEntity,
+		"当前平台或核心不支持多盘内容",
+	},
 }
 
 func (server *Server) createReviewArcadeParentAttachment(writer http.ResponseWriter, request *http.Request) {
@@ -606,7 +621,14 @@ func (server *Server) cancelImport(writer http.ResponseWriter, request *http.Req
 		body.Reason,
 	)
 	if err != nil {
-		writeError(writer, request, http.StatusConflict, "IMPORT_CANCEL_CONFLICT", "导入任务状态或版本已经变化", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"IMPORT_CANCEL_CONFLICT",
+			"导入任务状态或版本已经变化",
+			map[string]any{},
+		)
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
@@ -633,7 +655,14 @@ func (server *Server) retryImportItem(writer http.ResponseWriter, request *http.
 	}
 	result, err := server.importer.RetryItem(request.Context(), request.PathValue("importItemId"), version)
 	if err != nil {
-		writeError(writer, request, http.StatusConflict, "IMPORT_ITEM_NOT_RETRYABLE", "条目不可重试或版本已经变化", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"IMPORT_ITEM_NOT_RETRYABLE",
+			"条目不可重试或版本已经变化",
+			map[string]any{},
+		)
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
@@ -712,7 +741,14 @@ func (server *Server) scrapeReview(writer http.ResponseWriter, request *http.Req
 		body.MetadataProvider,
 	)
 	if err != nil {
-		writeError(writer, request, http.StatusConflict, "REVIEW_VERSION_CONFLICT", "审核条目已发生变化", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"REVIEW_VERSION_CONFLICT",
+			"审核条目已发生变化",
+			map[string]any{},
+		)
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
@@ -749,7 +785,14 @@ func (server *Server) discardReview(writer http.ResponseWriter, request *http.Re
 	}
 	result, err := server.importer.Discard(request.Context(), request.PathValue("importItemId"), version, reason)
 	if err != nil {
-		writeError(writer, request, http.StatusConflict, "REVIEW_DECISION_CONFLICT", "审核状态或版本已经变化", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"REVIEW_DECISION_CONFLICT",
+			"审核状态或版本已经变化",
+			map[string]any{},
+		)
 		return
 	}
 	writeJSON(writer, http.StatusOK, result)

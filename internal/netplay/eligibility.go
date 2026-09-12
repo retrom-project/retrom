@@ -13,7 +13,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 type ProfileSummary struct {

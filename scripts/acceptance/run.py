@@ -131,11 +131,11 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-FAV-004": (180, "scripts/acceptance/ui-case.sh ACC-FAV-004"),
     "ACC-TAG-001": (
         120,
-        "go test ./internal/store ./internal/tagging -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestNormalizeName|TestValidateIDsRejectsDuplicatesAndLimit|TestTagLifecycleAndNameReuse|TestTagCapacityAndDatabaseAssignmentGuard' -count=1 && go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
+        "go test ./internal/store ./internal/service/tagging ./internal/persistence/tagging -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestNormalizeName|TestValidateIDsRejectsDuplicatesAndLimit|TestTagLifecycleAndNameReuse|TestTagCapacityAndDatabaseAssignmentGuard' -count=1 && go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
     ),
     "ACC-TAG-002": (
         120,
-        "go test ./internal/tagging ./internal/httpapi -run 'TestReplaceGameTagsAndDeleteInvalidatesGameVersion|TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation' -count=1",
+        "go test ./internal/service/tagging ./internal/persistence/tagging ./internal/httpapi -run 'TestReplaceGameTagsAndDeleteInvalidatesGameVersion|TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation' -count=1",
     ),
     "ACC-TAG-003": (
         180,

@@ -13,7 +13,7 @@ import (
 
 	"retrom/internal/contentcapability"
 	"retrom/internal/corevalidation"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 type approvalMetadata struct {

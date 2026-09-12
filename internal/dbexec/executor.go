@@ -19,3 +19,11 @@ var (
 	_ Executor = (*sql.Tx)(nil)
 	_ Executor = (*sql.Conn)(nil)
 )
+
+// Scanner maps a database row into values without coupling persistence helpers to one row implementation.
+type Scanner interface{ Scan(...any) error }
+
+var (
+	_ Scanner = (*sql.Row)(nil)
+	_ Scanner = (*sql.Rows)(nil)
+)

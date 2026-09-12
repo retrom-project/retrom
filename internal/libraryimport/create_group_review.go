@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/recordstore"
 
 	"retrom/internal/multidisc"
@@ -50,7 +52,7 @@ INSERT INTO review_drafts(
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
 	if err := run.service.tags.AssignReviewDraftTags(
-		run.ctx, run.transaction, record.draftID, run.tagReferences, run.actorUserID, run.now,
+		run.ctx, tagpersistence.Bind(run.transaction), record.draftID, run.tagReferences, run.actorUserID, run.now,
 	); err != nil {
 		return fmt.Errorf("libraryimport/service: assign draft tags: %w", err)
 	}

@@ -1,6 +1,6 @@
 package emulationstationimport
 
-import "retrom/internal/tagging"
+import "retrom/internal/service/tagging"
 
 type Root struct {
 	ID, Label string

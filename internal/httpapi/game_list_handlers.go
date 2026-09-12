@@ -15,7 +15,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/cursor"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 func (server *Server) games(writer http.ResponseWriter, request *http.Request) {

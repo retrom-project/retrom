@@ -13,7 +13,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/service/favorites"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 type recentGameProjection struct {

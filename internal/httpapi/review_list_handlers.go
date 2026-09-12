@@ -14,7 +14,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/cursor"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 var (
@@ -306,7 +306,14 @@ AND (emulationstation.id IS NULL OR emulationstation.execution_state='REVIEW_PEN
 		updatedAtMS, updatedOK := last["updatedAtMs"].(int64)
 		lastID, idOK := last["itemId"].(string)
 		if !updatedOK || !idOK {
-			writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "审核分页投影无效", map[string]any{})
+			writeError(
+				writer,
+				request,
+				http.StatusInternalServerError,
+				"INTERNAL_ERROR",
+				"审核分页投影无效",
+				map[string]any{},
+			)
 			return
 		}
 		token, err := server.cursors.Encode(

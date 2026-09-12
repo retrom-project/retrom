@@ -8,13 +8,15 @@ import (
 	"encoding/json"
 	"fmt"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/corevalidation"
 	"retrom/internal/metadatascrape"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 type creationRun struct {
@@ -113,7 +115,7 @@ func (run *creationRun) initialize() error {
 	}
 	run.actorUserID = actorUserID
 	tagReferences, err := run.service.tags.ValidateReferences(
-		run.ctx, run.transaction, run.plan.request.TagIDs,
+		run.ctx, tagpersistence.Bind(run.transaction), run.plan.request.TagIDs,
 	)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: validate import tags: %w", err)

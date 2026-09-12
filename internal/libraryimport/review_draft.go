@@ -9,10 +9,12 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/recordstore"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 
 	"github.com/google/uuid"
 )
@@ -186,7 +188,7 @@ WHERE i.id=? AND i.state='REVIEW_PENDING'
 	if currentVersion != run.expectedVersion {
 		return ErrVersionConflict
 	}
-	beforeTags, err := run.service.tags.ReviewDraftReferences(run.ctx, run.transaction, run.draftID)
+	beforeTags, err := run.service.tags.ReviewDraftReferences(run.ctx, tagpersistence.Bind(run.transaction), run.draftID)
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: read draft tags: %w", err)
 	}
@@ -459,7 +461,7 @@ func (run *draftPatchRun) persist() (DraftResult, error) {
 	actor := reviewActor(run.ctx)
 	actorUserID, _ := actor.UserID.(string)
 	_, afterTags, err := run.service.tags.ReplaceReviewDraftTags(
-		run.ctx, run.transaction, run.draftID, run.patch.TagIDs, actorUserID, now,
+		run.ctx, tagpersistence.Bind(run.transaction), run.draftID, run.patch.TagIDs, actorUserID, now,
 	)
 	if err != nil {
 		return DraftResult{}, fmt.Errorf("libraryimport/review: replace draft tags: %w", err)

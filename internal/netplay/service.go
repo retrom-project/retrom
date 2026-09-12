@@ -8,7 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"retrom/internal/tagging"
+	tagpersistence "retrom/internal/persistence/tagging"
+
+	"retrom/internal/service/tagging"
 )
 
 const (
@@ -95,7 +97,7 @@ func NewService(
 	}
 	return &Service{
 		database: database, registry: registry, credentials: credentials, clock: clock, options: options,
-		tags: tagging.New(database, now), stop: make(chan struct{}), done: make(chan struct{}),
+		tags: tagging.New(tagpersistence.New(database), now), stop: make(chan struct{}), done: make(chan struct{}),
 	}
 }
 

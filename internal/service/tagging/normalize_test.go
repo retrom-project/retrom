@@ -23,7 +23,21 @@ func TestNormalizeName(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			display, key, search, err := NormalizeName(test.input)
-			testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return display != test.display }, func() bool { return key != test.key }, func() bool { return search != test.search }), "NormalizeName(%q) = %q/%q/%q, %v", test.input, display, key, search, err)
+			testassert.Falsef(
+				t,
+				testassert.Any(
+					func() bool { return err != nil },
+					func() bool { return display != test.display },
+					func() bool { return key != test.key },
+					func() bool { return search != test.search },
+				),
+				"NormalizeName(%q) = %q/%q/%q, %v",
+				test.input,
+				display,
+				key,
+				search,
+				err,
+			)
 		})
 	}
 }

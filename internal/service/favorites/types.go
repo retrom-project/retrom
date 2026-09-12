@@ -3,7 +3,7 @@ package favorites
 import (
 	"errors"
 
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 var (

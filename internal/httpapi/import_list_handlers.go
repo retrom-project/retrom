@@ -17,7 +17,7 @@ import (
 	"retrom/internal/libraryimport"
 	"retrom/internal/rpgmaker/detector"
 	"retrom/internal/rpgmaker/fileset"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 type importOverviewSummary struct {
@@ -397,7 +397,11 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 func importCreationError(err error) (int, string, string) {
 	var detectionError *detector.Error
 	if errors.As(err, &detectionError) {
-		return detectorImportStatus(detectionError.Code), string(detectionError.Code), "RPG Maker 项目与所选版本不兼容"
+		return detectorImportStatus(
+				detectionError.Code,
+			), string(
+				detectionError.Code,
+			), "RPG Maker 项目与所选版本不兼容"
 	}
 	var projectError *fileset.ProjectError
 	if errors.As(err, &projectError) {

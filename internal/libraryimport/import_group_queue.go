@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"sort"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/recordstore"
 
 	"github.com/google/uuid"
@@ -17,7 +19,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 type importGroupTargetGuard struct {
@@ -68,7 +70,7 @@ func (service *Service) QueueCreate(ctx context.Context, rawRequest CreateReques
 	if len(admission.request.TagIDs) > 0 && (!actorIsUser || actorUserID == "") {
 		return Created{}, ErrInvalid
 	}
-	tags, err := service.tags.ValidateReferences(ctx, transaction, admission.request.TagIDs)
+	tags, err := service.tags.ValidateReferences(ctx, tagpersistence.Bind(transaction), admission.request.TagIDs)
 	if err != nil {
 		return Created{}, fmt.Errorf("libraryimport/queue: validate import tags: %w", err)
 	}

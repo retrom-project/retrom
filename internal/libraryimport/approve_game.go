@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/recordstore"
 
 	"retrom/internal/cleanup"
@@ -18,7 +20,7 @@ func (run *approvalRun) persistGame() error {
 	actor := reviewActor(run.ctx)
 	actorUserID, _ := actor.UserID.(string)
 	publishedTags, err := run.service.tags.CopyDraftTagsToGame(
-		run.ctx, run.transaction, run.draftID, run.gameID, actorUserID, run.now,
+		run.ctx, tagpersistence.Bind(run.transaction), run.draftID, run.gameID, actorUserID, run.now,
 	)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: publish draft tags: %w", err)

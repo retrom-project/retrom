@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/storequery"
 
 	"github.com/google/uuid"
@@ -19,7 +21,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/metadatascrape"
 	"retrom/internal/scummvm"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 type Service struct {
@@ -51,7 +53,7 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 
 func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Service) *Service {
 	service := &Service{
-		database: database, now: now, tags: tagging.New(database, now),
+		database: database, now: now, tags: tagging.New(tagpersistence.New(database), now),
 		importGroupSlots: make(chan struct{}, 1), importGroupCancels: make(map[string]context.CancelFunc),
 	}
 	if len(scraper) > 0 {

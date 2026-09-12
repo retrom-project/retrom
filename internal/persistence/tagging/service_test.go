@@ -1,4 +1,4 @@
-package tagging
+package tagging_test
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	tagpersistence "retrom/internal/persistence/tagging"
+	"retrom/internal/service/tagging"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -19,7 +21,7 @@ const (
 	testGameID  = "01980000-0000-7000-8000-00000000f401"
 )
 
-func openTaggingTest(t *testing.T) (*store.DB, *Service, *int64) {
+func openTaggingTest(t *testing.T) (*store.DB, *tagging.Service, *int64) {
 	t.Helper()
 	clock := int64(1_000)
 	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
@@ -51,7 +53,16 @@ COMMIT;
 		_ = database.Close()
 		t.Fatal(err)
 	}
-	return database, New(database.SQL, func() time.Time { return time.UnixMilli(clock) }), &clock
+	return database, tagging.New(
+		tagpersistence.New(
+			database.SQL,
+		),
+		func() time.Time {
+			return time.UnixMilli(
+				clock,
+			)
+		},
+	), &clock
 }
 
 func TestTagLifecycleAndNameReuse(t *testing.T) {
@@ -61,28 +72,105 @@ func TestTagLifecycleAndNameReuse(t *testing.T) {
 	ctx := context.Background()
 
 	created, err := service.Create(ctx, testAdminID, "  ACTION ")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.Name != "ACTION" }, func() bool { return created.Version != 1 }, func() bool { return created.Status != StatusActive }), "created = %#v, %v", created, err)
-	if _, err := service.Create(ctx, testAdminID, "action"); !errors.Is(err, ErrNameConflict) {
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return err != nil },
+			func() bool { return created.Name != "ACTION" },
+			func() bool { return created.Version != 1 },
+			func() bool { return created.Status != tagging.StatusActive },
+		),
+		"created = %#v, %v",
+		created,
+		err,
+	)
+	if _, err := service.Create(ctx, testAdminID, "action"); !errors.Is(err, tagging.ErrNameConflict) {
 		t.Fatalf("case-fold conflict = %v", err)
 	}
 	*clock = 2_000
 	renamed, err := service.Rename(ctx, testAdminID, created.TagID, "合作", created.Version)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return renamed.Name != "合作" }, func() bool { return renamed.Version != 2 }), "renamed = %#v, %v", renamed, err)
-	if _, err := service.Rename(ctx, testAdminID, created.TagID, "旧版本", 1); !errors.Is(err, ErrVersionConflict) {
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return err != nil },
+			func() bool { return renamed.Name != "合作" },
+			func() bool { return renamed.Version != 2 },
+		),
+		"renamed = %#v, %v",
+		renamed,
+		err,
+	)
+	if _, err := service.Rename(
+		ctx,
+		testAdminID,
+		created.TagID,
+		"旧版本",
+		1,
+	); !errors.Is(
+		err,
+		tagging.ErrVersionConflict,
+	) {
 		t.Fatalf("stale rename = %v", err)
 	}
-	if _, _, err := service.Delete(ctx, testAdminID, created.TagID, "错误", renamed.Version); !errors.Is(err, ErrDeleteConfirmation) {
+	if _, _, err := service.Delete(
+		ctx,
+		testAdminID,
+		created.TagID,
+		"错误",
+		renamed.Version,
+	); !errors.Is(
+		err,
+		tagging.ErrDeleteConfirmation,
+	) {
 		t.Fatalf("confirmation = %v", err)
 	}
 	*clock = 3_000
 	deleted, _, err := service.Delete(ctx, testAdminID, created.TagID, "合作", renamed.Version)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return deleted.Status != StatusDeleted }, func() bool { return deleted.Version != 3 }, func() bool { return deleted.DeletedAtMS == nil }), "deleted = %#v, %v", deleted, err)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return err != nil },
+			func() bool { return deleted.Status != tagging.StatusDeleted },
+			func() bool { return deleted.Version != 3 },
+			func() bool { return deleted.DeletedAtMS == nil },
+		),
+		"deleted = %#v, %v",
+		deleted,
+		err,
+	)
 	recreated, err := service.Create(ctx, testAdminID, "合作")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return recreated.TagID == deleted.TagID }), "recreated = %#v, %v", recreated, err)
-	items, err := service.List(ctx, ListFilter{Status: "ALL", Sort: SortNameAsc, Limit: 10})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(items) != 2 }), "list = %#v, %v", items, err)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return err != nil },
+			func() bool { return recreated.TagID == deleted.TagID },
+		),
+		"recreated = %#v, %v",
+		recreated,
+		err,
+	)
+	items, err := service.List(ctx, tagging.ListFilter{Status: "ALL", Sort: tagging.SortNameAsc, Limit: 10})
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return err != nil },
+			func() bool {
+				return len(
+					items,
+				) != 2
+			},
+		),
+		"list = %#v, %v",
+		items,
+		err,
+	)
 	var audits int
-	if err := database.SQL.QueryRowContext(context.Background(), `SELECT count(*) FROM audit_events WHERE resource_type='TAG'`).Scan(&audits); err != nil || audits != 4 {
+	if err := database.SQL.QueryRowContext(
+		context.Background(),
+		`SELECT count(*) FROM audit_events WHERE resource_type='TAG'`,
+	).Scan(
+		&audits,
+	); err != nil || audits != 4 {
 		t.Fatalf("audits = %d, %v", audits, err)
 	}
 }
@@ -106,7 +194,7 @@ func TestEnsureCommonTagsIsAtomicAndIdempotent(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return err != nil },
 		func() bool { return len(second.CreatedItems) != 0 },
-		func() bool { return len(second.ExistingItems) != len(CommonTagNames()) },
+		func() bool { return len(second.ExistingItems) != len(tagging.CommonTagNames()) },
 	), "second ensure = %#v, %v", second, err)
 
 	var activeCount, auditCount int
@@ -118,8 +206,8 @@ SELECT
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return activeCount != len(CommonTagNames()) },
-		func() bool { return auditCount != len(CommonTagNames()) },
+		func() bool { return activeCount != len(tagging.CommonTagNames()) },
+		func() bool { return auditCount != len(tagging.CommonTagNames()) },
 	), "common tags = active:%d audits:%d", activeCount, auditCount)
 }
 
@@ -134,10 +222,43 @@ func TestReplaceGameTagsAndDeleteInvalidatesGameVersion(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	*clock = 2_000
 	replaced, err := service.ReplaceGameTags(ctx, testAdminID, testGameID, 1, []string{second.TagID, first.TagID})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replaced.Version != 2 }, func() bool { return len(replaced.Tags) != 2 }, func() bool { return replaced.Tags[0].Name != "动作" }), "replace = %#v, %v", replaced, err)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return err != nil },
+			func() bool { return replaced.Version != 2 },
+			func() bool {
+				return len(
+					replaced.Tags,
+				) != 2
+			},
+			func() bool { return replaced.Tags[0].Name != "动作" },
+		),
+		"replace = %#v, %v",
+		replaced,
+		err,
+	)
 	noOp, err := service.ReplaceGameTags(ctx, testAdminID, testGameID, 2, []string{first.TagID, second.TagID})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return noOp.Version != 2 }), "no-op = %#v, %v", noOp, err)
-	if _, err := service.ReplaceGameTags(ctx, testAdminID, testGameID, 1, []string{}); !errors.Is(err, ErrVersionConflict) {
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return err != nil },
+			func() bool { return noOp.Version != 2 },
+		),
+		"no-op = %#v, %v",
+		noOp,
+		err,
+	)
+	if _, err := service.ReplaceGameTags(
+		ctx,
+		testAdminID,
+		testGameID,
+		1,
+		[]string{},
+	); !errors.Is(
+		err,
+		tagging.ErrVersionConflict,
+	) {
 		t.Fatalf("stale replace = %v", err)
 	}
 	*clock = 3_000
@@ -147,13 +268,44 @@ func TestReplaceGameTagsAndDeleteInvalidatesGameVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	var gameVersion int64
-	if err := database.SQL.QueryRowContext(context.Background(), `SELECT version FROM games WHERE id=?`, testGameID).Scan(&gameVersion); err != nil || gameVersion != 3 {
+	if err := database.SQL.QueryRowContext(
+		context.Background(),
+		`SELECT version FROM games WHERE id=?`,
+		testGameID,
+	).Scan(
+		&gameVersion,
+	); err != nil || gameVersion != 3 {
 		t.Fatalf("game version = %d, %v", gameVersion, err)
 	}
 	references, err := service.References(ctx, []string{testGameID})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(references[testGameID]) != 1 }, func() bool { return references[testGameID][0].TagID != second.TagID }), "references = %#v, %v", references, err)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return err != nil },
+			func() bool {
+				return len(
+					references[testGameID],
+				) != 1
+			},
+			func() bool { return references[testGameID][0].TagID != second.TagID },
+		),
+		"references = %#v, %v",
+		references,
+		err,
+	)
 	invalidID := "01980000-0000-7000-8000-00000000c999"
-	if _, err := service.ReplaceGameTags(ctx, testAdminID, testGameID, 3, []string{invalidID}); !errors.Is(err, ErrReferenceInvalid) {
+	if _, err := service.ReplaceGameTags(
+		ctx,
+		testAdminID,
+		testGameID,
+		3,
+		[]string{
+			invalidID,
+		},
+	); !errors.Is(
+		err,
+		tagging.ErrReferenceInvalid,
+	) {
 		t.Fatalf("invalid reference = %v", err)
 	}
 }
@@ -180,20 +332,26 @@ FROM sequence
 `, testAdminID, testAdminID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Create(ctx, testAdminID, "超过实例上限"); !errors.Is(err, ErrLimitReached) {
+	if _, err := service.Create(ctx, testAdminID, "超过实例上限"); !errors.Is(err, tagging.ErrLimitReached) {
 		t.Fatalf("capacity error = %v", err)
 	}
-	if _, err := service.EnsureCommonTags(ctx, testAdminID); !errors.Is(err, ErrLimitReached) {
+	if _, err := service.EnsureCommonTags(ctx, testAdminID); !errors.Is(err, tagging.ErrLimitReached) {
 		t.Fatalf("common tag capacity error = %v", err)
 	}
-	for _, name := range CommonTagNames() {
+	for _, name := range tagging.CommonTagNames() {
 		var count int
-		if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM tags WHERE status='ACTIVE' AND name=?`, name).Scan(&count); err != nil || count != 0 {
+		if err := database.SQL.QueryRowContext(
+			ctx,
+			`SELECT count(*) FROM tags WHERE status='ACTIVE' AND name=?`,
+			name,
+		).Scan(
+			&count,
+		); err != nil || count != 0 {
 			t.Fatalf("common tag %q was partially created at capacity: count=%d error=%v", name, count, err)
 		}
 	}
 
-	for index := 1; index <= MaxTagsPerOwner; index++ {
+	for index := 1; index <= tagging.MaxTagsPerOwner; index++ {
 		tagID := fmt.Sprintf("01980000-0000-7000-8001-%012x", index)
 		if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO game_tags(game_id,tag_id,assigned_by_user_id,created_at_ms) VALUES(?,?,?,2)

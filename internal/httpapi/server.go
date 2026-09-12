@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/accounts"
 	"retrom/internal/blobstore"
 	"retrom/internal/config"
@@ -39,8 +41,8 @@ import (
 	"retrom/internal/serversource"
 	"retrom/internal/service/favorites"
 	"retrom/internal/service/platforminstance"
+	"retrom/internal/service/tagging"
 	"retrom/internal/storageanalysis"
-	"retrom/internal/tagging"
 	"retrom/internal/uploads"
 )
 
@@ -226,7 +228,7 @@ func New(
 		saveService:      saves.New(database, blobs, credentials, now),
 		rpgIsolation:     isolation.New(database, config.RPGRuntimeOriginTemplate, now),
 		favoriteService:  favorites.New(favoritepersistence.New(database), now),
-		tagService:       tagging.New(database, now),
+		tagService:       tagging.New(tagpersistence.New(database), now),
 		now:              now,
 		sseHeartbeat:     15 * time.Second,
 		netplayObservers: make(map[string]int),

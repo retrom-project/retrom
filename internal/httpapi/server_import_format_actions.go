@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/serversource"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 type serverImportMappingFields struct {

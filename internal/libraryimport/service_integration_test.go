@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	tagpersistence "retrom/internal/persistence/tagging"
 	"retrom/internal/recordstore"
 
 	"retrom/internal/authn"
@@ -28,7 +29,7 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/importing"
 	"retrom/internal/payloadrelease"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
@@ -181,7 +182,7 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 		t.Fatal(err)
 	}
 	ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: adminID, ProfileID: profileID, Role: "ADMIN"})
-	defaultTag, err := tagging.New(database.SQL, time.Now).Create(ctx, adminID, "待通关")
+	defaultTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "待通关")
 	testassert.False(t, err != nil, err)
 	blobs, _ := blobstore.Open(dataDir)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
@@ -264,15 +265,15 @@ WHERE job.id=?
 		t.Fatalf("default tag inheritance = drafts:%d config:%s error:%v", inheritedDrafts, initialConfigSnapshot, err)
 	}
 	importer := New(database.SQL, time.Now)
-	transientTag, err := tagging.New(database.SQL, time.Now).Create(ctx, adminID, "删除失效")
+	transientTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "删除失效")
 	testassert.False(t, err != nil, err)
 	transientDraft, err := importer.PatchDraft(ctx, discardItemID, 1, DraftPatch{
 		TagIDs: []string{defaultTag.TagID, transientTag.TagID},
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return transientDraft.Version != 2 }), "add transient review tag = %#v, %v", transientDraft, err)
-	currentTransientTag, err := tagging.New(database.SQL, time.Now).Get(ctx, transientTag.TagID)
+	currentTransientTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Get(ctx, transientTag.TagID)
 	testassert.False(t, err != nil, err)
-	if _, _, err := tagging.New(database.SQL, time.Now).Delete(
+	if _, _, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Delete(
 		ctx, adminID, transientTag.TagID, transientTag.Name, currentTransientTag.Version,
 	); err != nil {
 		t.Fatal(err)

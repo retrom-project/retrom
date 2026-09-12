@@ -41,6 +41,12 @@
 
 Tag 删除与关系变化都在短数据库写事务内完成，不执行文件扫描、hash、归档读取或网络访问。Tag 删除使用 Tag ETag；Game/Review/Pegasus 写使用各自 owner ETag，因此删除和并发分配只有一种提交顺序能成功。
 
+### 3.1 Service 与 Repository
+
+`internal/service/tagging` 维护名称与容量校验、活动引用验证、版本与删除确认、关系差异、no-op 和审计快照。`internal/persistence/tagging` 实现业务 Repository 接口，集中 SQL、nullable 映射、分页及联动版本更新，并复用 `internal/dbexec` 的执行与扫描接口。
+
+独立标签用例通过 Repository 开启短写事务。参与导入、审核发布及 Collection 映射时，标签 Service 接收绑定到外层事务的 `WriteScope` 业务能力；它不接收 `sql.Tx`，也不独立提交。外层操作失败必须同时撤销标签关系和版本推进。分页 cursor 先在 Service 验证并转换为类型明确的查询参数，再交给 Repository 生成 SQL 条件。
+
 ## 4. 普通导入与 Pegasus
 
 普通文件/目录导入在“确认配置”选择本批默认 `tagIds`。服务端在创建事务中先验证全部 Tag，再冻结 `{tagId,name}` 配置快照，并为本批每个新 ReviewDraft 写入相同初始集合；任一引用失效时零 Import/Item/UploadConsumption 写入。reconfigure 使用相同规则，只预填原快照中仍活动的 Tag。

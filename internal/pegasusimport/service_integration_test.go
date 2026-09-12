@@ -18,10 +18,11 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
+	tagpersistence "retrom/internal/persistence/tagging"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
+	"retrom/internal/service/tagging"
 	"retrom/internal/store"
-	"retrom/internal/tagging"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -81,7 +82,7 @@ VALUES('01980000-0000-7000-8000-000000000800','pegasus-profile','pegasus-test','
 	ctx = authn.WithPrincipal(ctx, authn.Principal{
 		UserID: "01980000-0000-7000-8000-000000000800", ProfileID: "pegasus-profile", Role: "ADMIN",
 	})
-	tagService := tagging.New(database.SQL, time.Now)
+	tagService := tagging.New(tagpersistence.New(database.SQL), time.Now)
 	mappedTag, err := tagService.Create(ctx, "01980000-0000-7000-8000-000000000800", "扫描选择")
 	testassert.False(t, err != nil, err)
 	externalTag, err := tagService.Create(ctx, "01980000-0000-7000-8000-000000000800", "External")

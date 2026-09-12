@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/recordstore"
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 func (service *Service) UpdateMappings(
@@ -145,7 +147,7 @@ func (service *Service) skipCollection(
 		return ErrInvalid
 	}
 	if _, err := service.tags.ReplacePegasusCollectionTags(
-		ctx, transaction, mapping.CollectionID, mapping.TagIDs, actorUserID, now,
+		ctx, tagpersistence.Bind(transaction), mapping.CollectionID, mapping.TagIDs, actorUserID, now,
 	); err != nil {
 		return fmt.Errorf("pegasusimport/clear skipped collection tags: %w", err)
 	}
@@ -210,7 +212,7 @@ AND instance.deleted_at_ms IS NULL`, mapping.PlatformInstanceID).
 		return ErrInvalid
 	}
 	references, err := service.tags.ReplacePegasusCollectionTags(
-		ctx, transaction, mapping.CollectionID, mapping.TagIDs, actorUserID, now,
+		ctx, tagpersistence.Bind(transaction), mapping.CollectionID, mapping.TagIDs, actorUserID, now,
 	)
 	if err != nil {
 		return fmt.Errorf("pegasusimport/replace collection tags: %w", err)

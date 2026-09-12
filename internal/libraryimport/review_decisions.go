@@ -10,11 +10,13 @@ import (
 	"strings"
 	"time"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/recordstore"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/payloadrelease"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 
 	"github.com/google/uuid"
 )
@@ -198,7 +200,7 @@ AND (? OR i.review_handoff_kind='DIRECT' OR EXISTS(
 	if err != nil || value.currentVersion != expectedVersion {
 		return discardEvidence{}, ErrInvalid
 	}
-	value.tags, err = service.tags.ReviewDraftReferences(ctx, transaction, value.draftID)
+	value.tags, err = service.tags.ReviewDraftReferences(ctx, tagpersistence.Bind(transaction), value.draftID)
 	if err != nil {
 		return discardEvidence{}, fmt.Errorf("libraryimport/review: read discarded draft tags: %w", err)
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 const summaryQuery = `

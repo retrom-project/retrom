@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"retrom/internal/service/favorites"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 func querySummary(ctx context.Context, transaction *sql.Tx, profileID string) (favorites.Summary, error) {

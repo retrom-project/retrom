@@ -2,14 +2,9 @@ package tagging
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
-
 	"github.com/google/uuid"
-
-	"retrom/internal/cleanup"
 )
 
 var commonTagNames = [...]string{
@@ -50,49 +45,45 @@ func normalizedCommonTags() ([]normalizedCommonTag, error) {
 	return result, nil
 }
 
-func activeTagIDsByNameKey(ctx context.Context, database dbexec.Executor) (map[string]string, error) {
-	rows, err := database.QueryContext(ctx, `SELECT id,name_key FROM tags WHERE status='ACTIVE'`)
-	if err != nil {
-		return nil, fmt.Errorf("tagging: list active tag keys: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make(map[string]string)
-	for rows.Next() {
-		var id, nameKey string
-		if err := rows.Scan(&id, &nameKey); err != nil {
-			return nil, fmt.Errorf("tagging: scan active tag key: %w", err)
-		}
-		result[nameKey] = id
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("tagging: iterate active tag keys: %w", err)
-	}
-	return result, nil
-}
-
-func createCommonTag(
+func createTag(
 	ctx context.Context,
-	database dbexec.Executor,
+	scope WriteScope,
 	actorUserID string,
 	tag normalizedCommonTag,
 	now int64,
 ) (AdminItem, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return AdminItem{}, fmt.Errorf("tagging: create common tag id: %w", err)
+		return AdminItem{}, fmt.Errorf("tagging: create tag id: %w", err)
 	}
-	if _, err := database.ExecContext(ctx, `
-INSERT INTO tags(id,name,name_key,search_text,status,version,created_by_user_id,updated_by_user_id,
-created_at_ms,updated_at_ms,deleted_at_ms) VALUES(?,?,?,?,'ACTIVE',1,?,?,?,?,NULL)
-`, id.String(), tag.name, tag.nameKey, tag.searchText, actorUserID, actorUserID, now, now); err != nil {
-		return AdminItem{}, fmt.Errorf("tagging: create common tag: %w", err)
+	if err := scope.Changes.Insert(
+		ctx,
+		TagWrite{
+			ID:          id.String(),
+			Name:        tag.name,
+			NameKey:     tag.nameKey,
+			SearchText:  tag.searchText,
+			ActorUserID: actorUserID,
+			NowMS:       now,
+		},
+	); err != nil {
+		return AdminItem{}, repositoryError("insert tag", err)
 	}
-	result, err := adminItemByID(ctx, database, id.String())
+	result, err := scope.Tags.Get(ctx, id.String())
 	if err != nil {
-		return AdminItem{}, err
+		return AdminItem{}, repositoryError("read created tag", err)
 	}
 	if err := writeAudit(
-		ctx, database, actorUserID, "TAG_CREATED", "TAG", id.String(), nil, result, nil, now,
+		ctx,
+		scope.Audit,
+		actorUserID,
+		"TAG_CREATED",
+		"TAG",
+		id.String(),
+		nil,
+		result,
+		nil,
+		now,
 	); err != nil {
 		return AdminItem{}, err
 	}
@@ -109,10 +100,10 @@ func (service *Service) EnsureCommonTags(ctx context.Context, actorUserID string
 		return CommonTagsResult{}, err
 	}
 	result := CommonTagsResult{CreatedItems: []AdminItem{}, ExistingItems: []AdminItem{}}
-	err = service.withImmediateWrite(ctx, func(connection *sql.Conn) error {
-		activeByKey, err := activeTagIDsByNameKey(ctx, connection)
+	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		activeByKey, err := scope.Tags.ActiveByNameKey(ctx)
 		if err != nil {
-			return err
+			return repositoryError("ensure common tags", err)
 		}
 		missingCount := 0
 		for _, definition := range definitions {
@@ -126,20 +117,20 @@ func (service *Service) EnsureCommonTags(ctx context.Context, actorUserID string
 		now := service.now().UnixMilli()
 		for _, definition := range definitions {
 			if existingID := activeByKey[definition.nameKey]; existingID != "" {
-				existing, err := adminItemByID(ctx, connection, existingID)
+				existing, err := scope.Tags.Get(ctx, existingID)
 				if err != nil {
-					return err
+					return repositoryError("ensure common tags", err)
 				}
 				result.ExistingItems = append(result.ExistingItems, existing)
 				continue
 			}
-			created, err := createCommonTag(ctx, connection, actorUserID, definition, now)
+			created, err := createTag(ctx, scope, actorUserID, definition, now)
 			if err != nil {
-				return err
+				return repositoryError("ensure common tags", err)
 			}
 			result.CreatedItems = append(result.CreatedItems, created)
 		}
 		return nil
 	})
-	return result, err
+	return result, repositoryError("ensure common tags", err)
 }

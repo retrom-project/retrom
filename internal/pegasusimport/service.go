@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/recordstore"
 
 	"github.com/google/uuid"
@@ -22,7 +24,7 @@ import (
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 var (
@@ -243,7 +245,12 @@ func New(
 		}
 	}
 	return &Service{
-		database: database, blobs: blobs, importer: importer, roots: roots, now: now, tags: tagging.New(database, now),
+		database: database, blobs: blobs, importer: importer, roots: roots, now: now, tags: tagging.New(
+			tagpersistence.New(
+				database,
+			),
+			now,
+		),
 		wake: make(chan struct{}, 1), stop: make(chan struct{}),
 	}
 }
