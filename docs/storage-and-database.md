@@ -481,6 +481,8 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 候选 bytes 可由 SHA-256 CAS 去重；只有 Installation、ImportItem、来源 Item 或 Game 等业务引用保护 Blob，无引用候选由统一 GC 回收。backup 保留 ServerImport/Item/Candidate 审计和已经导入的 CAS bytes，但不打包外部目录。restore 在开放 HTTP 前把所有非终态 `SERVER_BIOS_IMPORT`、`SERVER_PEGASUS_SCAN|IMPORT` 与 `SERVER_EMULATIONSTATION_SCAN|IMPORT` Job 及对应 aggregate 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，即使恢复主机存在同名 root 也不得自动继续。已经进入普通审核或发布 Game 的 CAS 内容继续随完整数据根恢复。
 
+停止外部 execution 前，恢复 Service 在同一安全围栏事务内完成已经形成的普通待审核交接：Pegasus 永久关联与 EmulationStation 预留关系必须指向唯一普通 Item，绑定不能属于其他来源。来源仍在准备阶段时，复用冻结 metadata、搜索字段和审核审计，再将来源置为 `REVIEW_PENDING` 并刷新聚合；已经交接完成的人工草稿保持原样。EmulationStation 复用计划冻结的年份上限，允许按既有状态路径接续仍有待审预留的可重试失败。每次最多读取 100 条，全部分页、权限撤销、任务收口和最终审计仍共用一次提交；任何读取、解码、所有权变化或写入失败都使恢复整体失败。恢复不打开外部来源、不重新创建 Game，也不复用活动 worker 的租约权限。
+
 ## 12. 审核运行预览的存储边界
 
 当前 clean schema 直接创建 review_preview_sessions、review_preview_files 与 review_runtime_screenshots。Preview 冻结来源、当前 Validation、Provider/Target 与实际 Bundle 字节身份；运行内容引用既有 CAS，不复制成假 Game 或用户游玩历史。普通 Player 事件使状态从 CREATED 到 ACTIVE，再到 FINISHED/EXPIRED/REVOKED；终态撤销内容授权。checkpoint 仅有最新 payload/format/time 以及新会话冻结的 restore payload；没有独立 proof 表。bootstrap 有 5 分钟期限，运行授权最长 2 小时；有界 GC 和审核终态 PayloadRelease 清除临时引用。

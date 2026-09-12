@@ -8,7 +8,8 @@ import (
 )
 
 func (service *Service) fenceRestore(ctx context.Context, path string) error {
-	now := service.now().UnixMilli()
+	instant := service.now()
+	now := instant.UnixMilli()
 	id, err := uuid.NewV7()
 	if err != nil {
 		return fmt.Errorf("create restore audit identity: %w", err)
@@ -17,6 +18,9 @@ func (service *Service) fenceRestore(ctx context.Context, path string) error {
 		access, err := records.RevokeAccess(ctx, now)
 		if err != nil {
 			return fmt.Errorf("revoke restored access: %w", err)
+		}
+		if err := CompleteRestoredReviews(ctx, records.Reviews(), instant); err != nil {
+			return fmt.Errorf("preserve restored reviews: %w", err)
 		}
 		imports, err := records.StopExternalImports(ctx, now)
 		if err != nil {

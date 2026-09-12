@@ -96,6 +96,10 @@ import_id IN (
 		Set: `
 state='FAILED',phase=NULL,last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
 retryable=0,cancel_reason=NULL,
+review_pending_item_count=(SELECT count(*) FROM pegasus_import_items item
+  WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_PENDING'),
+review_discarded_item_count=(SELECT count(*) FROM pegasus_import_items item
+  WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_DISCARDED'),
 published_item_count=(SELECT count(*) FROM pegasus_import_items item
   WHERE item.import_id=pegasus_imports.id AND item.execution_state='PUBLISHED'),
 existing_item_count=(SELECT count(*) FROM pegasus_import_items item

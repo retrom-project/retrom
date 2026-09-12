@@ -38,6 +38,17 @@ type restoreRecords struct {
 	failAudit error
 }
 
+type emptyRestoredReviews struct{ RestoredReviewRecords }
+
+func (emptyRestoredReviews) Pending(context.Context, RestoredReviewQuery) ([]RestoredReview, error) {
+	return nil, nil
+}
+
+func (records *restoreRecords) Reviews() RestoredReviewScope {
+	records.calls = append(records.calls, "reviews")
+	return RestoredReviewScope{Records: emptyRestoredReviews{}}
+}
+
 func (records *restoreRecords) RevokeAccess(_ context.Context, _ int64) (AccessCounts, error) {
 	records.calls = append(records.calls, "revoke")
 	return AccessCounts{Sessions: 1, Links: 2, Launches: 3}, nil
@@ -62,11 +73,12 @@ func (records *restoreRecords) Audit(_ context.Context, audit FenceAudit) error 
 func TestRestoreFenceHasOneClockAndOneAtomicScope(t *testing.T) {
 	records := &restoreRecords{}
 	repository := &memoryRepository{records: records}
-	service := New(repository, func() time.Time { return time.UnixMilli(17) })
+	clockCalls := 0
+	service := New(repository, func() time.Time { clockCalls++; return time.UnixMilli(17) })
 	if err := service.fenceRestore(t.Context(), "staged.db"); err != nil {
 		t.Fatal(err)
 	}
-	if !repository.committed || repository.writes != 1 || !reflect.DeepEqual(records.calls, []string{"revoke", "external", "bulk", "audit"}) {
+	if clockCalls != 1 || !repository.committed || repository.writes != 1 || !reflect.DeepEqual(records.calls, []string{"revoke", "reviews", "external", "bulk", "audit"}) {
 		t.Fatalf("fence escaped atomic scope: %+v %+v", repository, records)
 	}
 	if records.audit.Now != 17 || records.audit.ID == "" || records.audit.Counts != (FenceCounts{1, 2, 3, 4, 5, 6}) {
