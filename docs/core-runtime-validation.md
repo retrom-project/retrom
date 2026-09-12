@@ -158,7 +158,7 @@ fork 的完整即时状态包括 CPU、RAM、VIA、PSG、卡带银行、模拟�
 压缩一次，恢复到不同 Launch 后必须继续接受输入。
 开发候选的准入按 `ACC-VECTREX-001` 执行；候选声明不等于正式发行支持。
 
-## Neo Geo CD 开发候选
+## Neo Geo CD
 
 `neogeocd/neocd` 通过 `emulatorjs/neocd` 接入，首期只接受单文件 CHD；
 CUE/BIN、M3U 与换盘不在本次产品契约中。管理员安装 512 KiB CDZ `neocd.bin`，
@@ -173,5 +173,5 @@ Provider 将 CHD 声明为 `SEEKABLE_BLOB`，通过 256 KiB Range 块按需读�
 一个按钮只对应一个原生输入。即时存档采用公共 `emulatorjs-state-v1-storage-v1`，
 按声明大小有界解压，并在新的 Launch 恢复后继续接收输入。
 
-产品证据见统一验收 `ACC-NEOCD-001`。目前为源码固定的 PFB 候选，未修改正式
-Provider lock。通过样本不能推断整个游戏库或实体手柄兼容性。
+产品证据见统一验收 `ACC-NEOCD-001`。正式 Provider lock 固定发布资产，开发候选
+只能用于显式 PFB 验证。通过样本不能推断整个游戏库或实体手柄兼容性。
