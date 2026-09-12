@@ -267,23 +267,17 @@ func TestOrganizeFaultRollsBackEveryFavoriteMembershipAndIdempotencyRecord(t *te
 	)
 	testassert.False(t, err != nil, err)
 	folder := decodeResponse[favorites.Folder](t, created)
-	if _, err := database.SQL.ExecContext(context.Background(), `
-CREATE TRIGGER favorite_test_injected_failure
-BEFORE INSERT ON favorite_folder_games
-WHEN NEW.game_id='01980000-0000-7000-8000-00000000f302'
-BEGIN
-  SELECT RAISE(ABORT,'injected favorite membership failure');
-END
-`); err != nil {
-		t.Fatal(err)
-	}
+	cause := errors.New("injected favorite membership failure")
+	fault, assertFault := favoriteMembershipFault(t, database.SQL, cause)
+	service = favorites.New(New(fault), func() time.Time { return time.UnixMilli(2000) })
 	key := favoriteBoundaryID('6', 21)
 	if _, err := service.Organize(
 		context.Background(), alice, key,
 		[]string{testGameA, testGameB}, []string{folder.FolderID}, []string{},
-	); err == nil {
-		t.Fatal("Organize() succeeded despite injected membership failure")
+	); !errors.Is(err, cause) {
+		t.Fatalf("Organize() lost injected membership cause: %v", err)
 	}
+	assertFault()
 	var favoriteCount, membershipCount int
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT count(*) FROM favorite_games WHERE profile_id=?
