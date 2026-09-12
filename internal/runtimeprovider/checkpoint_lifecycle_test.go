@@ -26,16 +26,19 @@ func TestCheckpointGuardProtectsOnlyDurableSaves(t *testing.T) {
 			t.Cleanup(func() { _ = database.Close() })
 			// No review tables exist here: ephemeral trial state is not an upgrade guard.
 			_, err = database.ExecContext(t.Context(), `
-CREATE TABLE save_states(game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER);
-CREATE TABLE game_variants(game_id TEXT,provider_id TEXT,target_id TEXT);
+CREATE TABLE save_states(game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER,source_launch_session_id TEXT);
+CREATE TABLE launch_sessions(id TEXT,core_id TEXT);
+INSERT INTO launch_sessions VALUES('source','owner');
+CREATE TABLE game_variants(game_id TEXT,provider_id TEXT,target_id TEXT,core_id TEXT);
+INSERT INTO game_variants VALUES('game','fixture','target','alternative');
 `)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := database.ExecContext(t.Context(), `INSERT INTO game_variants VALUES('game',?,?)`, test.provider, test.target); err != nil {
+			if _, err := database.ExecContext(t.Context(), `INSERT INTO game_variants VALUES('game',?,?,'owner')`, test.provider, test.target); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := database.ExecContext(t.Context(), `INSERT INTO save_states VALUES('game',?,?)`, test.format, test.deleted); err != nil {
+			if _, err := database.ExecContext(t.Context(), `INSERT INTO save_states VALUES('game',?,?,'source')`, test.format, test.deleted); err != nil {
 				t.Fatal(err)
 			}
 			transaction, err := database.BeginTx(t.Context(), nil)

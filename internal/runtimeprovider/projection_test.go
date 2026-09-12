@@ -159,10 +159,12 @@ func TestReconcileRejectsUnreadableStoredCheckpointFormat(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	if _, err := database.ExecContext(t.Context(), `
-CREATE TABLE save_states(game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER);
-CREATE TABLE game_variants(game_id TEXT,provider_id TEXT,target_id TEXT);
-INSERT INTO game_variants(game_id,provider_id,target_id) VALUES('game','fixture','target');
-INSERT INTO save_states(game_id,checkpoint_format) VALUES('game','state-v1');
+CREATE TABLE save_states(game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER,source_launch_session_id TEXT);
+CREATE TABLE launch_sessions(id TEXT,core_id TEXT);
+INSERT INTO launch_sessions VALUES('source','owner');
+CREATE TABLE game_variants(game_id TEXT,provider_id TEXT,target_id TEXT,core_id TEXT);
+INSERT INTO game_variants(game_id,provider_id,target_id,core_id) VALUES('game','fixture','target','owner');
+INSERT INTO save_states(game_id,checkpoint_format,source_launch_session_id) VALUES('game','state-v1','source');
 `); err != nil {
 		t.Fatal(err)
 	}
