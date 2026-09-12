@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 24
+const Version = 25
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
