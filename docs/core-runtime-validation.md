@@ -123,3 +123,21 @@ PFB只能证明当前worktree、基座Provider与当前开发模块组合的产�
 共享运行层改变时至少运行 `ACC-PROVIDER-001..008`、`make web-e2e`、全部已有受影响产品 Case、Provider 仓库全量 lint/typecheck/test/build/package 检查，以及 Retrom 的 API、Go、Web、集成、数据和镜像/PFB 验证。真实硬件兼容结论仍需 Chrome `mapping=standard` 的实体手柄 smoke；自动注入不能替代硬件验收。
 
 EmulatorJS 4.2.3 的恢复就绪以 native serializer 成功返回非空状态为准，不对所有核心统一要求诊断 frame counter 大于零。MAME 2003 Plus 的原生 unserialize 拒绝第零帧，因此该 Target 还必须完成首帧后才能读档；其他核心不继承这个条件。写入恢复状态后仍必须等待 native 读档完成信号，不能把超时视为成功。
+
+
+## 独立 PSP 候选
+
+`coreId=ppsspp` 通过 `retrom-runtime/ppsspp`、`OPTICAL_DISC` 和 `SINGLE_FILE` 接入。
+Retrom 继续使用公共 ROM_BLOB、LOAD_PROGRESS、输入、截图、暂停和存档协议；核心源码、
+WebAssembly 构建与浏览器前端由 `retrom-project/ppsspp` 维护，宿主不加载 EmulatorJS PSP 前端。
+大型游戏先完整校验并写入 OPFS，后续实例复用相同内容 URL。要求 Chrome 的 WebGL2、
+OffscreenCanvas、SharedArrayBuffer 与 cross-origin isolation。
+
+新存档为 `ppsspp-state-v1-storage-v1`，公共 gzip 内含完整执行状态和记忆棒文件，解压上限
+256 MiB。未验证 EmulatorJS PSP 存档与新核心兼容，因此不声明旧格式可读；旧存档不可恢复时
+按公共兼容性策略禁用恢复。已有游戏应经当前 binding 重新验证后启动。EmulatorJS Provider
+中的历史 Target 身份仍保留，产品 PSP binding 仅选择新的独立核心。
+
+PFB 开发使用 `provider-sources.json` 的 development input 与完整候选 Provider，不能将候选
+路径、摘要或未发布版本写入 production lock。发布顺序为 core fork → retrom-runtime → Retrom
+正式 Provider lock，每一步在授权后进行。产品门禁见 `ACC-PSP-001`。

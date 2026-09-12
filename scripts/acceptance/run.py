@@ -36,11 +36,12 @@ PROVIDER_CASES = {f"ACC-PROVIDER-{number:03d}" for number in range(1, 9)}
 FANTASY_CASES = {"ACC-TIC-001", "ACC-PICO-001"}
 FLASH_CASES = {"ACC-FLASH-001"}
 MSX_CASES = {"ACC-MSX-001"}
+PSP_CASES = {"ACC-PSP-001"}
 PS2_CASES = {"ACC-PS2-001"}
 OPENBOR_CASES = {"ACC-OPENBOR-001"}
 PC98_CASES = {"ACC-PC98-001"}
 STORAGE_CASES = {"ACC-SAVE-004"}
-PRODUCT_CASES = OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
+PRODUCT_CASES = PSP_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -488,6 +489,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-PC98-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/pc98_product.mjs"),
     "ACC-MSX-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/msx_product.mjs"),
     "ACC-FLASH-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ruffle_product.mjs"),
+    "ACC-PSP-001": (900, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ppsspp_product.mjs"),
     "ACC-PS2-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs"),
     "ACC-OPENBOR-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/openbor_product.mjs"),
     "ACC-PICO-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs fake08"),

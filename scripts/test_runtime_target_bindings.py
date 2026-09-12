@@ -86,6 +86,15 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             {"rpgmaker"},
         )
 
+    def test_psp_uses_independent_runtime_with_closed_product_options(self):
+        catalog = load_runtime_target_bindings(ROOT / "data/runtime-target-bindings/v1/catalog.json")
+        bindings = [item for item in catalog["bindings"] if item["coreId"] == "ppsspp"]
+        self.assertEqual(len(bindings), 1)
+        self.assertEqual(bindings[0]["providerId"], "retrom-runtime")
+        self.assertEqual(bindings[0]["targetId"], "ppsspp")
+        self.assertEqual(bindings[0]["detectorProfile"], "OPTICAL_DISC")
+        self.assertEqual(bindings[0]["acceptedContentKinds"], ["SINGLE_FILE"])
+
     def test_catalog_contains_no_provider_implementation_facts(self):
         source = (ROOT / "data/runtime-target-bindings/v1/catalog.json").read_text(encoding="utf-8")
         value = json.loads(source)
