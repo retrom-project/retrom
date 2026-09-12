@@ -213,6 +213,6 @@ WebAssembly 构建与浏览器前端由 `retrom-project/ppsspp` 维护，宿主�
 按公共兼容性策略禁用恢复。已有游戏应经当前 binding 重新验证后启动。EmulatorJS Provider
 中的历史 Target 身份仍保留，产品 PSP binding 仅选择新的独立核心。
 
-PFB 开发使用 `provider-sources.json` 的 development input 与完整候选 Provider，不能将候选
+PFB 开发使用同一 PFB 中的核心候选、已声明的来源覆盖与完整候选 Provider，不能将候选
 路径、摘要或未发布版本写入 production lock。发布顺序为 core fork → retrom-runtime → Retrom
 正式 Provider lock，每一步在授权后进行。产品门禁见 `ACC-PSP-001` 与 `ACC-PSP-002`。
