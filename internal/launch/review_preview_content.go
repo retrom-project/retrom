@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	retromruntime "retrom/internal/runtime"
 	application "retrom/internal/service/launch"
 )
 
@@ -49,8 +48,4 @@ func (service *Service) ReviewPreviewBundleFiles(
 		return result, fmt.Errorf("launch resource query: %w", err)
 	}
 	return result, nil
-}
-
-func reviewPreviewCredential(now int64, capability string, hash []byte, state string, hardExpires int64) bool {
-	return state == "ACTIVE" && hardExpires > now && retromruntime.MatchesCapability(capability, hash)
 }

@@ -5,24 +5,23 @@ import (
 	"errors"
 	"strings"
 	"testing"
-
-	"retrom/internal/kirikiri/detector"
 )
 
 func TestBuildKiriKiriProjectIndexPublishesEveryProjectFile(t *testing.T) {
 	t.Parallel()
 	entry := "data.xp3"
 	root := "/runtime/content/project/" + strings.Repeat("d", 64) + "/"
-	view, err := buildKiriKiriProjectIndex(root, detector.Profile{
-		MarkerPath: entry, StartupXP3Path: &entry, Compatibility: "KAG_RUNTIME_TRIAL_REQUIRED",
-	}, []kirikiriProjectIndexFile{
+	view, err := buildProjectIndexDocument(root, "", projectIndexPolicy{
+		minimum: 1, maximum: 10_000, allowEmpty: true,
+		marker: entry,
+	}, []runtimeProjectIndexFile{
 		{Path: "data.xp3", SizeBytes: 10},
 		{Path: "scenario/first.ks", SizeBytes: 20},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var index kirikiriProjectIndex
+	var index runtimeProjectIndex
 	if err := json.Unmarshal(view.Contents, &index); err != nil {
 		t.Fatal(err)
 	}
@@ -35,16 +34,16 @@ func TestBuildKiriKiriProjectIndexPublishesEveryProjectFile(t *testing.T) {
 
 func TestBuildKiriKiriProjectIndexRejectsUnsafeOrIncompleteFiles(t *testing.T) {
 	t.Parallel()
-	profile := detector.Profile{MarkerPath: "startup.tjs", Compatibility: "KAG_RUNTIME_TRIAL_REQUIRED"}
-	cases := [][]kirikiriProjectIndexFile{
+	profile := projectIndexPolicy{minimum: 1, maximum: 10_000, allowEmpty: true, marker: "startup.tjs"}
+	cases := [][]runtimeProjectIndexFile{
 		{{Path: "scenario/first.ks", SizeBytes: 1}},
 		{{Path: "startup.tjs", SizeBytes: -1}},
 		{{Path: "startup.tjs", SizeBytes: 1}, {Path: "STARTUP.TJS", SizeBytes: 1}},
 		{{Path: "startup.tjs", SizeBytes: 1}, {Path: "../escape", SizeBytes: 1}},
 	}
 	for _, files := range cases {
-		if _, err := buildKiriKiriProjectIndex(
-			"/runtime/content/project/"+strings.Repeat("d", 64)+"/", profile, files,
+		if _, err := buildProjectIndexDocument(
+			"/runtime/content/project/"+strings.Repeat("d", 64)+"/", "", profile, files,
 		); !errors.Is(err, ErrCredential) {
 			t.Fatalf("build project index error = %v for %#v", err, files)
 		}

@@ -866,7 +866,7 @@ ONS/KiriKiri/Butterscotch 的 `index.json` 逐项必须包含准确 `path/sizeBy
 Butterscotch core 需要本地文件路径，因此 adapter 必须先把冻结索引的每个项目文件流式写入按 content digest 分区的 OPFS，再启动 worker；下载过程按总字节上报进度。缓存文件长度与索引一致时跨 Launch 复用，长度漂移则删除并重新下载；恢复 Launch 仍重新读取 `index.json` 和 grant，但不重复获取已完整缓存的 `data.win`。
 
 - `GET|HEAD /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 只允许命中已激活 Provider Bundle 的逐文件 allowlist，本地逐字节复核 size/hash 后返回不可变公共响应；未知 Provider、摘要、路径或 MIME 返回 404；
-- `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生索引与 bundle 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri/Butterscotch adapter 使用的保留虚拟索引，不提供外部 RTP 索引或文件端点。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、当前可变 GameFiles 或 ReviewDraft。
+- `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生索引与 bundle 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri/Butterscotch adapter 使用的保留虚拟索引，不提供外部 RTP 索引或文件端点。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、当前可变 GameFiles 或 ReviewDraft。 动态项目索引在同一只读快照中校验授权并读取冻结文件，Service 按唯一格式生成索引；只有确认使用静态索引的格式才允许读取其冻结索引文件。授权失效返回 `401 LAUNCH_CREDENTIAL_INVALID`，真实存储失败返回 `500 INTERNAL_ERROR`，不得把失败当作其他格式继续尝试。
 
 两条路径都必须以 `x-retrom-router-template` 保留含 `/` 的尾部路径。OpenAPI 中间件必须先识别它们再进入内容 handler；否则即使文件已物化也会被错误地提前映射为 404。
 

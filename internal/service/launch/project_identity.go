@@ -21,7 +21,7 @@ func NewProjectQueries(
 
 func (service *ProjectQueries) Identity(ctx context.Context, id, capability string) (string, error) {
 	snapshot, found, err := service.repository.Project(ctx, id, func(source ConfigSource) error {
-		if !service.valid(source, capability) {
+		if !validProjectAuthority(service.policy, source, capability) {
 			return ErrCredential
 		}
 		return nil
@@ -35,11 +35,11 @@ func (service *ProjectQueries) Identity(ctx context.Context, id, capability stri
 	return ProjectIdentity(snapshot.Files)
 }
 
-func (service *ProjectQueries) valid(source ConfigSource, capability string) bool {
-	if service.policy.matches == nil || !service.policy.matches(capability, source.CredentialHash) {
+func validProjectAuthority(policy accessPolicy, source ConfigSource, capability string) bool {
+	if policy.matches == nil || !policy.matches(capability, source.CredentialHash) {
 		return false
 	}
-	now := service.policy.now().UnixMilli()
+	now := policy.now().UnixMilli()
 	if source.Purpose == "REVIEW_PREVIEW" {
 		return source.State == "ACTIVE" && source.HardEnd > now
 	}

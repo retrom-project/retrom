@@ -89,10 +89,8 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 	}
 	launchID := grant.LaunchID
 	if logicalName == "index.json" {
-		if index, err := server.launcher.ProjectIndex(
-			request.Context(), launchID, grant.Capability,
-		); err == nil {
-			serveProjectIndex(writer, request, index)
+		index, err := server.launcher.ProjectIndex(request.Context(), launchID, grant.Capability)
+		if server.writeGeneratedProjectIndex(writer, request, index, err) {
 			return
 		}
 		// EasyRPG's loader requests index.json beside the project files. The

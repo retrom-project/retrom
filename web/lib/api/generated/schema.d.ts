@@ -2499,7 +2499,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index. */
+        /** @description Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index. Only a valid static-index format may use the frozen stored index; dynamic index storage failures return INTERNAL_ERROR. */
         get: operations["getRuntimeProjectFile"];
         put?: never;
         post?: never;
@@ -9345,6 +9345,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["BinaryResponse"];
+            401: components["responses"]["JSONResponse"];
+            500: components["responses"]["JSONResponse"];
         };
     };
     headRuntimeProjectFile: {
@@ -9360,6 +9362,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["BinaryResponse"];
+            401: components["responses"]["JSONResponse"];
+            500: components["responses"]["JSONResponse"];
         };
     };
     getRuntimeLaunchConfig: {

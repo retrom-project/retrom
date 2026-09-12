@@ -2,243 +2,46 @@ package launch
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"net/url"
-	"strings"
 
-	application "retrom/internal/service/launch"
-
-	"retrom/internal/cleanup"
-	"retrom/internal/importing"
-	"retrom/internal/ons/detector"
+	persistence "retrom/internal/persistence/launch"
 	retromruntime "retrom/internal/runtime"
+	application "retrom/internal/service/launch"
 )
 
-const maximumONSProjectFiles = application.MaximumProjectFiles
+type ProjectIndexView = application.ProjectIndexView
 
-type ProjectIndexView struct {
-	Contents []byte
-	SHA256   string
+var ErrProjectIndexUnavailable = application.ErrProjectIndexUnavailable
+
+func (service *Service) projectIndexes() *application.ProjectIndexes {
+	return application.NewProjectIndexes(
+		persistence.NewProjectIndexes(service.database),
+		service.now,
+		retromruntime.MatchesCapability,
+	)
 }
 
-type onsProjectIndex struct {
-	Files         []onsProjectIndexFile `json:"files"`
-	FontPath      string                `json:"fontPath"`
-	SchemaVersion int                   `json:"schemaVersion"`
-	Title         string                `json:"title"`
-}
-
-type onsProjectIndexFile struct {
-	Path      string `json:"path"`
-	SizeBytes int64  `json:"sizeBytes"`
-	URL       string `json:"url"`
-}
-
-func (service *Service) ProjectIndex(
-	ctx context.Context,
-	launchID, capability string,
-) (ProjectIndexView, error) {
-	if index, err := service.scummVMProjectIndex(ctx, launchID, capability); err == nil {
-		return index, nil
-	}
-	if index, err := service.productNXEngineProjectIndex(ctx, launchID, capability); err == nil {
-		return index, nil
-	}
-	if index, err := service.reviewPreviewNXEngineProjectIndex(ctx, launchID, capability); err == nil {
-		return index, nil
-	}
-	if index, err := service.productButterscotchProjectIndex(ctx, launchID, capability); err == nil {
-		return index, nil
-	}
-	if index, err := service.productKiriKiriProjectIndex(ctx, launchID, capability); err == nil {
-		return index, nil
-	}
-	if index, err := service.productONSProjectIndex(ctx, launchID, capability); err == nil {
-		return index, nil
-	}
-	if index, err := service.reviewPreviewKiriKiriProjectIndex(ctx, launchID, capability); err == nil {
-		return index, nil
-	}
-	if index, err := service.reviewPreviewButterscotchProjectIndex(ctx, launchID, capability); err == nil {
-		return index, nil
-	}
-	return service.ReviewPreviewProjectIndex(ctx, launchID, capability)
-}
-
-func (service *Service) productONSProjectIndex(
-	ctx context.Context,
-	launchID, capability string,
-) (ProjectIndexView, error) {
-	var credentialHash []byte
-	var state, title, dependencyJSON string
-	var hardExpires int64
-	err := service.database.QueryRowContext(ctx, `
-SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,
- game.title,launch.dependency_snapshot_json
-FROM launch_sessions launch
-JOIN games game ON game.id=launch.game_id
-WHERE launch.id=?
- AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
-  AND file.format_version='ONS_PROJECT')
-`, launchID).Scan(&credentialHash, &state, &hardExpires, &title, &dependencyJSON)
-	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
-		state != "ACTIVE" || hardExpires <= service.now().UnixMilli() {
-		return ProjectIndexView{}, ErrCredential
-	}
-	profile, err := detector.ParseSnapshot(dependencyJSON)
-	if err != nil || len(title) > 500 {
-		return ProjectIndexView{}, ErrCredential
-	}
-	identity, err := service.ProjectContentIdentity(ctx, launchID, capability)
+func (service *Service) ProjectIndex(ctx context.Context, id, capability string) (ProjectIndexView, error) {
+	result, err := service.projectIndexes().Index(ctx, application.ProjectIndexReference{ID: id}, capability)
 	if err != nil {
-		return ProjectIndexView{}, ErrCredential
+		return result, fmt.Errorf("launch project index: %w", err)
 	}
-	projectRoot, err := RuntimeProjectContentRoot(identity)
-	if err != nil {
-		return ProjectIndexView{}, ErrCredential
-	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT content.logical_name,blob.size_bytes
-FROM launch_content_files content
-JOIN blobs blob ON blob.id=content.blob_id
-WHERE content.launch_session_id=? AND content.format_version='ONS_PROJECT'
-ORDER BY content.logical_name
-`, launchID)
-	if err != nil {
-		return ProjectIndexView{}, fmt.Errorf("load product ONS project index: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	files := make([]onsProjectIndexFile, 0)
-	for rows.Next() {
-		var file onsProjectIndexFile
-		if err := rows.Scan(&file.Path, &file.SizeBytes); err != nil || len(files) >= maximumONSProjectFiles {
-			return ProjectIndexView{}, ErrCredential
-		}
-		files = append(files, file)
-	}
-	if err := rows.Err(); err != nil {
-		return ProjectIndexView{}, fmt.Errorf("read product ONS project index: %w", err)
-	}
-	return buildONSProjectIndex(projectRoot, title, profile, files)
+	return result, nil
 }
 
 func (service *Service) ReviewPreviewProjectIndex(
 	ctx context.Context,
-	previewID, capability string,
+	id, capability string,
 ) (ProjectIndexView, error) {
-	var credentialHash []byte
-	var state, title, dependencyJSON, primaryName string
-	var hardExpires int64
-	err := service.database.QueryRowContext(ctx, `
-SELECT credential_sha256,state,hard_expires_at_ms,title,dependency_snapshot_json,content_logical_name
-FROM review_preview_sessions
-WHERE id=? AND content_kind='ONS_PROJECT' AND content_format='ONS_PROJECT'
-`, previewID).Scan(&credentialHash, &state, &hardExpires, &title, &dependencyJSON, &primaryName)
-	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
-		return ProjectIndexView{}, ErrCredential
-	}
-	profile, err := detector.ParseSnapshot(dependencyJSON)
-	if err != nil || len(title) > 500 {
-		return ProjectIndexView{}, ErrCredential
-	}
-	identity, err := service.ProjectContentIdentity(ctx, previewID, capability)
+	result, err := service.projectIndexes().Index(
+		ctx,
+		application.ProjectIndexReference{ID: id, PreviewOnly: true},
+		capability,
+	)
 	if err != nil {
-		return ProjectIndexView{}, ErrCredential
+		return result, fmt.Errorf("review project index: %w", err)
 	}
-	projectRoot, err := RuntimeProjectContentRoot(identity)
-	if err != nil {
-		return ProjectIndexView{}, ErrCredential
-	}
-	files, err := service.reviewPreviewProjectIndexFiles(ctx, previewID, primaryName)
-	if err != nil {
-		return ProjectIndexView{}, err
-	}
-	return buildONSProjectIndex(projectRoot, title, profile, files)
-}
-
-func buildONSProjectIndex(
-	projectRoot, title string,
-	profile detector.Profile,
-	files []onsProjectIndexFile,
-) (ProjectIndexView, error) {
-	if len(files) < 2 || len(files) > maximumONSProjectFiles {
-		return ProjectIndexView{}, ErrCredential
-	}
-	seen := make(map[string]struct{}, len(files))
-	markerFound, fontFound := false, false
-	for index := range files {
-		normalized, err := importing.ValidateLogicalPath(files[index].Path)
-		folded := importing.ASCIICaseFold(normalized)
-		if err != nil || normalized != files[index].Path || files[index].SizeBytes < 1 {
-			return ProjectIndexView{}, ErrCredential
-		}
-		if _, duplicate := seen[folded]; duplicate {
-			return ProjectIndexView{}, ErrCredential
-		}
-		seen[folded] = struct{}{}
-		markerFound = markerFound || normalized == profile.MarkerPath
-		fontFound = fontFound || normalized == profile.FontPath
-		files[index].URL = projectRoot + escapeProjectPath(normalized)
-	}
-	if !markerFound || !fontFound {
-		return ProjectIndexView{}, ErrCredential
-	}
-	contents, err := json.Marshal(onsProjectIndex{
-		Files: files, FontPath: profile.FontPath, SchemaVersion: 1, Title: title,
-	})
-	if err != nil {
-		return ProjectIndexView{}, fmt.Errorf("marshal ONS project index: %w", err)
-	}
-	digest := sha256.Sum256(contents)
-	return ProjectIndexView{Contents: contents, SHA256: hex.EncodeToString(digest[:])}, nil
-}
-
-func (service *Service) reviewPreviewProjectIndexFiles(
-	ctx context.Context,
-	previewID, primaryName string,
-) ([]onsProjectIndexFile, error) {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT logical_name,size_bytes FROM (
- SELECT session.content_logical_name AS logical_name,blob.size_bytes,0 AS sort_order
- FROM review_preview_sessions session
- JOIN blobs blob ON blob.id=session.content_blob_id
- WHERE session.id=?
- UNION ALL
- SELECT file.logical_name,blob.size_bytes,file.sort_order+1
- FROM review_preview_files file
- JOIN blobs blob ON blob.id=file.blob_id
- WHERE file.preview_session_id=? AND file.role IN ('PROJECT_FILE','RUNTIME_FILE')
-) ORDER BY sort_order,logical_name
-`, previewID, previewID)
-	if err != nil {
-		return nil, fmt.Errorf("load review ONS project index: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	files := make([]onsProjectIndexFile, 0)
-	seen := make(map[string]struct{})
-	for rows.Next() {
-		var file onsProjectIndexFile
-		if err := rows.Scan(&file.Path, &file.SizeBytes); err != nil || len(files) >= maximumONSProjectFiles {
-			return nil, ErrCredential
-		}
-		normalized, pathErr := importing.ValidateLogicalPath(file.Path)
-		folded := importing.ASCIICaseFold(normalized)
-		if pathErr != nil || normalized != file.Path || file.SizeBytes < 1 {
-			return nil, ErrCredential
-		}
-		if _, duplicate := seen[folded]; duplicate {
-			return nil, ErrCredential
-		}
-		seen[folded] = struct{}{}
-		files = append(files, file)
-	}
-	if err := rows.Err(); err != nil || len(files) < 2 || files[0].Path != primaryName {
-		return nil, ErrCredential
-	}
-	return files, nil
+	return result, nil
 }
 
 func (service *Service) ReviewPreviewProjectContent(
@@ -250,12 +53,4 @@ func (service *Service) ReviewPreviewProjectContent(
 		return result, fmt.Errorf("launch resource query: %w", err)
 	}
 	return result, nil
-}
-
-func escapeProjectPath(logicalName string) string {
-	parts := strings.Split(logicalName, "/")
-	for index, part := range parts {
-		parts[index] = url.PathEscape(part)
-	}
-	return strings.Join(parts, "/")
 }

@@ -96,16 +96,24 @@ paths:
     get:
       security: []
       operationId: getRuntimeProjectFile
-      description: Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index.
+      description: Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index. Only a valid static-index format may use the frozen stored index; dynamic index storage failures return INTERNAL_ERROR.
       responses:
         '200':
           $ref: '#/components/responses/BinaryResponse'
+        '401':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '500':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
     head:
       security: []
       operationId: headRuntimeProjectFile
       responses:
         '200':
           $ref: '#/components/responses/BinaryResponse'
+        '401':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '500':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
   /runtime/launches/{launchId}/config:
     parameters:
       - $ref: '#/components/parameters/LaunchID'
