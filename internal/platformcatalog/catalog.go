@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 20
+const Version = 21
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -187,6 +187,34 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{
 		Key: "cdi/same_cdi", PlatformID: "cdi", DefaultCoreID: "same_cdi",
 		Name: "Philips CD-i 游戏", CatalogOrder: 560,
+	},
+	{
+		Key: "gamegear/genesis_plus_gx", PlatformID: "gamegear", DefaultCoreID: "genesis_plus_gx",
+		Name: "Game Gear 游戏", CatalogOrder: 600,
+	},
+	{
+		Key: "sg1000/genesis_plus_gx", PlatformID: "sg1000", DefaultCoreID: "genesis_plus_gx",
+		Name: "SG-1000 游戏", CatalogOrder: 610,
+	},
+	{
+		Key: "multivision/genesis_plus_gx", PlatformID: "multivision", DefaultCoreID: "genesis_plus_gx",
+		Name: "Multivision 游戏", CatalogOrder: 620,
+	},
+	{
+		Key: "pico/picodrive", PlatformID: "pico", DefaultCoreID: "picodrive",
+		Name: "Sega Pico 游戏", CatalogOrder: 630,
+	},
+	{
+		Key: "sega32x/picodrive", PlatformID: "sega32x", DefaultCoreID: "picodrive",
+		Name: "Sega 32X 游戏", CatalogOrder: 640,
+	},
+	{
+		Key: "supergrafx/mednafen_pce", PlatformID: "supergrafx", DefaultCoreID: "mednafen_pce",
+		Name: "SuperGrafx 游戏", CatalogOrder: 650,
+	},
+	{
+		Key: "gx4000/cap32", PlatformID: "gx4000", DefaultCoreID: "cap32",
+		Name: "GX4000 游戏", CatalogOrder: 660,
 	},
 }}
 

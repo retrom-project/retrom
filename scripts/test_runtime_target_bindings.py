@@ -38,11 +38,11 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("emulatorjs", "desmume2015")]["coreId"], "desmume2015")
         expected_single_file_targets = {
             "81": ("81", ["zx81"]),
-            "cap32": ("cap32", ["amstradcpc"]),
+            "cap32": ("cap32", ["amstradcpc", "gx4000"]),
             "crocods": ("crocods", ["amstradcpc"]),
             "fuse": ("fuse", ["zxspectrum"]),
             "gearcoleco": ("gearcoleco", ["colecovision"]),
-            "mednafen-pce": ("mednafen_pce", ["pce", "pcecd"]),
+            "mednafen-pce": ("mednafen_pce", ["pce", "pcecd", "supergrafx"]),
             "prboom": ("prboom", ["doom"]),
             "puae": ("puae", ["amiga"]),
             "same-cdi": ("same_cdi", ["cdi"]),

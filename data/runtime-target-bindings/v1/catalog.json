@@ -63,7 +63,8 @@
       "providerId": "emulatorjs",
       "targetId": "cap32",
       "platformIds": [
-        "amstradcpc"
+        "amstradcpc",
+        "gx4000"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -246,7 +247,10 @@
       "providerId": "emulatorjs",
       "targetId": "genesis-plus-gx",
       "platformIds": [
-        "megadrive"
+        "gamegear",
+        "megadrive",
+        "multivision",
+        "sg1000"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -331,7 +335,8 @@
       "targetId": "mednafen-pce",
       "platformIds": [
         "pce",
-        "pcecd"
+        "pcecd",
+        "supergrafx"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -487,7 +492,9 @@
       "providerId": "emulatorjs",
       "targetId": "picodrive",
       "platformIds": [
-        "megadrive"
+        "megadrive",
+        "pico",
+        "sega32x"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -1140,6 +1147,12 @@
         "enabled": true
       },
       {
+        "id": "gamegear",
+        "name": "Game Gear",
+        "sortOrder": 600,
+        "enabled": true
+      },
+      {
         "id": "gba",
         "name": "Game Boy Advance",
         "sortOrder": 50,
@@ -1149,6 +1162,12 @@
         "id": "gbc",
         "name": "Game Boy / Color",
         "sortOrder": 40,
+        "enabled": true
+      },
+      {
+        "id": "gx4000",
+        "name": "GX4000",
+        "sortOrder": 660,
         "enabled": true
       },
       {
@@ -1185,6 +1204,12 @@
         "id": "msx",
         "name": "MSX",
         "sortOrder": 87,
+        "enabled": true
+      },
+      {
+        "id": "multivision",
+        "name": "Multivision",
+        "sortOrder": 620,
         "enabled": true
       },
       {
@@ -1260,6 +1285,12 @@
         "enabled": true
       },
       {
+        "id": "pico",
+        "name": "Sega Pico",
+        "sortOrder": 630,
+        "enabled": true
+      },
+      {
         "id": "pico8",
         "name": "PICO-8",
         "sortOrder": 84,
@@ -1308,9 +1339,27 @@
         "enabled": true
       },
       {
+        "id": "sega32x",
+        "name": "Sega 32X",
+        "sortOrder": 640,
+        "enabled": true
+      },
+      {
+        "id": "sg1000",
+        "name": "SG-1000",
+        "sortOrder": 610,
+        "enabled": true
+      },
+      {
         "id": "snes",
         "name": "SNES",
         "sortOrder": 30,
+        "enabled": true
+      },
+      {
+        "id": "supergrafx",
+        "name": "SuperGrafx",
+        "sortOrder": 650,
         "enabled": true
       },
       {
