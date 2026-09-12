@@ -2189,3 +2189,24 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
   键盘移动与射击生效，恢复后输入仍生效。通过后在 `px68k-input-product.json` 写入视觉检查结果并将 status 标记为 PASS。
   调色板循环在暂停时仍可能改变像素，不能仅凭画面摘要不同判断游戏未暂停。本步骤使用《超连射 68K》游戏中的存档；
   其他样本须有同等明确的动作判据。实体手柄的硬件事件采集不在虚拟标准手柄验收结论内。
+
+
+### ACC-PSP-001：独立 PPSSPP 的产品启动与即时存档
+
+- 硬超时：900 秒。
+- 环境：Chrome，支持 WebGL2/OffscreenCanvas/SharedArrayBuffer 的隔离来源；PFB 完整 Provider
+  候选包含 `retrom-runtime/ppsspp`。fixture 由操作者提供，不入库。自动化脚本为
+  `scripts/acceptance/ppsspp_product.mjs`，`RETROM_PSP_SKY_DISC` 指向《傲气雄鹰》ISO，
+  `RETROM_PSP_SECOND_DISC` 指向《半分钟英雄1》ISO。通用环境变量为
+  `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE` 和 `RETROM_ACCEPTANCE_CASE_DIR`。Windows Node 可通过
+  `RETROM_ACCEPTANCE_NODE_MODULES` 指定 Playwright 所在目录。
+- 流程：上传两份 ISO，经 PSP 平台导入、Review Preview、发布和 Product Launch；使用标准
+  Gamepad API 的单一映射验证方向与确认；校验音频、暂停和截图；保存非空有界的即时存档，
+  经不同 Launch 恢复到同一菜单选择并继续输入；验证第二次读取复用 OPFS、无全盘重复请求，
+  退出后会话和核心资源释放。损坏、截断和超限存档必须失败，不得静默重开游戏。
+- 通过标准：两款游戏可见画面；公共存档格式为 `ppsspp-state-v1-storage-v1`，gzip 只包一层；
+  新实例精确恢复执行状态与记忆棒文件，恢复后方向、确认仍工作。证据记录实例 ID、存档 ID、
+  格式、网络计数及截图。自动化虚拟标准手柄证明浏览器映射；实体手柄仍需单独记录实测结果。
+- 限制：本 Case 不证明 EmulatorJS 旧存档兼容，也不代表整个 PSP 游戏库兼容。缺少实际运行
+  证据时仅标为候选，不作为稳定发布依据。
