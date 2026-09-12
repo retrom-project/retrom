@@ -38,9 +38,9 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 ## 3. 两个 Provider
 
-`emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 56 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
+`emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，Target 集合以 Provider declaration 为准。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
-`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08、Play! 和 Ruffle 在内的 22 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+`retrom-runtime` Bundle 从独立仓库生成，Target 集合以 Provider declaration 为准，生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
 ## 4. Retrom binding catalog
 
@@ -282,3 +282,16 @@ PokeMini 提供现成 libretro/Emscripten 路径，但文档记录部分游戏 E
 Provider 安装校验保持完整 SHA-256 与大小检查；文件摘要使用有界的 1 MiB 读取缓冲，避免 Docker bind mount 上大量 32 KiB 读取消耗启动预检时限。该调整不跳过任何依赖字节。
 PFB 的测试模式使用既有配置允许的 5 分钟启动预检额度，为完整 Provider 校验留出 bind mount I/O 时间；生产服务的默认额度不变。
 显式 pfb-build 成功后总是更新工具链记录；仅镜像变化时复用已验证依赖，不重复 npm ci，并保证后续 up 接受新的工具链摘要。
+
+## PPSSPP 固定核心输入
+
+独立 PSP 核心由 `retrom-project/ppsspp` 维护，上游为官方
+`hrydgard/ppsspp@2e6fd06ed6c77db467dea5fb3f67abd93457da20`。`master` 保留上游镜像，
+Retrom 修改与 `retrom-core-g2e6fd06ed6c7-rN` tag 归维护分支 `retrom/g2e6fd06ed6c7`。
+固定工具链、原生资源筛选、WASM 和浏览器宿主构建均由 core fork 独占；预载资源不包含
+桌面调试网页或 Git 元数据。runtime 通过 `ppsspp-host-v2` 消费固定 Release，核对完整
+资产清单、准确大小和 SHA-256。游戏与固件不进入核心或 Provider 包。
+
+发布顺序为 core fork → runtime Provider → Retrom 正式锁。PFB 本地覆盖只能通过显式
+核心候选构建使用；正式归档拒绝开发覆盖。Retrom 固定正式 Provider 后重新执行相应
+PSP 产品 Case，具体契约见 `ACC-PSP-001` 与 `ACC-PSP-002`。

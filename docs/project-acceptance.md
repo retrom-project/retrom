@@ -2306,8 +2306,8 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 ### ACC-PSP-001：独立 PPSSPP 的产品启动与即时存档
 
 - 硬超时：900 秒。
-- 环境：Chrome，支持 WebGL2/OffscreenCanvas/SharedArrayBuffer 的隔离来源；PFB 完整 Provider
-  候选包含 `retrom-runtime/ppsspp`。fixture 由操作者提供，不入库。自动化脚本为
+- 环境：Chrome，支持 WebGL2/OffscreenCanvas/SharedArrayBuffer 的隔离来源；已安装的 Provider
+  包含 `retrom-runtime/ppsspp`，开发候选与正式发行均使用公共产品入口。fixture 由操作者提供，不入库。自动化脚本为
   `scripts/acceptance/ppsspp_product.mjs`，`RETROM_PSP_SKY_DISC` 指向《傲气雄鹰》ISO，
   `RETROM_PSP_SECOND_DISC` 指向《半分钟英雄1》ISO。通用环境变量为
   `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、
