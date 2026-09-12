@@ -15,11 +15,11 @@ func TestValidReturnToAcceptsOnlyExactImmersiveGameList(t *testing.T) {
 		"/immersive/library/favorites?gameId=" + gameID,
 		"/immersive/library/favorites?gameId=" + gameID + "&folderId=" + folderID,
 	} {
-		if !validReturnTo(value, gameID, nil) {
+		if !ValidProductReturnTo(value, gameID, nil) {
 			t.Fatalf("expected immersive return URL to be valid: %s", value)
 		}
 	}
-	if !validReturnTo(
+	if !ValidProductReturnTo(
 		"/immersive/library/saves?gameId="+gameID+"&saveStateId="+saveStateID,
 		gameID,
 		stringPointer(saveStateID),
@@ -40,11 +40,11 @@ func TestValidReturnToAcceptsOnlyExactImmersiveGameList(t *testing.T) {
 		"/immersive/library/favorites?gameId=" + gameID + "&extra=true",
 		"/immersive/library/saves?gameId=" + gameID + "&saveStateId=" + saveStateID,
 	} {
-		if validReturnTo(value, gameID, nil) {
+		if ValidProductReturnTo(value, gameID, nil) {
 			t.Fatalf("expected immersive return URL to be rejected: %s", value)
 		}
 	}
-	if validReturnTo(
+	if ValidProductReturnTo(
 		"/immersive/platforms/gba?gameId="+gameID,
 		gameID,
 		stringPointer(saveStateID),

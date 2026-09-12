@@ -3,7 +3,6 @@ package launch
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -28,23 +27,14 @@ import (
 var (
 	ErrBlocked          = application.ErrBlocked
 	ErrCredential       = application.ErrCredential
-	ErrDOSEntryMissing  = errors.New("LAUNCH_DOS_ENTRY_MISSING")
-	ErrDOSEntryUnsafe   = errors.New("LAUNCH_DOS_ENTRY_UNSAFE")
+	ErrDOSEntryMissing  = application.ErrDOSEntryMissing
+	ErrDOSEntryUnsafe   = application.ErrDOSEntryUnsafe
 	ErrSaveIncompatible = application.ErrSaveIncompatible
 )
 
-const reviewScreenshotOverrideCode = "REVIEW_SCREENSHOT_OVERRIDE"
-
 type Capabilities = application.Capabilities
 
-type CreateRequest struct {
-	GameID             string       `json:"gameId"`
-	CoreID             *string      `json:"coreId"`
-	SaveStateID        *string      `json:"saveStateId"`
-	DOSEntry           *string      `json:"dosEntry"`
-	ReturnTo           string       `json:"returnTo"`
-	ClientCapabilities Capabilities `json:"clientCapabilities"`
-}
+type CreateRequest = application.CreateRequest
 
 type (
 	Created              = application.Created

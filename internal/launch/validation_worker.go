@@ -20,8 +20,6 @@ import (
 	"retrom/internal/arcadedat"
 	"retrom/internal/contentprofile"
 	"retrom/internal/corevalidation"
-
-	"github.com/google/uuid"
 )
 
 type variantValidationOutcome struct {
@@ -446,9 +444,4 @@ func nullableSQL(value sql.NullString) any {
 		return value.String
 	}
 	return nil
-}
-
-func newUUID() string {
-	value, _ := uuid.NewV7()
-	return value.String()
 }

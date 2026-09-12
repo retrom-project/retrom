@@ -44,6 +44,17 @@ func (service *Service) ResolveBIOS(
 		failure := fmt.Errorf("corevalidation/read BIOS: %w", err)
 		return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", failure
 	}
+	return ResolveBIOSRecords(records, contentLogicalName)
+}
+
+// ResolveBIOSRecords evaluates a frozen catalog/installation snapshot without storage access.
+func ResolveBIOSRecords(
+	records []BIOSRecord,
+	contentLogicalName string,
+) (corevalidation.Snapshot, string, string, error) {
+	if contentLogicalName == "" {
+		return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", corevalidation.ErrInvalidSnapshot
+	}
 	snapshot := corevalidation.Snapshot{
 		SchemaVersion: corevalidation.SnapshotSchemaVersion, Kind: corevalidation.SnapshotKindStatic,
 		BIOS: make([]corevalidation.BIOSDependency, 0, len(records)),

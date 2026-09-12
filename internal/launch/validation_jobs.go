@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -28,142 +27,23 @@ func (service *Service) ensureVariant(
 	requestedCore string,
 	launchWhenReady bool,
 ) (Created, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-
-	var gameID, contentLogicalName, contentKind, coreID string
-	var providerID, targetID, sourceManifestDigest string
-	var contentPolicy contentcapability.Policy
-	var gameVersion int64
-	var datID sql.NullString
-	err = transaction.QueryRowContext(ctx, `
-SELECT game.id,
-COALESCE(file.logical_name,''),
-game.content_kind,
-core.id,
-binding.provider_id,
-binding.target_id,
-`+contentquery.BindingPolicySQL+`,
-(SELECT id FROM dat_versions
- WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
-game.version,
-game.source_manifest_digest
-FROM games game
-JOIN platform_instances instance ON instance.id=game.platform_instance_id
-LEFT JOIN game_files file ON file.game_id=game.id AND file.role IN ('CONTENT','DISC')
-JOIN platform_cores platform_core ON platform_core.platform_id=instance.platform_id AND platform_core.enabled=1
-JOIN cores core ON core.id=platform_core.core_id AND core.enabled=1
-JOIN runtime_target_bindings binding ON binding.core_id=core.id AND binding.launch_policy!='DISABLED'
-JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
-JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
- AND binding_platform.platform_id=instance.platform_id AND binding_platform.core_id=core.id
-JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
- AND binding_kind.content_kind=game.content_kind
-WHERE game.id=? AND game.status='PUBLISHED' AND instance.enabled=1
-AND core.id=CASE WHEN ?='' THEN instance.default_core_id ELSE ? END
-ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 ELSE 1 END,file.sort_order,file.logical_name
-LIMIT 1
-`, request.GameID, requestedCore, requestedCore).Scan(
-		&gameID, &contentLogicalName, &contentKind, &coreID, &providerID, &targetID,
-		contentquery.ScanPolicy(&contentPolicy), &datID, &gameVersion, &sourceManifestDigest,
-	)
-	target, targetExists := service.runtimeBuilder.Target(providerID, targetID)
-	if err != nil || !targetExists ||
-		!validThreadCapabilities(target.Capabilities.RequiresThreads, request.ClientCapabilities) {
-		return Created{}, ErrBlocked
-	}
-	variantID, err := service.ensureGameVariant(
-		ctx, transaction, gameID, coreID, providerID, targetID, datID,
-	)
-	if err != nil {
-		return Created{}, err
-	}
-	baseDigest, biosDependencyDigest, err := service.validationDigests(
-		ctx, transaction, variantID, gameID, contentLogicalName, contentKind,
-		providerID, targetID, contentPolicy, datID,
-	)
-	if err != nil {
-		return Created{}, ErrBlocked
-	}
-	digest := bindCurrentGameStateDigest(baseDigest, gameVersion, sourceManifestDigest)
-	jobID, queued, err := service.queueValidationJob(
-		ctx, transaction, variantID, gameID, gameVersion, sourceManifestDigest,
-		providerID, targetID, contentPolicy, datID, digest, biosDependencyDigest,
-	)
-	if err != nil {
-		return Created{}, err
-	}
-	if queued {
-		if _, err := recordstore.UpdateGameVariants(ctx, transaction, recordstore.Update{
-			Set: `
-status='BLOCKED',compatibility_code='VALIDATION_PENDING',
-emulator_game_id=NULL,version=version+1,updated_at_ms=?
-`,
-			Scope: recordstore.Scope{
-				Where: `id=?`,
-				Args:  []any{variantID},
-			},
-			Values: []any{service.now().UnixMilli()},
-		}); err != nil {
-			return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
-		}
-	}
-	var status string
-	if err := transaction.QueryRowContext(
-		ctx, `SELECT status FROM game_variants WHERE id=?`, variantID,
-	).Scan(&status); err != nil {
-		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	if status == "READY" {
-		if launchWhenReady {
-			return service.Create(ctx, profileID, request)
-		}
-		return Created{Status: "READY"}, nil
-	}
 	if launchWhenReady {
-		go service.resumeValidationJob(context.WithoutCancel(ctx), jobID)
+		return service.Create(ctx, profileID, request)
 	}
-	return Created{Status: "VALIDATION_PENDING", JobID: jobID, RetryAfterMS: 1000}, nil
+	result, err := service.productCreator(persistence.NewProductCreation(service.database)).EnsureVariant(
+		ctx,
+		request.GameID,
+		requestedCore,
+		request.ClientCapabilities,
+	)
+	if err != nil {
+		return Created{}, fmt.Errorf("launch ensure variant: %w", err)
+	}
+	return result, nil
 }
 
 func bindCurrentGameStateDigest(baseDigest string, gameVersion int64, sourceManifestDigest string) string {
 	return application.BindCurrentGameStateDigest(baseDigest, gameVersion, sourceManifestDigest)
-}
-
-func (service *Service) ensureGameVariant(
-	ctx context.Context,
-	transaction *sql.Tx,
-	gameID, coreID, providerID, targetID string,
-	datID sql.NullString,
-) (string, error) {
-	var variantID string
-	err := transaction.QueryRowContext(ctx, `
-SELECT id FROM game_variants WHERE game_id=? AND core_id=?
-`, gameID, coreID).Scan(&variantID)
-	if err == nil {
-		return variantID, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return "", fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	variantID = newUUID()
-	now := service.now().UnixMilli()
-	if _, err := recordstore.CreateGameVariants(ctx, transaction, `
-INSERT INTO game_variants(
- id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
- status,compatibility_code,dependency_snapshot_json,default_dos_entry,
- version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,NULL,'BLOCKED','VALIDATION_PENDING','{}',NULL,1,?,?)
-`, variantID, gameID, coreID, providerID, targetID, nullableSQL(datID), now, now); err != nil {
-		return "", fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	return variantID, nil
 }
 
 // ResumeValidationJob resumes one queued validation. Claiming the job is the

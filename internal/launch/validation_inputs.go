@@ -2,21 +2,18 @@ package launch
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"retrom/internal/dbexec"
-	validationpersistence "retrom/internal/persistence/corevalidation"
-	validationservice "retrom/internal/service/corevalidation"
+	persistence "retrom/internal/persistence/launch"
+	application "retrom/internal/service/launch"
 
 	"retrom/internal/contentcapability"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 )
 
@@ -46,244 +43,112 @@ type validationScope struct {
 	ID   string `json:"id"`
 }
 
-type variantArcadeBIOSRow struct {
-	logicalName         string
-	dependencyState     string
-	requirementID       sql.NullString
-	requirementVersion  sql.NullInt64
-	catalogDigest       sql.NullString
-	requirementMode     sql.NullString
-	condition           sql.NullString
-	deliveryKind        sql.NullString
-	emulatorPath        sql.NullString
-	optionsJSON         sql.NullString
-	installationID      sql.NullString
-	installationVersion sql.NullInt64
-	blobID              sql.NullString
-	installationStatus  sql.NullString
-}
-
-func scanVariantArcadeBIOSRow(rows *sql.Rows) (variantArcadeBIOSRow, error) {
-	var row variantArcadeBIOSRow
-	if err := rows.Scan(
-		&row.logicalName,
-		&row.dependencyState,
-		&row.requirementID,
-		&row.requirementVersion,
-		&row.catalogDigest,
-		&row.requirementMode,
-		&row.condition,
-		&row.deliveryKind,
-		&row.emulatorPath,
-		&row.optionsJSON,
-		&row.installationID,
-		&row.installationVersion,
-		&row.blobID,
-		&row.installationStatus,
-	); err != nil {
-		return variantArcadeBIOSRow{}, fmt.Errorf("scan Arcade BIOS dependency: %w", err)
-	}
-	return row, nil
-}
-
-func variantArcadeBIOSDependency(
-	row variantArcadeBIOSRow,
-) (corevalidation.BIOSDependency, bool, bool, error) {
-	if row.dependencyState == "SATISFIED_BY_CONTENT" {
-		return corevalidation.BIOSDependency{}, false, true, nil
-	}
-	if !row.requirementID.Valid || !row.requirementVersion.Valid || !row.catalogDigest.Valid ||
-		!row.requirementMode.Valid || !row.deliveryKind.Valid {
-		return corevalidation.BIOSDependency{}, false, false, nil
-	}
-	dependency := corevalidation.BIOSDependency{
-		BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{
-			RequirementID: row.requirementID.String, RequirementVersion: row.requirementVersion.Int64,
-			CatalogDigest: row.catalogDigest.String, LogicalName: row.logicalName,
-			RequirementMode: row.requirementMode.String, DeliveryKind: row.deliveryKind.String,
-			ConditionCode: nullStringPointer(row.condition), EmulatorPath: nullStringPointer(row.emulatorPath),
-		},
-		ActivationOptions:   make(map[string]string),
-		InstallationID:      nullStringPointer(row.installationID),
-		InstallationVersion: nullInt64Pointer(row.installationVersion),
-		BlobID:              nullStringPointer(row.blobID),
-		InstallationStatus:  nullStringPointer(row.installationStatus),
-	}
-	if row.optionsJSON.Valid {
-		if err := json.Unmarshal([]byte(row.optionsJSON.String), &dependency.ActivationOptions); err != nil {
-			return corevalidation.BIOSDependency{}, false, false, corevalidation.ErrInvalidSnapshot
-		}
-	}
-	validInstallation := row.blobID.Valid && row.installationStatus.Valid &&
-		corevalidation.BIOSInstallationUsable(row.installationStatus.String)
-	return dependency, true, validInstallation, nil
-}
-
-func nullStringPointer(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	return &value.String
-}
-
-func nullInt64Pointer(value sql.NullInt64) *int64 {
-	if !value.Valid {
-		return nil
-	}
-	return &value.Int64
-}
-
 func (service *Service) resolveVariantBIOS(
-	ctx context.Context,
-	database dbexec.Executor,
-	variantID, contentID, providerID, targetID, contentLogicalName string,
-	datID sql.NullString,
+	ctx context.Context, database dbexec.Executor,
+	variantID, contentID, providerID, targetID, contentLogicalName string, datID sql.NullString,
 ) (corevalidation.Snapshot, string, string, error) {
-	if providerID == "retrom-runtime" && targetID == "scummvm" {
-		return corevalidation.Snapshot{
-			SchemaVersion: 1, Kind: corevalidation.SnapshotKindStatic, BIOS: []corevalidation.BIOSDependency{},
-		}, "READY", "READY", nil
+	source := application.ProductSource{
+		VariantID:    variantID,
+		GameID:       contentID,
+		ProviderID:   providerID,
+		TargetID:     targetID,
+		DATVersionID: dbexec.StringPointer(datID),
 	}
-	snapshot, status, code, err := validationservice.New(
-		validationpersistence.New(
-			database,
-		),
-	).ResolveBIOS(
-		ctx,
-		providerID,
-		targetID,
-		contentLogicalName,
-	)
-	if err != nil {
-		return snapshot, status, code, fmt.Errorf("launch validation static BIOS: %w", err)
-	}
-	if !datID.Valid {
-		return snapshot, status, code, nil
-	}
-	rows, err := database.QueryContext(ctx, `
-SELECT dependency.logical_archive,
-dependency.state,
-requirement.id,
-requirement.version,
-requirement.catalog_digest,
-requirement.requirement_mode,
-requirement.condition_code,
-requirement.delivery_kind,
-requirement.emulator_path,
-requirement.activation_options_json,
-installation.id,
-installation.version,
-installation.blob_id,
-installation.status
-FROM game_variants variant
-JOIN variant_dependencies dependency ON dependency.game_variant_id=variant.id
-AND dependency.kind='BIOS_OR_BASE'
-LEFT JOIN bios_requirements requirement ON requirement.provider_id=? AND requirement.target_id=?
-AND requirement.source_kind='DAT_MACHINE'
-AND requirement.source_version=?
-AND requirement.logical_name=dependency.logical_archive
-AND requirement.enabled=1
-LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
-AND installation.is_active=1
-AND installation.validated_requirement_version=requirement.version
-WHERE variant.id=? AND variant.game_id=? AND variant.dat_version_id IS ?
-ORDER BY dependency.logical_archive
-`, providerID, targetID, datID.String, variantID, contentID, nullableSQL(datID))
-	if err != nil {
-		return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE",
-			fmt.Errorf("launch validation Arcade BIOS: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	for rows.Next() {
-		row, err := scanVariantArcadeBIOSRow(rows)
+	var facts application.ProductBIOSFacts
+	if providerID != "retrom-runtime" || targetID != "scummvm" {
+		var err error
+		facts, err = persistence.ProductBIOSFacts(ctx, database, source, source.DATVersionID)
 		if err != nil {
-			return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE",
-				fmt.Errorf("launch validation Arcade BIOS: %w", err)
-		}
-		dependency, include, validInstallation, err := variantArcadeBIOSDependency(row)
-		if err != nil {
-			return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE",
-				fmt.Errorf("launch validation Arcade BIOS dependency: %w", err)
-		}
-		if !validInstallation {
-			status, code = "BLOCKED", "LAUNCH_BIOS_MISSING"
-		}
-		if include {
-			snapshot.BIOS = append(snapshot.BIOS, dependency)
+			return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", fmt.Errorf(
+				"read validation BIOS: %w",
+				err,
+			)
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE",
-			fmt.Errorf("launch validation Arcade BIOS: %w", err)
+	snapshot, status, code, err := application.ResolveProductBIOS(source, facts, contentLogicalName)
+	if err != nil {
+		return snapshot, status, code, fmt.Errorf("resolve variant BIOS: %w", err)
 	}
 	return snapshot, status, code, nil
 }
 
 func (service *Service) validationDigests(
-	ctx context.Context,
-	transaction *sql.Tx,
+	ctx context.Context, transaction *sql.Tx,
 	variantID, contentID, contentLogicalName, contentKind, providerID, targetID string,
-	contentPolicy contentcapability.Policy,
-	datID sql.NullString,
+	contentPolicy contentcapability.Policy, datID sql.NullString,
 ) (string, string, error) {
-	biosSnapshot, _, _, err := service.resolveVariantBIOS(
-		ctx, transaction, variantID, contentID, providerID, targetID, contentLogicalName, datID,
+	digest, biosDigest, _, _, _, err := service.variantValidationEvidence(
+		ctx,
+		transaction,
+		variantID,
+		contentID,
+		contentLogicalName,
+		contentKind,
+		providerID,
+		targetID,
+		contentPolicy,
+		datID,
 	)
-	if err != nil {
-		return "", "", ErrBlocked
-	}
-	if contentKind == corevalidation.MultiDiscContentKind {
-		digest, biosDigest, _, digestErr := service.multiDiscRevalidationInputs(
-			ctx, transaction, variantID, contentID, providerID, targetID,
-			contentPolicy, datID, biosSnapshot,
-		)
-		return digest, biosDigest, digestErr
-	}
-	digest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, targetID, contentID, dbexec.StringPointer(datID), biosSnapshot,
-	)
-	if err != nil {
-		return "", "", fmt.Errorf("launch validation digest: %w", err)
-	}
-	biosSnapshotJSON, err := biosSnapshot.JSON()
-	if err != nil {
-		return "", "", fmt.Errorf("launch validation snapshot: %w", err)
-	}
-	biosSnapshotDigest := sha256.Sum256(biosSnapshotJSON)
-	return digest, hex.EncodeToString(biosSnapshotDigest[:]), nil
+	return digest, biosDigest, err
 }
 
 func (service *Service) currentValidationEvidence(
-	ctx context.Context,
-	variantID, contentID, contentLogicalName, contentKind, providerID, targetID string,
-	contentPolicy contentcapability.Policy,
-	datID sql.NullString,
+	ctx context.Context, variantID, contentID, contentLogicalName, contentKind, providerID, targetID string,
+	contentPolicy contentcapability.Policy, datID sql.NullString,
 ) (string, string, corevalidation.Snapshot, string, string, error) {
-	biosSnapshot, biosStatus, biosCode, err := service.resolveVariantBIOS(
-		ctx, service.database, variantID, contentID, providerID, targetID, contentLogicalName, datID,
+	return service.variantValidationEvidence(
+		ctx,
+		service.database,
+		variantID,
+		contentID,
+		contentLogicalName,
+		contentKind,
+		providerID,
+		targetID,
+		contentPolicy,
+		datID,
+	)
+}
+
+func (service *Service) variantValidationEvidence(
+	ctx context.Context, database dbexec.Executor,
+	variantID, contentID, contentLogicalName, contentKind, providerID, targetID string,
+	contentPolicy contentcapability.Policy, datID sql.NullString,
+) (string, string, corevalidation.Snapshot, string, string, error) {
+	bios, status, code, err := service.resolveVariantBIOS(
+		ctx,
+		database,
+		variantID,
+		contentID,
+		providerID,
+		targetID,
+		contentLogicalName,
+		datID,
 	)
 	if err != nil {
-		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation BIOS: %w", err)
+		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("read validation evidence: %w", err)
 	}
+	source := application.ProductSource{
+		VariantID:          variantID,
+		GameID:             contentID,
+		ContentKind:        contentKind,
+		ProviderID:         providerID,
+		TargetID:           targetID,
+		ContentPolicy:      contentPolicy,
+		ActiveDATVersionID: dbexec.StringPointer(datID),
+	}
+	snapshot := application.ProductSnapshot{Source: source}
 	if contentKind == corevalidation.MultiDiscContentKind {
-		digest, biosDigest, snapshot, digestErr := service.multiDiscRevalidationInputs(
-			ctx, service.database, variantID, contentID, providerID, targetID,
-			contentPolicy, datID, biosSnapshot,
-		)
-		return digest, biosDigest, snapshot, biosStatus, biosCode, digestErr
+		snapshot, err = persistence.ProductContentSnapshot(ctx, database, source)
+		if err != nil {
+			return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("read validation evidence: %w", err)
+		}
 	}
-	digest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, targetID, contentID, dbexec.StringPointer(datID), biosSnapshot,
-	)
+	digest, biosDigest, evidence, err := application.ProductValidationEvidence(snapshot, variantID, bios)
 	if err != nil {
-		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation digest: %w", err)
+		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("variant validation evidence: %w", err)
 	}
-	biosSnapshotJSON, err := biosSnapshot.JSON()
-	if err != nil {
-		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation snapshot: %w", err)
-	}
-	biosDigest := sha256.Sum256(biosSnapshotJSON)
-	return digest, hex.EncodeToString(biosDigest[:]), biosSnapshot, biosStatus, biosCode, nil
+	return digest, biosDigest, evidence, status, code, nil
 }
 
 type arcadeSnapshotIdentity struct {

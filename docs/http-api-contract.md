@@ -327,6 +327,8 @@ Idempotency-Key: <uuid>
 
 并发相同 GameVariant/input digest 必须返回同一 Job。Player 使用通用 Job 快照/SSE 等待；Job SUCCEEDED 后以原 body 和新 Idempotency-Key 自动重调本端点。旧 key 永远幂等重放当时的 202，不能在后台偷换为 201；新请求看到 READY 后才签发下述 credential。Job FAILED/CANCELLED 的错误以稳定 `LAUNCH_` code 展示，不自动反复新建 Job。
 
+普通启动由 ProductCreator Service 统一编排：先读取一致的来源、目录/核心、Validation、BIOS 与存档快照，再于事务外检查 Provider、CAS 和签名。最终写事务重读实际启动输入、当前权限及相同幂等键，并把 Launch/内容/隔离凭据或待验证 Job 与原始 201/202 响应一起提交；数据库实现必须串行保护相同幂等身份。提交失败不得留下 Launch、Job 或响应 cookie；成功后才派发验证任务或设置 cookie。合法的 READY 校验并发结果允许有界重新准备，单纯元信息版本变化不能误作内容变化。领域阻断继续返回 422，存储、签名及上下文故障保留原因并按基础设施错误处理。
+
 成功返回 `201`：
 
 ```json

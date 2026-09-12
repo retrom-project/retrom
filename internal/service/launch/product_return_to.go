@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func validReturnTo(value, gameID string, saveStateID *string) bool {
+func ValidProductReturnTo(value, gameID string, saveStateID *string) bool {
 	if strings.ContainsAny(value, "#%\\") {
 		return false
 	}

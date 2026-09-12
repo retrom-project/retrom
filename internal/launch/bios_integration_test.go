@@ -21,6 +21,8 @@ import (
 
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
+	launchpersistence "retrom/internal/persistence/launch"
+	launchservice "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
 
@@ -71,25 +73,7 @@ func exerciseMelonDSBIOSSwitch(t *testing.T, manualOverride bool) {
 	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM platform_instances WHERE platform_id='nds' AND enabled=1`).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
 	}
-	requirements := make([]melondsRequirement, 0, 3)
-	rows, err := database.SQL.QueryContext(ctx, `
-SELECT id,logical_name,emulator_path,version
-FROM bios_requirements
-WHERE provider_id=? AND target_id=? AND delivery_kind='EXTERNAL_FILE' AND enabled=1
-ORDER BY logical_name
-`, target.ProviderID, target.TargetID)
-	testassert.False(t, err != nil, err)
-	for rows.Next() {
-		var item melondsRequirement
-		if err := rows.Scan(&item.id, &item.logicalName, &item.virtualPath, &item.version); err != nil {
-			t.Fatal(err)
-		}
-		requirements = append(requirements, item)
-	}
-	cleanup.Error("close", rows.Close())
-	if err := rows.Err(); err != nil || len(requirements) != 3 {
-		t.Fatalf("MelonDS requirements = %#v, error=%v", requirements, err)
-	}
+	requirements := readMelonDSRequirements(ctx, t, database.SQL, target.ProviderID, target.TargetID)
 	install := func(item *melondsRequirement, generation string, active int) string {
 		t.Helper()
 		metadata, putErr := blobs.Put(bytes.NewReader([]byte(generation + "-" + item.logicalName)))
@@ -168,7 +152,8 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return oldLaunch.LaunchID == "" }), "old MelonDS launch = %#v, error=%v", oldLaunch, err)
 	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
 	savedID := seedBIOSResumeSave(t, database.SQL, gameID, oldLaunch.LaunchID, gameBlobID, gameMetadata.SHA256, gameMetadata.Size)
-	selected, err := service.selectSavedLaunchVariant(ctx, "local", CreateRequest{GameID: gameID, SaveStateID: &savedID}, melonds)
+	command := launchservice.ProductCreateCommand{ProfileID: "local", Request: CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities}}
+	selected, err := launchpersistence.NewProductCreation(database.SQL).Snapshot(ctx, command)
 	testassert.False(t, err != nil, err)
 	for index := range requirements {
 		tx, err := database.SQL.BeginTx(ctx, nil)
@@ -182,9 +167,9 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 		assertApprovedBIOSResume(t, service, database.SQL, gameID, variantID, savedID, requirements, capabilities)
 		return
 	}
+	assertProductSnapshotRejected(t, service, command, selected)
 	tx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	testassert.True(t, errors.Is(service.checkLaunchBIOSSelection(ctx, tx, selected), ErrBlocked), "concurrent replacement accepted stale launch")
 	lockedDigest, err := corevalidation.BIOSDependencyDigest(snapshot)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, errors.Is(service.checkValidationBIOS(ctx, tx, validationInputs{
@@ -193,17 +178,7 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 	testassert.False(t, tx.Rollback() != nil, "rollback selection test")
 	pending, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "new BIOS validation = %#v, error=%v", pending, err)
-	for deadline := time.Now().Add(3 * time.Second); ; {
-		var state string
-		if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, pending.JobID).Scan(&state); err != nil {
-			t.Fatal(err)
-		}
-		if state == "SUCCEEDED" {
-			break
-		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "new BIOS validation state = %s", state)
-		time.Sleep(10 * time.Millisecond)
-	}
+	waitForProductBIOSValidation(ctx, t, database.SQL, pending.JobID)
 	newLaunch, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return newLaunch.LaunchID == "" }), "new MelonDS launch = %#v, error=%v", newLaunch, err)
 	assertMelonDSLaunch(t, ctx, service, newLaunch, requirements, true)
@@ -254,4 +229,44 @@ func assertMelonDSLaunch(
 	}
 	bundle, err := service.BundleFiles(ctx, launch.LaunchID, launch.Capability, "BIOS_BUNDLE")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 0 }), "external BIOS leaked into bundle = %#v, error=%v", bundle, err)
+}
+
+func readMelonDSRequirements(ctx context.Context, t *testing.T, database *sql.DB, providerID, targetID string) []melondsRequirement {
+	t.Helper()
+	requirements := make([]melondsRequirement, 0, 3)
+	rows, err := database.QueryContext(ctx, `
+SELECT id,logical_name,emulator_path,version
+FROM bios_requirements
+WHERE provider_id=? AND target_id=? AND delivery_kind='EXTERNAL_FILE' AND enabled=1
+ORDER BY logical_name
+`, providerID, targetID)
+	testassert.False(t, err != nil, err)
+	defer func() { cleanup.Error("close BIOS requirements", rows.Close()) }()
+	for rows.Next() {
+		var item melondsRequirement
+		if err := rows.Scan(&item.id, &item.logicalName, &item.virtualPath, &item.version); err != nil {
+			t.Fatal(err)
+		}
+		requirements = append(requirements, item)
+	}
+
+	if err := rows.Err(); err != nil || len(requirements) != 3 {
+		t.Fatalf("MelonDS requirements = %#v, error=%v", requirements, err)
+	}
+	return requirements
+}
+
+func waitForProductBIOSValidation(ctx context.Context, t *testing.T, database *sql.DB, jobID string) {
+	t.Helper()
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		var state string
+		if err := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state == "SUCCEEDED" {
+			break
+		}
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "new BIOS validation state = %s", state)
+		time.Sleep(10 * time.Millisecond)
+	}
 }
