@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	repository "retrom/internal/persistence/pegasusimport"
+
 	application "retrom/internal/service/pegasusimport"
 
 	"retrom/internal/dbexec"
@@ -20,8 +22,6 @@ import (
 	tagpersistence "retrom/internal/persistence/tagging"
 
 	"retrom/internal/persistence/recordstore"
-
-	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -53,10 +53,7 @@ type Root struct {
 	digest    string
 }
 
-type CreateRequest struct {
-	RootID             string `json:"rootId"`
-	SourceRelativePath string `json:"sourceRelativePath"`
-}
+type CreateRequest = application.CreateRequest
 
 type (
 	RootRef            = application.RootRef
@@ -405,15 +402,39 @@ WHERE id=? AND state='RUNNING' AND worker_id='pegasus-import-worker'
 	}
 }
 
-func (service *Service) Create(ctx context.Context, request CreateRequest, userID string) (Summary, error) {
-	root, err := service.validateCreateRequest(request)
+func (service *Service) Create(ctx context.Context, request CreateRequest, actorID string) (Summary, error) {
+	creation := application.NewCreation(
+		repository.NewCreation(service.database), creationSourceSelector{service}, service.now,
+	)
+	result, err := creation.Create(
+
+		ctx,
+
+		request,
+
+		actorID,
+	)
 	if err != nil {
-		return Summary{}, err
+		return Summary{}, fmt.Errorf("create Pegasus import: %w", err)
 	}
-	if err := service.ensurePlanCapacity(ctx); err != nil {
-		return Summary{}, err
+	service.signal()
+	return result, nil
+}
+
+type creationSourceSelector struct{ service *Service }
+
+func (source creationSourceSelector) Select(
+	ctx context.Context,
+	rootID, path string,
+) (application.SelectedRoot, error) {
+	if err := ctx.Err(); err != nil {
+		return application.SelectedRoot{}, fmt.Errorf("select Pegasus source: %w", err)
 	}
-	return service.createScanPlan(ctx, request, userID, root)
+	root, err := source.service.validateCreateRequest(CreateRequest{RootID: rootID, SourceRelativePath: path})
+	if err != nil {
+		return application.SelectedRoot{}, err
+	}
+	return application.SelectedRoot{ID: root.ID, Label: root.Label, Digest: root.digest}, nil
 }
 
 func (service *Service) validateCreateRequest(request CreateRequest) (Root, error) {
@@ -433,88 +454,6 @@ func (service *Service) validateCreateRequest(request CreateRequest) (Root, erro
 	}
 	cleanup.Error("close", directory.Close())
 	return root, nil
-}
-
-func (service *Service) ensurePlanCapacity(ctx context.Context) error {
-	var plans int
-	if err := service.database.QueryRowContext(ctx, `
-SELECT count(*) FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
-`).Scan(&plans); err != nil {
-		return fmt.Errorf("pegasusimport/count plans: %w", err)
-	}
-	if plans >= 20 {
-		return ErrActive
-	}
-	return nil
-}
-
-func (service *Service) createScanPlan(
-	ctx context.Context,
-	request CreateRequest,
-	userID string,
-	root Root,
-) (Summary, error) {
-	importID, _ := uuid.NewV7()
-	jobID, _ := uuid.NewV7()
-	executionID, _ := uuid.NewV7()
-	now := service.now().UnixMilli()
-	input := map[string]any{
-		"schemaVersion": 1, "kind": "SERVER_PEGASUS_SCAN",
-		"scope":       map[string]any{"type": "PEGASUS_IMPORT", "id": importID.String()},
-		"executionId": executionID.String(),
-		"inputs": map[string]any{
-			"rootId":             root.ID,
-			"sourceRelativePath": request.SourceRelativePath,
-			"rootConfigDigest":   root.digest,
-		},
-	}
-	inputJSON, _ := json.Marshal(input)
-	inputDigest := sha256.Sum256(inputJSON)
-	dedupe := jobDedupe("SERVER_PEGASUS_SCAN", importID.String())
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/create transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
-attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{"inputExecutionNo":1}',1,'QUEUED',0,4,1,?,?,?)
-`, jobID.String(), importID.String(), dedupe, now, now, now); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/create scan job: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms) VALUES(?,1,?,?,?)
-`, jobID.String(), string(inputJSON), hex.EncodeToString(inputDigest[:]), now); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/create input: %w", err)
-	}
-	if _, err := recordstore.CreatePegasusImports(ctx, transaction, `
-INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,
-scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
-VALUES(?,?,?,?,?,'SCANNING','DISCOVERING_METADATA',?,?,?,?,?)
-`, importID.String(), root.ID, root.Label, request.SourceRelativePath, root.digest, jobID.String(), userID, now, now,
-		now+int64((7*24*time.Hour)/time.Millisecond)); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/create plan: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'QUEUED','{"schemaVersion":1,"executionNo":1,"attempt":0}',?)
-`, jobID.String(), importID.String(), now); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/create event: %w", err)
-	}
-	auditID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
-before_json,after_json,diff_json,request_id,created_at_ms)
-VALUES(?,'USER',?,NULL,'PEGASUS_IMPORT_CREATED','PEGASUS_IMPORT',?,NULL,'{"state":"SCANNING"}',NULL,NULL,?)
-`, auditID.String(), userID, importID.String(), now); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/create audit: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return Summary{}, fmt.Errorf("pegasusimport/commit create: %w", err)
-	}
-	service.signal()
-	return service.Get(ctx, importID.String())
 }
 
 func jobDedupe(kind, value string) string {

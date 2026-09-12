@@ -420,6 +420,8 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 ## 14. Pegasus 服务器目录导入
 
+创建计划先验证只读来源目录并生成所有身份；随机源失败必须保留错误原因且不得创建记录。20 个未开始计划的容量检查与 scan job、不可变 input snapshot、计划、事件和创建审计在同一写事务内完成；Repository 在实际插入时再次约束容量，并在提交前读取完整响应，任何步骤失败都整体回滚。计划有效期固定为创建时刻起 7 天，后台唤醒只发生在提交成功后。
+
 查询通过 `internal/service/pegasusimport` 的类型化端口调用 `internal/persistence/pegasusimport`。Service 校验分页参数并区分等待映射时的活动标签与执行后的冻结选择；Repository 负责 SQL、游标排序、可空字段和持久化 JSON 解码。缺少 Collection 的条目仍可查询，标签返回空数组；未设置的可选数组规范化为空数组，损坏或类型不符的诊断数据必须返回错误，不得静默伪装成没有 warning 或运行依赖。
 
 Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collection；解析器只保存允许的纯文本字段和相对文件引用，忽略 `launch`、`command`、`logo` 与未知规则，不执行或持久化命令 payload。扫描只读取 metadata、目录项 facts、大小和受限媒体头，不读取完整 ROM、不写业务 Blob、不创建 Game；结果冻结 metadata digest、确定性 source key、可处理/阻断计数、媒体候选和 `estimatedSourceBytes` 上限。
