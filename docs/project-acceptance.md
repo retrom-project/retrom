@@ -2277,3 +2277,18 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
   导入、预览、发布的证据，并明确复测复用了已发布游戏。实体按键语义以 NeoCD 原生
   A/B/C/D 为准：标准手柄底/右/左/上四个面键分别映射 A/B/C/D；B 是游戏的次要动作，
   不一概声称为取消。原生肩键组合宏不绑定标准手柄按钮。
+
+### ACC-POKEMINI-001：GBE+ Pokémon Mini 输入与即时恢复
+
+显式提供 `RETROM_ACCEPTANCE_BASE_URL`、验收用户名/密码、`RETROM_CHROME_EXECUTABLE`、
+`RETROM_POKEMINI_ROM`（Pokémon Puzzle Collection USA/Europe 的单个 MIN 文件）、
+`RETROM_POKEMINI_BIOS_DIR`（含 `bios.min`）。不提交、不自动下载游戏和 BIOS；缺少输入为 BLOCKED。
+
+入口 `scripts/acceptance/pokemini_product.mjs` 执行 BIOS 安装、Upload/Import/Review Preview、
+审核发布、Product Launch、标准手柄方向与确认、音频、暂停截图、非空公共 gzip 存档，
+再以不同 Launch 恢复同一执行位置并验证后续输入。三个运行实例只允许一次 ROM 网络下载。
+证据 `pokemini-product.json` 记录非秘密身份、内容摘要、截图和各阶段断言，任何必需步骤
+失败均不能判为 PASS。用标准手柄确认首次 BIOS 时钟设置，以标题区指纹等待片头结束。
+恢复画面对比仅排除关卡菜单的动画缩略图，并保留静态网格与光标；还需进入实际关卡。
+本地输入记录支持发布前继续同一导入项；完整重跑需未导入该游戏的测试数据。
+成功样本不代表所有游戏兼容，虚拟标准手柄也不证明实体控制器的硬件采集。
