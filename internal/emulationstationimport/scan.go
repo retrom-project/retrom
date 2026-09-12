@@ -290,11 +290,22 @@ func readFrozenFile(
 		}
 		return nil, "", ErrSourceChanged
 	}
-	contents, readErr := io.ReadAll(io.LimitReader(handle, maximum+1))
+	contents, readErr := io.ReadAll(io.LimitReader(&contextReader{ctx: ctx, reader: handle}, maximum+1))
 	after, statErr := handle.Stat()
 	cleanup.Error("close", handle.Close())
-	if readErr != nil || statErr != nil {
-		return nil, "", fmt.Errorf("emulationstationimport/read frozen source: %w", serversource.ErrRootUnavailable)
+	if readErr != nil {
+		return nil, "", fmt.Errorf(
+			"emulationstationimport/read frozen source: %w: %w",
+			serversource.ErrRootUnavailable,
+			readErr,
+		)
+	}
+	if statErr != nil {
+		return nil, "", fmt.Errorf(
+			"emulationstationimport/stat frozen source: %w: %w",
+			serversource.ErrRootUnavailable,
+			statErr,
+		)
 	}
 	if int64(len(contents)) != entry.Size ||
 		!serversource.SameFileFacts(before, after) || len(contents) > int(maximum) {

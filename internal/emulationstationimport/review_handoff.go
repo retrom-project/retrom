@@ -23,7 +23,6 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, root R
 	files, err := service.executionSourceFiles(ctx, unit, root, item)
 	if err != nil {
 		if errors.Is(err, errImportCancelled) {
-			service.closeItem(ctx, item.ID, "CANCELLED", "CANCELLED", false, "")
 			return
 		}
 		service.closeItemWithFailure(

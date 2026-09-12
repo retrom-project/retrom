@@ -261,7 +261,6 @@ func (service *Service) processItem(ctx context.Context, unit work, root Root, i
 	}
 	service.copyExecutionAssets(ctx, unit, root, &item)
 	if service.importCancelled(ctx, unit.ImportID) {
-		service.closeItem(ctx, item.ID, "CANCELLED", "CANCELLED", false, "")
 		return
 	}
 	service.prepareReviewItem(ctx, unit, root, item)
@@ -347,7 +346,6 @@ func (service *Service) copyExecutionFiles(
 		)
 		if err != nil {
 			if errors.Is(err, errImportCancelled) {
-				service.closeItem(ctx, item.ID, "CANCELLED", "CANCELLED", false, "")
 				return false
 			}
 			code := "READ_FAILED"

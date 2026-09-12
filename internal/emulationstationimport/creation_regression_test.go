@@ -43,7 +43,7 @@ func TestCreationChecksCapacityInFinalWriteTransaction(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	other := &Service{database: fixture.database, roots: fixture.service.roots, tags: fixture.service.tags, now: func() time.Time { return *fixture.now }, wake: make(chan struct{}, 1)}
+	other := &Service{database: fixture.database, roots: fixture.service.roots, tags: fixture.service.tags, now: func() time.Time { return *fixture.now }}
 	inserted := false
 	fixture.service.now = func() time.Time {
 		if !inserted {

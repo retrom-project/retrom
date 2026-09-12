@@ -6,9 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	persistence "retrom/internal/persistence/emulationstationimport"
@@ -49,9 +47,7 @@ type Service struct {
 	roots    map[string]Root
 	now      func() time.Time
 	tags     *tagging.Service
-	wake     chan struct{}
-	stop     chan struct{}
-	stopOnce sync.Once
+	worker   *application.Worker
 }
 
 func New(
@@ -72,59 +68,23 @@ func New(
 			digest: hex.EncodeToString(digest[:]),
 		}
 	}
-	return &Service{
+	service := &Service{
 		database: database, blobs: blobs, importer: importer, roots: roots, now: now, tags: tagging.New(
 			tagpersistence.New(
 				database,
 			),
 			now,
 		),
-		wake: make(chan struct{}, 1), stop: make(chan struct{}),
 	}
+	service.worker = service.newWorker()
+	return service
 }
 
-func (service *Service) Start() {
-	go service.runLoop()
-	service.signal()
-}
-
-func (service *Service) Close() { service.stopOnce.Do(func() { close(service.stop) }) }
-
+func (service *Service) Start() { service.worker.Start() }
+func (service *Service) Close() { service.worker.Close() }
 func (service *Service) signal() {
-	select {
-	case service.wake <- struct{}{}:
-	default:
-	}
-}
-
-func (service *Service) runLoop() {
-	if err := service.recoverWork(context.Background()); err != nil {
-		slog.Error("recover EmulationStation executions", "error", err)
-	}
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-service.stop:
-			return
-		case <-service.wake:
-		case <-ticker.C:
-		}
-		if err := service.recoverWork(context.Background()); err != nil {
-			slog.Error("recover EmulationStation executions", "error", err)
-		}
-		_ = service.ExpirePlans(context.Background())
-		for {
-			unit, ok, err := service.claim(context.Background())
-			if err != nil {
-				slog.Error("claim EmulationStation execution", "error", err)
-				break
-			}
-			if !ok {
-				break
-			}
-			service.execute(context.Background(), unit)
-		}
+	if service.worker != nil {
+		service.worker.Signal()
 	}
 }
 
@@ -146,57 +106,7 @@ func (service *Service) claim(ctx context.Context) (work, bool, error) {
 }
 
 func (service *Service) execute(ctx context.Context, unit work) {
-	if unit.DeadlineAtMS > 0 && unit.DeadlineAtMS <= service.now().UnixMilli() {
-		service.fail(ctx, unit, "EMULATIONSTATION_EXECUTION_TIMEOUT", false)
-		return
-	}
-	if unit.DeadlineAtMS > 0 {
-		var cancel context.CancelFunc
-		remaining := time.Duration(unit.DeadlineAtMS-service.now().UnixMilli()) * time.Millisecond
-		ctx, cancel = context.WithTimeout(ctx, remaining)
-		defer cancel()
-	}
-	heartbeatDone := make(chan struct{})
-	go service.heartbeat(ctx, unit, heartbeatDone)
-	defer close(heartbeatDone)
-	root, ok := service.roots[unit.RootID]
-	if !ok || root.digest != unit.RootDigest {
-		service.fail(ctx, unit, "SERVER_IMPORT_ROOT_CHANGED", false)
-		return
-	}
-	if unit.Kind == "SERVER_EMULATIONSTATION_SCAN" {
-		service.executeScan(ctx, unit, root)
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			service.fail(ctx, unit, "EMULATIONSTATION_EXECUTION_TIMEOUT", false)
-		}
-		return
-	}
-	service.executeImport(ctx, unit, root)
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		service.fail(ctx, unit, "EMULATIONSTATION_EXECUTION_TIMEOUT", false)
-	}
-}
-
-func (service *Service) heartbeat(ctx context.Context, unit work, done <-chan struct{}) {
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-done:
-			return
-		case <-service.stop:
-			return
-		case <-ticker.C:
-			state, err := application.NewLeases(persistence.NewLeases(service.database), service.now).Renew(ctx, unit)
-			if err != nil {
-				slog.ErrorContext(ctx, "renew EmulationStation execution", "error", err)
-				return
-			}
-			if state != application.LeaseActive {
-				return
-			}
-		}
-	}
+	service.worker.Run(ctx, unit)
 }
 
 func boolInt(value bool) int {

@@ -486,6 +486,8 @@ XML 必须是严格 UTF-8，可带 UTF-8 BOM，根元素必须是无 namespace �
 
 活动 worker 的失败、自动重试和取消确认由 Service 决定，写事务同时检查 Job 与计划版本、原始 execution/attempt、worker、租约、deadline 和冻结输入。重试沿用原始截止时刻及已复制进度；旧 worker 或已过期执行不能用活动执行权限收口。永久失败或取消前，已预留普通 `REVIEW_PENDING` 的来源必须复用该条目完成关联、冻结 metadata、搜索字段、审核审计和来源状态；每个事务至多处理 100 条，后续批次重验权限。尚未 attach、已 attach 但未写 metadata、以及 metadata 已写但来源未收口的中断都不能遗留隐藏审核。最后再原子关闭未完成来源、任务、聚合与进度事件，扫描取消同时清除未发布投影并归零计数；任何写入或提交失败都保留原因并回滚当前事务。
 
+EmulationStation Worker 的启动幂等，关闭会取消并等待队列、执行、监测和独立维护全部退出；耗时导入不阻塞恢复与过期维护。原始 execution 截止时刻与注入时钟决定剩余预算，较短的调用方 deadline 或进程关闭不能被记为导入超时。每秒观察持久取消与所有权，每 15 秒续租，执行返回前再检查一次取消；停止 I/O 后用独立有界上下文按当前权限收口。条目内部取消检查点不能先关闭来源，否则会隐藏已经预留的普通审核。
+
 过期租约恢复使用独立的过期执行权限完成同一审核交接，每轮至多 100 条，并将剩余工作留给后续维护轮次；每条更新重新读取聚合版本，冻结 root/path、操作者与年份也参与写入条件。已经记录可重试 `SOURCE_CHANGED/READ_FAILED/COMMIT_FAILED`、但仍保留普通待审核预留的来源，沿既有状态转换重新交接同一条目，不能创建新审核或 Game。没有审核预留的失败结果保持原样；取消后保留失败计数，但不提供批次重试。扫描清理、未完成条目收尾及 payload 释放登记由 Service 明确决定，Repository 只执行当前事务内的受检写入。
 
 每个有效 Collection 必须由管理员显式选择 `IMPORT + PlatformInstance + tagIds` 或 `SKIP`；没有默认映射，不依据清单路径、扩展名、外部平台名或同名目录猜测。批量标签只以去重 union 追加到尚未跳过的 Collection，`SKIP` 清空标签。start 前要求至少一个非空 `IMPORT` Collection，并以 plan ETag 同时校验 source snapshot、root snapshot、目标 PlatformInstance/version/default Provider Target/DAT 与 Tag 状态；目标漂移返回可修复的重新映射冲突，来源漂移要求新建计划，不能沿旧 mapping 静默执行。

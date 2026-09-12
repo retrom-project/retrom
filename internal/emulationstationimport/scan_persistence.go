@@ -60,6 +60,9 @@ func (service *Service) clearScanStaging(ctx context.Context, unit work) error {
 
 func (service *Service) fail(ctx context.Context, unit work, code string, retryable bool) {
 	now := service.now().UnixMilli()
+	if errors.Is(ctx.Err(), context.Canceled) || ctx.Err() != nil && unit.DeadlineAtMS > now {
+		return
+	}
 	deadlineExpired := errors.Is(ctx.Err(), context.DeadlineExceeded) ||
 		(unit.DeadlineAtMS > 0 && unit.DeadlineAtMS <= now)
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)

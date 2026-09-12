@@ -45,7 +45,7 @@ internal/service/pegasusimport/ 应用入口、扫描/导入编排、计划/映�
 internal/persistence/pegasusimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
 internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
 internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
-internal/service/emulationstationimport/ 查询、计划与映射、启动、扫描发布、取消/重试与过期恢复
+internal/service/emulationstationimport/ 查询、计划与映射、扫描发布、worker 生命周期、取消/重试与恢复
 internal/persistence/emulationstationimport/ 查询映射、计划/扫描/租约/恢复事务与来源归属校验
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
