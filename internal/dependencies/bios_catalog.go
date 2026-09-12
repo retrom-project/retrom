@@ -31,7 +31,29 @@ type staticBIOS struct {
 	targetID     string
 }
 
-var staticBIOSCatalog = []staticBIOS{
+var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
+	{
+		coreID: "freeintv", logical: "exec.bin", mode: "REQUIRED", size: 8192,
+		md5: "62e761035cb657903761800f4437b8af", sha256: "1aeb614856beba95463166daf09304b414d5617d3f37d221724b3337fc4b2722",
+		sourceURL: "https://docs.libretro.com/library/freeintv/",
+	},
+	{
+		coreID: "freeintv", logical: "grom.bin", mode: "REQUIRED", size: 2048,
+		md5: "0cd5946c6473e42e8e4c2137785e427f", sha256: "a80b6841182547d08635ad30a6af71441c4c9eed9391b3dd22feb30d8e50cc85",
+		sourceURL: "https://docs.libretro.com/library/freeintv/",
+	},
+	{
+		coreID: "neocd", logical: "neocd.bin", mode: "REQUIRED", size: 524288,
+		md5: "f39572af7584cb5b3f70ae8cc848aba2", sha256: "2e93af5848080ea04d17a7841b742f009330d30e4ff40c3410547581d921c892",
+		sourceURL: "https://github.com/libretro/neocd_libretro/blob/3118c6901787e863e80e79170d02d47657b3b0ab/README.md",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/neocd/neocd.bin",
+	},
+	{
+		delivery: "EXTERNAL_FILE", emulatorPath: "/bios.min",
+		coreID: "gbe_plus", logical: "bios.min", mode: "REQUIRED", size: 4096,
+		md5: "1e4fb124a3a886865acb574f388c803d", sha256: "45a1c7f28b9ad585e67f047abe9c1c956724bfcab8c9011002af4274e7c50e8f",
+		sourceURL: "https://docs.libretro.com/library/pokemini/",
+	},
 	{
 		delivery: "EXTERNAL_FILE", emulatorPath: "/game/keropi/iplrom.dat",
 		coreID: "px68k", logical: "iplrom.dat", mode: "REQUIRED", size: 131072,
@@ -242,7 +264,7 @@ var staticBIOSCatalog = []staticBIOS{
 		md5: "08e36edbea28a017f79f8d4f7ff9b6d7", sha256: "4b44ccf5d84cc83daa2e6a2bee00fdafa14eb58bdf5859e96d8861a891675417",
 		sourceURL: "https://docs.libretro.com/library/beetle_pc_fx/",
 	},
-}
+}...)
 
 // Static BIOS definitions are synchronized atomically with their aliases and version provenance.
 func bootstrapStaticBIOS(

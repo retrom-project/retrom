@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 20
+const Version = 25
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -187,6 +187,17 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{
 		Key: "cdi/same_cdi", PlatformID: "cdi", DefaultCoreID: "same_cdi",
 		Name: "Philips CD-i 游戏", CatalogOrder: 560,
+	},
+	{Key: "vectrex/vecx", PlatformID: "vectrex", DefaultCoreID: "vecx", Name: "Vectrex 游戏", CatalogOrder: 570},
+	{
+		Key: "intellivision/freeintv", PlatformID: "intellivision", DefaultCoreID: "freeintv",
+		Name: "Intellivision 游戏", CatalogOrder: 580,
+	},
+	{Key: "pc88/quasi88", PlatformID: "pc88", DefaultCoreID: "quasi88", Name: "PC-88 游戏", CatalogOrder: 590},
+	{Key: "neogeocd/neocd", PlatformID: "neogeocd", DefaultCoreID: "neocd", Name: "Neo Geo CD 游戏", CatalogOrder: 600},
+	{
+		Key: "pokemini/gbe_plus", PlatformID: "pokemini", DefaultCoreID: "gbe_plus",
+		Name: "Pokémon Mini 游戏", CatalogOrder: 610,
 	},
 }}
 

@@ -162,6 +162,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 | Master System (`mastersystem`) | 原始 `.sms`；或一个 ZIP/7z | archive 必须恰有一个 `.sms` entry；本期不借用 SMS Plus 的其他平台格式扩展产品范围。 |
 | ZX Spectrum (`zxspectrum`) | 原始 `.tzx/.tap/.z80/.rzx/.scl/.trd`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；只发布单文件内容，不接收 M3U 或多盘集合。 |
 | Commodore 64 / 128 / VIC-20 (`c64/c128/vic20`) | 原始 `.d64/.d6z/.d71/.d7z/.d80/.d81/.d82/.d8z/.g64/.g6z/.g41/.g4z/.x64/.x6z/.nib/.nbz/.d2m/.d4m/.t64/.tap/.tcrt/.prg/.p00/.crt/.bin/.vsf/.gz/.20/.40/.60/.a0/.b0/.rom`；或一个 ZIP/7z | 三个平台分别绑定 VICE x64sc/x128/xvic；archive 必须恰有一个支持 entry。CMD/VFL/M3U 引用文件、多文件磁盘集合与换盘不在本期范围。 |
+| Intellivision (`intellivision`) | 原始 `.int/.rom/.bin`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；启动要求已安装 `exec.bin` 与 `grom.bin`。 |
 | ColecoVision (`colecovision`) | 原始 `.col/.cv/.bin/.rom`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；启动要求已安装匹配的 `colecovision.rom`。 |
 | Atari Jaguar (`atarijaguar`) | 原始 `.j64/.jag/.rom/.abs/.cof/.bin/.prg`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；不接收 Jaguar CD 或多文件光盘内容。 |
 | Doom (`doom`) | 原始 `.wad/.iwad`；或一个 ZIP/7z | archive 必须恰有一个 IWAD 游戏内容；启动同时要求已安装 `prboom.wad`。字面扩展 `.pwad` 不接收，PWAD/mod 依赖闭包不在本期范围。 |
