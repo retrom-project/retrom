@@ -53,12 +53,12 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             "vecx": ("vecx", ["vectrex"]),
             "neocd": ("neocd", ["neogeocd"]),
             "81": ("81", ["zx81"]),
-            "cap32": ("cap32", ["amstradcpc"]),
+            "cap32": ("cap32", ["amstradcpc", "gx4000"]),
             "crocods": ("crocods", ["amstradcpc"]),
             "fuse": ("fuse", ["zxspectrum"]),
             "gearcoleco": ("gearcoleco", ["colecovision"]),
             "freeintv": ("freeintv", ["intellivision"]),
-            "mednafen-pce": ("mednafen_pce", ["pce", "pcecd"]),
+            "mednafen-pce": ("mednafen_pce", ["pce", "pcecd", "supergrafx"]),
             "prboom": ("prboom", ["doom"]),
             "puae": ("puae", ["amiga"]),
             "quasi88": ("quasi88", ["pc88"]),
@@ -102,6 +102,15 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             {item["coreId"] for item in catalog["bindings"] if item["providerId"] == "retrom-runtime" and item["targetId"].startswith("rpgmaker-")},
             {"rpgmaker"},
         )
+
+    def test_psp_uses_independent_runtime_with_closed_product_options(self):
+        catalog = load_runtime_target_bindings(ROOT / "data/runtime-target-bindings/v1/catalog.json")
+        bindings = [item for item in catalog["bindings"] if item["coreId"] == "ppsspp"]
+        self.assertEqual(len(bindings), 1)
+        self.assertEqual(bindings[0]["providerId"], "retrom-runtime")
+        self.assertEqual(bindings[0]["targetId"], "ppsspp")
+        self.assertEqual(bindings[0]["detectorProfile"], "OPTICAL_DISC")
+        self.assertEqual(bindings[0]["acceptedContentKinds"], ["SINGLE_FILE"])
 
     def test_catalog_contains_no_provider_implementation_facts(self):
         source = (ROOT / "data/runtime-target-bindings/v1/catalog.json").read_text(encoding="utf-8")

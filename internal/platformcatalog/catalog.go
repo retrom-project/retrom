@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 27
+const Version = 28
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -201,6 +201,35 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	},
 	{Key: "cavestory/nxengine", PlatformID: "cavestory", DefaultCoreID: "nxengine", Name: "洞窟物语", CatalogOrder: 620},
 	{Key: "uzebox/uzem", PlatformID: "uzebox", DefaultCoreID: "uzem", Name: "Uzebox 游戏", CatalogOrder: 630},
+
+	{
+		Key: "gamegear/genesis_plus_gx", PlatformID: "gamegear", DefaultCoreID: "genesis_plus_gx",
+		Name: "Game Gear 游戏", CatalogOrder: 700,
+	},
+	{
+		Key: "sg1000/genesis_plus_gx", PlatformID: "sg1000", DefaultCoreID: "genesis_plus_gx",
+		Name: "SG-1000 游戏", CatalogOrder: 710,
+	},
+	{
+		Key: "multivision/genesis_plus_gx", PlatformID: "multivision", DefaultCoreID: "genesis_plus_gx",
+		Name: "Multivision 游戏", CatalogOrder: 720,
+	},
+	{
+		Key: "pico/picodrive", PlatformID: "pico", DefaultCoreID: "picodrive",
+		Name: "Sega Pico 游戏", CatalogOrder: 730,
+	},
+	{
+		Key: "sega32x/picodrive", PlatformID: "sega32x", DefaultCoreID: "picodrive",
+		Name: "Sega 32X 游戏", CatalogOrder: 740,
+	},
+	{
+		Key: "supergrafx/mednafen_pce", PlatformID: "supergrafx", DefaultCoreID: "mednafen_pce",
+		Name: "SuperGrafx 游戏", CatalogOrder: 750,
+	},
+	{
+		Key: "gx4000/cap32", PlatformID: "gx4000", DefaultCoreID: "cap32",
+		Name: "GX4000 游戏", CatalogOrder: 760,
+	},
 }}
 
 func Current() Catalog {
