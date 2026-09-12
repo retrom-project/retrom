@@ -1,21 +1,13 @@
 package accounts
 
 import (
-	"context"
-	"database/sql"
-	"encoding/json"
-	"errors"
-	"fmt"
-
 	accountservice "retrom/internal/service/accounts"
-
-	"retrom/internal/authn"
 )
 
 var (
 	ErrAccountLinkUnavailable = accountservice.ErrAccountLinkUnavailable
 	ErrAccountLinkNotActive   = accountservice.ErrAccountLinkNotActive
-	ErrUsernameUnavailable    = errors.New("USERNAME_UNAVAILABLE")
+	ErrUsernameUnavailable    = accountservice.ErrUsernameUnavailable
 	ErrUserNotFound           = accountservice.ErrUserNotFound
 	ErrUserQuery              = accountservice.ErrUserQuery
 	ErrUserVersion            = accountservice.ErrUserVersion
@@ -59,29 +51,3 @@ type UserPatch = accountservice.UserPatch
 type UserListFilter = accountservice.UserListFilter
 
 type LinkListFilter = accountservice.LinkListFilter
-
-func insertUserAudit(
-	ctx context.Context,
-	transaction *sql.Tx,
-	actor authn.Principal,
-	action, resourceType, resourceID string,
-	after any,
-	now int64,
-) error {
-	encoded, err := json.Marshal(after)
-	if err != nil {
-		return fmt.Errorf("encode account audit: %w", err)
-	}
-	afterJSON := string(encoded)
-
-	_, err = transaction.ExecContext(ctx, `
-INSERT INTO audit_events(
-id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
-before_json,after_json,diff_json,request_id,created_at_ms)
-VALUES(?,'USER',?,NULL,?,?,?,?,?,'{}',NULL,?)
-`, newID(), actor.UserID, action, resourceType, resourceID, nil, afterJSON, now)
-	if err != nil {
-		return fmt.Errorf("insert account audit event: %w", err)
-	}
-	return nil
-}

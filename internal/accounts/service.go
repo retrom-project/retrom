@@ -239,39 +239,6 @@ func (service *Service) prepareSession() (preparedSession, error) {
 	}, nil
 }
 
-func insertPreparedSession(
-	ctx context.Context,
-	transaction *sql.Tx,
-	prepared preparedSession,
-	userID string,
-	sessionVersion, now int64,
-) error {
-	record := (accountservice.SessionMaterial{ID: prepared.id, Hash: prepared.hash}).Record(userID, sessionVersion, now)
-	_, err := transaction.ExecContext(ctx, `
-INSERT INTO auth_sessions(id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,
-idle_expires_at_ms,absolute_expires_at_ms)
-VALUES(?,?,?,?,?,?,?,?)
-`, prepared.id, userID, prepared.hash[:], sessionVersion, now, now,
-		record.IdleExpiry, record.AbsoluteExpiry)
-	if err != nil {
-		return fmt.Errorf("create auth session: %w", err)
-	}
-	return nil
-}
-
-func (prepared preparedSession) view(user User, profileID string, version, now int64) Session {
-	return (accountservice.SessionMaterial{
-		ID:    prepared.id,
-		Token: prepared.token,
-		Hash:  prepared.hash,
-	}).View(
-		user,
-		profileID,
-		version,
-		now,
-	)
-}
-
 func MatchesCSRF(sessionToken, supplied string) bool {
 	return accountservice.MatchesCSRF(sessionToken, supplied)
 }
