@@ -47,7 +47,10 @@ func TestTransientScanFailureSchedulesRetryWithFrozenDeadline(t *testing.T) {
 		fixture.context, CreateRequest{RootID: "games", SourceRelativePath: ""}, fixture.userID,
 	)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "scan work was not claimable")
 	frozenDeadline := unit.DeadlineAtMS
 
@@ -88,10 +91,17 @@ WHERE job.id=?`, unit.JobID).Scan(
 	), "retry = job:%s aggregate:%s phase:%s attempt:%d available:%d deadline:%d events:%d",
 		jobState, aggregateState, phase, attempt, availableAt, persistedDeadline, retryEvents)
 
-	_, claimedEarly := fixture.service.claim(fixture.context)
+	_, claimedEarly, claimErr := fixture.service.claim(fixture.context)
+
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.False(t, claimedEarly, "retry was claimable before its backoff")
 	*fixture.now = fixture.now.Add(time.Second)
-	retried, claimed := fixture.service.claim(fixture.context)
+	retried, claimed, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.Truef(t, claimed, "retry was not claimable after its backoff: %#v", retried)
 	testassert.Falsef(t, retried.Attempt != 2 || retried.DeadlineAtMS != frozenDeadline,
 		"retried work = %#v, frozen deadline = %d", retried, frozenDeadline)
@@ -106,7 +116,10 @@ func TestUnavailableRootIsRetriedAsTransientIO(t *testing.T) {
 		fixture.context, CreateRequest{RootID: "games", SourceRelativePath: ""}, fixture.userID,
 	)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "scan work was not claimable")
 	testassert.False(t, os.RemoveAll(fixture.source) != nil, "remove temporary source root")
 
@@ -129,7 +142,10 @@ func TestAutomaticRetryExhaustionBecomesTerminal(t *testing.T) {
 		fixture.context, CreateRequest{RootID: "games", SourceRelativePath: ""}, fixture.userID,
 	)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "scan work was not claimable")
 	mustExecEmulationStationTest(t, fixture.database, `
 UPDATE jobs SET attempt_count=max_attempts WHERE id=?`, unit.JobID)
@@ -147,7 +163,10 @@ func TestDeadlineFailurePersistsStableTimeoutWithFreshContext(t *testing.T) {
 		fixture.context, CreateRequest{RootID: "games", SourceRelativePath: ""}, fixture.userID,
 	)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "scan work was not claimable")
 	unit.DeadlineAtMS = fixture.now.UnixMilli()
 	deadlineContext, cancel := context.WithDeadline(fixture.context, fixture.now.Add(-time.Second))

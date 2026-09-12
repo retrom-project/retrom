@@ -14,7 +14,10 @@ func TestRecoverWorkConfirmsExpiredCancellation(t *testing.T) {
 	mapped := mapLifecycleCollection(t, fixture, scanned)
 	queued, err := fixture.service.StartImport(fixture.context, scanned.ID, mapped.Version)
 	testassert.False(t, err != nil, err)
-	_, found := fixture.service.claim(fixture.context)
+	_, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "import work was not claimed")
 	running, err := fixture.service.Get(fixture.context, queued.ID)
 	testassert.False(t, err != nil, err)

@@ -94,7 +94,10 @@ VALUES(?,'emulationstation-profile','es-test','ES Test','ADMIN','ENABLED',1,1)`,
 	)
 	created, err := service.Create(ctx, CreateRequest{RootID: "games", SourceRelativePath: ""}, userID)
 	testassert.False(t, err != nil, err)
-	scanWork, found := service.claim(ctx)
+	scanWork, found, claimErr := service.claim(ctx)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "scan work was not claimable")
 	service.execute(ctx, scanWork)
 	scanned, err := service.Get(ctx, created.ID)
@@ -117,7 +120,10 @@ SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY
 	testassert.False(t, err != nil, err)
 	_, err = service.StartImport(ctx, created.ID, mapped.Version)
 	testassert.False(t, err != nil, err)
-	importWork, found := service.claim(ctx)
+	importWork, found, claimErr := service.claim(ctx)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "import work was not claimable")
 	service.execute(ctx, importWork)
 	finished, err := service.Get(ctx, created.ID)

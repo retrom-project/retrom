@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
+
+	persistence "retrom/internal/persistence/emulationstationimport"
 
 	"retrom/internal/dbexec"
 	application "retrom/internal/service/emulationstationimport"
@@ -112,7 +114,11 @@ func (service *Service) runLoop() {
 		_ = service.recoverWork(context.Background())
 		_ = service.ExpirePlans(context.Background())
 		for {
-			unit, ok := service.claim(context.Background())
+			unit, ok, err := service.claim(context.Background())
+			if err != nil {
+				slog.Error("claim EmulationStation execution", "error", err)
+				break
+			}
 			if !ok {
 				break
 			}
@@ -311,91 +317,14 @@ AND state IN ('SCANNING','RUNNING')
 	return nil
 }
 
-type work struct {
-	JobID, ImportID, Kind, RootID, RootDigest, RelativePath string
-	CreatedByUserID                                         string
-	ExecutionNo, Attempt, DeadlineAtMS                      int64
-	ReleaseYearMax                                          int
-}
+type work = application.Execution
 
-func (service *Service) claim(ctx context.Context) (work, bool) {
-	transaction, err := service.database.BeginTx(ctx, nil)
+func (service *Service) claim(ctx context.Context) (work, bool, error) {
+	unit, found, err := application.NewLeases(persistence.NewLeases(service.database), service.now).Claim(ctx)
 	if err != nil {
-		return work{}, false
+		return work{}, false, fmt.Errorf("claim EmulationStation work: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	now := service.now().UnixMilli()
-	var unit work
-	var frozenDeadline sql.NullInt64
-	if err := transaction.QueryRowContext(ctx, `
-SELECT job.id,import.id,job.kind,import.root_id,import.root_config_digest,import.source_relative_path,
-import.created_by_user_id,import.release_year_max,
-job.execution_no,job.attempt_count,job.execution_deadline_at_ms
-FROM jobs job JOIN emulationstation_imports import ON import.id=job.scope_id
-WHERE job.scope_type='EMULATIONSTATION_IMPORT'
-AND job.kind IN ('SERVER_EMULATIONSTATION_SCAN','SERVER_EMULATIONSTATION_IMPORT')
-AND job.state='QUEUED' AND job.available_at_ms<=? AND job.attempt_count<job.max_attempts
-ORDER BY job.available_at_ms,job.created_at_ms,job.id LIMIT 1
-`, now).Scan(&unit.JobID, &unit.ImportID, &unit.Kind, &unit.RootID, &unit.RootDigest,
-		&unit.RelativePath, &unit.CreatedByUserID, &unit.ReleaseYearMax,
-		&unit.ExecutionNo, &unit.Attempt, &frozenDeadline); err != nil {
-		return work{}, false
-	}
-	duration := int64((8 * time.Hour) / time.Millisecond)
-	unit.Attempt++
-	unit.DeadlineAtMS = now + duration
-	if frozenDeadline.Valid {
-		unit.DeadlineAtMS = frozenDeadline.Int64
-	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE jobs
-SET state='RUNNING',attempt_count=attempt_count+1,
-execution_started_at_ms=COALESCE(execution_started_at_ms,?),
-execution_deadline_at_ms=COALESCE(execution_deadline_at_ms,?),
-leased_until_ms=?,heartbeat_at_ms=?,worker_id='emulationstation-import-worker',
-version=version+1,updated_at_ms=? WHERE id=? AND state='QUEUED' AND attempt_count<max_attempts
-`, now, unit.DeadlineAtMS, now+60000, now, now, unit.JobID)
-	if err != nil {
-		return work{}, false
-	}
-	if affected, _ := result.RowsAffected(); affected != 1 {
-		return work{}, false
-	}
-	phase := "DISCOVERING_GAMELISTS"
-	if unit.Kind == "SERVER_EMULATIONSTATION_IMPORT" {
-		phase = "COPYING_CONTENT"
-	}
-	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
-		Set: `
-state=CASE WHEN ?='SERVER_EMULATIONSTATION_IMPORT' THEN 'RUNNING' ELSE state END,
-phase=?,
-started_at_ms=CASE
- WHEN ?='SERVER_EMULATIONSTATION_IMPORT' THEN COALESCE(started_at_ms,?)
- ELSE started_at_ms
-END,
-version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{unit.ImportID},
-		},
-		Values: []any{unit.Kind, phase, unit.Kind, now, now},
-	}); err != nil {
-		return work{}, false
-	}
-	event, _ := json.Marshal(
-		map[string]any{"schemaVersion": 1, "executionNo": unit.ExecutionNo, "attempt": unit.Attempt},
-	)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'EMULATIONSTATION_IMPORT',?,'STARTED',?,?)
-`, unit.JobID, unit.ImportID, string(event), now); err != nil {
-		return work{}, false
-	}
-	if err := transaction.Commit(); err != nil {
-		return work{}, false
-	}
-	return unit, true
+	return unit, found, nil
 }
 
 func (service *Service) execute(ctx context.Context, unit work) {
@@ -440,11 +369,14 @@ func (service *Service) heartbeat(ctx context.Context, unit work, done <-chan st
 		case <-service.stop:
 			return
 		case <-ticker.C:
-			now := service.now().UnixMilli()
-			_, _ = service.database.ExecContext(ctx, `
-UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING' AND worker_id='emulationstation-import-worker'
-`, now, now+60000, now, unit.JobID)
+			state, err := application.NewLeases(persistence.NewLeases(service.database), service.now).Renew(ctx, unit)
+			if err != nil {
+				slog.ErrorContext(ctx, "renew EmulationStation execution", "error", err)
+				return
+			}
+			if state != application.LeaseActive {
+				return
+			}
 		}
 	}
 }

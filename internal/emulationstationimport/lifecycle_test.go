@@ -86,7 +86,10 @@ func (fixture lifecycleFixture) createAndScan(t *testing.T) Summary {
 		fixture.context, CreateRequest{RootID: "games", SourceRelativePath: ""}, fixture.userID,
 	)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "scan work was not claimable")
 	fixture.service.execute(fixture.context, unit)
 	scanned, err := fixture.service.Get(fixture.context, created.ID)
@@ -160,7 +163,10 @@ SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY
 	testassert.False(t, err != nil, err)
 	_, err = fixture.service.StartImport(fixture.context, scanned.ID, mapped.Version)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found && unit.Kind == "SERVER_EMULATIONSTATION_IMPORT", "import work was not claimed")
 	*fixture.now = fixture.now.Add(9 * time.Hour)
 	err = fixture.service.recoverWork(fixture.context)
@@ -187,7 +193,10 @@ func TestAllInvalidScanPersistsBoundedGamelistEvidence(t *testing.T) {
 		fixture.context, CreateRequest{RootID: "games", SourceRelativePath: ""}, fixture.userID,
 	)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "invalid scan work was not claimable")
 	fixture.service.execute(fixture.context, unit)
 	failed, err := fixture.service.Get(fixture.context, created.ID)
