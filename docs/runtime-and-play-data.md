@@ -39,6 +39,8 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 
 业务数据采用 current-state 模型：`games` 直接保存当前 metadata 与内容来源，`game_files` 保存当前文件，`game_variants` 保存每个 `(game,core)` 的当前 Provider Target、DAT、依赖快照和兼容状态。编辑、替换和重新验证在原稳定 ID 上推进 `version`；历史变化写入 audit/event/evidence，不再建立 metadata、content 或 variant 的平行业务修订树。
 
+启动先按 Game 与所选 Core 定位已有 Variant，再验证其 Provider/Target 对应的当前 binding。一个 Core 对应多个运行目标时，显式选择、目录默认选择和存档继承选择都保留该 Variant 的目标；目标停用或不可用时拒绝启动。只有该 Game/Core 尚无 Variant 时才进入新变体校验流程，不能因选中了其他目标而重复创建 Variant。
+
 `providerId` 与 `targetId` 是跨升级稳定的语义身份。Provider 当前版本和 manifest 投影可以前移，但已创建的 `launch_sessions` 会冻结当次 `bundleSha256`、内容文件、外部依赖文件、Target、options 和恢复输入。Bundle 升级不会让现有审核结果或已发布 Variant 自动 stale；只有来源内容、Core/Target、DAT、依赖闭包、项目证据或其他真实验证输入改变时才需要重新检查。
 
 内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch/Netplay、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换仅原子切换当前安装；已创建的 Launch/Play/Netplay 保留冻结的旧 BIOS 文件与授权直到各自结束或过期，game-scoped 存档继续保留。新启动（包括从存档继续）按需核对当前 BIOS，变化时先重验；创建事务再次核对快照，避免并发替换混用版本。人工截图放行的 Variant 保留放行状态，在新 Launch 事务中只刷新已安装的受管 BIOS；不清除手动提供的无关 Arcade 文件。
