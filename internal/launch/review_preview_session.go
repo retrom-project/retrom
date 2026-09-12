@@ -4,6 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
 )
 
 // Review trials consume the ordinary Player events, but do not create product
@@ -25,11 +29,14 @@ func recordReviewPreviewPlay(
 		return PlayResult{}, ErrBlocked
 	}
 	if kind == "finish" {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE review_preview_sessions
-SET state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1
-WHERE id=? AND state IN ('CREATED','ACTIVE')
-`, now, now, previewID); err != nil {
+		if _, err := sessionstore.ChangePreview(ctx, transaction, recordstore.Update{
+			Set: `state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1`,
+			Scope: recordstore.Scope{
+				Where: `id=? AND state IN ('CREATED','ACTIVE')`,
+				Args:  []any{previewID},
+			},
+			Values: []any{now, now},
+		}); err != nil {
 			return PlayResult{}, fmt.Errorf("finish review trial: %w", err)
 		}
 		state = "FINISHED"

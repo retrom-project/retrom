@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -164,10 +166,14 @@ WHERE job_id=?
 `, jobID).Scan(&importID); err != nil {
 		return fmt.Errorf("jobs/server import: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state='CANCELLED',outcome_code='CANCELLED',completed_at_ms=?,updated_at_ms=?
-WHERE server_import_id=? AND state IN ('PENDING','EVALUATING')
-`, now, now, importID); err != nil {
+	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+		Set: `state='CANCELLED',outcome_code='CANCELLED',completed_at_ms=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `server_import_id=? AND state IN ('PENDING','EVALUATING')`,
+			Args:  []any{importID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("jobs/server import items: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `

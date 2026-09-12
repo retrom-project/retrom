@@ -67,7 +67,7 @@ database/sql + 既有 authn/cursor/idempotency
 - 列表、总计数、Folder 可见计数、平台摘要和当前页来自同一只读事务。主查询先按 Principal、PUBLISHED Game 和 enabled PlatformInstance 限定，不能先读其他 owner 或隐藏 Game 再在 Go 过滤。
 - Membership 按当前页 Game ID 集合一次聚合，Folder count 使用集合查询；不得形成每张卡一次查询。查询计划由索引断言保护，不使用易抖动的耗时阈值。
 
-字段、索引和 trigger 的精确定义见 [`data-model.md`](./data-model.md)；route、DTO、上限、cursor、ETag、幂等和错误见 [`http-api-contract.md`](./http-api-contract.md)。
+字段、索引和应用写入校验 的精确定义见 [`data-model.md`](./data-model.md)；route、DTO、上限、cursor、ETag、幂等和错误见 [`http-api-contract.md`](./http-api-contract.md)。
 
 ## 4. 隔离、安全与并发结果
 

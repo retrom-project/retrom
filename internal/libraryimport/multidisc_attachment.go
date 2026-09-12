@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -276,7 +278,7 @@ VALUES(?,1,?,?,?)
 `, jobID.String(), string(inputJSON), hex.EncodeToString(inputDigest[:]), now); err != nil {
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorUnavailable, err)
 	}
-	result, err := transaction.ExecContext(ctx, `
+	result, err := recordstore.CreateReviewMultidiscAttachments(ctx, transaction, `
 INSERT INTO review_multidisc_attachments(id,import_item_id,review_draft_id,requested_by_user_id,
 base_source_snapshot_id,upload_session_id,expected_set_digest,state,diagnostics_json,job_id,
 version,created_at_ms,updated_at_ms)
@@ -300,9 +302,14 @@ VALUES(?,'IMPORT_ITEM',?,'QUEUED','{"schemaVersion":1,"state":"QUEUED"}',?)
 `, jobID.String(), input.ImportItemID, now); err != nil {
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorUnavailable, err)
 	}
-	result, err = transaction.ExecContext(ctx, `
-UPDATE review_drafts SET version=version+1,updated_at_ms=? WHERE id=? AND version=?
-`, now, input.ReviewDraftID, requestVersion)
+	result, err = recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+		Set: `version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{input.ReviewDraftID, requestVersion},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorUnavailable, err)
 	}
@@ -311,7 +318,7 @@ UPDATE review_drafts SET version=version+1,updated_at_ms=? WHERE id=? AND versio
 	}
 	eventID, _ := uuid.NewV7()
 	evidence := marshalReviewEventV2(map[string]any{"attachmentKind": "MULTI_DISC", "state": "QUEUED"})
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
 VALUES(?,?,'DISC_UPLOAD_REQUESTED','USER',?,NULL,?,?,?,?,?,?,?)

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/gamecontent"
 	"retrom/internal/gametitle"
@@ -472,30 +474,33 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 			[]string{state.metadata.Title, state.metadata.Developer, state.metadata.Publisher, state.metadata.Genre}, " ",
 		),
 	)
-	result, err := transaction.ExecContext(
-		request.Context(),
-		`
-UPDATE games
-SET title=?,title_initial=?,description=?,developer=?,publisher=?,genre=?,players=?,release_year=?,
+	result, err := recordstore.UpdateGames(request.Context(), transaction, recordstore.Update{
+		Set: `
+title=?,title_initial=?,description=?,developer=?,publisher=?,genre=?,players=?,release_year=?,
 metadata_source_kind='ADMIN_EDIT',metadata_source_ref_id=NULL,search_text=?,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND version=?
 `,
-		state.metadata.Title,
-		gametitle.Initial(state.metadata.Title),
-		state.metadata.Description,
-		state.metadata.Developer,
-		state.metadata.Publisher,
-		state.metadata.Genre,
-		nullableInteger(state.metadata.Players),
-		nullableInteger(state.metadata.ReleaseYear),
-		search,
-		now,
-		request.PathValue("gameId"),
-		expected,
-	)
+			Args: []any{request.PathValue("gameId"), expected},
+		},
+		Values: []any{
+			state.metadata.Title,
+			gametitle.Initial(state.metadata.Title),
+			state.metadata.Description,
+			state.metadata.Developer,
+			state.metadata.Publisher,
+			state.metadata.Genre,
+			nullableInteger(state.metadata.Players),
+			nullableInteger(state.metadata.ReleaseYear),
+			search,
+			now,
+		},
+	})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return

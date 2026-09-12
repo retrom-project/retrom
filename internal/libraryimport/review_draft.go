@@ -9,6 +9,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/tagging"
 
@@ -507,25 +509,43 @@ ORDER BY s.sort_order,s.role,s.logical_name
 }
 
 func (run *draftPatchRun) updateDraft(encoded []byte, searchParts []string, now int64) error {
-	result, err := run.transaction.ExecContext(run.ctx, `
-UPDATE review_drafts
-SET target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
+	result, err := recordstore.UpdateReviewDrafts(run.ctx, run.transaction, recordstore.Update{
+		Set: `
+target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
   selected_candidate_id=?,cover_candidate_asset_id=?,cover_uploaded_asset_id=?,
   background_candidate_asset_id=?,default_dos_entry=?,metadata_json=?,
   version=version+1,updated_at_ms=?
-WHERE import_item_id=? AND version=?
-`, run.targetID, run.validationID, nullable(run.candidateID), nullable(run.coverID),
-		nullable(run.uploadedCoverID), nullable(run.backgroundID), nullable(run.dosEntry),
-		string(encoded), now, run.itemID, run.expectedVersion)
+`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=? AND version=?`,
+			Args:  []any{run.itemID, run.expectedVersion},
+		},
+		Values: []any{
+			run.targetID,
+			run.validationID,
+			nullable(run.candidateID),
+			nullable(run.coverID),
+			nullable(run.uploadedCoverID),
+			nullable(run.backgroundID),
+			nullable(run.dosEntry),
+			string(encoded),
+			now,
+		},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
 	if affected, _ := result.RowsAffected(); affected != 1 {
 		return ErrVersionConflict
 	}
-	_, err = run.transaction.ExecContext(run.ctx, `
-UPDATE import_items SET search_text=? WHERE id=?
-`, strings.ToLower(strings.Join(searchParts, " ")), run.itemID)
+	_, err = recordstore.UpdateImportItems(run.ctx, run.transaction, recordstore.Update{
+		Set: `search_text=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{run.itemID},
+		},
+		Values: []any{strings.ToLower(strings.Join(searchParts, " "))},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
@@ -553,7 +573,7 @@ func (run *draftPatchRun) insertSavedEvent(
 	afterJSON, _ := json.Marshal(map[string]any{
 		"schemaVersion": 2, "metadata": run.metadata, "tags": afterTags,
 	})
-	_, err := run.transaction.ExecContext(run.ctx, `
+	_, err := recordstore.CreateReviewEvents(run.ctx, run.transaction, `
 INSERT INTO review_events(
   id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
   after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms

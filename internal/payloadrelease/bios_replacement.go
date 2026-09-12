@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"retrom/internal/recordstore"
 )
 
 // SupersedeBIOS changes the active installation without mutating frozen launches.
@@ -19,8 +21,17 @@ WHERE requirement_id=? AND is_active=1`, requirementID).Scan(&installationID)
 	if err != nil {
 		return fmt.Errorf("payloadrelease/read active BIOS: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `UPDATE bios_installations SET is_active=0,
-version=version+1,updated_at_ms=? WHERE id=? AND is_active=1`, now, installationID); err != nil {
+	if _, err := recordstore.UpdateBiosInstallations(ctx, transaction, recordstore.Update{
+		Set: `
+is_active=0,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND is_active=1`,
+			Args:  []any{installationID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/supersede BIOS: %w", err)
 	}
 	return scheduleBIOSConsumption(ctx, transaction, installationID, now)

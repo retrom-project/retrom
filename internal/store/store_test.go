@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -30,11 +29,9 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	assertColumns(t, database.SQL, "import_group_requests",
 		"import_job_id", "request_digest", "actor_user_id", "upload_version",
 		"upload_manifest_digest", "target_snapshot_digest")
-	testassert.Truef(t, slices.Equal(queryStrings(t, database.SQL, `
-SELECT name FROM sqlite_master
-WHERE type='trigger' AND name LIKE 'import_group_requests_immutable_%' ORDER BY name
-`), []string{"import_group_requests_immutable_delete", "import_group_requests_immutable_update"}),
-		"import group request immutability triggers drifted")
+	if names := queryStrings(t, database.SQL, "SELECT name FROM sqlite_schema WHERE type IN ('trigger','view')"); len(names) != 0 {
+		t.Fatalf("implicit business objects remain: %v", names)
+	}
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}

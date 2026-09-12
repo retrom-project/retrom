@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/recordstore"
 )
 
 func collectIDs(ctx context.Context, transaction *sql.Tx, query string, args ...any) ([]string, error) {
@@ -36,9 +37,17 @@ func CollectScopeIDs(ctx context.Context, transaction *sql.Tx, query string, arg
 	return collectIDs(ctx, transaction, query, args...)
 }
 
-func execBatches(ctx context.Context, transaction *sql.Tx, query string, args ...any) error {
+type deletionBatch struct {
+	remove func(context.Context, recordstore.DBTX, recordstore.Scope) (sql.Result, error)
+	where  string
+}
+
+func execBatches(ctx context.Context, transaction *sql.Tx, batch deletionBatch, args ...any) error {
 	for {
-		result, err := transaction.ExecContext(ctx, query, args...)
+		result, err := batch.remove(ctx, transaction, recordstore.Scope{
+			Where: batch.where,
+			Args:  args,
+		})
 		if err != nil {
 			return fmt.Errorf("payloadrelease/batch: %w", err)
 		}

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/payloadrelease"
 )
@@ -84,11 +86,14 @@ func (run *creationRun) discardDuplicateGroup(record *groupRecord) (bool, error)
 	if err := run.insertDuplicateMatches(record.itemID, identityDigest, games); err != nil {
 		return false, err
 	}
-	_, err = run.transaction.ExecContext(run.ctx, `
-UPDATE import_items
-SET state='DISCARDED',version=version+1,updated_at_ms=?,completed_at_ms=?
-WHERE id=?
-`, run.now, run.now, record.itemID)
+	_, err = recordstore.UpdateImportItems(run.ctx, run.transaction, recordstore.Update{
+		Set: `state='DISCARDED',version=version+1,updated_at_ms=?,completed_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{record.itemID},
+		},
+		Values: []any{run.now, run.now},
+	})
 	if err != nil {
 		return false, fmt.Errorf("libraryimport/service: %w", err)
 	}

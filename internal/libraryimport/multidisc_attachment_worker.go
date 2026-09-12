@@ -12,6 +12,8 @@ import (
 	"path"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -84,11 +86,14 @@ AND attempt_count<max_attempts
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return ErrInvalid
 	}
-	result, err = transaction.ExecContext(ctx, `
-UPDATE review_multidisc_attachments
-SET state='RUNNING',error_code=NULL,finished_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE job_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')
-	`, now, jobID)
+	result, err = recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
+		Set: `state='RUNNING',error_code=NULL,finished_at_ms=NULL,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `job_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')`,
+			Args:  []any{jobID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return multiDiscAttachmentStoreError("mark attachment running", err)
 	}

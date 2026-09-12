@@ -12,6 +12,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
+
 	"golang.org/x/text/unicode/norm"
 
 	"retrom/internal/authn"
@@ -263,27 +267,43 @@ WHERE user_id=? AND revoked_at_ms IS NULL
 		return fmt.Errorf("revoke user sessions: %w", err)
 	}
 	if revokeCreatedLinks {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE account_links SET revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1
-WHERE created_by_user_id=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, now, user.UserID, now); err != nil {
+		if _, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
+			Set: `revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1`,
+			Scope: recordstore.Scope{
+				Where: `
+created_by_user_id=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
+`,
+				Args: []any{user.UserID, now},
+			},
+			Values: []any{now},
+		}); err != nil {
 			return fmt.Errorf("revoke user-created links: %w", err)
 		}
 	}
 	if revokeTargetLinks {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE account_links SET revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1
-WHERE kind='PASSWORD_RESET' AND target_user_id=?
+		if _, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
+			Set: `revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1`,
+			Scope: recordstore.Scope{
+				Where: `
+kind='PASSWORD_RESET' AND target_user_id=?
 AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, now, user.UserID, now); err != nil {
+`,
+				Args: []any{user.UserID, now},
+			},
+			Values: []any{now},
+		}); err != nil {
 			return fmt.Errorf("revoke user-targeted links: %w", err)
 		}
 	}
 	if revokeLaunches {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,version=version+1,updated_at_ms=?
-WHERE profile_id=? AND state IN ('CREATED','ACTIVE')
-`, now, now, profileID); err != nil {
+		if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+			Set: `state='REVOKED',finished_at_ms=?,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `profile_id=? AND state IN ('CREATED','ACTIVE')`,
+				Args:  []any{profileID},
+			},
+			Values: []any{now, now},
+		}); err != nil {
 			return fmt.Errorf("revoke user launches: %w", err)
 		}
 	}
@@ -471,14 +491,24 @@ func applyUserChange(
 	change userChange,
 	expectedVersion, now int64,
 ) error {
-	result, err := transaction.ExecContext(ctx, `
-UPDATE users SET role=?,status=?,session_version=session_version+?,version=version+1,updated_at_ms=?,
+	result, err := recordstore.UpdateUsers(ctx, transaction, recordstore.Update{
+		Set: `
+role=?,status=?,session_version=session_version+?,version=version+1,updated_at_ms=?,
 disabled_at_ms=CASE WHEN ?='DISABLED' THEN COALESCE(disabled_at_ms,?) ELSE NULL END
-WHERE id=? AND version=? AND status!='DELETED'
 `,
-		change.role, change.status, boolToInt(change.securityChange), now,
-		change.status, now, before.UserID, expectedVersion,
-	)
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=? AND status!='DELETED'`,
+			Args:  []any{before.UserID, expectedVersion},
+		},
+		Values: []any{
+			change.role,
+			change.status,
+			boolToInt(change.securityChange),
+			now,
+			change.status,
+			now,
+		},
+	})
 	if err != nil {
 		return fmt.Errorf("update user: %w", err)
 	}
@@ -627,11 +657,17 @@ func persistUserDeletion(
 	profileID string,
 	expectedVersion, now int64,
 ) error {
-	result, err := transaction.ExecContext(ctx, `
-UPDATE users SET status='DELETED',session_version=session_version+1,version=version+1,
+	result, err := recordstore.UpdateUsers(ctx, transaction, recordstore.Update{
+		Set: `
+status='DELETED',session_version=session_version+1,version=version+1,
 updated_at_ms=?,disabled_at_ms=NULL,deleted_at_ms=?
-WHERE id=? AND version=? AND status!='DELETED'
-`, now, now, before.UserID, expectedVersion)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=? AND status!='DELETED'`,
+			Args:  []any{before.UserID, expectedVersion},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return fmt.Errorf("soft-delete user: %w", err)
 	}
@@ -647,10 +683,13 @@ WHERE id=? AND version=? AND status!='DELETED'
 		return fmt.Errorf("delete user credential: %w", err)
 	}
 	if before.Username == "test" {
-		_, _ = transaction.ExecContext(ctx, `
-UPDATE instance_state SET test_default_password_active=0,version=version+1,updated_at_ms=?
-WHERE id=1 AND test_default_password_active=1
-`, now)
+		_, _ = recordstore.UpdateInstanceState(ctx, transaction, recordstore.Update{
+			Set: `test_default_password_active=0,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=1 AND test_default_password_active=1`,
+			},
+			Values: []any{now},
+		})
 	}
 	return nil
 }

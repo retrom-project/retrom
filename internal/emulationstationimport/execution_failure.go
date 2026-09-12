@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -34,35 +36,43 @@ WHERE id=? AND state='RUNNING'`,
 	if err != nil || rowsAffected(jobResult) != 1 {
 		return
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_items
-SET execution_state='COMMIT_FAILED',error_code=?,retryable=?,completed_at_ms=?,
+	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='COMMIT_FAILED',error_code=?,retryable=?,completed_at_ms=?,
 version=version+1,updated_at_ms=?
-WHERE import_id=? AND execution_state IN ('PENDING','COPYING','VALIDATING')`,
-		code, boolInt(retryable), now, now, unit.ImportID,
-	); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `import_id=? AND execution_state IN ('PENDING','COPYING','VALIDATING')`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{code, boolInt(retryable), now, now},
+	}); err != nil {
 		return
 	}
 	if err := scheduleTerminalItems(ctx, transaction, unit.ImportID, now); err != nil {
 		return
 	}
-	if _, err := transaction.ExecContext(
-		ctx,
-		terminalFailureAggregateSQL,
-		code,
-		unit.ImportID,
-		now,
-		unit.ImportID,
-		unit.ImportID,
-		unit.ImportID,
-		unit.ImportID,
-		unit.ImportID,
-		unit.ImportID,
-		unit.ImportID,
-		unit.ImportID,
-		now,
-		unit.ImportID,
-	); err != nil {
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: terminalFailureAggregateSQLAssignments,
+		Scope: recordstore.Scope{
+			Where: terminalFailureAggregateSQLScope,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{
+			code,
+			unit.ImportID,
+			now,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			unit.ImportID,
+			now,
+		},
+	}); err != nil {
 		return
 	}
 	data, _ := json.Marshal(map[string]any{"schemaVersion": 1, "code": code, "retryable": retryable})
@@ -80,8 +90,7 @@ VALUES(?,'EMULATIONSTATION_IMPORT',?,'FAILED',?,?)`,
 	_ = transaction.Commit()
 }
 
-const terminalFailureAggregateSQL = `UPDATE emulationstation_imports
-SET state='FAILED',phase=NULL,last_error_code=?,retryable=EXISTS(
+const terminalFailureAggregateSQLAssignments = `state='FAILED',phase=NULL,last_error_code=?,retryable=EXISTS(
  SELECT 1 FROM emulationstation_import_items
  WHERE import_id=?
  AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
@@ -113,5 +122,6 @@ failed_item_count=(
 cancelled_item_count=(
  SELECT count(*) FROM emulationstation_import_items WHERE import_id=? AND execution_state='CANCELLED'
 ),
-version=version+1,updated_at_ms=?
-WHERE id=?`
+version=version+1,updated_at_ms=?`
+
+const terminalFailureAggregateSQLScope = `id=?`

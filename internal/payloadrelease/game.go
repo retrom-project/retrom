@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -55,12 +59,17 @@ SELECT status,version,payload_state,payload_release_job_id FROM games WHERE id=?
 		return true, nil
 	}
 	if payloadState == "FAILED" {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE games
-SET payload_state='RELEASING',payload_last_error_code=NULL,
+		if _, err := recordstore.UpdateGames(ctx, transaction, recordstore.Update{
+			Set: `
+payload_state='RELEASING',payload_last_error_code=NULL,
 version=version+1,updated_at_ms=?
-WHERE id=?
-`, now, job.ScopeID); err != nil {
+`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{job.ScopeID},
+			},
+			Values: []any{now},
+		}); err != nil {
 			return false, fmt.Errorf("payloadrelease/retry game: %w", err)
 		}
 	}
@@ -86,13 +95,18 @@ func (service *Service) releaseGamePayload(ctx context.Context, transaction *sql
 	if err := stopGameRuntime(ctx, transaction, gameID, now); err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE content_hash_evidence
-SET blob_id=NULL,archive_blob_id=NULL,archive_entry_ordinal=NULL,payload_released_at_ms=?
-WHERE payload_released_at_ms IS NULL AND scrape_run_id IN (
+	if _, err := recordstore.UpdateContentHashEvidence(ctx, transaction, recordstore.Update{
+		Set: `blob_id=NULL,archive_blob_id=NULL,archive_entry_ordinal=NULL,payload_released_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `
+payload_released_at_ms IS NULL AND scrape_run_id IN (
   SELECT id FROM metadata_scrape_runs WHERE game_id=?
 )
-`, now, gameID); err != nil {
+`,
+			Args: []any{gameID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/release game evidence: %w", err)
 	}
 	for _, statement := range gameDeleteStatements() {
@@ -111,11 +125,17 @@ WHERE payload_released_at_ms IS NULL AND scrape_run_id IN (
 	if err := service.stageCandidates(ctx, transaction, blobs); err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE games SET payload_state='RELEASED',payload_released_at_ms=?,payload_last_error_code=NULL,
+	if _, err := recordstore.UpdateGames(ctx, transaction, recordstore.Update{
+		Set: `
+payload_state='RELEASED',payload_released_at_ms=?,payload_last_error_code=NULL,
 version=version+1,updated_at_ms=?
-WHERE id=? AND status='DELETED' AND payload_state IN ('RELEASING','FAILED','RELEASED')
-`, now, now, gameID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND status='DELETED' AND payload_state IN ('RELEASING','FAILED','RELEASED')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/complete game: %w", err)
 	}
 	return nil
@@ -141,10 +161,16 @@ AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 }
 
 func stopGameRuntime(ctx context.Context, transaction *sql.Tx, gameID string, now int64) error {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions SET state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,version=version+1
-WHERE game_id=? AND state IN ('CREATED','ACTIVE')
-`, now, now, gameID); err != nil {
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `
+state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `game_id=? AND state IN ('CREATED','ACTIVE')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/revoke launches: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -153,55 +179,73 @@ WHERE game_id=? AND state='ACTIVE'
 `, now, now, gameID); err != nil {
 		return fmt.Errorf("payloadrelease/end play sessions: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_sessions SET state='FAILED',finished_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,version=version+1
-WHERE game_id=? AND state NOT IN ('FINISHED','FAILED')
-`, now, now, gameID); err != nil {
+	if _, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED',finished_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `game_id=? AND state NOT IN ('FINISHED','FAILED')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/end netplay sessions: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='ENDED',ended_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,version=version+1
-WHERE selected_game_id=? AND state IN ('DRAFT','WAITING','STARTING','RUNNING')
-`, now, now, gameID); err != nil {
+	if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `
+state='ENDED',ended_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `selected_game_id=? AND state IN ('DRAFT','WAITING','STARTING','RUNNING')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/end netplay rooms: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions SET save_state_id=NULL WHERE game_id=? AND save_state_id IS NOT NULL
-`, gameID); err != nil {
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `save_state_id=NULL`,
+		Scope: recordstore.Scope{
+			Where: `game_id=? AND save_state_id IS NOT NULL`,
+			Args:  []any{gameID},
+		},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/unlink launch saves: %w", err)
 	}
 	return nil
 }
 
-func gameDeleteStatements() []string {
-	return []string{
-		`DELETE FROM save_states WHERE rowid IN (SELECT rowid FROM save_states WHERE game_id=? ORDER BY rowid LIMIT 200)`,
-		`DELETE FROM launch_external_files WHERE rowid IN (
+func gameDeleteStatements() []deletionBatch {
+	return []deletionBatch{
+		{remove: recordstore.DeleteSaveStates, where: `
+rowid IN (SELECT rowid FROM save_states WHERE game_id=? ORDER BY rowid LIMIT 200)`},
+		{remove: recordstore.DeleteLaunchExternalFiles, where: `rowid IN (
  SELECT file.rowid FROM launch_external_files file
  JOIN launch_sessions launch ON launch.id=file.launch_session_id
  WHERE launch.game_id=? ORDER BY file.rowid LIMIT 200
-)`,
-		`DELETE FROM launch_content_files WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteLaunchContentFiles, where: `rowid IN (
  SELECT file.rowid FROM launch_content_files file
  JOIN launch_sessions launch ON launch.id=file.launch_session_id
  WHERE launch.game_id=? ORDER BY file.rowid LIMIT 200
-)`,
-		`DELETE FROM scrape_candidate_assets WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteScrapeCandidateAssets, where: `rowid IN (
  SELECT asset.rowid FROM scrape_candidate_assets asset
  JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
  WHERE run.game_id=? ORDER BY asset.rowid LIMIT 200
-)`,
-		`DELETE FROM game_assets WHERE rowid IN (SELECT rowid FROM game_assets WHERE game_id=? ORDER BY rowid LIMIT 200)`,
-		`DELETE FROM game_files WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteGameAssets, where: `
+rowid IN (SELECT rowid FROM game_assets WHERE game_id=? ORDER BY rowid LIMIT 200)`},
+		{remove: recordstore.DeleteGameFiles, where: `rowid IN (
  SELECT file.rowid FROM game_files file
  WHERE file.game_id=? ORDER BY file.rowid LIMIT 200
-)`,
-		`DELETE FROM variant_files WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteVariantFiles, where: `rowid IN (
  SELECT file.rowid FROM variant_files file
  JOIN game_variants variant ON variant.id=file.game_variant_id
  WHERE variant.game_id=? ORDER BY file.rowid LIMIT 200
-)`,
+)`},
 	}
 }
 

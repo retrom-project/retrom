@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/platformcatalog"
@@ -58,7 +60,7 @@ func BuildPlatformInstances(ctx context.Context, database *sql.DB) (PlatformInst
 		if err != nil {
 			return nil, fmt.Errorf("testsupport: create platform instance slug %s: %w", template.Key, err)
 		}
-		if _, err := database.ExecContext(ctx, `
+		if _, err := recordstore.CreatePlatformInstances(ctx, database, `
 INSERT INTO platform_instances(
   id,platform_id,default_core_id,name,slug,description,sort_order,enabled,version,
   created_at_ms,updated_at_ms,catalog_template_key

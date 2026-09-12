@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"retrom/internal/recordstore"
 )
 
 func ScheduleTerminalImportItem(
@@ -17,10 +19,7 @@ func ScheduleTerminalImportItem(
 	return scheduleTerminalOwner(ctx, transaction, terminalOwnerRequest{
 		id: itemID, scope: ScopeImportItem, reason: reason, now: now,
 		readQuery: `SELECT state,version,payload_state,payload_release_job_id FROM import_items WHERE id=?`,
-		updateQuery: `UPDATE import_items
-SET payload_state='RELEASING',payload_release_job_id=?,version=version+1
-WHERE id=? AND version=? AND payload_state='RETAINED'`,
-		terminal: terminalImportItem, label: "import item",
+		terminal:  terminalImportItem, label: "import item",
 	})
 }
 
@@ -37,20 +36,17 @@ WHERE import_job_id=? AND state NOT IN ('PUBLISHED','DISCARDED','FAILED_FINAL','
 	return scheduleTerminalOwner(ctx, transaction, terminalOwnerRequest{
 		id: importID, scope: ScopeImportJob, reason: ReasonImportTerminal, now: now,
 		readQuery: `SELECT state,version,payload_state,payload_release_job_id FROM import_jobs WHERE id=?`,
-		updateQuery: `UPDATE import_jobs
-SET payload_state='RELEASING',payload_release_job_id=?,version=version+1
-WHERE id=? AND version=? AND payload_state='RETAINED'`,
-		terminal: terminalImportJob, ignoreNonTerminal: true, label: "import job",
+		terminal:  terminalImportJob, ignoreNonTerminal: true, label: "import job",
 	})
 }
 
 type terminalOwnerRequest struct {
-	id, readQuery, updateQuery, label string
-	scope                             ScopeType
-	reason                            Reason
-	now                               int64
-	terminal                          func(string) bool
-	ignoreNonTerminal                 bool
+	id, readQuery, label string
+	scope                ScopeType
+	reason               Reason
+	now                  int64
+	terminal             func(string) bool
+	ignoreNonTerminal    bool
 }
 
 func scheduleTerminalOwner(
@@ -81,7 +77,14 @@ func scheduleTerminalOwner(
 	if err != nil {
 		return "", fmt.Errorf("payloadrelease/schedule %s job: %w", request.label, err)
 	}
-	result, err := transaction.ExecContext(ctx, request.updateQuery, jobID, request.id, version)
+	result, err := updatePayloadOwner(ctx, transaction, request.scope, recordstore.Update{
+		Set:    "payload_state='RELEASING',payload_release_job_id=?,version=version+1",
+		Values: []any{jobID},
+		Scope: recordstore.Scope{
+			Where: "id=? AND version=? AND payload_state='RETAINED'",
+			Args:  []any{request.id, version},
+		},
+	})
 	if err != nil {
 		return "", fmt.Errorf("payloadrelease/enter %s release: %w", request.label, err)
 	}
@@ -141,12 +144,15 @@ FROM %s WHERE id=?
 	if err != nil {
 		return "", err
 	}
-	updateQuery := fmt.Sprintf(`
-UPDATE %s
-SET payload_state='RELEASING',payload_release_job_id=?,version=version+1
-WHERE id=? AND version=? AND payload_state='RETAINED'
-	`, spec.itemsTable)
-	_, err = transaction.ExecContext(ctx, updateQuery, jobID, itemID, version)
+	updateQuery := recordstore.Update{
+		Set:    `payload_state='RELEASING',payload_release_job_id=?,version=version+1`,
+		Values: []any{jobID},
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=? AND payload_state='RETAINED'`,
+			Args:  []any{itemID, version},
+		},
+	}
+	_, err = spec.updateItem(ctx, transaction, updateQuery)
 	if err != nil {
 		return "", fmt.Errorf("payloadrelease/enter %s release: %w", spec.label, err)
 	}
@@ -167,11 +173,15 @@ WHERE id=? AND payload_state IN ('RELEASING','RELEASED','FAILED')
 `, publicItemID).Scan(&sharedJob); err != nil {
 		return "", fmt.Errorf("payloadrelease/link %s schedule: %w", spec.label, err)
 	}
-	query := fmt.Sprintf(`
-UPDATE %s SET payload_state='RELEASING',payload_release_job_id=?,version=version+1
-WHERE id=? AND payload_state='RETAINED'
-`, spec.itemsTable)
-	if _, err := transaction.ExecContext(ctx, query, sharedJob, itemID); err != nil {
+	query := recordstore.Update{
+		Set:    `payload_state='RELEASING',payload_release_job_id=?,version=version+1`,
+		Values: []any{sharedJob},
+		Scope: recordstore.Scope{
+			Where: `id=? AND payload_state='RETAINED'`,
+			Args:  []any{itemID},
+		},
+	}
+	if _, err := spec.updateItem(ctx, transaction, query); err != nil {
 		return "", fmt.Errorf("payloadrelease/link %s release: %w", spec.label, err)
 	}
 	return sharedJob, nil
@@ -213,10 +223,17 @@ func ScheduleGameDeletion(
 	if err != nil {
 		return "", err
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE games SET status='DELETED',payload_state='RELEASING',payload_release_job_id=?,deleted_at_ms=?,
-version=version+1,updated_at_ms=? WHERE id=? AND status='PUBLISHED' AND version=?
-`, jobID, now, now, gameID, version)
+	result, err := recordstore.UpdateGames(ctx, transaction, recordstore.Update{
+		Set: `
+status='DELETED',payload_state='RELEASING',payload_release_job_id=?,deleted_at_ms=?,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND status='PUBLISHED' AND version=?`,
+			Args:  []any{gameID, version},
+		},
+		Values: []any{jobID, now, now},
+	})
 	if err != nil {
 		return "", fmt.Errorf("payloadrelease/delete game: %w", err)
 	}

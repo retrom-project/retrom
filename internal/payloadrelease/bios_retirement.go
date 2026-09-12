@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -47,8 +49,17 @@ WHERE is_active=0 AND blob_id IS NOT NULL ORDER BY updated_at_ms,id LIMIT 1`).Sc
 		return false, fmt.Errorf("count retired variant BIOS: %w", err)
 	}
 	if count < 200 {
-		_, err = tx.ExecContext(ctx, `UPDATE bios_installations SET blob_id=NULL,payload_released_at_ms=?,
-version=version+1,updated_at_ms=? WHERE id=? AND is_active=0`, service.now().UnixMilli(), service.now().UnixMilli(), id)
+		_, err = recordstore.UpdateBiosInstallations(ctx, tx, recordstore.Update{
+			Set: `
+blob_id=NULL,payload_released_at_ms=?,
+version=version+1,updated_at_ms=?
+`,
+			Scope: recordstore.Scope{
+				Where: `id=? AND is_active=0`,
+				Args:  []any{id},
+			},
+			Values: []any{service.now().UnixMilli(), service.now().UnixMilli()},
+		})
 		if err != nil {
 			return false, fmt.Errorf("release retired BIOS: %w", err)
 		}

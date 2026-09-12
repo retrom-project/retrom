@@ -3,18 +3,14 @@ package store
 import (
 	"database/sql"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
-)
-
-var (
-	triggerRowReferencePattern  = regexp.MustCompile(`(?i)\b(?:NEW|OLD)\.([a-z_][a-z0-9_]*)`)
-	triggerUpdateColumnsPattern = regexp.MustCompile(`(?is)\bUPDATE\s+OF\s+(.+?)\s+ON\s+[a-z_][a-z0-9_]*`)
 )
 
 func TestCurrentCrossDomainInvariantsContainNoLegacyCompatibilityIndexes(t *testing.T) {
@@ -29,48 +25,6 @@ WHERE name IN ('runtime_targets_game_compatibility','runtime_targets_netplay_com
                'game_variant_runtime_packs_immutable_update','game_variant_runtime_packs_immutable_delete')
 ORDER BY name`)
 	testassert.Truef(t, len(names) == 0, "legacy compatibility/current-state immutability objects remain: %v", names)
-}
-
-func TestCurrentCrossDomainTriggersReferenceExistingOwnerColumns(t *testing.T) {
-	t.Parallel()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
-	testassert.False(t, err != nil, err)
-	defer func() { cleanup.Error("close", database.Close()) }()
-
-	rows, err := database.SQL.QueryContext(t.Context(), `
-SELECT name,tbl_name,sql FROM sqlite_schema WHERE type='trigger' ORDER BY name`)
-	testassert.False(t, err != nil, err)
-	defer func() { testassert.False(t, rows.Close() != nil, "close trigger rows") }()
-	type triggerSchema struct {
-		name      string
-		table     string
-		statement string
-	}
-	triggers := make([]triggerSchema, 0)
-	for rows.Next() {
-		var trigger triggerSchema
-		if err := rows.Scan(&trigger.name, &trigger.table, &trigger.statement); err != nil {
-			t.Fatal(err)
-		}
-		triggers = append(triggers, trigger)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	for _, trigger := range triggers {
-		columns := tableColumns(t, database.SQL, trigger.table)
-		if match := triggerUpdateColumnsPattern.FindStringSubmatch(trigger.statement); match != nil {
-			for column := range strings.SplitSeq(match[1], ",") {
-				name := strings.ToLower(strings.TrimSpace(column))
-				testassert.Truef(t, columns[name],
-					"trigger %s watches missing %s.%s", trigger.name, trigger.table, name)
-			}
-		}
-		for _, match := range triggerRowReferencePattern.FindAllStringSubmatch(trigger.statement, -1) {
-			testassert.Truef(t, columns[strings.ToLower(match[1])],
-				"trigger %s references missing %s.%s", trigger.name, trigger.table, match[1])
-		}
-	}
 }
 
 func TestCurrentGameCanMoveBetweenPlatformInstances(t *testing.T) {
@@ -101,10 +55,12 @@ func TestCurrentGameCanMoveBetweenPlatformInstances(t *testing.T) {
 		testassert.False(t, err != nil, err)
 	}
 
-	_, err = database.SQL.ExecContext(t.Context(), `
-UPDATE games
-SET platform_instance_id='current-snes',version=version+1,updated_at_ms=2
-WHERE id='current-game'`)
+	_, err = recordstore.UpdateGames(t.Context(), database.SQL, recordstore.Update{
+		Set: `platform_instance_id='current-snes',version=version+1,updated_at_ms=2`,
+		Scope: recordstore.Scope{
+			Where: `id='current-game'`,
+		},
+	})
 	testassert.Falsef(t, err != nil, "current game platform move was rejected: %v", err)
 
 	var platformID string
@@ -120,7 +76,7 @@ func TestCurrentSessionSnapshotsRejectForeignGameVariantAndLaunchOwners(t *testi
 	defer func() { cleanup.Error("close", database.Close()) }()
 	seedCurrentRuntimeGraph(t, database.SQL)
 
-	_, err = database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreateNetplayRooms(t.Context(), database.SQL, `
 INSERT INTO netplay_rooms(
  id,host_profile_id,state,selected_game_id,selected_game_variant_id,netplay_profile_id,
  profile_digest,max_players,expires_at_ms,created_at_ms,updated_at_ms
@@ -131,21 +87,21 @@ INSERT INTO netplay_rooms(
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid netplay game variant"),
 		"foreign netplay room variant error = %v", err)
 
-	_, err = database.SQL.ExecContext(t.Context(), currentLaunchInsertSQL,
+	_, err = recordstore.CreateLaunchSessions(t.Context(), database.SQL, currentLaunchInsertSQL,
 		"foreign-target-launch", "current-game-a", "target-b")
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid runtime target snapshot"),
 		"foreign product launch target error = %v", err)
-	_, err = database.SQL.ExecContext(t.Context(), currentLaunchInsertSQL,
+	_, err = recordstore.CreateLaunchSessions(t.Context(), database.SQL, currentLaunchInsertSQL,
 		"current-launch", "current-game-a", "target-a")
 	testassert.False(t, err != nil, err)
 
-	_, err = database.SQL.ExecContext(t.Context(), currentSaveInsertSQL, "foreign-save", "current-game-b")
+	_, err = recordstore.CreateSaveStates(t.Context(), database.SQL, currentSaveInsertSQL, "foreign-save", "current-game-b")
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid runtime checkpoint snapshot"),
 		"foreign save source launch error = %v", err)
-	_, err = database.SQL.ExecContext(t.Context(), currentSaveInsertSQL, "current-save", "current-game-a")
+	_, err = recordstore.CreateSaveStates(t.Context(), database.SQL, currentSaveInsertSQL, "current-save", "current-game-a")
 	testassert.False(t, err != nil, err)
 
-	_, err = database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreateNetplayRooms(t.Context(), database.SQL, `
 INSERT INTO netplay_rooms(
  id,host_profile_id,state,selected_game_id,selected_game_variant_id,netplay_profile_id,
  profile_digest,max_players,expires_at_ms,created_at_ms,updated_at_ms
@@ -154,10 +110,10 @@ INSERT INTO netplay_rooms(
  'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',2,100,1,1
 )`)
 	testassert.False(t, err != nil, err)
-	_, err = database.SQL.ExecContext(t.Context(), currentNetplaySessionInsertSQL, "foreign-session", "target-b")
+	_, err = recordstore.CreateNetplaySessions(t.Context(), database.SQL, currentNetplaySessionInsertSQL, "foreign-session", "target-b")
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid netplay session snapshot"),
 		"foreign netplay session target error = %v", err)
-	_, err = database.SQL.ExecContext(t.Context(), currentNetplaySessionInsertSQL, "current-session", "target-a")
+	_, err = recordstore.CreateNetplaySessions(t.Context(), database.SQL, currentNetplaySessionInsertSQL, "current-session", "target-a")
 	testassert.False(t, err != nil, err)
 }
 

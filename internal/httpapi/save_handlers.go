@@ -9,6 +9,10 @@ import (
 	"strconv"
 	"strings"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/storequery"
+
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/cursor"
@@ -189,7 +193,7 @@ s.screenshot_blob_id IS NOT NULL,
 runtime_compatibility.status
 FROM save_states s
 LEFT JOIN game_save_versions native ON native.save_state_id=s.id
-JOIN save_state_runtime_compatibility runtime_compatibility
+JOIN (`+storequery.SaveRuntimeCompatibility+`) runtime_compatibility
   ON runtime_compatibility.save_state_id=s.id
 JOIN games g ON g.id=s.game_id
 JOIN games m ON m.id=g.id
@@ -281,24 +285,23 @@ func (server *Server) patchSave(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	now := server.now().UnixMilli()
-	result, err := server.database.ExecContext(
-		request.Context(),
-		`
-UPDATE save_states
-SET name=?,
+	result, err := recordstore.UpdateSaveStates(request.Context(), server.database, recordstore.Update{
+		Set: `
+name=?,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND profile_id=?
 AND version=?
 AND deleted_at_ms IS NULL
 `,
-		body.Name,
-		now,
-		request.PathValue("saveStateId"),
-		principal.ProfileID,
-		expected,
-	)
+			Args: []any{request.PathValue("saveStateId"), principal.ProfileID, expected},
+		},
+		Values: []any{body.Name, now},
+	})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -348,24 +351,23 @@ func (server *Server) deleteSave(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	now := server.now().UnixMilli()
-	result, err := server.database.ExecContext(
-		request.Context(),
-		`
-UPDATE save_states
-SET deleted_at_ms=?,
+	result, err := recordstore.UpdateSaveStates(request.Context(), server.database, recordstore.Update{
+		Set: `
+deleted_at_ms=?,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND profile_id=?
 AND version=?
 AND deleted_at_ms IS NULL
 `,
-		now,
-		now,
-		request.PathValue("saveStateId"),
-		principal.ProfileID,
-		expected,
-	)
+			Args: []any{request.PathValue("saveStateId"), principal.ProfileID, expected},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return

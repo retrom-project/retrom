@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"slices"
 
+	"retrom/internal/recordstore"
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -42,10 +45,14 @@ func (service *Service) Start(ctx context.Context, roomID, hostProfileID string,
 	if err != nil {
 		return Room{}, err
 	}
-	roomResult, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='STARTING',current_session_id=?,version=version+1,updated_at_ms=?
-WHERE id=? AND version=?
-`, sessionID, now, roomID, expectedVersion)
+	roomResult, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `state='STARTING',current_session_id=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{roomID, expectedVersion},
+		},
+		Values: []any{sessionID, now},
+	})
 	if err != nil {
 		return Room{}, serviceError("start room state", err)
 	}
@@ -196,7 +203,7 @@ SELECT COALESCE(max(session_no),0)+1 FROM netplay_sessions WHERE room_id=?
 		return "", serviceError("start session number", err)
 	}
 	sessionID := newV7()
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateNetplaySessions(ctx, transaction, `
 INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_id,
 provider_id,target_id,bundle_sha256,
 netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,
@@ -208,7 +215,7 @@ VALUES(?,?,?,'PREPARING',?,?,?,?,?,?,?,?,?,?,1,0,1,?,?)
 		return "", fmt.Errorf("netplay/create session: %w", err)
 	}
 	for _, member := range members {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateNetplaySessionParticipants(ctx, transaction, `
 INSERT INTO netplay_session_participants(netplay_session_id,profile_id,room_member_id,player_no,
 state,credential_generation,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,'LOCKED',0,1,?,?)
@@ -372,10 +379,14 @@ func closeNetplaySession(
 	sessionID, sessionState, reason string,
 	now int64,
 ) error {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_sessions SET state=?,finished_at_ms=?,end_reason=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state NOT IN ('FINISHED','FAILED')
-`, sessionState, now, reason, now, sessionID); err != nil {
+	if _, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `state=?,finished_at_ms=?,end_reason=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state NOT IN ('FINISHED','FAILED')`,
+			Args:  []any{sessionID},
+		},
+		Values: []any{sessionState, now, reason, now},
+	}); err != nil {
 		return serviceError("finish session", err)
 	}
 	playState := "ABANDONED"
@@ -392,16 +403,27 @@ AND state='ACTIVE'
 `, playState, now, now, sessionID); err != nil {
 		return serviceError("finish session plays", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1
-WHERE netplay_session_id=? AND state IN ('CREATED','ACTIVE')
-`, now, now, sessionID); err != nil {
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `netplay_session_id=? AND state IN ('CREATED','ACTIVE')`,
+			Args:  []any{sessionID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return serviceError("revoke session launches", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_session_participants SET state='LEFT',disconnected_at_ms=NULL,lease_expires_at_ms=NULL,
-version=version+1,updated_at_ms=? WHERE netplay_session_id=? AND state!='LEFT'
-`, now, sessionID); err != nil {
+	if _, err := recordstore.UpdateNetplaySessionParticipants(ctx, transaction, recordstore.Update{
+		Set: `
+state='LEFT',disconnected_at_ms=NULL,lease_expires_at_ms=NULL,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `netplay_session_id=? AND state!='LEFT'`,
+			Args:  []any{sessionID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return serviceError("close session participants", err)
 	}
 	return nil
@@ -416,23 +438,38 @@ func (service *Service) returnRoomToWaiting(
 ) error {
 	if actorProfileID != "" && guestLeavesAfterSession(reason) {
 		leaveReason := guestLeaveReason(reason)
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_room_members SET ready=0,left_at_ms=?,leave_reason=?,version=version+1,updated_at_ms=?
-WHERE room_id=? AND profile_id=? AND role='GUEST' AND left_at_ms IS NULL
-`, now, leaveReason, now, roomID, actorProfileID); err != nil {
+		if _, err := recordstore.UpdateNetplayRoomMembers(ctx, transaction, recordstore.Update{
+			Set: `ready=0,left_at_ms=?,leave_reason=?,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `room_id=? AND profile_id=? AND role='GUEST' AND left_at_ms IS NULL`,
+				Args:  []any{roomID, actorProfileID},
+			},
+			Values: []any{now, leaveReason, now},
+		}); err != nil {
 			return serviceError("release guest after session", err)
 		}
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_room_members SET ready=0,version=version+1,updated_at_ms=?
-WHERE room_id=? AND left_at_ms IS NULL
-`, now, roomID); err != nil {
+	if _, err := recordstore.UpdateNetplayRoomMembers(ctx, transaction, recordstore.Update{
+		Set: `ready=0,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `room_id=? AND left_at_ms IS NULL`,
+			Args:  []any{roomID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return serviceError("clear room ready state", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='WAITING',current_session_id=NULL,version=version+1,
-expires_at_ms=?,updated_at_ms=? WHERE id=?
-`, now+service.options.WaitingIdle.Milliseconds(), now, roomID); err != nil {
+	if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `
+state='WAITING',current_session_id=NULL,version=version+1,
+expires_at_ms=?,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{roomID},
+		},
+		Values: []any{now + service.options.WaitingIdle.Milliseconds(), now},
+	}); err != nil {
 		return serviceError("return room to waiting", err)
 	}
 	if !sessionID.Valid {
@@ -462,16 +499,27 @@ func guestLeaveReason(reason string) string {
 }
 
 func endRoomRecord(ctx context.Context, transaction *sql.Tx, roomID, reason string, now int64) error {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_room_members SET ready=0,left_at_ms=?,leave_reason='ROOM_ENDED',version=version+1,updated_at_ms=?
-WHERE room_id=? AND left_at_ms IS NULL
-`, now, now, roomID); err != nil {
+	if _, err := recordstore.UpdateNetplayRoomMembers(ctx, transaction, recordstore.Update{
+		Set: `ready=0,left_at_ms=?,leave_reason='ROOM_ENDED',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `room_id=? AND left_at_ms IS NULL`,
+			Args:  []any{roomID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return serviceError("end room members", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='ENDED',current_session_id=NULL,ended_at_ms=?,end_reason=?,
-version=version+1,updated_at_ms=? WHERE id=?
-`, now, reason, now, roomID); err != nil {
+	if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `
+state='ENDED',current_session_id=NULL,ended_at_ms=?,end_reason=?,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{roomID},
+		},
+		Values: []any{now, reason, now},
+	}); err != nil {
 		return serviceError("end room", err)
 	}
 	return nil
@@ -510,15 +558,24 @@ WHERE room.id=? AND member.profile_id=? AND member.left_at_ms IS NULL
 	if state != RoomStateWaiting {
 		return ErrRoomConflict
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_room_members SET ready=0,left_at_ms=?,leave_reason='USER_LEFT',version=version+1,updated_at_ms=?
-WHERE id=?
-	`, now, now, memberID); err != nil {
+	if _, err := recordstore.UpdateNetplayRoomMembers(ctx, transaction, recordstore.Update{
+		Set: `ready=0,left_at_ms=?,leave_reason='USER_LEFT',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{memberID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return serviceError("leave room member update", err)
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET version=version+1,expires_at_ms=?,updated_at_ms=? WHERE id=? AND version=?
-`, now+service.options.WaitingIdle.Milliseconds(), now, roomID, expectedVersion)
+	result, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `version=version+1,expires_at_ms=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{roomID, expectedVersion},
+		},
+		Values: []any{now + service.options.WaitingIdle.Milliseconds(), now},
+	})
 	if err != nil {
 		return serviceError("leave room version", err)
 	}
@@ -571,15 +628,24 @@ WHERE id=? AND room_id=? AND role='GUEST' AND left_at_ms IS NULL
 `, memberID, roomID).Scan(&targetProfile, &playerNo); err != nil {
 		return ErrForbidden
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_room_members SET ready=0,left_at_ms=?,leave_reason='HOST_KICKED',version=version+1,updated_at_ms=?
-WHERE id=?
-	`, now, now, memberID); err != nil {
+	if _, err := recordstore.UpdateNetplayRoomMembers(ctx, transaction, recordstore.Update{
+		Set: `ready=0,left_at_ms=?,leave_reason='HOST_KICKED',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{memberID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return serviceError("kick member update", err)
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET version=version+1,expires_at_ms=?,updated_at_ms=? WHERE id=? AND version=?
-`, now+service.options.WaitingIdle.Milliseconds(), now, roomID, expectedVersion)
+	result, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `version=version+1,expires_at_ms=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{roomID, expectedVersion},
+		},
+		Values: []any{now + service.options.WaitingIdle.Milliseconds(), now},
+	})
 	if err != nil {
 		return serviceError("kick member room version", err)
 	}
@@ -627,9 +693,14 @@ WHERE session.id=? AND session.room_id=?
 	if target == "PAUSED_RECONNECT" && state != "RUNNING" || target == "RUNNING" && state != "PAUSED_RECONNECT" {
 		return ErrRoomConflict
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_sessions SET state=?,version=version+1,updated_at_ms=? WHERE id=?
-	`, target, now, sessionID); err != nil {
+	if _, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `state=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{sessionID},
+		},
+		Values: []any{target, now},
+	}); err != nil {
 		return serviceError("set session state update", err)
 	}
 	eventType := "PAUSED"
@@ -665,21 +736,34 @@ func (service *Service) prepareResync(ctx context.Context, roomID, sessionID str
 	if !validResyncSource(cause, fromState) {
 		return ErrRoomConflict
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_sessions SET state='RESYNCHRONIZING',resync_count=resync_count+1,
-version=version+1,updated_at_ms=? WHERE id=? AND room_id=? AND state=?
-`, now, sessionID, roomID, fromState)
+	result, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `
+state='RESYNCHRONIZING',resync_count=resync_count+1,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND room_id=? AND state=?`,
+			Args:  []any{sessionID, roomID, fromState},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return serviceError("prepare resync session", err)
 	}
 	if affected, _ := result.RowsAffected(); affected != 1 {
 		return ErrRoomConflict
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_session_participants SET state='RUNTIME_READY',disconnected_at_ms=NULL,
+	if _, err := recordstore.UpdateNetplaySessionParticipants(ctx, transaction, recordstore.Update{
+		Set: `
+state='RUNTIME_READY',disconnected_at_ms=NULL,
 lease_expires_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE netplay_session_id=? AND state IN ('CONNECTED','DISCONNECTED')
-	`, now, sessionID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `netplay_session_id=? AND state IN ('CONNECTED','DISCONNECTED')`,
+			Args:  []any{sessionID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return serviceError("prepare resync participants", err)
 	}
 	eventType := "RESUMED"
@@ -733,16 +817,27 @@ func (service *Service) MarkDisconnected(ctx context.Context, participant Socket
 		return serviceError("mark disconnected transaction", err)
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_session_participants SET state='DISCONNECTED',disconnected_at_ms=?,lease_expires_at_ms=?,
-version=version+1,updated_at_ms=? WHERE netplay_session_id=? AND profile_id=? AND state='CONNECTED'
-	`, now, leaseExpires, now, participant.SessionID, participant.ProfileID); err != nil {
+	if _, err := recordstore.UpdateNetplaySessionParticipants(ctx, transaction, recordstore.Update{
+		Set: `
+state='DISCONNECTED',disconnected_at_ms=?,lease_expires_at_ms=?,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `netplay_session_id=? AND profile_id=? AND state='CONNECTED'`,
+			Args:  []any{participant.SessionID, participant.ProfileID},
+		},
+		Values: []any{now, leaseExpires, now},
+	}); err != nil {
 		return serviceError("mark disconnected participant", err)
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_sessions SET state='PAUSED_RECONNECT',version=version+1,updated_at_ms=?
-WHERE id=? AND room_id=? AND state='RUNNING'
-`, now, participant.SessionID, participant.RoomID)
+	result, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `state='PAUSED_RECONNECT',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND room_id=? AND state='RUNNING'`,
+			Args:  []any{participant.SessionID, participant.RoomID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return serviceError("pause disconnected session", err)
 	}

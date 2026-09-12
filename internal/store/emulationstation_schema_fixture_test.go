@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
 )
@@ -67,7 +69,7 @@ INSERT INTO jobs(
  'SERVER_EMULATIONSTATION_SCAN',?,1,'{}',1,'QUEUED',0,4,1,1,1
 )`, fixture.importID, testDigestA)
 	testassert.False(t, err != nil, err)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreateEmulationstationImports(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_imports(
  id,root_id,root_label_snapshot,source_relative_path,root_config_digest,release_year_max,
  state,phase,scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms
@@ -75,14 +77,14 @@ INSERT INTO emulationstation_imports(
  '00000000-0000-7000-8000-000000000002',?,1,1,604800001);
 `, fixture.importID, testDigestB, fixture.userID)
 	testassert.False(t, err != nil, err)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreateEmulationstationImportGamelists(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_gamelists(
  import_id,relative_path,size_bytes,content_digest,source_facts_digest,parse_state,error_code,
  game_count,folder_count,provider_present,ignored_fields_json,ignored_field_other_count,created_at_ms
 ) VALUES(?,'gamelist.xml',128,?,?,'VALID',NULL,1,0,0,'[]',0,1)
 `, fixture.importID, testDigestC, testDigestD)
 	testassert.False(t, err != nil, err)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreateEmulationstationImportCollections(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_collections(
  id,import_id,gamelist_relative_path,relative_directory,display_name,game_count,issue_count,
  folder_entry_count,hidden_game_count,adult_game_count,extension_summary_json,extension_other_count,
@@ -94,7 +96,7 @@ INSERT INTO emulationstation_import_collections(
 	fixture.insertItem(t, fixture.itemID, 1, testDigestA,
 		`{"hidden":false,"adult":false,"kidGame":false}`,
 		validEmulationStationMetadataJSON(), `[]`, validEmulationStationManifestJSON(), false)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreateEmulationstationImportItemFiles(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_item_files(
  item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,state,created_at_ms,updated_at_ms
 ) VALUES(?,0,'FILE','game.nes',16,?,'DISCOVERED',1,1)
@@ -110,7 +112,7 @@ func (fixture emulationStationSchemaFixture) insertItem(
 	wantError bool,
 ) {
 	t.Helper()
-	_, err := fixture.database.SQL.ExecContext(t.Context(), `
+	_, err := recordstore.CreateEmulationstationImportItems(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_items(
  id,import_id,collection_id,gamelist_relative_path,game_ordinal,source_key,title,
  source_flags_json,discovery_state,execution_state,content_kind,metadata_json,warnings_json,
@@ -127,14 +129,19 @@ INSERT INTO emulationstation_import_items(
 
 func (fixture emulationStationSchemaFixture) finishScan(t *testing.T) {
 	t.Helper()
-	_, err := fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_imports
-SET source_snapshot_digest=?,state='AWAITING_MAPPING',phase=NULL,
+	_, err := recordstore.UpdateEmulationstationImports(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `
+source_snapshot_digest=?,state='AWAITING_MAPPING',phase=NULL,
  gamelist_count=1,invalid_gamelist_count=0,collection_count=1,folder_entry_count=0,game_count=1,
  estimated_source_bytes=16,processable_item_count=1,blocked_item_count=0,scan_completed_at_ms=2,
  version=version+1,updated_at_ms=2
-WHERE id=?
-`, testDigestA, fixture.importID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.importID},
+		},
+		Values: []any{testDigestA},
+	})
 	testassert.False(t, err != nil, err)
 }
 
@@ -157,7 +164,7 @@ INSERT INTO runtime_targets(
  '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}')
 `)
 	testassert.False(t, err != nil, err)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreatePlatformInstances(t.Context(), fixture.database.SQL, `
 INSERT INTO platform_instances(
  id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms
 ) VALUES('platform-schema','nes','fceumm','Schema NES','schema-nes',1,1,1,1,1)
@@ -169,7 +176,7 @@ INSERT INTO upload_sessions(
 ) VALUES('upload-schema','COMPLETE','FILES',1,0,?,1000,1,1)
 `, testDigestB)
 	testassert.False(t, err != nil, err)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreateImportJobs(t.Context(), fixture.database.SQL, `
 INSERT INTO import_jobs(
  id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
  provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
@@ -196,7 +203,7 @@ INSERT INTO jobs(
 ) VALUES('pegasus-scan','PEGASUS_IMPORT','pegasus-import','SERVER_PEGASUS_SCAN',?,1,'{}',1,'QUEUED',0,4,1,1,1)
 `, testDigestA)
 	testassert.False(t, err != nil, err)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreatePegasusImports(t.Context(), fixture.database.SQL, `
 INSERT INTO pegasus_imports(
  id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,scan_job_id,
  created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms
@@ -207,7 +214,7 @@ INSERT INTO pegasus_imports(
 
 func insertPegasusOwner(t *testing.T, database *sql.DB, libraryItemID string, wantError bool) {
 	t.Helper()
-	_, err := database.ExecContext(context.Background(), `
+	_, err := recordstore.CreatePegasusImportItems(context.Background(), database, `
 INSERT INTO pegasus_import_items(
  id,import_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,execution_state,
  content_kind,metadata_json,warnings_json,source_manifest_json,source_manifest_digest,

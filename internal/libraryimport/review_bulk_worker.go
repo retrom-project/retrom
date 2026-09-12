@@ -8,9 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
+
+	"retrom/internal/recordstore"
 
 	"github.com/google/uuid"
 
@@ -69,10 +70,17 @@ WHERE id=? AND state='QUEUED'
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return reviewBulkWork{}, errReviewBulkNotRunnable
 	}
-	result, err = transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET state='RUNNING',started_at_ms=COALESCE(started_at_ms,?),
-version=version+1,updated_at_ms=? WHERE id=? AND state='QUEUED'
-`, now, now, bulkID)
+	result, err = recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `
+state='RUNNING',started_at_ms=COALESCE(started_at_ms,?),
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='QUEUED'`,
+			Args:  []any{bulkID},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return reviewBulkWork{}, fmt.Errorf("libraryimport/review bulk claim: %w", err)
 	}
@@ -117,10 +125,14 @@ ORDER BY item.ordinal LIMIT 1
 		return reviewBulkWorkItem{}, fmt.Errorf("libraryimport/review bulk item claim: %w", err)
 	}
 	now := service.now().UnixMilli()
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approval_items SET state='RUNNING',started_at_ms=?
-WHERE bulk_approval_id=? AND import_item_id=? AND state='PENDING'
-`, now, work.bulkID, item.itemID)
+	result, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
+		Set: `state='RUNNING',started_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `bulk_approval_id=? AND import_item_id=? AND state='PENDING'`,
+			Args:  []any{work.bulkID, item.itemID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return reviewBulkWorkItem{}, fmt.Errorf("libraryimport/review bulk item claim: %w", err)
 	}
@@ -161,21 +173,35 @@ func (service *Service) markReviewBulkPublished(
 	approved Approved,
 ) error {
 	now := service.now().UnixMilli()
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approval_items SET state='PUBLISHED',game_id=?,review_event_id=?,
-outcome_code='PUBLISHED',outcome_details_json=json_object('schemaVersion',1,'code','PUBLISHED'),completed_at_ms=?
-WHERE bulk_approval_id=? AND import_item_id=? AND state='RUNNING'
-`, approved.GameID, approved.EventID, now, work.bulkID, item.itemID)
+	result, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='PUBLISHED',game_id=?,review_event_id=?,
+outcome_code='PUBLISHED',outcome_details_json=json_object('schemaVersion',1,'code','PUBLISHED'),
+completed_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `bulk_approval_id=? AND import_item_id=? AND state='RUNNING'`,
+			Args:  []any{work.bulkID, item.itemID},
+		},
+		Values: []any{approved.GameID, approved.EventID, now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk publish outcome: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return ErrInvalid
 	}
-	result, err = transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET processed_count=processed_count+1,published_count=published_count+1,
-version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'
-`, now, work.bulkID)
+	result, err = recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `
+processed_count=processed_count+1,published_count=published_count+1,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{work.bulkID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk publish outcome: %w", err)
 	}
@@ -220,24 +246,35 @@ func (service *Service) completeReviewBulkItem(
 	}
 	defer cleanup.Rollback(transaction)
 	now := service.now().UnixMilli()
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approval_items SET state=?,outcome_code=?,outcome_details_json=?,completed_at_ms=?
-WHERE bulk_approval_id=? AND import_item_id=? AND state='RUNNING'
-`, state, code, string(details), now, work.bulkID, item.itemID)
+	result, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
+		Set: `state=?,outcome_code=?,outcome_details_json=?,completed_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `bulk_approval_id=? AND import_item_id=? AND state='RUNNING'`,
+			Args:  []any{work.bulkID, item.itemID},
+		},
+		Values: []any{state, code, string(details), now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk outcome: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return errReviewBulkNotRunnable
 	}
-	result, err = transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET processed_count=processed_count+1,
+	result, err = recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `
+processed_count=processed_count+1,
 skipped_duplicate_count=skipped_duplicate_count+CASE WHEN ?='SKIPPED_DUPLICATE' THEN 1 ELSE 0 END,
 skipped_changed_count=skipped_changed_count+CASE WHEN ?='SKIPPED_CHANGED' THEN 1 ELSE 0 END,
 skipped_not_ready_count=skipped_not_ready_count+CASE WHEN ?='SKIPPED_NOT_READY' THEN 1 ELSE 0 END,
 failed_count=failed_count+CASE WHEN ?='FAILED_FINAL' THEN 1 ELSE 0 END,
-version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'
-`, state, state, state, state, now, work.bulkID)
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{work.bulkID},
+		},
+		Values: []any{state, state, state, state, now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk outcome: %w", err)
 	}
@@ -336,10 +373,14 @@ FROM review_bulk_approval_items WHERE bulk_approval_id=?
 	if failed != 0 {
 		state = "PARTIAL_FAILURE"
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET state=?,completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING'
-`, state, now, now, work.bulkID)
+	result, err := recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `state=?,completed_at_ms=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{work.bulkID},
+		},
+		Values: []any{state, now, now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk finish: %w", err)
 	}
@@ -385,22 +426,35 @@ WHERE bulk.id=? AND bulk.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED') GROUP 
 		return errReviewBulkNotRunnable
 	}
 	now := service.now().UnixMilli()
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approval_items SET state='CANCELLED',outcome_code='CANCELLED',
+	result, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',outcome_code='CANCELLED',
 outcome_details_json=json_object('schemaVersion',1,'code','CANCELLED'),completed_at_ms=?
-WHERE bulk_approval_id=? AND state IN ('PENDING','RUNNING')
-`, now, bulkID)
+`,
+		Scope: recordstore.Scope{
+			Where: `bulk_approval_id=? AND state IN ('PENDING','RUNNING')`,
+			Args:  []any{bulkID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk cancel: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != int64(remaining) {
 		return errReviewBulkNotRunnable
 	}
-	result, err = transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET state='CANCELLED',processed_count=processed_count+?,
+	result, err = recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',processed_count=processed_count+?,
 cancelled_count=cancelled_count+?,cancel_requested_at_ms=COALESCE(cancel_requested_at_ms,?),
-completed_at_ms=?,version=version+1,updated_at_ms=? WHERE id=?
-`, remaining, remaining, now, now, now, bulkID)
+completed_at_ms=?,version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{bulkID},
+		},
+		Values: []any{remaining, remaining, now, now, now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk cancel: %w", err)
 	}
@@ -444,16 +498,26 @@ func (service *Service) failReviewBulkWorker(ctx context.Context, work reviewBul
 	}
 	defer cleanup.Rollback(transaction)
 	now := service.now().UnixMilli()
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approval_items SET state='PENDING',started_at_ms=NULL
-WHERE bulk_approval_id=? AND state='RUNNING'
-`, work.bulkID); err != nil {
+	if _, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
+		Set: `state='PENDING',started_at_ms=NULL`,
+		Scope: recordstore.Scope{
+			Where: `bulk_approval_id=? AND state='RUNNING'`,
+			Args:  []any{work.bulkID},
+		},
+	}); err != nil {
 		return
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET state='FAILED',last_error_code='REVIEW_BULK_WORKER_UNAVAILABLE',
-completed_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'
-`, now, now, work.bulkID)
+	result, err := recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED',last_error_code='REVIEW_BULK_WORKER_UNAVAILABLE',
+completed_at_ms=?,version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{work.bulkID},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return
 	}
@@ -493,10 +557,17 @@ SELECT job_id FROM review_bulk_approvals WHERE id=? AND state='QUEUED'
 		return
 	}
 	now := service.now().UnixMilli()
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET state='FAILED',last_error_code='REVIEW_BULK_WORKER_UNAVAILABLE',
-completed_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND state='QUEUED'
-`, now, now, bulkID)
+	result, err := recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED',last_error_code='REVIEW_BULK_WORKER_UNAVAILABLE',
+completed_at_ms=?,version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='QUEUED'`,
+			Args:  []any{bulkID},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return
 	}
@@ -603,12 +674,16 @@ func (service *Service) ResumeReviewBulkJobs(ctx context.Context) {
 	}
 	defer cleanup.Rollback(transaction)
 	now := service.now().UnixMilli()
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approval_items SET state='PENDING',started_at_ms=NULL
-WHERE state='RUNNING' AND bulk_approval_id IN (
+	if _, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
+		Set: `state='PENDING',started_at_ms=NULL`,
+		Scope: recordstore.Scope{
+			Where: `
+state='RUNNING' AND bulk_approval_id IN (
  SELECT id FROM review_bulk_approvals WHERE state='RUNNING'
 )
-`); err != nil {
+`,
+		},
+	}); err != nil {
 		return
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -618,9 +693,13 @@ WHERE kind='REVIEW_BULK_APPROVE' AND state='RUNNING'
 `, now, now); err != nil {
 		return
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET state='QUEUED',version=version+1,updated_at_ms=? WHERE state='RUNNING'
-`, now); err != nil {
+	if _, err := recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `state='QUEUED',version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `state='RUNNING'`,
+		},
+		Values: []any{now},
+	}); err != nil {
 		return
 	}
 	values, err := reviewBulkResumableJobs(ctx, transaction)
@@ -668,10 +747,17 @@ func requestReviewBulkCancellation(
 	bulkID, reason string,
 	expectedVersion, now int64,
 ) error {
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,
-version=version+1,updated_at_ms=? WHERE id=? AND version=?
-`, now, reason, now, bulkID, expectedVersion)
+	result, err := recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{bulkID, expectedVersion},
+		},
+		Values: []any{now, reason, now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk cancel: %w", err)
 	}
@@ -769,10 +855,17 @@ func queueReviewBulkRetry(
 ) error {
 	executionNo := target.executionNo + 1
 	digest := sha256.Sum256([]byte(target.payload))
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET state='QUEUED',last_error_code=NULL,completed_at_ms=NULL,
-version=version+1,updated_at_ms=? WHERE id=? AND version=?
-`, now, bulkID, expectedVersion)
+	result, err := recordstore.UpdateReviewBulkApprovals(ctx, transaction, recordstore.Update{
+		Set: `
+state='QUEUED',last_error_code=NULL,completed_at_ms=NULL,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{bulkID, expectedVersion},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk retry: %w", err)
 	}
@@ -837,92 +930,4 @@ func (service *Service) RetryReviewBulk(
 var reviewBulkItemOutcomes = map[string]struct{}{
 	"PUBLISHED": {}, "SKIPPED_DUPLICATE": {}, "SKIPPED_CHANGED": {},
 	"SKIPPED_NOT_READY": {}, "FAILED_FINAL": {}, "CANCELLED": {},
-}
-
-func reviewBulkItemQuery(
-	bulkID, outcome, cursor string,
-	limit int,
-) (string, []any, error) {
-	if _, err := uuid.Parse(bulkID); err != nil || limit < 1 || limit > 50 {
-		return "", nil, ErrReviewBulkConflict
-	}
-	if outcome != "" {
-		if _, valid := reviewBulkItemOutcomes[outcome]; !valid {
-			return "", nil, ErrReviewBulkConflict
-		}
-	}
-	ordinal := -1
-	if cursor != "" {
-		parsed, err := strconv.Atoi(cursor)
-		if err != nil || parsed < 0 {
-			return "", nil, ErrReviewBulkConflict
-		}
-		ordinal = parsed
-	}
-	query := `SELECT import_item_id,title_snapshot,target_platform_name_snapshot,state,game_id,
-review_event_id,outcome_code,outcome_details_json,completed_at_ms,ordinal
-FROM review_bulk_approval_items WHERE bulk_approval_id=? AND ordinal>?`
-	arguments := []any{bulkID, ordinal}
-	if outcome != "" {
-		query += " AND state=?"
-		arguments = append(arguments, outcome)
-	}
-	query += " ORDER BY ordinal LIMIT ?"
-	return query, append(arguments, limit+1), nil
-}
-
-type projectedReviewBulkItem struct {
-	item    ReviewBulkItemResult
-	ordinal int
-}
-
-func scanReviewBulkItems(rows *sql.Rows, limit int) (ReviewBulkItemPage, error) {
-	projectedItems := make([]projectedReviewBulkItem, 0, limit+1)
-	for rows.Next() {
-		var value projectedReviewBulkItem
-		var gameID, eventID, code, details sql.NullString
-		var completed sql.NullInt64
-		if err := rows.Scan(&value.item.ImportItemID, &value.item.Title, &value.item.PlatformName,
-			&value.item.State, &gameID, &eventID, &code, &details, &completed, &value.ordinal); err != nil {
-			return ReviewBulkItemPage{}, fmt.Errorf("libraryimport/review bulk items: %w", err)
-		}
-		value.item.GameID = nullableStringPointer(gameID)
-		value.item.ReviewEventID = nullableStringPointer(eventID)
-		value.item.OutcomeCode = nullableStringPointer(code)
-		value.item.CompletedAtMS = nullableInt64Pointer(completed)
-		if details.Valid {
-			_ = json.Unmarshal([]byte(details.String), &value.item.OutcomeDetails)
-		}
-		projectedItems = append(projectedItems, value)
-	}
-	if err := rows.Err(); err != nil {
-		return ReviewBulkItemPage{}, fmt.Errorf("libraryimport/review bulk item rows: %w", err)
-	}
-	page := ReviewBulkItemPage{Items: make([]ReviewBulkItemResult, 0, min(limit, len(projectedItems)))}
-	for index, value := range projectedItems {
-		if index == limit {
-			next := strconv.Itoa(projectedItems[index-1].ordinal)
-			page.NextCursor = &next
-			break
-		}
-		page.Items = append(page.Items, value.item)
-	}
-	return page, nil
-}
-
-func (service *Service) ListReviewBulkItems(
-	ctx context.Context,
-	bulkID, outcome, cursor string,
-	limit int,
-) (ReviewBulkItemPage, error) {
-	query, arguments, err := reviewBulkItemQuery(bulkID, outcome, cursor, limit)
-	if err != nil {
-		return ReviewBulkItemPage{}, err
-	}
-	rows, err := service.database.QueryContext(ctx, query, arguments...)
-	if err != nil {
-		return ReviewBulkItemPage{}, fmt.Errorf("libraryimport/review bulk items: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	return scanReviewBulkItems(rows, limit)
 }

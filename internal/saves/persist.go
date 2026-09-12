@@ -12,6 +12,10 @@ import (
 	"net/http"
 	"time"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -163,7 +167,7 @@ func (service *Service) insertProductSave(
 		value := *screenshotURL + result.SaveStateID + "/screenshot"
 		result.ScreenshotURL = &value
 	}
-	_, err = transaction.ExecContext(ctx, `
+	_, err = sessionstore.CreateSave(ctx, transaction, `
 INSERT INTO save_states(
  id,profile_id,game_id,checkpoint_format,dos_entry_path,payload_blob_id,payload_sha256,payload_size_bytes,
  screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,
@@ -182,10 +186,17 @@ func (service *Service) insertReviewCheckpoint(
 	ctx context.Context, transaction *sql.Tx, previewID string, launch launchSnapshot,
 	payloadID string, now int64,
 ) (ManualResult, error) {
-	_, err := transaction.ExecContext(ctx, `
-UPDATE review_preview_sessions SET checkpoint_payload_blob_id=?,checkpoint_format=?,checkpoint_created_at_ms=?,
- updated_at_ms=?,version=version+1 WHERE id=?
-`, payloadID, launch.checkpointFormat, now, now, previewID)
+	_, err := sessionstore.ChangePreview(ctx, transaction, recordstore.Update{
+		Set: `
+checkpoint_payload_blob_id=?,checkpoint_format=?,checkpoint_created_at_ms=?,
+ updated_at_ms=?,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{previewID},
+		},
+		Values: []any{payloadID, launch.checkpointFormat, now, now},
+	})
 	if err != nil {
 		return ManualResult{}, fmt.Errorf("store review checkpoint: %w", err)
 	}

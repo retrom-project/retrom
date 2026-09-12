@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"retrom/internal/storequery"
 )
 
 func libraryCondition(kind, profileID, folderID string) (string, []any, error) {
@@ -40,7 +42,7 @@ func libraryCondition(kind, profileID, folderID string) (string, []any, error) {
 		}
 		return `EXISTS(
   SELECT 1 FROM save_states save
-  JOIN save_state_runtime_compatibility compatibility
+  JOIN (` + storequery.SaveRuntimeCompatibility + `) compatibility
     ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
   WHERE save.profile_id=? AND save.game_id=game.id AND save.deleted_at_ms IS NULL
 )`, []any{profileID}, nil
@@ -420,7 +422,7 @@ SELECT save.game_id,save.id,save.name,save.created_at_ms,native.last_synced_at_m
        save.screenshot_blob_id IS NOT NULL
 FROM save_states save
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
-JOIN save_state_runtime_compatibility compatibility
+JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.profile_id=? AND save.deleted_at_ms IS NULL
 AND save.game_id IN (`+placeholders+`)

@@ -11,6 +11,8 @@ import (
 	"sort"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -68,12 +70,17 @@ AND state!='COMPLETE'
 `, newVersion, now, uploadID, now, uploadID); err != nil {
 			return Canceled{}, false, fmt.Errorf("uploads/service: %w", err)
 		}
-	} else if _, err := transaction.ExecContext(ctx, `
-UPDATE upload_sessions
-SET version=?,
+	} else if _, err := recordstore.UpdateUploadSessions(ctx, transaction, recordstore.Update{
+		Set: `
+version=?,
 updated_at_ms=?
-WHERE id=?
-`, newVersion, now, uploadID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{uploadID},
+		},
+		Values: []any{newVersion, now},
+	}); err != nil {
 		return Canceled{}, false, fmt.Errorf("uploads/service: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -328,15 +335,20 @@ func (service *Service) publishFinalizedUpload(ctx context.Context, uploadID, jo
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE upload_sessions
-SET state='COMPLETE',
+	if _, err := recordstore.UpdateUploadSessions(ctx, transaction, recordstore.Update{
+		Set: `
+state='COMPLETE',
 version=version+1,
 expires_at_ms=?,
 last_error_code=NULL,
 updated_at_ms=?
-WHERE id=?
-`, now+int64(7*24*time.Hour/time.Millisecond), now, uploadID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{uploadID},
+		},
+		Values: []any{now + int64(7*24*time.Hour/time.Millisecond), now},
+	}); err != nil {
 		cleanup.Rollback(transaction)
 		service.fail(ctx, uploadID, jobID, "UPLOAD_FINALIZE_IO")
 		return
@@ -441,20 +453,19 @@ created_at_ms) VALUES(?,
 
 func (service *Service) fail(ctx context.Context, uploadID, jobID, code string) {
 	now := service.now().UnixMilli()
-	_, _ = service.database.ExecContext(
-		ctx,
-		`
-UPDATE upload_sessions
-SET state='FAILED',
+	_, _ = recordstore.UpdateUploadSessions(ctx, service.database, recordstore.Update{
+		Set: `
+state='FAILED',
 version=version+1,
 last_error_code=?,
 updated_at_ms=?
-WHERE id=?
 `,
-		code,
-		now,
-		uploadID,
-	)
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{uploadID},
+		},
+		Values: []any{code, now},
+	})
 	_, _ = service.database.ExecContext(
 		ctx,
 		`

@@ -8,6 +8,9 @@ import (
 	"net/url"
 	"time"
 
+	"retrom/internal/recordstore"
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
@@ -307,7 +310,7 @@ func (service *Service) insertNetplayLaunch(
 	capabilityHash := retromruntime.HashCapability(capability)
 	bootstrapExpires := now + int64(5*time.Minute/time.Millisecond)
 	hardExpires := now + int64(8*time.Hour/time.Millisecond)
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := sessionstore.CreateLaunch(ctx, transaction, `
 INSERT INTO launch_sessions(
   id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
   content_kind,dependency_snapshot_json,compatibility_code,
@@ -330,7 +333,7 @@ WHERE variant.id=? AND variant.game_id=? AND variant.provider_id=? AND variant.t
 		return Created{}, fmt.Errorf("create netplay launch: %w", err)
 	}
 	for _, file := range preparation.content.Files {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateLaunchContentFiles(ctx, transaction, `
 INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
 VALUES(?,?,?,?,?)
 `, launchID.String(), file.LogicalName, file.BlobID, file.Format, now); err != nil {
@@ -347,13 +350,24 @@ VALUES(?,?,?,?,?)
 	); err != nil {
 		return Created{}, err
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_session_participants
-SET launch_session_id=?,credential_sha256=?,credential_generation=?,state='LAUNCH_READY',
+	result, err := recordstore.UpdateNetplaySessionParticipants(ctx, transaction, recordstore.Update{
+		Set: `
+launch_session_id=?,credential_sha256=?,credential_generation=?,state='LAUNCH_READY',
   version=version+1,updated_at_ms=?
-WHERE netplay_session_id=? AND profile_id=? AND player_no=? AND state='LOCKED' AND credential_generation=0
-`, launchID.String(), request.NetplayCredentialSHA256, request.CredentialGeneration, now,
-		request.SessionID, request.ProfileID, request.PlayerNo)
+`,
+		Scope: recordstore.Scope{
+			Where: `
+netplay_session_id=? AND profile_id=? AND player_no=? AND state='LOCKED' AND credential_generation=0
+`,
+			Args: []any{request.SessionID, request.ProfileID, request.PlayerNo},
+		},
+		Values: []any{
+			launchID.String(),
+			request.NetplayCredentialSHA256,
+			request.CredentialGeneration,
+			now,
+		},
+	})
 	if err != nil {
 		return Created{}, fmt.Errorf("bind netplay launch: %w", err)
 	}

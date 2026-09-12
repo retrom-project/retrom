@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 )
 
@@ -52,8 +54,8 @@ func (run *creationRun) insertImport(configJSON []byte, configDigest string) err
 		run.completedAt = run.now
 	}
 	target := run.plan.target
-	_, err := run.transaction.ExecContext(
-		run.ctx,
+	_, err := recordstore.CreateImportJobs(
+		run.ctx, run.transaction,
 		insertImportJobSQL,
 		run.importID, run.plan.request.UploadID, run.plan.request.TargetPlatformInstanceID,
 		target.instanceVersion, target.platformID, target.defaultCoreID, target.providerID, target.targetID,
@@ -86,7 +88,7 @@ func countDispositions(dispositions []preparedDisposition) (int, int) {
 
 func (run *creationRun) insertUploadConsumption() error {
 	consumptionID, _ := uuid.NewV7()
-	_, err := run.transaction.ExecContext(run.ctx, `
+	_, err := recordstore.CreateUploadConsumptions(run.ctx, run.transaction, `
 INSERT INTO upload_consumptions(
   id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms
 ) VALUES(?,?,NULL,'IMPORT_JOB',?,?)

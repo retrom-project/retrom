@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -282,8 +284,7 @@ func (service *Service) runLoop() {
 	}
 }
 
-const recoverTerminalImportsSQL = `
-UPDATE pegasus_imports SET state='FAILED',phase=NULL,
+const recoverTerminalImportsSQLAssignments = `state='FAILED',phase=NULL,
 last_error_code=(
  SELECT job.error_code
  FROM jobs job
@@ -300,8 +301,9 @@ failed_item_count=(
  WHERE item.import_id=pegasus_imports.id
  AND item.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
 ),
-completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE state IN ('SCANNING','RUNNING') AND EXISTS(
+completed_at_ms=?,version=version+1,updated_at_ms=?`
+
+const recoverTerminalImportsSQLScope = `state IN ('SCANNING','RUNNING') AND EXISTS(
  SELECT 1 FROM jobs job WHERE job.scope_type='PEGASUS_IMPORT' AND job.scope_id=pegasus_imports.id
  AND job.state='FAILED'
  AND job.finished_at_ms=?
@@ -327,12 +329,21 @@ AND (job.execution_deadline_at_ms<=? OR job.attempt_count>=job.max_attempts)
 `, now, now, now, now); err != nil {
 		return fmt.Errorf("pegasusimport/recover terminal event: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items SET execution_state='COMMIT_FAILED',error_code='PEGASUS_WORKER_ATTEMPTS_EXHAUSTED',
+	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='COMMIT_FAILED',error_code='PEGASUS_WORKER_ATTEMPTS_EXHAUSTED',
 retryable=0,completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_id IN (SELECT scope_id FROM jobs WHERE scope_type='PEGASUS_IMPORT' AND state='RUNNING'
+`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id IN (SELECT scope_id FROM jobs WHERE scope_type='PEGASUS_IMPORT' AND state='RUNNING'
  AND leased_until_ms<=? AND (execution_deadline_at_ms<=? OR attempt_count>=max_attempts))
-AND execution_state IN ('COPYING','VALIDATING')`, now, now, now, now); err != nil {
+AND execution_state IN ('COPYING','VALIDATING')
+`,
+			Args: []any{now, now},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/recover terminal item: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -347,12 +358,21 @@ WHERE scope_type='PEGASUS_IMPORT' AND state='RUNNING' AND leased_until_ms<=?
 AND (execution_deadline_at_ms<=? OR attempt_count>=max_attempts)`, now, now, now, now, now); err != nil {
 		return fmt.Errorf("pegasusimport/recover terminal job: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, recoverTerminalImportsSQL, now, now, now); err != nil {
+	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: recoverTerminalImportsSQLAssignments,
+		Scope: recordstore.Scope{
+			Where: recoverTerminalImportsSQLScope,
+			Args:  []any{now},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/recover terminal aggregate: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items SET execution_state='PENDING',completed_at_ms=NULL,updated_at_ms=?
-WHERE import_id IN (
+	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+		Set: `execution_state='PENDING',completed_at_ms=NULL,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id IN (
  SELECT scope_id
  FROM jobs
  WHERE scope_type='PEGASUS_IMPORT'
@@ -360,7 +380,12 @@ WHERE import_id IN (
  AND leased_until_ms<=?
  AND execution_deadline_at_ms>?
 )
-AND execution_state IN ('COPYING','VALIDATING')`, now, now, now); err != nil {
+AND execution_state IN ('COPYING','VALIDATING')
+`,
+			Args: []any{now, now},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/recover active item: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -369,12 +394,18 @@ version=version+1,updated_at_ms=? WHERE scope_type='PEGASUS_IMPORT' AND state='R
 AND execution_deadline_at_ms>? AND attempt_count<max_attempts`, now, now, now, now); err != nil {
 		return fmt.Errorf("pegasusimport/recover job: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_imports SET state='QUEUED',phase=NULL,version=version+1,updated_at_ms=?
-WHERE id IN (
+	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: `state='QUEUED',phase=NULL,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `
+id IN (
  SELECT scope_id FROM jobs WHERE scope_type='PEGASUS_IMPORT' AND state='QUEUED'
 )
-AND state='RUNNING'`, now); err != nil {
+AND state='RUNNING'
+`,
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/recover aggregate: %w", err)
 	}
 	if err := scheduleAllTerminalItems(ctx, transaction, now); err != nil {
@@ -436,11 +467,19 @@ version=version+1,updated_at_ms=? WHERE id=? AND state='QUEUED'
 	if unit.Kind == "SERVER_PEGASUS_IMPORT" {
 		phase = "COPYING_CONTENT"
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_imports SET state=CASE WHEN ?='SERVER_PEGASUS_IMPORT' THEN 'RUNNING' ELSE state END,
-phase=?,started_at_ms=CASE WHEN ?='SERVER_PEGASUS_IMPORT' THEN COALESCE(started_at_ms,?) ELSE started_at_ms END,
-version=version+1,updated_at_ms=? WHERE id=?
-`, unit.Kind, phase, unit.Kind, now, now, unit.ImportID); err != nil {
+	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: `
+state=CASE WHEN ?='SERVER_PEGASUS_IMPORT' THEN 'RUNNING' ELSE state END,
+phase=?,started_at_ms=CASE WHEN ?='SERVER_PEGASUS_IMPORT' THEN COALESCE(started_at_ms,?) ELSE
+started_at_ms END,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{unit.Kind, phase, unit.Kind, now, now},
+	}); err != nil {
 		return work{}, false
 	}
 	event, _ := json.Marshal(
@@ -581,7 +620,7 @@ INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,crea
 `, jobID.String(), string(inputJSON), hex.EncodeToString(inputDigest[:]), now); err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/create input: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreatePegasusImports(ctx, transaction, `
 INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,
 scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
 VALUES(?,?,?,?,?,'SCANNING','DISCOVERING_METADATA',?,?,?,?,?)

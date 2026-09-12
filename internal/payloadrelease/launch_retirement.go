@@ -5,6 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -43,30 +47,50 @@ ORDER BY due_at_ms,launch_session_id LIMIT 1`, now)
 }
 
 func retireLaunch(ctx context.Context, tx *sql.Tx, id string, now int64) error {
-	statements := []struct {
-		query string
-		args  []any
-	}{
-		{`UPDATE launch_sessions SET state=CASE WHEN state IN ('CREATED','ACTIVE') THEN 'EXPIRED' ELSE state END,
-finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,version=version+1 WHERE id=? AND state IN ('CREATED','ACTIVE')
-`, []any{now, now, id}},
-		{`UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
-WHERE launch_session_id=? AND state='ACTIVE'`, []any{now, now, id}},
-		{`DELETE FROM launch_external_files WHERE rowid IN (
+	if _, err := sessionstore.ChangeLaunch(ctx, tx, recordstore.Update{
+		Set: `
+state=CASE WHEN state IN ('CREATED','ACTIVE') THEN 'EXPIRED' ELSE state END,
+finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state IN ('CREATED','ACTIVE')`,
+			Args:  []any{id},
+		},
+		Values: []any{now, now},
+	}); err != nil {
+		return fmt.Errorf("retire launch payload: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
+WHERE launch_session_id=? AND state='ACTIVE'`, now, now, id); err != nil {
+		return fmt.Errorf("retire launch payload: %w", err)
+	}
+	if _, err := recordstore.DeleteLaunchExternalFiles(ctx, tx, recordstore.Scope{
+		Where: `
+rowid IN (
  SELECT rowid FROM launch_external_files WHERE launch_session_id=? LIMIT 200
-)`, []any{id}},
-		{`DELETE FROM launch_content_files WHERE rowid IN (
+)
+`,
+		Args: []any{id},
+	}); err != nil {
+		return fmt.Errorf("retire launch payload: %w", err)
+	}
+	if _, err := recordstore.DeleteLaunchContentFiles(ctx, tx, recordstore.Scope{
+		Where: `
+rowid IN (
  SELECT rowid FROM launch_content_files WHERE launch_session_id=? LIMIT 200
-)`, []any{id}},
-		{`UPDATE launch_payload_retirements SET released_at_ms=? WHERE launch_session_id=?
+)
+`,
+		Args: []any{id},
+	}); err != nil {
+		return fmt.Errorf("retire launch payload: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+UPDATE launch_payload_retirements SET released_at_ms=? WHERE launch_session_id=?
 AND NOT EXISTS(SELECT 1 FROM launch_content_files WHERE launch_session_id=launch_payload_retirements.launch_session_id)
 AND NOT EXISTS(SELECT 1 FROM launch_external_files WHERE launch_session_id=launch_payload_retirements.launch_session_id)
-`, []any{now, id}},
-	}
-	for _, s := range statements {
-		if _, err := tx.ExecContext(ctx, s.query, s.args...); err != nil {
-			return fmt.Errorf("retire launch payload: %w", err)
-		}
+`, now, id); err != nil {
+		return fmt.Errorf("retire launch payload: %w", err)
 	}
 	return nil
 }

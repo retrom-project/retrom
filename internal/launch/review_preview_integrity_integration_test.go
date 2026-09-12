@@ -2,7 +2,11 @@
 
 package launch
 
-import "testing"
+import (
+	"testing"
+
+	"retrom/internal/recordstore"
+)
 
 func TestReviewPreviewCreationRechecksItsOwnerInTheWriteTransaction(t *testing.T) {
 	t.Parallel()
@@ -41,20 +45,36 @@ func TestTemporaryReviewPayloadCannotBeRewrittenAfterCloseOrReboundForRestore(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.database.ExecContext(t.Context(), `
-UPDATE review_preview_sessions SET restore_payload_blob_id='rpg-project-a' WHERE id=?`, restore.PreviewID); err == nil {
+	if _, err := recordstore.UpdateReviewPreviewSessions(t.Context(), fixture.database, recordstore.Update{
+		Set: `restore_payload_blob_id='rpg-project-a'`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{restore.PreviewID},
+		},
+	}); err == nil {
 		t.Fatal("restore snapshot accepted a payload replacement")
 	}
 	if _, err := fixture.launcher.RecordPlay(t.Context(), preview.PreviewID, preview.Capability, "finish",
 		PlayEvent{ClientSequence: 0, ClientObservedAtMS: fixture.now.UnixMilli()}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.database.ExecContext(t.Context(), `
-UPDATE review_preview_sessions SET checkpoint_payload_blob_id='rpg-project-a' WHERE id=?`, preview.PreviewID); err == nil {
+	if _, err := recordstore.UpdateReviewPreviewSessions(t.Context(), fixture.database, recordstore.Update{
+		Set: `checkpoint_payload_blob_id='rpg-project-a'`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{preview.PreviewID},
+		},
+	}); err == nil {
 		t.Fatal("closed review accepted a checkpoint write")
 	}
-	if _, err := fixture.database.ExecContext(t.Context(), `
-UPDATE review_preview_sessions SET restore_from_preview_id=? WHERE id=?`, preview.PreviewID, preview.PreviewID); err == nil {
+	if _, err := recordstore.UpdateReviewPreviewSessions(t.Context(), fixture.database, recordstore.Update{
+		Set: `restore_from_preview_id=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{preview.PreviewID},
+		},
+		Values: []any{preview.PreviewID},
+	}); err == nil {
 		t.Fatal("a running/closed preview acquired a new restore source")
 	}
 }

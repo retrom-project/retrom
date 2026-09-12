@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -275,10 +277,17 @@ SELECT state,version,job_id FROM server_imports WHERE id=?
 		jobState = "CANCEL_REQUESTED"
 		completed = nil
 	} else {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state='CANCELLED',outcome_code='CANCELLED',
-completed_at_ms=?,updated_at_ms=? WHERE server_import_id=?
-`, now, now, importID); err != nil {
+		if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+			Set: `
+state='CANCELLED',outcome_code='CANCELLED',
+completed_at_ms=?,updated_at_ms=?
+`,
+			Scope: recordstore.Scope{
+				Where: `server_import_id=?`,
+				Args:  []any{importID},
+			},
+			Values: []any{now, now},
+		}); err != nil {
 			return Summary{}, false, fmt.Errorf("serverimport/cancel queued items: %w", err)
 		}
 	}
@@ -405,11 +414,18 @@ DELETE FROM server_bios_import_candidates WHERE server_import_id=?
 `, plan.importID); err != nil {
 		return fmt.Errorf("serverimport/clear retry candidates: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state='PENDING',candidate_count=0,match_method=NULL,
+	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='PENDING',candidate_count=0,match_method=NULL,
 selection_details_json=NULL,previous_installation_id=NULL,new_installation_id=NULL,outcome_code=NULL,
-completed_at_ms=NULL,updated_at_ms=? WHERE server_import_id=?
-`, now, plan.importID); err != nil {
+completed_at_ms=NULL,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `server_import_id=?`,
+			Args:  []any{plan.importID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("serverimport/reset retry items: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `

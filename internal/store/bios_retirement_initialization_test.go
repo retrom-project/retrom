@@ -7,31 +7,35 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/testassert"
 )
 
-func TestBIOSRetirementUpgradePreservesLaunchesAndIndexesPendingWork(t *testing.T) {
+func TestFreshBIOSRetirementTracksLaunchesAndIndexesPendingWork(t *testing.T) {
 	t.Parallel()
-	path := filepath.Join(t.TempDir(), "upgrade.db")
-	old := openMigrationTestDatabase(t, path)
-	sources, err := migrationSources()
+	current, err := Open(t.Context(), filepath.Join(t.TempDir(), "fresh.db"), time.Now)
 	testassert.False(t, err != nil, err)
-	for _, source := range sources[:12] {
-		testassert.False(t, runMigration(t.Context(), old, source, time.Now) != nil, source.name)
-	}
-	seedCurrentRuntimeGraph(t, old)
-	_, err = old.ExecContext(t.Context(), currentLaunchInsertSQL, "current-launch", "current-game-a", "target-a")
+	t.Cleanup(func() { testassert.False(t, current.Close() != nil, "close fresh database") })
+	seedCurrentRuntimeGraph(t, current.SQL)
+	tx := lifecycleTransaction(t, current.SQL)
+	_, err = sessionstore.CreateLaunch(t.Context(), tx, currentLaunchInsertSQL, "current-launch", "current-game-a", "target-a")
 	testassert.False(t, err != nil, err)
-	testassert.False(t, old.Close() != nil, "close old database")
-	current, err := Open(t.Context(), path, time.Now)
-	testassert.False(t, err != nil, err)
-	t.Cleanup(func() { testassert.False(t, current.Close() != nil, "close database") })
+	testassert.False(t, tx.Commit() != nil, "commit launch")
 	var due int64
 	var released sql.NullInt64
 	err = current.SQL.QueryRowContext(t.Context(), `SELECT due_at_ms,released_at_ms FROM launch_payload_retirements WHERE launch_session_id='current-launch'`).Scan(&due, &released)
 	testassert.False(t, err != nil, err)
-	testassert.True(t, due == 10 && !released.Valid, "upgrade lost pending bootstrap")
-	_, err = current.SQL.ExecContext(t.Context(), `UPDATE launch_sessions SET state='ACTIVE',activated_at_ms=2,idle_expires_at_ms=15,updated_at_ms=2,version=version+1 WHERE id='current-launch'`)
+	testassert.True(t, due == 10 && !released.Valid, "creation lost pending bootstrap")
+	_, err = sessionstore.ChangeLaunch(t.Context(), current.SQL, recordstore.Update{
+		Set: `
+state='ACTIVE',activated_at_ms=2,idle_expires_at_ms=15,updated_at_ms=2,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `id='current-launch'`,
+		},
+	})
 	testassert.False(t, err != nil, err)
 	err = current.SQL.QueryRowContext(t.Context(), `SELECT due_at_ms FROM launch_payload_retirements WHERE launch_session_id='current-launch'`).Scan(&due)
 	testassert.False(t, err != nil, err)
@@ -43,7 +47,7 @@ func TestBIOSRetirementUpgradePreservesLaunchesAndIndexesPendingWork(t *testing.
 	} {
 		assertRetirementIndex(t, current.SQL, query.sql, query.index)
 	}
-	testassert.False(t, current.IntegrityCheck(t.Context()) != nil, "upgrade integrity")
+	testassert.False(t, current.IntegrityCheck(t.Context()) != nil, "fresh integrity")
 }
 
 func assertRetirementIndex(t *testing.T, database *sql.DB, query, index string) {

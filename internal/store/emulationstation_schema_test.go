@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/testassert"
 )
 
@@ -74,7 +76,7 @@ func TestEmulationStationSchemaRejectsMalformedItemJSON(t *testing.T) {
 func TestEmulationStationSchemaRejectsMalformedCollectionProjectionJSON(t *testing.T) {
 	t.Parallel()
 	fixture := openEmulationStationSchemaFixture(t)
-	_, ignoredErr := fixture.database.SQL.ExecContext(t.Context(), `
+	_, ignoredErr := recordstore.CreateEmulationstationImportGamelists(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_gamelists(
  import_id,relative_path,size_bytes,content_digest,source_facts_digest,parse_state,error_code,
  game_count,folder_count,provider_present,ignored_fields_json,ignored_field_other_count,created_at_ms
@@ -82,14 +84,14 @@ INSERT INTO emulationstation_import_gamelists(
 `, fixture.importID, testDigestA, testDigestB)
 	testassert.Truef(t, ignoredErr != nil, "nullable ignored field name was accepted")
 
-	_, err := fixture.database.SQL.ExecContext(t.Context(), `
+	_, err := recordstore.CreateEmulationstationImportGamelists(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_gamelists(
  import_id,relative_path,size_bytes,content_digest,source_facts_digest,parse_state,error_code,
  game_count,folder_count,provider_present,ignored_fields_json,ignored_field_other_count,created_at_ms
 ) VALUES(?,'other/gamelist.xml',1,?,?,'VALID',NULL,0,0,0,'[]',0,1)
 `, fixture.importID, testDigestA, testDigestB)
 	testassert.False(t, err != nil, err)
-	_, extensionErr := fixture.database.SQL.ExecContext(t.Context(), `
+	_, extensionErr := recordstore.CreateEmulationstationImportCollections(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_collections(
  id,import_id,gamelist_relative_path,relative_directory,display_name,game_count,
  extension_summary_json,created_at_ms,updated_at_ms
@@ -102,7 +104,7 @@ INSERT INTO emulationstation_import_collections(
 func TestEmulationStationSchemaAllowsOnlyOversizedInvalidGamelistWithoutDigest(t *testing.T) {
 	t.Parallel()
 	fixture := openEmulationStationSchemaFixture(t)
-	_, err := fixture.database.SQL.ExecContext(t.Context(), `
+	_, err := recordstore.CreateEmulationstationImportGamelists(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_gamelists(
  import_id,relative_path,size_bytes,content_digest,source_facts_digest,parse_state,error_code,
  game_count,folder_count,provider_present,ignored_fields_json,ignored_field_other_count,created_at_ms
@@ -110,7 +112,7 @@ INSERT INTO emulationstation_import_gamelists(
  'EMULATIONSTATION_GAMELIST_TOO_LARGE',0,0,0,'[]',0,1)
 `, fixture.importID, testDigestA)
 	testassert.False(t, err != nil, err)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+	_, err = recordstore.CreateEmulationstationImportGamelists(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_gamelists(
  import_id,relative_path,size_bytes,content_digest,source_facts_digest,parse_state,error_code,
  game_count,folder_count,provider_present,ignored_fields_json,ignored_field_other_count,created_at_ms
@@ -125,44 +127,65 @@ func TestEmulationStationSchemaFreezesDiscoveryAndChecksTerminalCounts(t *testin
 	fixture := openEmulationStationSchemaFixture(t)
 	fixture.finishScan(t)
 
-	_, childErr := fixture.database.SQL.ExecContext(t.Context(), `
+	_, childErr := recordstore.CreateEmulationstationImportItemFiles(t.Context(), fixture.database.SQL, `
 INSERT INTO emulationstation_import_item_files(
  item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,state,created_at_ms,updated_at_ms
 ) VALUES(?,1,'FILE','late.nes',1,?,'DISCOVERED',3,3)
 `, fixture.itemID, testDigestA)
 	testassert.Truef(t, childErr != nil, "late discovery child insert succeeded")
-	_, snapshotErr := fixture.database.SQL.ExecContext(
-		t.Context(), "UPDATE emulationstation_import_items SET title='Changed' WHERE id=?", fixture.itemID,
-	)
+	_, snapshotErr := recordstore.UpdateEmulationstationImportItems(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `title='Changed'`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.itemID},
+		},
+	})
 	testassert.Truef(t, snapshotErr != nil, "frozen item title update succeeded")
-	_, manifestErr := fixture.database.SQL.ExecContext(
-		t.Context(), "UPDATE emulationstation_import_items SET source_manifest_json='{}' WHERE id=?", fixture.itemID,
-	)
+	_, manifestErr := recordstore.UpdateEmulationstationImportItems(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `source_manifest_json='{}'`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.itemID},
+		},
+	})
 	testassert.Truef(t, manifestErr != nil, "frozen item manifest update succeeded")
 
-	_, terminalItemErr := fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_import_items
-SET execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=3,version=version+1,updated_at_ms=3
-WHERE id=?
-`, fixture.itemID)
+	_, terminalItemErr := recordstore.UpdateEmulationstationImportItems(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `
+execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=3,version=version+1,updated_at_ms=3
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.itemID},
+		},
+	})
 	testassert.False(t, terminalItemErr != nil, terminalItemErr)
-	_, earlyDeleteErr := fixture.database.SQL.ExecContext(
-		t.Context(), "DELETE FROM emulationstation_import_item_files WHERE item_id=?", fixture.itemID,
-	)
+	_, earlyDeleteErr := recordstore.DeleteEmulationstationImportItemFiles(t.Context(), fixture.database.SQL, recordstore.Scope{
+		Where: `item_id=?`,
+		Args:  []any{fixture.itemID},
+	})
 	testassert.Truef(t, earlyDeleteErr != nil, "non-pending AWAITING_MAPPING item payload was deletable")
-	_, countErr := fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_imports
-SET state='EXPIRED',phase=NULL,last_error_code='EMULATIONSTATION_PLAN_EXPIRED',
+	_, countErr := recordstore.UpdateEmulationstationImports(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `
+state='EXPIRED',phase=NULL,last_error_code='EMULATIONSTATION_PLAN_EXPIRED',
  completed_at_ms=3,version=version+1,updated_at_ms=3
-WHERE id=?
-`, fixture.importID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.importID},
+		},
+	})
 	testassert.Truef(t, countErr != nil, "terminal aggregate with stale counts succeeded")
-	_, err := fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_imports
-SET state='EXPIRED',phase=NULL,last_error_code='EMULATIONSTATION_PLAN_EXPIRED',cancelled_item_count=1,
+	_, err := recordstore.UpdateEmulationstationImports(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `
+state='EXPIRED',phase=NULL,last_error_code='EMULATIONSTATION_PLAN_EXPIRED',cancelled_item_count=1,
  completed_at_ms=3,version=version+1,updated_at_ms=3
-WHERE id=?
-`, fixture.importID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.importID},
+		},
+	})
 	testassert.False(t, err != nil, err)
 	for _, statement := range []string{
 		"DELETE FROM emulationstation_import_item_files WHERE item_id=?",
@@ -200,41 +223,55 @@ INSERT INTO jobs(
 ) VALUES('wrong-release-owner','GAME',?,'PAYLOAD_RELEASE',?,1,'{}',0,'QUEUED',0,4,1,1,1)
 `, fixture.itemID, testDigestC)
 	testassert.False(t, err != nil, err)
-	_, ownerErr := fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_import_items
-SET payload_state='RELEASING',payload_release_job_id='wrong-release-owner',version=version+1
-WHERE id=?
-`, fixture.itemID)
+	_, ownerErr := recordstore.UpdateEmulationstationImportItems(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `
+payload_state='RELEASING',payload_release_job_id='wrong-release-owner',version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.itemID},
+		},
+	})
 	testassert.Truef(t, ownerErr != nil, "foreign payload release job was accepted")
 }
 
 func TestEmulationStationSchemaAllowsPendingItemToCloseAsCommitFailed(t *testing.T) {
 	t.Parallel()
 	fixture := openEmulationStationSchemaFixture(t)
-	_, err := fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_import_items
-SET execution_state='COMMIT_FAILED',error_code='EMULATIONSTATION_WORKER_ATTEMPTS_EXHAUSTED',
+	_, err := recordstore.UpdateEmulationstationImportItems(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `
+execution_state='COMMIT_FAILED',error_code='EMULATIONSTATION_WORKER_ATTEMPTS_EXHAUSTED',
  retryable=0,completed_at_ms=2,version=version+1,updated_at_ms=2
-WHERE id=?
-`, fixture.itemID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.itemID},
+		},
+	})
 	testassert.False(t, err != nil, err)
 }
 
 func TestEmulationStationSchemaAllowsCopyingItemToCloseAsBlockedContent(t *testing.T) {
 	t.Parallel()
 	fixture := openEmulationStationSchemaFixture(t)
-	_, err := fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_import_items
-SET execution_state='COPYING',updated_at_ms=2
-WHERE id=?
-`, fixture.itemID)
+	_, err := recordstore.UpdateEmulationstationImportItems(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `execution_state='COPYING',updated_at_ms=2`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.itemID},
+		},
+	})
 	testassert.False(t, err != nil, err)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_import_items
-SET execution_state='BLOCKED_CONTENT',error_code='EMULATIONSTATION_CONTENT_FORMAT_UNSUPPORTED',
+	_, err = recordstore.UpdateEmulationstationImportItems(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `
+execution_state='BLOCKED_CONTENT',error_code='EMULATIONSTATION_CONTENT_FORMAT_UNSUPPORTED',
  retryable=0,completed_at_ms=3,version=version+1,updated_at_ms=3
-WHERE id=?
-`, fixture.itemID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.itemID},
+		},
+	})
 	testassert.False(t, err != nil, err)
 }
 
@@ -265,15 +302,24 @@ func linkEmulationStationReview(
 	wantError bool,
 ) {
 	t.Helper()
-	_, err := fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_import_items SET execution_state='COPYING',updated_at_ms=2 WHERE id=?
-`, fixture.itemID)
+	_, err := recordstore.UpdateEmulationstationImportItems(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `execution_state='COPYING',updated_at_ms=2`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.itemID},
+		},
+	})
 	testassert.False(t, err != nil, err)
-	_, err = fixture.database.SQL.ExecContext(t.Context(), `
-UPDATE emulationstation_import_items
-SET execution_state='VALIDATING',library_import_job_id=?,library_import_item_id=?,updated_at_ms=3
-WHERE id=?
-`, jobID, itemID, fixture.itemID)
+	_, err = recordstore.UpdateEmulationstationImportItems(t.Context(), fixture.database.SQL, recordstore.Update{
+		Set: `
+execution_state='VALIDATING',library_import_job_id=?,library_import_item_id=?,updated_at_ms=3
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{fixture.itemID},
+		},
+		Values: []any{jobID, itemID},
+	})
 	if wantError {
 		testassert.Truef(t, err != nil, "cross-owned EmulationStation review link succeeded")
 		return

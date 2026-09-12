@@ -14,6 +14,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/contentprofile"
@@ -370,7 +372,7 @@ WHERE platform_id=? AND core_id=? AND enabled=1
 	if catalogKey != "" {
 		storedCatalogKey = catalogKey
 	}
-	_, err = database.ExecContext(ctx, `
+	_, err = recordstore.CreatePlatformInstances(ctx, database, `
 INSERT INTO platform_instances(
   id,platform_id,default_core_id,name,slug,description,sort_order,enabled,version,
   created_at_ms,updated_at_ms,catalog_template_key

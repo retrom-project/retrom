@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 )
@@ -293,21 +295,21 @@ func (server *Server) moveGame(writer http.ResponseWriter, request *http.Request
 	}
 	defer cleanup.Rollback(transaction)
 	now := server.now().UnixMilli()
-	result, err := transaction.ExecContext(
-		request.Context(),
-		`
-UPDATE games
-SET platform_instance_id=?,
+	result, err := recordstore.UpdateGames(request.Context(), transaction, recordstore.Update{
+		Set: `
+platform_instance_id=?,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND version=?
 `,
-		body.TargetPlatformInstanceID,
-		now,
-		request.PathValue("gameId"),
-		expected,
-	)
+			Args: []any{request.PathValue("gameId"), expected},
+		},
+		Values: []any{body.TargetPlatformInstanceID, now},
+	})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -130,10 +132,16 @@ WHERE COALESCE(ticket.launch_id,ticket.preview_id)=? AND ticket.ticket_sha256=? 
 	if err != nil {
 		return "", Access{}, ErrCredential
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE isolated_runtime_bootstrap_tickets SET consumed_at_ms=?
-WHERE COALESCE(launch_id,preview_id)=? AND ticket_sha256=? AND consumed_at_ms IS NULL AND expires_at_ms>?
-`, now, launchID, ticketDigest[:], now)
+	result, err := recordstore.UpdateIsolatedRuntimeBootstrapTickets(ctx, transaction, recordstore.Update{
+		Set: `consumed_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `
+COALESCE(launch_id,preview_id)=? AND ticket_sha256=? AND consumed_at_ms IS NULL AND expires_at_ms>?
+`,
+			Args: []any{launchID, ticketDigest[:], now},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return "", Access{}, fmt.Errorf("consume isolated runtime ticket: %w", err)
 	}
@@ -150,7 +158,7 @@ WHERE COALESCE(launch_id,preview_id)=? AND ticket_sha256=? AND consumed_at_ms IS
 	if access.Preview {
 		capabilityLaunchID, capabilityPreviewID = nil, launchID
 	}
-	_, err = transaction.ExecContext(ctx, `
+	_, err = recordstore.CreateIsolatedRuntimeCapabilities(ctx, transaction, `
 INSERT INTO isolated_runtime_capabilities(
  credential_sha256,launch_id,preview_id,profile_id,expected_origin,issued_at_ms,expires_at_ms,revoked_at_ms)
 VALUES(?,?,?,?,?,?,?,NULL)
@@ -200,10 +208,14 @@ WHERE capability.credential_sha256=? AND COALESCE(capability.launch_id,capabilit
 }
 
 func (service *Service) Revoke(ctx context.Context, access Access) error {
-	result, err := service.database.ExecContext(ctx, `
-UPDATE isolated_runtime_capabilities SET revoked_at_ms=?
-WHERE COALESCE(launch_id,preview_id)=? AND expected_origin=? AND revoked_at_ms IS NULL
-`, service.now().UnixMilli(), access.LaunchID, access.Origin)
+	result, err := recordstore.UpdateIsolatedRuntimeCapabilities(ctx, service.database, recordstore.Update{
+		Set: `revoked_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `COALESCE(launch_id,preview_id)=? AND expected_origin=? AND revoked_at_ms IS NULL`,
+			Args:  []any{access.LaunchID, access.Origin},
+		},
+		Values: []any{service.now().UnixMilli()},
+	})
 	if err != nil {
 		return fmt.Errorf("revoke isolated runtime credential: %w", err)
 	}

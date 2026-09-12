@@ -4,6 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"retrom/internal/cleanup"
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
 )
 
 var errInvalidRecoveryReason = errors.New("netplay/recovery: invalid reason")
@@ -17,11 +22,14 @@ func (service *Service) Recover(ctx context.Context, reason string) error {
 	if err != nil {
 		return fmt.Errorf("netplay/recovery: %w", err)
 	}
-	defer transaction.Rollback() //nolint:errcheck // Commit is the authoritative result.
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_sessions SET state='FAILED',finished_at_ms=?,end_reason=?,updated_at_ms=?,version=version+1
-WHERE state NOT IN ('FINISHED','FAILED')
-`, now, reason, now); err != nil {
+	defer cleanup.Rollback(transaction)
+	if _, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `state='FAILED',finished_at_ms=?,end_reason=?,updated_at_ms=?,version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `state NOT IN ('FINISHED','FAILED')`,
+		},
+		Values: []any{now, reason, now},
+	}); err != nil {
 		return fmt.Errorf("netplay/recover sessions: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -34,17 +42,25 @@ AND state='ACTIVE'
 `, now, now); err != nil {
 		return fmt.Errorf("netplay/recover plays: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1
-WHERE netplay_session_id IS NOT NULL AND state IN ('CREATED','ACTIVE')
-`, now, now); err != nil {
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `netplay_session_id IS NOT NULL AND state IN ('CREATED','ACTIVE')`,
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("netplay/recover launches: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='ENDED',current_session_id=NULL,ended_at_ms=?,end_reason=?,
+	if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `
+state='ENDED',current_session_id=NULL,ended_at_ms=?,end_reason=?,
 updated_at_ms=?,version=version+1
-WHERE state IN ('STARTING','RUNNING')
-`, now, reason, now); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `state IN ('STARTING','RUNNING')`,
+		},
+		Values: []any{now, reason, now},
+	}); err != nil {
 		return fmt.Errorf("netplay/recover rooms: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {

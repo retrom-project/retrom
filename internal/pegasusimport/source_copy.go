@@ -7,6 +7,8 @@ import (
 	"path"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
@@ -55,10 +57,14 @@ func (service *Service) recordCopiedFile(
 	if err != nil {
 		return "", fmt.Errorf("pegasusimport/record copied file blob: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_item_files
-SET blob_id=?,state='COPIED',updated_at_ms=?
-WHERE item_id=? AND ordinal=? AND state='DISCOVERED'`, blobID, now, itemID, ordinal); err != nil {
+	if _, err := recordstore.UpdatePegasusImportItemFiles(ctx, transaction, recordstore.Update{
+		Set: `blob_id=?,state='COPIED',updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `item_id=? AND ordinal=? AND state='DISCOVERED'`,
+			Args:  []any{itemID, ordinal},
+		},
+		Values: []any{blobID, now},
+	}); err != nil {
 		return "", fmt.Errorf("pegasusimport/record copied file: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -83,10 +89,14 @@ func (service *Service) recordCopiedAsset(
 	if err != nil {
 		return "", fmt.Errorf("pegasusimport/record copied asset blob: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_item_assets
-SET blob_id=?,state='COPIED',updated_at_ms=?
-WHERE item_id=? AND kind=? AND state='DISCOVERED'`, blobID, now, itemID, kind); err != nil {
+	if _, err := recordstore.UpdatePegasusImportItemAssets(ctx, transaction, recordstore.Update{
+		Set: `blob_id=?,state='COPIED',updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `item_id=? AND kind=? AND state='DISCOVERED'`,
+			Args:  []any{itemID, kind},
+		},
+		Values: []any{blobID, now},
+	}); err != nil {
 		return "", fmt.Errorf("pegasusimport/record copied asset: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/rpgmaker/detector"
 )
 
@@ -42,7 +44,7 @@ func (run *creationRun) persistRPGMakerReviewProfile(record *groupRecord) error 
 	dependencyDigest := sha256.Sum256([]byte(record.group.dependencySnapshot))
 	entryHTML := rpgEntryHTML(profile.ExpectedGeneration)
 	evidenceGeneration := rpgEvidenceGeneration(profile.EvidenceGeneration)
-	_, err = run.transaction.ExecContext(run.ctx, `
+	_, err = recordstore.CreateRpgmakerReviewProfiles(run.ctx, run.transaction, `
 INSERT INTO rpgmaker_review_profiles(
   review_draft_id,generation,evidence_family,evidence_generation,
   evidence_confidence,engine_version,entry_html_path,file_count,total_bytes,project_fingerprint,

@@ -6,37 +6,48 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 )
 
+type sourceRecordUpdate func(context.Context, recordstore.DBTX, recordstore.Update) (sql.Result, error)
+
 type sourceImportItemSpec struct {
-	label       string
-	itemsTable  string
-	filesTable  string
-	assetsTable string
-	scope       ScopeType
-	reason      Reason
-	terminal    func(string, bool) bool
+	updateItem, updateFiles, updateAssets sourceRecordUpdate
+	label                                 string
+	itemsTable                            string
+	filesTable                            string
+	assetsTable                           string
+	scope                                 ScopeType
+	reason                                Reason
+	terminal                              func(string, bool) bool
 }
 
 var (
 	pegasusSourceImportItem = sourceImportItemSpec{
-		label:       "Pegasus",
-		itemsTable:  "pegasus_import_items",
-		filesTable:  "pegasus_import_item_files",
-		assetsTable: "pegasus_import_item_assets",
-		scope:       ScopePegasusImportItem,
-		reason:      ReasonPegasusTerminal,
-		terminal:    terminalPegasusItem,
+		updateItem:   recordstore.UpdatePegasusImportItems,
+		updateFiles:  recordstore.UpdatePegasusImportItemFiles,
+		updateAssets: recordstore.UpdatePegasusImportItemAssets,
+		label:        "Pegasus",
+		itemsTable:   "pegasus_import_items",
+		filesTable:   "pegasus_import_item_files",
+		assetsTable:  "pegasus_import_item_assets",
+		scope:        ScopePegasusImportItem,
+		reason:       ReasonPegasusTerminal,
+		terminal:     terminalPegasusItem,
 	}
 	emulationStationSourceImportItem = sourceImportItemSpec{
-		label:       "EmulationStation",
-		itemsTable:  "emulationstation_import_items",
-		filesTable:  "emulationstation_import_item_files",
-		assetsTable: "emulationstation_import_item_assets",
-		scope:       ScopeEmulationStationImportItem,
-		reason:      ReasonEmulationStationTerminal,
-		terminal:    terminalEmulationStationItem,
+		updateItem:   recordstore.UpdateEmulationstationImportItems,
+		updateFiles:  recordstore.UpdateEmulationstationImportItemFiles,
+		updateAssets: recordstore.UpdateEmulationstationImportItemAssets,
+		label:        "EmulationStation",
+		itemsTable:   "emulationstation_import_items",
+		filesTable:   "emulationstation_import_item_files",
+		assetsTable:  "emulationstation_import_item_assets",
+		scope:        ScopeEmulationStationImportItem,
+		reason:       ReasonEmulationStationTerminal,
+		terminal:     terminalEmulationStationItem,
 	}
 )
 
@@ -97,10 +108,15 @@ func retrySourceImportItem(
 	if payloadState != "FAILED" {
 		return nil
 	}
-	query := fmt.Sprintf(`
-UPDATE %s SET payload_state='RELEASING',payload_last_error_code=NULL WHERE id=?
-`, spec.itemsTable)
-	if _, err := transaction.ExecContext(ctx, query, itemID); err != nil {
+	query := recordstore.Update{
+		Set:    `payload_state='RELEASING',payload_last_error_code=NULL`,
+		Values: []any{},
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{itemID},
+		},
+	}
+	if _, err := spec.updateItem(ctx, transaction, query); err != nil {
 		return fmt.Errorf("payloadrelease/retry %s item: %w", spec.label, err)
 	}
 	return nil
@@ -142,13 +158,19 @@ SELECT count(*) FROM %s WHERE id=? AND execution_state IN ('PUBLISHED','REVIEW_D
 	if err := transaction.QueryRowContext(ctx, terminalQuery, itemID).Scan(&terminal); err != nil || terminal != 1 {
 		return releaseFailure("PAYLOAD_RELEASE_SOURCE_NOT_TERMINAL")
 	}
-	linkQuery := fmt.Sprintf(`
-UPDATE %s
-SET payload_state='RELEASING',payload_release_job_id=(SELECT payload_release_job_id FROM import_items WHERE id=?),
+	linkQuery := recordstore.Update{
+		Set: `
+payload_state='RELEASING',payload_release_job_id=(SELECT payload_release_job_id FROM import_items WHERE
+id=?),
 payload_released_at_ms=NULL,payload_last_error_code=NULL,version=version+1
-WHERE id=? AND payload_state='RETAINED'
-`, spec.itemsTable)
-	if _, err := transaction.ExecContext(ctx, linkQuery, publicItemID, itemID); err != nil {
+`,
+		Values: []any{publicItemID},
+		Scope: recordstore.Scope{
+			Where: `id=? AND payload_state='RETAINED'`,
+			Args:  []any{itemID},
+		},
+	}
+	if _, err := spec.updateItem(ctx, transaction, linkQuery); err != nil {
 		return fmt.Errorf("payloadrelease/link %s item: %w", spec.label, err)
 	}
 	return service.releaseSourceImportItemPayload(ctx, transaction, itemID, now, spec)
@@ -171,12 +193,17 @@ func (service *Service) releaseSourceImportItemPayload(
 	if err := service.stageCandidates(ctx, transaction, blobs); err != nil {
 		return err
 	}
-	query := fmt.Sprintf(`
-UPDATE %s
-SET payload_state='RELEASED',payload_released_at_ms=?,payload_last_error_code=NULL,version=version+1
-WHERE id=? AND payload_state IN ('RELEASING','FAILED','RELEASED')
-`, spec.itemsTable)
-	if _, err := transaction.ExecContext(ctx, query, now, itemID); err != nil {
+	query := recordstore.Update{
+		Set: `
+payload_state='RELEASED',payload_released_at_ms=?,payload_last_error_code=NULL,version=version+1
+`,
+		Values: []any{now},
+		Scope: recordstore.Scope{
+			Where: `id=? AND payload_state IN ('RELEASING','FAILED','RELEASED')`,
+			Args:  []any{itemID},
+		},
+	}
+	if _, err := spec.updateItem(ctx, transaction, query); err != nil {
 		return fmt.Errorf("payloadrelease/complete %s item: %w", spec.label, err)
 	}
 	return nil
@@ -203,21 +230,29 @@ func releaseSourceImportItemReferences(
 	now int64,
 	spec sourceImportItemSpec,
 ) error {
-	fileQuery := fmt.Sprintf(`
-UPDATE %s
-SET state='PAYLOAD_RELEASED',blob_id=NULL,source_archive_blob_id=NULL,
+	fileQuery := recordstore.Update{
+		Set: `
+state='PAYLOAD_RELEASED',blob_id=NULL,source_archive_blob_id=NULL,
 source_archive_entry_ordinal=NULL,payload_released_at_ms=?,updated_at_ms=?
-WHERE item_id=? AND (blob_id IS NOT NULL OR source_archive_blob_id IS NOT NULL)
-`, spec.filesTable)
-	if _, err := transaction.ExecContext(ctx, fileQuery, now, now, itemID); err != nil {
+`,
+		Values: []any{now, now},
+		Scope: recordstore.Scope{
+			Where: `item_id=? AND (blob_id IS NOT NULL OR source_archive_blob_id IS NOT NULL)`,
+			Args:  []any{itemID},
+		},
+	}
+	if _, err := spec.updateFiles(ctx, transaction, fileQuery); err != nil {
 		return fmt.Errorf("payloadrelease/release %s files: %w", spec.label, err)
 	}
-	assetQuery := fmt.Sprintf(`
-UPDATE %s
-SET state='PAYLOAD_RELEASED',blob_id=NULL,payload_released_at_ms=?,updated_at_ms=?
-WHERE item_id=? AND blob_id IS NOT NULL
-`, spec.assetsTable)
-	if _, err := transaction.ExecContext(ctx, assetQuery, now, now, itemID); err != nil {
+	assetQuery := recordstore.Update{
+		Set:    `state='PAYLOAD_RELEASED',blob_id=NULL,payload_released_at_ms=?,updated_at_ms=?`,
+		Values: []any{now, now},
+		Scope: recordstore.Scope{
+			Where: `item_id=? AND blob_id IS NOT NULL`,
+			Args:  []any{itemID},
+		},
+	}
+	if _, err := spec.updateAssets(ctx, transaction, assetQuery); err != nil {
 		return fmt.Errorf("payloadrelease/release %s assets: %w", spec.label, err)
 	}
 	return ensureNoSourceImportItemReferences(ctx, transaction, itemID, spec)

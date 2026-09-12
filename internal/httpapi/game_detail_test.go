@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -244,9 +246,14 @@ INSERT INTO save_states(
 	).Scan(&alternateLaunchID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := server.database.ExecContext(
-		context.Background(), `UPDATE save_states SET source_launch_session_id=? WHERE id=?`, alternateLaunchID, sessionSaveID,
-	); err == nil ||
+	if _, err := recordstore.UpdateSaveStates(context.Background(), server.database, recordstore.Update{
+		Set: `source_launch_session_id=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{sessionSaveID},
+		},
+		Values: []any{alternateLaunchID},
+	}); err == nil ||
 		!strings.Contains(err.Error(), "immutable") {
 		t.Fatalf("mutable save source error = %v", err)
 	}

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -129,37 +131,57 @@ func (service *Service) queueImport(
 	if err := createQueuedImportJob(ctx, transaction, summary.ID, jobID.String(), encoded, now); err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items
-SET execution_state='SKIPPED_MAPPING',completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_id=?
+	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+		Set: `execution_state='SKIPPED_MAPPING',completed_at_ms=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id=?
 AND collection_id IN (
   SELECT id FROM pegasus_import_collections WHERE import_id=? AND mapping_action='SKIP'
-)`, now, now, summary.ID, summary.ID); err != nil {
+)
+`,
+			Args: []any{summary.ID, summary.ID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/skip mapped items: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items
-SET execution_state=CASE discovery_state
+	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state=CASE discovery_state
   WHEN 'BLOCKED_SOURCE' THEN 'BLOCKED_SOURCE'
   ELSE 'BLOCKED_CONTENT'
 END,
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id=?
 AND execution_state='PENDING'
-AND discovery_state!='READY'`, now, now, summary.ID); err != nil {
+AND discovery_state!='READY'
+`,
+			Args: []any{summary.ID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/close discovery items: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_imports
-SET import_job_id=?,state='QUEUED',phase=NULL,
+	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: `
+import_job_id=?,state='QUEUED',phase=NULL,
 blocked_item_count=(
   SELECT count(*)
   FROM pegasus_import_items
   WHERE import_id=? AND execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')
 ),
 version=version+1,updated_at_ms=?
-WHERE id=?`, jobID.String(), summary.ID, now, summary.ID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{summary.ID},
+		},
+		Values: []any{jobID.String(), summary.ID, now},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/queue import: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -296,10 +318,16 @@ func persistCancellation(ctx context.Context, transaction *sql.Tx, value cancell
 	var completed any = value.Now
 	if value.Pending {
 		newState, jobState, completed = "CANCEL_REQUESTED", "CANCEL_REQUESTED", nil
-	} else if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items
-SET execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_id=? AND execution_state='PENDING'`, value.Now, value.Now, value.ImportID); err != nil {
+	} else if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `import_id=? AND execution_state='PENDING'`,
+			Args:  []any{value.ImportID},
+		},
+		Values: []any{value.Now, value.Now},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/cancel pending items: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -309,16 +337,22 @@ version=version+1,updated_at_ms=?
 WHERE id=?`, jobState, value.Now, value.Reason, completed, value.Now, value.JobID); err != nil {
 		return fmt.Errorf("pegasusimport/cancel job: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_imports
-SET state=?,cancel_reason=?,
+	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: `
+state=?,cancel_reason=?,
 cancelled_item_count=(
   SELECT count(*)
   FROM pegasus_import_items
   WHERE import_id=? AND execution_state='CANCELLED'
 ),
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=?`, newState, value.Reason, value.ImportID, completed, value.Now, value.ImportID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{value.ImportID},
+		},
+		Values: []any{newState, value.Reason, value.ImportID, completed, value.Now},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/cancel import: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -383,16 +417,17 @@ func (service *Service) Delete(ctx context.Context, importID string, expectedVer
 
 func (service *Service) ExpirePlans(ctx context.Context) error {
 	now := service.now().UnixMilli()
-	_, err := service.database.ExecContext(
-		ctx,
-		`UPDATE pegasus_imports
-SET state='EXPIRED',phase=NULL,last_error_code='PEGASUS_PLAN_EXPIRED',
+	_, err := recordstore.UpdatePegasusImports(ctx, service.database, recordstore.Update{
+		Set: `
+state='EXPIRED',phase=NULL,last_error_code='PEGASUS_PLAN_EXPIRED',
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE state='AWAITING_MAPPING' AND expires_at_ms<=?`,
-		now,
-		now,
-		now,
-	)
+`,
+		Scope: recordstore.Scope{
+			Where: `state='AWAITING_MAPPING' AND expires_at_ms<=?`,
+			Args:  []any{now},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return fmt.Errorf("pegasusimport/expire plans: %w", err)
 	}
@@ -419,13 +454,21 @@ func (service *Service) Retry(ctx context.Context, importID string, version int6
 	}
 	execution++
 	now := service.now().UnixMilli()
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items
-SET execution_state='PENDING',error_code=NULL,error_details_json=NULL,retryable=0,
+	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='PENDING',error_code=NULL,error_details_json=NULL,retryable=0,
 completed_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE import_id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id=?
 AND retryable=1
-AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')`, now, importID); err != nil {
+AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
+`,
+			Args: []any{importID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/reset retryable items: %w", err)
 	}
 	inputID, _ := uuid.NewV7()
@@ -453,11 +496,17 @@ cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
 WHERE id=?`, execution, execution, now, now, *summary.ImportJobID); err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/queue retry job: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_imports
-SET state='QUEUED',phase=NULL,last_error_code=NULL,retryable=0,
+	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: `
+state='QUEUED',phase=NULL,last_error_code=NULL,retryable=0,
 completed_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE id=?`, now, importID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{importID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/queue retry import: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `

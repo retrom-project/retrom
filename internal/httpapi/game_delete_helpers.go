@@ -10,6 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/authn"
 	"retrom/internal/payloadrelease"
 )
@@ -269,34 +273,66 @@ AND kind IN ('GAME_CONTENT_REPLACE','METADATA_SCRAPE','MEDIA_FETCH') AND state I
 `, now, gameID); err != nil {
 		return fmt.Errorf("delete game mutation events: %w", err)
 	}
-	statements := []struct {
-		query string
-		args  []any
-	}{
-		{
-			`UPDATE jobs SET state=CASE WHEN state='QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE jobs SET state=CASE WHEN state='QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,
 cancel_requested_at_ms=?,cancel_reason='game deleted',finished_at_ms=CASE WHEN state='QUEUED' THEN ? ELSE NULL END,
 version=version+1,updated_at_ms=? WHERE scope_type='GAME' AND scope_id=?
-AND kind IN ('GAME_CONTENT_REPLACE','METADATA_SCRAPE','MEDIA_FETCH') AND state IN ('QUEUED','RUNNING')`,
-			[]any{now, now, now, gameID},
-		},
-		{`UPDATE launch_sessions SET state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,
-version=version+1 WHERE game_id=? AND state IN ('CREATED','ACTIVE')`, []any{now, now, gameID}},
-		{`UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
-WHERE game_id=? AND state='ACTIVE'`, []any{now, now, gameID}},
-		{`UPDATE netplay_sessions SET state='FAILED',finished_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,
-version=version+1 WHERE game_id=? AND state NOT IN ('FINISHED','FAILED')`, []any{now, now, gameID}},
-		{
-			`UPDATE netplay_rooms SET state='ENDED',ended_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,
-version=version+1 WHERE selected_game_id=? AND state IN ('DRAFT','WAITING','STARTING','RUNNING')`,
-			[]any{now, now, gameID},
-		},
-		{`UPDATE launch_sessions SET save_state_id=NULL WHERE game_id=? AND save_state_id IS NOT NULL`, []any{gameID}},
+AND kind IN ('GAME_CONTENT_REPLACE','METADATA_SCRAPE','MEDIA_FETCH') AND state IN ('QUEUED','RUNNING')
+`, now, now, now, gameID); err != nil {
+		return fmt.Errorf("delete game runtime: %w", err)
 	}
-	for _, statement := range statements {
-		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
-			return fmt.Errorf("delete game runtime: %w", err)
-		}
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `
+state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,
+version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `game_id=? AND state IN ('CREATED','ACTIVE')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
+		return fmt.Errorf("delete game runtime: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
+WHERE game_id=? AND state='ACTIVE'`, now, now, gameID); err != nil {
+		return fmt.Errorf("delete game runtime: %w", err)
+	}
+	if _, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED',finished_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,
+version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `game_id=? AND state NOT IN ('FINISHED','FAILED')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
+		return fmt.Errorf("delete game runtime: %w", err)
+	}
+	if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `
+state='ENDED',ended_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,
+version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `selected_game_id=? AND state IN ('DRAFT','WAITING','STARTING','RUNNING')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
+		return fmt.Errorf("delete game runtime: %w", err)
+	}
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `save_state_id=NULL`,
+		Scope: recordstore.Scope{
+			Where: `game_id=? AND save_state_id IS NOT NULL`,
+			Args:  []any{gameID},
+		},
+	}); err != nil {
+		return fmt.Errorf("delete game runtime: %w", err)
 	}
 	return nil
 }

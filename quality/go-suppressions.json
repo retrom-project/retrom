@@ -20,15 +20,6 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/netplay/recovery.go",
-      "line": 20,
-      "symbol": "func (service *Service) Recover(ctx context.Context, reason string) error",
-      "linter": "errcheck",
-      "reason": "Commit is the authoritative result.",
-      "invariant": "Commit remains the authoritative transaction result; deferred rollback is best-effort cleanup only.",
-      "reviewAfter": "2027-08-22"
-    },
-    {
       "path": "internal/serverimport/discovery.go",
       "line": 456,
       "symbol": "func (reader *cancelReader) Read(buffer []byte) (int, error)",

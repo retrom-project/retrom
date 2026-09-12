@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
 )
@@ -155,14 +157,14 @@ item.gamelist_relative_path,item.game_ordinal,item.id LIMIT 1`, importID).
 	}
 	now := service.now().UnixMilli()
 	if item.ExecutionState == "PENDING" {
-		result, updateErr := transaction.ExecContext(
-			ctx,
-			`UPDATE emulationstation_import_items
-SET execution_state='COPYING',updated_at_ms=?
-WHERE id=? AND execution_state='PENDING'`,
-			now,
-			item.ID,
-		)
+		result, updateErr := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+			Set: `execution_state='COPYING',updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=? AND execution_state='PENDING'`,
+				Args:  []any{item.ID},
+			},
+			Values: []any{now},
+		})
 		if updateErr != nil || rowsAffected(result) != 1 {
 			return executionItem{}, false, fmt.Errorf("emulationstationimport/claim item: %w", updateErr)
 		}
@@ -266,11 +268,17 @@ func (service *Service) processItem(ctx context.Context, unit work, root Root, i
 func (service *Service) resumeLibraryReview(ctx context.Context, unit work, item executionItem) {
 	switch item.ExecutionState {
 	case "COPYING":
-		result, err := service.database.ExecContext(ctx, `
-UPDATE emulationstation_import_items SET execution_state='VALIDATING',updated_at_ms=?
-WHERE id=? AND execution_state='COPYING'
+		result, err := recordstore.UpdateEmulationstationImportItems(ctx, service.database, recordstore.Update{
+			Set: `execution_state='VALIDATING',updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `
+id=? AND execution_state='COPYING'
 AND library_import_job_id=? AND library_import_item_id=?
-`, service.now().UnixMilli(), item.ID, item.LibraryImportJobID, item.LibraryImportItemID)
+`,
+				Args: []any{item.ID, item.LibraryImportJobID, item.LibraryImportItemID},
+			},
+			Values: []any{service.now().UnixMilli()},
+		})
 		if err != nil || rowsAffected(result) != 1 {
 			service.closeItemWithFailure(
 				ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
@@ -299,11 +307,14 @@ AND library_import_job_id=? AND library_import_item_id=?
 
 func (service *Service) updateExecutionPhase(ctx context.Context, importID, phase string) error {
 	now := service.now().UnixMilli()
-	if _, err := service.database.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET phase=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING' AND phase IS NOT ?
-`, phase, now, importID, phase); err != nil {
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, service.database, recordstore.Update{
+		Set: `phase=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING' AND phase IS NOT ?`,
+			Args:  []any{importID, phase},
+		},
+		Values: []any{phase, now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/update execution phase: %w", err)
 	}
 	return nil

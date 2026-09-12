@@ -8,6 +8,8 @@ import (
 	"path"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
@@ -56,10 +58,14 @@ func (service *Service) recordCopiedFile(
 	if err != nil {
 		return "", fmt.Errorf("emulationstationimport/record copied file blob: %w", err)
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_item_files
-SET blob_id=?,state='COPIED',updated_at_ms=?
-WHERE item_id=? AND ordinal=? AND state='DISCOVERED'`, blobID, now, itemID, ordinal)
+	result, err := recordstore.UpdateEmulationstationImportItemFiles(ctx, transaction, recordstore.Update{
+		Set: `blob_id=?,state='COPIED',updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `item_id=? AND ordinal=? AND state='DISCOVERED'`,
+			Args:  []any{itemID, ordinal},
+		},
+		Values: []any{blobID, now},
+	})
 	if err != nil {
 		return "", fmt.Errorf("emulationstationimport/record copied file: %w", err)
 	}
@@ -88,10 +94,14 @@ func (service *Service) recordCopiedAsset(
 	if err != nil {
 		return "", fmt.Errorf("emulationstationimport/record copied asset blob: %w", err)
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_item_assets
-SET blob_id=?,state='COPIED',updated_at_ms=?
-WHERE item_id=? AND kind=? AND state='DISCOVERED'`, blobID, now, itemID, kind)
+	result, err := recordstore.UpdateEmulationstationImportItemAssets(ctx, transaction, recordstore.Update{
+		Set: `blob_id=?,state='COPIED',updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `item_id=? AND kind=? AND state='DISCOVERED'`,
+			Args:  []any{itemID, kind},
+		},
+		Values: []any{blobID, now},
+	})
 	if err != nil {
 		return "", fmt.Errorf("emulationstationimport/record copied asset: %w", err)
 	}

@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -28,6 +30,7 @@ import (
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/sessionstore"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -230,8 +233,13 @@ func (fixture *saveFixture) createLaunchFromSave(t *testing.T, saveStateID *stri
 	testassert.False(t, err != nil, err)
 	capability := fixture.credentials.Capability(launchUUID)
 	capabilityHash := retromruntime.HashCapability(capability)
+	tx, err := fixture.database.SQL.BeginTx(fixture.ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(tx)
 	now := fixture.now.UnixMilli()
-	_, err = fixture.database.SQL.ExecContext(fixture.ctx, `
+	_, err = sessionstore.CreateLaunch(fixture.ctx, tx, `
 INSERT INTO launch_sessions(
  id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
  content_kind,dependency_snapshot_json,compatibility_code,save_state_id,
@@ -249,7 +257,7 @@ WHERE game.id=?
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fixture.database.SQL.ExecContext(fixture.ctx, `
+	_, err = tx.ExecContext(fixture.ctx, `
 INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
 SELECT ?,file.logical_name,file.blob_id,'SOURCE_V1',?
 FROM games game JOIN game_files file
@@ -257,6 +265,9 @@ FROM games game JOIN game_files file
 WHERE game.id=?
 `, launchUUID.String(), now, fixture.gameID)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	return saveLaunch{
@@ -479,22 +490,13 @@ func TestProductCheckpointAllowsOptionalScreenshotAndRestoresExactBinding(t *tes
 		t.Fatalf("created=%#v replayed=%v error=%v", result, replayed, err)
 	}
 	now := fixture.now.UnixMilli()
-	if _, err := fixture.database.SQL.ExecContext(fixture.ctx, `
-UPDATE launch_sessions SET state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1
-WHERE id=?
-`, now, now, original.LaunchID); err != nil {
-		t.Fatal(err)
-	}
+	mustUpdateLaunch(t, fixture.database.SQL, recordstore.Update{Set: `state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{original.LaunchID}}, Values: []any{now, now}})
+
 	restored := fixture.createLaunchFromSave(t, &result.SaveStateID)
 	digest, err := fixture.saves.StateDigest(fixture.ctx, restored.LaunchID, restored.Capability)
 	expectedDigest := sha256.Sum256(payload)
 	if err != nil || digest != hex.EncodeToString(expectedDigest[:]) {
 		t.Fatalf("restore digest=%s error=%v", digest, err)
-	}
-	if _, err := fixture.database.SQL.ExecContext(fixture.ctx, `
-		DROP TRIGGER save_states_runtime_target_immutable
-`); err != nil {
-		t.Fatal(err)
 	}
 	if _, err := fixture.database.SQL.ExecContext(fixture.ctx, `
 UPDATE save_states SET checkpoint_format='unreadable-checkpoint-v1' WHERE id=?
@@ -522,5 +524,20 @@ func mustSaveSQL(t *testing.T, database *sql.DB, query string, arguments ...any)
 	t.Helper()
 	if _, err := database.Exec(query, arguments...); err != nil {
 		t.Fatalf("save fixture SQL: %v\n%s", err, query)
+	}
+}
+
+func mustUpdateLaunch(t *testing.T, database *sql.DB, change recordstore.Update) {
+	t.Helper()
+	tx, err := database.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(tx)
+	if _, err := sessionstore.ChangeLaunch(t.Context(), tx, change); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
 	}
 }

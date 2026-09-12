@@ -10,6 +10,8 @@ import (
 	"io"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
@@ -284,7 +286,7 @@ raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms) VALUES(?,'HA
 		return "", "", fmt.Errorf("metadatascrape/service: %w", err)
 	}
 	if result.Outcome == hasheous.OutcomeHit || result.Outcome == hasheous.OutcomeMiss {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateMetadataProviderCache(ctx, transaction, `
 INSERT INTO metadata_provider_cache(provider,request_digest,current_response_id,expires_at_ms,updated_at_ms)
 VALUES('HASHEOUS',?,?,?,?) ON CONFLICT(provider,request_digest)
 DO UPDATE SET current_response_id=excluded.current_response_id,
@@ -481,7 +483,7 @@ created_at_ms) VALUES(?,
 	if inserted == 1 {
 		for _, asset := range result.Candidate.Assets {
 			assetID := newID()
-			if _, err := transaction.ExecContext(ctx, `
+			if _, err := recordstore.CreateScrapeCandidateAssets(ctx, transaction, `
 INSERT INTO scrape_candidate_assets(id,
 scrape_candidate_id,
 provider_response_id,

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -236,30 +238,44 @@ func (service *Service) queueImport(
 	if err := createQueuedImportJob(ctx, transaction, summary.ID, jobID.String(), encoded, now); err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_items
-SET execution_state='SKIPPED_MAPPING',completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_id=?
+	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+		Set: `execution_state='SKIPPED_MAPPING',completed_at_ms=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id=?
 AND collection_id IN (
   SELECT id FROM emulationstation_import_collections WHERE import_id=? AND mapping_action='SKIP'
-)`, now, now, summary.ID, summary.ID); err != nil {
+)
+`,
+			Args: []any{summary.ID, summary.ID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/skip mapped items: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_items
-SET execution_state=CASE discovery_state
+	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state=CASE discovery_state
   WHEN 'BLOCKED_SOURCE' THEN 'BLOCKED_SOURCE'
   ELSE 'BLOCKED_CONTENT'
 END,
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id=?
 AND execution_state='PENDING'
-AND discovery_state!='READY'`, now, now, summary.ID); err != nil {
+AND discovery_state!='READY'
+`,
+			Args: []any{summary.ID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/close discovery items: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET import_job_id=?,state='QUEUED',phase=NULL,
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: `
+import_job_id=?,state='QUEUED',phase=NULL,
 	skipped_mapping_item_count=(
 	  SELECT count(*) FROM emulationstation_import_items
 	  WHERE import_id=? AND execution_state='SKIPPED_MAPPING'
@@ -270,7 +286,13 @@ blocked_item_count=(
   WHERE import_id=? AND execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')
 ),
 version=version+1,updated_at_ms=?
-WHERE id=?`, jobID.String(), summary.ID, summary.ID, now, summary.ID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{summary.ID},
+		},
+		Values: []any{jobID.String(), summary.ID, summary.ID, now},
+	}); err != nil {
 		return classifyQueueImportError(ctx, transaction, summary.ID, err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -433,10 +455,16 @@ func persistCancellation(ctx context.Context, transaction *sql.Tx, value cancell
 	var completed any = value.Now
 	if value.Pending {
 		newState, jobState, completed = "CANCEL_REQUESTED", "CANCEL_REQUESTED", nil
-	} else if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_items
-SET execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_id=? AND execution_state='PENDING'`, value.Now, value.Now, value.ImportID); err != nil {
+	} else if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `import_id=? AND execution_state='PENDING'`,
+			Args:  []any{value.ImportID},
+		},
+		Values: []any{value.Now, value.Now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/cancel pending items: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -486,10 +514,14 @@ func persistCancellationAggregate(
 	completed any,
 ) error {
 	if value.Pending {
-		_, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET state=?,cancel_reason=?,completed_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE id=?`, state, value.Reason, value.Now, value.ImportID)
+		_, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+			Set: `state=?,cancel_reason=?,completed_at_ms=NULL,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{value.ImportID},
+			},
+			Values: []any{state, value.Reason, value.Now},
+		})
 		if err != nil {
 			return fmt.Errorf("emulationstationimport/request cancel import: %w", err)
 		}
@@ -499,28 +531,33 @@ WHERE id=?`, state, value.Reason, value.Now, value.ImportID)
 	if err != nil {
 		return err
 	}
-	_, err = transaction.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET state=?,cancel_reason=?,
+	_, err = recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: `
+state=?,cancel_reason=?,
 skipped_mapping_item_count=?,review_pending_item_count=?,published_item_count=?,
 review_discarded_item_count=?,existing_item_count=?,blocked_item_count=?,
 failed_item_count=?,cancelled_item_count=?,
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=?`,
-		state,
-		value.Reason,
-		counts.SkippedMapping,
-		counts.ReviewPending,
-		counts.Published,
-		counts.ReviewDiscarded,
-		counts.Existing,
-		counts.Blocked,
-		counts.Failed,
-		counts.Cancelled,
-		completed,
-		value.Now,
-		value.ImportID,
-	)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{value.ImportID},
+		},
+		Values: []any{
+			state,
+			value.Reason,
+			counts.SkippedMapping,
+			counts.ReviewPending,
+			counts.Published,
+			counts.ReviewDiscarded,
+			counts.Existing,
+			counts.Blocked,
+			counts.Failed,
+			counts.Cancelled,
+			completed,
+			value.Now,
+		},
+	})
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/cancel import: %w", err)
 	}
@@ -544,21 +581,49 @@ func (service *Service) Delete(ctx context.Context, importID string, expectedVer
 	if version != expectedVersion || state != "AWAITING_MAPPING" && state != "EXPIRED" || importJob.Valid {
 		return ErrInvalid
 	}
-	for _, statement := range []string{
-		`DELETE FROM emulationstation_import_item_assets
-WHERE item_id IN (SELECT id FROM emulationstation_import_items WHERE import_id=?)`,
-		`DELETE FROM emulationstation_import_item_files
-WHERE item_id IN (SELECT id FROM emulationstation_import_items WHERE import_id=?)`,
-		`DELETE FROM emulationstation_import_items WHERE import_id=?`,
-		`DELETE FROM emulationstation_collection_tags
-WHERE collection_id IN (SELECT id FROM emulationstation_import_collections WHERE import_id=?)`,
-		`DELETE FROM emulationstation_import_collections WHERE import_id=?`,
-		`DELETE FROM emulationstation_import_gamelists WHERE import_id=?`,
-		`DELETE FROM emulationstation_imports WHERE id=?`,
-	} {
-		if _, err := transaction.ExecContext(ctx, statement, importID); err != nil {
-			return fmt.Errorf("emulationstationimport/delete plan: %w", err)
-		}
+	if _, err := recordstore.DeleteEmulationstationImportItemAssets(ctx, transaction, recordstore.Scope{
+		Where: `item_id IN (SELECT id FROM emulationstation_import_items WHERE import_id=?)`,
+		Args:  []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/delete plan: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationImportItemFiles(ctx, transaction, recordstore.Scope{
+		Where: `item_id IN (SELECT id FROM emulationstation_import_items WHERE import_id=?)`,
+		Args:  []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/delete plan: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationImportItems(ctx, transaction, recordstore.Scope{
+		Where: `import_id=?`,
+		Args:  []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/delete plan: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationCollectionTags(ctx, transaction, recordstore.Scope{
+		Where: `
+collection_id IN (SELECT id FROM emulationstation_import_collections WHERE import_id=?)
+`,
+		Args: []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/delete plan: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationImportCollections(ctx, transaction, recordstore.Scope{
+		Where: `import_id=?`,
+		Args:  []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/delete plan: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationImportGamelists(ctx, transaction, recordstore.Scope{
+		Where: `import_id=?`,
+		Args:  []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/delete plan: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationImports(ctx, transaction, recordstore.Scope{
+		Where: `id=?`,
+		Args:  []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/delete plan: %w", err)
 	}
 	// Immutable job/input/event evidence intentionally remains after the plan's
 	// mutable scan projection is removed.
@@ -575,27 +640,38 @@ func (service *Service) ExpirePlans(ctx context.Context) error {
 		return fmt.Errorf("emulationstationimport/start expiry transaction: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_items
-SET execution_state='CANCELLED',error_code='EMULATIONSTATION_PLAN_EXPIRED',retryable=0,
+	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='CANCELLED',error_code='EMULATIONSTATION_PLAN_EXPIRED',retryable=0,
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE execution_state='PENDING' AND import_id IN (
+`,
+		Scope: recordstore.Scope{
+			Where: `
+execution_state='PENDING' AND import_id IN (
  SELECT id FROM emulationstation_imports WHERE state='AWAITING_MAPPING' AND expires_at_ms<=?
-)`, now, now, now); err != nil {
+)
+`,
+			Args: []any{now},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/expire plan items: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `UPDATE emulationstation_imports
-SET state='EXPIRED',phase=NULL,last_error_code='EMULATIONSTATION_PLAN_EXPIRED',
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: `
+state='EXPIRED',phase=NULL,last_error_code='EMULATIONSTATION_PLAN_EXPIRED',
 cancelled_item_count=(
  SELECT count(*) FROM emulationstation_import_items item
  WHERE item.import_id=emulationstation_imports.id AND item.execution_state='CANCELLED'
 ),
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE state='AWAITING_MAPPING' AND expires_at_ms<=?`,
-		now,
-		now,
-		now,
-	); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `state='AWAITING_MAPPING' AND expires_at_ms<=?`,
+			Args:  []any{now},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/expire plans: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -654,13 +730,21 @@ func (service *Service) queueRetryExecution(ctx context.Context, summary Summary
 	}
 	execution++
 	now := service.now().UnixMilli()
-	reset, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_items
-SET execution_state='PENDING',error_code=NULL,error_details_json=NULL,retryable=0,
+	reset, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='PENDING',error_code=NULL,error_details_json=NULL,retryable=0,
 completed_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE import_id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id=?
 AND retryable=1
-AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')`, now, summary.ID)
+AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
+`,
+			Args: []any{summary.ID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/reset retryable items: %w", err)
 	}
@@ -692,11 +776,17 @@ cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
 WHERE id=?`, execution, execution, now, now, *summary.ImportJobID); err != nil {
 		return fmt.Errorf("emulationstationimport/queue retry job: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET state='QUEUED',phase=NULL,last_error_code=NULL,retryable=0,
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: `
+state='QUEUED',phase=NULL,last_error_code=NULL,retryable=0,
 completed_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE id=?`, now, summary.ID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{summary.ID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/queue retry import: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `

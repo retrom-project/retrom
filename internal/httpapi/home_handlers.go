@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"sort"
 
+	"retrom/internal/storequery"
+
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/favorites"
@@ -157,7 +159,7 @@ AND pi.enabled=1`,
 		request.Context(),
 		`SELECT count(*)
 FROM save_states s
-JOIN save_state_runtime_compatibility runtime_compatibility
+JOIN (`+storequery.SaveRuntimeCompatibility+`) runtime_compatibility
   ON runtime_compatibility.save_state_id=s.id AND runtime_compatibility.status='AVAILABLE'
 JOIN games g ON g.id=s.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
@@ -259,7 +261,7 @@ s.disc_index,
 s.screenshot_blob_id IS NOT NULL
 FROM save_states s
 LEFT JOIN game_save_versions native ON native.save_state_id=s.id
-JOIN save_state_runtime_compatibility runtime_compatibility
+JOIN (`+storequery.SaveRuntimeCompatibility+`) runtime_compatibility
   ON runtime_compatibility.save_state_id=s.id AND runtime_compatibility.status='AVAILABLE'
 JOIN games g ON g.id=s.game_id
 JOIN games m ON m.id=g.id
@@ -433,7 +435,7 @@ SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index,
        save.screenshot_blob_id IS NOT NULL
 FROM save_states save
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
-JOIN save_state_runtime_compatibility compatibility
+JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE COALESCE(native.last_writer_launch_session_id,save.source_launch_session_id)=?
  AND save.profile_id=? AND save.deleted_at_ms IS NULL
@@ -528,7 +530,7 @@ LIMIT 1
 	var saveCount int64
 	if err := server.database.QueryRowContext(ctx, `
 SELECT count(*) FROM save_states save
-JOIN save_state_runtime_compatibility compatibility
+JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.game_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL
 `, gameID, profileID).Scan(&saveCount); err != nil {

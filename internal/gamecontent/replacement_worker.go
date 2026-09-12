@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
@@ -195,12 +197,23 @@ func (service *Service) writeReplacement(
 	failTransaction func(string),
 ) {
 	gameID := snapshot.GameID
-	gameResult, err := transaction.ExecContext(ctx, `
-UPDATE games SET content_kind=?,content_source_kind='ADMIN_REPLACE',content_source_ref_id=?,
+	gameResult, err := recordstore.UpdateGames(ctx, transaction, recordstore.Update{
+		Set: `
+content_kind=?,content_source_kind='ADMIN_REPLACE',content_source_ref_id=?,
  source_manifest_json=?,source_manifest_digest=?,version=version+1,updated_at_ms=?
-WHERE id=? AND version=? AND source_manifest_digest=? AND status='PUBLISHED'
-`, prepared.contentKind, jobID, string(prepared.manifest), prepared.manifestDigest, now,
-		gameID, snapshot.GameVersion, snapshot.BaseManifestDigest)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=? AND source_manifest_digest=? AND status='PUBLISHED'`,
+			Args:  []any{gameID, snapshot.GameVersion, snapshot.BaseManifestDigest},
+		},
+		Values: []any{
+			prepared.contentKind,
+			jobID,
+			string(prepared.manifest),
+			prepared.manifestDigest,
+			now,
+		},
+	})
 	if err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
@@ -233,12 +246,23 @@ WHERE id=? AND version=? AND source_manifest_digest=? AND status='PUBLISHED'
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
-	variantResult, err := transaction.ExecContext(ctx, `
-UPDATE game_variants SET provider_id=?,target_id=?,dat_version_id=?,status='READY',
+	variantResult, err := recordstore.UpdateGameVariants(ctx, transaction, recordstore.Update{
+		Set: `
+provider_id=?,target_id=?,dat_version_id=?,status='READY',
  compatibility_code='READY',dependency_snapshot_json=?,version=version+1,updated_at_ms=?
-WHERE id=? AND game_id=?
-`, snapshot.ProviderID, snapshot.TargetID, nullableValue(snapshot.DATVersionID),
-		string(dependencySnapshotJSON), now, snapshot.VariantID, gameID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND game_id=?`,
+			Args:  []any{snapshot.VariantID, gameID},
+		},
+		Values: []any{
+			snapshot.ProviderID,
+			snapshot.TargetID,
+			nullableValue(snapshot.DATVersionID),
+			string(dependencySnapshotJSON),
+			now,
+		},
+	})
 	if err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
@@ -342,7 +366,7 @@ func persistReplacementFiles(
 	files []replacementFile,
 ) error {
 	for _, value := range files {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateGameFiles(ctx, transaction, `
 INSERT INTO game_files(game_id,
 role,
 logical_name,
@@ -375,7 +399,7 @@ func (service *Service) attachReplacementPlaylist(
 	if err != nil {
 		return fmt.Errorf("register replacement playlist: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateVariantFiles(ctx, transaction, `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'MULTI_DISC_PLAYLIST','playlist.m3u',?,0)
 `, variantID, playlistBlobID); err != nil {

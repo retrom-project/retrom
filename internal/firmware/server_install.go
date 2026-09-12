@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -236,7 +238,7 @@ func (service *Service) persistServerInstallation(
 	details["matchMethod"] = request.MatchMethod
 	detailsJSON, _ := json.Marshal(details)
 	installationID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateBiosInstallations(ctx, transaction, `
 INSERT INTO bios_installations(
   id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
   validated_requirement_version,status,validation_details_json,is_active,version,
@@ -290,12 +292,26 @@ func (service *Service) commitServerOutcome(
 		}
 		return value
 	}
-	if changed, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state=?,match_method=?,selection_details_json=?,outcome_code=?,
+	if changed, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state=?,match_method=?,selection_details_json=?,outcome_code=?,
 previous_installation_id=?,new_installation_id=?,completed_at_ms=?,updated_at_ms=?
-WHERE server_import_id=? AND requirement_id=? AND state IN ('PENDING','EVALUATING')
-`, result.Outcome, request.MatchMethod, string(detailsJSON), code, nullable(result.PreviousInstallationID),
-		nullable(result.NewInstallationID), now, now, request.ServerImportID, request.RequirementID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `server_import_id=? AND requirement_id=? AND state IN ('PENDING','EVALUATING')`,
+			Args:  []any{request.ServerImportID, request.RequirementID},
+		},
+		Values: []any{
+			result.Outcome,
+			request.MatchMethod,
+			string(detailsJSON),
+			code,
+			nullable(result.PreviousInstallationID),
+			nullable(result.NewInstallationID),
+			now,
+			now,
+		},
+	}); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server item result: %w", err)
 	} else if rows, rowsErr := changed.RowsAffected(); rowsErr != nil || rows != 1 {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server item result changed %d rows: %w", rows, rowsErr)

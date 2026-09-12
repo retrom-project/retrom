@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sort"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/contentcapability"
 
 	"retrom/internal/corevalidation"
@@ -244,7 +246,7 @@ func (state *draftValidationRefresh) insertValidation() (string, error) {
 	createdID, _ := uuid.NewV7()
 	now := state.service.now().UnixMilli()
 	digest := prepublishDigest(state.digestInput())
-	_, err := state.transaction.ExecContext(state.ctx, `
+	_, err := recordstore.CreateImportItemCoreValidations(state.ctx, state.transaction, `
 INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
   provider_id,target_id,dat_version_id,

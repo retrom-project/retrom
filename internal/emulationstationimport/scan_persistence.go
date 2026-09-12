@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/emulationstationmeta"
 )
@@ -28,14 +30,19 @@ func (service *Service) persistRejectedScan(ctx context.Context, unit work, resu
 	if err := service.persistScanHeaders(ctx, unit, result, now); err != nil {
 		return err
 	}
-	if _, err := service.database.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET gamelist_count=?,invalid_gamelist_count=?,
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, service.database, recordstore.Update{
+		Set: `
+gamelist_count=?,invalid_gamelist_count=?,
 collection_count=0,folder_entry_count=0,game_count=0,estimated_source_bytes=0,
 processable_item_count=0,blocked_item_count=0,media_warning_count=0,
 discovered_cover_count=0,discovered_video_count=0,version=version+1,updated_at_ms=?
-WHERE id=? AND state='SCANNING'
-`, len(result.Gamelists), result.InvalidGamelists, now, unit.ImportID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='SCANNING'`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{len(result.Gamelists), result.InvalidGamelists, now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/persist rejected scan evidence: %w", err)
 	}
 	return nil
@@ -58,7 +65,7 @@ func (service *Service) persistScanHeaders(
 			ignoredFields = []string{}
 		}
 		ignoredJSON := string(compactJSON(ignoredFields))
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateEmulationstationImportGamelists(ctx, transaction, `
 INSERT INTO emulationstation_import_gamelists(
 import_id,relative_path,size_bytes,content_digest,source_facts_digest,
 parse_state,error_code,game_count,folder_count,provider_present,
@@ -72,7 +79,7 @@ ignored_fields_json,ignored_field_other_count,created_at_ms
 		}
 	}
 	for _, collection := range result.Collections {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateEmulationstationImportCollections(ctx, transaction, `
 INSERT INTO emulationstation_import_collections(
 id,import_id,gamelist_relative_path,relative_directory,display_name,
 game_count,issue_count,folder_entry_count,hidden_game_count,adult_game_count,
@@ -116,7 +123,7 @@ func (service *Service) persistScanItems(
 }
 
 func insertScannedItem(ctx context.Context, batch *sql.Tx, importID string, item scannedItem, now int64) error {
-	if _, err := batch.ExecContext(ctx, `
+	if _, err := recordstore.CreateEmulationstationImportItems(ctx, batch, `
 INSERT INTO emulationstation_import_items(
 id,import_id,collection_id,gamelist_relative_path,game_ordinal,source_key,title,
 source_flags_json,discovery_state,execution_state,content_kind,metadata_json,
@@ -129,7 +136,7 @@ warnings_json,source_manifest_json,source_manifest_digest,discovery_code,created
 		return fmt.Errorf("emulationstationimport/insert item: %w", err)
 	}
 	for _, file := range item.Files {
-		if _, err := batch.ExecContext(ctx, `
+		if _, err := recordstore.CreateEmulationstationImportItemFiles(ctx, batch, `
 INSERT INTO emulationstation_import_item_files(
 item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,
 state,created_at_ms,updated_at_ms
@@ -139,7 +146,7 @@ state,created_at_ms,updated_at_ms
 		}
 	}
 	for _, asset := range item.Assets {
-		if _, err := batch.ExecContext(ctx, `
+		if _, err := recordstore.CreateEmulationstationImportItemAssets(ctx, batch, `
 INSERT INTO emulationstation_import_item_assets(
 item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,
 media_type,width_px,height_px,state,warning_code,created_at_ms,updated_at_ms
@@ -159,17 +166,35 @@ func (service *Service) finishScan(ctx context.Context, unit work, result scanRe
 	}
 	defer cleanup.Rollback(finish)
 	processable := int64(len(result.Items)) - result.Blocked
-	if _, err := finish.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET source_snapshot_digest=?,state='AWAITING_MAPPING',phase=NULL,
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, finish, recordstore.Update{
+		Set: `
+source_snapshot_digest=?,state='AWAITING_MAPPING',phase=NULL,
 gamelist_count=?,invalid_gamelist_count=?,collection_count=?,folder_entry_count=?,game_count=?,
 estimated_source_bytes=?,processable_item_count=?,blocked_item_count=?,
 media_warning_count=?,discovered_cover_count=?,discovered_video_count=?,
 scan_completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='SCANNING'`, result.SnapshotDigest, len(result.Gamelists),
-		result.InvalidGamelists, len(result.Collections), result.FolderEntries, len(result.Items), result.EstimatedBytes,
-		processable, result.Blocked, result.MediaWarnings, result.Covers, result.Videos,
-		now, now, unit.ImportID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='SCANNING'`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{
+			result.SnapshotDigest,
+			len(result.Gamelists),
+			result.InvalidGamelists,
+			len(result.Collections),
+			result.FolderEntries,
+			len(result.Items),
+			result.EstimatedBytes,
+			processable,
+			result.Blocked,
+			result.MediaWarnings,
+			result.Covers,
+			result.Videos,
+			now,
+			now,
+		},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/finish scan aggregate: %w", err)
 	}
 	if _, err := finish.ExecContext(ctx, `
@@ -256,20 +281,50 @@ func (service *Service) clearScanStaging(ctx context.Context, importID string) e
 	).Scan(&state); err != nil || state != "SCANNING" {
 		return ErrInvalid
 	}
-	for _, statement := range []string{
-		`DELETE FROM emulationstation_import_item_assets WHERE item_id IN (
- SELECT id FROM emulationstation_import_items WHERE import_id=?)`,
-		`DELETE FROM emulationstation_import_item_files WHERE item_id IN (
- SELECT id FROM emulationstation_import_items WHERE import_id=?)`,
-		`DELETE FROM emulationstation_import_items WHERE import_id=?`,
-		`DELETE FROM emulationstation_collection_tags WHERE collection_id IN (
- SELECT id FROM emulationstation_import_collections WHERE import_id=?)`,
-		`DELETE FROM emulationstation_import_collections WHERE import_id=?`,
-		`DELETE FROM emulationstation_import_gamelists WHERE import_id=?`,
-	} {
-		if _, err := transaction.ExecContext(ctx, statement, importID); err != nil {
-			return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
-		}
+	if _, err := recordstore.DeleteEmulationstationImportItemAssets(ctx, transaction, recordstore.Scope{
+		Where: `
+item_id IN (
+ SELECT id FROM emulationstation_import_items WHERE import_id=?)
+`,
+		Args: []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationImportItemFiles(ctx, transaction, recordstore.Scope{
+		Where: `
+item_id IN (
+ SELECT id FROM emulationstation_import_items WHERE import_id=?)
+`,
+		Args: []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationImportItems(ctx, transaction, recordstore.Scope{
+		Where: `import_id=?`,
+		Args:  []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationCollectionTags(ctx, transaction, recordstore.Scope{
+		Where: `
+collection_id IN (
+ SELECT id FROM emulationstation_import_collections WHERE import_id=?)
+`,
+		Args: []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationImportCollections(ctx, transaction, recordstore.Scope{
+		Where: `import_id=?`,
+		Args:  []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
+	}
+	if _, err := recordstore.DeleteEmulationstationImportGamelists(ctx, transaction, recordstore.Scope{
+		Where: `import_id=?`,
+		Args:  []any{importID},
+	}); err != nil {
+		return fmt.Errorf("emulationstationimport/clear scan staging: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("emulationstationimport/commit scan staging cleanup: %w", err)

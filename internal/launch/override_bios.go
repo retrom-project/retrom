@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/corevalidation"
 )
 
@@ -32,8 +34,14 @@ func (service *Service) refreshOverrideBIOS(
 	}
 	if selection.dependencySnapshotJSON != encoded {
 		selection.dependencySnapshotJSON = encoded
-		_, err = tx.ExecContext(ctx, `UPDATE game_variants SET dependency_snapshot_json=?,version=version+1,updated_at_ms=?
-WHERE id=?`, encoded, service.now().UnixMilli(), selection.variantID)
+		_, err = recordstore.UpdateGameVariants(ctx, tx, recordstore.Update{
+			Set: `dependency_snapshot_json=?,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{selection.variantID},
+			},
+			Values: []any{encoded, service.now().UnixMilli()},
+		})
 		if err != nil {
 			return selection, fmt.Errorf("refresh approved BIOS snapshot: %w", err)
 		}
@@ -42,7 +50,8 @@ WHERE id=?`, encoded, service.now().UnixMilli(), selection.variantID)
 		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
 			continue
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
+		_, err := recordstore.CreateVariantFiles(ctx, tx, `
+INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'BIOS_BUNDLE',?,?,?) ON CONFLICT(game_variant_id,role,logical_name)
 DO UPDATE SET blob_id=excluded.blob_id,sort_order=excluded.sort_order
 WHERE variant_files.blob_id<>excluded.blob_id

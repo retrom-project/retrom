@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -93,24 +95,31 @@ func replaceOwnerReferences(
 	}
 	added, removed := referenceDiff(before, desired)
 	for _, value := range removed {
-		query := `DELETE FROM ` + relationTable + ` WHERE ` + ownerColumn + `=? AND tag_id=?`
-		if _, err := database.ExecContext(ctx, query, ownerID, value.TagID); err != nil {
+		scope := recordstore.Scope{
+			Where: ownerColumn + "=? AND tag_id=?",
+			Args:  []any{ownerID, value.TagID},
+		}
+		if _, err := deleteOwnerTag(ctx, database, relationTable, scope); err != nil {
 			return nil, nil, fmt.Errorf("tagging: remove owner tag: %w", err)
 		}
 	}
 	for _, value := range added {
 		query := `INSERT INTO ` + relationTable + `(` + ownerColumn +
 			`,tag_id,assigned_by_user_id,created_at_ms) VALUES(?,?,?,?)`
-		if _, err := database.ExecContext(ctx, query, ownerID, value.TagID, actorUserID, now); err != nil {
+		if _, err := createOwnerTag(ctx, database, relationTable, query, ownerID, value.TagID, actorUserID, now); err != nil {
 			return nil, nil, fmt.Errorf("tagging: add owner tag: %w", err)
 		}
 	}
 	touched := append(referenceIDs(added), referenceIDs(removed)...)
 	if len(touched) > 0 {
-		if _, err := database.ExecContext(ctx, `
-UPDATE tags SET version=version+1,updated_by_user_id=?,updated_at_ms=?
-WHERE status='ACTIVE' AND id IN (SELECT value FROM json_each(?))
-`, actorUserID, now, encodedIDs(touched)); err != nil {
+		if _, err := recordstore.UpdateTags(ctx, database, recordstore.Update{
+			Set: `version=version+1,updated_by_user_id=?,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `status='ACTIVE' AND id IN (SELECT value FROM json_each(?))`,
+				Args:  []any{encodedIDs(touched)},
+			},
+			Values: []any{actorUserID, now},
+		}); err != nil {
 			return nil, nil, fmt.Errorf("tagging: advance owner tag usage: %w", err)
 		}
 	}
@@ -170,16 +179,20 @@ func (service *Service) AssignReviewDraftTags(
 		return ErrInvalid
 	}
 	for _, reference := range references {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateReviewDraftTags(ctx, transaction, `
 INSERT INTO review_draft_tags(review_draft_id,tag_id,assigned_by_user_id,created_at_ms) VALUES(?,?,?,?)
 `, draftID, reference.TagID, actorUserID, now); err != nil {
 			return fmt.Errorf("tagging: assign review tag: %w", err)
 		}
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE tags SET version=version+1,updated_by_user_id=?,updated_at_ms=?
-WHERE status='ACTIVE' AND id IN (SELECT value FROM json_each(?))
-`, actorUserID, now, encodedIDs(referenceIDs(references))); err != nil {
+	if _, err := recordstore.UpdateTags(ctx, transaction, recordstore.Update{
+		Set: `version=version+1,updated_by_user_id=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `status='ACTIVE' AND id IN (SELECT value FROM json_each(?))`,
+			Args:  []any{encodedIDs(referenceIDs(references))},
+		},
+		Values: []any{actorUserID, now},
+	}); err != nil {
 		return fmt.Errorf("tagging: advance assigned review tags: %w", err)
 	}
 	return nil
@@ -220,10 +233,14 @@ INSERT INTO game_tags(game_id,tag_id,assigned_by_user_id,created_at_ms) VALUES(?
 		}
 	}
 	if len(references) > 0 {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE tags SET version=version+1,updated_by_user_id=?,updated_at_ms=?
-WHERE status='ACTIVE' AND id IN (SELECT value FROM json_each(?))
-`, actorUserID, now, encodedIDs(referenceIDs(references))); err != nil {
+		if _, err := recordstore.UpdateTags(ctx, transaction, recordstore.Update{
+			Set: `version=version+1,updated_by_user_id=?,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `status='ACTIVE' AND id IN (SELECT value FROM json_each(?))`,
+				Args:  []any{encodedIDs(referenceIDs(references))},
+			},
+			Values: []any{actorUserID, now},
+		}); err != nil {
 			return nil, fmt.Errorf("tagging: advance published tag usage: %w", err)
 		}
 	}
@@ -289,4 +306,53 @@ func (service *Service) EmulationStationCollectionReferences(
 	return activeReferences(
 		ctx, transaction, "emulationstation_collection_tags", "collection_id", collectionID,
 	)
+}
+
+func createOwnerTag(ctx context.Context, db recordstore.DBTX, table, query string, args ...any) (sql.Result, error) {
+	var result sql.Result
+	var err error
+
+	switch table {
+	case "game_tags":
+		result, err = db.ExecContext(ctx, query, args...)
+	case "review_draft_tags":
+		result, err = recordstore.CreateReviewDraftTags(ctx, db, query, args...)
+	case "pegasus_collection_tags":
+		result, err = recordstore.CreatePegasusCollectionTags(ctx, db, query, args...)
+	case "emulationstation_collection_tags":
+		result, err = recordstore.CreateEmulationstationCollectionTags(ctx, db, query, args...)
+	default:
+		return nil, ErrInvalid
+	}
+	if err != nil {
+		return nil, fmt.Errorf("tagging owner relation: %w", err)
+	}
+	return result, nil
+}
+
+func deleteOwnerTag(
+	ctx context.Context,
+	db recordstore.DBTX,
+	table string,
+	scope recordstore.Scope,
+) (sql.Result, error) {
+	var result sql.Result
+	var err error
+
+	switch table {
+	case "review_draft_tags":
+		result, err = recordstore.DeleteReviewDraftTags(ctx, db, scope)
+	case "pegasus_collection_tags":
+		result, err = recordstore.DeletePegasusCollectionTags(ctx, db, scope)
+	case "emulationstation_collection_tags":
+		result, err = recordstore.DeleteEmulationstationCollectionTags(ctx, db, scope)
+	case "game_tags":
+		result, err = db.ExecContext(ctx, "DELETE FROM game_tags WHERE "+scope.Where, scope.Args...)
+	default:
+		return nil, ErrInvalid
+	}
+	if err != nil {
+		return nil, fmt.Errorf("tagging owner relation: %w", err)
+	}
+	return result, nil
 }

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -174,7 +176,7 @@ SELECT count(*) FROM netplay_rooms WHERE state IN ('DRAFT','WAITING','STARTING',
 		return Room{}, errUUIDUnavailable
 	}
 	expires := now + service.options.DraftIdle.Milliseconds()
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateNetplayRooms(ctx, transaction, `
 INSERT INTO netplay_rooms(id,host_profile_id,state,version,expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,?,'DRAFT',1,?,?,?)
 `, roomID, profileID, expires, now, now); err != nil {
@@ -183,7 +185,7 @@ VALUES(?,?,'DRAFT',1,?,?,?)
 		}
 		return Room{}, fmt.Errorf("netplay/create room: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateNetplayRoomMembers(ctx, transaction, `
 INSERT INTO netplay_room_members(id,room_id,profile_id,role,player_no,ready,version,joined_at_ms,updated_at_ms)
 VALUES(?,?,?,'HOST',1,0,1,?,?)
 `, memberID, roomID, profileID, now, now); err != nil {
@@ -386,22 +388,40 @@ SELECT count(*) FROM netplay_room_members WHERE room_id=? AND left_at_ms IS NULL
 	if invalidSeat > 0 {
 		return ErrInvalidSeat
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='WAITING',selected_game_id=?,selected_game_variant_id=?,
+	result, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `
+state='WAITING',selected_game_id=?,selected_game_variant_id=?,
 netplay_profile_id=?,profile_digest=?,max_players=?,current_session_id=NULL,version=version+1,
-expires_at_ms=?,updated_at_ms=? WHERE id=? AND version=?
-`, gameID, selected.VariantID, profileID, digest, selected.Manifest.MaxPlayers,
-		now+service.options.WaitingIdle.Milliseconds(), now, roomID, expectedVersion)
+expires_at_ms=?,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{roomID, expectedVersion},
+		},
+		Values: []any{
+			gameID,
+			selected.VariantID,
+			profileID,
+			digest,
+			selected.Manifest.MaxPlayers,
+			now + service.options.WaitingIdle.Milliseconds(),
+			now,
+		},
+	})
 	if err != nil {
 		return serviceError("select game update", err)
 	}
 	if affected, _ := result.RowsAffected(); affected != 1 {
 		return ErrPrecondition
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_room_members SET ready=0,version=version+1,updated_at_ms=?
-WHERE room_id=? AND left_at_ms IS NULL
-		`, now, roomID); err != nil {
+	if _, err := recordstore.UpdateNetplayRoomMembers(ctx, transaction, recordstore.Update{
+		Set: `ready=0,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `room_id=? AND left_at_ms IS NULL`,
+			Args:  []any{roomID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return serviceError("select game clear ready", err)
 	}
 	data := map[string]any{"schemaVersion": 1, "playerCount": selected.Manifest.MaxPlayers}
@@ -433,17 +453,28 @@ func (service *Service) ClearGame(
 	return service.mutateHostRoom(
 		ctx, roomID, actorProfileID, expectedVersion, []string{RoomStateWaiting},
 		func(transaction *sql.Tx, now int64) error {
-			if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='DRAFT',selected_game_id=NULL,selected_game_variant_id=NULL,
+			if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+				Set: `
+state='DRAFT',selected_game_id=NULL,selected_game_variant_id=NULL,
 netplay_profile_id=NULL,profile_digest=NULL,max_players=NULL,version=version+1,
-expires_at_ms=?,updated_at_ms=? WHERE id=? AND version=?
-	`, now+service.options.DraftIdle.Milliseconds(), now, roomID, expectedVersion); err != nil {
+expires_at_ms=?,updated_at_ms=?
+`,
+				Scope: recordstore.Scope{
+					Where: `id=? AND version=?`,
+					Args:  []any{roomID, expectedVersion},
+				},
+				Values: []any{now + service.options.DraftIdle.Milliseconds(), now},
+			}); err != nil {
 				return serviceError("clear game", err)
 			}
-			if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_room_members SET ready=0,version=version+1,updated_at_ms=?
-WHERE room_id=? AND left_at_ms IS NULL
-`, now, roomID); err != nil {
+			if _, err := recordstore.UpdateNetplayRoomMembers(ctx, transaction, recordstore.Update{
+				Set: `ready=0,version=version+1,updated_at_ms=?`,
+				Scope: recordstore.Scope{
+					Where: `room_id=? AND left_at_ms IS NULL`,
+					Args:  []any{roomID},
+				},
+				Values: []any{now},
+			}); err != nil {
 				return serviceError("clear game ready state", err)
 			}
 			return appendEvent(ctx, transaction, roomID, nil, &actorProfileID, intPointer(1), "GAME_CLEARED", nil, now)
@@ -478,9 +509,14 @@ func (service *Service) SetSeat(
 	if err != nil {
 		return Room{}, err
 	}
-	roomResult, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET version=version+1,expires_at_ms=?,updated_at_ms=? WHERE id=? AND version=?
-`, now+service.options.WaitingIdle.Milliseconds(), now, roomID, expectedVersion)
+	roomResult, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `version=version+1,expires_at_ms=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{roomID, expectedVersion},
+		},
+		Values: []any{now + service.options.WaitingIdle.Milliseconds(), now},
+	})
 	if err != nil {
 		return Room{}, serviceError("set seat room version", err)
 	}
@@ -572,15 +608,22 @@ func persistSeatMember(
 ) (string, error) {
 	eventType := "SEAT_CHANGED"
 	if existingID.Valid {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_room_members SET player_no=?,ready=0,left_at_ms=NULL,leave_reason=NULL,
-version=version+1,updated_at_ms=? WHERE id=?
-		`, playerNo, now, existingID.String); err != nil {
+		if _, err := recordstore.UpdateNetplayRoomMembers(ctx, transaction, recordstore.Update{
+			Set: `
+player_no=?,ready=0,left_at_ms=NULL,leave_reason=NULL,
+version=version+1,updated_at_ms=?
+`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{existingID.String},
+			},
+			Values: []any{playerNo, now},
+		}); err != nil {
 			return "", serviceError("change seat", err)
 		}
 	} else {
 		eventType = "MEMBER_JOINED"
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateNetplayRoomMembers(ctx, transaction, `
 INSERT INTO netplay_room_members(id,room_id,profile_id,role,player_no,ready,version,joined_at_ms,updated_at_ms)
 VALUES(?,?,?,'GUEST',?,0,1,?,?)
 		`, newV7(), roomID, profileID, playerNo, now, now); err != nil {
@@ -622,19 +665,28 @@ SELECT state,version FROM netplay_rooms WHERE id=?
 		return Room{}, ErrRoomConflict
 	}
 	readyValue := boolInt(ready)
-	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_room_members SET ready=?,version=version+1,updated_at_ms=?
-WHERE room_id=? AND profile_id=? AND left_at_ms IS NULL
-`, readyValue, now, roomID, profileID)
+	result, err := recordstore.UpdateNetplayRoomMembers(ctx, transaction, recordstore.Update{
+		Set: `ready=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `room_id=? AND profile_id=? AND left_at_ms IS NULL`,
+			Args:  []any{roomID, profileID},
+		},
+		Values: []any{readyValue, now},
+	})
 	if err != nil {
 		return Room{}, serviceError("set ready member", err)
 	}
 	if affected, _ := result.RowsAffected(); affected != 1 {
 		return Room{}, ErrForbidden
 	}
-	roomResult, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET version=version+1,expires_at_ms=?,updated_at_ms=? WHERE id=? AND version=?
-`, now+service.options.WaitingIdle.Milliseconds(), now, roomID, expectedVersion)
+	roomResult, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `version=version+1,expires_at_ms=?,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{roomID, expectedVersion},
+		},
+		Values: []any{now + service.options.WaitingIdle.Milliseconds(), now},
+	})
 	if err != nil {
 		return Room{}, serviceError("set ready room version", err)
 	}

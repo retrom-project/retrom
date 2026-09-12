@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -50,11 +52,14 @@ DELETE FROM metadata_provider_cache WHERE current_response_id=?
 `, responseID); err != nil {
 			return 0, fmt.Errorf("payloadrelease/provider cache release: %w", err)
 		}
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE metadata_provider_responses
-SET raw_response_blob_id=NULL,raw_payload_state='RELEASED',raw_payload_released_at_ms=?
-WHERE id=? AND raw_payload_state='RETAINED'
-`, now, responseID); err != nil {
+		if _, err := recordstore.UpdateMetadataProviderResponses(ctx, transaction, recordstore.Update{
+			Set: `raw_response_blob_id=NULL,raw_payload_state='RELEASED',raw_payload_released_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=? AND raw_payload_state='RETAINED'`,
+				Args:  []any{responseID},
+			},
+			Values: []any{now},
+		}); err != nil {
 			return 0, fmt.Errorf("payloadrelease/provider release: %w", err)
 		}
 	}

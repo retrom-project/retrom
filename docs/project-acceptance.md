@@ -357,16 +357,16 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-001`。
-- 流程：在空临时目录运行真实 migration；枚举全部表、列、外键、索引和 trigger；在一个事务创建 Game、GameFiles、三个 Core 的 GameVariant 与对应 VariantFiles；尝试跨 Game 文件/Variant 引用、重复 Game+Core Variant、非法 Provider/Target、重复 active BIOS/DAT、冲突 whole/file Upload consumption、无效平台/core 关系和负数 duration；读取一条 API JSON 与 SQLite typeof()。
-- 通过标准：所有业务时刻以 *_at_ms INTEGER 存储并通过 API 输出 JSON integer；时长为有单位的整数；不存在业务时刻 TEXT、CURRENT_TIMESTAMP 主存储或单位不明字段；bootstrap 不含 DROP/ALTER 转换或外键关闭标记；来源证据无 revision_no，初始来源唯一、当前来源由草稿明确选择。schema 不含 game_content_revisions、game_metadata_revisions、game_variant_revisions 及其 current pointer；Game/GameFiles/GameVariant 约束、partial unique index、外键索引和 append-only 审计 trigger 均存在，全部负向约束在数据库层拒绝，合法当前态事务可提交。
-- 证据：完整 schema 摘要、合法事务、每个负向 SQL 结果和 API 响应。
+- 流程：在空临时目录运行真实 migration；枚举全部表、列、外键与索引，并确认数据库没有 trigger/view；在一个事务创建 Game、GameFiles、三个 Core 的 GameVariant 与对应 VariantFiles；尝试跨 Game 文件/Variant 引用、重复 Game+Core Variant、非法 Provider/Target、重复 active BIOS/DAT、冲突 whole/file Upload consumption、无效平台/core 关系和负数 duration；读取一条 API JSON 与 SQLite typeof()。
+- 通过标准：所有业务时刻以 *_at_ms INTEGER 存储并通过 API 输出 JSON integer；时长为有单位的整数；不存在业务时刻 TEXT、CURRENT_TIMESTAMP 主存储或单位不明字段；bootstrap 不含 DROP/ALTER 转换或外键关闭标记；来源证据无 revision_no，初始来源唯一、当前来源由草稿明确选择。schema 不含 game_content_revisions、game_metadata_revisions、game_variant_revisions 及其 current pointer；Game/GameFiles/GameVariant 声明式约束、partial unique index、外键索引与应用写入校验均存在；跨表归属、状态转换和不可变审计通过存储方法拒绝，合法当前态事务可提交。校验失败后继续外层事务不泄漏非法记录，批量操作整体回滚。
+- 证据：完整 schema 摘要、合法事务、每个负向存储操作的 SQL 结果和 API 响应。
 
 ### ACC-DB-002：干净迁移链与 lineage 保护
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-002`。
-- 流程：使用全新数据根执行当前 001→010，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚；另验证当前备份往返，以及旧 manifest schema 或旧 lineage 恢复拒绝。
-- 通过标准：全新库到 010 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库；备份只允许与当前完整 lineage 精确一致的数据库恢复。
+- 流程：使用全新数据根执行当前 001→013，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚；另验证当前备份往返，以及旧 manifest schema 或旧 lineage 恢复拒绝。
+- 通过标准：全新库到 013 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库；备份只允许与当前完整 lineage 精确一致的数据库恢复。
 - 证据：当前 migration 名称/checksum、各实际起始/最终 schema 摘要、行数/hash、原子失败前后 schema、二次启动结果、lineage 负向矩阵与备份恢复结果。
 
 ### ACC-CAS-001：SHA-256 去重与原子写入
@@ -1255,7 +1255,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-FAV-001`。
 - 流程：由当前 bootstrap 创建空库并同步声明；两个 Profile 对同 Game 建独立关系；执行跨 owner、未收藏 Membership、重名、非法 UPDATE/version 负向 SQL；隐藏 Game/目录后备份恢复。不读取历史版本 fixture。
-- 通过：schema/checksum/FK/index/trigger 正确，负向 SQL 全部拒绝，隐藏关系保留而投影为零，恢复逐项一致且认证安全围栏仍生效。
+- 通过：schema/checksum/FK/index/应用写入校验 正确，负向 SQL 全部拒绝，隐藏关系保留而投影为零，恢复逐项一致且认证安全围栏仍生效。
 - 证据：起止版本、schema 摘要、负向矩阵、owner 行数与恢复前后 hash。
 
 ### ACC-FAV-002：API、幂等、并发与隔离
@@ -1285,7 +1285,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-TAG-001`。
 - 流程：由当前 bootstrap 创建新库；覆盖 NFC、Unicode 空白/case-fold/control、40/41 code point、160/161 byte、活动同名、20/21 owner 与 1,000/1,001 实例上限；关联后软删除，再用同名创建新 ID，并完成带 Tag/关系/tombstone/审计的离线 backup/restore。
-- 通过：当前表/列/partial unique/index/trigger、INTEGER 时刻、FK 与完整性正确；DELETED 不可恢复/改名/硬删，立即退出当前投影但历史关系和审计保留；同名新 ID 不继承旧关系；恢复前后标签快照逐项一致且 restore 安全围栏不退化。
+- 通过：当前表/列/partial unique/index/应用写入校验、INTEGER 时刻、FK 与完整性正确；DELETED 不可恢复/改名/硬删，立即退出当前投影但历史关系和审计保留；同名新 ID 不继承旧关系；恢复前后标签快照逐项一致且 restore 安全围栏不退化。
 - 证据：起止 migration/schema 摘要、名称/容量负向矩阵、删除前后 owner/version/关系、恢复前后 canonical hash 与完整性结果。
 
 ### ACC-TAG-002：API、权限、并发与游戏维护

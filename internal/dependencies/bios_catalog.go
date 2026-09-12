@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 )
 
@@ -291,8 +293,8 @@ func bootstrapStaticBIOS(
 		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
 			"retrom:bios:"+target.providerID+":"+target.targetID+":"+requirement.logical,
 		)).String()
-		_, err := transaction.ExecContext(
-			ctx,
+		_, err := recordstore.CreateBiosRequirements(
+			ctx, transaction,
 			`
 INSERT INTO bios_requirements(id,
 core_id,

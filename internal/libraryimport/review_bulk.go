@@ -13,6 +13,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -521,7 +523,7 @@ VALUES(?,'REVIEW_BULK_APPROVAL',?,'QUEUED',json_object('candidateCount',?),?)
 `, jobID.String(), bulkID.String(), len(candidates), now); err != nil {
 		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk create event: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateReviewBulkApprovals(ctx, transaction, `
 INSERT INTO review_bulk_approvals(id,job_id,state,scope_json,scope_digest,candidate_manifest_digest,
 matched_count,candidate_count,screenshot_only_count,duplicate_count,attachment_active_count,
 source_flagged_count,not_ready_or_stale_count,created_by_user_id,version,created_at_ms,updated_at_ms)
@@ -538,7 +540,7 @@ VALUES(?,?,'QUEUED',?,?,?,?,?,?,?,?,?,?,?,1,?,?)
 		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk create: %w", err)
 	}
 	for ordinal, candidate := range candidates {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateReviewBulkApprovalItems(ctx, transaction, `
 INSERT INTO review_bulk_approval_items(bulk_approval_id,import_item_id,ordinal,expected_review_version,
 expected_validation_id,expected_source_snapshot_id,title_snapshot,target_platform_instance_id,
 target_platform_name_snapshot,state,created_at_ms)

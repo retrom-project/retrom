@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -142,11 +144,13 @@ func (service *Service) releaseImportChild(
 	itemID, state, payloadState string,
 ) error {
 	if payloadState == "FAILED" {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE import_items
-SET payload_state='RELEASING',payload_last_error_code=NULL
-WHERE id=?
-`, itemID); err != nil {
+		if _, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+			Set: `payload_state='RELEASING',payload_last_error_code=NULL`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{itemID},
+			},
+		}); err != nil {
 			return fmt.Errorf("payloadrelease/retry import child: %w", err)
 		}
 	}

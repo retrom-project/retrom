@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -307,12 +309,15 @@ WHERE d.import_item_id=?
 `, itemID).Scan(&oldValidationID, &importConfigSnapshot); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE platform_instances
-SET version=version+1,
+	if _, err := recordstore.UpdatePlatformInstances(ctx, database.SQL, recordstore.Update{
+		Set: `
+version=version+1,
 updated_at_ms=updated_at_ms+1
-WHERE catalog_template_key='gba/mgba'
-`); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `catalog_template_key='gba/mgba'`,
+		},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if current, err := importer.ReviewValidationCurrent(ctx, oldValidationID); err != nil || !current {
@@ -505,7 +510,13 @@ WHERE id=?
 		!strings.Contains(datEvidenceJSON, `"datMatched":false`) {
 		t.Fatalf("discard evidence = games:%d blob:%d before:%s config:%s dat:%s error=%v", publishedDiscard, retainedBlob, beforeJSON, configEvidenceJSON, datEvidenceJSON, err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `UPDATE review_events SET reason='tampered' WHERE id=?`, discarded.EventID); err == nil ||
+	if _, err := recordstore.UpdateReviewEvents(ctx, database.SQL, recordstore.Update{
+		Set: `reason='tampered'`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{discarded.EventID},
+		},
+	}); err == nil ||
 		!strings.Contains(err.Error(), "immutable") {
 		t.Fatalf("immutable review event update error = %v", err)
 	}

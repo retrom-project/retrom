@@ -5,6 +5,8 @@ package saves
 import (
 	"testing"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobregistry"
 )
 
@@ -18,7 +20,7 @@ func TestGameSaveFrozenRestoreProtectsOldPayloadUntilLaunchFinishes(t *testing.T
 	}
 	syncGameData(t, f, restoring, "second")
 	assertGameSaveProtection(t, f, oldPayload, true)
-	mustSaveSQL(t, f.database.SQL, `UPDATE launch_sessions SET state='FINISHED',finished_at_ms=?,updated_at_ms=? WHERE id=?`, f.now.UnixMilli(), f.now.UnixMilli(), restoring.LaunchID)
+	mustUpdateLaunch(t, f.database.SQL, recordstore.Update{Set: `state='FINISHED',finished_at_ms=?,updated_at_ms=?`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{restoring.LaunchID}}, Values: []any{f.now.UnixMilli(), f.now.UnixMilli()}})
 	assertGameSaveProtection(t, f, oldPayload, false)
 }
 

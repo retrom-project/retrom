@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -70,11 +72,17 @@ func (service *Service) advanceAcceptedMultiDiscState(
 	if candidate.validationStatus == "READY" {
 		selectedValidation = evidence.validationID
 	}
-	if err := expectOneRow(transaction.ExecContext(ctx, `
-UPDATE review_drafts SET effective_source_snapshot_id=?,selected_validation_id=?,
-version=version+1,updated_at_ms=? WHERE id=? AND effective_source_snapshot_id=?
-`, evidence.sourceSnapshotID, selectedValidation, evidence.now,
-		candidate.input.ReviewDraftID, candidate.input.BaseSourceSnapshotID)); err != nil {
+	if err := expectOneRow(recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+		Set: `
+effective_source_snapshot_id=?,selected_validation_id=?,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND effective_source_snapshot_id=?`,
+			Args:  []any{candidate.input.ReviewDraftID, candidate.input.BaseSourceSnapshotID},
+		},
+		Values: []any{evidence.sourceSnapshotID, selectedValidation, evidence.now},
+	})); err != nil {
 		return multiDiscAttachmentStoreError("advance review source", err)
 	}
 	if err := recordMultiDiscDuplicateEvidence(
@@ -87,25 +95,41 @@ version=version+1,updated_at_ms=? WHERE id=? AND effective_source_snapshot_id=?
 		"attachedFileCount": len(candidate.uploadFiles), "validationStatus": candidate.validationStatus,
 		"durationMs": multiDiscAttachmentDurationMS(*candidate, evidence.now),
 	})
-	if err := expectOneRow(transaction.ExecContext(ctx, `
-UPDATE review_multidisc_attachments SET state='ACCEPTED',result_source_snapshot_id=?,
-result_validation_id=?,diagnostics_json=?,error_code=NULL,finished_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING'
-`, evidence.sourceSnapshotID, evidence.validationID, string(diagnostics), evidence.now, evidence.now,
-		candidate.input.AttachmentID)); err != nil {
+	if err := expectOneRow(recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='ACCEPTED',result_source_snapshot_id=?,
+result_validation_id=?,diagnostics_json=?,error_code=NULL,finished_at_ms=?,version=version+1,
+updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{candidate.input.AttachmentID},
+		},
+		Values: []any{
+			evidence.sourceSnapshotID,
+			evidence.validationID,
+			string(diagnostics),
+			evidence.now,
+			evidence.now,
+		},
+	})); err != nil {
 		return multiDiscAttachmentStoreError("accept attachment", err)
 	}
 	consumptionID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateUploadConsumptions(ctx, transaction, `
 INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
 VALUES(?,?,NULL,'REVIEW_MULTI_DISC',?,?)
 `, consumptionID.String(), candidate.input.UploadSessionID, candidate.input.AttachmentID, evidence.now); err != nil {
 		return multiDiscAttachmentStoreError("consume upload", err)
 	}
-	if err := expectOneRow(transaction.ExecContext(ctx, `
-UPDATE import_items SET version=version+1,updated_at_ms=?
-WHERE id=? AND state='REVIEW_PENDING'
-`, evidence.now, candidate.input.ImportItemID)); err != nil {
+	if err := expectOneRow(recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='REVIEW_PENDING'`,
+			Args:  []any{candidate.input.ImportItemID},
+		},
+		Values: []any{evidence.now},
+	})); err != nil {
 		return multiDiscAttachmentStoreError("advance import item", err)
 	}
 	return nil
@@ -121,7 +145,7 @@ func recordAcceptedMultiDiscReviewEvent(
 	eventEvidence := marshalReviewEventV2(map[string]any{
 		"attachmentKind": "MULTI_DISC", "validationStatus": candidate.validationStatus, "state": "ACCEPTED",
 	})
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
 VALUES(?,?,'DISC_ATTACHMENT_ACCEPTED','USER',?,NULL,?,?,?,?,?,?,?)
@@ -261,10 +285,17 @@ func (service *Service) finishRejectedMultiDiscAttachment(
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_multidisc_attachments SET state='REJECTED',error_code=?,diagnostics_json=?,
-finished_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'
-`, code, string(diagnostics), now, now, candidate.input.AttachmentID)
+	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='REJECTED',error_code=?,diagnostics_json=?,
+finished_at_ms=?,version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{candidate.input.AttachmentID},
+		},
+		Values: []any{code, string(diagnostics), now, now},
+	})
 	if err != nil {
 		return
 	}
@@ -294,7 +325,7 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 	evidence := marshalReviewEventV2(map[string]any{
 		"attachmentKind": "MULTI_DISC", "state": "REJECTED", "errorCode": code,
 	})
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
 VALUES(?,?,'DISC_ATTACHMENT_REJECTED','USER',?,NULL,?,?,?,?,?,?,?)
@@ -326,10 +357,17 @@ func (service *Service) finishRetryableMultiDiscAttachment(
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_multidisc_attachments SET state='FAILED_RETRYABLE',error_code=?,diagnostics_json=?,
-finished_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'
-`, code, diagnostics, now, now, candidate.input.AttachmentID)
+	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED_RETRYABLE',error_code=?,diagnostics_json=?,
+finished_at_ms=?,version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{candidate.input.AttachmentID},
+		},
+		Values: []any{code, diagnostics, now, now},
+	})
 	if err != nil {
 		return
 	}
@@ -388,10 +426,17 @@ FROM jobs WHERE id=? AND state='RUNNING' AND worker_id=?
 		return false
 	}
 	diagnostics := fmt.Sprintf(`{"errorCode":%q,"schemaVersion":1}`, code)
-	if err := expectOneRow(transaction.ExecContext(ctx, `
-UPDATE review_multidisc_attachments SET state='FAILED_RETRYABLE',error_code=?,diagnostics_json=?,
-finished_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'
-`, code, diagnostics, now, now, candidate.input.AttachmentID)); err != nil {
+	if err := expectOneRow(recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED_RETRYABLE',error_code=?,diagnostics_json=?,
+finished_at_ms=?,version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{candidate.input.AttachmentID},
+		},
+		Values: []any{code, diagnostics, now, now},
+	})); err != nil {
 		return false
 	}
 	if err := expectOneRow(transaction.ExecContext(ctx, `
@@ -421,13 +466,21 @@ VALUES(?,'IMPORT_ITEM',?,'RETRY_SCHEDULED',?,?)
 
 func (service *Service) SyncMultiDiscAttachmentCancellation(ctx context.Context, jobID string) {
 	now := service.now().UnixMilli()
-	_, _ = service.database.ExecContext(ctx, `
-UPDATE review_multidisc_attachments SET state='CANCELLED',error_code='CANCELLED',
+	_, _ = recordstore.UpdateReviewMultidiscAttachments(ctx, service.database, recordstore.Update{
+		Set: `
+state='CANCELLED',error_code='CANCELLED',
 diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
 version=version+1,updated_at_ms=?
-WHERE job_id=? AND state IN ('QUEUED','RUNNING','FAILED_RETRYABLE')
+`,
+		Scope: recordstore.Scope{
+			Where: `
+job_id=? AND state IN ('QUEUED','RUNNING','FAILED_RETRYABLE')
 AND EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='CANCELLED')
-`, now, now, jobID, jobID)
+`,
+			Args: []any{jobID, jobID},
+		},
+		Values: []any{now, now},
+	})
 }
 
 func (service *Service) finishMultiDiscAttachmentCancellation(
@@ -446,11 +499,18 @@ func (service *Service) finishMultiDiscAttachmentCancellation(
 		return false
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(ctx, `
-UPDATE review_multidisc_attachments SET state='CANCELLED',error_code='CANCELLED',
+	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
+		Set: `
+state='CANCELLED',error_code='CANCELLED',
 diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
-version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'
-`, now, now, candidate.input.AttachmentID)
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='RUNNING'`,
+			Args:  []any{candidate.input.AttachmentID},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		return false
 	}

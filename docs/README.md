@@ -6,7 +6,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 实施就绪结论
 
-当前未发布数据库由 `001_identity.sql`–`010_cross_domain_invariants.sql` 直接创建最终模型；不兼容开发库停机归档后重建，不提供旧表转换、兼容回填或双读分支。首次正式发布后才追加向前升级。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，业务历史进入 audit/event/evidence。运行时以 Provider Bundle 为唯一部署单元：EmulatorJS Provider 声明 44 个 Target，retrom-runtime Provider 声明 17 个 Target；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch、Preview 与 Netplay 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
+当前未发布数据库由 `001_identity.sql`–`013_bios_session_retirement.sql` 直接创建无 trigger/view 的最终模型，应用存储层负责跨表校验与关联写入；不兼容开发库停机归档后重建，不提供旧表转换、兼容回填或双读分支。首次正式发布后才追加向前升级。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，业务历史进入 audit/event/evidence。运行时以 Provider Bundle 为唯一部署单元：EmulatorJS Provider 声明 44 个 Target，retrom-runtime Provider 声明 17 个 Target；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch、Preview 与 Netplay 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
 
 全新数据库只 seed Platform/Core/关系等 reference catalog，PlatformInstance 初始为零；管理员在游戏目录页一键补齐推荐模板。RPG Maker 对用户仍是唯一 `rpgmaker` Core，服务端按项目证据绑定 `rpgmaker-2000` 至 `rpgmaker-mz` 七个 Provider Target；这些 Target 只用于不可变运行绑定和管理诊断，不进入用户 Core 选择器。FDS 归入 NES/FCEUmm，扩展名只由平台内容 profile 提供。Pegasus/EmulationStation、标签、收藏、Payload 生命周期与受限异地联机继续使用各自领域契约；八个联机 profile 绑定精确 Provider Target 和 `netplay profile digest`，不按单个 ROM 建产品白名单。
 

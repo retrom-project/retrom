@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/multidisc"
 )
 
@@ -23,16 +25,21 @@ func (run *creationRun) persistReviewDraft(record *groupRecord) error {
 		"players": nil, "releaseYear": nil,
 	})
 	searchParts := append([]string{record.itemID, title}, record.searchParts...)
-	if _, err := run.transaction.ExecContext(run.ctx, `
-UPDATE import_items SET search_text=? WHERE id=?
-`, strings.ToLower(strings.Join(searchParts, " ")), record.itemID); err != nil {
+	if _, err := recordstore.UpdateImportItems(run.ctx, run.transaction, recordstore.Update{
+		Set: `search_text=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{record.itemID},
+		},
+		Values: []any{strings.ToLower(strings.Join(searchParts, " "))},
+	}); err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
 	var selectedValidation any
 	if record.validationStatus == "READY" {
 		selectedValidation = record.validationID
 	}
-	_, err := run.transaction.ExecContext(run.ctx, `
+	_, err := recordstore.CreateReviewDrafts(run.ctx, run.transaction, `
 INSERT INTO review_drafts(
   id,import_item_id,target_platform_instance_id,selected_validation_id,effective_source_snapshot_id,
   default_dos_entry,metadata_json,version,created_at_ms,updated_at_ms

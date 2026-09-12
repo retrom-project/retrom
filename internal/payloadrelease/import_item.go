@@ -6,6 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -37,9 +41,13 @@ SELECT state,version,payload_state,payload_release_job_id FROM import_items WHER
 		return nil
 	}
 	if payloadState == "FAILED" {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE import_items SET payload_state='RELEASING',payload_last_error_code=NULL WHERE id=?
-`, job.ScopeID); err != nil {
+		if _, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+			Set: `payload_state='RELEASING',payload_last_error_code=NULL`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{job.ScopeID},
+			},
+		}); err != nil {
 			return fmt.Errorf("payloadrelease/retry import item: %w", err)
 		}
 	}
@@ -91,10 +99,14 @@ func (service *Service) releaseImportItemTx(
 	if err := service.stageCandidates(ctx, transaction, blobs); err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE import_items SET payload_state='RELEASED',payload_released_at_ms=?,payload_last_error_code=NULL
-WHERE id=? AND payload_state IN ('RELEASING','FAILED','RELEASED')
-`, now, itemID); err != nil {
+	if _, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `payload_state='RELEASED',payload_released_at_ms=?,payload_last_error_code=NULL`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND payload_state IN ('RELEASING','FAILED','RELEASED')`,
+			Args:  []any{itemID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/complete import item: %w", err)
 	}
 	return nil
@@ -121,10 +133,17 @@ WHERE released_at_ms IS NULL AND (
 `, now, reason, itemID, itemID, itemID); err != nil {
 		return fmt.Errorf("payloadrelease/release review consumptions: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_preview_sessions SET state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),
-updated_at_ms=?,version=version+1 WHERE import_item_id=? AND state IN ('CREATED','ACTIVE','FINISHED')
-`, now, now, itemID); err != nil {
+	if _, err := sessionstore.ChangePreview(ctx, transaction, recordstore.Update{
+		Set: `
+state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),
+updated_at_ms=?,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=? AND state IN ('CREATED','ACTIVE','FINISHED')`,
+			Args:  []any{itemID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/revoke review preview: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -134,10 +153,17 @@ DELETE FROM review_draft_screenshot_assets WHERE review_draft_id IN (
 `, itemID); err != nil {
 		return fmt.Errorf("payloadrelease/clear review screenshots: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_drafts SET cover_candidate_asset_id=NULL,background_candidate_asset_id=NULL,cover_uploaded_asset_id=NULL,
-version=version+1,updated_at_ms=? WHERE import_item_id=?
-`, now, itemID); err != nil {
+	if _, err := recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+		Set: `
+cover_candidate_asset_id=NULL,background_candidate_asset_id=NULL,cover_uploaded_asset_id=NULL,
+version=version+1,updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=?`,
+			Args:  []any{itemID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/clear review draft: %w", err)
 	}
 	return nil
@@ -149,29 +175,42 @@ func (service *Service) releaseImportEvidence(
 	itemID string,
 	now int64,
 ) error {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_arcade_parent_attachments
-SET accepted_blob_id=NULL,payload_released_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_item_id=? AND accepted_blob_id IS NOT NULL
-`, now, now, itemID); err != nil {
+	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
+		Set: `accepted_blob_id=NULL,payload_released_at_ms=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=? AND accepted_blob_id IS NOT NULL`,
+			Args:  []any{itemID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/release parent evidence: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE import_item_multidisc_entries
-SET state='PAYLOAD_RELEASED',upload_file_id=NULL,blob_id=NULL,payload_released_at_ms=?
-WHERE blob_id IS NOT NULL AND source_snapshot_id IN (
+	if _, err := recordstore.UpdateImportItemMultidiscEntries(ctx, transaction, recordstore.Update{
+		Set: `state='PAYLOAD_RELEASED',upload_file_id=NULL,blob_id=NULL,payload_released_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `
+blob_id IS NOT NULL AND source_snapshot_id IN (
   SELECT id FROM import_item_source_snapshots WHERE import_item_id=?
 )
-`, now, itemID); err != nil {
+`,
+			Args: []any{itemID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/release multidisc evidence: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE content_hash_evidence
-SET blob_id=NULL,archive_blob_id=NULL,archive_entry_ordinal=NULL,payload_released_at_ms=?
-WHERE payload_released_at_ms IS NULL AND scrape_run_id IN (
+	if _, err := recordstore.UpdateContentHashEvidence(ctx, transaction, recordstore.Update{
+		Set: `blob_id=NULL,archive_blob_id=NULL,archive_entry_ordinal=NULL,payload_released_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `
+payload_released_at_ms IS NULL AND scrape_run_id IN (
   SELECT id FROM metadata_scrape_runs WHERE import_item_id=?
 )
-`, now, itemID); err != nil {
+`,
+			Args: []any{itemID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("payloadrelease/release hash evidence: %w", err)
 	}
 	if err := service.releaseLinkedPegasusItem(ctx, transaction, itemID, now); err != nil {
@@ -183,53 +222,53 @@ WHERE payload_released_at_ms IS NULL AND scrape_run_id IN (
 	return nil
 }
 
-func importItemDeleteStatements() []string {
-	return []string{
-		`DELETE FROM isolated_runtime_capabilities WHERE rowid IN (
+func importItemDeleteStatements() []deletionBatch {
+	return []deletionBatch{
+		{remove: recordstore.DeleteIsolatedRuntimeCapabilities, where: `rowid IN (
  SELECT capability.rowid FROM isolated_runtime_capabilities capability
  JOIN review_preview_sessions preview ON preview.id=capability.preview_id
  WHERE preview.import_item_id=? AND preview.state IN ('EXPIRED','REVOKED')
  ORDER BY capability.rowid LIMIT 200
-)`,
-		`DELETE FROM isolated_runtime_bootstrap_tickets WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteIsolatedRuntimeBootstrapTickets, where: `rowid IN (
  SELECT ticket.rowid FROM isolated_runtime_bootstrap_tickets ticket
  JOIN review_preview_sessions preview ON preview.id=ticket.preview_id
  WHERE preview.import_item_id=? AND preview.state IN ('EXPIRED','REVOKED')
  ORDER BY ticket.rowid LIMIT 200
-)`,
-		`DELETE FROM review_preview_files WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteReviewPreviewFiles, where: `rowid IN (
  SELECT file.rowid FROM review_preview_files file
  JOIN review_preview_sessions preview ON preview.id=file.preview_session_id
  WHERE preview.import_item_id=? ORDER BY file.rowid LIMIT 200
-)`,
-		`DELETE FROM review_runtime_screenshots WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteReviewRuntimeScreenshots, where: `rowid IN (
  SELECT rowid FROM review_runtime_screenshots
  WHERE import_item_id=? ORDER BY rowid LIMIT 200
-)`,
-		`DELETE FROM review_preview_sessions WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteReviewPreviewSessions, where: `rowid IN (
  SELECT rowid FROM review_preview_sessions WHERE import_item_id=? ORDER BY rowid LIMIT 200
-)`,
-		`DELETE FROM review_uploaded_assets WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteReviewUploadedAssets, where: `rowid IN (
  SELECT rowid FROM review_uploaded_assets WHERE import_item_id=? ORDER BY rowid LIMIT 200
-)`,
-		`DELETE FROM scrape_candidate_assets WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteScrapeCandidateAssets, where: `rowid IN (
  SELECT asset.rowid FROM scrape_candidate_assets asset
  JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
  WHERE run.import_item_id=? ORDER BY asset.rowid LIMIT 200
-)`,
-		`DELETE FROM import_item_validation_files WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteImportItemValidationFiles, where: `rowid IN (
  SELECT file.rowid FROM import_item_validation_files file
  JOIN import_item_core_validations validation ON validation.id=file.import_item_core_validation_id
  WHERE validation.import_item_id=? ORDER BY file.rowid LIMIT 200
-)`,
-		`DELETE FROM import_item_source_snapshot_files WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteImportItemSourceSnapshotFiles, where: `rowid IN (
  SELECT file.rowid FROM import_item_source_snapshot_files file
  JOIN import_item_source_snapshots snapshot ON snapshot.id=file.source_snapshot_id
  WHERE snapshot.import_item_id=? ORDER BY file.rowid LIMIT 200
-)`,
-		`DELETE FROM import_item_source_files WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteImportItemSourceFiles, where: `rowid IN (
  SELECT rowid FROM import_item_source_files WHERE import_item_id=? ORDER BY rowid LIMIT 200
-)`,
+)`},
 	}
 }

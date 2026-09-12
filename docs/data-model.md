@@ -1,13 +1,23 @@
 # Retrom 数据模型
 
-字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/013_bios_session_retirement.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK 与索引的事实源是 `migrations/001_identity.sql` 至 `migrations/013_bios_session_retirement.sql`；跨表与状态转换校验在 `internal/recordstore`，会话及存档联动在 `internal/sessionstore`，共享查询投影在 `internal/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
-- 001–010 是冻结的 current-state bootstrap；011 起可追加兼容扩展，新增表和原子替换领域 trigger，不转换或删除现有 payload 表、不关闭外键。已有且 checksum 完全匹配的 001–010 数据库可原地升级。不兼容的开发库仍须停机归档并使用空数据根重建；不提供降级、回滚、双写或运行时 schema 修补。
+- 001–013 组成新的未发布建库基线，只创建表、声明式约束、索引与空实例状态，不创建 trigger/view 或回填历史数据。此次基线与旧开发库不兼容，旧库必须停机归档并重建；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
+
+### 应用写入与数据库职责
+
+数据库保留 PK、UNIQUE、CHECK、FK、必要的关系级联和查询索引。跨表归属、快照冻结、版本推进、终态不可恢复、最后一个管理员、标签数量与批次丢弃围栏使用显式 SQL 校验。新增或修改这类写入必须经过对应的 `recordstore` 方法；只读查询或不涉及这些不变量的写入仍可直接使用参数化 SQL。
+
+`recordstore.Update` 分离 SET 值和 WHERE 参数，在同一连接读取所选记录的旧值，再更新并校验新旧值；删除先校验所有目标记录，再执行删除。调用方不得把未经校验的客户端文本拼入 SET/WHERE。写入与校验共享保存点，任何错误会撤销该次操作，调用方继续外层事务也不能提交非法记录。乐观条件未命中仍返回零行。冻结字段校验以值是否发生改变为准，对原值赋值不产生新状态；不可变证据整行更新、凭据重复消费/撤销等一次性操作仍按各自契约拒绝。
+
+Launch 创建、变更与终态处理，以及 Save 创建，必须使用 `sessionstore`，在相同保存点维护回收排期、存档数据版本、冻结恢复输入和隔离凭据撤销。批量更新逐个处理实际选中的会话，已撤销的凭据不改写原撤销时间，已释放排期不重新入队。
+
+存档兼容性和批次丢弃的共享 SELECT 由 `storequery` 提供，消费者以子查询组合，不依赖数据库 view。当前驱动仍是 SQLite；JSON 函数、占位符、PRAGMA、索引、事务隔离/锁及备份机制的其他数据库适配不属于这次触发器/view 移除。
 
 ## 2. Runtime Provider catalog
 
@@ -56,7 +66,7 @@ Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录
 
 检查摘要不设跨历史记录的唯一约束：依赖从缺失变为可用、再变回缺失，是新的检查结果，即使输入摘要与较早记录相同也必须能正常保存。未变化的重复检查复用当前结果，不新增记录。RPG 的导入、重新检查和发布共用项目资源策略；外部 RTP 声明默认阻断，管理员的显式自包含确认与声明一起写入依赖快照并参与摘要，发布事务重新核对，不以是否打开过 Player 作为就绪条件。
 
-运行包安装、选包与运行挂载已退出产品。冻结的历史 migrations 及既存 Blob 引用保护仍保留，避免改写 checksum 或误回收已有 payload；它们不再接受应用创建新的安装或绑定。该调整不重建开发库，也不转换、删除已有游戏及存档。
+运行包安装、选包与运行挂载已退出产品。当前建库基线仍保留相关表和 Blob 引用保护，但应用不再创建新的安装或绑定；这些保留结构不表示支持旧开发库升级，数据库兼容范围遵循本次新建库基线。
 
 发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 
@@ -74,7 +84,7 @@ RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、P
 
 ### 批次丢弃与服务器上传归属
 
-`import_batch_discards` 对 `(kind,import_id)` 只保留一个当前处置，kind 为普通导入、Pegasus 或 EmulationStation。`REQUESTED → COMPLETED|FAILED`，失败可回到 REQUESTED；记录请求管理员、错误码和毫秒时间，不增加试玩 revision 或按运行次数累积记录。来源批次由服务校验；请求落库即通过 `discarded_import_jobs` 视图及 trigger 阻止该批次再次发布、重试导入。
+`import_batch_discards` 对 `(kind,import_id)` 只保留一个当前处置，kind 为普通导入、Pegasus 或 EmulationStation。`REQUESTED → COMPLETED|FAILED`，失败可回到 REQUESTED；记录请求管理员、错误码和毫秒时间，不增加试玩 revision 或按运行次数累积记录。来源批次由服务校验；请求落库后，发布/重试事务通过 `storequery.DiscardedImportJobs` 查询与 `recordstore` 状态校验共同阻止批次再次发布、重试导入。
 
 `server_import_upload_owners` 将内部 UploadSession 唯一关联到一个来源 Item，与内部上传同事务创建，覆盖“创建内部导入后、尚未交接审核前”的中断和不支持格式分支。UploadSession 删除级联移除此归属；该表仅记录身份，不增加 Blob 引用。旧来源按确定性上传 ID 恢复；旧 Pegasus 随机 ID 仅在完整文件集合、目标和执行时间以及内部 manifest 摘要唯一匹配时恢复，歧义保留数据并报错。
 
@@ -110,11 +120,11 @@ Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS
 
 `013_bios_session_retirement.sql` 为未释放的非活动 BIOS 安装、按 Blob 定位的 `BIOS_BUNDLE` VariantFile 和当前活动 BIOS Blob 建立索引。替换事务不遍历依赖 JSON，也不更新 GameVariant、Launch、Play、Netplay 或 SaveState。旧安装仍持有 Blob，后台每个事务最多移除 200 条旧 Variant BIOS 边；同一 Blob 仍被其他活动安装采用时保留这些边。释放安装的 Blob 引用后仍保留名称/hash/来源审计。
 
-`launch_payload_retirements` 是 Launch 的回收排期，包含 `launch_session_id`、`due_at_ms`、`released_at_ms`。迁移为现有会话建立排期，插入/状态/心跳更新 trigger 同事务维护截止时间：CREATED 取 bootstrap/hard 最早值，ACTIVE 取 idle/hard 最早值，终态取 finished 时间；已释放行不重新入队。后台按未释放截止时间的部分索引逐会话处理，每个短事务分别最多释放 200 条内容文件和 200 条外部文件引用。超时会话标为 EXPIRED，并按 Launch ID 结束对应 Play；大项目跨批次继续，全部文件引用释放后才记录释放时间。存档和会话来源记录保留，物理文件仍受其他 owner 与 GC 宽限期保护。普通启动与每小时 GC 对账重试未完成工作；单次替换无需等待对账，服务重启可续做。
+`launch_payload_retirements` 是 Launch 的回收排期，包含 `launch_session_id`、`due_at_ms`、`released_at_ms`。`sessionstore.CreateLaunch` 创建排期，`sessionstore.ChangeLaunch` 在状态/心跳更新的同一事务维护截止时间：CREATED 取 bootstrap/hard 最早值，ACTIVE 取 idle/hard 最早值，终态取 finished 时间；已释放行不重新入队。后台按未释放截止时间的部分索引逐会话处理，每个短事务分别最多释放 200 条内容文件和 200 条外部文件引用。超时会话标为 EXPIRED，并按 Launch ID 结束对应 Play；大项目跨批次继续，全部文件引用释放后才记录释放时间。存档和会话来源记录保留，物理文件仍受其他 owner 与 GC 宽限期保护。普通启动与每小时 GC 对账重试未完成工作；单次替换无需等待对账，服务重启可续做。
 
 ## 10. 数据库不变量
 
-`010_cross_domain_invariants.sql` 至少保证：
+`recordstore`、`sessionstore` 与声明式数据库约束共同保证：
 
 - Provider/Target 引用命中当前 catalog，Launch/Netplay 的 Bundle 命中创建时的当前 Provider；
 - Game、Variant 的稳定 owner 和逐次 `version` 更新；
@@ -122,7 +132,7 @@ Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS
 - checkpoint format 位于 Target 的可读格式集合；
 - 隔离 capability 的 owner/origin/expiry 一致；
 - payload release 不产生悬空 Blob 引用；
-- 来源快照、gate event 和其他证据保持不可变。
+- 来源快照、审核事件和其他证据保持不可变。
 
 新增运行时引用时必须复用稳定 Provider/Target 和既有 Bundle 冻结规则，禁止新增第二套运行选择字段或从 Target ID 推导 Provider 私有实现。
 

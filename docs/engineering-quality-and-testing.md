@@ -295,7 +295,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 存档与恢复 | 非空 checkpoint payload 必需、PRODUCT 截图可选且缺失时 API/UI 明确返回空预览；存档按 Profile+Game 归属并记录 checkpoint format，恢复时由该 Game 当前 READY Target 的 `readFormats` 判定兼容，不匹配时保留存档并明确拒绝；Launch 已物化 payload 由自身引用保护，不依赖业务版本表；Provider 只向前升级时普通启动使用当前 Bundle，旧存档只要格式可读即可恢复；RPG runtime validation 的恢复证据截图仍是发布 gate 必需项 |
 | RPG Maker 项目与运行时 | selected-core×signature outcome（含 RPG2K family-only）、LCF/INI/HTML/JSON/parser fuzz、路径/gencache 冲突、V2 fileset、pack match/ref protection、route uniqueness、validation 状态机、bootstrap ticket 一次消费、native bundle codec、checkpoint compatibility；恢复必须断言 A→B 保存→C→不同 Launch 的 map/坐标/变量回到 B |
 | 游玩时长 | 心跳幂等、页面不可见/暂停不累计、失联上限、重复 finish、异常时钟、整数毫秒持久化 |
-| SQLite migration | 空库 001–010 直接建最终模型、旧开发 lineage 只读拒绝并要求归档重建、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `INTEGER` |
+| SQLite migration | 空库 001–013 直接建最终模型且无 trigger/view、旧开发 lineage 只读拒绝并要求归档重建、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `INTEGER` |
 | Blob GC/备份恢复 | 引用扫描、竞态保护、孤儿回收、仍被存档/任务引用的 Blob 保留、恢复后数据库与内容引用一致 |
 | 已登记 CAS 容量分析 | registry 每条 `PROTECTIVE` 边与容量语义双向覆盖；保护集与 GC 共用；Archive 用途单向传播；长期用途优先/跨长期用途共享；同大小不同 Blob 不误去重；九类含零值且总量恒等；int64 溢出失败；存档/候选引用视图不与分类相加；ADMIN/USER/匿名、未知 query、脱敏、空库与读库失败 |
 
@@ -508,7 +508,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 ## 13. 游戏标签测试矩阵
 
-- migration/store：034 新库与 033 升级、表/列/partial unique/index/trigger/INTEGER 时刻/FK、DELETED 不可恢复、同名新 ID、20/21 owner 上限，以及 backup/restore 对 tombstone、关系和审计的保真。
+- migration/store：当前空库与应用事务写入、表/列/partial unique/index/应用写入校验/INTEGER 时刻/FK、DELETED 不可恢复、同名新 ID、20/21 owner 上限，以及 backup/restore 对 tombstone、关系和审计的保真。
 - Tagging/HTTP：NFC、Unicode whitespace/case-fold/control、40/41 code point、160/161 byte、1,000/1,001 实例上限；CRUD/usage/cursor/filter/sort、ADMIN/USER、strict JSON/CSRF/If-Match/Idempotency、同名并发、关系 no-op、delete 与 assignment 两种提交顺序、版本联动和审计。
 - 搜索/投影：Game/Admin/Review 的 `q/tagId` 在 SQL 分页前取交集，cursor 不跨筛选复用；Favorite/Recent/Save/Netplay 与 detail 的数组始终非 null、名称稳定排序、删除立即隐藏且列表批量读取无 N+1。
 - Import/Review/Pegasus/EmulationStation：批次默认标签、多 Item 继承、reconfigure、逐项 autosave、删除后的旧 ETag、Approve 原子复制、Discard snapshot；逐 Collection 集合、SKIP 空值、mapping 恢复/start 漂移/retry/handoff 幂等和外部 metadata tags 不自动关联。
@@ -551,7 +551,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 ## 13.2 RPG Maker 测试矩阵
 
 - 纯逻辑：唯一用户虚拟 Core、Provider 声明的七世代 Target 与 Host 受限接入策略、七世代自动检测与 42 个跨世代 mismatch、LCF varint/chunk、INI UTF-8/CP932、RGSS marker、MV/MZ HTML/JSON、安全逻辑路径与 fileset、deterministic mkxpz、项目资源声明与人工自包含确认、checkpoint codec 和唯一 Provider 生命周期；parser/codec 使用固定 seed fuzz，不能引入 I/O/panic/无界分配或第二份映射 registry。
-- SQLite/HTTP：001–010 最终 bootstrap、Provider/Target/pack/save/Launch 约束、启动目录原子同步及用户配置保留、只向前激活与持久存档 readFormats 保护、ticket 单次消费/过期/重放、review ETag/相关 prepublish 输入、普通审核 Preview/checkpoint/冻结恢复/TTL/终态清理、270 MiB multipart、Range/ETag/MIME/Host/Origin；无旧库转换或运行证明专用表/API。
+- SQLite/HTTP：001–013 最终 bootstrap、Provider/Target/pack/save/Launch 约束、启动目录原子同步及用户配置保留、只向前激活与持久存档 readFormats 保护、ticket 单次消费/过期/重放、review ETag/相关 prepublish 输入、普通审核 Preview/checkpoint/冻结恢复/TTL/终态清理、270 MiB multipart、Range/ETag/MIME/Host/Origin；无旧库转换或运行证明专用表/API。
 - Web：上传目的及 ZIP/目录自动识别、依赖就绪与普通试运行、唯一用户 Core、准确世代显示、loading/disabled/error、按需截图、会话级 checkpoint/恢复、dispatcher、Provider 启动取消/存档中退出/主动退出/失败清理，以及移动/桌面/4K/focus/axe。覆盖所有直接消费共享生命周期的普通、沉浸和联机分支；不保留 gate 面板或第二层 controller/factory。
 - Chrome 产品链：七世代都经过真实上传、审核、Launch、受授权内容、普通 Player、marker、输入/音频/连续帧、checkpoint、结束和不同 Launch 恢复。A、B、C、restore 与继续输入均由研发 harness 观察普通 checkpoint、真实核心/fixture 和可见画面；证明 restore=B 且与 A/C 可区分。HTTP 201、load 成功、Blob/hash 相等、同进程 load 或单张截图均不能替代运行证明。
 - 项目资源策略：`ACC-RPG-009` 在现有开发实例中增量添加自有 fixture，验证五个 RTP 世代的默认阻断、人工确认、取消确认及发布；安装接口、专用上传和挂载已退役。保留已有游戏/存档，不清库。运行验证仍按受影响世代分别执行，不以审核就绪代替真实运行。具体步骤与证据只以[统一验收 ACC-RPG-009](./project-acceptance.md#acc-rpg-009项目资源与人工自包含确认)为准。

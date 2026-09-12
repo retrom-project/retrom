@@ -11,6 +11,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
@@ -433,11 +435,14 @@ func applyPlatformInstanceOrder(
 	resultItems := make([]map[string]any, 0, len(items))
 	for index, item := range items {
 		sortOrder := int64(index+1) * 100
-		result, err := transaction.ExecContext(request.Context(), `
-UPDATE platform_instances
-SET sort_order=?,version=version+1,updated_at_ms=?
-WHERE id=? AND version=? AND deleted_at_ms IS NULL
-`, sortOrder, now, item.ID, item.Version)
+		result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
+			Set: `sort_order=?,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=? AND version=? AND deleted_at_ms IS NULL`,
+				Args:  []any{item.ID, item.Version},
+			},
+			Values: []any{sortOrder, now},
+		})
 		if err != nil {
 			return nil, fmt.Errorf("httpapi/platform order update: %w", err)
 		}
@@ -575,28 +580,25 @@ func (server *Server) patchPlatformInstance(writer http.ResponseWriter, request 
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(
-		request.Context(),
-		`
-UPDATE platform_instances
-SET name=?,
+	result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
+		Set: `
+name=?,
 description=?,
 sort_order=?,
 enabled=?,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND version=?
 AND deleted_at_ms IS NULL
 `,
-		values.name,
-		values.description,
-		values.sortOrder,
-		values.enabled,
-		now,
-		request.PathValue("platformInstanceId"),
-		expected,
-	)
+			Args: []any{request.PathValue("platformInstanceId"), expected},
+		},
+		Values: []any{values.name, values.description, values.sortOrder, values.enabled, now},
+	})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -681,23 +683,23 @@ WHERE platform_instance_id=?
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(
-		request.Context(),
-		`
-UPDATE platform_instances
-SET enabled=0,
+	result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
+		Set: `
+enabled=0,
 deleted_at_ms=?,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND version=?
 AND deleted_at_ms IS NULL
 `,
-		now,
-		now,
-		request.PathValue("platformInstanceId"),
-		expected,
-	)
+			Args: []any{request.PathValue("platformInstanceId"), expected},
+		},
+		Values: []any{now, now},
+	})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return

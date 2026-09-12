@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -212,25 +214,39 @@ WHERE import_item_id=?
 	if err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_drafts
-SET selected_candidate_id=?,
+	if _, err := recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+		Set: `
+selected_candidate_id=?,
 cover_candidate_asset_id=?,
 background_candidate_asset_id=?,
 metadata_json=?,
 updated_at_ms=?
-WHERE id=?
-`, candidateID, nullableText(coverID), nullableText(backgroundID), mergedMetadata, now, draftID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{draftID},
+		},
+		Values: []any{
+			candidateID,
+			nullableText(coverID),
+			nullableText(backgroundID),
+			mergedMetadata,
+			now,
+		},
+	}); err != nil {
 		return fmt.Errorf("apply initial scrape candidate: %w", err)
 	}
 	if err := applyInitialReviewScreenshots(ctx, transaction, draftID, candidateID, now); err != nil {
 		return err
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE import_items
-SET search_text=trim(search_text || ' ' || lower(?))
-WHERE id=?
-`, title, itemID); err != nil {
+	if _, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `search_text=trim(search_text || ' ' || lower(?))`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{itemID},
+		},
+		Values: []any{title},
+	}); err != nil {
 		return fmt.Errorf("update initial review search text: %w", err)
 	}
 	return nil
@@ -254,16 +270,23 @@ func (service *Service) completeInitialImport(
 		return err
 	}
 
-	result, err := transaction.ExecContext(ctx, `
-UPDATE import_items
-SET state='REVIEW_PENDING',
+	result, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='REVIEW_PENDING',
 failed_stage=NULL,
 last_error_code=NULL,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND state='SCRAPING'
-	`, now, scope.itemID)
+`,
+			Args: []any{scope.itemID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return fmt.Errorf("expose initial review item: %w", err)
 	}
@@ -363,16 +386,23 @@ func failInitialImport(
 	if !active {
 		return nil
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE import_items
-SET state='FAILED_RETRYABLE',
+	result, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED_RETRYABLE',
 failed_stage='SCRAPING',
 last_error_code=?,
 version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND state='SCRAPING'
-`, code, now, scope.itemID)
+`,
+			Args: []any{scope.itemID},
+		},
+		Values: []any{code, now},
+	})
 	if err != nil {
 		return fmt.Errorf("fail initial import item: %w", err)
 	}

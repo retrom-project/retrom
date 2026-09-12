@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
@@ -38,9 +40,8 @@ func TestBIOSLaunchRetirementDeadlines(t *testing.T) {
 			if tc.state == "FINISHED" || tc.state == "REVOKED" {
 				finish = now
 			}
-			_, err := database.ExecContext(t.Context(), `UPDATE launch_sessions SET state=?,finished_at_ms=?,
-idle_expires_at_ms=?,hard_expires_at_ms=?,bootstrap_expires_at_ms=?,updated_at_ms=?,version=version+1
-WHERE id='firmware-launch'`, tc.state, finish, now+tc.idle, now+tc.hard, now+tc.bootstrap, now)
+			_, err := updateFirmwareLaunch(t, database, recordstore.Update{Set: `state=?,finished_at_ms=?,
+idle_expires_at_ms=?,hard_expires_at_ms=?,bootstrap_expires_at_ms=?,updated_at_ms=?,version=version+1`, Scope: recordstore.Scope{Where: `id='firmware-launch'`}, Values: []any{tc.state, finish, now + tc.idle, now + tc.hard, now + tc.bootstrap, now}})
 			testassert.False(t, err != nil, err)
 			testassert.False(t, releases.ReconcileGC(t.Context()) != nil, "reconcile")
 			testassert.False(t, releases.ReconcileGC(t.Context()) != nil, "reconcile twice")

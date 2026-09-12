@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -160,7 +162,7 @@ func (service *Service) persistReviewPreview(
 	if err != nil {
 		return err
 	}
-	_, err = transaction.ExecContext(ctx, `
+	_, err = recordstore.CreateReviewPreviewSessions(ctx, transaction, `
 INSERT INTO review_preview_sessions(id,import_item_id,source_snapshot_id,validation_id,
 	target_platform_instance_id,provider_id,target_id,bundle_sha256,
 actor_user_id,idempotency_key,title,content_kind,
@@ -181,7 +183,7 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
 		return fmt.Errorf("create review preview: %w", err)
 	}
 	for _, file := range content.Files {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateReviewPreviewFiles(ctx, transaction, `
 INSERT INTO review_preview_files(preview_session_id,role,logical_name,virtual_path,blob_id,sort_order,created_at_ms)
 VALUES(?,?,?,?,?,?,?)
 `, previewID, file.Role, file.LogicalName, nullableTextPointer(file.VirtualPath), file.BlobID,
@@ -531,10 +533,14 @@ func (service *Service) activateReviewPreview(ctx context.Context, previewID, st
 		return nil
 	}
 	now := service.now().UnixMilli()
-	if _, err := service.database.ExecContext(ctx, `
-UPDATE review_preview_sessions SET state='ACTIVE',activated_at_ms=?,updated_at_ms=?,version=version+1
-WHERE id=? AND state='CREATED'
-`, now, now, previewID); err != nil {
+	if _, err := recordstore.UpdateReviewPreviewSessions(ctx, service.database, recordstore.Update{
+		Set: `state='ACTIVE',activated_at_ms=?,updated_at_ms=?,version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='CREATED'`,
+			Args:  []any{previewID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("activate review preview: %w", err)
 	}
 	return nil
@@ -686,7 +692,7 @@ DELETE FROM review_runtime_screenshots WHERE import_item_id=? AND validation_id<
 `, target.ItemID, target.ValidationID); err != nil {
 		return fmt.Errorf("replace prior review screenshot: %w", err)
 	}
-	_, err := transaction.ExecContext(ctx, `
+	_, err := recordstore.CreateReviewRuntimeScreenshots(ctx, transaction, `
 INSERT INTO review_runtime_screenshots(id,import_item_id,preview_session_id,source_snapshot_id,
 	validation_id,provider_id,target_id,blob_id,media_type,width_px,height_px,
 captured_at_ms,created_at_ms,updated_at_ms)
