@@ -103,20 +103,11 @@ func (service *RoomControl) selection(
 		if candidate.Manifest.ID != profileID {
 			continue
 		}
-		_, digest, err := service.registry.CanonicalProfile(profile.CanonicalProfileInput{
-			ManifestProfile: candidate.Manifest, BundleSHA256: candidate.BundleSHA256,
-			SourceManifestDigest: candidate.SourceManifestDigest, DependencySnapshotJSON: candidate.DependencySnapshotJSON,
-		})
+		frozen, err := freezeRoomProfile(service.registry, gameID, candidate)
 		if err != nil {
-			return RoomSelection{}, fmt.Errorf("%w: %w", ErrInvalidProfile, err)
+			return RoomSelection{}, err
 		}
-		return RoomSelection{
-			GameID:     gameID,
-			VariantID:  candidate.VariantID,
-			ProfileID:  profileID,
-			Digest:     digest,
-			MaxPlayers: candidate.Manifest.MaxPlayers,
-		}, nil
+		return frozen.Selection, nil
 	}
 	return RoomSelection{}, ErrInvalidProfile
 }

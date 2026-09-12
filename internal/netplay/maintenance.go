@@ -12,8 +12,6 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 
-	"github.com/google/uuid"
-
 	"retrom/internal/cleanup"
 )
 
@@ -201,14 +199,6 @@ VALUES(?,?,?,?,?,?,?)
 		return fmt.Errorf("netplay/append event: %w", err)
 	}
 	return nil
-}
-
-func newV7() string {
-	value, err := uuid.NewV7()
-	if err != nil {
-		return ""
-	}
-	return value.String()
 }
 
 func intPointer(value int) *int { return &value }

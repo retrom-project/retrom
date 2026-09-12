@@ -124,6 +124,8 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 选游戏、清除选择、占座与准备状态由 Service 校验角色、版本、状态和席位；资格与冻结 Variant/摘要在同一写事务内重验。Repository 先以房间版本作条件更新，再更新成员版本与事件；任一步失败全部回滚，提交前读取响应投影。
 
+会话启动在同一写事务内重新确认房主、房间版本、资格摘要和全部占用席位的准备状态，再冻结 Session 与 Participant 快照。会话身份生成失败、版本冲突或提交失败均不留下参与者、事件或 STARTING 房间。
+
 ## 9. PlaySession 生命周期
 
 Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat 以连续序号报告上一时段的 running/visible/paused，服务端按接收时间计费；页面隐藏、暂停、失联、重放或跳号不能伪造时长。用户菜单退出、游戏自身退出和异常退出最终都幂等 finish Launch；卸载失败由 hard expiry 收口。
