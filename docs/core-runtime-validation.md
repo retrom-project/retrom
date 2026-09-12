@@ -44,7 +44,7 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 51 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 52 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 原始画面与锐利像素使用显式颜色直通、无滤波的 `retrom-passthrough` shader，避开 4.2.3 关闭 shader 后在原生分辨率切换时出现纯色/裁切的 GL fallback。浏览器画面必须与核心截图保持完整内容，启动和跨 Launch 恢复均需覆盖；不能用切换画面模式的人工操作替代默认模式验收。
 
@@ -123,3 +123,13 @@ PFB只能证明当前worktree、基座Provider与当前开发模块组合的产�
 共享运行层改变时至少运行 `ACC-PROVIDER-001..008`、`make web-e2e`、全部已有受影响产品 Case、Provider 仓库全量 lint/typecheck/test/build/package 检查，以及 Retrom 的 API、Go、Web、集成、数据和镜像/PFB 验证。真实硬件兼容结论仍需 Chrome `mapping=standard` 的实体手柄 smoke；自动注入不能替代硬件验收。
 
 EmulatorJS 4.2.3 的恢复就绪以 native serializer 成功返回非空状态为准，不对所有核心统一要求诊断 frame counter 大于零。MAME 2003 Plus 的原生 unserialize 拒绝第零帧，因此该 Target 还必须完成首帧后才能读档；其他核心不继承这个条件。写入恢复状态后仍必须等待 native 读档完成信号，不能把超时视为成功。
+
+### Vectrex / VecX
+
+`emulatorjs/vecx` 使用 libretro-vecx 的固定 fork，以软件向量渲染运行 `.vec/.bin` 单卡带；
+不要求管理员另行上传 BIOS，不声明多盘、联机、Light Pen 或 3D Imager 支持。
+标准方向键和四个面键各自只映射一个原生输入。原始键盘输入保持独立。
+fork 的完整即时状态包括 CPU、RAM、VIA、PSG、卡带银行、模拟电路与向量画面；
+不能读取上游不完整的 VecX 状态。Provider 公共层按 `emulatorjs-state-v1-storage-v1`
+压缩一次，恢复到不同 Launch 后必须继续接受输入。
+开发候选的准入按 `ACC-VECTREX-001` 执行；候选声明不等于正式发行支持。

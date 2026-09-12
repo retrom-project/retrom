@@ -608,6 +608,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-vecx",
+      "coreId": "vecx",
+      "providerId": "emulatorjs",
+      "targetId": "vecx",
+      "platformIds": [
+        "vectrex"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-vice-x128",
       "coreId": "vice_x128",
       "providerId": "emulatorjs",
@@ -1326,6 +1340,12 @@
         "enabled": true
       },
       {
+        "id": "vectrex",
+        "name": "GCE Vectrex",
+        "sortOrder": 560,
+        "enabled": true
+      },
+      {
         "id": "vic20",
         "name": "Commodore VIC-20",
         "sortOrder": 290,
@@ -1652,6 +1672,11 @@
       {
         "id": "tyranoscript",
         "name": "TyranoScript",
+        "enabled": true
+      },
+      {
+        "id": "vecx",
+        "name": "VecX",
         "enabled": true
       },
       {
