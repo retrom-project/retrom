@@ -312,7 +312,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-004": (
         300,
-        "go test ./internal/pegasusimport ./internal/serversource -run 'TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors|TestRetry|TestCancel' -count=1 && go test ./internal/service/pegasusimport ./internal/persistence/pegasusimport -run 'TestWorkflow|TestQueuedCancellation' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && go test ./internal/persistence/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1",
+        "go test ./internal/pegasusimport ./internal/serversource -run 'TestRecovery|TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors|TestRetry|TestCancel' -count=1 && go test ./internal/service/pegasusimport ./internal/persistence/pegasusimport -run 'TestWorkflow|TestQueuedCancellation|TestRecovery' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && go test ./internal/persistence/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1",
     ),
     "ACC-PEG-005": (240, "scripts/acceptance/ui-case.sh ACC-PEG-005"),
     "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
@@ -322,7 +322,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ES-002": (
         240,
-        "go test ./internal/emulationstationimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestEmulationStationImportHTTP|TestQuer|TestGamelistsReject' -count=1 && go test ./internal/service/emulationstationimport ./internal/persistence/emulationstationimport -count=1",
+        "go test ./internal/emulationstationimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestEmulationStationImportHTTP|TestCreation|TestQuer|TestGamelistsReject' -count=1 && go test ./internal/service/emulationstationimport ./internal/persistence/emulationstationimport -count=1",
     ),
     "ACC-ES-003": (
         300,
@@ -330,7 +330,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ES-004": (
         300,
-        "go test ./internal/emulationstationimport ./internal/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run '^TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone$' -count=1",
+        "go test ./internal/emulationstationimport ./internal/service/emulationstationimport ./internal/persistence/emulationstationimport ./internal/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run '^TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone$' -count=1",
     ),
     "ACC-ES-005": (300, "scripts/acceptance/ui-case.sh ACC-ES-005"),
     "ACC-ES-006": (
@@ -437,7 +437,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-NP-020": (300, "scripts/acceptance/ui-case.sh ACC-NP-020"),
     "ACC-NP-021": (300, "scripts/acceptance/ui-case.sh ACC-NP-021"),
     "ACC-NP-022": (300, "scripts/acceptance/ui-case.sh ACC-NP-022"),
-    "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1"),
+    "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run 'TestRecordPlay|TestPlay|TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1"),
     "ACC-MDISC-001": (
         600,
         "go test -tags=integration ./internal/libraryimport -run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=60s && make web-test",

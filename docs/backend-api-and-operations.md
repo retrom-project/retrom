@@ -42,8 +42,8 @@ internal/catalog/         Platform、PlatformInstance、Game、GameVariant
 internal/importing/       导入任务、分组、刮削与审核编排
 internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
 internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
-internal/service/emulationstationimport/ 查询分页、活动与冻结标签投影
-internal/persistence/emulationstationimport/ 导入查询、持久化诊断与运行依赖映射
+internal/service/emulationstationimport/ 查询分页、创建及未开始计划生命周期、标签投影
+internal/persistence/emulationstationimport/ 查询、诊断与运行依赖映射、创建和计划事务
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
 internal/firmware/        BIOS 文件与归档匹配、候选质量比较
@@ -60,8 +60,8 @@ internal/persistence/datindex/ DAT 索引与需求记录写入
 internal/runtimebundle/   Bundle 与 Launch Envelope V1 的闭合解析/语义校验
 internal/runtimelaunch/   Provider-neutral Launch Envelope 投影
 internal/launch/          启动预检、LaunchSession/capability 与产品编排
-internal/service/launch/ 内容、项目路径、会话授权与资源选择规则
-internal/persistence/launch/ 冻结内容、会话及 Bundle 授权快照查询
+internal/service/launch/ 内容授权、资源选择与游玩事件/计时策略
+internal/persistence/launch/ 内容及授权快照查询、游玩状态与撤销事务
 internal/rpgmaker/        RPG 项目识别、Target binding、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
 internal/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢复协议
 internal/service/isolation/ unique-origin Host、票据及 capability 授权规则
@@ -75,8 +75,8 @@ internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮�
 internal/persistence/accounts/ 账户安全事务、限流桶及原子多主体计数
 internal/service/serverimport/ 服务器 BIOS 导入查询、分页及取消/重试规则
 internal/persistence/serverimport/ 导入目录/候选查询及取消/重试原子事务
-internal/service/libraryimport/ 服务器审核元数据归一化、幂等与审计决策
-internal/persistence/libraryimport/ 审核元数据、搜索与审计的事务写入
+internal/service/libraryimport/ 审核列表、元数据归一化、幂等与审计决策
+internal/persistence/libraryimport/ 审核列表查询、元数据/搜索/审计事务
 internal/service/metadatascrape/ 抓取调度、证据查询、候选规则与执行收口
 internal/persistence/metadatascrape/ 抓取证据、结果、任务租约与事务存储
 internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排

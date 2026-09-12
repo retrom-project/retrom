@@ -303,6 +303,8 @@ type MetadataProvider interface {
 
 ## 9. 审核
 
+审核列表由 `internal/service/libraryimport.ReviewQueue` 归一化查询、判断有界分页并组装来源、校验、封面及活动标签；Repository 负责稳定排序、筛选和行映射，HTTP 只处理签名游标、身份绑定与响应。列表的 `updatedAtMs`、排序和续页比较统一使用 ReviewDraft 更新时间及 Item ID，避免草稿与导入条目更新时间不同造成重复或漏项。既有来源预留与交接可见性门禁继续生效。
+
 初次抓取完成时，由 `internal/service/metadatascrape.InitialReviewService` 按命中数、最早证据顺序、Provider game ID 和候选 ID 选择候选，只用有意义的候选字段覆盖已有元信息，并按 ordinal/ID 选择 READY 图片。草稿、搜索文本、Item 状态和 ImportJob 聚合通过调用方已有的同一写事务发布；聚合更新同时检查读取时的版本与运行项数量，后续写入失败必须回滚整次发布。
 
 审核字段包括：
@@ -442,11 +444,15 @@ Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collect
 
 取消和手动重试由 Pegasus Service 在同一工作单元读取计划及 Job 状态、版本与 execution，再交给 Repository 原子保存。已经被 worker 领取的 Job 即使计划仍为 `QUEUED`，也先进入 `CANCEL_REQUESTED`，由 worker 在检查点收口；真正未领取的队列取消只终止尚未交接条目，并在同一事务登记终态 payload 释放。手动重试要求没有其他活动 Pegasus execution，生成并检查新的 execution/audit ID，只重置可重试失败项并重新计算失败计数；冻结输入、待审核项和其他既有结果保持有效。新的手动 execution 才清空旧 attempt/deadline/lease，输入快照、Job、计划、事件和操作者审计必须一起提交；提交失败不返回成功结果，也不唤醒 worker。
 
+过期执行恢复由 Pegasus Service 决定取消、超时、重试耗尽或自动重排队，Repository 按每个候选事务核对 Job/计划版本、execution、attempt、worker 和原租约。每轮最多读取 100 个候选，并在每个事务最多补齐 100 个已绑定的普通审核；剩余交接留在过期执行中由后续维护继续。恢复先原子补齐审核元数据与来源状态，再关闭未交接条目、重算计数并登记事件和终态释放。取消优先于超时；超时原因必须一致传递给未完成条目。自动恢复保留原始输入、execution、attempt、开始时刻和 deadline，不覆盖已经交接的结果。维护在运行期间持续执行，失败保留原因并记录诊断。
+
 未开始执行的 `AWAITING_MAPPING/EXPIRED` 计划可按当前版本删除。删除事务先验证计划未被启动，再解除 Collection 标签关系、推进相关 Tag version、删除可变扫描投影并记录操作者审计；Tag 本身及既有 job/input/event 证据保留。任一删除或审计步骤失败必须整体回滚。过期处理按有界候选批次重新校验状态、版本与过期时刻，不得覆盖已经启动、删除或更新的计划。
 
 Pegasus Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不可重试错误，就只长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。已交接普通 ImportItem 的条目共用普通 Item 的 PayloadRelease；未交接条目使用独立 Pegasus scope。文件和 COVER/VIDEO Blob 字段转为 `PAYLOAD_RELEASED` 形态，管理详情显示“源文件已清理”，不得尝试加载旧媒体 URL。仍可 retry 的错误和普通 `REVIEW_PENDING` 必须继续保留 payload。
 
 ## 15. EmulationStation 服务器目录导入
+
+创建及未开始计划的删除、过期由 EmulationStation Service 编排，Repository 原子保存。创建从同一次时钟读取冻结七天期限和 UTC `releaseYearMax`，检查所有身份生成结果，并在最终事务内检查未开始计划容量；Job、输入、计划、事件、审计及返回结果一起提交。删除按当前版本解除标签关系、递增相关 Tag version、删除扫描投影并记录操作者，保留不可变执行证据。过期每轮最多处理 100 个候选，逐个事务重验版本和截止时刻，取消未执行条目并同时重算阻断/取消计数，避免重复计数；未执行扫描投影不创建 payload 释放任务。
 
 查询通过 `internal/service/emulationstationimport` 的类型化端口调用 `internal/persistence/emulationstationimport`。Service 校验分页边界并区分等待映射时的活动标签与执行后的冻结选择；Repository 负责 SQL、游标排序、可空字段和持久化诊断解码。有效的空列表和诊断数组返回空数组；损坏或字段类型不符的清单、条目与运行依赖数据必须保留原因返回错误，不得静默伪装成没有 warning 或依赖。
 
