@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/rpgmaker/detector"
 )
 
@@ -24,14 +25,14 @@ func (service *Service) persistRPGMakerReplacement(
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	fail := func(code string) {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.fail(ctx, jobID, code)
 	}
 	binding, err := loadReplacementBinding(ctx, transaction, snapshot.GameID)
 	if err != nil || !replacementBindingMatchesSnapshot(binding, snapshot) {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.fail(ctx, jobID, "GAME_CONTENT_SNAPSHOT_STALE")
 		return
 	}
@@ -43,7 +44,7 @@ func (service *Service) persistRPGMakerReplacement(
 		return
 	}
 	if unchanged {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.failUnchanged(ctx, jobID)
 		return
 	}
@@ -181,7 +182,7 @@ func (service *Service) persistRPGMakerReplacementVariantFiles(
 	now int64,
 ) error {
 	for index, file := range files {
-		blobID, err := blobstore.EnsureRecord(
+		blobID, err := blobcatalog.EnsureRecord(
 			ctx, transaction, file.metadata, "application/octet-stream", now,
 		)
 		if err != nil {

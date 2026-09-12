@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/tagging"
 )
 

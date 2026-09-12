@@ -9,18 +9,20 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
+
+	"retrom/internal/persistence/sessionstore"
 
 	"github.com/google/uuid"
 	// Register the modernc SQLite driver used by openDatabase.
 	_ "modernc.org/sqlite"
 
-	"retrom/internal/blobregistry"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
+	"retrom/internal/persistence/blobregistry"
 	"retrom/internal/store"
 )
 
@@ -201,7 +203,7 @@ func applyRestoreSecurityFence(ctx context.Context, database *sql.DB, now time.T
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: begin restore security fence: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	sessions, err := transaction.ExecContext(ctx, `
 UPDATE auth_sessions SET revoked_at_ms=?,revoked_reason='RESTORE' WHERE revoked_at_ms IS NULL
 `, nowMS)

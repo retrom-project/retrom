@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/corevalidation"
 	"retrom/internal/multidisc"
 	"retrom/internal/payloadrelease"
@@ -145,27 +146,27 @@ func (service *Service) persistPreparedReplacement(
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	failTransaction := func(code string) {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.fail(ctx, jobID, code)
 	}
 	currentBinding, err := loadReplacementBinding(ctx, transaction, gameID)
 	if err != nil || !replacementBindingMatchesSnapshot(currentBinding, snapshot) ||
 		currentBinding.contentPolicy.Digest() != snapshot.TargetPolicyDigest ||
 		nullableText(currentBinding.datID) != pointerText(snapshot.DATVersionID) {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.failTerminal(ctx, jobID, "GAME_CONTENT_CHANGED")
 		return
 	}
 	unchanged, err := contentReplacementUnchanged(ctx, transaction, gameID, prepared)
 	if err != nil {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
 	if unchanged {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.failUnchanged(ctx, jobID)
 		return
 	}
@@ -314,7 +315,7 @@ AND worker_id='in-process'
 		return
 	}
 	if changed, _ := jobResult.RowsAffected(); changed != 1 {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		return
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -393,7 +394,7 @@ func (service *Service) attachReplacementPlaylist(
 	if prepared.contentKind != multidisc.ContentKind {
 		return nil
 	}
-	playlistBlobID, err := blobstore.EnsureRecord(
+	playlistBlobID, err := blobcatalog.EnsureRecord(
 		ctx, transaction, prepared.canonicalPlaylist, "application/vnd.retrom.m3u", now,
 	)
 	if err != nil {

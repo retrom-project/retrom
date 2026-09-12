@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
@@ -34,7 +36,7 @@ func (service *Service) ScheduleReview(
 	if err != nil {
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var currentVersion int64
 	var before string
 	if err := transaction.QueryRowContext(ctx, `
@@ -137,7 +139,7 @@ func (service *Service) ScheduleGame(
 	if err != nil {
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var sourceManifestDigest, platformID string
 	var currentVersion int64
 	if err := transaction.QueryRowContext(ctx, `

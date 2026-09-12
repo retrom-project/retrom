@@ -14,7 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -330,7 +332,7 @@ func (service *Service) persistCreate(
 	if err != nil {
 		return Summary{}, fmt.Errorf("serverimport/begin create transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)

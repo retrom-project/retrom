@@ -9,8 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 )
 
 const executionTimeout = 30 * time.Minute
@@ -156,7 +157,7 @@ func (service *Service) claim(ctx context.Context) (claimedJob, bool, error) {
 	if err != nil {
 		return claimedJob{}, false, fmt.Errorf("payloadrelease/claim: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var job claimedJob
 	var inputJSON string
 	now := service.now().UnixMilli()

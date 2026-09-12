@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/recordstore"
 	tagpersistence "retrom/internal/persistence/tagging"
-	"retrom/internal/recordstore"
 
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"

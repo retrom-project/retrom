@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
 )
 
@@ -27,7 +26,7 @@ func Atomic(
 		if err != nil {
 			return nil, fmt.Errorf("begin record transaction: %w", err)
 		}
-		defer cleanup.Rollback(tx)
+		defer dbexec.Rollback(tx)
 		result, err := savepoint(ctx, tx, work)
 		if err != nil {
 			return nil, err

@@ -9,9 +9,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"retrom/internal/dbexec"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/service/tagging"
@@ -121,7 +123,7 @@ func (service *Service) PatchDraft(
 	if err != nil {
 		return DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	run := draftPatchRun{
 		service: service, ctx: ctx, transaction: transaction,
 		itemID: itemID, expectedVersion: expectedVersion, patch: patch,

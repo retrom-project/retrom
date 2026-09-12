@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/blobregistry"
 	"retrom/internal/cleanup"
+	"retrom/internal/persistence/blobregistry"
 	"retrom/internal/service/storageanalysis"
 )
 

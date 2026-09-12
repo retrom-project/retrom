@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -85,7 +88,7 @@ ORDER BY logical_name
 		t.Helper()
 		metadata, putErr := blobs.Put(bytes.NewReader([]byte(generation + "-" + item.logicalName)))
 		testassert.False(t, putErr != nil, putErr)
-		blobID, recordErr := blobstore.EnsureRecord(
+		blobID, recordErr := blobcatalog.EnsureRecord(
 			ctx,
 			database.SQL,
 			metadata,
@@ -110,7 +113,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 	seedOptionalExternalBIOS(t, ctx, database.SQL, target.ProviderID, target.TargetID)
 	gameMetadata, err := blobs.Put(bytes.NewReader([]byte("nds-content")))
 	testassert.False(t, err != nil, err)
-	gameBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, gameMetadata, "application/octet-stream", time.Now().UnixMilli())
+	gameBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, gameMetadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	snapshot, status, _, err := corevalidation.ResolveBIOS(
 		ctx, database.SQL, target.ProviderID, target.TargetID, "game.nds",
@@ -122,7 +125,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 	now := time.Now().UnixMilli()
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	statements := []struct {
 		query string
 		args  []any

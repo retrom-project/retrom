@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"slices"
 
-	"retrom/internal/recordstore"
-	"retrom/internal/sessionstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/sessionstore"
 
 	"retrom/internal/cleanup"
 )
@@ -27,7 +29,7 @@ func (service *Service) Start(ctx context.Context, roomID, hostProfileID string,
 	if err != nil {
 		return Room{}, serviceError("start transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	state, err := loadStartRoom(ctx, transaction, roomID, hostProfileID, expectedVersion)
 	if err != nil {
 		return Room{}, err
@@ -246,7 +248,7 @@ func (service *Service) endRoom(
 	if err != nil {
 		return serviceError("end room transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	state, err := service.loadEndRoomState(ctx, transaction, roomID, actorProfileID, authorize)
 	if err != nil {
 		return err
@@ -531,7 +533,7 @@ func (service *Service) Leave(ctx context.Context, roomID, profileID string, exp
 	if err != nil {
 		return serviceError("leave room transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state, role string
 	var version int64
 	var memberID string
@@ -552,7 +554,7 @@ WHERE room.id=? AND member.profile_id=? AND member.left_at_ms IS NULL
 		return ErrPrecondition
 	}
 	if state == RoomStateStarting || state == RoomStateRunning {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		return service.EndRoom(ctx, roomID, profileID, "USER_EXIT", nil)
 	}
 	if state != RoomStateWaiting {
@@ -599,7 +601,7 @@ func (service *Service) Kick(
 	if err != nil {
 		return serviceError("kick member transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state, host string
 	var version int64
 	if err := transaction.QueryRowContext(
@@ -675,7 +677,7 @@ func (service *Service) SetSessionState(
 	if err != nil {
 		return serviceError("set session state transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state, host string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT session.state,room.host_profile_id FROM netplay_sessions session
@@ -723,7 +725,7 @@ func (service *Service) prepareResync(ctx context.Context, roomID, sessionID str
 	if err != nil {
 		return serviceError("prepare resync transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var fromState string
 	if err := transaction.QueryRowContext(
 		ctx, `SELECT state FROM netplay_sessions WHERE id=? AND room_id=?`, sessionID, roomID,
@@ -816,7 +818,7 @@ func (service *Service) MarkDisconnected(ctx context.Context, participant Socket
 	if err != nil {
 		return serviceError("mark disconnected transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdateNetplaySessionParticipants(ctx, transaction, recordstore.Update{
 		Set: `
 state='DISCONNECTED',disconnected_at_ms=?,lease_expires_at_ms=?,

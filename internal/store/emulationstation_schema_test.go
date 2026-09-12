@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/testassert"
 )

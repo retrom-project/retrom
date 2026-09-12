@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/contentcapability"
 
@@ -28,7 +30,7 @@ func (service *Service) ensureVariant(
 	if err != nil {
 		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 
 	var gameID, contentLogicalName, contentKind, coreID string
 	var providerID, targetID, sourceManifestDigest string

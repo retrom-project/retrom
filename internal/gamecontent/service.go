@@ -10,11 +10,12 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/payloadrelease"
 )
@@ -182,7 +183,7 @@ func (service *Service) schedule(
 	if err != nil {
 		return Scheduled{}, false, fmt.Errorf("gamecontent/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	principal, _ := authn.PrincipalFromContext(ctx)
 	principalID := principal.UserID

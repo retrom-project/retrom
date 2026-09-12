@@ -13,12 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -89,7 +90,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	testassert.False(t, err != nil, err)
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	manifest := `{"files":[{"logicalName":"blocked.gba","role":"CONTENT"}]}`
 	seedReviewSources(t, transaction, uploadID, digest, importID, target, itemID, sourceBlobID, coverBlobID, uploadFileID, coverUploadFileID, sourceSnapshotID, manifest, timestamp, coverMetadata)
 	seedReviewValidation(t, transaction, validationID, itemID, target, digest, sourceSnapshotID, draftID, scrapeJobID, timestamp)

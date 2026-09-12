@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
@@ -353,7 +355,7 @@ func (server *Server) changeDefaultCore(writer http.ResponseWriter, request *htt
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
 		Set: `
 default_core_id=?,

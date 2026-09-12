@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"golang.org/x/text/unicode/norm"
 
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 )
 
 const (
@@ -88,7 +89,7 @@ func (service *Service) recordRateLimitFailures(ctx context.Context, subjects ..
 	if err != nil {
 		return fmt.Errorf("begin authentication rate-limit update: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 DELETE FROM auth_rate_limits WHERE rowid IN (
   SELECT rowid FROM auth_rate_limits

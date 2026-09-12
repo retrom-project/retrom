@@ -9,8 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
-	"retrom/internal/sessionstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/sessionstore"
 
 	"retrom/internal/contentcapability"
 
@@ -408,7 +410,7 @@ func (service *Service) persistLaunch(
 	if err != nil {
 		return Created{}, fmt.Errorf("launch/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	selection, err = service.prepareCurrentBIOS(ctx, transaction, selection)
 	if err != nil {
 		return Created{}, err

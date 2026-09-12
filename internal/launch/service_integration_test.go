@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -95,7 +98,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	firmwareMetadata, err := blobs.Put(bytes.NewReader([]byte("local-gba-bios")))
 	testassert.False(t, err != nil, err)
-	firmwareBlobID, err := blobstore.EnsureRecord(
+	firmwareBlobID, err := blobcatalog.EnsureRecord(
 		ctx,
 		database.SQL,
 		firmwareMetadata,
@@ -343,7 +346,7 @@ WHERE launch_session_id=?
 	), "locked save envelope = %#v", quickEnvelope)
 	contentTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(contentTx)
+	defer dbexec.Rollback(contentTx)
 	if _, err := contentTx.ExecContext(ctx, `
 	UPDATE game_files SET logical_name='Launch.gb' WHERE game_id=? AND role='CONTENT'
 `, approved.GameID); err != nil {
@@ -482,7 +485,7 @@ func assertMissingFDSValidationFinishes(
 	const gameID = "60000000-0000-7000-8000-000000000001"
 	transaction, err := database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}

@@ -5,7 +5,7 @@ package launch
 import (
 	"testing"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 func TestReviewPreviewCreationRechecksItsOwnerInTheWriteTransaction(t *testing.T) {

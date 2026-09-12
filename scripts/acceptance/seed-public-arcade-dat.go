@@ -19,6 +19,8 @@ import (
 	"slices"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 
@@ -210,7 +212,7 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 	if err != nil {
 		return "", "", "", fmt.Errorf("begin transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	datID := uuid.NewSHA1(uuid.NameSpaceURL, []byte("retrom:acceptance:arcade-dat:"+providerID+":"+targetID+":"+digestHex)).String()
 	nowMS := time.Now().UTC().UnixMilli()
 	stats := catalog.Stats

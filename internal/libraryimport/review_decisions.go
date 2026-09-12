@@ -10,11 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/service/tagging"
 
@@ -109,7 +110,7 @@ func (service *Service) discard(
 	if err != nil {
 		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := service.discardInTransaction(ctx, transaction, itemID, expectedVersion, reason, batch)
 	if err != nil {
 		return DecisionResult{}, err
@@ -326,7 +327,7 @@ func (service *Service) RetryItem(ctx context.Context, itemID string, expectedVe
 	if err != nil {
 		return RetryResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var importID, stage, manifestDigest string
 	var version int64
 	if err := transaction.QueryRowContext(ctx, `
@@ -472,7 +473,7 @@ func (service *Service) cancelImport(
 	if err != nil {
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	evidence, err := loadCancelImportEvidence(ctx, transaction, importID, expectedVersion)
 	if err != nil {
 		return CancelResult{}, false, err

@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
+
+	"retrom/internal/persistence/sessionstore"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/cleanup"
 	retromruntime "retrom/internal/runtime"
 )
 
@@ -31,7 +32,7 @@ func (service *Service) RecordPlay(
 	if err != nil {
 		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	source, err := loadPlayLaunch(ctx, transaction, launchID, capability, now)
 	if err != nil {

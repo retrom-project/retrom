@@ -14,7 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/contentcapability"
 
@@ -120,7 +122,7 @@ func (service *Service) CreateArcadeParentAttachment(
 	if err != nil {
 		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	setup := parentAttachmentSetup{
 		service: service, ctx: ctx, transaction: transaction,
 		itemID: itemID, expectedVersion: expectedVersion, request: request,

@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -94,7 +96,7 @@ func (service *Service) Install(
 	if err != nil {
 		return Installation{}, fmt.Errorf("firmware/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	snapshot, err := validateInstallSnapshot(ctx, transaction, requirementID, expectedVersion, request, prepared)
 	if err != nil {
 		return Installation{}, err

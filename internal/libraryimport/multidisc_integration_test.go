@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -122,7 +124,7 @@ VALUES('01980000-0000-7000-8000-000000009991','multi-disc-profile','multi-disc-a
 	testassert.False(t, err != nil, err)
 	bios, err := blobs.Put(bytes.NewReader([]byte("deterministic invalid Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	biosBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, bios, "application/octet-stream", time.Now().UnixMilli())
+	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, bios, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64

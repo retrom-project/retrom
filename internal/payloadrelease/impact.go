@@ -10,8 +10,10 @@ import (
 	"sort"
 	"strconv"
 
-	"retrom/internal/blobregistry"
+	"retrom/internal/dbexec"
+
 	"retrom/internal/cleanup"
+	"retrom/internal/persistence/blobregistry"
 )
 
 type GameImpact struct {
@@ -61,7 +63,7 @@ func GameDeleteImpact(ctx context.Context, database *sql.DB, gameID string) (Gam
 	if err != nil {
 		return GameImpact{}, fmt.Errorf("payloadrelease/impact transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := GameDeleteImpactTx(ctx, transaction, gameID)
 	if err != nil {
 		return GameImpact{}, err

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/blobregistry"
 	"retrom/internal/blobstore"
 	"retrom/internal/payloadrelease"
+	"retrom/internal/persistence/blobregistry"
 )
 
 type Result struct {

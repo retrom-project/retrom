@@ -8,9 +8,10 @@ import (
 	"errors"
 	"io"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/contentcapability"
 	"retrom/internal/contentmanifest"
 	"retrom/internal/corevalidation"
@@ -315,7 +316,7 @@ func insertMultiDiscValidation(
 	files []preparedValidationFile,
 	now int64,
 ) error {
-	canonicalBlobID, err := blobstore.EnsureRecord(
+	canonicalBlobID, err := blobcatalog.EnsureRecord(
 		ctx, transaction, candidate.canonicalPlaylist, "application/vnd.retrom.m3u", now,
 	)
 	if err != nil {

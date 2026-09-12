@@ -9,12 +9,13 @@ import (
 	"os"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/libraryimport"
 )
@@ -152,9 +153,9 @@ func (service *Service) finalizeReviewHandoff(
 		)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if err := appendServerMetadataWarnings(ctx, transaction, item.ID, metadataWarnings, now); err != nil {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
 			withLibraryImportIdentity(
@@ -177,7 +178,7 @@ completed_at_ms=?,updated_at_ms=?
 		Values: []any{now, now},
 	})
 	if err != nil || rowsAffected(result) != 1 {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
 			withLibraryImportIdentity(
@@ -189,7 +190,7 @@ completed_at_ms=?,updated_at_ms=?
 		return
 	}
 	if err := service.refreshCountsAndEvent(ctx, transaction, unit, item.ID, "REVIEW_PENDING", now); err != nil {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
 			withLibraryImportIdentity(

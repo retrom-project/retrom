@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/dbexec"
+	"retrom/internal/persistence/storequery"
 	"retrom/internal/service/immersive"
-	"retrom/internal/storequery"
 )
 
 func libraryCondition(kind, profileID, folderID string) (string, []any, error) {

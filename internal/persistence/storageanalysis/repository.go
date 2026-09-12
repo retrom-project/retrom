@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/service/storageanalysis"
 
-	"retrom/internal/blobregistry"
 	"retrom/internal/cleanup"
+	"retrom/internal/persistence/blobregistry"
 )
 
 type (
@@ -26,7 +28,7 @@ func (repository *Repository) Read(ctx context.Context) (storageanalysis.ReadMod
 	if err != nil {
 		return storageanalysis.ReadModel{}, fmt.Errorf("storageanalysis: begin snapshot: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	edges, err := blobregistry.Load()
 	if err != nil {
 		return storageanalysis.ReadModel{}, fmt.Errorf("storageanalysis: load references: %w", err)

@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/contentcapability"
 
@@ -31,7 +33,7 @@ func (service *Service) commitAcceptedParentAttachment(
 	if err != nil {
 		return parentStoreError("begin accepted commit", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	target, err := loadParentCommitTarget(ctx, transaction, candidate)
 	if err != nil {
 		return err
@@ -391,7 +393,7 @@ func (service *Service) finishRejectedParentAttachment(
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
 state='REJECTED',error_code=?,diagnostics_json=?,
@@ -443,7 +445,7 @@ func (service *Service) finishRetryableParentAttachment(
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
 state='FAILED_RETRYABLE',error_code=?,
@@ -508,7 +510,7 @@ func (service *Service) finishParentAttachmentCancellation(
 	if err != nil {
 		return false
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
 state='CANCELLED',error_code='CANCELLED',

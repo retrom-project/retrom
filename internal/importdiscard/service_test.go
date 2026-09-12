@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -88,7 +90,7 @@ func (f *fixture) file(t *testing.T, name string, payload byte) libraryimport.Se
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := blobstore.EnsureRecord(f.ctx, f.db, blob, "application/octet-stream", f.now().UnixMilli())
+	id, err := blobcatalog.EnsureRecord(f.ctx, f.db, blob, "application/octet-stream", f.now().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}

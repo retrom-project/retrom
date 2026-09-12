@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
 )
 
 // Each transaction removes at most 200 stale variant edges, retaining all launch edges.
@@ -26,7 +26,7 @@ func (service *Service) releaseSupersededBIOSBatch(ctx context.Context) (bool, e
 	if err != nil {
 		return false, fmt.Errorf("BIOS retirement transaction: %w", err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	var id, blobID string
 	err = tx.QueryRowContext(ctx, `SELECT id,blob_id FROM bios_installations
 WHERE is_active=0 AND blob_id IS NOT NULL ORDER BY updated_at_ms,id LIMIT 1`).Scan(&id, &blobID)

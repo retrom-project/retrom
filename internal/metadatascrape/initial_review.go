@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -321,7 +323,7 @@ func (service *Service) complete(ctx context.Context, runID, jobID string, candi
 	if err != nil {
 		return fmt.Errorf("metadatascrape/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	if err := service.completeInitialImport(ctx, transaction, runID, now); err != nil {
 		return fmt.Errorf("metadatascrape/service: %w", err)
@@ -434,7 +436,7 @@ func (service *Service) fail(ctx context.Context, runID, jobID, code string, cau
 	if err != nil {
 		return fmt.Errorf("%s: %w (persist failure: %w)", code, cause, err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	if _, err := transaction.ExecContext(
 		ctx,

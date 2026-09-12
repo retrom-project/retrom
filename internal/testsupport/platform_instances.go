@@ -13,7 +13,7 @@ import (
 	"time"
 
 	platformpersistence "retrom/internal/persistence/platforminstance"
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 

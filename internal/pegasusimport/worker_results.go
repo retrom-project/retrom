@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
 )
@@ -75,7 +76,7 @@ func (service *Service) closeItemWithFailure(
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
 		Set: `
 execution_state=?,error_code=?,retryable=?,
@@ -247,7 +248,7 @@ func (service *Service) closeCancelled(ctx context.Context, unit work) (bool, er
 	if err != nil {
 		return false, fmt.Errorf("pegasusimport/start cancellation close: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
 		Set: `
 execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
@@ -306,7 +307,7 @@ func (service *Service) finishImport(ctx context.Context, unit work) error {
 	if err != nil {
 		return fmt.Errorf("pegasusimport/start finish transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var blocked, failed, reviewPending, published, reviewDiscarded, existing, cancelled int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT count(*) FILTER(

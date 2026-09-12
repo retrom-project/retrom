@@ -10,9 +10,11 @@ import (
 	"io"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
 )
@@ -318,7 +320,7 @@ func (service *Service) persistRawResponse(
 	if err != nil {
 		return "", fmt.Errorf("metadatascrape/service: %w", err)
 	}
-	blobID, err := blobstore.EnsureRecord(ctx, transaction, metadata, "application/json", now)
+	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, "application/json", now)
 	if err != nil {
 		return "", fmt.Errorf("metadatascrape/service: %w", err)
 	}
@@ -351,7 +353,7 @@ func (service *Service) persistResult(
 	if err != nil {
 		return false, fmt.Errorf("metadatascrape/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	var writable int
 	if err := transaction.QueryRowContext(ctx, `

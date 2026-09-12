@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -257,7 +259,7 @@ func (service *Service) Cancel(
 	if err != nil {
 		return Summary{}, false, fmt.Errorf("serverimport/begin cancel transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state, jobID string
 	var actualVersion int64
 	if err := transaction.QueryRowContext(ctx, `
@@ -369,7 +371,7 @@ func (service *Service) resetRetry(ctx context.Context, plan retryPlan, version 
 	if err != nil {
 		return fmt.Errorf("serverimport/begin retry transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var execution int64
 	if err := transaction.QueryRowContext(ctx, `SELECT execution_no FROM jobs WHERE id=?`, plan.jobID).
 		Scan(&execution); err != nil {

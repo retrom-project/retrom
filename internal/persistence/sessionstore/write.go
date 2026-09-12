@@ -10,7 +10,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 func CreateLaunch(ctx context.Context, tx *sql.Tx, query string, args ...any) (sql.Result, error) {

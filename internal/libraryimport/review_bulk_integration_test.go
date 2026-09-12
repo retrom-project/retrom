@@ -15,7 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
@@ -173,7 +175,7 @@ bulk_approval_id=? AND import_item_id=(
 		t.Helper()
 		transaction, err := database.SQL.BeginTx(ctx, nil)
 		testassert.False(t, err != nil, err)
-		defer cleanup.Rollback(transaction)
+		defer dbexec.Rollback(transaction)
 		currentPreview, candidates, err := importer.reviewBulkPreviewInTransaction(ctx, transaction, ReviewBulkScope{})
 		testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(candidates) != 1 }), "interrupted preview = %#v candidates=%d error=%v", currentPreview, len(candidates), err)
 		candidate := candidates[0]

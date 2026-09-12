@@ -10,10 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/arcadedat"
-	"retrom/internal/cleanup"
 	"retrom/internal/contentprofile"
 	"retrom/internal/corevalidation"
 
@@ -155,7 +156,7 @@ func (service *Service) persistValidationOutcome(
 	if err != nil {
 		return fmt.Errorf("begin validation result transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var currentVersion int64
 	var currentManifest string
 	if err := transaction.QueryRowContext(ctx, `

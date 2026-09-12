@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -27,7 +29,7 @@ func TestImpactSourceKindsIncludeEmulationStationAndNeverReturnNull(t *testing.T
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	transaction, err := database.SQL.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	kinds, err := impactSourceKinds(context.Background(), transaction, "missing-game")
 	testassert.False(t, err != nil, err)
 	testassert.Truef(t, kinds != nil && len(kinds) == 0, "empty source kinds = %#v", kinds)

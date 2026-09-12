@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
+
+	"retrom/internal/persistence/sessionstore"
 )
 
 var errInvalidRecoveryReason = errors.New("netplay/recovery: invalid reason")
@@ -22,7 +23,7 @@ func (service *Service) Recover(ctx context.Context, reason string) error {
 	if err != nil {
 		return fmt.Errorf("netplay/recovery: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
 		Set: `state='FAILED',finished_at_ms=?,end_reason=?,updated_at_ms=?,version=version+1`,
 		Scope: recordstore.Scope{

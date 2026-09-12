@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/firmware"
@@ -80,7 +82,7 @@ func (service *Service) claim(ctx context.Context) (work, bool, error) {
 	if err != nil {
 		return work{}, false, fmt.Errorf("begin server import claim: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var unit work
 	var replace int
 	var jobState string

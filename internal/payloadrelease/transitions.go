@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 func ScheduleTerminalImportItem(

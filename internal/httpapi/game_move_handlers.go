@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
@@ -293,7 +295,7 @@ func (server *Server) moveGame(writer http.ResponseWriter, request *http.Request
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := server.now().UnixMilli()
 	result, err := recordstore.UpdateGames(request.Context(), transaction, recordstore.Update{
 		Set: `

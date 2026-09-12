@@ -9,9 +9,11 @@ import (
 	"slices"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
+
+	"retrom/internal/persistence/sessionstore"
 
 	"retrom/internal/cleanup"
 	retromruntime "retrom/internal/runtime"
@@ -645,7 +647,7 @@ func (service *Service) activateLaunch(ctx context.Context, launchID, state stri
 	if err != nil {
 		return fmt.Errorf("begin launch activation: %w", err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	now := service.now().UnixMilli()
 	if _, err := sessionstore.ChangeLaunch(ctx, tx, recordstore.Update{
 		Set: `state='ACTIVE',activated_at_ms=?,updated_at_ms=?,version=version+1`,

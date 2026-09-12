@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	storagepersistence "retrom/internal/persistence/storageanalysis"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 	"retrom/internal/service/storageanalysis"
 	"retrom/internal/testassert"
 )
@@ -27,7 +28,7 @@ func TestGameCoverReplacementRetiresOldPayloadAndStagesCapacity(t *testing.T) {
 	coverBlobID, coverAssetID, videoAssetID := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	transaction, err := server.database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	fixture := gameDetailSeed{now: time.Now().UnixMilli()}
 	seedGameDetailMedia(
 		t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture,
@@ -63,7 +64,7 @@ UPDATE blobs SET sha256=?,size_bytes=?,md5=?,sha1=?,crc32=? WHERE id=?
 	testassert.False(t, err != nil, err)
 	metadata, err := server.blobs.Put(bytes.NewReader(png))
 	testassert.False(t, err != nil, err)
-	newBlobID, err := blobstore.EnsureRecord(t.Context(), server.database, metadata, "image/png", fixture.now)
+	newBlobID, err := blobcatalog.EnsureRecord(t.Context(), server.database, metadata, "image/png", fixture.now)
 	testassert.False(t, err != nil, err)
 	uploadID, uploadFileID := uuid.NewString(), uuid.NewString()
 	mustExecHTTPTest(t, server.database, `

@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/sessionstore"
 )
 
 func (service *Service) releaseTerminalLaunches(ctx context.Context) error {
@@ -26,7 +26,7 @@ func (service *Service) releaseTerminalLaunchBatch(ctx context.Context) (int, er
 	if err != nil {
 		return 0, fmt.Errorf("launch retirement transaction: %w", err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	now := service.now().UnixMilli()
 	ids, err := collectIDs(ctx, tx, `SELECT launch_session_id FROM launch_payload_retirements
 WHERE released_at_ms IS NULL AND due_at_ms<=?

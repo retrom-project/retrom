@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
@@ -119,7 +121,7 @@ func (service *Service) nextItem(ctx context.Context, importID string) (executio
 	if err != nil {
 		return executionItem{}, false, fmt.Errorf("emulationstationimport/claim item transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var item executionItem
 	var tagSnapshot string
 	err = transaction.QueryRowContext(ctx, `

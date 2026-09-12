@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -199,7 +201,7 @@ func (service *Service) claimParentAttachment(
 	if err != nil {
 		return parentAttachmentCandidate{}, "", parentStoreError("begin claim", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	workerID, _ := uuid.NewV7()
 	now := service.now().UnixMilli()
 	result, err := transaction.ExecContext(ctx, `

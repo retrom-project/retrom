@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/gamecontent"
@@ -457,7 +459,7 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	state, err := loadPatchGameState(request.Context(), transaction, request.PathValue("gameId"))
 	if err != nil {
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
@@ -551,7 +553,7 @@ func (server *Server) deleteAdminGame(writer http.ResponseWriter, request *http.
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := server.now().UnixMilli()
 	if server.replayDeleteGameIfPresent(writer, request, transaction, input, now) {
 		return

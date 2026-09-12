@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -28,7 +30,7 @@ func (service *Service) recoverSourceLinks(ctx context.Context, kind, id string)
 	if err != nil {
 		return fmt.Errorf("importdiscard/recover ownership: %w", err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	ids, err := payloadrelease.CollectScopeIDs(ctx, tx, `
 SELECT id FROM `+items+` WHERE import_id=? AND library_import_job_id IS NULL
  AND NOT EXISTS(SELECT 1 FROM server_import_upload_owners WHERE source_item_id=`+items+`.id)`, id)

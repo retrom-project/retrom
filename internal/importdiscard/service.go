@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -116,7 +118,7 @@ func (service *Service) Request(ctx context.Context, kind, id, userID string) (S
 	if err != nil {
 		return Status{}, fmt.Errorf("importdiscard/request: %w", err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	now := service.now().UnixMilli()
 	result, err := tx.ExecContext(ctx, `INSERT INTO import_batch_discards
 (kind,import_id,requested_by_user_id,state,requested_at_ms,updated_at_ms)

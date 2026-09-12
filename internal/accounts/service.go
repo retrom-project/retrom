@@ -14,7 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -204,7 +206,7 @@ func (service *Service) bootstrap(
 	if err != nil {
 		return Session{}, fmt.Errorf("begin initialization: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	return persistBootstrap(ctx, transaction, input, kind, now)
 }
 
@@ -333,7 +335,7 @@ func (service *Service) Login(ctx context.Context, usernameInput, passwordInput 
 	if err != nil {
 		return Session{}, fmt.Errorf("begin login: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdateUsers(ctx, transaction, recordstore.Update{
 		Set: `last_login_at_ms=?,updated_at_ms=?`,
 		Scope: recordstore.Scope{
@@ -477,7 +479,7 @@ func (service *Service) ChangePassword(
 	if err != nil {
 		return Session{}, fmt.Errorf("begin password change: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	return persistPasswordChange(ctx, transaction, principal, input)
 }
 

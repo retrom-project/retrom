@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
-
-	"retrom/internal/cleanup"
 )
 
 var ErrCredential = errors.New("RPG_ISOLATED_RUNTIME_CREDENTIAL_INVALID")
@@ -110,7 +110,7 @@ func (service *Service) ConsumeTicket(
 	if err != nil {
 		return "", Access{}, fmt.Errorf("begin isolated runtime bootstrap: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var access Access
 	err = transaction.QueryRowContext(ctx, `
 SELECT ticket.profile_id,COALESCE(launch.hard_expires_at_ms,preview.hard_expires_at_ms),

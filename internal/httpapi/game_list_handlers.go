@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retrom/internal/storequery"
+	"retrom/internal/persistence/storequery"
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"

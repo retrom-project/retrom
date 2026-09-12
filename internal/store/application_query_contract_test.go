@@ -14,7 +14,7 @@ import (
 func TestApplicationWriteQueriesReferenceCurrentSchema(t *testing.T) {
 	t.Parallel()
 	db := lifecycleDatabase(t)
-	files, err := filepath.Glob(filepath.Join("..", "recordstore", "*.go"))
+	files, err := filepath.Glob(filepath.Join("..", "persistence", "recordstore", "*.go"))
 	if err != nil {
 		t.Fatal(err)
 	}

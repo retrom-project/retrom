@@ -7,12 +7,13 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/dbexec"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 	"retrom/internal/service/tagging"
 )
 
@@ -33,7 +34,7 @@ func (service *Service) UpdateMappings(
 	if err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/mapping transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state, actorUserID string
 	var version int64
 	if err := transaction.QueryRowContext(

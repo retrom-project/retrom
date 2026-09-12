@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sort"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/contentcapability"
 

@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -109,7 +111,7 @@ func (service *Service) queueImport(
 	if err != nil {
 		return fmt.Errorf("pegasusimport/start transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state string
 	var version int64
 	if err := transaction.QueryRowContext(
@@ -273,7 +275,7 @@ func (service *Service) Cancel(
 	if err != nil {
 		return Summary{}, false, fmt.Errorf("pegasusimport/cancel transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state string
 	var actual int64
 	var jobID sql.NullString
@@ -383,7 +385,7 @@ func (service *Service) Delete(ctx context.Context, importID string, expectedVer
 	if err != nil {
 		return fmt.Errorf("pegasusimport/delete transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state, scanJob string
 	var version int64
 	var importJob sql.NullString
@@ -445,7 +447,7 @@ func (service *Service) Retry(ctx context.Context, importID string, version int6
 	if err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/retry transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var execution int64
 	if err := transaction.QueryRowContext(
 		ctx, `SELECT execution_no FROM jobs WHERE id=?`, *summary.ImportJobID,

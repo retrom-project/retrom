@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
 )
 
 func (service *Service) persistExecutionFailure(
@@ -20,7 +20,7 @@ func (service *Service) persistExecutionFailure(
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	jobResult, err := transaction.ExecContext(
 		ctx,
 		`UPDATE jobs

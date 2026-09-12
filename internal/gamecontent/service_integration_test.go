@@ -18,6 +18,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -92,7 +95,7 @@ SELECT id,version FROM games WHERE id=?
 	); validationErr != nil {
 		t.Fatalf("validate RPG replacement upload: %v", validationErr)
 	}
-	cleanup.Rollback(uploadValidationTx)
+	dbexec.Rollback(uploadValidationTx)
 	sameGeneration, err := service.ScheduleMode(
 		ctx, published.GameID, sameGenerationUpload, "RPG_MAKER_PROJECT", gameVersion,
 	)
@@ -139,7 +142,7 @@ func installRPGMakerRuntimeUpgrade(t *testing.T, ctx context.Context, database *
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := time.Now().UnixMilli()
 	bundle := sha256.Sum256([]byte("RPG Maker replacement forward Provider Bundle fixture"))
 	if _, err := transaction.ExecContext(ctx, `
@@ -240,7 +243,7 @@ func installSaturnBIOS(
 	t.Helper()
 	metadata, err := blobs.Put(bytes.NewReader([]byte("replacement Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64

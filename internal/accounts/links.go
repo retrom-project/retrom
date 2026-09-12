@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -70,7 +72,7 @@ func (service *Service) CreateInvitation(
 	if err != nil {
 		return AccountLink{}, false, fmt.Errorf("begin invitation creation: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	body, replayed, err := loadIdempotency(
 		ctx, transaction, principal.UserID, "postAdminInvitation", idempotencyKey, digest, now,
 	)
@@ -167,7 +169,7 @@ func (service *Service) AcceptInvitation(
 	if err != nil {
 		return Session{}, fmt.Errorf("begin invitation acceptance: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	role, err := readActiveInvitation(ctx, transaction, input.linkID, input.now)
 	if err != nil {
 		return Session{}, err
@@ -338,7 +340,7 @@ func (service *Service) CreatePasswordReset(
 	if err != nil {
 		return AccountLink{}, false, fmt.Errorf("begin password reset creation: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	body, replayed, err := loadIdempotency(
 		ctx, transaction, principal.UserID, "postAdminUserPasswordResetLink", idempotencyKey, digest, now,
 	)
@@ -457,7 +459,7 @@ func (service *Service) CompletePasswordReset(
 	if err != nil {
 		return PasswordResetResult{}, fmt.Errorf("begin password reset: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	return service.completePasswordReset(ctx, transaction, input)
 }
 
@@ -610,7 +612,7 @@ func (service *Service) RevokeAccountLink(
 	if err != nil {
 		return false, fmt.Errorf("begin account-link revocation: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	_, replayed, err := loadIdempotency(
 		ctx, transaction, principal.UserID, "deleteAdminAccountLink", idempotencyKey, digest, now,
 	)

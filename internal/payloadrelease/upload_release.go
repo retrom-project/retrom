@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 )
 
 func (service *Service) purgeEligibleUploads(
@@ -76,7 +76,7 @@ func (service *Service) releaseConsumption(ctx context.Context, job claimedJob) 
 	if err != nil {
 		return fmt.Errorf("payloadrelease/consumption transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var version int64
 	var released sql.NullInt64
 	var sessionID string

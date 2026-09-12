@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
-
-	"retrom/internal/cleanup"
 )
 
 var (
@@ -63,7 +63,7 @@ func (service *Service) Cancel(
 	if err != nil {
 		return Result{}, false, fmt.Errorf("jobs/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var kind, state string
 	var cancellable, executionNo, version int64
 	var retryable sql.NullInt64
@@ -192,7 +192,7 @@ func (service *Service) Retry(ctx context.Context, jobID string, expectedVersion
 	if err != nil {
 		return Result{}, fmt.Errorf("jobs/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	job, err := loadRetryJob(ctx, transaction, jobID, expectedVersion)
 	if err != nil {
 		return Result{}, err

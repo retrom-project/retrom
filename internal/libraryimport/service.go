@@ -10,9 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
-	"retrom/internal/storequery"
+	"retrom/internal/persistence/storequery"
 
 	"github.com/google/uuid"
 
@@ -186,7 +188,7 @@ func (service *Service) cloneUploadSession(
 	if err != nil {
 		return "", fmt.Errorf("libraryimport/reconfigure: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var currentState string
 	var currentVersion int64
 	if err := transaction.QueryRowContext(ctx, `
@@ -296,7 +298,7 @@ func (service *Service) removeUnusedClonedUpload(ctx context.Context, uploadID s
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var consumptionCount int
 	if err := transaction.QueryRowContext(ctx, `
 SELECT count(*)

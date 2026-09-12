@@ -5,9 +5,9 @@ package saves
 import (
 	"testing"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/blobregistry"
+	"retrom/internal/persistence/blobregistry"
 )
 
 func TestGameSaveFrozenRestoreProtectsOldPayloadUntilLaunchFinishes(t *testing.T) {

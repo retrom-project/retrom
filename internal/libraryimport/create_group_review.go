@@ -8,7 +8,7 @@ import (
 
 	tagpersistence "retrom/internal/persistence/tagging"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/multidisc"
 )

@@ -97,6 +97,8 @@ Handler 负责协议解析、身份提取和结果映射，通过 Service 执行
 
 数据访问层共享 `internal/dbexec.Executor`，统一数据库连接、事务及独占连接的 SQL 执行接口；各 Repository 不重复定义相同接口。该接口只属于 SQL 基础设施，Service 仍依赖业务 Repository 接口。
 
+公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`blobregistry` 管理保护引用，`blobcatalog` 登记已校验的 CAS 对象。它们由各模块 Repository 复用；`blobstore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `dbexec`。
+
 Service 决定事务范围；Repository 的事务回调只提供绑定到同一事务的业务能力。跨表校验、乐观条件、幂等响应和联动写入保持原子，失败与取消必须回滚。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
 
 沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。容量分析 Repository 一次返回完整的 Blob、保护集合、用途和引用快照，Service 完成 archive 用途传播、分类优先级、去重口径及受检整数汇总；聚合不再占用数据库事务。

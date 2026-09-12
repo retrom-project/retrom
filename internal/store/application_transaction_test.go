@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"retrom/internal/dbexec"
-	"retrom/internal/recordstore"
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/sessionstore"
 )
 
 func TestApplicationAtomicCancellationRollsBackContinuingTransaction(t *testing.T) {

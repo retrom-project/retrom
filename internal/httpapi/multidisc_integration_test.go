@@ -15,10 +15,11 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/testassert"
@@ -72,7 +73,7 @@ func seedMultiDiscHTTPBIOS(t *testing.T, server *Server) {
 	ctx := context.Background()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic HTTP Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
@@ -140,7 +141,7 @@ func addParentBundleToLaunch(t *testing.T, server *Server, created launch.Create
 	t.Helper()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic parent bundle fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(
+	blobID, err := blobcatalog.EnsureRecord(
 		t.Context(), server.database, metadata, "application/zip", time.Now().UnixMilli(),
 	)
 	testassert.False(t, err != nil, err)
@@ -154,7 +155,7 @@ WHERE launch.id=?`, created.LaunchID).Scan(&variantID); err != nil {
 	}
 	transaction, err := server.database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(t.Context(), `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'PARENT','parent.zip',?,0)

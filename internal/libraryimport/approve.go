@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 )
 
 func (service *Service) Approve(ctx context.Context, itemID string, expectedVersion int64) (Approved, error) {
@@ -46,7 +46,7 @@ func (service *Service) approveWithOptions(
 	if err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	run := newApprovalRun(ctx, service, transaction, itemID, expectedVersion, input, options)
 	if err := run.execute(); err != nil {
 		return Approved{}, err

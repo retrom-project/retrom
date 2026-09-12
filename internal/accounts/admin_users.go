@@ -12,9 +12,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
+
+	"retrom/internal/persistence/sessionstore"
 
 	"golang.org/x/text/unicode/norm"
 
@@ -348,7 +350,7 @@ func (service *Service) UpdateUser(
 	if err != nil {
 		return AdminUser{}, false, fmt.Errorf("begin user update: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	body, replayed, err := loadIdempotency(
 		ctx, transaction, principal.UserID, "patchAdminUser", idempotencyKey, digest, now,
 	)
@@ -585,7 +587,7 @@ func (service *Service) DeleteUser(
 	if err != nil {
 		return false, fmt.Errorf("begin user deletion: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	_, replayed, err := loadIdempotency(
 		ctx, transaction, principal.UserID, "deleteAdminUser", idempotencyKey, digest, now,
 	)

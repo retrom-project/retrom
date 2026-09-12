@@ -3,9 +3,9 @@ package libraryimport
 import (
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 const insertArchiveEntrySQL = `
@@ -32,7 +32,7 @@ func (run *creationRun) persistArchives() error {
 func (run *creationRun) materializeArchive(archive preparedArchive) (map[int]string, error) {
 	result := make(map[int]string, len(archive.materialized))
 	for ordinal, metadata := range archive.materialized {
-		blobID, err := blobstore.EnsureRecord(
+		blobID, err := blobcatalog.EnsureRecord(
 			run.ctx, run.transaction, metadata, "application/octet-stream", run.now,
 		)
 		if err != nil {

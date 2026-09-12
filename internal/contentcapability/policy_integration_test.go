@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/testsupport"
@@ -28,7 +30,7 @@ func TestBindingPolicyUsesTheConsumersTransactionSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	query := `SELECT binding.binding_id,` + contentcapability.BindingPolicySQL + `
 FROM runtime_target_bindings binding WHERE binding.core_id='yabause'`
 	var bindingID string

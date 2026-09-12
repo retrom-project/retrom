@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/http"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -105,7 +107,7 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	version, err := currentGameAssetVersion(
 		request.Context(), transaction, request.PathValue("gameId"),
 	)
@@ -257,7 +259,7 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	version, err := currentGameAssetVersion(
 		request.Context(), transaction, request.PathValue("gameId"),
 	)
@@ -429,7 +431,7 @@ func (server *Server) persistReviewAsset(
 	if err != nil {
 		return reviewAssetRecord{}, fmt.Errorf("begin review asset transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var currentVersion int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT d.version

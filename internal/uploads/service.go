@@ -16,7 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -102,7 +104,7 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Sess
 	if err != nil {
 		return Session{}, fmt.Errorf("begin upload: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO upload_sessions(id,
 purpose,
@@ -532,7 +534,7 @@ func (service *Service) Complete(ctx context.Context, uploadID string, version i
 	if err != nil {
 		return "", 0, fmt.Errorf("uploads/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var currentVersion, finalization int64
 	var state string
 	if err := transaction.QueryRowContext(ctx, `

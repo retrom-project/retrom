@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/recordstore"
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/sessionstore"
 
 	"retrom/internal/testassert"
 )

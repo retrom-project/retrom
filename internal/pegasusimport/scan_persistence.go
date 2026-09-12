@@ -9,9 +9,10 @@ import (
 	"strings"
 	"unicode"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/pegasusmeta"
 )
 
@@ -36,7 +37,7 @@ func (service *Service) persistScanHeaders(
 	if err != nil {
 		return fmt.Errorf("pegasusimport/start scan header transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	for _, metadata := range result.Metadata {
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO pegasus_import_metadata_files(
@@ -79,7 +80,7 @@ func (service *Service) persistScanItems(
 		}
 		for _, item := range items[offset:end] {
 			if err := insertScannedItem(ctx, batch, unit.ImportID, item, now); err != nil {
-				cleanup.Rollback(batch)
+				dbexec.Rollback(batch)
 				return err
 			}
 		}
@@ -130,7 +131,7 @@ func (service *Service) finishScan(ctx context.Context, unit work, result scanRe
 	if err != nil {
 		return fmt.Errorf("pegasusimport/start scan finish transaction: %w", err)
 	}
-	defer cleanup.Rollback(finish)
+	defer dbexec.Rollback(finish)
 	processable := int64(len(result.Items)) - result.Blocked
 	if _, err := recordstore.UpdatePegasusImports(ctx, finish, recordstore.Update{
 		Set: `
@@ -196,7 +197,7 @@ func (service *Service) fail(ctx context.Context, unit work, code string, retrya
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	_, _ = transaction.ExecContext(
 		ctx,
 		`UPDATE jobs

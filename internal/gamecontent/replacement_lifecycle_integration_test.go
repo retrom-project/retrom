@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -96,7 +98,7 @@ func ensureReplacementBlob(
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobstore.EnsureRecord(
+	blobID, err := blobcatalog.EnsureRecord(
 		ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli(),
 	)
 	if err != nil {

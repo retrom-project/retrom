@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
-
-	"retrom/internal/cleanup"
 )
 
 type acceptedMultiDiscEvidence struct {
@@ -203,7 +203,7 @@ func (service *Service) commitAcceptedMultiDiscAttachment(
 	if err != nil {
 		return multiDiscAttachmentStoreError("begin accepted commit", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := currentMultiDiscAttachmentInput(ctx, transaction, *candidate); err != nil {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorInputStale, err)
 	}
@@ -284,7 +284,7 @@ func (service *Service) finishRejectedMultiDiscAttachment(
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
 		Set: `
 state='REJECTED',error_code=?,diagnostics_json=?,
@@ -356,7 +356,7 @@ func (service *Service) finishRetryableMultiDiscAttachment(
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
 		Set: `
 state='FAILED_RETRYABLE',error_code=?,diagnostics_json=?,
@@ -411,7 +411,7 @@ func (service *Service) scheduleMultiDiscAttachmentRetry(
 	if err != nil {
 		return false
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var attemptCount, maxAttempts, deadline int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT attempt_count,max_attempts,execution_deadline_at_ms
@@ -498,7 +498,7 @@ func (service *Service) finishMultiDiscAttachmentCancellation(
 	if err != nil {
 		return false
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
 		Set: `
 state='CANCELLED',error_code='CANCELLED',

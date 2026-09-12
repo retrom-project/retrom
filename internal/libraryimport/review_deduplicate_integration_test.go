@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/testsupport"
 )
@@ -38,7 +40,7 @@ func (fixture deduplicateFixture) create(t *testing.T, name, contents string, co
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobstore.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/persistence/storequery"
 	"retrom/internal/service/immersive"
-	"retrom/internal/storequery"
 )
 
 func (records saveRecords) ForGames(

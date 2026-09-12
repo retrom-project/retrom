@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 func collectIDs(ctx context.Context, transaction *sql.Tx, query string, args ...any) ([]string, error) {

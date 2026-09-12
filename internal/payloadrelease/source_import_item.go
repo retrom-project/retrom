@@ -7,9 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/dbexec"
-	"retrom/internal/recordstore"
-
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
 )
 
 type sourceRecordUpdate func(context.Context, dbexec.Executor, recordstore.Update) (sql.Result, error)
@@ -61,7 +59,7 @@ func (service *Service) releaseSourceImportItem(
 	if err != nil {
 		return fmt.Errorf("payloadrelease/%s transaction: %w", spec.label, err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state, payloadState string
 	var version int64
 	var retryable bool

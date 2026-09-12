@@ -12,7 +12,9 @@ import (
 	"path"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -48,7 +50,7 @@ func (service *Service) claimMultiDiscAttachment(
 	if err != nil {
 		return multiDiscAttachmentCandidate{}, multiDiscAttachmentStoreError("begin claim", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	workerID, _ := uuid.NewV7()
 	now := service.now().UnixMilli()
 	if err := claimMultiDiscAttachmentRecords(ctx, transaction, jobID, workerID.String(), now); err != nil {

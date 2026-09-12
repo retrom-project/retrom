@@ -11,7 +11,9 @@ import (
 	"sort"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -30,7 +32,7 @@ func (service *Service) Cancel(ctx context.Context, uploadID string, version int
 	if err != nil {
 		return Canceled{}, false, fmt.Errorf("uploads/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state string
 	var currentVersion int64
 	var jobID sql.NullString
@@ -334,7 +336,7 @@ func (service *Service) publishFinalizedUpload(ctx context.Context, uploadID, jo
 		service.fail(ctx, uploadID, jobID, "UPLOAD_FINALIZE_IO")
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdateUploadSessions(ctx, transaction, recordstore.Update{
 		Set: `
 state='COMPLETE',
@@ -349,7 +351,7 @@ updated_at_ms=?
 		},
 		Values: []any{now + int64(7*24*time.Hour/time.Millisecond), now},
 	}); err != nil {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.fail(ctx, uploadID, jobID, "UPLOAD_FINALIZE_IO")
 		return
 	}
@@ -360,7 +362,7 @@ finished_at_ms=?,
 updated_at_ms=?
 WHERE id=?
 `, now, now, jobID); err != nil {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.fail(ctx, uploadID, jobID, "UPLOAD_FINALIZE_IO")
 		return
 	}
@@ -377,7 +379,7 @@ created_at_ms) VALUES(?,
 '{}',
 ?)
 `, jobID, uploadID, now); err != nil {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 		service.fail(ctx, uploadID, jobID, "UPLOAD_FINALIZE_IO")
 		return
 	}
@@ -399,7 +401,7 @@ WHERE id=?
 	if err != nil {
 		return true
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	_, err = transaction.ExecContext(
 		ctx,
 		`

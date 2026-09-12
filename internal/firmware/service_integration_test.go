@@ -17,8 +17,11 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/recordstore"
-	"retrom/internal/sessionstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
+	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/sessionstore"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -159,7 +162,7 @@ func seedFirmwareReplacementLifecycle(
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +244,7 @@ func ensureFirmwareBlob(
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobstore.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -471,7 +474,7 @@ func updateFirmwareLaunch(t *testing.T, db *sql.DB, change recordstore.Update) (
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	result, err := sessionstore.ChangeLaunch(t.Context(), tx, change)
 	if err != nil {
 		return nil, err

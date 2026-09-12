@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
+
 	"retrom/internal/payloadrelease"
 )
 
@@ -19,7 +20,7 @@ func (service *Service) releaseUnusedUploads(ctx context.Context, kind, id strin
 	if err != nil {
 		return fmt.Errorf("importdiscard/unused envelopes: %w", err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	ids, err := payloadrelease.CollectScopeIDs(ctx, tx, `
 SELECT owner.upload_session_id FROM server_import_upload_owners owner
 JOIN `+table[:len(table)-1]+`_items item ON item.id=owner.source_item_id

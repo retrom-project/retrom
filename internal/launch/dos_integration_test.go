@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
@@ -244,7 +246,7 @@ WHERE variant.game_id=?
 	}
 	retryTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(retryTx)
+	defer dbexec.Rollback(retryTx)
 	retriedJobID, queued, err := service.queueValidationJob(
 		ctx,
 		retryTx,

@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/launch"
 )
 
@@ -89,7 +90,7 @@ func (service *Service) MarkRuntimeReady(ctx context.Context, participant Socket
 	if err != nil {
 		return false, serviceError("mark runtime ready transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdateNetplaySessionParticipants(ctx, transaction, recordstore.Update{
 		Set: `state='RUNTIME_READY',version=version+1,updated_at_ms=?`,
 		Scope: recordstore.Scope{
@@ -164,7 +165,7 @@ func (service *Service) MarkSessionRunning(ctx context.Context, roomID, sessionI
 	if err != nil {
 		return serviceError("mark session running transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var fromState string
 	var resyncCount int
 	if err := transaction.QueryRowContext(
@@ -370,7 +371,7 @@ func (service *Service) recordParticipantLaunch(
 	if err != nil {
 		return serviceError("record participant launch transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var transitionRecorded int
 	if err := transaction.QueryRowContext(ctx, `
 SELECT count(*) FROM netplay_events

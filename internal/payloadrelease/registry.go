@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"retrom/internal/blobregistry"
+	"retrom/internal/persistence/blobregistry"
 )
 
 var errOwnershipRegistryMismatch = errors.New("PAYLOAD_OWNERSHIP_REGISTRY_MISMATCH")

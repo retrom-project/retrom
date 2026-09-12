@@ -8,7 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
+
 	"retrom/internal/rpgmaker/detector"
 )
 
@@ -81,7 +82,7 @@ func (service *Service) currentRPGReviewDependencies(
 	if err != nil {
 		return false, fmt.Errorf("libraryimport/RPG current dependencies: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var draftID string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT draft.id FROM review_drafts draft

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 func (run *creationRun) persistGroupValidation(record *groupRecord) error {
@@ -93,7 +93,7 @@ func (run *creationRun) insertDOSBundle(record *groupRecord) error {
 	bundleBlobID := record.group.bundleBlobID
 	if record.group.bundle != nil {
 		var err error
-		bundleBlobID, err = blobstore.EnsureRecord(
+		bundleBlobID, err = blobcatalog.EnsureRecord(
 			run.ctx, run.transaction, *record.group.bundle, "application/zip", run.now,
 		)
 		if err != nil {

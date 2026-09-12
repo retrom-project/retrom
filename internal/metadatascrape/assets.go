@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
 )
@@ -105,7 +107,7 @@ func (service *Service) fetchPendingAsset(
 	if err != nil {
 		return consumed, fmt.Errorf("metadatascrape/service: %w", err)
 	}
-	blobID, registerErr := blobstore.EnsureRecord(
+	blobID, registerErr := blobcatalog.EnsureRecord(
 		ctx,
 		transaction,
 		metadata,
@@ -160,7 +162,7 @@ AND EXISTS(
 			registerErr = transaction.Commit()
 		}
 	} else {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 	}
 	if registerErr != nil {
 		return consumed, fmt.Errorf("metadatascrape/service: %w", registerErr)

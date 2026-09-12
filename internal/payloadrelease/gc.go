@@ -11,10 +11,12 @@ import (
 	"math"
 	"os"
 
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 
-	"retrom/internal/blobregistry"
 	"retrom/internal/cleanup"
+	"retrom/internal/persistence/blobregistry"
 )
 
 var (
@@ -53,7 +55,7 @@ func (service *Service) ScheduleImmediateGC(
 	if err != nil {
 		return ImmediateGCResult{}, fmt.Errorf("payloadrelease/immediate GC transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	protected, err := blobregistry.ProtectiveSet(ctx, transaction)
 	if err != nil {
 		return ImmediateGCResult{}, fmt.Errorf("payloadrelease/immediate GC protection: %w", err)
@@ -237,7 +239,7 @@ func (service *Service) cancelProtectedCandidates(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("payloadrelease/cancel protected: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	protected, err := blobregistry.ProtectiveSet(ctx, transaction)
 	if err != nil {
 		return fmt.Errorf("payloadrelease/cancel protection set: %w", err)
@@ -380,7 +382,7 @@ func (service *Service) executeBlobGC(ctx context.Context, job claimedJob) error
 	if err != nil {
 		return fmt.Errorf("payloadrelease/GC transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	protected, err := blobregistry.ProtectiveSet(ctx, transaction)
 	if err != nil {
 		return fmt.Errorf("payloadrelease/GC protection: %w", err)

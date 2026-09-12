@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/firmware"
@@ -69,7 +71,7 @@ func (service *Service) persistCandidates(
 	if err != nil {
 		return fmt.Errorf("begin server import candidate persistence: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	total := 0
 	multi := 0
@@ -254,7 +256,7 @@ func (service *Service) completeItem(
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
 		Set: `
 state=?,match_method=?,selection_details_json=?,outcome_code=?,
@@ -317,7 +319,7 @@ func (service *Service) finishTask(ctx context.Context, unit work) {
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	counts, err := itemStateCounts(ctx, transaction, unit.ImportID)
 	if err != nil {
 		return
@@ -362,7 +364,7 @@ func (service *Service) failTask(ctx context.Context, unit work, code string) {
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
 		Set: `state='COMMIT_FAILED',outcome_code=?,completed_at_ms=?,updated_at_ms=?`,
 		Scope: recordstore.Scope{
@@ -397,7 +399,7 @@ func (service *Service) scheduleAutomaticRetry(ctx context.Context, unit work, c
 	if err != nil {
 		return false
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var attempt, maximum int64
 	var deadline sql.NullInt64
 	var terminalItems int64
@@ -479,7 +481,7 @@ func (service *Service) cancelTask(ctx context.Context, unit work) {
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
 		Set: `
 state='CANCELLED',outcome_code='CANCELLED',

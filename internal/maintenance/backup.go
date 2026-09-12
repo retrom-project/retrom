@@ -13,10 +13,10 @@ import (
 	// Register the modernc SQLite driver used by openDatabase.
 	_ "modernc.org/sqlite"
 
-	"retrom/internal/blobregistry"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
+	"retrom/internal/persistence/blobregistry"
 	"retrom/internal/processlock"
 	"retrom/internal/store"
 )

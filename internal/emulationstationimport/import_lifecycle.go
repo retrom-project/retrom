@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -213,7 +215,7 @@ func (service *Service) queueImport(
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/start transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state string
 	var version int64
 	if err := transaction.QueryRowContext(
@@ -410,7 +412,7 @@ func (service *Service) Cancel(
 	if err != nil {
 		return Summary{}, false, fmt.Errorf("emulationstationimport/cancel transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state string
 	var actual int64
 	var jobID sql.NullString
@@ -569,7 +571,7 @@ func (service *Service) Delete(ctx context.Context, importID string, expectedVer
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/delete transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state, scanJob string
 	var version int64
 	var importJob sql.NullString
@@ -639,7 +641,7 @@ func (service *Service) ExpirePlans(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/start expiry transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
 		Set: `
 execution_state='CANCELLED',error_code='EMULATIONSTATION_PLAN_EXPIRED',retryable=0,
@@ -721,7 +723,7 @@ func (service *Service) queueRetryExecution(ctx context.Context, summary Summary
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/retry transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var execution int64
 	if err := transaction.QueryRowContext(
 		ctx, `SELECT execution_no FROM jobs WHERE id=?`, *summary.ImportJobID,

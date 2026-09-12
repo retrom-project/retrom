@@ -15,6 +15,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/cleanup"
 )
 
@@ -255,7 +257,7 @@ func (server *Server) diagnostics(writer http.ResponseWriter, request *http.Requ
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var schemaVersion int64
 	if err := transaction.QueryRowContext(request.Context(), `
 SELECT COALESCE(MAX(version),

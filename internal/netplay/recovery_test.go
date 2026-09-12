@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -31,7 +33,7 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 	testassert.False(t, err != nil, err)
 	tx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	if _, err := tx.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +88,7 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 	)
 	tx, err = database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	if _, err := tx.ExecContext(context.Background(), `
 INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_id,provider_id,target_id,bundle_sha256,
 netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,version,created_at_ms,updated_at_ms)

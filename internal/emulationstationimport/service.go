@@ -12,9 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -189,7 +191,7 @@ func (service *Service) recoverWork(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/start recovery transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if err := recoverCancelledExecutions(ctx, transaction, now); err != nil {
 		return err
 	}
@@ -324,7 +326,7 @@ func (service *Service) claim(ctx context.Context) (work, bool) {
 	if err != nil {
 		return work{}, false
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	var unit work
 	var frozenDeadline sql.NullInt64
@@ -522,7 +524,7 @@ func (service *Service) createScanPlan(
 	if err != nil {
 		return Summary{}, fmt.Errorf("emulationstationimport/create transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)

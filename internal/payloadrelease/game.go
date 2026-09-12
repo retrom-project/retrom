@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/sessionstore"
 )
 
 func (service *Service) releaseGame(ctx context.Context, job claimedJob) error {
@@ -22,7 +22,7 @@ func (service *Service) releaseGame(ctx context.Context, job claimedJob) error {
 	if err != nil {
 		return fmt.Errorf("payloadrelease/game transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	complete, err := ensureGameRelease(ctx, transaction, job, service.now().UnixMilli())
 	if err != nil || complete {
 		return err

@@ -8,11 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/dbexec"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/corevalidation"
 	"retrom/internal/metadatascrape"
@@ -70,7 +71,7 @@ func newQueuedCreationRun(
 }
 
 func (run *creationRun) execute() error {
-	defer cleanup.Rollback(run.transaction)
+	defer dbexec.Rollback(run.transaction)
 	if err := run.initialize(); err != nil {
 		return fmt.Errorf("libraryimport/service: initialize import: %w", err)
 	}

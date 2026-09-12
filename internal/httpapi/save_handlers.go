@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/storequery"
+	"retrom/internal/persistence/storequery"
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -72,7 +74,7 @@ func (service *Service) RecoverImportGroupJobs(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	cancelledImportIDs, err := importGroupsAwaitingCancellation(ctx, transaction)
 	if err != nil {
 		return
@@ -193,7 +195,7 @@ func (service *Service) claimImportGroup(ctx context.Context, jobID string) (que
 	if err != nil {
 		return queuedCreationWork{}, fmt.Errorf("libraryimport/group claim: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	workerUUID, _ := uuid.NewV7()
 	workerID := workerUUID.String()
 	now := service.now().UnixMilli()
@@ -368,7 +370,7 @@ func (service *Service) SyncImportGroupCancellation(ctx context.Context, jobID s
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var importID, jobState, importState string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT job.scope_id,job.state,import.state
@@ -399,7 +401,7 @@ func (service *Service) finishImportGroupFailure(ctx context.Context, work queue
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state string
 	var attempt, maxAttempts int
 	if err := transaction.QueryRowContext(ctx, `
@@ -545,7 +547,7 @@ func (service *Service) scheduleTerminalImportGroupRelease(ctx context.Context, 
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := payloadrelease.ScheduleTerminalImportJob(
 		ctx, transaction, importID, service.now().UnixMilli(),
 	); err != nil {

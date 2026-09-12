@@ -12,14 +12,14 @@ import (
 	"net/http"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
+
+	"retrom/internal/persistence/sessionstore"
 
 	"github.com/google/uuid"
-
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 )
 
 func (service *Service) CreateManual(
@@ -64,7 +64,7 @@ func (service *Service) persistManualSave(
 	if err != nil {
 		return ManualResult{}, false, fmt.Errorf("saves/service: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if previous, replayed, replayErr := service.replayManualSave(
 		ctx, transaction, launch.principalID, idempotencyKey, requestDigest,
 	); replayErr != nil || replayed {
@@ -74,7 +74,7 @@ func (service *Service) persistManualSave(
 		return ManualResult{}, false, err
 	}
 	now := service.now().UnixMilli()
-	payloadID, err := blobstore.EnsureRecord(ctx, transaction, parsed.payload, "application/octet-stream", now)
+	payloadID, err := blobcatalog.EnsureRecord(ctx, transaction, parsed.payload, "application/octet-stream", now)
 	if err != nil {
 		return ManualResult{}, false, fmt.Errorf("saves/service: %w", err)
 	}
@@ -140,7 +140,7 @@ func (service *Service) insertProductSave(
 	var screenshotID any
 	var screenshotURL *string
 	if parsed.screenshot != nil {
-		id, err := blobstore.EnsureRecord(
+		id, err := blobcatalog.EnsureRecord(
 			ctx, transaction, *parsed.screenshot, parsed.screenshotMediaType, now,
 		)
 		if err != nil {

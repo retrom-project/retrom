@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
@@ -102,7 +105,7 @@ func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T
 	archive := makeZIP(t, map[string][]byte{"b.bin": []byte("bios")})
 	metadata, err := blobs.Put(bytes.NewReader(archive))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(ctx, database.SQL, metadata, "application/zip", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, metadata, "application/zip", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000101"
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -126,7 +129,7 @@ VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 	previous := `{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	t.Cleanup(func() { cleanup.Rollback(transaction) })
+	t.Cleanup(func() { dbexec.Rollback(transaction) })
 	resolved, err := resolveArcadeDraftBIOSState(
 		ctx, transaction, target.ProviderID, target.TargetID, previous, "BLOCKED", "LAUNCH_BIOS_MISSING",
 	)
@@ -217,7 +220,7 @@ VALUES(?,?,0,?,?,?,?,'GOOD')
 	}
 	biosMetadata, err := blobs.Put(bytes.NewReader(biosArchive))
 	testassert.False(t, err != nil, err)
-	biosBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, biosMetadata, "application/zip", now)
+	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, biosMetadata, "application/zip", now)
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000202"
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -323,7 +326,7 @@ WHERE item.import_job_id=?
 	testassert.False(t, err != nil, err)
 	replacementMetadata, err := blobs.Put(bytes.NewReader(append(biosArchive, []byte("replacement")...)))
 	testassert.False(t, err != nil, err)
-	replacementBlobID, err := blobstore.EnsureRecord(
+	replacementBlobID, err := blobcatalog.EnsureRecord(
 		ctx, database.SQL, replacementMetadata, "application/zip", now,
 	)
 	testassert.False(t, err != nil, err)

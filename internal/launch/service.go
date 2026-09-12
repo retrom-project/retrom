@@ -8,15 +8,16 @@ import (
 	"net/url"
 	"time"
 
-	"retrom/internal/recordstore"
-	"retrom/internal/sessionstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/sessionstore"
 
 	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimecatalog"
@@ -171,7 +172,7 @@ func (service *Service) CreateNetplay(ctx context.Context, request NetplayCreate
 	if err != nil {
 		return Created{}, fmt.Errorf("launch/netplay: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	binding, err := loadNetplayParticipantBinding(ctx, transaction, request)
 	if err != nil {
 		return Created{}, err

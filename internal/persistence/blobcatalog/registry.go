@@ -1,4 +1,4 @@
-package blobstore
+package blobcatalog
 
 import (
 	"context"
@@ -6,16 +6,17 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/blobstore"
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 )
 
 // EnsureRecord registers a byte-verified CAS object and returns its stable Blob ID.
 // The physical write happens before this call so callers can include the reference
 // and their domain mutation in one short transaction.
-func EnsureRecord(ctx context.Context, executor interface {
-	ExecContext(context.Context, string, ...any) (sql.Result, error)
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, metadata Metadata, mediaType string, createdAtMS int64,
+func EnsureRecord(
+	ctx context.Context, executor dbexec.Executor, metadata blobstore.Metadata, mediaType string, createdAtMS int64,
 ) (string, error) {
 	var blobID string
 	err := executor.QueryRowContext(ctx, `

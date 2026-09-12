@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/blobregistry"
+	"retrom/internal/persistence/blobregistry"
 )
 
 func TestReferenceCoverageRejectsNewAndStaleEdges(t *testing.T) {

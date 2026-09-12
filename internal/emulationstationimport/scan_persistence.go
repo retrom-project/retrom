@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/emulationstationmeta"
 )
 
@@ -58,7 +59,7 @@ func (service *Service) persistScanHeaders(
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/start scan header transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	for _, gamelist := range result.Gamelists {
 		ignoredFields := gamelist.Document.IgnoredFields
 		if ignoredFields == nil {
@@ -111,7 +112,7 @@ func (service *Service) persistScanItems(
 		}
 		for _, item := range items[offset:end] {
 			if err := insertScannedItem(ctx, batch, unit.ImportID, item, now); err != nil {
-				cleanup.Rollback(batch)
+				dbexec.Rollback(batch)
 				return err
 			}
 		}
@@ -164,7 +165,7 @@ func (service *Service) finishScan(ctx context.Context, unit work, result scanRe
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/start scan finish transaction: %w", err)
 	}
-	defer cleanup.Rollback(finish)
+	defer dbexec.Rollback(finish)
 	processable := int64(len(result.Items)) - result.Blocked
 	if _, err := recordstore.UpdateEmulationstationImports(ctx, finish, recordstore.Update{
 		Set: `
@@ -274,7 +275,7 @@ func (service *Service) clearScanStaging(ctx context.Context, importID string) e
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/start scan staging cleanup: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state string
 	if err := transaction.QueryRowContext(
 		ctx, `SELECT state FROM emulationstation_imports WHERE id=?`, importID,

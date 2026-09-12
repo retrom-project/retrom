@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/sessionstore"
 )
 
 // ContentReplacementImpact carries the runtime rows retired by an in-place

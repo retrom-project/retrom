@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/storequery"
+	"retrom/internal/persistence/storequery"
 
 	"github.com/google/uuid"
 

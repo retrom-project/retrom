@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/payloadrelease"
 )
@@ -58,7 +60,7 @@ func (service *Service) ReleaseDiscardedBatch(ctx context.Context, importID stri
 	if err != nil {
 		return fmt.Errorf("libraryimport/finish batch discard: %w", err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	now := service.now().UnixMilli()
 	var pending int
 	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM import_items WHERE import_job_id=?

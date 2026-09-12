@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/emulationstationimport"
@@ -157,7 +159,7 @@ func (service *Service) discardSourceItems(ctx context.Context, kind, id string)
 	if err != nil {
 		return false, fmt.Errorf("importdiscard/source transaction: %w", err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	// Do not change a version already frozen by a release job.
 	var releasing int
 	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM `+itemsTable+` WHERE import_id=?

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 )
 
 var ErrLifecycleInvariant = errors.New("PAYLOAD_LIFECYCLE_INVARIANT")
@@ -16,7 +16,7 @@ func validateLifecycleState(ctx context.Context, database *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("payloadrelease/validate lifecycle: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	checks := []string{
 		`SELECT count(*) FROM import_items
 WHERE state IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED')

@@ -16,10 +16,12 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/launch"
@@ -728,7 +730,7 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	contents := []byte("move-game")
 	metadata, err := server.blobs.Put(bytes.NewReader(contents))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	gameID := "01980000-0000-7000-8000-000000000176"
 	variantID := "01980000-0000-7000-8000-000000000179"
@@ -736,7 +738,7 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	now := time.Now().UnixMilli()
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	statements := []struct {
 		query string
 		args  []any
@@ -784,7 +786,7 @@ func cloneMovableGame(
 	ctx := context.Background()
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}

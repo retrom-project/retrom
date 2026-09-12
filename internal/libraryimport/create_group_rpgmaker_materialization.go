@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/rpgmaker/detector"
 	"retrom/internal/rpgmaker/materializer"
@@ -98,7 +100,7 @@ func (run *creationRun) appendRPGValidationBlob(
 	logicalName string,
 	metadata blobstore.Metadata,
 ) error {
-	blobID, err := blobstore.EnsureRecord(
+	blobID, err := blobcatalog.EnsureRecord(
 		run.ctx, run.transaction, metadata, "application/octet-stream", run.now,
 	)
 	if err != nil {

@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
@@ -125,7 +127,7 @@ func TestGamePageBoundsInitialCatalogWorkAndUsesStableCursor(t *testing.T) {
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +264,7 @@ func TestArcadeEligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	snapshot := fmt.Sprintf(`{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":%q,"closure":[{"machine":"child","kind":"CONTENT","requiredBy":null,"depth":0},{"machine":"bios","kind":"BIOS_OR_BASE","requiredBy":"child","depth":1}],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","requiredBy":"child","depth":1,"expectedLogicalName":"bios.zip","state":"SATISFIED_EXTERNAL","requiredEntryCount":1,"requiredEntries":["bios.bin"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datID)
 	tx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	if _, err := tx.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +373,7 @@ func TestPrepareFailureReturnsRoomToWaitingAndClearsReady(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}

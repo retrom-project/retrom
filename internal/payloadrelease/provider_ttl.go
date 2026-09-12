@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
 )
 
 func (service *Service) releaseExpiredProviderPayloads(ctx context.Context) error {
@@ -23,7 +23,7 @@ func (service *Service) releaseExpiredProviderPayloadBatch(ctx context.Context) 
 	if err != nil {
 		return 0, fmt.Errorf("payloadrelease/provider transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	responseIDs, err := collectIDs(ctx, transaction, `
 SELECT response.id FROM metadata_provider_responses response

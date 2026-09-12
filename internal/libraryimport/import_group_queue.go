@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"sort"
 
+	"retrom/internal/dbexec"
+
 	tagpersistence "retrom/internal/persistence/tagging"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -64,7 +66,7 @@ func (service *Service) QueueCreate(ctx context.Context, rawRequest CreateReques
 	if err != nil {
 		return Created{}, fmt.Errorf("libraryimport/queue: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	actor := reviewActor(ctx)
 	actorUserID, actorIsUser := actor.UserID.(string)
 	if len(admission.request.TagIDs) > 0 && (!actorIsUser || actorUserID == "") {

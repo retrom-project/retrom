@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 func ChangeLaunch(ctx context.Context, db dbexec.Executor, change recordstore.Update) (sql.Result, error) {

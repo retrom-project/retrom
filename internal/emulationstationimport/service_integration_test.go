@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -67,7 +69,7 @@ VALUES(?,'emulationstation-profile','es-test','ES Test','ADMIN','ENABLED',1,1)`,
 		testassert.False(t, readErr != nil, readErr)
 		metadata, putErr := blobs.Put(bytes.NewReader(payload))
 		testassert.False(t, putErr != nil, putErr)
-		_, recordErr := blobstore.EnsureRecord(
+		_, recordErr := blobcatalog.EnsureRecord(
 			ctx,
 			database.SQL,
 			metadata,

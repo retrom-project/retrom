@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 type gameSaveBinding struct {
@@ -93,7 +93,7 @@ WHERE save.id=? AND profile_id=? AND game_id=? AND checkpoint_format=? AND delet
 	if digest == parsed.payload.SHA256 {
 		return result, nil
 	}
-	imageID, err := blobstore.EnsureRecord(ctx, tx, *parsed.screenshot, parsed.screenshotMediaType, now)
+	imageID, err := blobcatalog.EnsureRecord(ctx, tx, *parsed.screenshot, parsed.screenshotMediaType, now)
 	if err != nil {
 		return ManualResult{}, fmt.Errorf("store native save image: %w", err)
 	}

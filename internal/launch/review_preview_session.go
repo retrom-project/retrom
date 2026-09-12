@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/sessionstore"
 )
 
 // Review trials consume the ordinary Player events, but do not create product

@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/payloadrelease"
 )
 
@@ -45,7 +46,7 @@ func (run *creationRun) prepareCanonicalPlaylist(record *groupRecord) error {
 	if record.group.canonicalPlaylist == nil {
 		return nil
 	}
-	blobID, err := blobstore.EnsureRecord(
+	blobID, err := blobcatalog.EnsureRecord(
 		run.ctx, run.transaction, *record.group.canonicalPlaylist, "application/vnd.retrom.m3u", run.now,
 	)
 	if err != nil {

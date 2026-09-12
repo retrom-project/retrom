@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
@@ -99,7 +101,7 @@ SELECT id FROM import_items WHERE import_job_id=?
 	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm"))
 	parentMetadata, err := blobs.Put(bytes.NewReader([]byte("review-preview-parent")))
 	testassert.False(t, err != nil, err)
-	parentBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
+	parentBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var baseValidationID, sourceSnapshotID, datVersionID string
 	if err := database.SQL.QueryRowContext(ctx, `

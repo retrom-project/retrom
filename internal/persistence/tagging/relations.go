@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/tagging"
 )
 

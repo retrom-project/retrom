@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/contentcapability"
 	"retrom/internal/libraryimport"
 	"retrom/internal/netplay"
@@ -211,7 +212,7 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 	server.importer.WithMultiDiscImportEnabled(true)
 	metadata, err := server.blobs.Put(strings.NewReader("MComprHDdeterministic CHD fixture"))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", now.UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", now.UnixMilli())
 	testassert.False(t, err != nil, err)
 	createUpload := func(uploadID, fileID string) {
 		t.Helper()

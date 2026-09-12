@@ -8,7 +8,10 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -52,9 +55,9 @@ func (service *Service) recordCopiedFile(
 	if err != nil {
 		return "", fmt.Errorf("emulationstationimport/start copied file transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
-	blobID, err := blobstore.EnsureRecord(ctx, transaction, metadata, "application/octet-stream", now)
+	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, "application/octet-stream", now)
 	if err != nil {
 		return "", fmt.Errorf("emulationstationimport/record copied file blob: %w", err)
 	}
@@ -88,9 +91,9 @@ func (service *Service) recordCopiedAsset(
 	if err != nil {
 		return "", fmt.Errorf("emulationstationimport/start copied asset transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
-	blobID, err := blobstore.EnsureRecord(ctx, transaction, metadata, mediaType, now)
+	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, mediaType, now)
 	if err != nil {
 		return "", fmt.Errorf("emulationstationimport/record copied asset blob: %w", err)
 	}
@@ -177,11 +180,11 @@ func (service *Service) arcadeCompanions(
 		if err != nil {
 			return nil, fmt.Errorf("emulationstationimport/start companion transaction: %w", err)
 		}
-		blobID, err := blobstore.EnsureRecord(ctx, transaction, metadata, "application/zip", service.now().UnixMilli())
+		blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, "application/zip", service.now().UnixMilli())
 		if err == nil {
 			err = transaction.Commit()
 		} else {
-			cleanup.Rollback(transaction)
+			dbexec.Rollback(transaction)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("emulationstationimport/record arcade companion: %w", err)

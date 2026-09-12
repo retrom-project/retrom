@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -44,7 +46,7 @@ func (server *Server) applyGameScrapeCandidate(writer http.ResponseWriter, reque
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var candidateMetadataJSON string
 	var current gameMetadata
 	var version int64

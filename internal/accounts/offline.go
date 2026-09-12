@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 	retromruntime "retrom/internal/runtime"
 )
 
@@ -48,7 +49,7 @@ func (service *Service) OfflineAdminReset(
 	if err != nil {
 		return fmt.Errorf("begin offline admin recovery: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	return applyOfflineAdminReset(ctx, transaction, input)
 }
 

@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
@@ -429,7 +431,7 @@ WHERE import_job_id=?
 	}
 	failureTransaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(failureTransaction)
+	defer dbexec.Rollback(failureTransaction)
 	if _, err := failureTransaction.ExecContext(ctx, `
 UPDATE import_items
 SET state='SCRAPING'

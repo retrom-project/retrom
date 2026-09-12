@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/storequery"
+	"retrom/internal/persistence/storequery"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"

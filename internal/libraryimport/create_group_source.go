@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 

@@ -13,6 +13,8 @@ import (
 	"sort"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/arcadedat"
@@ -26,7 +28,7 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 	if err != nil {
 		return fmt.Errorf("begin dependency bootstrap: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	preferredVersions := set.preferredCoreVersions()
 	for _, versionName := range set.Order {
 		version := set.Versions[versionName]
@@ -270,7 +272,7 @@ func (bootstrap *catalogBootstrap) activateReady(datID string) {
 	if err == nil {
 		err = transaction.Commit()
 	} else if transaction != nil {
-		cleanup.Rollback(transaction)
+		dbexec.Rollback(transaction)
 	}
 	if err != nil {
 		bootstrap.fail(fmt.Errorf("activate ready built-in DAT: %w", err))
@@ -395,7 +397,7 @@ func publishBuiltInDATCatalog(
 	if err != nil {
 		return fmt.Errorf("begin built-in DAT publication: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if indexed != expectedMachineCount {
 		if err := datindex.Replace(ctx, transaction, datID, catalog); err != nil {
 			return fmt.Errorf("write built-in DAT index: %w", err)
@@ -563,7 +565,7 @@ func ensureBuiltInDATJob(
 	if err != nil {
 		return "", fmt.Errorf("dependencies/dependencies: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var jobID, state string
 	err = transaction.QueryRowContext(ctx, `
 SELECT id,
@@ -721,7 +723,7 @@ func failBuiltInDAT(ctx context.Context, database *sql.DB, datID, jobID, code st
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	_, _ = transaction.ExecContext(
 		ctx,
 		`

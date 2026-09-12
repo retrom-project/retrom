@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 func TestApplicationUserWritesPreserveIdentityAndLastAdministrator(t *testing.T) {

@@ -9,7 +9,9 @@ import (
 	"slices"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -113,7 +115,7 @@ func (service *Service) expirePassiveRoom(
 	if err != nil {
 		return serviceError("expire room transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
 		Set: `
 state='EXPIRED',ended_at_ms=?,end_reason='HARD_EXPIRED',version=version+1,updated_at_ms=?
@@ -187,7 +189,7 @@ func (service *Service) mutateHostRoom(
 	if err != nil {
 		return Room{}, serviceError("mutate host room transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var host, state string
 	var version int64
 	if err := transaction.QueryRowContext(

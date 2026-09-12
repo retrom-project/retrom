@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 func gameBlobIDs(ctx context.Context, transaction *sql.Tx, gameID string) ([]string, error) {

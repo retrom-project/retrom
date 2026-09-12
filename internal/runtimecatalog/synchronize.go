@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 // SynchronizeDefinitions projects validated Host declarations in the caller's startup transaction.

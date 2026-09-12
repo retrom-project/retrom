@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 
 	"github.com/google/uuid"
 )
@@ -61,7 +61,7 @@ func (service *Service) DeduplicateReviews(
 	if err != nil {
 		return result, fmt.Errorf("libraryimport/deduplicate: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	through := sql.NullString{String: request.ThroughItemID, Valid: request.ThroughItemID != ""}
 	if !through.Valid {
 		if err := transaction.QueryRowContext(ctx,

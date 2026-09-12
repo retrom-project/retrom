@@ -21,7 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -29,8 +32,8 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
+	"retrom/internal/persistence/sessionstore"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/sessionstore"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -74,7 +77,7 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	testassert.False(t, err != nil, err)
 	content, err := blobs.Put(bytes.NewReader([]byte("save-fixture-gba")))
 	testassert.False(t, err != nil, err)
-	contentBlobID, err := blobstore.EnsureRecord(
+	contentBlobID, err := blobcatalog.EnsureRecord(
 		ctx,
 		database.SQL,
 		content,
@@ -94,7 +97,7 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 PRAGMA defer_foreign_keys=ON
 `); err != nil {
@@ -237,7 +240,7 @@ func (fixture *saveFixture) createLaunchFromSave(t *testing.T, saveStateID *stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	now := fixture.now.UnixMilli()
 	_, err = sessionstore.CreateLaunch(fixture.ctx, tx, `
 INSERT INTO launch_sessions(
@@ -533,7 +536,7 @@ func mustUpdateLaunch(t *testing.T, database *sql.DB, change recordstore.Update)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	if _, err := sessionstore.ChangeLaunch(t.Context(), tx, change); err != nil {
 		t.Fatal(err)
 	}

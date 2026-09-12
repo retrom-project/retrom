@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/sessionstore"
 )
 
 func TestLaunchRevocationUpdatesOnlyChangedSessionsAndPreservesPriorRevocation(t *testing.T) {

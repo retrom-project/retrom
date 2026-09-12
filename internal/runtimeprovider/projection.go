@@ -11,7 +11,7 @@ import (
 	"sort"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 	"golang.org/x/mod/semver"

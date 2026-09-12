@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -300,7 +302,7 @@ func (service *Service) failTerminal(ctx context.Context, jobID, code string) {
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE jobs SET state='FAILED',error_code=?,error_retryable=0,

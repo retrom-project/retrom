@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -40,7 +42,7 @@ func (service *Service) claimReviewBulk(ctx context.Context, bulkID string) (rev
 	if err != nil {
 		return reviewBulkWork{}, fmt.Errorf("libraryimport/review bulk claim: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var work reviewBulkWork
 	var bulkState, jobState string
 	if err := transaction.QueryRowContext(ctx, `
@@ -108,7 +110,7 @@ func (service *Service) claimReviewBulkItem(
 	if err != nil {
 		return reviewBulkWorkItem{}, fmt.Errorf("libraryimport/review bulk item claim: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var item reviewBulkWorkItem
 	err = transaction.QueryRowContext(ctx, `
 SELECT item.import_item_id,item.expected_review_version,item.expected_validation_id,item.expected_source_snapshot_id
@@ -244,7 +246,7 @@ func (service *Service) completeReviewBulkItem(
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk outcome: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	result, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
 		Set: `state=?,outcome_code=?,outcome_details_json=?,completed_at_ms=?`,
@@ -359,7 +361,7 @@ func (service *Service) finishReviewBulk(ctx context.Context, work reviewBulkWor
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk finish: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var pending, failed int
 	if err := transaction.QueryRowContext(ctx, `
 SELECT count(*) FILTER(WHERE state IN ('PENDING','RUNNING')),
@@ -414,7 +416,7 @@ func (service *Service) finalizeReviewBulkCancellation(ctx context.Context, bulk
 	if err != nil {
 		return fmt.Errorf("libraryimport/review bulk cancel: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var jobID string
 	var remaining int
 	if err := transaction.QueryRowContext(ctx, `
@@ -496,7 +498,7 @@ func (service *Service) failReviewBulkWorker(ctx context.Context, work reviewBul
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	if _, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
 		Set: `state='PENDING',started_at_ms=NULL`,
@@ -549,7 +551,7 @@ func (service *Service) failQueuedReviewBulkWorker(ctx context.Context, bulkID s
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var jobID string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT job_id FROM review_bulk_approvals WHERE id=? AND state='QUEUED'
@@ -672,7 +674,7 @@ func (service *Service) ResumeReviewBulkJobs(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	if _, err := recordstore.UpdateReviewBulkApprovalItems(ctx, transaction, recordstore.Update{
 		Set: `state='PENDING',started_at_ms=NULL`,
@@ -797,7 +799,7 @@ func (service *Service) CancelReviewBulk(
 	if err != nil {
 		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk cancel: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	target, err := loadReviewBulkCancelTarget(ctx, transaction, bulkID, expectedVersion)
 	if err != nil {
 		return ReviewBulkSummary{}, err
@@ -906,7 +908,7 @@ func (service *Service) RetryReviewBulk(
 	if err != nil {
 		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk retry: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	target, err := loadReviewBulkRetryTarget(ctx, transaction, bulkID, expectedVersion)
 	if err != nil {
 		return ReviewBulkSummary{}, err

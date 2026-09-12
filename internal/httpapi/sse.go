@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/cleanup"
 )
 
@@ -99,7 +101,7 @@ func (server *Server) jobStreamSnapshot(
 		server.databaseError(writer, request, err)
 		return 0, 0, nil, false
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var maximum int64
 	if err := transaction.QueryRowContext(request.Context(), `
 SELECT COALESCE(MAX(id),
@@ -153,7 +155,7 @@ func (server *Server) importStreamSnapshot(
 		server.databaseError(writer, request, err)
 		return 0, 0, nil, false
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var maximum int64
 	if err := transaction.QueryRowContext(request.Context(), `
 SELECT COALESCE(MAX(id),

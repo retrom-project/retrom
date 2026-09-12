@@ -13,7 +13,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -563,7 +565,7 @@ func (service *Service) PreviewReviewBulk(ctx context.Context, scope ReviewBulkS
 	if err != nil {
 		return ReviewBulkPreview{}, fmt.Errorf("libraryimport/review bulk preview: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	preview, _, err := service.reviewBulkPreviewInTransaction(ctx, transaction, scope)
 	if err != nil {
 		return ReviewBulkPreview{}, err
@@ -586,7 +588,7 @@ func (service *Service) CreateReviewBulk(
 	if err != nil {
 		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk create: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	preview, candidates, err := service.reviewBulkPreviewInTransaction(ctx, transaction, request.Scope)
 	if err != nil {
 		return ReviewBulkSummary{}, err

@@ -9,7 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -216,7 +218,7 @@ func (service *Service) insertServerUpload(
 	if err != nil {
 		return fmt.Errorf("libraryimport/server source: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if err := insertClonedUpload(ctx, transaction, uploadID, sourceType, files, digest, now, totalBytes); err != nil {
 		return err
 	}
@@ -348,7 +350,7 @@ func (service *Service) patchServerMetadata(
 	if err != nil {
 		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var before string
 	var version int64
 	if err := transaction.QueryRowContext(ctx, `

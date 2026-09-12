@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
 )
@@ -161,7 +163,7 @@ func (service *Service) CreateRoom(ctx context.Context, profileID string) (Room,
 	if err != nil {
 		return Room{}, fmt.Errorf("netplay/create room: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var active int
 	if err := transaction.QueryRowContext(ctx, `
 SELECT count(*) FROM netplay_rooms WHERE state IN ('DRAFT','WAITING','STARTING','RUNNING')
@@ -358,7 +360,7 @@ func (service *Service) commitSelectedGame(
 	if err != nil {
 		return serviceError("select game transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state string
 	var host string
 	var version int64
@@ -496,7 +498,7 @@ func (service *Service) SetSeat(
 	if err != nil {
 		return Room{}, serviceError("set seat transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	existingID, existingPlayer, err := validateSeatMutation(
 		ctx, transaction, roomID, profileID, playerNo, expectedVersion,
 	)
@@ -647,7 +649,7 @@ func (service *Service) SetReady(
 	if err != nil {
 		return Room{}, serviceError("set ready transaction", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state string
 	var version int64
 	if err := transaction.QueryRowContext(ctx, `

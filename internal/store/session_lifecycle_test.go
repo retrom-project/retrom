@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/sessionstore"
 )
 
 func lifecycleDatabase(t *testing.T) *sql.DB {

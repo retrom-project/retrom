@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/sessionstore"
 )
 
 func (service *Service) releaseImportItem(ctx context.Context, job claimedJob) error {
@@ -18,7 +18,7 @@ func (service *Service) releaseImportItem(ctx context.Context, job claimedJob) e
 	if err != nil {
 		return fmt.Errorf("payloadrelease/import item transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var state, payloadState string
 	var version int64
 	var releaseJob sql.NullString

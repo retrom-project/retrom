@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/sessionstore"
 
 	"retrom/internal/authn"
 	"retrom/internal/payloadrelease"

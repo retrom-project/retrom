@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
 )
 
 // RefreshReviewPreviewValidation resolves current runtime dependencies without
@@ -17,7 +17,7 @@ func (service *Service) RefreshReviewPreviewValidation(ctx context.Context, item
 	if err != nil {
 		return fmt.Errorf("refresh review preview validation: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var targetID, selected string
 	var dosEntry sql.NullString
 	err = transaction.QueryRowContext(ctx, `

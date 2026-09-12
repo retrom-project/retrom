@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/sessionstore"
+	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/sessionstore"
 )
 
 func (service *Service) releaseExpiredReviewPreviews(ctx context.Context) error {
@@ -25,7 +25,7 @@ func (service *Service) releaseExpiredReviewPreviewBatch(ctx context.Context) (i
 	if err != nil {
 		return 0, fmt.Errorf("review preview expiry transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	ids, err := collectIDs(ctx, transaction, `
 SELECT id FROM review_preview_sessions

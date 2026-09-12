@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/persistence/recordstore"
 )
 
 type automaticRetryOutcome uint8
@@ -49,7 +49,7 @@ func (service *Service) scheduleAutomaticRetry(
 	if err != nil {
 		return retryNotEligible, fmt.Errorf("emulationstationimport/start automatic retry: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	var attempt, maximum, terminalItems int64
 	var deadline sql.NullInt64
 	if err := transaction.QueryRowContext(ctx, `

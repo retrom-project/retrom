@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 // SupersedeBIOS changes the active installation without mutating frozen launches.

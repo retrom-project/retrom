@@ -11,7 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -157,7 +160,7 @@ func (service *Service) persistReviewPreview(
 	if source.DeliveryProfile == "EMULATORJS_CONTENT" || source.DeliveryProfile == "ROM_BLOB" {
 		emulatorGameID = max(now, 1)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	restore, err := loadReviewPreviewRestore(ctx, transaction, request, source, content, now)
 	if err != nil {
 		return err
@@ -606,13 +609,13 @@ func (service *Service) persistReviewScreenshot(
 	if err != nil {
 		return ReviewScreenshot{}, fmt.Errorf("review screenshot: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	target, err := service.reviewScreenshotTarget(ctx, transaction, previewID, capability)
 	if err != nil {
 		return ReviewScreenshot{}, err
 	}
 	now := service.now().UnixMilli()
-	blobID, err := blobstore.EnsureRecord(ctx, transaction, image.Blob, image.Image.MediaType, now)
+	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, image.Blob, image.Image.MediaType, now)
 	if err != nil {
 		return ReviewScreenshot{}, fmt.Errorf("register review screenshot: %w", err)
 	}

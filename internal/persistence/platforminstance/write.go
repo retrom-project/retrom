@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/service/platforminstance"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/persistence/recordstore"
 )
 
 func (writer records) Insert(ctx context.Context, directory platforminstance.NewDirectory) error {

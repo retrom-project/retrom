@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
-
-	"retrom/internal/cleanup"
 )
 
 type releaseError struct{ code string }
@@ -36,7 +36,7 @@ func (service *Service) finish(ctx context.Context, job claimedJob, executionErr
 	if err != nil {
 		return fmt.Errorf("payloadrelease/finish transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := service.now().UnixMilli()
 	if executionErr == nil {
 		if _, err := transaction.ExecContext(ctx, `

@@ -11,7 +11,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
@@ -505,7 +507,7 @@ func (server *Server) reorderPlatformInstances(writer http.ResponseWriter, reque
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	current, err := readPlatformInstanceOrder(request.Context(), transaction, len(body.Items))
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -579,7 +581,7 @@ func (server *Server) patchPlatformInstance(writer http.ResponseWriter, request 
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
 		Set: `
 name=?,
@@ -682,7 +684,7 @@ WHERE platform_instance_id=?
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
 		Set: `
 enabled=0,

@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -346,7 +348,7 @@ func (service *Service) CreateMultiDiscAttachment(
 	if err != nil {
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorUnavailable, err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	admission, err := service.readMultiDiscAttachmentAdmission(ctx, transaction, itemID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return MultiDiscAttachmentCreated{}, service.classifyMissingMultiDiscAdmission(ctx, transaction, itemID, err)

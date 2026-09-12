@@ -7,7 +7,10 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/recordstore"
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
+	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
@@ -65,7 +68,7 @@ func (service *Service) InstallServerCandidate(
 	if err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server install: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	version, err := validateServerCatalog(ctx, transaction, request)
 	if err != nil {
 		return ServerInstallResult{}, err
@@ -216,7 +219,7 @@ func (service *Service) persistServerInstallation(
 	version, now int64,
 	result ServerInstallResult,
 ) (ServerInstallResult, error) {
-	blobID, err := blobstore.EnsureRecord(ctx, transaction, request.Metadata, "application/octet-stream", now)
+	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, request.Metadata, "application/octet-stream", now)
 	if err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server register blob: %w", err)
 	}
