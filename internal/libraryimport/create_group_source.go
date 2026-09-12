@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/contentmanifest"
@@ -193,7 +195,7 @@ FROM import_item_source_files WHERE import_item_id=?
 
 func (run *creationRun) persistMultiDiscEntries(record *groupRecord) error {
 	for _, entry := range record.group.multiEntries {
-		_, err := run.transaction.ExecContext(run.ctx, `
+		_, err := recordstore.CreateImportItemMultidiscEntries(run.ctx, run.transaction, `
 INSERT INTO import_item_multidisc_entries(
   source_snapshot_id,ordinal,source_reference,normalized_reference,canonical_name,state,
   upload_file_id,blob_id,source_logical_name,created_at_ms

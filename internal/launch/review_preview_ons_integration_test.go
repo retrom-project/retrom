@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/storequery"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
@@ -269,7 +271,7 @@ WHERE provider_id=? AND target_id=?
 		t.Fatal(err)
 	}
 	if err := database.QueryRowContext(ctx, `
-SELECT status FROM save_state_runtime_compatibility WHERE save_state_id=?
+SELECT status FROM (`+storequery.SaveRuntimeCompatibility+`) WHERE save_state_id=?
 `, result.SaveStateID).Scan(&compatibilityStatus); err != nil || launchCountAfter != launchCount ||
 		compatibilityStatus != "INCOMPATIBLE_RUNTIME" {
 		t.Fatalf("incompatible ONS save = launches:%d/%d status:%s error=%v",

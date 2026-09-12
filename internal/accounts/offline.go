@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	retromruntime "retrom/internal/runtime"
@@ -105,10 +107,17 @@ SELECT role,status,version FROM users WHERE id=?
 	if currentRole != "ADMIN" || currentStatus == "DELETED" || currentVersion != input.version {
 		return ErrOfflineAdmin
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE users SET status='ENABLED',session_version=session_version+1,version=version+1,
-updated_at_ms=?,disabled_at_ms=NULL WHERE id=? AND version=? AND role='ADMIN' AND status!='DELETED'
-`, input.now, input.userID, input.version)
+	result, err := recordstore.UpdateUsers(ctx, transaction, recordstore.Update{
+		Set: `
+status='ENABLED',session_version=session_version+1,version=version+1,
+updated_at_ms=?,disabled_at_ms=NULL
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=? AND role='ADMIN' AND status!='DELETED'`,
+			Args:  []any{input.userID, input.version},
+		},
+		Values: []any{input.now},
+	})
 	if err != nil {
 		return fmt.Errorf("enable offline recovery admin: %w", err)
 	}
@@ -127,18 +136,27 @@ WHERE user_id=? AND revoked_at_ms IS NULL
 `, input.now, input.userID); err != nil {
 		return fmt.Errorf("revoke offline recovery sessions: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE account_links SET revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1
-WHERE kind='PASSWORD_RESET' AND target_user_id=?
+	if _, err := recordstore.UpdateAccountLinks(ctx, transaction, recordstore.Update{
+		Set: `revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1`,
+		Scope: recordstore.Scope{
+			Where: `
+kind='PASSWORD_RESET' AND target_user_id=?
 AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, input.now, input.userID, input.now); err != nil {
+`,
+			Args: []any{input.userID, input.now},
+		},
+		Values: []any{input.now},
+	}); err != nil {
 		return fmt.Errorf("revoke offline recovery links: %w", err)
 	}
 	if input.username == "test" {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE instance_state SET test_default_password_active=0,version=version+1,updated_at_ms=?
-WHERE id=1 AND test_default_password_active=1
-`, input.now); err != nil {
+		if _, err := recordstore.UpdateInstanceState(ctx, transaction, recordstore.Update{
+			Set: `test_default_password_active=0,version=version+1,updated_at_ms=?`,
+			Scope: recordstore.Scope{
+				Where: `id=1 AND test_default_password_active=1`,
+			},
+			Values: []any{input.now},
+		}); err != nil {
 			return fmt.Errorf("clear offline recovery test credential flag: %w", err)
 		}
 	}

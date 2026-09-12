@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -344,7 +346,7 @@ INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,crea
 `, jobID.String(), string(inputJSON), hex.EncodeToString(inputDigest[:]), now); err != nil {
 		return Summary{}, fmt.Errorf("serverimport/create input snapshot: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateServerImports(ctx, transaction, `
 INSERT INTO server_imports(id,kind,root_id,root_label_snapshot,source_relative_path,root_config_digest,
 catalog_snapshot_digest,replace_if_better,state,catalog_item_count,job_id,created_by_user_id,
 version,created_at_ms,updated_at_ms)
@@ -465,8 +467,8 @@ ORDER BY requirement.id COLLATE BINARY
 }
 
 func insertCatalogItem(ctx context.Context, transaction *sql.Tx, importID string, item catalogItem, now int64) error {
-	_, err := transaction.ExecContext(
-		ctx,
+	_, err := recordstore.CreateServerBiosImportItems(
+		ctx, transaction,
 		`
 INSERT INTO server_bios_import_items(
 server_import_id,requirement_id,requirement_version,core_id,core_name_snapshot,provider_id,target_id,

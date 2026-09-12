@@ -9,6 +9,8 @@ import (
 	"strings"
 	"unicode"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/pegasusmeta"
 )
@@ -89,7 +91,7 @@ func (service *Service) persistScanItems(
 }
 
 func insertScannedItem(ctx context.Context, batch *sql.Tx, importID string, item scannedItem, now int64) error {
-	if _, err := batch.ExecContext(ctx, `
+	if _, err := recordstore.CreatePegasusImportItems(ctx, batch, `
 INSERT INTO pegasus_import_items(
 id,import_id,collection_id,metadata_relative_path,game_ordinal,source_key,title,
 discovery_state,execution_state,metadata_json,warnings_json,source_manifest_json,
@@ -130,17 +132,34 @@ func (service *Service) finishScan(ctx context.Context, unit work, result scanRe
 	}
 	defer cleanup.Rollback(finish)
 	processable := int64(len(result.Items)) - result.Blocked
-	if _, err := finish.ExecContext(ctx, `
-UPDATE pegasus_imports
-SET source_snapshot_digest=?,state='AWAITING_MAPPING',phase=NULL,
+	if _, err := recordstore.UpdatePegasusImports(ctx, finish, recordstore.Update{
+		Set: `
+source_snapshot_digest=?,state='AWAITING_MAPPING',phase=NULL,
 metadata_count=?,invalid_metadata_count=?,collection_count=?,game_count=?,
 estimated_source_bytes=?,processable_item_count=?,blocked_item_count=?,
 media_warning_count=?,discovered_cover_count=?,discovered_video_count=?,
 scan_completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='SCANNING'`, result.SnapshotDigest, len(result.Metadata),
-		result.InvalidMetadata, len(result.Collections), len(result.Items), result.EstimatedBytes,
-		processable, result.Blocked, result.MediaWarnings, result.Covers, result.Videos,
-		now, now, unit.ImportID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND state='SCANNING'`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{
+			result.SnapshotDigest,
+			len(result.Metadata),
+			result.InvalidMetadata,
+			len(result.Collections),
+			len(result.Items),
+			result.EstimatedBytes,
+			processable,
+			result.Blocked,
+			result.MediaWarnings,
+			result.Covers,
+			result.Videos,
+			now,
+			now,
+		},
+	}); err != nil {
 		return fmt.Errorf("pegasusimport/finish scan aggregate: %w", err)
 	}
 	if _, err := finish.ExecContext(ctx, `
@@ -190,18 +209,17 @@ WHERE id=? AND state='RUNNING'`,
 		now,
 		unit.JobID,
 	)
-	_, _ = transaction.ExecContext(
-		ctx,
-		`UPDATE pegasus_imports
-SET state='FAILED',phase=NULL,last_error_code=?,retryable=?,completed_at_ms=?,
+	_, _ = recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED',phase=NULL,last_error_code=?,retryable=?,completed_at_ms=?,
 version=version+1,updated_at_ms=?
-WHERE id=?`,
-		code,
-		boolInt(retryable),
-		now,
-		now,
-		unit.ImportID,
-	)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{unit.ImportID},
+		},
+		Values: []any{code, boolInt(retryable), now, now},
+	})
 	data, _ := json.Marshal(map[string]any{"schemaVersion": 1, "code": code, "retryable": retryable})
 	_, _ = transaction.ExecContext(
 		ctx,

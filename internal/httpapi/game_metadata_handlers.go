@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -112,42 +114,8 @@ id DESC LIMIT 1)
 		return
 	}
 	now := server.now().UnixMilli()
-	result, err := transaction.ExecContext(
-		request.Context(),
-		`
-UPDATE games
-SET title=?,
-title_initial=?,
-description=?,
-developer=?,
-publisher=?,
-genre=?,
-players=?,
-release_year=?,
-metadata_source_kind='RESCRAPE_APPLY',
-metadata_source_ref_id=?,
-search_text=?,
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-AND version=?
-`,
-		current.Title,
-		gametitle.Initial(current.Title),
-		current.Description,
-		current.Developer,
-		current.Publisher,
-		current.Genre,
-		nullableInteger(current.Players),
-		nullableInteger(current.ReleaseYear),
-		request.PathValue("candidateId"),
-		strings.ToLower(
-			strings.Join([]string{current.Title, current.Developer, current.Publisher, current.Genre}, " "),
-		),
-		now,
-		request.PathValue("gameId"),
-		expected,
-	)
+	result, err := persistCandidateMetadata(request.Context(), transaction,
+		request.PathValue("gameId"), request.PathValue("candidateId"), expected, now, current)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -365,7 +333,7 @@ AND status='READY'
 		return "", errCandidateAssetKind
 	}
 	assetID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateGameAssets(ctx, transaction, `
 INSERT INTO game_assets(id,
 game_id,
 blob_id,
@@ -436,4 +404,53 @@ func inspectUploadedGameAsset(
 		return "", nil, nil, "ASSET_IMAGE_INVALID", "媒体必须是受限 PNG、JPEG 或 WebP"
 	}
 	return imageData.MediaType, &imageData.WidthPX, &imageData.HeightPX, "", ""
+}
+
+func persistCandidateMetadata(
+	ctx context.Context, transaction *sql.Tx, gameID, candidateID string,
+	expected, now int64, current gameMetadata,
+) (sql.Result, error) {
+	result, err := recordstore.UpdateGames(ctx, transaction, recordstore.Update{
+		Set: `
+title=?,
+title_initial=?,
+description=?,
+developer=?,
+publisher=?,
+genre=?,
+players=?,
+release_year=?,
+metadata_source_kind='RESCRAPE_APPLY',
+metadata_source_ref_id=?,
+search_text=?,
+version=version+1,
+updated_at_ms=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
+AND version=?
+`,
+			Args: []any{gameID, expected},
+		},
+		Values: []any{
+			current.Title,
+			gametitle.Initial(current.Title),
+			current.Description,
+			current.Developer,
+			current.Publisher,
+			current.Genre,
+			nullableInteger(current.Players),
+			nullableInteger(current.ReleaseYear),
+			candidateID,
+			strings.ToLower(
+				strings.Join([]string{current.Title, current.Developer, current.Publisher, current.Genre}, " "),
+			),
+			now,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("persist candidate metadata: %w", err)
+	}
+	return result, nil
 }

@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -360,25 +362,31 @@ WHERE draft.import_item_id=? AND item.state='REVIEW_PENDING'
 		return version, nil
 	}
 	now := service.now().UnixMilli()
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_drafts SET metadata_json=?,version=version+1,updated_at_ms=?
-WHERE import_item_id=? AND version=?
-`, string(encoded), now, itemID, version); err != nil {
+	if _, err := recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+		Set: `metadata_json=?,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=? AND version=?`,
+			Args:  []any{itemID, version},
+		},
+		Values: []any{string(encoded), now},
+	}); err != nil {
 		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
 	}
-	if _, err := transaction.ExecContext(
-		ctx,
-		`UPDATE import_items SET search_text=? WHERE id=?`,
-		strings.ToLower(metadata.Title),
-		itemID,
-	); err != nil {
+	if _, err := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
+		Set: `search_text=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{itemID},
+		},
+		Values: []any{strings.ToLower(metadata.Title)},
+	}); err != nil {
 		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
 	}
 	eventID, _ := uuid.NewV7()
 	actor := reviewActor(ctx)
 	beforeEvent := marshalReviewEventV2(map[string]any{"metadata": json.RawMessage(before)})
 	afterEvent := marshalReviewEventV2(map[string]any{"metadata": json.RawMessage(encoded)})
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
 after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
 VALUES(?,?,'DRAFT_SAVED',?,?,?,?,?,?,?,?,?,?)
@@ -618,12 +626,20 @@ func transitionServerReviewOwner(
 	gameID any,
 	now int64,
 ) (int64, error) {
-	result, err := transaction.ExecContext(ctx, `
-UPDATE `+table+`
-SET execution_state=?,published_game_id=?,version=version+1,updated_at_ms=?
-WHERE library_import_item_id=? AND (execution_state='REVIEW_PENDING'
+	update := recordstore.UpdatePegasusImportItems
+	switch table {
+	case "pegasus_import_items":
+	case "emulationstation_import_items":
+		update = recordstore.UpdateEmulationstationImportItems
+	default:
+		return 0, ErrInvalid
+	}
+	result, err := update(ctx, transaction, recordstore.Update{
+		Set: "execution_state=?,published_game_id=?,version=version+1,updated_at_ms=?", Values: []any{state, gameID, now},
+		Scope: recordstore.Scope{Where: `library_import_item_id=? AND (execution_state='REVIEW_PENDING'
  OR ?='REVIEW_DISCARDED' AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED'))
-`, state, gameID, now, importItemID, state)
+`, Args: []any{importItemID, state}},
+	})
 	if err != nil {
 		return 0, fmt.Errorf("libraryimport/server review transition: %w", err)
 	}
@@ -649,9 +665,9 @@ WHERE library_import_item_id=? AND (execution_state='REVIEW_PENDING'
 func refreshPegasusReviewCounts(
 	ctx context.Context, transaction *sql.Tx, importItemID string, now int64,
 ) error {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_imports
-SET review_pending_item_count=(
+	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+		Set: `
+review_pending_item_count=(
   SELECT count(*) FROM pegasus_import_items item
   WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_PENDING'
 ),
@@ -664,8 +680,15 @@ review_discarded_item_count=(
   WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_DISCARDED'
 ),
 version=version+1,updated_at_ms=?
-WHERE id=(SELECT import_id FROM pegasus_import_items WHERE library_import_item_id=? LIMIT 1)
-`, now, importItemID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=(SELECT import_id FROM pegasus_import_items WHERE library_import_item_id=? LIMIT 1)
+`,
+			Args: []any{importItemID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("libraryimport/server review aggregate: %w", err)
 	}
 	return nil
@@ -674,9 +697,9 @@ WHERE id=(SELECT import_id FROM pegasus_import_items WHERE library_import_item_i
 func refreshEmulationStationReviewCounts(
 	ctx context.Context, transaction *sql.Tx, importItemID string, now int64,
 ) error {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_imports
-SET review_pending_item_count=(
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: `
+review_pending_item_count=(
  SELECT count(*) FROM emulationstation_import_items item
  WHERE item.import_id=emulationstation_imports.id AND item.execution_state='REVIEW_PENDING'
 ),published_item_count=(
@@ -686,9 +709,16 @@ SET review_pending_item_count=(
  SELECT count(*) FROM emulationstation_import_items item
  WHERE item.import_id=emulationstation_imports.id AND item.execution_state='REVIEW_DISCARDED'
 ),version=version+1,updated_at_ms=?
-WHERE id=(SELECT import_id FROM emulationstation_import_items
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=(SELECT import_id FROM emulationstation_import_items
  WHERE library_import_item_id=? LIMIT 1)
-`, now, importItemID); err != nil {
+`,
+			Args: []any{importItemID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return fmt.Errorf("libraryimport/EmulationStation review aggregate: %w", err)
 	}
 	return nil
@@ -712,7 +742,7 @@ func (service *Service) copyExternalAssets(
 			return ErrInvalid
 		}
 		assetID, _ := uuid.NewV7()
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateGameAssets(ctx, transaction, `
 INSERT INTO game_assets(
 id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
 )

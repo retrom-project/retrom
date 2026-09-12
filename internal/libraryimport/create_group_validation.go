@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 )
 
@@ -55,7 +57,7 @@ func (run *creationRun) insertCoreValidation(record *groupRecord, dependencySnap
 		DependencySnapshot:  json.RawMessage(dependencySnapshot),
 		Status:              record.validationStatus, CompatibilityCode: record.compatibilityCode,
 	})
-	_, err := run.transaction.ExecContext(run.ctx, `
+	_, err := recordstore.CreateImportItemCoreValidations(run.ctx, run.transaction, `
 INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
   provider_id,target_id,dat_version_id,

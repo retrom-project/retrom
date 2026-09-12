@@ -6,6 +6,8 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 )
 
@@ -13,7 +15,7 @@ func TestLocalDraftCommitsAfterFinishWithoutRuntimeCapability(t *testing.T) {
 	f := newGameSaveFixture(t)
 	source := syncGameData(t, f, f.createLaunch(t), "original")
 	run := f.createLaunchFromSave(t, &source.SaveStateID)
-	mustSaveSQL(t, f.database.SQL, `UPDATE launch_sessions SET state='FINISHED',finished_at_ms=? WHERE id=?`, f.now.UnixMilli(), run.LaunchID)
+	mustUpdateLaunch(t, f.database.SQL, recordstore.Update{Set: `state='FINISHED',finished_at_ms=?`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{run.LaunchID}}, Values: []any{f.now.UnixMilli()}})
 	key := uuid.NewString()
 	request := func() (ManualResult, bool, error) {
 		return f.saves.CreateLocalDraft(f.ctx, run.LaunchID, "local", "local", key,
@@ -43,7 +45,7 @@ func TestLocalDraftCannotWriteAnotherAccountOrRevokedOrInstantLaunch(t *testing.
 			t.Fatalf("foreign owner accepted: %v", err)
 		}
 	}
-	mustSaveSQL(t, f.database.SQL, `UPDATE launch_sessions SET state='REVOKED',finished_at_ms=? WHERE id=?`, f.now.UnixMilli(), run.LaunchID)
+	mustUpdateLaunch(t, f.database.SQL, recordstore.Update{Set: `state='REVOKED',finished_at_ms=?`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{run.LaunchID}}, Values: []any{f.now.UnixMilli()}})
 	_, _, err := f.saves.CreateLocalDraft(f.ctx, run.LaunchID, "local", "local", uuid.NewString(), manualRequest(t, "draft", []byte("draft"), screenshotPNG(t)))
 	if !errors.Is(err, ErrCredential) {
 		t.Fatalf("revoked accepted: %v", err)

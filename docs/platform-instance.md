@@ -124,7 +124,7 @@ CREATE TABLE games (
 );
 ~~~
 
-SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVariant 核心属于 Game 间接关联的平台”。两条规则必须同时由服务层事务和数据库触发器保护，并有 migration/集成测试覆盖，不能只依赖前端下拉框。`slug` 由服务端从展示名称生成小写 ASCII 标识；名称无法产生 ASCII 单词时回退为 `<platform_id>-library`，同一基础平台发生冲突时追加从 `-2` 开始的最小可用序号。最终值匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$`、最长 80 byte，创建后不可修改。
+SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVariant 核心属于 Game 间接关联的平台”。两条规则必须由服务层调用应用存储 SQL，在同一事务中校验，并有空库及集成测试覆盖，不能只依赖前端下拉框。`slug` 由服务端从展示名称生成小写 ASCII 标识；名称无法产生 ASCII 单词时回退为 `<platform_id>-library`，同一基础平台发生冲突时追加从 `-2` 开始的最小可用序号。最终值匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$`、最长 80 byte，创建后不可修改。
 
 所有其他时间点与时长字段遵循 [存储与数据库设计](./storage-and-database.md) 的 Unix 毫秒规则，不使用 TEXT 时间。
 

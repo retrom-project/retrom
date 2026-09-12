@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/arcadedat"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentprofile"
@@ -173,14 +175,27 @@ SELECT version,source_manifest_digest FROM games WHERE id=? AND status='PUBLISHE
 	if err != nil {
 		return err
 	}
-	result, err := transaction.ExecContext(ctx, `
-UPDATE game_variants
-SET provider_id=?,target_id=?,dat_version_id=?,emulator_game_id=?,status=?,compatibility_code=?,
+	result, err := recordstore.UpdateGameVariants(ctx, transaction, recordstore.Update{
+		Set: `
+provider_id=?,target_id=?,dat_version_id=?,emulator_game_id=?,status=?,compatibility_code=?,
 dependency_snapshot_json=?,default_dos_entry=?,version=version+1,updated_at_ms=?
-WHERE id=? AND game_id=?
-`, inputs.ProviderID, inputs.TargetID, nullableSQL(datID), emulatorGameID,
-		outcome.status, outcome.code, outcome.dependencySnapshotJSON, nullableSQL(defaultDOSEntry),
-		service.now().UnixMilli(), inputs.GameVariantID, inputs.GameID)
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND game_id=?`,
+			Args:  []any{inputs.GameVariantID, inputs.GameID},
+		},
+		Values: []any{
+			inputs.ProviderID,
+			inputs.TargetID,
+			nullableSQL(datID),
+			emulatorGameID,
+			outcome.status,
+			outcome.code,
+			outcome.dependencySnapshotJSON,
+			nullableSQL(defaultDOSEntry),
+			service.now().UnixMilli(),
+		},
+	})
 	if err != nil {
 		return fmt.Errorf("update current game variant: %w", err)
 	}
@@ -252,7 +267,7 @@ DELETE FROM variant_files WHERE game_variant_id=? AND role='BIOS_BUNDLE'
 		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
 			continue
 		}
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateVariantFiles(ctx, transaction, `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'BIOS_BUNDLE',?,?,?)
 `, variantID, dependency.LogicalName, *dependency.BlobID, sortOrder); err != nil {

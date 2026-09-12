@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -120,7 +122,7 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 		return
 	}
 	assetID, consumptionID := newUUIDString(), newUUIDString()
-	if _, err := transaction.ExecContext(request.Context(), `
+	if _, err := recordstore.CreateGameAssets(request.Context(), transaction, `
 INSERT INTO game_assets(id,
 game_id,
 blob_id,
@@ -152,7 +154,7 @@ created_at_ms) VALUES(?,
 		server.databaseError(writer, request, err)
 		return
 	}
-	if _, err := transaction.ExecContext(request.Context(), `
+	if _, err := recordstore.CreateUploadConsumptions(request.Context(), transaction, `
 INSERT INTO upload_consumptions(id,
 upload_session_id,
 upload_file_id,
@@ -168,19 +170,20 @@ created_at_ms) VALUES(?,
 		writeError(writer, request, http.StatusConflict, "UPLOAD_ALREADY_CONSUMED", "上传文件已被其他操作占用", map[string]any{})
 		return
 	}
-	result, err := transaction.ExecContext(
-		request.Context(),
-		`
-UPDATE games
-SET version=version+1,
+	result, err := recordstore.UpdateGames(request.Context(), transaction, recordstore.Update{
+		Set: `
+version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND version=?
 `,
-		now,
-		request.PathValue("gameId"),
-		expected,
-	)
+			Args: []any{request.PathValue("gameId"), expected},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -274,13 +277,14 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 		server.databaseError(writer, request, err)
 		return
 	}
-	result, err := transaction.ExecContext(
-		request.Context(),
-		`UPDATE games SET version=version+1,updated_at_ms=? WHERE id=? AND version=?`,
-		now,
-		request.PathValue("gameId"),
-		expected,
-	)
+	result, err := recordstore.UpdateGames(request.Context(), transaction, recordstore.Update{
+		Set: `version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{request.PathValue("gameId"), expected},
+		},
+		Values: []any{now},
+	})
 	if err != nil || rowsAffectedHTTP(result) != 1 {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
@@ -458,7 +462,7 @@ id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,crea
 			source.image.MediaType, record.createdAtMS); err != nil {
 			return reviewAssetRecord{}, fmt.Errorf("insert review uploaded asset: %w", err)
 		}
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateUploadConsumptions(ctx, transaction, `
 INSERT INTO upload_consumptions(
 id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms
 ) VALUES(?,?,?,'REVIEW_ASSET',?,?)

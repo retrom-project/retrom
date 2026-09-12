@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -36,7 +38,7 @@ AND r.state='COMPLETED'
 		return ErrInvalid
 	}
 	assetUUID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateGameAssets(ctx, transaction, `
 INSERT INTO game_assets(
 id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
 ) VALUES(?,?,?,?,?,?,?,?,?)
@@ -62,7 +64,7 @@ WHERE id=? AND import_item_id=? AND kind='COVER'
 		return ErrInvalid
 	}
 	assetUUID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateGameAssets(ctx, transaction, `
 INSERT INTO game_assets(
 id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
 ) VALUES(?,?,?, 'COVER',0,?,?,?,?)

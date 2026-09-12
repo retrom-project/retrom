@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+	"retrom/internal/sessionstore"
+
 	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
@@ -410,7 +413,7 @@ func (service *Service) persistLaunch(
 	if err != nil {
 		return Created{}, err
 	}
-	if _, err = transaction.ExecContext(ctx, `
+	if _, err = sessionstore.CreateLaunch(ctx, transaction, `
 INSERT INTO launch_sessions(
  id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
  content_kind,dependency_snapshot_json,compatibility_code,
@@ -430,7 +433,7 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
 		}
 	}
 	for _, file := range preparation.contentPlan.Files {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateLaunchContentFiles(ctx, transaction, `
 INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
 VALUES(?,?,?,?,?)
 `, launchID.String(), file.LogicalName, file.BlobID, file.Format, now); err != nil {
@@ -438,7 +441,7 @@ VALUES(?,?,?,?,?)
 		}
 	}
 	for _, disc := range preparation.contentPlan.Discs {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateLaunchExternalFiles(ctx, transaction, `
 INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
 VALUES(?,?,?,?,?,'DISC')
 `, launchID.String(), disc.VirtualPath, disc.LogicalName, disc.BlobID, now); err != nil {
@@ -490,7 +493,7 @@ ORDER BY role,sort_order,logical_name
 			return fmt.Errorf("scan current variant bundle file: %w", err)
 		}
 		virtualPath := fmt.Sprintf("/__retrom__/%s/%02d/%s", strings.ToLower(role), sortOrder, logicalName)
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateLaunchExternalFiles(ctx, transaction, `
 INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
 VALUES(?,?,?,?,?,?)
 `, launchID, virtualPath, logicalName, blobID, now, role); err != nil {
@@ -551,7 +554,7 @@ WHERE variant.id=? ORDER BY content.logical_name LIMIT 1
 		}
 		seenLogicalNames[logicalKey] = struct{}{}
 		seenVirtualPaths[*dependency.EmulatorPath] = struct{}{}
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateLaunchExternalFiles(ctx, transaction, `
 INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
 VALUES(?,?,?,?,?,'BIOS')
 `, launchID, *dependency.EmulatorPath, dependency.LogicalName, *dependency.BlobID, now); err != nil {

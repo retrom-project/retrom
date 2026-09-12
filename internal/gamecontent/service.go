@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -322,7 +324,7 @@ updated_at_ms) VALUES(?,
 	`, jobID, gameID, hex.EncodeToString(dedupe[:]), now, now, now); err != nil {
 		return Scheduled{}, fmt.Errorf("%w: insert replacement job: %w", ErrInvalid, err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateUploadConsumptions(ctx, transaction, `
 INSERT INTO upload_consumptions(id,
 upload_session_id,
 upload_file_id,

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"retrom/internal/recordstore"
 )
 
 const expiredCancellationScope = `
@@ -16,13 +18,27 @@ AND job.leased_until_ms IS NOT NULL
 AND job.leased_until_ms<=?`
 
 func recoverCancelledExecutions(ctx context.Context, transaction *sql.Tx, now int64) error {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE emulationstation_import_items
-SET execution_state='CANCELLED',error_code='CANCELLED',retryable=0,
+	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
+		Set: `
+execution_state='CANCELLED',error_code='CANCELLED',retryable=0,
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE import_id IN (`+expiredCancellationScope+`)
+`,
+		Scope: recordstore.Scope{
+			Where: `
+import_id IN (
+SELECT import.id
+FROM emulationstation_imports import
+JOIN jobs job ON job.id=import.import_job_id
+WHERE import.state='CANCEL_REQUESTED'
+AND job.state='CANCEL_REQUESTED'
+AND job.leased_until_ms IS NOT NULL
+AND job.leased_until_ms<=?)
 AND execution_state IN ('PENDING','COPYING','VALIDATING')
-`, now, now, now); err != nil {
+`,
+			Args: []any{now},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/recover cancelled items: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -46,15 +62,20 @@ WHERE id IN (
 `, now, now, now); err != nil {
 		return fmt.Errorf("emulationstationimport/recover cancelled job: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, recoveredCancelledAggregateSQL, now, now, now); err != nil {
+	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
+		Set: recoveredCancelledAggregateSQLAssignments,
+		Scope: recordstore.Scope{
+			Where: recoveredCancelledAggregateSQLScope,
+			Args:  []any{now},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return fmt.Errorf("emulationstationimport/recover cancelled import: %w", err)
 	}
 	return nil
 }
 
-const recoveredCancelledAggregateSQL = `
-UPDATE emulationstation_imports
-SET state='CANCELLED',phase=NULL,
+const recoveredCancelledAggregateSQLAssignments = `state='CANCELLED',phase=NULL,
 skipped_mapping_item_count=(SELECT count(*) FROM emulationstation_import_items item
  WHERE item.import_id=emulationstation_imports.id AND item.execution_state='SKIPPED_MAPPING'),
 review_pending_item_count=(SELECT count(*) FROM emulationstation_import_items item
@@ -73,9 +94,9 @@ failed_item_count=(SELECT count(*) FROM emulationstation_import_items item
  AND item.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),
 cancelled_item_count=(SELECT count(*) FROM emulationstation_import_items item
  WHERE item.import_id=emulationstation_imports.id AND item.execution_state='CANCELLED'),
-completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE state='CANCEL_REQUESTED' AND import_job_id IN (
+completed_at_ms=?,version=version+1,updated_at_ms=?`
+
+const recoveredCancelledAggregateSQLScope = `state='CANCEL_REQUESTED' AND import_job_id IN (
  SELECT job.id FROM jobs job WHERE job.scope_type='EMULATIONSTATION_IMPORT'
  AND job.state='CANCELLED' AND job.finished_at_ms=?
-)
-`
+)`

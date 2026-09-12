@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/storequery"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
@@ -119,7 +121,7 @@ i.state,
 i.version
 FROM import_jobs i
 JOIN upload_sessions u ON u.id=i.upload_session_id
-WHERE i.id=? AND NOT EXISTS(SELECT 1 FROM discarded_import_jobs WHERE import_id=i.id)
+WHERE i.id=? AND NOT EXISTS(SELECT 1 FROM (`+storequery.DiscardedImportJobs+`) WHERE import_id=i.id)
 `, sourceImportJobID).Scan(&sourceType, &state, &currentVersion); err != nil ||
 		state != "PARTIAL_FAILURE" || currentVersion != expectedVersion {
 		return "", nil, ErrInvalid

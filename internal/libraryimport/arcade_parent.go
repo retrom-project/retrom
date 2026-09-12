@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
@@ -386,7 +388,7 @@ VALUES(?,1,?,?,?)
 }
 
 func (setup *parentAttachmentSetup) insertAttachment(attachmentID, jobID string, now int64) error {
-	_, err := setup.transaction.ExecContext(setup.ctx, `
+	_, err := recordstore.CreateReviewArcadeParentAttachments(setup.ctx, setup.transaction, `
 INSERT INTO review_arcade_parent_attachments(
   id,import_item_id,review_draft_id,base_source_snapshot_id,dependency_machine,
   expected_logical_name,required_by_machine,depth,provider_id,target_id,dat_version_id,
@@ -416,10 +418,14 @@ func (setup *parentAttachmentSetup) advanceDraftAndRecordEvent(
 	_ string,
 	now int64,
 ) error {
-	result, err := setup.transaction.ExecContext(setup.ctx, `
-UPDATE review_drafts SET version=version+1,updated_at_ms=?
-WHERE id=? AND version=?
-`, now, setup.draftID, setup.expectedVersion)
+	result, err := recordstore.UpdateReviewDrafts(setup.ctx, setup.transaction, recordstore.Update{
+		Set: `version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND version=?`,
+			Args:  []any{setup.draftID, setup.expectedVersion},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return parentError(ParentErrorUnavailable, err)
 	}
@@ -432,7 +438,7 @@ WHERE id=? AND version=?
 		"originalFilename": filepath.Base(setup.originalName), "state": "QUEUED",
 	})
 	actor := reviewActor(setup.ctx)
-	_, err = setup.transaction.ExecContext(setup.ctx, `
+	_, err = recordstore.CreateReviewEvents(setup.ctx, setup.transaction, `
 INSERT INTO review_events(
   id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
   after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms

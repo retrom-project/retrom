@@ -11,6 +11,8 @@ import (
 	"sort"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 )
 
@@ -935,11 +937,14 @@ func (service *Service) RenameFolder(
 				return 0, nil, nil, err
 			}
 			now := service.now().UnixMilli()
-			_, err = connection.ExecContext(ctx, `
-UPDATE favorite_folders
-SET name=?,name_key=?,version=version+1,updated_at_ms=?
-WHERE profile_id=? AND id=? AND version=?
-	`, name, nameKey, now, principal.ProfileID, folderID, expectedVersion)
+			_, err = recordstore.UpdateFavoriteFolders(ctx, connection, recordstore.Update{
+				Set: `name=?,name_key=?,version=version+1,updated_at_ms=?`,
+				Scope: recordstore.Scope{
+					Where: `profile_id=? AND id=? AND version=?`,
+					Args:  []any{principal.ProfileID, folderID, expectedVersion},
+				},
+				Values: []any{name, nameKey, now},
+			})
 			if err != nil {
 				return 0, nil, nil, fmt.Errorf("favorites: rename folder: %w", err)
 			}

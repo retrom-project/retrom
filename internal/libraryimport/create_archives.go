@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 )
 
@@ -66,11 +68,14 @@ func (run *creationRun) attachMaterializedArchiveEntry(archiveBlobID string, ord
 	if blobID == "" {
 		return nil
 	}
-	_, err := run.transaction.ExecContext(run.ctx, `
-UPDATE archive_entries
-SET materialized_blob_id=?
-WHERE archive_blob_id=? AND ordinal=? AND materialized_blob_id IS NULL
-`, blobID, archiveBlobID, ordinal)
+	_, err := recordstore.UpdateArchiveEntries(run.ctx, run.transaction, recordstore.Update{
+		Set: `materialized_blob_id=?`,
+		Scope: recordstore.Scope{
+			Where: `archive_blob_id=? AND ordinal=? AND materialized_blob_id IS NULL`,
+			Args:  []any{archiveBlobID, ordinal},
+		},
+		Values: []any{blobID},
+	})
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}

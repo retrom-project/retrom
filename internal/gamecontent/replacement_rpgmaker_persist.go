@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/rpgmaker/detector"
@@ -88,11 +90,23 @@ func persistRPGMakerReplacementContent(
 	if profile == nil {
 		return fmt.Errorf("%w: missing RPG replacement profile", ErrInvalid)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE games SET content_kind=?,content_source_kind='ADMIN_REPLACE',content_source_ref_id=?,
+	if _, err := recordstore.UpdateGames(ctx, transaction, recordstore.Update{
+		Set: `
+content_kind=?,content_source_kind='ADMIN_REPLACE',content_source_ref_id=?,
  source_manifest_json=?,source_manifest_digest=?,version=version+1,updated_at_ms=?
-WHERE id=?
-`, prepared.contentKind, jobID, string(prepared.manifest), prepared.manifestDigest, now, gameID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{gameID},
+		},
+		Values: []any{
+			prepared.contentKind,
+			jobID,
+			string(prepared.manifest),
+			prepared.manifestDigest,
+			now,
+		},
+	}); err != nil {
 		return fmt.Errorf("update RPG replacement content: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `DELETE FROM game_files WHERE game_id=?`, gameID); err != nil {
@@ -104,7 +118,7 @@ WHERE id=?
 	if _, err := transaction.ExecContext(ctx, `DELETE FROM rpgmaker_game_profiles WHERE game_id=?`, gameID); err != nil {
 		return fmt.Errorf("delete RPG replacement profile: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateRpgmakerGameProfiles(ctx, transaction, `
 INSERT INTO rpgmaker_game_profiles(
  game_id,evidence_family,evidence_generation,evidence_confidence,engine_version,
  entry_html_path,file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,
@@ -129,12 +143,17 @@ func (service *Service) persistRPGMakerReplacementVariant(
 	now int64,
 ) error {
 	profile := prepared.rpgMaker
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE game_variants SET provider_id=?,target_id=?,dat_version_id=NULL,status='READY',
+	if _, err := recordstore.UpdateGameVariants(ctx, transaction, recordstore.Update{
+		Set: `
+provider_id=?,target_id=?,dat_version_id=NULL,status='READY',
  compatibility_code='READY',dependency_snapshot_json=?,version=version+1,updated_at_ms=?
-WHERE id=? AND game_id=?
-`, snapshot.ProviderID, snapshot.TargetID, binding.dependencySnapshotJSON, now,
-		variantID, snapshot.GameID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=? AND game_id=?`,
+			Args:  []any{variantID, snapshot.GameID},
+		},
+		Values: []any{snapshot.ProviderID, snapshot.TargetID, binding.dependencySnapshotJSON, now},
+	}); err != nil {
 		return fmt.Errorf("update RPG replacement variant: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -168,7 +187,7 @@ func (service *Service) persistRPGMakerReplacementVariantFiles(
 		if err != nil {
 			return fmt.Errorf("register RPG replacement variant file: %w", err)
 		}
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.CreateVariantFiles(ctx, transaction, `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,?,?,?,?)
 `, variantID, file.role, file.logicalName, blobID, index); err != nil {

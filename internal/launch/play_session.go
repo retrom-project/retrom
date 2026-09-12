@@ -8,6 +8,10 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -241,13 +245,18 @@ created_at_ms) VALUES(?,
 `, playID, event.ClientObservedAtMS, now, now); err != nil {
 		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions
-SET idle_expires_at_ms=?,
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `
+idle_expires_at_ms=?,
 updated_at_ms=?,
 version=version+1
-WHERE id=?
-`, now+int64(2*time.Minute/time.Millisecond), now, launchID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{launchID},
+		},
+		Values: []any{now + int64(2*time.Minute/time.Millisecond), now},
+	}); err != nil {
 		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -262,15 +271,22 @@ func finishLaunchWithoutPlay(
 	launchID string,
 	now int64,
 ) (PlayResult, error) {
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions
-SET state='FINISHED',
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `
+state='FINISHED',
 finished_at_ms=?,
 updated_at_ms=?,
 version=version+1
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND state='ACTIVE'
-`, now, now, launchID); err != nil {
+`,
+			Args: []any{launchID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
 		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -361,23 +377,33 @@ WHERE id=?
 		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
 	}
 	if kind == "finish" {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions
-SET state='FINISHED',
+		if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+			Set: `
+state='FINISHED',
 finished_at_ms=?,
 updated_at_ms=?,
 version=version+1
-WHERE id=?
-`, now, now, launchID); err != nil {
+`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{launchID},
+			},
+			Values: []any{now, now},
+		}); err != nil {
 			return PlayResult{}, fmt.Errorf("launch/service: %w", err)
 		}
-	} else if _, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions
-SET idle_expires_at_ms=?,
+	} else if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `
+idle_expires_at_ms=?,
 updated_at_ms=?,
 version=version+1
-WHERE id=?
-`, now+int64(2*time.Minute/time.Millisecond), now, launchID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{launchID},
+		},
+		Values: []any{now + int64(2*time.Minute/time.Millisecond), now},
+	}); err != nil {
 		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {

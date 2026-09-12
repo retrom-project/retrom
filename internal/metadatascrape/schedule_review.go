@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 )
@@ -59,19 +61,20 @@ AND i.state='REVIEW_PENDING'
 		return Scheduled{}, 0, err
 	}
 	now := service.now().UnixMilli()
-	result, err := transaction.ExecContext(
-		ctx,
-		`
-UPDATE review_drafts
-SET version=version+1,
+	result, err := recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+		Set: `
+version=version+1,
 updated_at_ms=?
-WHERE import_item_id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+import_item_id=?
 AND version=?
 `,
-		now,
-		itemID,
-		expectedVersion,
-	)
+			Args: []any{itemID, expectedVersion},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
 	}
@@ -83,7 +86,7 @@ AND version=?
 	)
 	beforeEvent, _ := json.Marshal(map[string]any{"schemaVersion": 2, "metadata": json.RawMessage(before)})
 	actor := authn.ActorFromContext(ctx, "release-setup")
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
 INSERT INTO review_events(id,
 import_item_id,
 event_type,
@@ -228,19 +231,20 @@ created_at_ms) VALUES(?,
 `, jobID, gameID, now); err != nil {
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
 	}
-	result, err := transaction.ExecContext(
-		ctx,
-		`
-UPDATE games
-SET version=version+1,
+	result, err := recordstore.UpdateGames(ctx, transaction, recordstore.Update{
+		Set: `
+version=version+1,
 updated_at_ms=?
-WHERE id=?
+`,
+		Scope: recordstore.Scope{
+			Where: `
+id=?
 AND version=?
 `,
-		now,
-		gameID,
-		expectedVersion,
-	)
+			Args: []any{gameID, expectedVersion},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
 	}

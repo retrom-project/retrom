@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -213,11 +215,14 @@ WHERE id=? AND kind='REVIEW_ARCADE_PARENT_VALIDATE' AND state='QUEUED' AND avail
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return parentAttachmentCandidate{}, "", ErrInvalid
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE review_arcade_parent_attachments
-SET state='RUNNING',error_code=NULL,finished_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE job_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')
-	`, now, jobID); err != nil {
+	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
+		Set: `state='RUNNING',error_code=NULL,finished_at_ms=NULL,version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{
+			Where: `job_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')`,
+			Args:  []any{jobID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return parentAttachmentCandidate{}, "", parentStoreError("mark attachment running", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `

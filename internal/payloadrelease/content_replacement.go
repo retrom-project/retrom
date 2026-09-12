@@ -4,6 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"retrom/internal/recordstore"
+
+	"retrom/internal/sessionstore"
 )
 
 // ContentReplacementImpact carries the runtime rows retired by an in-place
@@ -42,12 +46,17 @@ func (service *Service) RetireCurrentGameContent(
 			return ContentReplacementImpact{}, err
 		}
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE game_variants
-SET status='BLOCKED',compatibility_code='CONTENT_REPLACED',emulator_game_id=NULL,
+	if _, err := recordstore.UpdateGameVariants(ctx, transaction, recordstore.Update{
+		Set: `
+status='BLOCKED',compatibility_code='CONTENT_REPLACED',emulator_game_id=NULL,
     version=version+1,updated_at_ms=?
-WHERE game_id=? AND id<>?
-`, now, gameID, selectedVariantID); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `game_id=? AND id<>?`,
+			Args:  []any{gameID, selectedVariantID},
+		},
+		Values: []any{now},
+	}); err != nil {
 		return ContentReplacementImpact{}, fmt.Errorf("payloadrelease/block alternate variants: %w", err)
 	}
 	return ContentReplacementImpact{SaveStateCount: saveCount, CandidateBlobIDs: blobIDs}, nil
@@ -87,50 +96,83 @@ func stopCurrentGameRuntime(
 	gameID string,
 	now int64,
 ) error {
-	statements := []struct {
-		query string
-		args  []any
-	}{
-		{`UPDATE netplay_sessions SET state='FAILED',finished_at_ms=?,end_reason='GAME_CONTENT_REPLACED',
-updated_at_ms=?,version=version+1 WHERE game_id=? AND state NOT IN ('FINISHED','FAILED')`, []any{now, now, gameID}},
-		{`UPDATE netplay_rooms SET state='ENDED',current_session_id=NULL,ended_at_ms=?,
-end_reason='GAME_CONTENT_REPLACED',updated_at_ms=?,version=version+1
-WHERE selected_game_id=? AND state IN ('WAITING','STARTING','RUNNING')`, []any{now, now, gameID}},
-		{`UPDATE launch_sessions SET save_state_id=NULL WHERE game_id=?`, []any{gameID}},
-		{`UPDATE launch_sessions SET state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),
-updated_at_ms=?,version=version+1 WHERE game_id=? AND state IN ('CREATED','ACTIVE')`, []any{now, now, gameID}},
-		{`UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
-WHERE game_id=? AND state='ACTIVE'`, []any{now, now, gameID}},
+	if _, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
+		Set: `
+state='FAILED',finished_at_ms=?,end_reason='GAME_CONTENT_REPLACED',
+updated_at_ms=?,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `game_id=? AND state NOT IN ('FINISHED','FAILED')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
+		return fmt.Errorf("payloadrelease/stop replaced-content runtime: %w", err)
 	}
-	for _, statement := range statements {
-		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
-			return fmt.Errorf("payloadrelease/stop replaced-content runtime: %w", err)
-		}
+	if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
+		Set: `
+state='ENDED',current_session_id=NULL,ended_at_ms=?,
+end_reason='GAME_CONTENT_REPLACED',updated_at_ms=?,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `selected_game_id=? AND state IN ('WAITING','STARTING','RUNNING')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
+		return fmt.Errorf("payloadrelease/stop replaced-content runtime: %w", err)
+	}
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `save_state_id=NULL`,
+		Scope: recordstore.Scope{
+			Where: `game_id=?`,
+			Args:  []any{gameID},
+		},
+	}); err != nil {
+		return fmt.Errorf("payloadrelease/stop replaced-content runtime: %w", err)
+	}
+	if _, err := sessionstore.ChangeLaunch(ctx, transaction, recordstore.Update{
+		Set: `
+state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),
+updated_at_ms=?,version=version+1
+`,
+		Scope: recordstore.Scope{
+			Where: `game_id=? AND state IN ('CREATED','ACTIVE')`,
+			Args:  []any{gameID},
+		},
+		Values: []any{now, now},
+	}); err != nil {
+		return fmt.Errorf("payloadrelease/stop replaced-content runtime: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
+WHERE game_id=? AND state='ACTIVE'`, now, now, gameID); err != nil {
+		return fmt.Errorf("payloadrelease/stop replaced-content runtime: %w", err)
 	}
 	return nil
 }
 
-func currentGameContentDeleteStatements() []string {
-	return []string{
-		`DELETE FROM launch_external_files WHERE rowid IN (
+func currentGameContentDeleteStatements() []deletionBatch {
+	return []deletionBatch{
+		{remove: recordstore.DeleteLaunchExternalFiles, where: `rowid IN (
  SELECT file.rowid FROM launch_external_files file
  JOIN launch_sessions launch ON launch.id=file.launch_session_id
  WHERE launch.game_id=? ORDER BY file.rowid LIMIT 200
-)`,
-		`DELETE FROM launch_content_files WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteLaunchContentFiles, where: `rowid IN (
  SELECT file.rowid FROM launch_content_files file
  JOIN launch_sessions launch ON launch.id=file.launch_session_id
  WHERE launch.game_id=? ORDER BY file.rowid LIMIT 200
-)`,
-		`DELETE FROM variant_files WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteVariantFiles, where: `rowid IN (
  SELECT file.rowid FROM variant_files file
  JOIN game_variants variant ON variant.id=file.game_variant_id
  WHERE variant.game_id=? ORDER BY file.rowid LIMIT 200
-)`,
-		`DELETE FROM variant_dependencies WHERE rowid IN (
+)`},
+		{remove: recordstore.DeleteVariantDependencies, where: `rowid IN (
  SELECT dependency.rowid FROM variant_dependencies dependency
  JOIN game_variants variant ON variant.id=dependency.game_variant_id
  WHERE variant.game_id=? ORDER BY dependency.rowid LIMIT 200
-)`,
+)`},
 	}
 }

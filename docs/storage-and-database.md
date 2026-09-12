@@ -117,11 +117,13 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-冻结的 bootstrap 包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`，直接创建 current-state Game/File/Variant 和 Provider-owned Target declaration，以及最终的 EmulationStation 状态机、索引与约束。不存在旧 revision 表、转换迁移或外键关闭窗口；每步建表/索引/trigger 与 checksum 记录同事务提交，外键始终开启。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。匹配前缀用于 bootstrap 续跑和明确支持的兼容升级；011 批次丢弃扩展新增身份/处置表并在事务中替换 trigger，可保留现有 001–010 数据。012 原生存档扩展追加 `game_save_versions` 和 `launch_game_save_bindings`，保留既有存档表与数据，支持从已发布 001–011 前缀升级。其他旧开发 schema 不因此获得升级兼容。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
+当前未发布建库基线包含 `001_identity.sql` 至 `013_bios_session_retirement.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger、view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
 
-BIOS 切换和 Launch 回收排期由兼容扩展 `013_bios_session_retirement.sql` 建立索引、排期表和 trigger；保留现有游戏、存档、运行快照与安装记录，不重建开发库。回收语义见[数据模型](./data-model.md#bios-与-launch-延迟回收)。
+`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。此次改写与旧开发基线不兼容，旧 checksum 不会被覆盖；当前前缀只用于中断初始化的续跑，不能解释为支持旧开发库升级。
 
-项目首次发布前遇到不兼容开发数据库，必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。程序不提供转换器、双写或隐式导入页面，也不得把旧 DB/CAS 拆开混入新库。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。001–010 已冻结；兼容扩展从 011 起只追加，不改写旧 checksum。
+跨表与新旧状态校验由 `recordstore` 的参数化 SQL 执行；会话、存档与回收排期的联动由 `sessionstore` 在同一事务完成。保存点保证校验失败时撤销该次写入，不能依赖调用方最终选择 rollback 来维持不变量。共享查询在 `storequery` 中维护；完整职责及空操作语义见[数据模型](./data-model.md#应用写入与数据库职责)。
+
+不兼容开发数据库必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。新建且未启动过的 PFB 直接初始化空库。程序不提供转换器、双写或隐式导入，也不得把旧 DB/CAS 拆开混入新库。默认开发数据根为 `.dev-data/data`，测试和验收使用独立临时根。未来发布后的兼容演进仍须追加 migration 并验证明确支持的升级路径，不能改写已发布 checksum。
 
 ## 4. 表目录
 
@@ -230,7 +232,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `netplay_sessions` / `netplay_session_participants` | 锁定 profile snapshot、每人 Launch/credential hash、断线 lease 与 resync 状态 |
 | `netplay_events` | 不含输入/state/秘密的房间 append-only 控制事件 |
 
-所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only evidence 和 trigger 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。
+所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only evidence 和应用写入校验 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。
 
 ## 5. 本地 CAS 文件存储
 
@@ -457,7 +459,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
 
 ## 9. 多盘存储边界
 
-当前 clean schema 直接创建 `import_item_multidisc_entries` 与 `review_multidisc_attachments`，并在 source/content/variant/launch/save 表中建立数据模型专题规定的受约束 enum、列与 trigger；不执行重建或回填。User/Profile owner、USER/SYSTEM actor 和 principal-scoped idempotency 由当前 schema 原生约束，完成后 `foreign_key_check` 为零。
+当前 clean schema 直接创建 `import_item_multidisc_entries` 与 `review_multidisc_attachments`，并在 source/content/variant/launch/save 表中建立数据模型专题规定的受约束 enum 与列，并由应用存储方法验证跨表归属和状态转换；不执行重建或回填。User/Profile owner、USER/SYSTEM actor 和 principal-scoped idempotency 由当前 schema 原生约束，完成后 `foreign_key_check` 为零。
 
 GC 把初始和 effective SourceSnapshot、accepted/retryable Attachment、GameContent DISC/playlist、Variant canonical playlist、Launch 锁定 DISC、SaveState 锁定 Variant 视为 Blob 引用根。缺盘 entry 没有 Blob，拒绝补传不推进 effective snapshot；未引用上传文件只受既有 Upload/Job 保留期保护，不能因 entry 占位永久保活。统一执行 `ACC-DB-001`–`002`、`ACC-CAS-001`–`002` 与 `ACC-MDISC-002`–`004`。
 
@@ -481,7 +483,7 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 重复试玩相同输入必须复用已有当前 Validation，包括需要人工试玩的 BLOCKED 结果，不因新建运行窗口追加校验记录。审核截图只维护条目的当前结果：成功保存时，在同一事务中清除该条目其他 Validation 的旧截图并覆盖当前截图；新截图校验或保存失败时保留原结果。截图不是不可变历史记录；被替换图片解除引用后由既有 CAS GC 回收。
 
-预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。在同一 Validation 下再次保存截图会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
+预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。在同一 Validation 下再次保存截图会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和应用写入约束 见 [`data-model.md`](./data-model.md)。
 
 ## 13. 联机持久化与恢复边界
 
@@ -491,7 +493,7 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 Tag、Game/Review/Pegasus/EmulationStation 关系和 tombstone 全部只存在 SQLite，不新增 CAS payload、Blob reference、外部 taxonomy 或运行期下载。离线备份必须逐行保留活动 Tag、DELETED tombstone、关系、mapping 名称 snapshot 与审计；restore 不重连同名新 Tag，也不清理指向 tombstone 的关系。GC registry、物理 CAS 枚举和依赖物化均不因标签改变。
 
-Tag 删除是业务软删除，不是存储清理：不得以减小数据库为由硬删 tombstone/关系。Tag 数据只能随完整数据根备份恢复，lineage 不匹配的应用不能写库。字段、trigger 与当前约束见 [`data-model.md`](./data-model.md)，生命周期见 [`game-tags.md`](./game-tags.md)。
+Tag 删除是业务软删除，不是存储清理：不得以减小数据库为由硬删 tombstone/关系。Tag 数据只能随完整数据根备份恢复，lineage 不匹配的应用不能写库。字段与当前应用写入约束见 [`data-model.md`](./data-model.md)，生命周期见 [`game-tags.md`](./game-tags.md)。
 
 ## 15. Provider 激活与数据库协调
 

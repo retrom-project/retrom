@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/payloadrelease"
 	"retrom/internal/testassert"
 )
@@ -82,7 +84,7 @@ SELECT launch_session_id,?, ?,blob_id,created_at_ms,kind FROM launch_external_fi
 WHERE launch_session_id='firmware-launch' AND logical_name='gba_bios.bin'`, fmt.Sprintf("/bios/%03d.bin", i), fmt.Sprintf("%03d.bin", i))
 		testassert.False(t, err != nil, err)
 	}
-	_, err := database.ExecContext(t.Context(), `UPDATE launch_sessions SET state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1 WHERE id='firmware-launch'`, now, now)
+	_, err := updateFirmwareLaunch(t, database, recordstore.Update{Set: `state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1`, Scope: recordstore.Scope{Where: `id='firmware-launch'`}, Values: []any{now, now}})
 	testassert.False(t, err != nil, err)
 	testassert.False(t, releases.ReconcileGC(t.Context()) != nil, "drain large launch")
 	assertBIOSReferenceCounts(t, database, 1, 0)

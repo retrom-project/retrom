@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/gametitle"
 )
@@ -45,7 +47,7 @@ func (run *approvalRun) copyRPGMakerContentProfile() error {
 	if run.platformID != "rpgmaker" {
 		return nil
 	}
-	result, err := run.transaction.ExecContext(run.ctx, `
+	result, err := recordstore.CreateRpgmakerGameProfiles(run.ctx, run.transaction, `
 INSERT INTO rpgmaker_game_profiles(
   game_id,evidence_family,evidence_generation,evidence_confidence,engine_version,
   entry_html_path,file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,
@@ -116,7 +118,7 @@ func (run *approvalRun) copyContentFile(rows *sql.Rows) error {
 	); err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
-	_, err := run.transaction.ExecContext(run.ctx, `
+	_, err := recordstore.CreateGameFiles(run.ctx, run.transaction, `
 INSERT INTO game_files(
   game_id,role,logical_name,blob_id,source_archive_blob_id,
   source_archive_entry_ordinal,sort_order

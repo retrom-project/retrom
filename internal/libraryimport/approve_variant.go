@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	"retrom/internal/recordstore"
 )
 
 type publishedVariantDependency struct {
@@ -51,7 +53,7 @@ func (run *approvalRun) insertVariantRows(
 	compatibilityCode string,
 	defaultDOSEntry sql.NullString,
 ) error {
-	_, err := run.transaction.ExecContext(run.ctx, `
+	_, err := recordstore.CreateGameVariants(run.ctx, run.transaction, `
 INSERT INTO game_variants(
   id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
   status,compatibility_code,dependency_snapshot_json,default_dos_entry,
@@ -63,7 +65,7 @@ INSERT INTO game_variants(
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
-	_, err = run.transaction.ExecContext(run.ctx, `
+	_, err = recordstore.CreateVariantFiles(run.ctx, run.transaction, `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 SELECT ?,role,logical_name,blob_id,sort_order
 FROM import_item_validation_files WHERE import_item_core_validation_id=?

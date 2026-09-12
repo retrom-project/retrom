@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/cleanup"
 )
 
@@ -115,19 +117,21 @@ func (service *Service) resetAggregateForAutomaticRetry(
 	unit work,
 	now int64,
 ) error {
-	statement := `
-UPDATE emulationstation_imports
-SET phase='DISCOVERING_GAMELISTS',last_error_code=NULL,retryable=0,
-completed_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE id=? AND state='SCANNING'`
-	if unit.Kind == "SERVER_EMULATIONSTATION_IMPORT" {
-		statement = `
-UPDATE emulationstation_imports
-SET state='QUEUED',phase=NULL,last_error_code=NULL,retryable=0,
-completed_at_ms=NULL,version=version+1,updated_at_ms=?
-WHERE id=? AND state='RUNNING'`
+	change := recordstore.Update{
+		Set: "phase='DISCOVERING_GAMELISTS',last_error_code=NULL,retryable=0," +
+			"completed_at_ms=NULL,version=version+1,updated_at_ms=?",
+		Values: []any{now},
+		Scope: recordstore.Scope{
+			Where: "id=? AND state='SCANNING'",
+			Args:  []any{unit.ImportID},
+		},
 	}
-	result, err := transaction.ExecContext(ctx, statement, now, unit.ImportID)
+	if unit.Kind == "SERVER_EMULATIONSTATION_IMPORT" {
+		change.Set = "state='QUEUED',phase=NULL,last_error_code=NULL,retryable=0," +
+			"completed_at_ms=NULL,version=version+1,updated_at_ms=?"
+		change.Scope.Where = "id=? AND state='RUNNING'"
+	}
+	result, err := recordstore.UpdateEmulationstationImports(ctx, transaction, change)
 	if err != nil {
 		return fmt.Errorf("emulationstationimport/reset aggregate for automatic retry: %w", err)
 	}

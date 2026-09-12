@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/contentcapability"
 
 	"retrom/internal/cleanup"
@@ -91,10 +93,17 @@ LIMIT 1
 		return Created{}, err
 	}
 	if queued {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE game_variants SET status='BLOCKED',compatibility_code='VALIDATION_PENDING',
-emulator_game_id=NULL,version=version+1,updated_at_ms=? WHERE id=?
-`, service.now().UnixMilli(), variantID); err != nil {
+		if _, err := recordstore.UpdateGameVariants(ctx, transaction, recordstore.Update{
+			Set: `
+status='BLOCKED',compatibility_code='VALIDATION_PENDING',
+emulator_game_id=NULL,version=version+1,updated_at_ms=?
+`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{variantID},
+			},
+			Values: []any{service.now().UnixMilli()},
+		}); err != nil {
 			return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 		}
 	}
@@ -147,7 +156,7 @@ SELECT id FROM game_variants WHERE game_id=? AND core_id=?
 	}
 	variantID = newUUID()
 	now := service.now().UnixMilli()
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateGameVariants(ctx, transaction, `
 INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
  status,compatibility_code,dependency_snapshot_json,default_dos_entry,
@@ -404,12 +413,17 @@ LIMIT 1
 		return false, err
 	}
 	if created {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE game_variants
-SET dat_version_id=?,status='BLOCKED',compatibility_code='VALIDATION_PENDING',
+		if _, err := recordstore.UpdateGameVariants(ctx, transaction, recordstore.Update{
+			Set: `
+dat_version_id=?,status='BLOCKED',compatibility_code='VALIDATION_PENDING',
 emulator_game_id=NULL,version=version+1,updated_at_ms=?
-WHERE id=?
-`, targetDAT.String, service.now().UnixMilli(), item.variantID); err != nil {
+`,
+			Scope: recordstore.Scope{
+				Where: `id=?`,
+				Args:  []any{item.variantID},
+			},
+			Values: []any{targetDAT.String, service.now().UnixMilli()},
+		}); err != nil {
 			return false, fmt.Errorf("launch/ensure_variant: %w", err)
 		}
 	}

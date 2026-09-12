@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -448,18 +450,18 @@ WHERE id=?
 `, written, now, fileID); err != nil {
 		return fmt.Errorf("uploads/service: %w", err)
 	}
-	_, err = service.database.ExecContext(
-		ctx,
-		`
-UPDATE upload_sessions
-SET state='UPLOADING',
+	_, err = recordstore.UpdateUploadSessions(ctx, service.database, recordstore.Update{
+		Set: `
+state='UPLOADING',
 version=version+1,
 updated_at_ms=?
-WHERE id=?
 `,
-		now,
-		uploadID,
-	)
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{uploadID},
+		},
+		Values: []any{now},
+	})
 	if err != nil {
 		return fmt.Errorf("mark upload session active: %w", err)
 	}

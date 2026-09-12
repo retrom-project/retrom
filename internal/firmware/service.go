@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/recordstore"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
@@ -234,7 +236,7 @@ func persistInstallation(
 	if err := payloadrelease.SupersedeBIOS(ctx, transaction, requirementID, now); err != nil {
 		return Installation{}, fmt.Errorf("%w: retire installation: %w", ErrInvalid, err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateBiosInstallations(ctx, transaction, `
 INSERT INTO bios_installations(id,
 requirement_id,
 blob_id,
@@ -281,7 +283,7 @@ updated_at_ms) VALUES(?,
 	); err != nil {
 		return Installation{}, fmt.Errorf("%w: persist installation: %w", ErrInvalid, err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := recordstore.CreateUploadConsumptions(ctx, transaction, `
 INSERT INTO upload_consumptions(id,
 upload_session_id,
 upload_file_id,

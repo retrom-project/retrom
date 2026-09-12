@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	"retrom/internal/recordstore"
 )
 
 // SynchronizeDefinitions projects validated Host declarations in the caller's startup transaction.
@@ -47,12 +49,19 @@ func writeProductRelations(ctx context.Context, transaction *sql.Tx, catalog Cat
 	if err != nil {
 		return fmt.Errorf("encode product relations: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE platform_cores SET enabled=0 WHERE enabled=1 AND NOT EXISTS(
+	if _, err := recordstore.UpdatePlatformCores(ctx, transaction, recordstore.Update{
+		Set: `enabled=0`,
+		Scope: recordstore.Scope{
+			Where: `
+enabled=1 AND NOT EXISTS(
  SELECT 1 FROM json_each(?) binding,json_each(binding.value,'$.platformIds') platform
- WHERE json_extract(binding.value,'$.coreId')=platform_cores.core_id AND platform.value=platform_cores.platform_id
+ WHERE json_extract(binding.value,'$.coreId')=platform_cores.core_id AND
+platform.value=platform_cores.platform_id
 )
-`, string(bindings)); err != nil {
+`,
+			Args: []any{string(bindings)},
+		},
+	}); err != nil {
 		return fmt.Errorf("disable omitted product relations: %w", err)
 	}
 	for _, binding := range catalog.Bindings {
