@@ -62,6 +62,8 @@ Asyncify 和协程重建能力、异步保存回调及原生内存所有权，�
 
 Mega Drive 的 Genesis Plus GX、GX Wide 与 PicoDrive 由 Provider 在输入表建立前明确选择 Mega Drive 手柄布局，保留 Start、方向与 A/B/C/X/Y/Z；不能采用多平台核心自动推断出的 Master System 布局。键盘与标准手柄使用同一控制表，原始 `.md`/`.smd` 与归档内成员行为一致。固定 EmulatorJS 4.2.3 的六键布局使用等价的 `segaCD` 输入别名，4.3.0-pre 使用 `segaMD`；这只选择输入布局，不切换运行核心或内容类型。
 
+Game Gear 与 SG-1000/Multivision 使用 Genesis Plus GX 的内容扩展选择 `segaGG` / `segaMS` 控制布局，不能套用 Mega Drive 六键布局。URL 的查询参数不参与扩展识别。GX4000 的 `.cpr` 在 Cap32 启动前选择 `6128+ (experimental)` 与所需的 `cap32_gfx_colors=24bit`；普通 CPC 磁盘保留原默认值。七个新平台与现有 Arcade/FBNeo 的 Neo Geo 样本按 `ACC-RUN-017` 验证；Pico 的方向/确认结果不能证明笔、翻页等未测操作，也不能外推为全库兼容。
+
 EmulatorJS 构造期间已检测到的手柄，在控制表就绪时补齐空闲玩家分配，保留已有分配且不重复绑定；后续插拔继续使用 EmulatorJS 原有事件。不能要求启动前已连接的手柄重新插拔才能操作。
 
 PSP 优化的定向验证应使用操作者提供的合法样本，通过真实 Review Preview、Product Launch、新建 checkpoint、不同 Launch 恢复和恢复后输入检查。4K、150% 缩放使用 `2560×1440` CSS 视口与 `deviceScaleFactor=1.5`；必须同时检查窗口变化、全屏、设置面板、完整画面与边缘内容。帧率对照应记录相同游戏场景、核心配置与 GPU renderer，软件渲染结果不能推断为实体显卡性能。压缩收益以该次存档压缩前后完整字节数计算，不以不同场景的两份存档相除。

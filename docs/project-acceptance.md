@@ -1054,6 +1054,20 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 通过标准：复核方向、确认的可见响应，以及 C→B 的位置或菜单状态恢复；已支持的取消保持有效。非空存档、哈希变化、帧计数或 HTTP 200 不能代替画面证据；`REVIEW_REQUIRED` 经本次画面复核后才记 PASS。Snes9x 仍可独立选择；bsnes 使用独立 checkpoint format，两个核心的存档不能混用。测试目录默认核心切回 Snes9x 后，普通“从存档继续”仍应通过未指定 `coreId` 的请求恢复 bsnes 存档，并在 Launch 中确认 `targetId=bsnes`；bsnes 不出现在联机 profile 中。
 - 证据：导入/审核/发布记录、Provider/Target/Bundle/module 与内容 digest、A/B/C/恢复 B/恢复后输入截图、存档格式/大小/摘要和退出结果。仅证明当次样本，不外推 Super Game Boy、Satellaview、MSU-1 或 SNES 全库兼容。
 
+### ACC-RUN-017：复用 EmulatorJS 核心的平台扩展验证
+
+- 每个平台硬超时 600 秒。等价入口：`timeout 600 node scripts/acceptance/platform_expansion_product.mjs <platform>`。
+- 无头 Chrome 无法响应帧或页面读取时，使用 `RETROM_SMOKE_HEADED=1 timeout 600 xvfb-run -a node scripts/acceptance/platform_expansion_product.mjs <platform>`；记录浏览器模式，输入、恢复和总超时标准不变。
+- 平台为 `gamegear`、`sg1000`、`multivision`、`pico`、`sega32x`、`supergrafx`、`gx4000`、`neogeo`；最后一项复用现有 `arcade/fbneo`，不另建 Neo Geo 平台或绕过 DAT。
+- 显式输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_EXPANSION_ROM`；Neo Geo 另需 `RETROM_EXPANSION_BIOS`。只读取操作者明确提供的单个文件，不自动发现或下载私有游戏。
+- 先通过 Upload/Import 获取审核项，以真实 Review Preview 生成画面并保存审核截图，再通过 Approve 发布、创建新的 Product Launch。保留 ROM 摘要、实际 Provider/Target/module 与内容摘要。
+- 使用标准映射虚拟手柄验证方向与确认的按下/释放、实际屏幕结果、暂停后帧停止、非空即时存档、不同 Launch 的原生恢复完成回执和恢复后方向输入。`RETROM_EXPANSION_START_BUTTONS` 可显式给出游戏启动按键数组，`RETROM_EXPANSION_START_GAP_FRAMES` 指定按键间的核心帧间隔，`RETROM_EXPANSION_CONFIRM_BUTTON` 指定确认按钮，`RETROM_EXPANSION_BOOT_FRAMES` / `RETROM_EXPANSION_POST_START_FRAMES` 指定启动按键前后等待的真实核心帧数（单次最多等待 90 秒）（仍受总超时限制）；不会改变生产映射。
+- 自动输出 `AUTOMATED_PASS_REQUIRES_VISUAL_REVIEW` 仅表示链路断言通过；必须逐项审阅 `review-preview/before-input/direction/confirm/saved/restored/restored-input.png`，确认画面有效、输入改变游戏状态且恢复至所存场景，才能记录最终 PASS。动画造成的图片摘要变化本身不能证明方向或确认有效。实体标准手柄另做人工 smoke；虚拟注入不能冒充硬件兼容证据。
+- 赛车等需要持续油门的样本可用 `RETROM_EXPANSION_HOLD_BUTTON` 指定独立按住的标准手柄按钮，在方向测试前推进 120 核心帧，并于截图后释放；恢复后同样验证。每个按钮仍只发送一个目标输入。输出 `recipe` 与每次启动按键的 `start-N.png` 以复核菜单时序。
+- 证据由 `RETROM_ACCEPTANCE_CASE_DIR` 指定，默认写 `.artifacts/platform-expansion/<platform>/product.json` 和 PNG。失败保留阶段与错误，不写凭据或本机来源路径。
+- `RETROM_EXPANSION_REVIEW_ID` / `RETROM_EXPANSION_GAME_ID` 仅用于恢复同一样本的失败验证，记录 reused；必须与首次导入/预览/发布证据一起评审，不算重新覆盖前置流程。
+- 一个样本不能代表全库；Pico 必须区分基本方向/确认与笔、翻页外设覆盖，Neo Geo 必须使用与目标 DAT 匹配的游戏/BIOS。缺样本或必需能力不通过时保留 FAIL/BLOCKED，不以相邻平台代替。
+
 ### ACC-SAVE-001：手动状态存档与截图
 
 - 上限：180 秒。
