@@ -24,9 +24,6 @@ func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
 		t.Fatalf("catalog = %#v", catalog)
 	}
 	for _, binding := range catalog.Bindings {
-		if binding.TargetID == "gbe-pokemini" && (binding.CoreID != "gbe_plus" || binding.DetectorProfile != "POKEMINI_ROM" || len(binding.PlatformIDs) != 1 || binding.PlatformIDs[0] != "pokemini") {
-			t.Fatalf("invalid Pokémon Mini binding: %#v", binding)
-		}
 		if binding.ID == "" || binding.CoreID == "" || binding.ProviderID == "" || binding.TargetID == "" {
 			t.Fatalf("incomplete binding = %#v", binding)
 		}
@@ -187,4 +184,27 @@ func containsString(values []string, expected string) bool {
 		}
 	}
 	return false
+}
+
+func TestPokeminiBinding(t *testing.T) {
+	t.Parallel()
+	contents, err := os.ReadFile(filepath.Join("..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := ParseCatalog(contents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, binding := range catalog.Bindings {
+		if binding.TargetID != "gbe-pokemini" {
+			continue
+		}
+		if binding.CoreID != "gbe_plus" || binding.DetectorProfile != "POKEMINI_ROM" ||
+			len(binding.PlatformIDs) != 1 || binding.PlatformIDs[0] != "pokemini" {
+			t.Fatalf("invalid Pokémon Mini binding: %#v", binding)
+		}
+		return
+	}
+	t.Fatal("Pokémon Mini binding missing")
 }

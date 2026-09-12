@@ -195,7 +195,10 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	},
 	{Key: "pc88/quasi88", PlatformID: "pc88", DefaultCoreID: "quasi88", Name: "PC-88 游戏", CatalogOrder: 590},
 	{Key: "neogeocd/neocd", PlatformID: "neogeocd", DefaultCoreID: "neocd", Name: "Neo Geo CD 游戏", CatalogOrder: 600},
-	{Key: "pokemini/gbe_plus", PlatformID: "pokemini", DefaultCoreID: "gbe_plus", Name: "Pokémon Mini 游戏", CatalogOrder: 610},
+	{
+		Key: "pokemini/gbe_plus", PlatformID: "pokemini", DefaultCoreID: "gbe_plus",
+		Name: "Pokémon Mini 游戏", CatalogOrder: 610,
+	},
 }}
 
 func Current() Catalog {
