@@ -465,6 +465,7 @@ WHERE id=?
 	if err := failureTransaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
+	assertInitialProgressRollback(t, database.SQL, failureScrape.RunID, failureItemID)
 	if err := scraper.Run(ctx, failureScrape.RunID); err == nil {
 		t.Fatal("invalid metadata task payload should fail")
 	}

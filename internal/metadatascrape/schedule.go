@@ -3,7 +3,6 @@ package metadatascrape
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -21,10 +20,8 @@ type Service struct {
 }
 
 var (
-	errGameVersionConflict  = scheduleservice.ErrGameVersionConflict
-	errGameDeleted          = scheduleservice.ErrGameDeleted
-	errInitialItemState     = errors.New("initial review item state changed")
-	errInitialProgressState = errors.New("initial import progress state changed")
+	errGameVersionConflict = scheduleservice.ErrGameVersionConflict
+	errGameDeleted         = scheduleservice.ErrGameDeleted
 )
 
 type Scheduled = scheduleservice.Scheduled

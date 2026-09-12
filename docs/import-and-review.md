@@ -292,6 +292,8 @@ type MetadataProvider interface {
 
 ## 9. 审核
 
+初次抓取完成时，由 `internal/service/metadatascrape.InitialReviewService` 按命中数、最早证据顺序、Provider game ID 和候选 ID 选择候选，只用有意义的候选字段覆盖已有元信息，并按 ordinal/ID 选择 READY 图片。草稿、搜索文本、Item 状态和 ImportJob 聚合通过调用方已有的同一写事务发布；聚合更新同时检查读取时的版本与运行项数量，后续写入失败必须回滚整次发布。
+
 审核字段包括：
 
 - 原文件/目录、相对路径、大小和各类 hash。

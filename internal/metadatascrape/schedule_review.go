@@ -2,19 +2,11 @@ package metadatascrape
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	schedulepersistence "retrom/internal/persistence/metadatascrape"
 	scheduleservice "retrom/internal/service/metadatascrape"
 )
-
-func nullableText(value sql.NullString) any {
-	if value.Valid {
-		return value.String
-	}
-	return nil
-}
 
 func (service *Service) ScheduleReview(
 	ctx context.Context,
