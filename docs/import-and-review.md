@@ -434,6 +434,8 @@ Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collect
 
 聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的 Pegasus import。统一验收见 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001`。
 
+未开始执行的 `AWAITING_MAPPING/EXPIRED` 计划可按当前版本删除。删除事务先验证计划未被启动，再解除 Collection 标签关系、推进相关 Tag version、删除可变扫描投影并记录操作者审计；Tag 本身及既有 job/input/event 证据保留。任一删除或审计步骤失败必须整体回滚。过期处理按有界候选批次重新校验状态、版本与过期时刻，不得覆盖已经启动、删除或更新的计划。
+
 Pegasus Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不可重试错误，就只长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。已交接普通 ImportItem 的条目共用普通 Item 的 PayloadRelease；未交接条目使用独立 Pegasus scope。文件和 COVER/VIDEO Blob 字段转为 `PAYLOAD_RELEASED` 形态，管理详情显示“源文件已清理”，不得尝试加载旧媒体 URL。仍可 retry 的错误和普通 `REVIEW_PENDING` 必须继续保留 payload。
 
 ## 15. EmulationStation 服务器目录导入

@@ -25,7 +25,7 @@ import.retryable,
 import.created_at_ms,import.updated_at_ms,import.expires_at_ms,import.completed_at_ms
 FROM pegasus_imports import JOIN users user ON user.id=import.created_by_user_id`
 
-type Queries struct{ database *sql.DB }
+type Queries struct{ database dbexec.Executor }
 
 func NewQueries(database *sql.DB) *Queries { return &Queries{database: database} }
 

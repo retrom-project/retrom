@@ -8,7 +8,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
+
+	"retrom/internal/authn"
+	repository "retrom/internal/persistence/pegasusimport"
+	application "retrom/internal/service/pegasusimport"
 
 	"retrom/internal/dbexec"
 
@@ -380,58 +383,22 @@ before_json,after_json,diff_json,request_id,created_at_ms
 	return nil
 }
 
-func (service *Service) Delete(ctx context.Context, importID string, expectedVersion int64) error {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("pegasusimport/delete transaction: %w", err)
+func (service *Service) Delete(ctx context.Context, id string, version int64) error {
+	actorID := ""
+	if principal, ok := authn.PrincipalFromContext(ctx); ok {
+		actorID = principal.UserID
 	}
-	defer dbexec.Rollback(transaction)
-	var state, scanJob string
-	var version int64
-	var importJob sql.NullString
-	if err := transaction.QueryRowContext(
-		ctx, `SELECT state,scan_job_id,import_job_id,version FROM pegasus_imports WHERE id=?`, importID,
-	).Scan(&state, &scanJob, &importJob, &version); err != nil {
-		return ErrNotFound
-	}
-	if version != expectedVersion || state != "AWAITING_MAPPING" && state != "EXPIRED" || importJob.Valid {
-		return ErrInvalid
-	}
-	for _, statement := range []string{
-		`DELETE FROM pegasus_import_item_assets WHERE item_id IN (SELECT id FROM pegasus_import_items WHERE import_id=?)`,
-		`DELETE FROM pegasus_import_item_files WHERE item_id IN (SELECT id FROM pegasus_import_items WHERE import_id=?)`,
-		`DELETE FROM pegasus_import_items WHERE import_id=?`,
-		`DELETE FROM pegasus_import_collections WHERE import_id=?`,
-		`DELETE FROM pegasus_import_metadata_files WHERE import_id=?`,
-		`DELETE FROM pegasus_imports WHERE id=?`,
-	} {
-		if _, err := transaction.ExecContext(ctx, statement, importID); err != nil {
-			return fmt.Errorf("pegasusimport/delete plan: %w", err)
-		}
-	}
-	// Immutable job/input/event evidence intentionally remains after the plan's
-	// mutable scan projection is removed.
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("pegasusimport/commit delete: %w", err)
+	lifecycle := application.NewPlanLifecycle(repository.NewPlanLifecycle(service.database), service.now)
+	if err := lifecycle.Delete(ctx, id, version, actorID); err != nil {
+		return fmt.Errorf("delete Pegasus import: %w", err)
 	}
 	return nil
 }
 
 func (service *Service) ExpirePlans(ctx context.Context) error {
-	now := service.now().UnixMilli()
-	_, err := recordstore.UpdatePegasusImports(ctx, service.database, recordstore.Update{
-		Set: `
-state='EXPIRED',phase=NULL,last_error_code='PEGASUS_PLAN_EXPIRED',
-completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `state='AWAITING_MAPPING' AND expires_at_ms<=?`,
-			Args:  []any{now},
-		},
-		Values: []any{now, now},
-	})
-	if err != nil {
-		return fmt.Errorf("pegasusimport/expire plans: %w", err)
+	lifecycle := application.NewPlanLifecycle(repository.NewPlanLifecycle(service.database), service.now)
+	if err := lifecycle.Expire(ctx); err != nil {
+		return fmt.Errorf("expire Pegasus imports: %w", err)
 	}
 	return nil
 }
@@ -525,6 +492,3 @@ json_object('schemaVersion',1,'executionNo',?),?
 	service.signal()
 	return service.Get(ctx, importID)
 }
-
-// Keep the imported time package tied to the seven-day contract in this file.
-var _ = 7 * 24 * time.Hour
