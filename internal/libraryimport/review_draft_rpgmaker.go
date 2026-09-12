@@ -6,15 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/rpgmaker/detector"
+	application "retrom/internal/service/libraryimport"
 )
 
-type rpgReviewAnalysis struct {
-	SelfContained bool `json:"selfContained"`
-	Requirements  struct {
-		RTP []detector.RTPDependency `json:"rtpDependencies"`
-	} `json:"requirements"`
-}
+type rpgReviewAnalysis = application.RPGReviewAnalysis
 
 type rpgReviewBinding struct {
 	generation       string

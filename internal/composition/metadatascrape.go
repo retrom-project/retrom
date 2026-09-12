@@ -24,3 +24,7 @@ func NewMetadata(
 	worker := metadatascrape.NewWorker(repository, processor, now)
 	return metadatascrape.New(metadatapersistence.NewScheduler(database), worker, now)
 }
+
+func NewMetadataEvidenceQueries(database *sql.DB) *metadatascrape.EvidenceQueries {
+	return metadatascrape.NewEvidenceQueries(metadatapersistence.BindEvidenceQueries(database))
+}

@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
+
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	application "retrom/internal/service/libraryimport"
 
 	"retrom/internal/persistence/contentquery"
 
@@ -469,55 +471,15 @@ func attachmentDependency(snapshot arcadeDraftSnapshot, machine string) (arcadeD
 	return arcadeDraftDependency{}, false
 }
 
-func (service *Service) canonicalArcadeSnapshot(
-	ctx context.Context,
-	raw string,
-) (arcadeDraftSnapshot, error) {
-	return service.canonicalArcadeSnapshotWithQueryer(ctx, service.database, raw)
-}
-
 func (service *Service) canonicalArcadeSnapshotWithQueryer(
 	ctx context.Context,
 	queryer arcadeRelationQueryer,
 	raw string,
 ) (arcadeDraftSnapshot, error) {
-	snapshot, valid := parseArcadeDraftSnapshot(raw)
-	if !valid {
-		return arcadeDraftSnapshot{}, ErrInvalid
-	}
-	nodes, cyclic, err := loadArcadeDependencyClosure(ctx, queryer, snapshot.DatVersionID, snapshot.Machine)
-	if err != nil || cyclic {
-		return arcadeDraftSnapshot{}, ErrInvalid
-	}
-	byMachine := make(map[string]arcadeClosureNode, len(nodes))
-	for _, node := range nodes {
-		byMachine[node.Machine] = node
-	}
-	for index := range snapshot.Dependencies {
-		dependency := &snapshot.Dependencies[index]
-		node, exists := byMachine[dependency.Machine]
-		if !exists || node.Kind != dependency.Kind {
-			return arcadeDraftSnapshot{}, ErrInvalid
-		}
-		dependency.RequiredBy = node.RequiredBy
-		dependency.Depth = node.Depth
-		dependency.ExpectedLogicalName = dependency.Machine + ".zip"
-		dependency.RequiredEntryCount = len(dependency.RequiredEntries)
-	}
-	closure, err := json.Marshal(nodes)
+	snapshot, err := application.CanonicalArcadeSnapshot(ctx, librarypersistence.BindArcadeRelations(queryer), raw)
 	if err != nil {
-		return arcadeDraftSnapshot{}, fmt.Errorf("project arcade snapshot: %w", err)
+		return arcadeDraftSnapshot{}, fmt.Errorf("read canonical arcade snapshot: %w", err)
 	}
-	snapshot.Closure = closure
-	sort.Slice(snapshot.Dependencies, func(left, right int) bool {
-		if snapshot.Dependencies[left].Kind != snapshot.Dependencies[right].Kind {
-			return snapshot.Dependencies[left].Kind < snapshot.Dependencies[right].Kind
-		}
-		if snapshot.Dependencies[left].Depth != snapshot.Dependencies[right].Depth {
-			return snapshot.Dependencies[left].Depth < snapshot.Dependencies[right].Depth
-		}
-		return snapshot.Dependencies[left].Machine < snapshot.Dependencies[right].Machine
-	})
 	return snapshot, nil
 }
 

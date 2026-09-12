@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sort"
 
+	application "retrom/internal/service/libraryimport"
+
 	"retrom/internal/persistence/contentquery"
 
 	validationpersistence "retrom/internal/persistence/corevalidation"
@@ -132,7 +134,11 @@ JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id A
  AND binding.core_id='rpgmaker' AND binding.launch_policy<>'DISABLED'
 WHERE draft.import_item_id=? AND draft.target_platform_instance_id=?
 `, state.itemID, state.targetID).Scan(
-		&state.coreID, &state.providerID, &state.runtimeTargetID, &state.datID, contentquery.ScanPolicy(&state.contentPolicy),
+		&state.coreID,
+		&state.providerID,
+		&state.runtimeTargetID,
+		&state.datID,
+		contentquery.ScanPolicy(&state.contentPolicy),
 	)
 	if err != nil {
 		return ErrInvalid
@@ -405,28 +411,10 @@ LIMIT 1
 	return logicalName, nil
 }
 
-type arcadeDraftDependency struct {
-	Kind                string   `json:"kind"`
-	Machine             string   `json:"machine"`
-	RequiredBy          *string  `json:"requiredBy,omitempty"`
-	Depth               int      `json:"depth,omitempty"`
-	ExpectedLogicalName string   `json:"expectedLogicalName,omitempty"`
-	State               string   `json:"state"`
-	RequiredEntryCount  int      `json:"requiredEntryCount,omitempty"`
-	RequiredEntries     []string `json:"requiredEntries"`
-}
-
-type arcadeDraftSnapshot struct {
-	SchemaVersion     int                     `json:"schemaVersion"`
-	Kind              string                  `json:"kind"`
-	Machine           string                  `json:"machine"`
-	DatVersionID      string                  `json:"datVersionId"`
-	Closure           json.RawMessage         `json:"closure"`
-	Dependencies      []arcadeDraftDependency `json:"dependencies"`
-	MissingEntries    []string                `json:"missingEntries"`
-	MismatchedEntries []string                `json:"mismatchedEntries"`
-	Warnings          []string                `json:"warnings"`
-}
+type (
+	arcadeDraftDependency = application.ArcadeDraftDependency
+	arcadeDraftSnapshot   = application.ArcadeDraftSnapshot
+)
 
 func resolveArcadeDraftBIOSState(
 	ctx context.Context,
@@ -486,15 +474,7 @@ func resolveArcadeDraftBIOSState(
 }
 
 func parseArcadeDraftSnapshot(raw string) (arcadeDraftSnapshot, bool) {
-	var snapshot arcadeDraftSnapshot
-	if json.Unmarshal([]byte(raw), &snapshot) != nil ||
-		snapshot.SchemaVersion != corevalidation.SnapshotSchemaVersion ||
-		snapshot.Kind != corevalidation.SnapshotKindArcade ||
-		snapshot.Machine == "" ||
-		snapshot.DatVersionID == "" || snapshot.Dependencies == nil {
-		return arcadeDraftSnapshot{}, false
-	}
-	return snapshot, true
+	return application.ParseArcadeDraftSnapshot(raw)
 }
 
 func resolveArcadeBIOSDependency(

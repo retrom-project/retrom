@@ -16,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/importing"
 )
 
@@ -503,7 +502,10 @@ func (service *Service) finishParentAttachmentCancellation(
 	jobID, workerID string,
 ) bool {
 	var state string
-	if err := service.database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=? AND worker_id=?`, jobID, workerID).
+	if err := service.database.QueryRowContext(ctx,
+		`SELECT state FROM jobs WHERE id=? AND worker_id=?`,
+		jobID,
+		workerID).
 		Scan(&state); err != nil || state != "CANCEL_REQUESTED" {
 		return false
 	}
@@ -548,112 +550,4 @@ VALUES(?,'IMPORT_ITEM',?,'CANCELLED','{}',?)
 		return false
 	}
 	return transaction.Commit() == nil
-}
-
-func (service *Service) ReviewArcadeDependencies(ctx context.Context, itemID string) (any, bool, error) {
-	var platformID string
-	var validationStatus, compatibilityCode, dependencyJSON sql.NullString
-	if err := service.database.QueryRowContext(ctx, `
-SELECT platform.platform_id,validation.status,validation.compatibility_code,
-validation.dependency_snapshot_json
-FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
-JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
-LEFT JOIN import_item_core_validations validation ON validation.id=COALESCE(
-  draft.selected_validation_id,
-  (SELECT candidate.id FROM import_item_core_validations candidate
-   WHERE candidate.import_item_id=item.id
-   AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
-   AND candidate.target_platform_instance_id=draft.target_platform_instance_id
-   ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1)
-)
-	WHERE item.id=? AND item.state='REVIEW_PENDING'
-	`, itemID).Scan(&platformID, &validationStatus, &compatibilityCode, &dependencyJSON); err != nil {
-		return nil, false, parentStoreError("read review dependency snapshot", err)
-	}
-	if platformID != "arcade" || !dependencyJSON.Valid {
-		return nil, false, nil
-	}
-	snapshot, err := service.canonicalArcadeSnapshot(ctx, dependencyJSON.String)
-	if err != nil {
-		return nil, false, err
-	}
-	attachments, active, err := service.reviewParentAttachments(ctx, itemID)
-	if err != nil {
-		return nil, false, err
-	}
-	unsupported := compatibilityCode.String == "UNSUPPORTED_MERGED_ROMSET" ||
-		compatibilityCode.String == "UNSUPPORTED_CHD" ||
-		compatibilityCode.String == "ARCADE_DEPENDENCY_CYCLE" ||
-		compatibilityCode.String == "ARCADE_DAT_UNAVAILABLE"
-	nodes := make([]map[string]any, 0, len(snapshot.Dependencies))
-	for _, dependency := range snapshot.Dependencies {
-		latest := attachments[dependency.Machine]
-		canAttach := dependency.Kind == "PARENT" &&
-			(dependency.State == "MISSING" || dependency.State == "MISMATCH") && active == nil && !unsupported
-		node := map[string]any{
-			"kind": dependency.Kind, "machine": dependency.Machine, "requiredBy": dependency.RequiredBy,
-			"depth": dependency.Depth, "expectedLogicalName": dependency.ExpectedLogicalName,
-			"state": dependency.State, "requiredEntryCount": dependency.RequiredEntryCount,
-			"requiredEntries": dependency.RequiredEntries, "canAttach": canAttach, "attachment": latest,
-		}
-		if dependency.Kind == "BIOS_OR_BASE" {
-			node["managementUrl"] = "/admin/bios"
-		}
-		nodes = append(nodes, node)
-	}
-	return map[string]any{
-		"machine": snapshot.Machine, "status": validationStatus.String,
-		"compatibilityCode": compatibilityCode.String, "nodes": nodes, "activeAttachment": active,
-	}, true, nil
-}
-
-func (service *Service) reviewParentAttachments(
-	ctx context.Context,
-	itemID string,
-) (map[string]any, any, error) {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT id,dependency_machine,expected_logical_name,original_filename,state,error_code,
-job_id,observed_size_bytes,observed_sha256,diagnostics_json,created_at_ms,updated_at_ms,finished_at_ms
-FROM review_arcade_parent_attachments
-WHERE import_item_id=?
-ORDER BY created_at_ms DESC,id DESC
-	`, itemID)
-	if err != nil {
-		return nil, nil, parentStoreError("read review parent attachments", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	byMachine := make(map[string]any)
-	var active any
-	for rows.Next() {
-		var id, machine, logicalName, originalName, state, jobID, diagnosticsJSON string
-		var errorCode, observedSHA sql.NullString
-		var observedSize, finishedAt sql.NullInt64
-		var createdAt, updatedAt int64
-		if err := rows.Scan(
-			&id, &machine, &logicalName, &originalName, &state, &errorCode, &jobID, &observedSize,
-			&observedSHA, &diagnosticsJSON, &createdAt, &updatedAt, &finishedAt,
-		); err != nil {
-			return nil, nil, parentStoreError("scan review parent attachment", err)
-		}
-		var diagnostics any
-		_ = json.Unmarshal([]byte(diagnosticsJSON), &diagnostics)
-		value := map[string]any{
-			"attachmentId": id, "machine": machine, "expectedLogicalName": logicalName,
-			"originalFilename": originalName, "state": state, "errorCode": nullable(errorCode),
-			"jobId": jobID, "observedSizeBytes": nullableInt(observedSize),
-			"observedSha256": nullable(observedSHA), "diagnostics": diagnostics,
-			"createdAtMs": createdAt, "updatedAtMs": updatedAt, "finishedAtMs": nullableInt(finishedAt),
-		}
-		if _, exists := byMachine[machine]; !exists {
-			byMachine[machine] = value
-		}
-		if active == nil && (state == "QUEUED" || state == "RUNNING") {
-			active = value
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, nil, parentStoreError("iterate review parent attachments", err)
-	}
-	return byMachine, active, nil
 }

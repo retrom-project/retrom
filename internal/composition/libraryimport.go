@@ -11,3 +11,7 @@ import (
 func NewLibraryReviewQueue(database *sql.DB, tags *tagging.Service) *application.ReviewQueue {
 	return application.NewReviewQueue(repository.NewReviewQueue(database), tags)
 }
+
+func NewLibraryReviewDetails(database *sql.DB) *application.ReviewDetails {
+	return application.NewReviewDetails(repository.NewReviewDetail(database))
+}

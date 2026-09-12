@@ -118,6 +118,8 @@ type Server struct {
 	favoriteService         *favorites.Service
 	tagService              *tagging.Service
 	reviewQueue             *libraryservice.ReviewQueue
+	reviewDetails           *libraryservice.ReviewDetails
+	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
 	emulationStationImports *emulationstationimport.Service
@@ -259,6 +261,8 @@ func New(
 		runtimeProvider:  http.NotFoundHandler(),
 	}
 	server.reviewQueue = composition.NewLibraryReviewQueue(database, server.tagService)
+	server.reviewDetails = composition.NewLibraryReviewDetails(database)
+	server.metadataEvidence = composition.NewMetadataEvidenceQueries(database)
 	server.importDiscards = composition.NewImportDiscard(
 		database,
 		importer,

@@ -159,13 +159,6 @@ func saveStateScreenshotURL(saveStateID string) string {
 	return "/content/save-states/" + saveStateID + "/screenshot"
 }
 
-func nullableInt64(value sql.NullInt64) any {
-	if value.Valid {
-		return value.Int64
-	}
-	return nil
-}
-
 func (server *Server) reviewCandidateAsset(writer http.ResponseWriter, request *http.Request) {
 	var digest, mediaType string
 	err := server.database.QueryRowContext(request.Context(), `

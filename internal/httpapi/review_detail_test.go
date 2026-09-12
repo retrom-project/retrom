@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -42,7 +43,16 @@ func TestProjectReviewArchiveFormatRequiresValidatedTyranoScriptExecutableContex
 		{"TYRANOSCRIPT_PROJECT", "game.zip", "ELECTRON_ASAR", "ELECTRON_ASAR"},
 		{"TYRANOSCRIPT_PROJECT", "game.exe", nil, nil},
 	} {
-		if actual := projectReviewArchiveFormat(test.contentKind, test.name, test.stored); actual != test.expected {
+		var storedFormat *string
+		if value, ok := test.stored.(string); ok {
+			storedFormat = &value
+		}
+		actualFormat := libraryservice.ProjectReviewArchiveFormat(test.contentKind, test.name, storedFormat)
+		var actual any
+		if actualFormat != nil {
+			actual = *actualFormat
+		}
+		if actual != test.expected {
 			t.Fatalf("projectReviewArchiveFormat(%q,%q,%v)=%v, want %v",
 				test.contentKind, test.name, test.stored, actual, test.expected)
 		}
@@ -109,9 +119,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 		return !strings.Contains(recorder.Body.String(), `"compatibilityCode":"DEPENDENCY_MISSING"`)
 	}, func() bool { return !strings.Contains(recorder.Body.String(), `"title":"Visible candidate"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"errorCode":"ASSET_HTTP_STATUS"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"name":"blocked.zip"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"archive":true`) }, func() bool {
 		return !strings.Contains(recorder.Body.String(), `"archiveEntries":[{"crc32":"`+strings.Repeat("e", 8)+`","name":"blocked.gba","sizeBytes":4096}]`)
-	}, func() bool {
-		return !strings.Contains(recorder.Body.String(), `"scrapeRuns":[{"attemptCount":0,"candidateCount":1,"completedAtMs":`)
-	}, func() bool { return !strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) }, func() bool {
+	}, func() bool { return !reviewHasExpectedScrapeRun(recorder.Body.Bytes()) }, func() bool { return !strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) }, func() bool {
 		return strings.Contains(recorder.Body.String(), `"validationStale"`)
 	}), "blocked review detail = %d %s", recorder.Code, recorder.Body.String())
 	mustExecHTTPTest(t, server.database, `
@@ -676,4 +684,19 @@ VALUES(?,?,?,'cover-ready','COVER',1,'/api/v1/images/cover-ready','READY',?,600,
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func reviewHasExpectedScrapeRun(body []byte) bool {
+	var detail struct {
+		ScrapeRuns []struct {
+			AttemptCount   int64  `json:"attemptCount"`
+			CandidateCount int64  `json:"candidateCount"`
+			CompletedAtMS  *int64 `json:"completedAtMs"`
+		} `json:"scrapeRuns"`
+	}
+	if err := json.Unmarshal(body, &detail); err != nil {
+		return false
+	}
+	return len(detail.ScrapeRuns) == 1 && detail.ScrapeRuns[0].AttemptCount == 0 &&
+		detail.ScrapeRuns[0].CandidateCount == 1 && detail.ScrapeRuns[0].CompletedAtMS != nil
 }

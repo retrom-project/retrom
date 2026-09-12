@@ -73,8 +73,7 @@ func (service *Service) ReviewDraftReferences(
 	scope WriteScope,
 	draftID string,
 ) ([]Reference, error) {
-	refs, err := scope.Relations.References(ctx, Owner{Kind: OwnerReviewDraft, ID: draftID})
-	return refs, repositoryError("review references", err)
+	return ReviewDraftReferencesInScope(ctx, scope.Relations, draftID)
 }
 
 func (service *Service) CopyDraftTagsToGame(
