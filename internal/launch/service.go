@@ -8,12 +8,12 @@ import (
 	"net/url"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
-
-	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
 
@@ -209,7 +209,7 @@ func (service *Service) prepareNetplayLaunch(
 SELECT variant.id,variant.core_id,session.provider_id,session.target_id,
  session.bundle_sha256,game.id,game.content_kind,
  binding.delivery_profile,
- `+contentcapability.BindingPolicySQL+`,variant.dependency_snapshot_json,
+ `+contentquery.BindingPolicySQL+`,variant.dependency_snapshot_json,
  COALESCE((SELECT file.logical_name FROM game_files file
   WHERE file.game_id=game.id AND file.role='CONTENT'
   ORDER BY file.sort_order,file.logical_name LIMIT 1),''),variant.dat_version_id
@@ -230,7 +230,7 @@ WHERE session.id=? AND session.room_id=? AND session.game_id=?
 		Scan(
 			&selection.variantID, &selection.selectedCore,
 			&selection.providerID, &selection.targetID, &selection.bundleSHA256, &selection.gameID,
-			&selection.contentKind, &selection.deliveryProfile, &selection.contentPolicy,
+			&selection.contentKind, &selection.deliveryProfile, contentquery.ScanPolicy(&selection.contentPolicy),
 			&selection.dependencySnapshotJSON, &selection.contentLogicalName, &selection.datID,
 		)
 	if err != nil || selection.contentKind != "SINGLE_FILE" {

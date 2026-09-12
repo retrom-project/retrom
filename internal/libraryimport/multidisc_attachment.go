@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -199,7 +201,7 @@ func (service *Service) readMultiDiscAttachmentAdmission(
 SELECT draft.id,item.state,draft.version,draft.effective_source_snapshot_id,
 platform.platform_id,platform.id,platform.version,platform.default_core_id,
 target.provider_id,target.target_id,
-`+contentcapability.BindingPolicySQL+`,
+`+contentquery.BindingPolicySQL+`,
 validation.id,validation.status,validation.compatibility_code,
 validation.platform_instance_version,validation.core_id,validation.provider_id,validation.target_id
 FROM import_items item
@@ -223,7 +225,7 @@ ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 		&admission.draftID, &admission.itemState, &admission.draftVersion,
 		&admission.effectiveSnapshotID, &admission.platformID, &admission.platformInstanceID,
 		&admission.platformVersion, &admission.coreID, &admission.providerID, &admission.targetID,
-		&admission.contentPolicy,
+		contentquery.ScanPolicy(&admission.contentPolicy),
 		&admission.validationID,
 		&admission.validationStatus, &admission.compatibilityCode,
 		&admission.validationPlatformVersion, &admission.validationCoreID,

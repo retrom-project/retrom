@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sort"
 
+	"retrom/internal/persistence/contentquery"
+
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
@@ -103,14 +105,14 @@ WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 	err = state.transaction.QueryRowContext(state.ctx, `
 SELECT binding.provider_id,binding.target_id,
   (SELECT id FROM dat_versions WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
-  `+contentcapability.BindingPolicySQL+`
+  `+contentquery.BindingPolicySQL+`
 FROM runtime_target_bindings binding
 JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
  AND binding_platform.platform_id=?
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 	`, platformID, defaultCoreID).Scan(
-		&state.providerID, &state.runtimeTargetID, &state.datID, &state.contentPolicy,
+		&state.providerID, &state.runtimeTargetID, &state.datID, contentquery.ScanPolicy(&state.contentPolicy),
 	)
 	if err != nil {
 		return ErrInvalid
@@ -122,7 +124,7 @@ func (state *draftValidationRefresh) loadRPGMakerInputs() error {
 	err := state.transaction.QueryRowContext(state.ctx, `
 SELECT 'rpgmaker',profile.provider_id,profile.target_id,
  (SELECT id FROM dat_versions WHERE provider_id=profile.provider_id AND target_id=profile.target_id AND is_active=1),
- `+contentcapability.BindingPolicySQL+`
+ `+contentquery.BindingPolicySQL+`
 FROM review_drafts draft
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 JOIN runtime_targets target ON target.provider_id=profile.provider_id AND target.target_id=profile.target_id
@@ -130,7 +132,7 @@ JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id A
  AND binding.core_id='rpgmaker' AND binding.launch_policy<>'DISABLED'
 WHERE draft.import_item_id=? AND draft.target_platform_instance_id=?
 `, state.itemID, state.targetID).Scan(
-		&state.coreID, &state.providerID, &state.runtimeTargetID, &state.datID, &state.contentPolicy,
+		&state.coreID, &state.providerID, &state.runtimeTargetID, &state.datID, contentquery.ScanPolicy(&state.contentPolicy),
 	)
 	if err != nil {
 		return ErrInvalid

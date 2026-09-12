@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -197,7 +199,7 @@ func (setup *parentAttachmentSetup) loadDraft() error {
 SELECT draft.id,item.state,draft.version,draft.target_platform_instance_id,
   draft.effective_source_snapshot_id,platform.platform_id,platform.version,
   platform.default_core_id,target.provider_id,target.target_id,
-  `+contentcapability.BindingPolicySQL+`,
+  `+contentquery.BindingPolicySQL+`,
   (SELECT dat.id FROM dat_versions dat
    WHERE dat.provider_id=target.provider_id AND dat.target_id=target.target_id AND dat.is_active=1)
 FROM import_items item
@@ -214,7 +216,7 @@ WHERE item.id=?
 `, setup.itemID).Scan(
 		&setup.draftID, &itemState, &draftVersion, &setup.targetID, &setup.effectiveSnapshotID,
 		&setup.platformID, &setup.platformVersion, &setup.coreID, &setup.providerID, &setup.runtimeTargetID,
-		&setup.contentPolicy, &setup.activeDATID,
+		contentquery.ScanPolicy(&setup.contentPolicy), &setup.activeDATID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return parentError(ParentErrorNotFound, err)

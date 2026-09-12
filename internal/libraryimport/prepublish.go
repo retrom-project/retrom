@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/contentcapability"
 )
 
@@ -98,7 +100,7 @@ validation.default_dos_entry,draft.default_dos_entry,
  WHERE active.provider_id=validation.provider_id AND active.target_id=validation.target_id AND active.is_active=1),
 draft.effective_source_snapshot_id,draft.target_platform_instance_id,
 snapshot.source_manifest_digest,snapshot.content_kind,platform.default_core_id,platform.version,
-`+contentcapability.BindingPolicySQL+`
+`+contentquery.BindingPolicySQL+`
 FROM import_item_core_validations validation
 JOIN import_items item ON item.id=validation.import_item_id AND item.state='REVIEW_PENDING'
 JOIN review_drafts draft ON draft.import_item_id=item.id
@@ -120,7 +122,7 @@ WHERE validation.id=?
 		&value.dependencyJSON, &value.validationDAT, &value.validationDOS, &value.draftDOS,
 		&value.activeDAT, &value.draftSnapshotID, &value.draftPlatformInstanceID,
 		&value.snapshotManifestDigest, &value.contentKind, &value.currentCoreID,
-		&value.currentPlatformVersion, &value.contentPolicy,
+		&value.currentPlatformVersion, contentquery.ScanPolicy(&value.contentPolicy),
 	)
 	if err != nil {
 		return reviewValidationEvidence{}, fmt.Errorf("libraryimport/review validation evidence: %w", err)

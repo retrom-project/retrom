@@ -10,6 +10,8 @@ import (
 	"path"
 	"strings"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 )
@@ -22,7 +24,7 @@ d.version,
 d.updated_at_ms,
 pi.id,
 pi.name,
-` + contentcapability.BindingPolicySQL + `,
+` + contentquery.BindingPolicySQL + `,
 v.id,
 v.status,
 v.compatibility_code,
@@ -105,7 +107,7 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			&updatedAtMS,
 			&platformID,
 			&platformName,
-			&contentPolicy,
+			contentquery.ScanPolicy(&contentPolicy),
 			&validationID,
 			&validationStatus,
 			&compatibilityCode,

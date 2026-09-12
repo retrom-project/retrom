@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -212,7 +214,7 @@ const launchSelectionColumns = `
 variant.id,variant.core_id,variant.provider_id,variant.target_id,
 provider.bundle_sha256,game.id,game.content_kind,
 platform.id,platform.name,game.title,binding.delivery_profile,
-` + contentcapability.BindingPolicySQL + `,
+` + contentquery.BindingPolicySQL + `,
 variant.dependency_snapshot_json,
 variant.compatibility_code,variant.dat_version_id,
 COALESCE((SELECT file.logical_name FROM game_files file
@@ -226,7 +228,7 @@ func scanLaunchSelection(row *sql.Row, selection *launchSelection) error {
 		&selection.variantID, &selection.selectedCore,
 		&selection.providerID, &selection.targetID, &selection.bundleSHA256, &selection.gameID,
 		&selection.contentKind, &selection.platformID, &selection.platformName, &selection.gameTitle,
-		&selection.deliveryProfile, &selection.contentPolicy, &selection.dependencySnapshotJSON,
+		&selection.deliveryProfile, contentquery.ScanPolicy(&selection.contentPolicy), &selection.dependencySnapshotJSON,
 		&selection.compatibilityCode, &selection.datID, &selection.contentLogicalName,
 	}
 	if err := row.Scan(destinations...); err != nil {
@@ -267,7 +269,7 @@ WHERE save.id=? AND save.game_id=? AND save.profile_id=? AND save.deleted_at_ms 
 		&selection.variantID, &selection.selectedCore,
 		&selection.providerID, &selection.targetID, &selection.bundleSHA256, &selection.gameID,
 		&selection.contentKind, &selection.platformID, &selection.platformName, &selection.gameTitle,
-		&selection.deliveryProfile, &selection.contentPolicy, &selection.dependencySnapshotJSON,
+		&selection.deliveryProfile, contentquery.ScanPolicy(&selection.contentPolicy), &selection.dependencySnapshotJSON,
 		&selection.compatibilityCode, &selection.datID, &selection.contentLogicalName,
 		&selection.savedDOSEntry, &selection.savedDiscIndex,
 	}

@@ -8,6 +8,8 @@ import (
 	"errors"
 	"io"
 
+	"retrom/internal/persistence/contentquery"
+
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
@@ -205,7 +207,7 @@ func currentMultiDiscAttachmentInput(
 	if err := transaction.QueryRowContext(ctx, `
 SELECT item.state,draft.effective_source_snapshot_id,platform.platform_id,platform.id,
 platform.version,platform.default_core_id,target.provider_id,target.target_id,
-`+contentcapability.BindingPolicySQL+`
+`+contentquery.BindingPolicySQL+`
 FROM import_items item
 JOIN review_drafts draft ON draft.id=? AND draft.import_item_id=item.id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
@@ -220,7 +222,7 @@ JOIN runtime_targets target ON target.provider_id=binding.provider_id
 	`, candidate.input.ReviewDraftID, candidate.input.ImportItemID).Scan(
 		&current.itemState, &current.snapshotID, &current.platformID, &current.platformInstanceID,
 		&current.platformVersion, &current.coreID, &current.providerID, &current.targetID,
-		&current.contentPolicy,
+		contentquery.ScanPolicy(&current.contentPolicy),
 	); err != nil {
 		return contentcapability.Policy{}, multiDiscAttachmentStoreError("read current input", err)
 	}

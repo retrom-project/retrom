@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -44,7 +46,7 @@ game.content_kind,
 core.id,
 binding.provider_id,
 binding.target_id,
-`+contentcapability.BindingPolicySQL+`,
+`+contentquery.BindingPolicySQL+`,
 (SELECT id FROM dat_versions
  WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
 game.version,
@@ -66,7 +68,7 @@ ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 ELSE 1 END,file.sort_order,file.lo
 LIMIT 1
 `, request.GameID, requestedCore, requestedCore).Scan(
 		&gameID, &contentLogicalName, &contentKind, &coreID, &providerID, &targetID,
-		&contentPolicy, &datID, &gameVersion, &sourceManifestDigest,
+		contentquery.ScanPolicy(&contentPolicy), &datID, &gameVersion, &sourceManifestDigest,
 	)
 	target, targetExists := service.runtimeBuilder.Target(providerID, targetID)
 	if err != nil || !targetExists ||
@@ -388,14 +390,14 @@ SELECT COALESCE((SELECT logical_name FROM game_files
  WHERE game_id=game.id AND role IN ('CONTENT','DISC')
  ORDER BY CASE role WHEN 'CONTENT' THEN 0 ELSE 1 END,sort_order,logical_name LIMIT 1),''),
 game.content_kind,game.version,game.source_manifest_digest,
-`+contentcapability.BindingPolicySQL+`
+`+contentquery.BindingPolicySQL+`
 FROM games game
 JOIN game_variants variant ON variant.id=? AND variant.game_id=game.id
 JOIN runtime_target_bindings binding ON binding.core_id=variant.core_id
  AND binding.provider_id=? AND binding.target_id=? AND binding.launch_policy!='DISABLED'
 LIMIT 1
 `, item.variantID, providerID, targetID).Scan(
-		&logicalName, &contentKind, &gameVersion, &sourceManifestDigest, &contentPolicy,
+		&logicalName, &contentKind, &gameVersion, &sourceManifestDigest, contentquery.ScanPolicy(&contentPolicy),
 	); err != nil {
 		return false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}

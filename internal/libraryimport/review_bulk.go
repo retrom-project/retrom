@@ -13,6 +13,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -175,7 +177,7 @@ func reviewBulkCandidatesQuery(scope ReviewBulkScope) (string, []any) {
 SELECT item.id,draft.version,draft.effective_source_snapshot_id,
        json_extract(draft.metadata_json,'$.title'),instance.id,instance.name,instance.platform_id,instance.version,
        validation.provider_id,validation.target_id,
-       CASE WHEN binding.binding_id IS NULL THEN NULL ELSE ` + contentcapability.BindingPolicySQL + ` END,
+       CASE WHEN binding.binding_id IS NULL THEN NULL ELSE ` + contentquery.BindingPolicySQL + ` END,
        validation.id,validation.status,
        validation.platform_instance_version,
        validation.dat_version_id,
@@ -280,7 +282,7 @@ func scanReviewBulkCandidateQuery(
 			&candidate.itemID, &candidate.reviewVersion, &candidate.sourceSnapshotID,
 			&candidate.title, &candidate.platformInstanceID, &candidate.platformName, &candidate.platformID,
 			&candidate.platformVersion,
-			&candidate.providerID, &candidate.targetID, &candidate.contentPolicy,
+			&candidate.providerID, &candidate.targetID, contentquery.ScanPolicy(&candidate.contentPolicy),
 			&candidate.validationID, &candidate.validationStatus,
 			&candidate.validationPlatformVersion,
 			&candidate.validationDAT, &candidate.currentDAT, &candidate.validationDOSEntry,

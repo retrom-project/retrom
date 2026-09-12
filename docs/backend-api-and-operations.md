@@ -72,6 +72,7 @@ internal/service/importdiscard/ 导入批次丢弃、取消与归属判断
 internal/persistence/importdiscard/ 处置快照、归属恢复与原子释放写入
 internal/service/gamecontent/ 内容替换校验、执行身份与发布业务编排
 internal/persistence/gamecontent/ 上传消费、租约、内容及事件的原子持久化
+internal/persistence/contentquery/ 共用内容能力投影与数据库值映射
 internal/service/maintenance/ 离线备份、恢复校验和安全撤销编排
 internal/persistence/maintenance/ 数据库检查点、引用清单和恢复写事务
 internal/composition/     Repository 注入和跨模块端口适配

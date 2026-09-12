@@ -11,6 +11,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -344,7 +346,7 @@ pi.created_at_ms,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 ,
-COALESCE((SELECT `+contentcapability.BindingPolicySQL+`
+COALESCE((SELECT `+contentquery.BindingPolicySQL+`
  FROM runtime_target_bindings binding
  JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
   AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
@@ -370,7 +372,7 @@ AND pi.deleted_at_ms IS NULL
 			&createdAtMS,
 			&updatedAtMS,
 			&gameCount,
-			&contentPolicy,
+			contentquery.ScanPolicy(&contentPolicy),
 		)
 	if err != nil {
 		return nil, fmt.Errorf("httpapi/platform_handlers: %w", err)

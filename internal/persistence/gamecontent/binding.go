@@ -6,7 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/contentcapability"
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/dbexec"
 	"retrom/internal/service/gamecontent"
 )
@@ -35,7 +36,7 @@ WHERE game.id=? AND game.status='PUBLISHED'
 		return loadRPGMakerReplacementBinding(ctx, database, gameID, binding)
 	}
 	err = database.QueryRowContext(ctx, `
-SELECT binding.core_id,target.provider_id,target.target_id,`+contentcapability.BindingPolicySQL+`,
+SELECT binding.core_id,target.provider_id,target.target_id,`+contentquery.BindingPolicySQL+`,
        (SELECT id FROM dat_versions dat
         WHERE dat.provider_id=target.provider_id AND dat.target_id=target.target_id AND dat.is_active=1),
        COALESCE(variant.id,'')
@@ -48,7 +49,7 @@ LEFT JOIN game_variants variant ON variant.game_id=? AND variant.core_id=binding
 WHERE binding.core_id=? AND binding.launch_policy<>'DISABLED'
 `, binding.PlatformID, gameID, defaultCoreID).Scan(
 		&binding.CoreID, &binding.ProviderID, &binding.TargetID,
-		&binding.ContentPolicy, &binding.DATID, &binding.VariantID,
+		contentquery.ScanPolicy(&binding.ContentPolicy), &binding.DATID, &binding.VariantID,
 	)
 	if err != nil {
 		return gamecontent.Binding{}, fmt.Errorf("load replacement target: %w", err)
@@ -63,7 +64,7 @@ func loadRPGMakerReplacementBinding(
 	binding gamecontent.Binding,
 ) (gamecontent.Binding, error) {
 	err := database.QueryRowContext(ctx, `
-SELECT variant.core_id,variant.id,target.provider_id,target.target_id,`+contentcapability.BindingPolicySQL+`,
+SELECT variant.core_id,variant.id,target.provider_id,target.target_id,`+contentquery.BindingPolicySQL+`,
        profile.generation,profile.dependency_snapshot_sha256,content.requirements_sha256,
        variant.dependency_snapshot_json
 FROM game_variants variant
@@ -77,7 +78,7 @@ JOIN rpgmaker_game_profiles content ON content.game_id=variant.game_id
 WHERE variant.game_id=?
 	`, gameID).Scan(
 		&binding.CoreID, &binding.VariantID, &binding.ProviderID, &binding.TargetID,
-		&binding.ContentPolicy,
+		contentquery.ScanPolicy(&binding.ContentPolicy),
 		&binding.RPGGeneration, &binding.RPGDependencySHA256, &binding.RPGRequirementsSHA256,
 		&binding.DependencySnapshotJSON,
 	)

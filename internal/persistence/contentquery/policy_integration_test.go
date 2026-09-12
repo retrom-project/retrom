@@ -1,6 +1,6 @@
 //go:build integration
 
-package contentcapability_test
+package contentquery_test
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/persistence/contentquery"
 
 	"retrom/internal/dbexec"
 
@@ -31,11 +33,11 @@ func TestBindingPolicyUsesTheConsumersTransactionSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dbexec.Rollback(transaction)
-	query := `SELECT binding.binding_id,` + contentcapability.BindingPolicySQL + `
+	query := `SELECT binding.binding_id,` + contentquery.BindingPolicySQL + `
 FROM runtime_target_bindings binding WHERE binding.core_id='yabause'`
 	var bindingID string
 	var before, sameSnapshot, after contentcapability.Policy
-	if err := transaction.QueryRowContext(ctx, query).Scan(&bindingID, &before); err != nil {
+	if err := transaction.QueryRowContext(ctx, query).Scan(&bindingID, contentquery.ScanPolicy(&before)); err != nil {
 		t.Fatal(err)
 	}
 	if !before.Supports(contentcapability.ModeMultiDisc) {
@@ -45,10 +47,10 @@ FROM runtime_target_bindings binding WHERE binding.core_id='yabause'`
 DELETE FROM runtime_binding_content_kinds WHERE binding_id=? AND content_kind='MULTI_DISC'`, bindingID); err != nil {
 		t.Fatal(err)
 	}
-	if err := transaction.QueryRowContext(ctx, query).Scan(&bindingID, &sameSnapshot); err != nil {
+	if err := transaction.QueryRowContext(ctx, query).Scan(&bindingID, contentquery.ScanPolicy(&sameSnapshot)); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, query).Scan(&bindingID, &after); err != nil {
+	if err := database.SQL.QueryRowContext(ctx, query).Scan(&bindingID, contentquery.ScanPolicy(&after)); err != nil {
 		t.Fatal(err)
 	}
 	if sameSnapshot.Digest() != before.Digest() || after.Supports(contentcapability.ModeMultiDisc) ||
@@ -67,8 +69,8 @@ func TestMissingBindingScansAsNoCapabilities(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	policy := contentcapability.NewPolicy(contentcapability.ModeMultiDisc)
-	if err := database.SQL.QueryRow(`SELECT ` + contentcapability.BindingPolicySQL + `
-FROM (SELECT 1) source LEFT JOIN runtime_target_bindings binding ON binding.binding_id='missing'`).Scan(&policy); err != nil {
+	if err := database.SQL.QueryRow(`SELECT ` + contentquery.BindingPolicySQL + `
+FROM (SELECT 1) source LEFT JOIN runtime_target_bindings binding ON binding.binding_id='missing'`).Scan(contentquery.ScanPolicy(&policy)); err != nil {
 		t.Fatal(err)
 	}
 	if len(policy.SupportedContentKinds) != 0 || policy.MultiDisc != nil || policy.Digest() != "" {

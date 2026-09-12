@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/contentprofile"
@@ -297,7 +299,7 @@ func (service *Service) loadBoundTarget(
 ) error {
 	query := `
 SELECT binding.binding_id,binding.core_id,binding.provider_id,binding.target_id,
- binding.delivery_profile,` + contentcapability.BindingPolicySQL + `
+ binding.delivery_profile,` + contentquery.BindingPolicySQL + `
 FROM runtime_target_bindings binding
 JOIN runtime_binding_platforms platform ON platform.binding_id=binding.binding_id AND platform.platform_id=?
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
@@ -309,7 +311,7 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'`
 	}
 	err := service.database.QueryRowContext(ctx, query, arguments...).Scan(
 		&target.bindingID, &target.coreID, &target.providerID, &target.targetID,
-		&target.deliveryProfile, &target.contentPolicy,
+		&target.deliveryProfile, contentquery.ScanPolicy(&target.contentPolicy),
 	)
 	if err != nil {
 		return ErrInvalid

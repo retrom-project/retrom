@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
@@ -283,7 +285,7 @@ func loadParentCommitTarget(
 SELECT item.state,draft.effective_source_snapshot_id,draft.target_platform_instance_id,
 source_snapshot.content_kind,platform.version,platform.default_core_id,
 target.provider_id,target.target_id,
-`+contentcapability.BindingPolicySQL+`,
+`+contentquery.BindingPolicySQL+`,
 (SELECT dat.id FROM dat_versions dat WHERE dat.provider_id=target.provider_id
  AND dat.target_id=target.target_id AND dat.is_active=1)
 FROM import_items item
@@ -301,7 +303,7 @@ WHERE item.id=?
 `, candidate.draftID, candidate.itemID).Scan(
 		&itemState, &currentSnapshotID, &target.targetID, &target.contentKind,
 		&target.platformVersion, &target.coreID, &target.providerID, &target.runtimeTargetID,
-		&target.contentPolicy, &activeDATID,
+		contentquery.ScanPolicy(&target.contentPolicy), &activeDATID,
 	)
 	valid := err == nil && itemState == "REVIEW_PENDING" && currentSnapshotID == candidate.baseSnapshotID &&
 		target.providerID == candidate.providerID && target.runtimeTargetID == candidate.targetID &&

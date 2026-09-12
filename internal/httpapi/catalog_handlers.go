@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"retrom/internal/persistence/contentquery"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/contentprofile"
@@ -202,7 +204,7 @@ pi.version,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 ,
-COALESCE((SELECT `+contentcapability.BindingPolicySQL+`
+COALESCE((SELECT `+contentquery.BindingPolicySQL+`
  FROM runtime_target_bindings binding
  JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
   AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
@@ -241,7 +243,7 @@ JOIN cores c ON c.id=pi.default_core_id
 			&version,
 			&updatedAtMS,
 			&gameCount,
-			&contentPolicy,
+			contentquery.ScanPolicy(&contentPolicy),
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
