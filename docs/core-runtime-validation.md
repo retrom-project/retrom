@@ -165,8 +165,11 @@ CUE/BIN、M3U 与换盘不在本次产品契约中。管理员安装 512 KiB CDZ
 服务端按 BIOS catalog 校验并以 external file 交付到 `/neocd/neocd.bin`。
 不依赖上游实验性 HLE BIOS。推荐目录为“Neo Geo CD 游戏”。
 
-Provider 使用独立 OPFS 命名空间缓存 CHD，每次读取验证长度与 SHA-256；无缓存时
-报告下载进度，OPFS 不可用或写入失败仍可正常网络启动。标准手柄使用 arcade 映射，
+Provider 将 CHD 声明为 `SEEKABLE_BLOB`，通过 256 KiB Range 块按需读取，内存 LRU 上限 16 MiB。
+启动前不全量下载或扫描镜像。每个响应核对 206、Content-Range、长度与冻结 SHA-256 ETag；
+持久块缓存按内容摘要/大小/偏移隔离，命中时校验该块长度与本地摘要。缓存不可用时继续
+有界网络读取；服务器忽略 Range 则明确失败，不退回整文件下载。按需读取不显示全游戏
+下载进度。核心通过 Asyncify 等待缺失块，暂停、存档及退出协调在途读取。标准手柄使用 arcade 映射，
 一个按钮只对应一个原生输入。即时存档采用公共 `emulatorjs-state-v1-storage-v1`，
 按声明大小有界解压，并在新的 Launch 恢复后继续接收输入。
 
