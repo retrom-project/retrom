@@ -128,10 +128,13 @@ EmulatorJS 4.2.3 的恢复就绪以 native serializer 成功返回非空状态�
 ## 独立 PSP 候选
 
 `coreId=ppsspp` 通过 `retrom-runtime/ppsspp`、`OPTICAL_DISC` 和 `SINGLE_FILE` 接入。
-Retrom 继续使用公共 ROM_BLOB、LOAD_PROGRESS、输入、截图、暂停和存档协议；核心源码、
+Retrom 使用公共 SEEKABLE_BLOB、输入、截图、暂停和存档协议；核心源码、
 WebAssembly 构建与浏览器前端由 `retrom-project/ppsspp` 维护，宿主不加载 EmulatorJS PSP 前端。
-大型游戏先完整校验并写入 OPFS，后续实例复用相同内容 URL。要求 Chrome 的 WebGL2、
-OffscreenCanvas、SharedArrayBuffer 与 cross-origin isolation。
+游戏通过独立 I/O Worker 按 256 KiB Range 读取，内存缓存有界，持久分块缓存按文件摘要、
+长度和块位置跨实例复用。不得启动前整包下载，不把未请求的全游戏字节作为 LOAD_PROGRESS。
+响应必须为 206，区间、长度及 SHA-256 身份 ETag 与冻结内容一致；本地块摘要检测缓存损坏，
+源内容身份依赖服务端不可变 CAS，不能声称客户端提前验证了全盘摘要。核心代码资源仍完整
+校验摘要。要求 Chrome 的 WebGL2、OffscreenCanvas、SharedArrayBuffer 与 cross-origin isolation。
 
 新存档为 `ppsspp-state-v1-storage-v1`，公共 gzip 内含完整执行状态和记忆棒文件，解压上限
 256 MiB。未验证 EmulatorJS PSP 存档与新核心兼容，因此不声明旧格式可读；旧存档不可恢复时
