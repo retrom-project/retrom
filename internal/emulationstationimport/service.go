@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	persistence "retrom/internal/persistence/emulationstationimport"
@@ -24,9 +23,9 @@ import (
 
 var (
 	ErrNotFound             = application.ErrNotFound
-	ErrGamelistAbsent       = errors.New("EMULATIONSTATION_GAMELIST_NOT_FOUND")
-	ErrNoValidGamelist      = errors.New("EMULATIONSTATION_NO_VALID_GAMELIST")
-	ErrScanLimit            = errors.New("EMULATIONSTATION_SCAN_LIMIT_EXCEEDED")
+	ErrGamelistAbsent       = application.ErrGamelistAbsent
+	ErrNoValidGamelist      = application.ErrNoValidGamelist
+	ErrScanLimit            = application.ErrScanLimit
 	ErrMapping              = application.ErrMapping
 	ErrVersionConflict      = application.ErrVersionConflict
 	ErrNoSelection          = application.ErrNoSelection
@@ -107,31 +106,4 @@ func (service *Service) claim(ctx context.Context) (work, bool, error) {
 
 func (service *Service) execute(ctx context.Context, unit work) {
 	service.worker.Run(ctx, unit)
-}
-
-func errorCode(err error) string {
-	if errors.Is(err, serversource.ErrRootUnavailable) {
-		return serversource.ErrRootUnavailable.Error()
-	}
-	candidates := []error{
-		ErrGamelistAbsent,
-		ErrNoValidGamelist,
-		ErrScanLimit,
-		ErrSourceChanged,
-		ErrMappingTargetChanged,
-		ErrMapping,
-		ErrNoSelection,
-		ErrExpired,
-		ErrActive,
-		ErrInvalid,
-	}
-	for _, candidate := range candidates {
-		if errors.Is(err, candidate) {
-			return candidate.Error()
-		}
-	}
-	if err != nil && strings.HasPrefix(err.Error(), "EMULATIONSTATION_") {
-		return strings.SplitN(err.Error(), ":", 2)[0]
-	}
-	return "INTERNAL_ERROR"
 }

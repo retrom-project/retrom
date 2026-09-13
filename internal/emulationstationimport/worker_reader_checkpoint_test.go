@@ -37,7 +37,7 @@ func TestESFrozenReaderChecksContextAfterAcquiringSlot(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	checkpoint := &readerCheckpointContext{Context: ctx, cancel: cancel}
-	value, _, err := readFrozenFile(checkpoint, Root{path: root}, "", discoveredFile{Path: "gamelist.xml", Size: info.Size(), Facts: serversource.FactsDigest(info)}, 1024)
+	value, err := readFrozenFile(checkpoint, Root{path: root}, "", discoveredFile{Path: "gamelist.xml", Size: info.Size(), Facts: serversource.FactsDigest(info)}, 1024)
 	if !errors.Is(err, context.Canceled) || len(value) != 0 {
 		t.Fatalf("reader continued after checkpoint: value=%q error=%v checks=%d", value, err, checkpoint.checks)
 	}

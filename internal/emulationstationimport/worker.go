@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"retrom/internal/cleanup"
 	application "retrom/internal/service/emulationstationimport"
 )
 
@@ -51,27 +50,6 @@ func (reader *contextReader) Read(buffer []byte) (int, error) {
 		return count, fmt.Errorf("emulationstationimport/read source: %w", err)
 	}
 	return count, nil
-}
-
-func (service *Service) executeImport(ctx context.Context, unit work, _ Root) {
-	err := service.importExecutor().Execute(ctx, unit)
-	if err == nil {
-		return
-	}
-	cleanup.Error("execute EmulationStation import", err)
-	if ctx.Err() != nil || errors.Is(
-		err,
-		errImportCancelled,
-	) || errors.Is(
-		err,
-		ErrVersionConflict,
-	) || errors.Is(
-		err,
-		ErrExpired,
-	) {
-		return
-	}
-	service.fail(ctx, unit, "INTERNAL_ERROR", true)
 }
 
 func (service *Service) updateExecutionPhase(ctx context.Context, unit work, phase string) error {

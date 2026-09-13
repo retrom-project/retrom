@@ -25,7 +25,7 @@ func TestESWorkerCancelledContextDoesNotScheduleFailure(t *testing.T) {
 				ctx, cancel = context.WithDeadline(fixture.context, time.Unix(0, 0))
 			}
 			cancel()
-			fixture.service.fail(ctx, unit, "INTERNAL_ERROR", true)
+			fixture.service.fail(ctx, unit, true)
 			if after := executionAuthorityState(t, fixture, unit); after != before {
 				t.Fatalf("stopped worker changed execution: before=%s after=%s", before, after)
 			}

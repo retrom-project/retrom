@@ -6,19 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"path"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
-
-	"retrom/internal/cleanup"
 	"retrom/internal/emulationstationmeta"
 	"retrom/internal/multidisc"
 	"retrom/internal/serversource"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 type contentProjection struct {
@@ -30,17 +25,19 @@ type scanCaches struct {
 	discCandidates map[string][]multidisc.File
 }
 
-func (service *Service) projectGame(
+func (service *Scanner) projectGame(
 	ctx context.Context,
-	root Root,
-	selectedPath, gamelistPath, collectionID string,
+	gamelistPath, collectionID string,
 	game emulationstationmeta.Game,
 	files map[string]discoveredFile,
 	caches *scanCaches,
 ) (scannedItem, error) {
-	projection := service.projectContent(
-		ctx, root, selectedPath, gamelistPath, game.Path, game.BlockedCode, files, caches,
+	projection, err := service.projectContent(
+		ctx, gamelistPath, game.Path, game.BlockedCode, files, caches,
 	)
+	if err != nil {
+		return scannedItem{}, err
+	}
 	warnings := make([]map[string]any, 0, len(game.Warnings)+2)
 	for _, warning := range game.Warnings {
 		encoded, _ := json.Marshal(warning)
@@ -48,9 +45,12 @@ func (service *Service) projectGame(
 		_ = json.Unmarshal(encoded, &projected)
 		warnings = append(warnings, projected)
 	}
-	assets, mediaWarnings := service.projectAssets(
-		ctx, root, selectedPath, gamelistPath, game.Assets, files,
+	assets, mediaWarnings, err := service.projectAssets(
+		ctx, gamelistPath, game.Assets, files,
 	)
+	if err != nil {
+		return scannedItem{}, err
+	}
 	warnings = append(warnings, mediaWarnings...)
 	warnings = boundedWarnings(warnings)
 	metadataJSON := string(compactJSON(game.Metadata))
@@ -72,12 +72,12 @@ func (service *Service) projectGame(
 	keyDigest := sha256.Sum256([]byte(
 		"retrom:emulationstation:item:v1\x00" + gamelistPath + "\x00" + strconv.Itoa(game.Ordinal),
 	))
-	itemID, err := uuid.NewV7()
+	itemID, err := service.newID()
 	if err != nil {
 		return scannedItem{}, fmt.Errorf("generate EmulationStation item identity: %w", err)
 	}
 	return scannedItem{
-		ID: itemID.String(), CollectionID: collectionID, GamelistPath: gamelistPath,
+		ID: itemID, CollectionID: collectionID, GamelistPath: gamelistPath,
 		GameOrdinal: int64(game.Ordinal), SourceKey: hex.EncodeToString(keyDigest[:]),
 		Title: game.Metadata.Title, SourceFlagsJSON: sourceFlagsJSON,
 		DiscoveryState: discoveryState(projection.discoveryCode),
@@ -90,7 +90,7 @@ func (service *Service) projectGame(
 }
 
 func boundedWarnings(values []map[string]any) []map[string]any {
-	return application.BoundedWarnings(values)
+	return BoundedWarnings(values)
 }
 
 type sourceManifest struct {
@@ -107,60 +107,63 @@ type sourceManifestFile struct {
 	SourceFactsDigest string `json:"sourceFactsDigest"`
 }
 
-func (service *Service) projectContent(
+func (service *Scanner) projectContent(
 	ctx context.Context,
-	root Root,
-	selectedPath, gamelistPath, declaredPath, parserCode string,
+	gamelistPath, declaredPath, parserCode string,
 	files map[string]discoveredFile,
 	caches *scanCaches,
-) contentProjection {
+) (contentProjection, error) {
 	projection := contentProjection{kind: "SINGLE_FILE", discoveryCode: parserCode, files: []scannedItemFile{}}
 	if parserCode != "" || declaredPath == "" {
-		return projection
+		return projection, nil
 	}
-	resolved, err := resolveGamelistPath(gamelistPath, declaredPath)
-	if err != nil {
+	resolved, valid := resolveGamelistPath(gamelistPath, declaredPath)
+	if !valid {
 		projection.discoveryCode = emulationstationmeta.CodePathInvalid
-		return projection
+		return projection, nil
 	}
 	entry, exists := files[resolved]
 	if !exists {
 		projection.discoveryCode = "EMULATIONSTATION_SOURCE_NOT_REGULAR"
-		return projection
+		return projection, nil
 	}
 	primary := scannedItemFile{
 		Ordinal: 0, Kind: "FILE", Path: resolved, Size: entry.Size, Facts: entry.Facts,
 	}
 	if !strings.EqualFold(path.Ext(resolved), ".m3u") {
 		projection.files = append(projection.files, primary)
-		return projection
+		return projection, nil
 	}
 	primary.Kind = "PLAYLIST"
 	projection.kind = multidisc.ContentKind
-	playlist, _, err := readFrozenFile(
-		ctx, root, selectedPath, entry, multidisc.MaxPlaylistBytes,
-	)
+	playlist, err := service.source.Read(ctx, entry, multidisc.MaxPlaylistBytes)
 	if err != nil {
+		if stop := scannerStop(ctx, err); stop != nil {
+			return contentProjection{}, stop
+		}
 		projection.discoveryCode = "EMULATIONSTATION_SOURCE_CHANGED"
-		return projection
+		return projection, nil
 	}
 	limits := multidisc.DefaultLimits()
 	references, err := multidisc.References(playlist, limits)
 	if err != nil {
 		projection.discoveryCode = multidiscCode(err)
-		return projection
+		return projection, nil
 	}
-	discs, err := scanDiscCandidates(
-		ctx, root, selectedPath, path.Dir(resolved), references, files, caches,
+	discs, err := service.scanDiscCandidates(
+		ctx, path.Dir(resolved), references, files, caches,
 	)
 	if err != nil {
+		if stop := scannerStop(ctx, err); stop != nil {
+			return contentProjection{}, stop
+		}
 		projection.discoveryCode = "EMULATIONSTATION_SOURCE_CHANGED"
-		return projection
+		return projection, nil
 	}
 	parsed, err := multidisc.Parse(playlist, discs, limits)
 	if err != nil {
 		projection.discoveryCode = multidiscCode(err)
-		return projection
+		return projection, nil
 	}
 	projection.files = append(projection.files, primary)
 	for _, parsedEntry := range parsed.Entries {
@@ -177,12 +180,12 @@ func (service *Service) projectContent(
 			Path: disc.Path, Size: disc.Size, Facts: disc.Facts,
 		})
 	}
-	return projection
+	return projection, nil
 }
 
-func resolveGamelistPath(gamelistPath, declaredPath string) (string, error) {
+func resolveGamelistPath(gamelistPath, declaredPath string) (string, bool) {
 	if _, err := emulationstationmeta.NormalizeDeclaredPath(declaredPath); err != nil {
-		return "", fmt.Errorf("emulationstationimport/normalize declared path: %w", err)
+		return "", false
 	}
 	base := path.Dir(gamelistPath)
 	resolved := declaredPath
@@ -190,15 +193,14 @@ func resolveGamelistPath(gamelistPath, declaredPath string) (string, error) {
 		resolved = path.Join(base, declaredPath)
 	}
 	if err := serversource.ValidateRelativePath(resolved); err != nil {
-		return "", fmt.Errorf("emulationstationimport/validate resolved path: %w", err)
+		return "", false
 	}
-	return resolved, nil
+	return resolved, true
 }
 
-func scanDiscCandidates(
+func (service *Scanner) scanDiscCandidates(
 	ctx context.Context,
-	root Root,
-	selectedPath, directory string,
+	directory string,
 	references []string,
 	files map[string]discoveredFile,
 	caches *scanCaches,
@@ -223,25 +225,9 @@ func scanDiscCandidates(
 	result := make([]multidisc.File, 0, len(paths))
 	for _, relativePath := range paths {
 		entry := files[relativePath]
-		release, acquireErr := serversource.AcquireReader(ctx)
-		if acquireErr != nil {
-			return nil, fmt.Errorf("emulationstationimport/acquire CHD reader: %w", acquireErr)
-		}
-		handle, before, err := serversource.OpenRelativeFile(root.path, selectedPath, relativePath)
-		if err != nil || before.Size() != entry.Size || serversource.FactsDigest(before) != entry.Facts {
-			if handle != nil {
-				cleanup.Error("close", handle.Close())
-			}
-			release()
-			return nil, ErrSourceChanged
-		}
-		header := make([]byte, 8)
-		_, readErr := io.ReadFull(handle, header)
-		after, statErr := handle.Stat()
-		cleanup.Error("close", handle.Close())
-		release()
-		if readErr != nil || statErr != nil || !serversource.SameFileFacts(before, after) {
-			return nil, ErrSourceChanged
+		header, err := service.source.Disc(ctx, entry)
+		if err != nil {
+			return nil, fmt.Errorf("inspect EmulationStation disc: %w", err)
 		}
 		result = append(result, multidisc.File{
 			Basename: path.Base(relativePath), SizeBytes: entry.Size, Header: header,

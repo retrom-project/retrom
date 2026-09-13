@@ -68,14 +68,35 @@ func (adapter workerAdapter) Expire(ctx context.Context) error {
 }
 
 func (adapter workerAdapter) Execute(ctx context.Context, unit application.Execution) {
+	adapter.service.executionDispatcher().Execute(ctx, unit)
+}
+
+func (adapter workerAdapter) CheckRoot(unit application.Execution) error {
 	root, found := adapter.service.roots[unit.RootID]
 	if !found || root.digest != unit.RootDigest {
-		adapter.service.fail(ctx, unit, "SERVER_IMPORT_ROOT_CHANGED", false)
-		return
+		return application.ErrExecutionRootChanged
 	}
-	if unit.Kind == "SERVER_EMULATIONSTATION_SCAN" {
-		adapter.service.executeScan(ctx, unit, root)
-		return
+	return nil
+}
+
+func (adapter workerAdapter) ForScan(unit application.Execution) (application.ScannerSource, error) {
+	if err := adapter.CheckRoot(unit); err != nil {
+		return nil, err
 	}
-	adapter.service.executeImport(ctx, unit, root)
+	return scannerSource{root: adapter.service.roots[unit.RootID], selectedPath: unit.RelativePath}, nil
+}
+
+func (service *Service) scanExecutor() *application.ScanExecutor {
+	return application.NewScanExecutor(workerAdapter{service: service}, service.scanPublication())
+}
+
+func (service *Service) executionDispatcher() *application.ExecutionDispatcher {
+	return application.NewExecutionDispatcher(application.ExecutionDispatcherDependencies{
+		Roots: workerAdapter{service: service}, Scans: service.scanExecutor(), Imports: service.importExecutor(),
+		Control: service.executionControl(), Recovery: application.NewRecovery(
+			persistence.NewRecovery(service.database),
+			service.now,
+		),
+		Report: func(err error) { slog.Error("EmulationStation execution", "error", err) },
+	}, service.now)
 }

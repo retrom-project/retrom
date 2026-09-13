@@ -13,7 +13,7 @@ func TestESFailureCannotWriteReplacementAttempt(t *testing.T) {
 			mustExecEmulationStationTest(t, fixture.database, `UPDATE jobs
 SET attempt_count=attempt_count+1,worker_id='replacement-worker',version=version+1 WHERE id=?`, unit.JobID)
 			before := executionAuthorityState(t, fixture, unit)
-			fixture.service.fail(fixture.context, unit, "INTERNAL_ERROR", retryable)
+			fixture.service.fail(fixture.context, unit, retryable)
 			if after := executionAuthorityState(t, fixture, unit); after != before {
 				t.Fatalf("old worker changed replacement: before=%s after=%s", before, after)
 			}

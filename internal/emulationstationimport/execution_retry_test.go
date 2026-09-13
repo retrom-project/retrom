@@ -54,7 +54,7 @@ func TestTransientScanFailureSchedulesRetryWithFrozenDeadline(t *testing.T) {
 	testassert.True(t, found, "scan work was not claimable")
 	frozenDeadline := unit.DeadlineAtMS
 
-	fixture.service.fail(fixture.context, unit, "INTERNAL_ERROR", true)
+	fixture.service.fail(fixture.context, unit, true)
 
 	now := fixture.now.UnixMilli()
 	var jobState, aggregateState, phase string
@@ -154,7 +154,7 @@ UPDATE jobs SET attempt_count=max_attempts WHERE id=?`, unit.JobID)
 		t.Fatal(err)
 	}
 
-	fixture.service.fail(fixture.context, unit, "INTERNAL_ERROR", true)
+	fixture.service.fail(fixture.context, unit, true)
 
 	assertTerminalExecutionCode(
 		t, fixture, created.ID, unit.JobID, "EMULATIONSTATION_WORKER_ATTEMPTS_EXHAUSTED",
@@ -176,8 +176,8 @@ func TestDeadlineFailurePersistsStableTimeoutWithFreshContext(t *testing.T) {
 	deadlineContext, cancel := context.WithDeadline(fixture.context, fixture.now.Add(-time.Second))
 	defer cancel()
 
-	fixture.service.fail(deadlineContext, unit, "INTERNAL_ERROR", true)
-	fixture.service.fail(deadlineContext, unit, "INTERNAL_ERROR", true)
+	fixture.service.fail(deadlineContext, unit, true)
+	fixture.service.fail(deadlineContext, unit, true)
 
 	assertTerminalExecutionCode(t, fixture, created.ID, unit.JobID, "EMULATIONSTATION_EXECUTION_TIMEOUT")
 }
