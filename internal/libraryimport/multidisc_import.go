@@ -48,11 +48,11 @@ func prepareUnsupportedPlatformFiles(
 	dispositions := make([]preparedDisposition, 0, len(files))
 	for _, file := range files {
 		disposition := preparedDisposition{
-			file: file, disposition: "REJECTED", reason: "UNSUPPORTED_CONTENT_FORMAT",
+			File: file, Disposition: "REJECTED", Reason: "UNSUPPORTED_CONTENT_FORMAT",
 		}
-		if knownSidecar(file.path) {
-			disposition.disposition = "IGNORED"
-			disposition.reason = "IGNORED_SYSTEM_SIDECAR"
+		if knownSidecar(file.Path) {
+			disposition.Disposition = "IGNORED"
+			disposition.Reason = "IGNORED_SYSTEM_SIDECAR"
 		}
 		dispositions = append(dispositions, disposition)
 	}
@@ -87,13 +87,13 @@ func (service *Service) prepareProfileFile(
 	profile contentprofile.Profile,
 	file importSourceFile,
 ) (preparedDisposition, *preparedGroup, *preparedArchive) {
-	if knownSidecar(file.path) {
+	if knownSidecar(file.Path) {
 		return ignoredDisposition(file), nil, nil
 	}
-	if contentprofile.AcceptsRaw(platformID, file.path) {
-		return sourceDisposition(file), singleSourceGroup(file, filepath.Base(file.path)), nil
+	if contentprofile.AcceptsRaw(platformID, file.Path) {
+		return sourceDisposition(file), singleSourceGroup(file, filepath.Base(file.Path)), nil
 	}
-	archiveFormat, reason := profileArchiveFormat(file.path)
+	archiveFormat, reason := profileArchiveFormat(file.Path)
 	if reason != "" || service.blobs == nil ||
 		profile.ArchivePolicy != contentprofile.ArchiveSinglePrimary ||
 		!contentprofile.AcceptsArchive(platformID, archiveFormat) {
@@ -107,36 +107,36 @@ func (service *Service) prepareProfileFile(
 	if err != nil {
 		return rejectedDisposition(file, archiveSelectionReason(err)), nil, nil
 	}
-	selected, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.sha256), candidate)
+	selected, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.SHA256), candidate)
 	if err != nil {
 		return rejectedDisposition(file, archiveReason(err)), nil, nil
 	}
 	ordinal := candidate.Ordinal
-	group := &preparedGroup{sources: []preparedSource{{
-		file: file, role: "CONTENT", logicalName: filepath.Base(candidate.NormalizedPath),
-		archiveBlobID: file.blobID, archiveOrdinal: &ordinal,
+	group := &preparedGroup{Sources: []preparedSource{{
+		File: file, Role: "CONTENT", LogicalName: filepath.Base(candidate.NormalizedPath),
+		ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
 	}}}
 	archive := &preparedArchive{
-		blobID: file.blobID, entries: entries,
-		materialized: map[int]blobstore.Metadata{ordinal: selected},
+		BlobID: file.BlobID, Entries: entries,
+		Materialized: map[int]blobstore.Metadata{ordinal: selected},
 	}
 	return sourceDisposition(file), group, archive
 }
 
 func ignoredDisposition(file importSourceFile) preparedDisposition {
-	return preparedDisposition{file: file, disposition: "IGNORED", reason: "IGNORED_SYSTEM_SIDECAR"}
+	return preparedDisposition{File: file, Disposition: "IGNORED", Reason: "IGNORED_SYSTEM_SIDECAR"}
 }
 
 func sourceDisposition(file importSourceFile) preparedDisposition {
-	return preparedDisposition{file: file, disposition: "SOURCE"}
+	return preparedDisposition{File: file, Disposition: "SOURCE"}
 }
 
 func rejectedDisposition(file importSourceFile, reason string) preparedDisposition {
-	return preparedDisposition{file: file, disposition: "REJECTED", reason: reason}
+	return preparedDisposition{File: file, Disposition: "REJECTED", Reason: reason}
 }
 
 func singleSourceGroup(file importSourceFile, logicalName string) *preparedGroup {
-	return &preparedGroup{sources: []preparedSource{{file: file, role: "CONTENT", logicalName: logicalName}}}
+	return &preparedGroup{Sources: []preparedSource{{File: file, Role: "CONTENT", LogicalName: logicalName}}}
 }
 
 func profileArchiveFormat(filePath string) (contentprofile.ArchiveFormat, string) {
@@ -166,7 +166,7 @@ func (service *Service) scanProfileArchive(
 	file importSourceFile,
 	archiveFormat contentprofile.ArchiveFormat,
 ) ([]importing.ArchiveEntry, error) {
-	archivePath := service.blobs.Path(file.sha256)
+	archivePath := service.blobs.Path(file.SHA256)
 	var entries []importing.ArchiveEntry
 	var err error
 	if archiveFormat == contentprofile.ArchiveZIP {
@@ -181,26 +181,26 @@ func (service *Service) scanProfileArchive(
 }
 
 func (service *Service) readMultiDiscBlob(file importSourceFile, maximum int64) ([]byte, error) {
-	if service.blobs == nil || file.size > maximum {
+	if service.blobs == nil || file.Size > maximum {
 		return nil, ErrInvalid
 	}
-	reader, err := service.blobs.OpenDigest(file.sha256)
+	reader, err := service.blobs.OpenDigest(file.SHA256)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/multidisc: %w", err)
 	}
 	defer func() { cleanup.Error("close", reader.Close()) }()
 	contents, err := io.ReadAll(io.LimitReader(reader, maximum+1))
-	if err != nil || int64(len(contents)) != file.size || int64(len(contents)) > maximum {
+	if err != nil || int64(len(contents)) != file.Size || int64(len(contents)) > maximum {
 		return nil, ErrInvalid
 	}
 	return contents, nil
 }
 
 func (service *Service) readMultiDiscHeader(file importSourceFile) ([]byte, error) {
-	if service.blobs == nil || file.size < 8 {
+	if service.blobs == nil || file.Size < 8 {
 		return nil, ErrInvalid
 	}
-	reader, err := service.blobs.OpenDigest(file.sha256)
+	reader, err := service.blobs.OpenDigest(file.SHA256)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/multidisc: %w", err)
 	}
@@ -219,9 +219,9 @@ func multiDiscFileBuckets(
 	filesByDirectory := make(map[string][]importSourceFile)
 	playlistCount := 0
 	for _, file := range files {
-		directory := path.Dir(file.path)
+		directory := path.Dir(file.Path)
 		filesByDirectory[directory] = append(filesByDirectory[directory], file)
-		if !knownSidecar(file.path) && multidisc.ASCIIFold(path.Ext(file.path)) == ".m3u" {
+		if !knownSidecar(file.Path) && multidisc.ASCIIFold(path.Ext(file.Path)) == ".m3u" {
 			playlistsByDirectory[directory] = append(playlistsByDirectory[directory], file)
 			playlistCount++
 		}
@@ -233,10 +233,10 @@ func initialMultiDiscDispositions(files []importSourceFile) map[string]preparedD
 	dispositionByID := make(map[string]preparedDisposition, len(files))
 	for _, file := range files {
 		reason := "NOT_REFERENCED_BY_PLAYLIST"
-		if knownSidecar(file.path) {
+		if knownSidecar(file.Path) {
 			reason = "IGNORED_SYSTEM_SIDECAR"
 		}
-		dispositionByID[file.id] = preparedDisposition{file: file, disposition: "IGNORED", reason: reason}
+		dispositionByID[file.ID] = preparedDisposition{File: file, Disposition: "IGNORED", Reason: reason}
 	}
 	return dispositionByID
 }
@@ -247,21 +247,21 @@ func (service *Service) multiDiscCandidates(
 ) ([]multidisc.File, error) {
 	candidates := make([]multidisc.File, 0, len(files))
 	for _, file := range files {
-		if file.id == playlistID || knownSidecar(file.path) {
+		if file.ID == playlistID || knownSidecar(file.Path) {
 			continue
 		}
 		var header []byte
 		var err error
-		if multidisc.ASCIIFold(path.Ext(file.path)) == ".chd" && file.size >= 8 {
+		if multidisc.ASCIIFold(path.Ext(file.Path)) == ".chd" && file.Size >= 8 {
 			header, err = service.readMultiDiscHeader(file)
 			if err != nil {
 				return nil, err
 			}
 		}
 		candidates = append(candidates, multidisc.File{
-			Basename: path.Base(file.path), LogicalName: path.Base(file.path),
-			UploadFileID: file.id, BlobID: file.blobID, BlobSHA256: file.sha256,
-			SizeBytes: file.size, Header: header,
+			Basename: path.Base(file.Path), LogicalName: path.Base(file.Path),
+			UploadFileID: file.ID, BlobID: file.BlobID, BlobSHA256: file.SHA256,
+			SizeBytes: file.Size, Header: header,
 		})
 	}
 	return candidates, nil
@@ -283,62 +283,62 @@ func preparedMultiDiscGroup(
 ) (preparedGroup, []preparedDisposition, error) {
 	playlistOrder := 0
 	group := preparedGroup{
-		contentKind: multidisc.ContentKind, titleSource: path.Base(playlist.path),
-		sources: []preparedSource{{
-			file: playlist, role: "PLAYLIST_SOURCE", logicalName: path.Base(playlist.path),
-			sortOrder: &playlistOrder,
+		ContentKind: multidisc.ContentKind, TitleSource: path.Base(playlist.Path),
+		Sources: []preparedSource{{
+			File: playlist, Role: "PLAYLIST_SOURCE", LogicalName: path.Base(playlist.Path),
+			SortOrder: &playlistOrder,
 		}},
-		canonicalPlaylist: &canonical,
+		CanonicalPlaylist: &canonical,
 	}
 	var err error
-	group.groupKey, err = multidisc.GroupKey(directory, playlist.sha256)
+	group.GroupKey, err = multidisc.GroupKey(directory, playlist.SHA256)
 	if err != nil {
 		return preparedGroup{}, nil, ErrInvalid
 	}
 	missing := make([]corevalidation.MultiDiscMissingEntry, 0)
-	dispositions := []preparedDisposition{{file: playlist, disposition: "SOURCE"}}
+	dispositions := []preparedDisposition{{File: playlist, Disposition: "SOURCE"}}
 	for _, entry := range parsed.Entries {
 		preparedEntry := preparedMultiDiscEntry{
-			ordinal: entry.Ordinal, state: string(entry.State), sourceReference: entry.SourceReference,
-			normalizedReference: entry.NormalizedReference, canonicalName: entry.CanonicalName,
+			Ordinal: entry.Ordinal, State: string(entry.State), SourceReference: entry.SourceReference,
+			NormalizedReference: entry.NormalizedReference, CanonicalName: entry.CanonicalName,
 		}
 		if entry.State == multidisc.EntryPresent {
 			discOrder := entry.Ordinal
-			preparedEntry.uploadFileID = entry.File.UploadFileID
-			preparedEntry.blobID = entry.File.BlobID
-			preparedEntry.sourceLogicalName = entry.File.LogicalName
+			preparedEntry.UploadFileID = entry.File.UploadFileID
+			preparedEntry.BlobID = entry.File.BlobID
+			preparedEntry.SourceLogicalName = entry.File.LogicalName
 			sourceFile := importSourceFile{
-				id: entry.File.UploadFileID, path: path.Join(directory, entry.File.Basename),
-				blobID: entry.File.BlobID, sha256: entry.File.BlobSHA256, size: entry.File.SizeBytes,
+				ID: entry.File.UploadFileID, Path: path.Join(directory, entry.File.Basename),
+				BlobID: entry.File.BlobID, SHA256: entry.File.BlobSHA256, Size: entry.File.SizeBytes,
 			}
-			group.sources = append(group.sources, preparedSource{
-				file: sourceFile, role: "DISC", logicalName: entry.File.LogicalName, sortOrder: &discOrder,
+			group.Sources = append(group.Sources, preparedSource{
+				File: sourceFile, Role: "DISC", LogicalName: entry.File.LogicalName, SortOrder: &discOrder,
 			})
-			dispositions = append(dispositions, preparedDisposition{file: sourceFile, disposition: "SOURCE"})
+			dispositions = append(dispositions, preparedDisposition{File: sourceFile, Disposition: "SOURCE"})
 		} else {
 			missing = append(missing, corevalidation.MultiDiscMissingEntry{
 				Ordinal: entry.Ordinal, SourceReference: entry.SourceReference,
 				NormalizedReference: entry.NormalizedReference,
 			})
 		}
-		group.multiEntries = append(group.multiEntries, preparedEntry)
+		group.MultiEntries = append(group.MultiEntries, preparedEntry)
 	}
-	group.validationStatus, group.compatibilityCode = "READY", "READY"
+	group.ValidationStatus, group.CompatibilityCode = "READY", "READY"
 	if len(missing) > 0 {
-		group.validationStatus, group.compatibilityCode = "BLOCKED", "MULTI_DISC_FILE_MISSING"
+		group.ValidationStatus, group.CompatibilityCode = "BLOCKED", "MULTI_DISC_FILE_MISSING"
 	}
-	group.multiDependency = &corevalidation.MultiDiscSnapshot{
+	group.MultiDependency = &corevalidation.MultiDiscSnapshot{
 		DiscCount: len(parsed.Entries), MissingEntries: missing,
 	}
 	if len(missing) == 0 {
-		group.multiDependency.ContentKind = corevalidation.MultiDiscContentKind
-		group.multiDependency.ParserVersion = corevalidation.MultiDiscParserVersion
-		group.multiDependency.Delivery = corevalidation.MultiDiscDelivery
-		group.multiDependency.CanonicalPlaylistSHA256 = canonical.SHA256
-		group.multiDependency.OrderedDiscSHA256 = make([]string, 0, len(parsed.Entries))
+		group.MultiDependency.ContentKind = corevalidation.MultiDiscContentKind
+		group.MultiDependency.ParserVersion = corevalidation.MultiDiscParserVersion
+		group.MultiDependency.Delivery = corevalidation.MultiDiscDelivery
+		group.MultiDependency.CanonicalPlaylistSHA256 = canonical.SHA256
+		group.MultiDependency.OrderedDiscSHA256 = make([]string, 0, len(parsed.Entries))
 		for _, entry := range parsed.Entries {
-			group.multiDependency.OrderedDiscSHA256 = append(
-				group.multiDependency.OrderedDiscSHA256, entry.File.BlobSHA256,
+			group.MultiDependency.OrderedDiscSHA256 = append(
+				group.MultiDependency.OrderedDiscSHA256, entry.File.BlobSHA256,
 			)
 		}
 	}
@@ -355,7 +355,7 @@ func (service *Service) prepareMultiDiscDirectory(
 	if err != nil {
 		return preparedGroup{}, nil, err
 	}
-	candidates, err := service.multiDiscCandidates(files, playlist.id)
+	candidates, err := service.multiDiscCandidates(files, playlist.ID)
 	if err != nil {
 		return preparedGroup{}, nil, err
 	}
@@ -364,7 +364,7 @@ func (service *Service) prepareMultiDiscDirectory(
 	})
 	if err != nil {
 		return preparedGroup{}, []preparedDisposition{{
-			file: playlist, disposition: "REJECTED", reason: multiDiscParseReason(err),
+			File: playlist, Disposition: "REJECTED", Reason: multiDiscParseReason(err),
 		}}, nil
 	}
 	canonical, err := service.blobs.Put(bytes.NewReader(parsed.CanonicalPlaylist))
@@ -393,8 +393,8 @@ func (service *Service) prepareMultiDiscFiles(
 		playlists := playlistsByDirectory[directory]
 		if len(playlists) > 1 {
 			for _, playlist := range playlists {
-				dispositionByID[playlist.id] = preparedDisposition{
-					file: playlist, disposition: "REJECTED", reason: "MULTI_DISC_PLAYLIST_AMBIGUOUS",
+				dispositionByID[playlist.ID] = preparedDisposition{
+					File: playlist, Disposition: "REJECTED", Reason: "MULTI_DISC_PLAYLIST_AMBIGUOUS",
 				}
 			}
 			continue
@@ -406,15 +406,15 @@ func (service *Service) prepareMultiDiscFiles(
 			return nil, nil, err
 		}
 		for _, disposition := range resolved {
-			dispositionByID[disposition.file.id] = disposition
+			dispositionByID[disposition.File.ID] = disposition
 		}
-		if len(group.sources) > 0 {
+		if len(group.Sources) > 0 {
 			groups = append(groups, group)
 		}
 	}
 	dispositions := make([]preparedDisposition, 0, len(files))
 	for _, file := range files {
-		dispositions = append(dispositions, dispositionByID[file.id])
+		dispositions = append(dispositions, dispositionByID[file.ID])
 	}
 	return dispositions, groups, nil
 }

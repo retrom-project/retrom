@@ -16,7 +16,7 @@ import (
 func (service *Service) rpgMakerNestedArchiveFormat(
 	file importSourceFile,
 ) (importing.NestedArchiveFormat, error) {
-	reader, err := os.Open(service.blobs.Path(file.sha256))
+	reader, err := os.Open(service.blobs.Path(file.SHA256))
 	if err != nil {
 		return importing.NestedArchiveNone, fmt.Errorf("open RPG Maker project file: %w", err)
 	}
@@ -27,7 +27,7 @@ func (service *Service) rpgMakerNestedArchiveFormat(
 			"inspect RPG Maker project file: %w", errors.Join(readErr, closeErr),
 		)
 	}
-	return importing.DetectNestedArchive(file.path, prefix), nil
+	return importing.DetectNestedArchive(file.Path, prefix), nil
 }
 
 func (service *Service) scanProjectArchive(
@@ -35,7 +35,7 @@ func (service *Service) scanProjectArchive(
 	file importSourceFile,
 	archiveFormat contentprofile.ArchiveFormat,
 ) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, error) {
-	return service.scanProjectArchivePath(ctx, service.blobs.Path(file.sha256), archiveFormat)
+	return service.scanProjectArchivePath(ctx, service.blobs.Path(file.SHA256), archiveFormat)
 }
 
 func (service *Service) scanProjectArchivePath(
@@ -102,7 +102,7 @@ func (service *Service) projectArchiveReadMetadata(
 	if len(missing) == 0 {
 		return result, nil
 	}
-	extracted, err := service.materializeArchiveEntries(ctx, service.blobs.Path(file.sha256), missing)
+	extracted, err := service.materializeArchiveEntries(ctx, service.blobs.Path(file.SHA256), missing)
 	if err != nil {
 		return nil, err
 	}

@@ -30,8 +30,8 @@ func (run *creationRun) persistArchives() error {
 }
 
 func (run *creationRun) materializeArchive(archive preparedArchive) (map[int]string, error) {
-	result := make(map[int]string, len(archive.materialized))
-	for ordinal, metadata := range archive.materialized {
+	result := make(map[int]string, len(archive.Materialized))
+	for ordinal, metadata := range archive.Materialized {
 		blobID, err := blobcatalog.EnsureRecord(
 			run.ctx, run.transaction, metadata, "application/octet-stream", run.now,
 		)
@@ -39,25 +39,25 @@ func (run *creationRun) materializeArchive(archive preparedArchive) (map[int]str
 			return nil, fmt.Errorf("libraryimport/service: %w", err)
 		}
 		result[ordinal] = blobID
-		run.materialized[fmt.Sprintf("%s:%d", archive.blobID, ordinal)] = blobID
+		run.materialized[fmt.Sprintf("%s:%d", archive.BlobID, ordinal)] = blobID
 	}
 	return result, nil
 }
 
 func (run *creationRun) persistArchiveEntries(archive preparedArchive, materialized map[int]string) error {
-	for _, entry := range archive.entries {
+	for _, entry := range archive.Entries {
 		blobID := materialized[entry.Ordinal]
 		_, err := run.transaction.ExecContext(
 			run.ctx,
 			insertArchiveEntrySQL,
-			archive.blobID, entry.Ordinal, entry.OriginalPath, entry.NormalizedPath,
+			archive.BlobID, entry.Ordinal, entry.OriginalPath, entry.NormalizedPath,
 			entry.ASCIICasefoldPath, entry.ArchiveFormat, entry.CompressionProfile, entry.Size,
 			entry.CRC32, entry.MD5, entry.SHA1, entry.SHA256, nullableText(blobID), run.now,
 		)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}
-		if err := run.attachMaterializedArchiveEntry(archive.blobID, entry.Ordinal, blobID); err != nil {
+		if err := run.attachMaterializedArchiveEntry(archive.BlobID, entry.Ordinal, blobID); err != nil {
 			return err
 		}
 	}

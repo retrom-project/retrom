@@ -16,9 +16,9 @@ import (
 )
 
 func (run *creationRun) persistReviewDraft(record *groupRecord) error {
-	titleSource := record.group.titleSource
-	if titleSource == "" && !record.group.titleSourceExplicit {
-		titleSource = record.group.sources[0].logicalName
+	titleSource := record.group.TitleSource
+	if titleSource == "" && !record.group.TitleSourceExplicit {
+		titleSource = record.group.Sources[0].LogicalName
 	}
 	title := ""
 	if titleSource != "" {
@@ -49,7 +49,7 @@ INSERT INTO review_drafts(
   default_dos_entry,metadata_json,version,created_at_ms,updated_at_ms
 ) VALUES(?,?,?,?,?,?,?,1,?,?)
 `, record.draftID, record.itemID, run.plan.request.TargetPlatformInstanceID, selectedValidation,
-		record.sourceSnapshotID, nullableText(record.group.defaultDOSEntry), string(metadataJSON), run.now, run.now)
+		record.sourceSnapshotID, nullableText(record.group.DefaultDOSEntry), string(metadataJSON), run.now, run.now)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
@@ -71,7 +71,7 @@ func (run *creationRun) persistMultiDiscEvents(record *groupRecord) error {
 	}
 	parserData, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "contentMode": run.plan.contentMode,
-		"parserResultCode": parserResultCode, "discCount": len(record.group.multiEntries),
+		"parserResultCode": parserResultCode, "discCount": len(record.group.MultiEntries),
 	})
 	validationData, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "status": record.validationStatus,

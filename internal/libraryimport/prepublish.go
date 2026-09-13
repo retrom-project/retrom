@@ -34,11 +34,11 @@ func stringPointer(value string) *string {
 }
 
 func preparedGroupContentKind(group preparedGroup) string {
-	if group.contentKind != "" {
-		return group.contentKind
+	if group.ContentKind != "" {
+		return group.ContentKind
 	}
-	for _, source := range group.sources {
-		if source.role == "DOS_SOURCE" {
+	for _, source := range group.Sources {
+		if source.Role == "DOS_SOURCE" {
 			return "DOS_BUNDLE"
 		}
 	}

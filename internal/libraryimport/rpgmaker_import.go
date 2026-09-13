@@ -73,7 +73,7 @@ func (service *Service) prepareRPGMakerDirectory(
 			return nil, preparedGroup{}, err
 		}
 		input = append(input, fileset.SourceFile{
-			Path: file.path, SizeBytes: file.size, SourceIndex: index,
+			Path: file.Path, SizeBytes: file.Size, SourceIndex: index,
 			NestedArchiveFormat: nestedFormat,
 		})
 	}
@@ -85,7 +85,7 @@ func (service *Service) prepareRPGMakerDirectory(
 	for _, file := range project.Files {
 		source := files[file.SourceIndex]
 		index.files = append(index.files, detector.File{Path: file.Path, Size: file.SizeBytes})
-		index.paths[file.Path] = service.blobs.Path(source.sha256)
+		index.paths[file.Path] = service.blobs.Path(source.SHA256)
 	}
 	profile, err := detector.Detect(coreID, index)
 	if err != nil {
@@ -112,12 +112,12 @@ func (service *Service) prepareRPGMakerDirectory(
 				reason = "RPG_SESSION_STATE_EXCLUDED"
 			}
 			dispositions = append(dispositions, preparedDisposition{
-				file: source, disposition: "IGNORED", reason: reason,
+				File: source, Disposition: "IGNORED", Reason: reason,
 			})
 			continue
 		}
 		dispositions = append(dispositions, sourceDisposition(source))
-		sources = append(sources, preparedSource{file: source, role: "PROJECT_FILE", logicalName: file.Path})
+		sources = append(sources, preparedSource{File: source, Role: "PROJECT_FILE", LogicalName: file.Path})
 	}
 	sortPreparedSources(sources)
 	removed := append([]string(nil), project.RemovedNoise...)
@@ -132,7 +132,7 @@ func (service *Service) prepareRPGMakerArchive(
 	file importSourceFile,
 	coreID string,
 ) (preparedDisposition, preparedGroup, preparedArchive, error) {
-	archiveFormat, reason := profileArchiveFormat(file.path)
+	archiveFormat, reason := profileArchiveFormat(file.Path)
 	if reason != "" {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, ErrInvalid
 	}
@@ -181,8 +181,8 @@ func (service *Service) prepareRPGMakerArchive(
 	for _, projectFile := range projectFiles {
 		ordinal := projectFile.SourceIndex
 		sources = append(sources, preparedSource{
-			file: file, role: "PROJECT_FILE", logicalName: projectFile.Path,
-			archiveBlobID: file.blobID, archiveOrdinal: &ordinal,
+			File: file, Role: "PROJECT_FILE", LogicalName: projectFile.Path,
+			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
 		})
 	}
 	selectedEntries := projectEntriesForFiles(projectFiles, entryByOrdinal)
@@ -194,9 +194,9 @@ func (service *Service) prepareRPGMakerArchive(
 	removed := append([]string(nil), project.RemovedNoise...)
 	removed = append(removed, sessionState...)
 	return sourceDisposition(file), newRPGMakerGroup(
-			sources, profile, project.Root, removed, file.path,
+			sources, profile, project.Root, removed, file.Path,
 		), preparedArchive{
-			blobID: file.blobID, entries: entries, materialized: materialized,
+			BlobID: file.BlobID, Entries: entries, Materialized: materialized,
 		}, nil
 }
 
@@ -210,9 +210,9 @@ func newRPGMakerGroup(
 	profileCopy := profile
 	sort.Strings(removed)
 	return preparedGroup{
-		sources: sources, contentKind: string(contentprofile.ContentKindRPGMakerProject),
-		titleSource: titleSource, titleSourceExplicit: true, rpgProfile: &profileCopy,
-		rpgProjectRoot: root, rpgRemovedFiles: removed,
+		Sources: sources, ContentKind: string(contentprofile.ContentKindRPGMakerProject),
+		TitleSource: titleSource, TitleSourceExplicit: true, RPGProfile: &profileCopy,
+		RPGProjectRoot: root, RPGRemovedFiles: removed,
 	}
 }
 
@@ -220,12 +220,12 @@ func rpgMakerDirectoryTitle(files []importSourceFile) string {
 	if len(files) == 0 {
 		return ""
 	}
-	root, _, hasChild := strings.Cut(filepath.ToSlash(files[0].path), "/")
+	root, _, hasChild := strings.Cut(filepath.ToSlash(files[0].Path), "/")
 	if !hasChild || root == "" {
 		return ""
 	}
 	for _, file := range files[1:] {
-		candidate, _, candidateHasChild := strings.Cut(filepath.ToSlash(file.path), "/")
+		candidate, _, candidateHasChild := strings.Cut(filepath.ToSlash(file.Path), "/")
 		if !candidateHasChild || candidate != root {
 			return ""
 		}
@@ -246,6 +246,6 @@ func projectEntriesForFiles(
 
 func sortPreparedSources(sources []preparedSource) {
 	sort.Slice(sources, func(left, right int) bool {
-		return sources[left].logicalName < sources[right].logicalName
+		return sources[left].LogicalName < sources[right].LogicalName
 	})
 }

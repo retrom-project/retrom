@@ -84,7 +84,7 @@ func (service *Service) createServerSource(
 	if err != nil {
 		return ServerImportResult{}, err
 	}
-	prepared.contentMode = normalizeTargetContentMode(target.platformID, prepared.contentMode)
+	prepared.contentMode = normalizeTargetContentMode(target.PlatformID, prepared.contentMode)
 	created, found, err := service.ensureServerSourceUpload(ctx, prepared, targetPlatformInstanceID)
 	if err != nil {
 		return ServerImportResult{}, err
@@ -161,7 +161,7 @@ func (service *Service) validateServerFiles(
 		seen[folded] = struct{}{}
 		totalBytes += file.SizeBytes
 		reusable = append(reusable, reusableUploadFile{
-			id: fmt.Sprintf("server-%d", index), path: file.RelativePath, blobID: file.BlobID, size: file.SizeBytes,
+			ID: fmt.Sprintf("server-%d", index), Path: file.RelativePath, BlobID: file.BlobID, Size: file.SizeBytes,
 		})
 	}
 	return sorted, reusable, totalBytes, nil

@@ -41,7 +41,7 @@ func storeKiriKiriDirectoryFixture(
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			id: name, path: name, blobID: name, sha256: metadata.SHA256, size: metadata.Size,
+			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	return files
@@ -58,10 +58,10 @@ func assertKiriKiriPreparedDirectory(
 		t.Fatalf("groups=%#v archives=%#v dispositions=%#v", groups, archives, dispositions)
 	}
 	group := groups[0]
-	if group.contentKind != "KIRIKIRI_PROJECT" || group.validationStatus != "BLOCKED" {
+	if group.ContentKind != "KIRIKIRI_PROJECT" || group.ValidationStatus != "BLOCKED" {
 		t.Fatalf("group=%#v", group)
 	}
-	if group.compatibilityCode != "KIRIKIRI_RUNTIME_TRIAL_REQUIRED" || len(group.sources) != 2 {
+	if group.CompatibilityCode != "KIRIKIRI_RUNTIME_TRIAL_REQUIRED" || len(group.Sources) != 2 {
 		t.Fatalf("group=%#v", group)
 	}
 	if countIgnoredDispositions(dispositions) != 1 {
@@ -75,14 +75,14 @@ func assertKiriKiriPreparedDirectory(
 			Compatibility  string  `json:"compatibility"`
 		} `json:"kirikiri"`
 	}
-	if json.Unmarshal([]byte(group.dependencySnapshot), &snapshot) != nil || snapshot.SchemaVersion != 1 {
-		t.Fatalf("dependency snapshot = %s", group.dependencySnapshot)
+	if json.Unmarshal([]byte(group.DependencySnapshot), &snapshot) != nil || snapshot.SchemaVersion != 1 {
+		t.Fatalf("dependency snapshot = %s", group.DependencySnapshot)
 	}
 	if snapshot.KiriKiri.MarkerPath != "startup.tjs" || snapshot.KiriKiri.StartupXP3Path == nil {
-		t.Fatalf("dependency snapshot = %s", group.dependencySnapshot)
+		t.Fatalf("dependency snapshot = %s", group.DependencySnapshot)
 	}
 	if *snapshot.KiriKiri.StartupXP3Path != "data.xp3" ||
 		snapshot.KiriKiri.Compatibility != "KAG_RUNTIME_TRIAL_REQUIRED" {
-		t.Fatalf("dependency snapshot = %s", group.dependencySnapshot)
+		t.Fatalf("dependency snapshot = %s", group.DependencySnapshot)
 	}
 }

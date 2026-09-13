@@ -4,8 +4,25 @@ import "context"
 
 const ServerSourceFileLimit = 64
 
+type SourceOwnerKind string
+
+const (
+	SourceOwnerPegasus          SourceOwnerKind = "PEGASUS"
+	SourceOwnerEmulationStation SourceOwnerKind = "EMULATIONSTATION"
+)
+
+func (kind SourceOwnerKind) Valid() bool {
+	return kind == SourceOwnerPegasus || kind == SourceOwnerEmulationStation
+}
+
+type SourceCreationFrozen struct {
+	RootID, RootDigest, RelativePath, ActorUserID, TagSnapshotJSON, ContentKind, CollectionID string
+	MappingVersion, MaxAttempts, StartedAtMS, ReleaseYearMax                                  int64
+}
+
 type (
 	SourceCreationIntent struct {
+		Kind                              SourceOwnerKind
 		ImportID, ItemID, JobID, WorkerID string
 		ExecutionNo, Attempt              int64
 		PrimaryPaths                      []string
@@ -48,6 +65,8 @@ type (
 		State, FactsDigest string
 	}
 	SourceCreationSnapshot struct {
+		Kind                                                            SourceOwnerKind
+		Frozen                                                          SourceCreationFrozen
 		ImportID, ItemID, JobID, WorkerID                               string
 		SourceState, ImportState, JobState, MappingAction               string
 		SourceVersion, ImportVersion, JobVersion, ExecutionNo, Attempt  int64

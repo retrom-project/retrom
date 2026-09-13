@@ -89,7 +89,7 @@ func (service *Service) Reconfigure(
 	}
 	sourceFileIDs := make([]string, 0, len(files))
 	for _, file := range files {
-		sourceFileIDs = append(sourceFileIDs, file.id)
+		sourceFileIDs = append(sourceFileIDs, file.ID)
 	}
 	created, err := service.create(
 		ctx,
@@ -153,7 +153,7 @@ u.id
 	files := make([]reusableUploadFile, 0)
 	for rows.Next() {
 		var file reusableUploadFile
-		if err := rows.Scan(&file.id, &file.path, &file.size, &file.blobID); err != nil {
+		if err := rows.Scan(&file.ID, &file.Path, &file.Size, &file.BlobID); err != nil {
 			return "", nil, fmt.Errorf("libraryimport/reconfigure: %w", err)
 		}
 		files = append(files, file)
@@ -182,7 +182,7 @@ func (service *Service) cloneUploadSession(
 	now := service.now().UnixMilli()
 	var totalBytes int64
 	for _, file := range files {
-		totalBytes += file.size
+		totalBytes += file.Size
 	}
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -215,10 +215,10 @@ func reconfigurationManifestDigest(sourceImportJobID string, sourceVersion int64
 	manifestFiles := make([]map[string]any, 0, len(files))
 	for _, file := range files {
 		manifestFiles = append(manifestFiles, map[string]any{
-			"sourceUploadFileId": file.id,
-			"relativePath":       file.path,
-			"sizeBytes":          file.size,
-			"blobId":             file.blobID,
+			"sourceUploadFileId": file.ID,
+			"relativePath":       file.Path,
+			"sizeBytes":          file.Size,
+			"blobId":             file.BlobID,
 		})
 	}
 	manifest, _ := json.Marshal(map[string]any{
@@ -286,7 +286,7 @@ updated_at_ms) VALUES(?,
 'COMPLETE',
 ?,
 ?)
-`, fileID.String(), uploadID, file.path, file.size, file.size, file.blobID, now, now); err != nil {
+`, fileID.String(), uploadID, file.Path, file.Size, file.Size, file.BlobID, now, now); err != nil {
 			return fmt.Errorf("libraryimport/reconfigure: %w", err)
 		}
 	}

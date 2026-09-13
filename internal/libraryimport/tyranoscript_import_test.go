@@ -29,14 +29,14 @@ func TestPrepareTyranoScriptDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t 
 		t.Fatalf("groups=%#v archives=%#v dispositions=%#v", groups, archives, dispositions)
 	}
 	group := groups[0]
-	if group.contentKind != "TYRANOSCRIPT_PROJECT" || group.validationStatus != "BLOCKED" ||
-		group.compatibilityCode != "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED" || group.titleSource != "Fixture" ||
+	if group.ContentKind != "TYRANOSCRIPT_PROJECT" || group.ValidationStatus != "BLOCKED" ||
+		group.CompatibilityCode != "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED" || group.TitleSource != "Fixture" ||
 		countIgnoredDispositions(dispositions) != 1 {
 		t.Fatalf("group=%#v dispositions=%#v", group, dispositions)
 	}
-	assertTyranoScriptSnapshot(t, group.dependencySnapshot)
-	for _, source := range group.sources {
-		if source.role != "PROJECT_FILE" || strings.HasPrefix(source.logicalName, "Fixture/") {
+	assertTyranoScriptSnapshot(t, group.DependencySnapshot)
+	for _, source := range group.Sources {
+		if source.Role != "PROJECT_FILE" || strings.HasPrefix(source.LogicalName, "Fixture/") {
 			t.Fatalf("TyranoScript source=%#v", source)
 		}
 	}
@@ -47,7 +47,7 @@ func TestPrepareTyranoScriptDirectoryRejectsMissingEngineMarker(t *testing.T) {
 	service, files := tyranoScriptImportFixture(t)
 	filtered := files[:0]
 	for _, file := range files {
-		if !strings.HasSuffix(file.path, "tyrano/tyrano.js") {
+		if !strings.HasSuffix(file.Path, "tyrano/tyrano.js") {
 			filtered = append(filtered, file)
 		}
 	}
@@ -69,7 +69,7 @@ func TestPrepareTyranoScriptNWJSExecutableExtractsAppendedProject(t *testing.T) 
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		id: "game", path: "game.exe", blobID: "game", sha256: metadata.SHA256, size: metadata.Size,
+		ID: "game", Path: "game.exe", BlobID: "game", SHA256: metadata.SHA256, Size: metadata.Size,
 	}
 	dispositions, groups, archives, err := New(nil, nil).WithBlobStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
@@ -77,13 +77,13 @@ func TestPrepareTyranoScriptNWJSExecutableExtractsAppendedProject(t *testing.T) 
 	if err != nil {
 		t.Fatalf("prepareTyranoScriptProject(NW.js executable) error=%v", err)
 	}
-	if len(dispositions) != 1 || dispositions[0].disposition != "SOURCE" ||
-		len(groups) != 1 || len(archives) != 1 || len(groups[0].sources) != 5 {
+	if len(dispositions) != 1 || dispositions[0].Disposition != "SOURCE" ||
+		len(groups) != 1 || len(archives) != 1 || len(groups[0].Sources) != 5 {
 		t.Fatalf("dispositions=%#v groups=%#v archives=%#v", dispositions, groups, archives)
 	}
-	assertTyranoScriptSnapshot(t, groups[0].dependencySnapshot)
-	for _, source := range groups[0].sources {
-		if source.role != "PROJECT_FILE" || source.archiveOrdinal == nil {
+	assertTyranoScriptSnapshot(t, groups[0].DependencySnapshot)
+	for _, source := range groups[0].Sources {
+		if source.Role != "PROJECT_FILE" || source.ArchiveOrdinal == nil {
 			t.Fatalf("TyranoScript executable source=%#v", source)
 		}
 	}
@@ -101,8 +101,8 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveExtractsAppendedProject(t *testing
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		id: "wrapped-nwjs", path: "wrapped-nwjs.zip", blobID: "wrapped-nwjs",
-		sha256: metadata.SHA256, size: metadata.Size,
+		ID: "wrapped-nwjs", Path: "wrapped-nwjs.zip", BlobID: "wrapped-nwjs",
+		SHA256: metadata.SHA256, Size: metadata.Size,
 	}
 	dispositions, groups, archives, err := New(nil, nil).WithBlobStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
@@ -110,17 +110,17 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveExtractsAppendedProject(t *testing
 	if err != nil {
 		t.Fatalf("prepareTyranoScriptProject(wrapped NW.js executable) error=%v", err)
 	}
-	if len(dispositions) != 1 || dispositions[0].disposition != "SOURCE" ||
-		len(groups) != 1 || len(archives) != 1 || len(groups[0].sources) != 5 ||
-		len(archives[0].entries) != 5 {
+	if len(dispositions) != 1 || dispositions[0].Disposition != "SOURCE" ||
+		len(groups) != 1 || len(archives) != 1 || len(groups[0].Sources) != 5 ||
+		len(archives[0].Entries) != 5 {
 		t.Fatalf("dispositions=%#v groups=%#v archives=%#v", dispositions, groups, archives)
 	}
-	for _, entry := range archives[0].entries {
+	for _, entry := range archives[0].Entries {
 		if strings.HasPrefix(entry.NormalizedPath, "Desktop/") || strings.HasSuffix(entry.NormalizedPath, ".exe") {
 			t.Fatalf("desktop wrapper leaked into project entries: %#v", entry)
 		}
 	}
-	assertTyranoScriptSnapshot(t, groups[0].dependencySnapshot)
+	assertTyranoScriptSnapshot(t, groups[0].DependencySnapshot)
 }
 
 func TestPrepareTyranoScriptWrappedNWJSArchiveRejectsMultipleExecutables(t *testing.T) {
@@ -148,8 +148,8 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveRejectsMultipleExecutables(t *test
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		id: "ambiguous", path: "ambiguous.zip", blobID: "ambiguous",
-		sha256: metadata.SHA256, size: metadata.Size,
+		ID: "ambiguous", Path: "ambiguous.zip", BlobID: "ambiguous",
+		SHA256: metadata.SHA256, Size: metadata.Size,
 	}
 	_, _, _, err = New(nil, nil).WithBlobStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
@@ -171,7 +171,7 @@ func TestPrepareTyranoScriptElectronArchiveExtractsASARProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := importSourceFile{
-		id: "electron", path: "electron.zip", blobID: "electron", sha256: metadata.SHA256, size: metadata.Size,
+		ID: "electron", Path: "electron.zip", BlobID: "electron", SHA256: metadata.SHA256, Size: metadata.Size,
 	}
 	dispositions, groups, archives, err := New(nil, nil).WithBlobStore(blobs).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
@@ -179,16 +179,16 @@ func TestPrepareTyranoScriptElectronArchiveExtractsASARProject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareTyranoScriptProject(Electron) error=%v", err)
 	}
-	if len(dispositions) != 1 || dispositions[0].disposition != "SOURCE" ||
-		len(groups) != 1 || len(archives) != 1 || len(groups[0].sources) != 5 {
+	if len(dispositions) != 1 || dispositions[0].Disposition != "SOURCE" ||
+		len(groups) != 1 || len(archives) != 1 || len(groups[0].Sources) != 5 {
 		t.Fatalf("dispositions=%#v groups=%#v archives=%#v", dispositions, groups, archives)
 	}
-	for _, entry := range archives[0].entries {
+	for _, entry := range archives[0].Entries {
 		if entry.ArchiveFormat != "ELECTRON_ASAR" || entry.CompressionProfile != "ELECTRON_ASAR_DEFLATE" {
 			t.Fatalf("Electron archive entry=%#v", entry)
 		}
 	}
-	assertTyranoScriptSnapshot(t, groups[0].dependencySnapshot)
+	assertTyranoScriptSnapshot(t, groups[0].DependencySnapshot)
 }
 
 func assertTyranoScriptSnapshot(t *testing.T, contents string) {
@@ -229,7 +229,7 @@ func tyranoScriptImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			id: name, path: name, blobID: name, sha256: metadata.SHA256, size: metadata.Size,
+			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	return New(nil, nil).WithBlobStore(blobs), files

@@ -158,10 +158,10 @@ NULL,
 		metadata, putErr := blobs.Put(bytes.NewReader(archiveBytes))
 		testassert.False(t, putErr != nil, putErr)
 		fixtures[index].file = importSourceFile{
-			id:     fixtures[index].id,
-			path:   fixtures[index].name,
-			blobID: "blob-" + fixtures[index].id,
-			sha256: metadata.SHA256,
+			ID:     fixtures[index].id,
+			Path:   fixtures[index].name,
+			BlobID: "blob-" + fixtures[index].id,
+			SHA256: metadata.SHA256,
 		}
 		entryDigest := sha256.Sum256(fixtures[index].body)
 		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
@@ -200,18 +200,18 @@ status) VALUES(?,
 	dispositions, groups, archives := service.prepareArcadeFiles(ctx, files, sql.NullString{String: datID, Valid: true})
 	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 3 }, func() bool { return len(groups) != 1 }, func() bool { return len(archives) != 3 }), "arcade grouping counts = dispositions:%#v groups:%#v archives:%d", dispositions, groups, len(archives))
 	child := groups[0]
-	testassert.Falsef(t, testassert.Any(func() bool { return child.validationStatus != "READY" }, func() bool { return len(child.sources) != 3 }, func() bool { return len(child.validationFiles) != 2 }, func() bool { return child.validationFiles[0].role != "PARENT" }, func() bool { return child.validationFiles[1].role != "BIOS_BUNDLE" }), "child dependency closure = %#v", child)
+	testassert.Falsef(t, testassert.Any(func() bool { return child.ValidationStatus != "READY" }, func() bool { return len(child.Sources) != 3 }, func() bool { return len(child.ValidationFiles) != 2 }, func() bool { return child.ValidationFiles[0].Role != "PARENT" }, func() bool { return child.ValidationFiles[1].Role != "BIOS_BUNDLE" }), "child dependency closure = %#v", child)
 	for _, disposition := range dispositions {
-		testassert.Falsef(t, disposition.disposition != "SOURCE", "referenced archive disposition = %#v", disposition)
+		testassert.Falsef(t, disposition.Disposition != "SOURCE", "referenced archive disposition = %#v", disposition)
 	}
 	missingDispositions, missingGroups, _ := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{fixtures[0].file},
 		sql.NullString{String: datID, Valid: true},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(missingDispositions) != 1 }, func() bool { return len(missingGroups) != 1 }, func() bool { return missingGroups[0].validationStatus != "BLOCKED" }, func() bool {
-		return missingGroups[0].compatibilityCode != "LAUNCH_BIOS_MISSING" &&
-			missingGroups[0].compatibilityCode != "LAUNCH_PARENT_MISSING"
+	testassert.Falsef(t, testassert.Any(func() bool { return len(missingDispositions) != 1 }, func() bool { return len(missingGroups) != 1 }, func() bool { return missingGroups[0].ValidationStatus != "BLOCKED" }, func() bool {
+		return missingGroups[0].CompatibilityCode != "LAUNCH_BIOS_MISSING" &&
+			missingGroups[0].CompatibilityCode != "LAUNCH_PARENT_MISSING"
 	}), "missing dependency = dispositions:%#v groups:%#v", missingDispositions, missingGroups)
 	fullBytes := makeZIP(
 		t,
@@ -221,10 +221,10 @@ status) VALUES(?,
 	testassert.False(t, err != nil, err)
 	_, fullGroups, _ := service.prepareArcadeFiles(
 		ctx,
-		[]importSourceFile{{id: "full", path: "child.zip", blobID: "full-blob", sha256: fullMetadata.SHA256}},
+		[]importSourceFile{{ID: "full", Path: "child.zip", BlobID: "full-blob", SHA256: fullMetadata.SHA256}},
 		sql.NullString{String: datID, Valid: true},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(fullGroups) != 1 }, func() bool { return fullGroups[0].validationStatus != "READY" }, func() bool { return len(fullGroups[0].sources) != 1 }, func() bool { return len(fullGroups[0].validationFiles) != 0 }), "full non-merged closure = %#v", fullGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(fullGroups) != 1 }, func() bool { return fullGroups[0].ValidationStatus != "READY" }, func() bool { return len(fullGroups[0].Sources) != 1 }, func() bool { return len(fullGroups[0].ValidationFiles) != 0 }), "full non-merged closure = %#v", fullGroups)
 	fullWithCloneExtraBytes := makeZIP(
 		t,
 		map[string][]byte{
@@ -239,21 +239,21 @@ status) VALUES(?,
 	_, fullWithCloneExtraGroups, _ := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{
-			id: "full-with-clone-extra", path: "child.zip", blobID: "full-with-clone-extra-blob",
-			sha256: fullWithCloneExtraMetadata.SHA256,
+			ID: "full-with-clone-extra", Path: "child.zip", BlobID: "full-with-clone-extra-blob",
+			SHA256: fullWithCloneExtraMetadata.SHA256,
 		}},
 		sql.NullString{String: datID, Valid: true},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(fullWithCloneExtraGroups) != 1 }, func() bool { return fullWithCloneExtraGroups[0].validationStatus != "READY" }, func() bool { return fullWithCloneExtraGroups[0].compatibilityCode != "READY" }), "full non-merged closure with clone extra = %#v", fullWithCloneExtraGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(fullWithCloneExtraGroups) != 1 }, func() bool { return fullWithCloneExtraGroups[0].ValidationStatus != "READY" }, func() bool { return fullWithCloneExtraGroups[0].CompatibilityCode != "READY" }), "full non-merged closure with clone extra = %#v", fullWithCloneExtraGroups)
 	mergedBytes := makeZIP(t, map[string][]byte{"c.bin": []byte("child"), "parent/p.bin": []byte("parent")})
 	mergedMetadata, err := blobs.Put(bytes.NewReader(mergedBytes))
 	testassert.False(t, err != nil, err)
 	_, mergedGroups, _ := service.prepareArcadeFiles(
 		ctx,
-		[]importSourceFile{{id: "merged", path: "child.zip", blobID: "merged-blob", sha256: mergedMetadata.SHA256}},
+		[]importSourceFile{{ID: "merged", Path: "child.zip", BlobID: "merged-blob", SHA256: mergedMetadata.SHA256}},
 		sql.NullString{String: datID, Valid: true},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(mergedGroups) != 1 }, func() bool { return mergedGroups[0].validationStatus != "BLOCKED" }, func() bool { return mergedGroups[0].compatibilityCode != "UNSUPPORTED_MERGED_ROMSET" }), "merged ROM set = %#v", mergedGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(mergedGroups) != 1 }, func() bool { return mergedGroups[0].ValidationStatus != "BLOCKED" }, func() bool { return mergedGroups[0].CompatibilityCode != "UNSUPPORTED_MERGED_ROMSET" }), "merged ROM set = %#v", mergedGroups)
 	nestedMismatchBytes := makeZIP(
 		t,
 		map[string][]byte{"c.bin": []byte("child"), "parent/p.bin": []byte("not-the-parent-rom")},
@@ -263,12 +263,12 @@ status) VALUES(?,
 	_, nestedMismatchGroups, _ := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{
-			id: "nested-mismatch", path: "child.zip", blobID: "nested-mismatch-blob",
-			sha256: nestedMismatchMetadata.SHA256,
+			ID: "nested-mismatch", Path: "child.zip", BlobID: "nested-mismatch-blob",
+			SHA256: nestedMismatchMetadata.SHA256,
 		}},
 		sql.NullString{String: datID, Valid: true},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(nestedMismatchGroups) != 1 }, func() bool { return nestedMismatchGroups[0].validationStatus != "BLOCKED" }, func() bool { return nestedMismatchGroups[0].compatibilityCode != "LAUNCH_PARENT_MISSING" }), "nested name-only match must remain a missing parent = %#v", nestedMismatchGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(nestedMismatchGroups) != 1 }, func() bool { return nestedMismatchGroups[0].ValidationStatus != "BLOCKED" }, func() bool { return nestedMismatchGroups[0].CompatibilityCode != "LAUNCH_PARENT_MISSING" }), "nested name-only match must remain a missing parent = %#v", nestedMismatchGroups)
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_disk_entries(dat_version_id,
 machine_name,
@@ -285,7 +285,7 @@ status) VALUES(?,
 		t.Fatal(err)
 	}
 	_, diskGroups, _ := service.prepareArcadeFiles(ctx, files, sql.NullString{String: datID, Valid: true})
-	testassert.Falsef(t, testassert.Any(func() bool { return len(diskGroups) == 0 }, func() bool { return diskGroups[0].validationStatus != "INCOMPATIBLE" }, func() bool { return diskGroups[0].compatibilityCode != "UNSUPPORTED_CHD" }), "CHD compatibility = %#v", diskGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(diskGroups) == 0 }, func() bool { return diskGroups[0].ValidationStatus != "INCOMPATIBLE" }, func() bool { return diskGroups[0].CompatibilityCode != "UNSUPPORTED_CHD" }), "CHD compatibility = %#v", diskGroups)
 }
 
 func makeZIP(t *testing.T, files map[string][]byte) []byte {

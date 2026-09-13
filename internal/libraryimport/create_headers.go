@@ -58,7 +58,7 @@ func (run *creationRun) insertImport(configJSON []byte, configDigest string) err
 		run.ctx, run.transaction,
 		insertImportJobSQL,
 		run.importID, run.plan.request.UploadID, run.plan.request.TargetPlatformInstanceID,
-		target.instanceVersion, target.platformID, target.defaultCoreID, target.providerID, target.targetID,
+		target.Version, target.PlatformID, target.DefaultCoreID, target.ProviderID, target.TargetID,
 		nullable(run.plan.datID),
 		run.plan.request.MetadataProvider, string(configJSON), configDigest, run.progress.state,
 		len(run.plan.groups), run.progress.runningItems, run.progress.reviewPendingItems,
@@ -76,7 +76,7 @@ func (run *creationRun) insertImport(configJSON []byte, configDigest string) err
 func countDispositions(dispositions []preparedDisposition) (int, int) {
 	ignored, rejected := 0, 0
 	for _, disposition := range dispositions {
-		switch disposition.disposition {
+		switch disposition.Disposition {
 		case "IGNORED":
 			ignored++
 		case "REJECTED":
@@ -107,8 +107,8 @@ INSERT INTO import_job_files(
 ) VALUES(?,?,?,?,?,?)
 `
 		arguments := []any{
-			run.importID, disposition.file.id, disposition.disposition,
-			nullableText(disposition.reason), run.now, run.now,
+			run.importID, disposition.File.ID, disposition.Disposition,
+			nullableText(disposition.Reason), run.now, run.now,
 		}
 		if run.queued != nil {
 			statement = `
@@ -117,8 +117,8 @@ SET disposition=?,reason_code=?,updated_at_ms=?
 WHERE import_job_id=? AND upload_file_id=? AND disposition='PENDING'
 `
 			arguments = []any{
-				disposition.disposition, nullableText(disposition.reason), run.now,
-				run.importID, disposition.file.id,
+				disposition.Disposition, nullableText(disposition.Reason), run.now,
+				run.importID, disposition.File.ID,
 			}
 		}
 		result, err := run.transaction.ExecContext(run.ctx, statement, arguments...)
@@ -152,7 +152,7 @@ SET provider_id=?,target_id=?,dat_version_id=?,config_snapshot_json=?,config_sna
  ignored_file_count=?,rejected_file_count=?,last_error_code=NULL,version=version+1,
  updated_at_ms=?,completed_at_ms=?
 WHERE id=? AND state='RUNNING'
-`, target.providerID, target.targetID, nullable(run.plan.datID), string(configJSON), configDigest,
+`, target.ProviderID, target.TargetID, nullable(run.plan.datID), string(configJSON), configDigest,
 		run.progress.state, len(run.plan.groups), run.progress.runningItems, run.progress.reviewPendingItems,
 		ignored, rejected, run.now, run.completedAt, run.importID)
 	if err != nil {

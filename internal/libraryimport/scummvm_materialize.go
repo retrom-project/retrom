@@ -72,7 +72,7 @@ func materializeScummVMInputs(
 		}
 		if archive != nil {
 			ordinal := file.SourceIndex
-			entry.SourceArchiveSHA256 = &archive.sha256
+			entry.SourceArchiveSHA256 = &archive.SHA256
 			entry.SourceArchiveEntryOrdinal = &ordinal
 		}
 		manifest = append(manifest, entry)

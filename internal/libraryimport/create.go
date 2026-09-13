@@ -33,11 +33,11 @@ func resolveInitialArcadeBIOSState(
 		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
 			continue
 		}
-		group.validationFiles = append(group.validationFiles, preparedValidationFile{
-			role:        "BIOS_BUNDLE",
-			logicalName: dependency.LogicalName,
-			blobID:      *dependency.BlobID,
-			sortOrder:   len(group.validationFiles),
+		group.ValidationFiles = append(group.ValidationFiles, preparedValidationFile{
+			Role:        "BIOS_BUNDLE",
+			LogicalName: dependency.LogicalName,
+			BlobID:      *dependency.BlobID,
+			SortOrder:   len(group.ValidationFiles),
 		})
 	}
 	return biosState.status, biosState.code, biosState.snapshotJSON, nil

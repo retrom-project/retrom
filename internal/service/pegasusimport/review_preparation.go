@@ -42,6 +42,7 @@ func sourceIntent(unit Work, item ExecutionItem) library.SourceCreationIntent {
 		paths = append(paths, file.Path)
 	}
 	return library.SourceCreationIntent{
+		Kind:     library.SourceOwnerPegasus,
 		ImportID: unit.ImportID, ItemID: item.ID, JobID: unit.JobID,
 		WorkerID: unit.WorkerID, ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt, PrimaryPaths: paths,
 	}

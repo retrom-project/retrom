@@ -138,7 +138,7 @@ func TestOwnedSourceRejectsExistingUnboundLegacyCreation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, application.SourceCreationIntent{ImportID: request.Intent.ImportID, ItemID: request.Intent.ItemID})
+	result, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, application.SourceCreationIntent{Kind: application.SourceOwnerPegasus, ImportID: request.Intent.ImportID, ItemID: request.Intent.ItemID})
 	if !errors.Is(err, ErrVersionConflict) || found || result.Created.ImportJobID != "" {
 		t.Fatalf("guessed legacy ownership: %#v found=%v err=%v", result, found, err)
 	}

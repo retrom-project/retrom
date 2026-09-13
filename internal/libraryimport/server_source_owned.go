@@ -26,7 +26,7 @@ func (service *Service) LookupOwnedServerSource(
 	ctx context.Context,
 	intent application.SourceCreationIntent,
 ) (ServerImportResult, bool, error) {
-	if intent.ImportID == "" || intent.ItemID == "" {
+	if !intent.Kind.Valid() || intent.ImportID == "" || intent.ItemID == "" {
 		return ServerImportResult{}, false, ErrInvalid
 	}
 	found, present, err := repository.BindOwnedSources(service.database).Lookup(ctx, intent)
@@ -36,7 +36,7 @@ func (service *Service) LookupOwnedServerSource(
 	return found.Result, present, nil
 }
 
-// CreateOwnedServerSource commits the import and its Pegasus source binding together.
+// CreateOwnedServerSource commits the import and its server source binding together.
 func (service *Service) CreateOwnedServerSource(
 	ctx context.Context,
 	request application.OwnedServerSourceRequest,
@@ -58,11 +58,14 @@ func (service *Service) CreateOwnedServerSource(
 	if err != nil {
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)
 	}
+	if err := application.ValidateOwnedSourceRequest(before, request); err != nil {
+		return ServerImportResult{}, fmt.Errorf("validate frozen source request: %w", err)
+	}
 	if err := application.ValidateOwnedSourceFiles(before, request.Files); err != nil {
 		return ServerImportResult{}, fmt.Errorf("validate copied source files: %w", err)
 	}
 	prepared, err := service.prepareServerSource(
-		ctx, "SERVER_PEGASUS_IMPORT:"+request.Intent.ItemID, request.ContentMode, request.Files,
+		ctx, "SERVER_"+string(request.Intent.Kind)+"_IMPORT:"+request.Intent.ItemID, request.ContentMode, request.Files,
 	)
 	if err != nil {
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)
@@ -71,7 +74,7 @@ func (service *Service) CreateOwnedServerSource(
 	if err != nil {
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)
 	}
-	prepared.contentMode = normalizeTargetContentMode(target.platformID, prepared.contentMode)
+	prepared.contentMode = normalizeTargetContentMode(target.PlatformID, prepared.contentMode)
 	_, exists, err := service.ensureServerSourceUpload(ctx, prepared, request.TargetPlatformInstanceID)
 	if err != nil {
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)
@@ -86,7 +89,7 @@ func (service *Service) CreateOwnedServerSource(
 	_, err = service.create(ctx, CreateRequest{
 		UploadID: prepared.uploadID, TargetPlatformInstanceID: request.TargetPlatformInstanceID,
 		MetadataProvider: "NONE", ContentMode: prepared.contentMode, TagIDs: request.TagIDs,
-	}, nil, creationOptions{sourceCreation: binding})
+	}, nil, creationOptions{sourceCreation: binding, reviewHandoffKind: prepared.reviewHandoffKind()})
 	if err != nil {
 		service.removeUnusedClonedUpload(ctx, prepared.uploadID)
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)
@@ -133,20 +136,20 @@ func validateOwnedCreationPlan(plan creationPlan) error {
 		return nil
 	}
 	before := binding.before
-	if before.TargetVersion != plan.target.instanceVersion || before.TargetPlatformID != plan.target.platformID ||
-		before.TargetDefaultCoreID != plan.target.defaultCoreID {
+	if before.TargetVersion != plan.target.Version || before.TargetPlatformID != plan.target.PlatformID ||
+		before.TargetDefaultCoreID != plan.target.DefaultCoreID {
 		return ErrVersionConflict
 	}
-	if plan.target.platformID != "rpgmaker" && (before.TargetProviderID != plan.target.providerID ||
-		before.TargetID != plan.target.targetID || before.TargetDATVersionID != plan.datID.String) {
+	if plan.target.PlatformID != "rpgmaker" && (before.TargetProviderID != plan.target.ProviderID ||
+		before.TargetID != plan.target.TargetID || before.TargetDATVersionID != plan.datID.String) {
 		return ErrVersionConflict
 	}
 	groups := make([][]string, 0, len(plan.groups))
 	for _, group := range plan.groups {
 		paths := []string{}
-		for _, source := range group.sources {
-			if source.role != "COMPANION" {
-				paths = append(paths, source.file.path)
+		for _, source := range group.Sources {
+			if source.Role != "COMPANION" {
+				paths = append(paths, source.File.Path)
 			}
 		}
 		groups = append(groups, paths)

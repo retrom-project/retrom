@@ -34,7 +34,7 @@ func loadReviewRPGDependencies(ctx context.Context, transaction *sql.Tx, draftID
 }
 
 func (run *creationRun) prepareRPGDependencies(record *groupRecord) error {
-	profile := record.group.rpgProfile
+	profile := record.group.RPGProfile
 	if profile == nil {
 		return nil
 	}
@@ -42,8 +42,8 @@ func (run *creationRun) prepareRPGDependencies(record *groupRecord) error {
 	binding.analysis.SelfContained = profile.SelfContained
 	binding.analysis.Requirements.RTP = profile.RTPDependencies
 	state, _ := resolveRPGDependencies(binding)
-	record.group.validationStatus, record.group.compatibilityCode = state.status, state.code
-	record.group.dependencySnapshot = state.snapshotJSON
+	record.group.ValidationStatus, record.group.CompatibilityCode = state.status, state.code
+	record.group.DependencySnapshot = state.snapshotJSON
 	return nil
 }
 

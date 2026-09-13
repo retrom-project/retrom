@@ -22,8 +22,8 @@ func TestPrepareNXEngineDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *tes
 	if !validNXEnginePreparedResult(dispositions, groups, archives) {
 		t.Fatalf("groups=%#v archives=%#v dispositions=%#v", groups, archives, dispositions)
 	}
-	assertNXEngineSnapshot(t, groups[0].dependencySnapshot)
-	assertNXEngineSources(t, groups[0].sources)
+	assertNXEngineSnapshot(t, groups[0].DependencySnapshot)
+	assertNXEngineSources(t, groups[0].Sources)
 }
 
 func validNXEnginePreparedResult(
@@ -35,9 +35,9 @@ func validNXEnginePreparedResult(
 		return false
 	}
 	group := groups[0]
-	return group.contentKind == "NXENGINE_PROJECT" && group.validationStatus == "BLOCKED" &&
-		group.compatibilityCode == "NXENGINE_RUNTIME_TRIAL_REQUIRED" &&
-		group.titleSource == "Fixture" && countIgnoredDispositions(dispositions) == 1
+	return group.ContentKind == "NXENGINE_PROJECT" && group.ValidationStatus == "BLOCKED" &&
+		group.CompatibilityCode == "NXENGINE_RUNTIME_TRIAL_REQUIRED" &&
+		group.TitleSource == "Fixture" && countIgnoredDispositions(dispositions) == 1
 }
 
 func assertNXEngineSnapshot(t *testing.T, dependencySnapshot string) {
@@ -59,7 +59,7 @@ func assertNXEngineSnapshot(t *testing.T, dependencySnapshot string) {
 func assertNXEngineSources(t *testing.T, sources []preparedSource) {
 	t.Helper()
 	for _, source := range sources {
-		if source.role != "PROJECT_FILE" || strings.HasPrefix(source.logicalName, "Fixture/") {
+		if source.Role != "PROJECT_FILE" || strings.HasPrefix(source.LogicalName, "Fixture/") {
 			t.Fatalf("NXEngine source=%#v", source)
 		}
 	}
@@ -69,12 +69,12 @@ func TestPrepareNXEngineDirectoryRejectsInvalidExecutable(t *testing.T) {
 	t.Parallel()
 	service, files := nxengineImportFixture(t)
 	for index := range files {
-		if strings.EqualFold(files[index].path, "Fixture/Doukutsu.exe") {
+		if strings.EqualFold(files[index].Path, "Fixture/Doukutsu.exe") {
 			metadata, err := service.blobs.Put(bytes.NewReader([]byte("invalid")))
 			if err != nil {
 				t.Fatal(err)
 			}
-			files[index].sha256, files[index].size = metadata.SHA256, metadata.Size
+			files[index].SHA256, files[index].Size = metadata.SHA256, metadata.Size
 		}
 	}
 	if _, _, _, err := service.prepareNXEngineProject(context.Background(), "DIRECTORY", files); err == nil ||
@@ -103,7 +103,7 @@ func nxengineImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			id: name, path: name, blobID: name, sha256: metadata.SHA256, size: metadata.Size,
+			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	return New(nil, nil).WithBlobStore(blobs), files

@@ -35,9 +35,9 @@ type queuedCreationWork struct {
 }
 
 func (work queuedCreationWork) accepts(target creationTarget) bool {
-	if target.instanceVersion != work.targetSnapshot.PlatformInstanceVersion ||
-		target.platformID != work.targetSnapshot.PlatformID ||
-		target.defaultCoreID != work.targetSnapshot.DefaultCoreID {
+	if target.Version != work.targetSnapshot.PlatformInstanceVersion ||
+		target.PlatformID != work.targetSnapshot.PlatformID ||
+		target.DefaultCoreID != work.targetSnapshot.DefaultCoreID {
 		return false
 	}
 	wanted := targetGuard(target)

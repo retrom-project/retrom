@@ -52,12 +52,12 @@ func (service *Service) commitAcceptedParentAttachment(
 	validationID := artifacts.validationID
 	now := artifacts.now
 	diagnosticsJSON, _ := json.Marshal(diagnostics)
-	selectedValidation := selectedParentValidation(validation.validationStatus, validationID)
+	selectedValidation := selectedParentValidation(validation.ValidationStatus, validationID)
 	consumptionID, _ := uuid.NewV7()
 	eventID, _ := uuid.NewV7()
 	evidence := marshalReviewEventV2(map[string]any{
 		"attachmentKind": "ARCADE_PARENT", "machine": candidate.machine,
-		"validationStatus": validation.validationStatus, "state": "ACCEPTED",
+		"validationStatus": validation.ValidationStatus, "state": "ACCEPTED",
 	})
 	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
@@ -134,7 +134,7 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 		jobID, candidate.itemID, now,
 		jobID, candidate.itemID, fmt.Sprintf(`{"sourceSnapshotId":%q}`, newSnapshotID), now,
 		jobID, candidate.itemID,
-		fmt.Sprintf(`{"validationId":%q,"status":%q}`, validationID, validation.validationStatus), now,
+		fmt.Sprintf(`{"validationId":%q,"status":%q}`, validationID, validation.ValidationStatus), now,
 		jobID, candidate.itemID, now); err != nil {
 		return parentStoreError("record accepted job events", err)
 	}
@@ -231,8 +231,8 @@ func insertParentCoreValidation(
 		ProviderID:               target.providerID, TargetID: target.runtimeTargetID,
 		ContentPolicyDigest: target.contentPolicy.DigestFor(target.contentKind),
 		DATVersionID:        stringPointer(candidate.datID),
-		DependencySnapshot:  json.RawMessage(validation.dependencySnapshot),
-		Status:              validation.validationStatus, CompatibilityCode: validation.compatibilityCode,
+		DependencySnapshot:  json.RawMessage(validation.DependencySnapshot),
+		Status:              validation.ValidationStatus, CompatibilityCode: validation.CompatibilityCode,
 	})
 	_, err := recordstore.CreateImportItemCoreValidations(ctx, transaction, `
 INSERT INTO import_item_core_validations(
@@ -244,17 +244,17 @@ INSERT INTO import_item_core_validations(
 ) VALUES(?,?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?)
 `, validationID, candidate.itemID, target.targetID, target.platformVersion, target.coreID,
 		target.providerID, target.runtimeTargetID, candidate.datID,
-		manifestDigest, snapshotID, digest, validation.validationStatus,
-		validation.compatibilityCode, validation.dependencySnapshot, now)
+		manifestDigest, snapshotID, digest, validation.ValidationStatus,
+		validation.CompatibilityCode, validation.DependencySnapshot, now)
 	if err != nil {
 		return parentStoreError("insert source validation", err)
 	}
-	for _, file := range validation.validationFiles {
+	for _, file := range validation.ValidationFiles {
 		_, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_validation_files(
   import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
 ) VALUES(?,?,?,?,?,?)
-`, validationID, file.role, file.logicalName, file.blobID, file.sortOrder, now)
+`, validationID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, now)
 		if err != nil {
 			return parentStoreError("insert validation file", err)
 		}

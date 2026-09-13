@@ -31,7 +31,7 @@ func (service *Service) prepareKiriKiriDirectory(
 ) ([]preparedDisposition, preparedGroup, error) {
 	input := make([]fileset.SourceFile, 0, len(files))
 	for index, file := range files {
-		input = append(input, fileset.SourceFile{Path: file.path, SizeBytes: file.size, SourceIndex: index})
+		input = append(input, fileset.SourceFile{Path: file.Path, SizeBytes: file.Size, SourceIndex: index})
 	}
 	project, err := fileset.NormalizeProjectWithMarkers(input, detector.Markers())
 	if err != nil {
@@ -55,12 +55,12 @@ func (service *Service) prepareKiriKiriDirectory(
 		file, exists := included[sourceIndex]
 		if !exists {
 			dispositions = append(dispositions, preparedDisposition{
-				file: source, disposition: "IGNORED", reason: "IGNORED_SYSTEM_SIDECAR",
+				File: source, Disposition: "IGNORED", Reason: "IGNORED_SYSTEM_SIDECAR",
 			})
 			continue
 		}
 		dispositions = append(dispositions, sourceDisposition(source))
-		sources = append(sources, preparedSource{file: source, role: "PROJECT_FILE", logicalName: file.Path})
+		sources = append(sources, preparedSource{File: source, Role: "PROJECT_FILE", LogicalName: file.Path})
 	}
 	return dispositions, newKiriKiriGroup(sources, profile, rpgMakerDirectoryTitle(files)), nil
 }
@@ -69,7 +69,7 @@ func (service *Service) prepareKiriKiriArchive(
 	ctx context.Context,
 	file importSourceFile,
 ) (preparedDisposition, preparedGroup, preparedArchive, error) {
-	archiveFormat, reason := profileArchiveFormat(file.path)
+	archiveFormat, reason := profileArchiveFormat(file.Path)
 	if reason != "" {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, ErrInvalid
 	}
@@ -112,12 +112,12 @@ func (service *Service) prepareKiriKiriArchive(
 	for _, projectFile := range project.Files {
 		ordinal := projectFile.SourceIndex
 		sources = append(sources, preparedSource{
-			file: file, role: "PROJECT_FILE", logicalName: projectFile.Path,
-			archiveBlobID: file.blobID, archiveOrdinal: &ordinal,
+			File: file, Role: "PROJECT_FILE", LogicalName: projectFile.Path,
+			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
 		})
 	}
-	return sourceDisposition(file), newKiriKiriGroup(sources, profile, file.path), preparedArchive{
-		blobID: file.blobID, entries: entries, materialized: materialized,
+	return sourceDisposition(file), newKiriKiriGroup(sources, profile, file.Path), preparedArchive{
+		BlobID: file.BlobID, Entries: entries, Materialized: materialized,
 	}, nil
 }
 
@@ -125,8 +125,8 @@ func newKiriKiriGroup(sources []preparedSource, profile detector.Profile, titleS
 	sortPreparedSources(sources)
 	profileJSON, _ := detector.MarshalSnapshot(profile)
 	return preparedGroup{
-		sources: sources, contentKind: string(contentprofile.ContentKindKiriKiriProject),
-		validationStatus: "BLOCKED", compatibilityCode: "KIRIKIRI_RUNTIME_TRIAL_REQUIRED",
-		dependencySnapshot: string(profileJSON), titleSource: titleSource, titleSourceExplicit: true,
+		Sources: sources, ContentKind: string(contentprofile.ContentKindKiriKiriProject),
+		ValidationStatus: "BLOCKED", CompatibilityCode: "KIRIKIRI_RUNTIME_TRIAL_REQUIRED",
+		DependencySnapshot: string(profileJSON), TitleSource: titleSource, TitleSourceExplicit: true,
 	}
 }

@@ -187,7 +187,7 @@ func (service *Service) prepareMarkerProjectDirectory(
 	}
 	paths := make(map[int]string, len(project.Files))
 	for _, file := range project.Files {
-		paths[file.SourceIndex] = service.blobs.Path(files[file.SourceIndex].sha256)
+		paths[file.SourceIndex] = service.blobs.Path(files[file.SourceIndex].SHA256)
 	}
 	snapshot, err := definition.detect(project.Files, paths)
 	if err != nil {
@@ -235,8 +235,8 @@ func (service *Service) prepareMarkerProjectArchive(
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
 	sources := archiveProjectSources(file, project.Files)
-	return sourceDisposition(file), markerProjectGroup(sources, snapshot, definition, file.path), preparedArchive{
-		blobID: file.blobID, entries: entries, materialized: materialized,
+	return sourceDisposition(file), markerProjectGroup(sources, snapshot, definition, file.Path), preparedArchive{
+		BlobID: file.BlobID, Entries: entries, Materialized: materialized,
 	}, nil
 }
 
@@ -248,7 +248,7 @@ func (service *Service) resolveMarkerProjectArchiveFormat(
 	if definition.archiveFormat != nil {
 		archiveFormat = definition.archiveFormat
 	}
-	format, reason := archiveFormat(file.path)
+	format, reason := archiveFormat(file.Path)
 	if reason != "" {
 		return "", ErrInvalid
 	}
@@ -256,7 +256,7 @@ func (service *Service) resolveMarkerProjectArchiveFormat(
 		return format, nil
 	}
 	detected, err := importing.DetectElectronASARZIP(
-		service.blobs.Path(file.sha256), importing.RPGMakerArchiveLimits(),
+		service.blobs.Path(file.SHA256), importing.RPGMakerArchiveLimits(),
 	)
 	if err != nil {
 		return "", fmt.Errorf("detect TyranoScript Electron archive: %w", err)
@@ -355,7 +355,7 @@ func tyranoScriptArchiveFormat(filePath string) (contentprofile.ArchiveFormat, s
 func directoryProjectInput(files []importSourceFile) []fileset.SourceFile {
 	input := make([]fileset.SourceFile, 0, len(files))
 	for index, file := range files {
-		input = append(input, fileset.SourceFile{Path: file.path, SizeBytes: file.size, SourceIndex: index})
+		input = append(input, fileset.SourceFile{Path: file.Path, SizeBytes: file.Size, SourceIndex: index})
 	}
 	return input
 }
@@ -374,12 +374,12 @@ func directoryProjectSources(
 		file, exists := included[sourceIndex]
 		if !exists {
 			dispositions = append(dispositions, preparedDisposition{
-				file: source, disposition: "IGNORED", reason: "IGNORED_SYSTEM_SIDECAR",
+				File: source, Disposition: "IGNORED", Reason: "IGNORED_SYSTEM_SIDECAR",
 			})
 			continue
 		}
 		dispositions = append(dispositions, sourceDisposition(source))
-		sources = append(sources, preparedSource{file: source, role: "PROJECT_FILE", logicalName: file.Path})
+		sources = append(sources, preparedSource{File: source, Role: "PROJECT_FILE", LogicalName: file.Path})
 	}
 	return dispositions, sources
 }
@@ -434,8 +434,8 @@ func archiveProjectSources(file importSourceFile, files []fileset.SourceFile) []
 	for _, projectFile := range files {
 		ordinal := projectFile.SourceIndex
 		sources = append(sources, preparedSource{
-			file: file, role: "PROJECT_FILE", logicalName: projectFile.Path,
-			archiveBlobID: file.blobID, archiveOrdinal: &ordinal,
+			File: file, Role: "PROJECT_FILE", LogicalName: projectFile.Path,
+			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
 		})
 	}
 	return sources
@@ -449,8 +449,8 @@ func markerProjectGroup(
 ) preparedGroup {
 	sortPreparedSources(sources)
 	return preparedGroup{
-		sources: sources, contentKind: definition.contentKind,
-		validationStatus: "BLOCKED", compatibilityCode: definition.compatibilityCode,
-		dependencySnapshot: string(snapshot), titleSource: titleSource, titleSourceExplicit: true,
+		Sources: sources, ContentKind: definition.contentKind,
+		ValidationStatus: "BLOCKED", CompatibilityCode: definition.compatibilityCode,
+		DependencySnapshot: string(snapshot), TitleSource: titleSource, TitleSourceExplicit: true,
 	}
 }

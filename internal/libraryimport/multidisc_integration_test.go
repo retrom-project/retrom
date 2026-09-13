@@ -33,6 +33,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
@@ -278,17 +279,13 @@ JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.role,file.sort_order
 `, approved.GameID)
 	testassert.Falsef(t, len(published) != 3, "published content = %v", published)
-	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
-	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now).
-		WithBlobStore(blobs).
-		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
+	launcher := launchcomposition.New(database.SQL,
+		launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder), "", time.Now)
+	t.Cleanup(launcher.Close)
 	createdLaunch, err := launcher.Create(ctx, "multi-disc-profile", launch.CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: launch.Capabilities{

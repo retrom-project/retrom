@@ -22,7 +22,14 @@ func (records sourceOwnership) ReadSource(
 	ctx context.Context,
 	intent application.SourceCreationIntent,
 ) (application.SourceCreationSnapshot, error) {
+	if intent.Kind == application.SourceOwnerEmulationStation {
+		return records.readESSource(ctx, intent)
+	}
+	if intent.Kind != application.SourceOwnerPegasus {
+		return application.SourceCreationSnapshot{}, application.ErrInvalid
+	}
 	var value application.SourceCreationSnapshot
+	value.Kind = intent.Kind
 	err := records.executor.QueryRowContext(ctx, `SELECT source.id,source.import_id,job.id,COALESCE(job.worker_id,''),
 source.execution_state,plan.state,job.state,COALESCE(collection.mapping_action,''),
 source.version,plan.version,job.version,job.execution_no,job.attempt_count,
@@ -67,7 +74,7 @@ WHERE source.id=? AND source.import_id=?`, intent.ItemID, intent.ImportID).Scan(
 	if err != nil {
 		return application.SourceCreationSnapshot{}, fmt.Errorf("read source creation fence: %w", err)
 	}
-	value.Files, err = records.sourceFiles(ctx, intent.ItemID)
+	value.Files, err = records.sourceFiles(ctx, intent.Kind, intent.ItemID)
 	if err != nil {
 		return application.SourceCreationSnapshot{}, err
 	}
@@ -77,9 +84,15 @@ WHERE source.id=? AND source.import_id=?`, intent.ItemID, intent.ImportID).Scan(
 	return value, nil
 }
 
-func (records sourceOwnership) sourcePaths(ctx context.Context, itemID string) ([]string, error) {
+func (records sourceOwnership) sourcePaths(
+	ctx context.Context, kind application.SourceOwnerKind, itemID string,
+) ([]string, error) {
+	table, err := sourceOwnerFilesTable(kind)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT relative_path FROM pegasus_import_item_files WHERE item_id=? ORDER BY ordinal`, itemID)
+SELECT relative_path FROM `+table+` WHERE item_id=? ORDER BY ordinal`, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("query source primary paths: %w", err)
 	}
@@ -103,6 +116,12 @@ SELECT relative_path FROM pegasus_import_item_files WHERE item_id=? ORDER BY ord
 
 func (records sourceOwnership) BindSource(ctx context.Context, change application.SourceBindingChange) error {
 	before := change.Before
+	if before.Kind == application.SourceOwnerEmulationStation {
+		return records.bindESSource(ctx, change)
+	}
+	if before.Kind != application.SourceOwnerPegasus {
+		return application.ErrInvalid
+	}
 	result, err := recordstore.UpdatePegasusImportItems(ctx, records.executor, recordstore.Update{
 		Set: `execution_state='VALIDATING',content_kind=?,source_manifest_json=?,source_manifest_digest=?,
 library_import_job_id=?,library_import_item_id=?,version=version+1,updated_at_ms=?`,
@@ -159,11 +178,15 @@ AND EXISTS(SELECT 1 FROM server_import_upload_owners owner
 }
 
 func (records sourceOwnership) sourceFiles(
-	ctx context.Context, itemID string,
+	ctx context.Context, kind application.SourceOwnerKind, itemID string,
 ) ([]application.SourceCreationFile, error) {
+	table, err := sourceOwnerFilesTable(kind)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT relative_path,COALESCE(blob_id,''),COALESCE(size_bytes,-1),state,
-COALESCE(source_facts_digest,'') FROM pegasus_import_item_files WHERE item_id=? ORDER BY ordinal`, itemID)
+COALESCE(source_facts_digest,'') FROM `+table+` WHERE item_id=? ORDER BY ordinal`, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("query copied source files: %w", err)
 	}

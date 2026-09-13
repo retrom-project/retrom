@@ -139,15 +139,15 @@ func (run *creationRun) initialize() error {
 		),
 	).Catalog(
 		run.ctx,
-		run.plan.target.providerID,
-		run.plan.target.targetID,
+		run.plan.target.ProviderID,
+		run.plan.target.TargetID,
 	)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
 	if err := prepareStaticBIOSDependencies(
-		run.ctx, run.transaction, run.plan.target.providerID, run.plan.target.targetID,
-		run.plan.target.platformID, run.plan.groups,
+		run.ctx, run.transaction, run.plan.target.ProviderID, run.plan.target.TargetID,
+		run.plan.target.PlatformID, run.plan.groups,
 	); err != nil {
 		return fmt.Errorf("prepare import BIOS dependencies: %w", err)
 	}
@@ -192,12 +192,12 @@ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=b
  AND binding_platform.platform_id=pi.platform_id
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 WHERE pi.id=? AND pi.default_core_id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
-`, target.coreID, target.providerID, target.targetID,
-		run.plan.request.TargetPlatformInstanceID, target.defaultCoreID).Scan(
+`, target.CoreID, target.ProviderID, target.TargetID,
+		run.plan.request.TargetPlatformInstanceID, target.DefaultCoreID).Scan(
 		&version, &providerID, &targetID,
 	)
-	if err != nil || version != target.instanceVersion || providerID != target.providerID ||
-		targetID != target.targetID {
+	if err != nil || version != target.Version || providerID != target.ProviderID ||
+		targetID != target.TargetID {
 		return ErrInvalid
 	}
 	return nil
@@ -208,16 +208,16 @@ func (run *creationRun) configSnapshot(biosCatalog []corevalidation.BIOSCatalogE
 	config := map[string]any{
 		"schemaVersion": 2, "contentMode": run.plan.contentMode,
 		"platformInstanceId":      run.plan.request.TargetPlatformInstanceID,
-		"platformInstanceVersion": target.instanceVersion, "platformId": target.platformID,
-		"defaultCoreId": target.defaultCoreID, "resolvedCoreId": target.coreID,
-		"providerId": target.providerID, "targetId": target.targetID,
-		"contentPolicyDigest": target.contentPolicy.Digest(),
+		"platformInstanceVersion": target.Version, "platformId": target.PlatformID,
+		"defaultCoreId": target.DefaultCoreID, "resolvedCoreId": target.CoreID,
+		"providerId": target.ProviderID, "targetId": target.TargetID,
+		"contentPolicyDigest": target.Policy.Digest(),
 		"datVersionId":        nullable(run.plan.datID), "biosRequirements": biosCatalog,
 		"metadataProviderConfigVersion": 1, "tags": run.tagReferences,
 	}
 	if run.plan.contentMode == contentcapability.ModeMultiDisc {
 		capabilities := contentcapability.Resolve(
-			target.platformID, true, run.service.multiDiscImportEnabled, target.contentPolicy,
+			target.PlatformID, true, run.service.multiDiscImportEnabled, target.Policy,
 		)
 		config["multiDisc"] = capabilities.MultiDisc
 	}

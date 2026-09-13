@@ -128,10 +128,10 @@ func TestValidationPolicyDigestIgnoresUnrelatedCapabilities(t *testing.T) {
 
 func TestPreparedGroupContentKind(t *testing.T) {
 	t.Parallel()
-	if got := preparedGroupContentKind(preparedGroup{sources: []preparedSource{{role: "CONTENT"}}}); got != "SINGLE_FILE" {
+	if got := preparedGroupContentKind(preparedGroup{Sources: []preparedSource{{Role: "CONTENT"}}}); got != "SINGLE_FILE" {
 		t.Fatalf("single content kind = %s", got)
 	}
-	if got := preparedGroupContentKind(preparedGroup{sources: []preparedSource{{role: "DOS_SOURCE"}}}); got != "DOS_BUNDLE" {
+	if got := preparedGroupContentKind(preparedGroup{Sources: []preparedSource{{Role: "DOS_SOURCE"}}}); got != "DOS_BUNDLE" {
 		t.Fatalf("DOS content kind = %s", got)
 	}
 }

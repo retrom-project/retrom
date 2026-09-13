@@ -10,22 +10,22 @@ import (
 )
 
 func (run *creationRun) persistGroupValidation(record *groupRecord) error {
-	if err := run.prepareRPGMakerValidationFiles(record); err != nil {
+	if err := run.persistPreparedValidationArtifacts(record); err != nil {
 		return err
 	}
 	if err := run.prepareRPGDependencies(record); err != nil {
 		return err
 	}
-	status := record.group.validationStatus
-	code := record.group.compatibilityCode
-	snapshot := record.group.dependencySnapshot
+	status := record.group.ValidationStatus
+	code := record.group.CompatibilityCode
+	snapshot := record.group.DependencySnapshot
 	if status == "" {
 		status, code, snapshot = "READY", "READY", "{}"
 	}
 	var err error
 	status, code, snapshot, err = resolveInitialArcadeBIOSState(
-		run.ctx, run.transaction, run.plan.target.platformID,
-		run.plan.target.providerID, run.plan.target.targetID,
+		run.ctx, run.transaction, run.plan.target.PlatformID,
+		run.plan.target.ProviderID, run.plan.target.TargetID,
 		record.group, status, code, snapshot,
 	)
 	if err != nil {
@@ -50,10 +50,10 @@ func (run *creationRun) insertCoreValidation(record *groupRecord, dependencySnap
 		SchemaVersion: 1, SourceSnapshotID: record.sourceSnapshotID, SourceManifestDigest: record.manifestDigest,
 		ContentKind:              record.contentKind,
 		TargetPlatformInstanceID: run.plan.request.TargetPlatformInstanceID,
-		ProviderID:               target.providerID, TargetID: target.targetID,
-		ContentPolicyDigest: target.contentPolicy.DigestFor(record.contentKind),
+		ProviderID:               target.ProviderID, TargetID: target.TargetID,
+		ContentPolicyDigest: target.Policy.DigestFor(record.contentKind),
 		DATVersionID:        nullStringPointer(run.plan.datID),
-		DefaultDOSEntry:     stringPointer(record.group.defaultDOSEntry),
+		DefaultDOSEntry:     stringPointer(record.group.DefaultDOSEntry),
 		DependencySnapshot:  json.RawMessage(dependencySnapshot),
 		Status:              record.validationStatus, CompatibilityCode: record.compatibilityCode,
 	})
@@ -65,8 +65,8 @@ INSERT INTO import_item_core_validations(
   status,compatibility_code,dependency_snapshot_json,created_at_ms
 ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `, record.validationID, record.itemID, run.plan.request.TargetPlatformInstanceID,
-		target.instanceVersion, target.coreID, target.providerID, target.targetID,
-		nullable(run.plan.datID), nullableText(record.group.defaultDOSEntry),
+		target.Version, target.CoreID, target.ProviderID, target.TargetID,
+		nullable(run.plan.datID), nullableText(record.group.DefaultDOSEntry),
 		record.manifestDigest, record.sourceSnapshotID, inputDigest, record.validationStatus,
 		record.compatibilityCode, dependencySnapshot, run.now)
 	if err != nil {
@@ -76,12 +76,12 @@ INSERT INTO import_item_core_validations(
 }
 
 func (run *creationRun) insertDOSEntries(record *groupRecord) error {
-	for _, entry := range record.group.dosEntries {
+	for _, entry := range record.group.DOSEntries {
 		_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO import_item_dos_entries(
   import_item_id,normalized_path,original_relative_path,kind,rank,enabled,direct_launch_safe,created_at_ms
 ) VALUES(?,?,?,?,?,1,?,?)
-`, record.itemID, entry.path, entry.path, entry.kind, entry.rank, entry.safe, run.now)
+`, record.itemID, entry.Path, entry.Path, entry.Kind, entry.Rank, entry.Safe, run.now)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}
@@ -90,11 +90,11 @@ INSERT INTO import_item_dos_entries(
 }
 
 func (run *creationRun) insertDOSBundle(record *groupRecord) error {
-	bundleBlobID := record.group.bundleBlobID
-	if record.group.bundle != nil {
+	bundleBlobID := record.group.BundleBlobID
+	if record.group.Bundle != nil {
 		var err error
 		bundleBlobID, err = blobcatalog.EnsureRecord(
-			run.ctx, run.transaction, *record.group.bundle, "application/zip", run.now,
+			run.ctx, run.transaction, *record.group.Bundle, "application/zip", run.now,
 		)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
@@ -115,12 +115,12 @@ INSERT INTO import_item_validation_files(
 }
 
 func (run *creationRun) insertValidationFiles(record *groupRecord) error {
-	for _, file := range record.group.validationFiles {
+	for _, file := range record.group.ValidationFiles {
 		_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO import_item_validation_files(
   import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
 ) VALUES(?,?,?,?,?,?)
-`, record.validationID, file.role, file.logicalName, file.blobID, file.sortOrder, run.now)
+`, record.validationID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, run.now)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}

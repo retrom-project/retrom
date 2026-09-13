@@ -119,9 +119,9 @@ func prepareStaticBIOSDependencies(
 	}
 	for index := range groups {
 		logicalName := ""
-		for _, source := range groups[index].sources {
-			if source.role == "CONTENT" || source.role == "DISC" {
-				logicalName = source.logicalName
+		for _, source := range groups[index].Sources {
+			if source.Role == "CONTENT" || source.Role == "DISC" {
+				logicalName = source.LogicalName
 				break
 			}
 		}
@@ -129,7 +129,7 @@ func prepareStaticBIOSDependencies(
 		// default program is the stable content identity used for conditional
 		// dependency evaluation, just as CONTENT/DISC is for other platforms.
 		if logicalName == "" && platformID == "dos" {
-			logicalName = groups[index].defaultDOSEntry
+			logicalName = groups[index].DefaultDOSEntry
 		}
 		if logicalName == "" {
 			return ErrInvalid
@@ -147,21 +147,21 @@ func prepareStaticBIOSDependencies(
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}
-		snapshot.MultiDisc = groups[index].multiDependency
+		snapshot.MultiDisc = groups[index].MultiDependency
 		snapshotJSON, err := snapshot.JSON()
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}
-		if groups[index].compatibilityCode != "MULTI_DISC_FILE_MISSING" {
-			groups[index].validationStatus = status
-			groups[index].compatibilityCode = code
+		if groups[index].CompatibilityCode != "MULTI_DISC_FILE_MISSING" {
+			groups[index].ValidationStatus = status
+			groups[index].CompatibilityCode = code
 		}
-		groups[index].dependencySnapshot = string(snapshotJSON)
+		groups[index].DependencySnapshot = string(snapshotJSON)
 		for _, dependency := range snapshot.BIOS {
 			if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
-				groups[index].validationFiles = append(groups[index].validationFiles, preparedValidationFile{
-					role: "BIOS_BUNDLE", logicalName: dependency.LogicalName,
-					blobID: *dependency.BlobID, sortOrder: len(groups[index].validationFiles),
+				groups[index].ValidationFiles = append(groups[index].ValidationFiles, preparedValidationFile{
+					Role: "BIOS_BUNDLE", LogicalName: dependency.LogicalName,
+					BlobID: *dependency.BlobID, SortOrder: len(groups[index].ValidationFiles),
 				})
 			}
 		}

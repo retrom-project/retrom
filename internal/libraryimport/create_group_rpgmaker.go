@@ -24,24 +24,24 @@ type rpgRTPRequirementJSON struct {
 }
 
 func (run *creationRun) persistRPGMakerReviewProfile(record *groupRecord) error {
-	profile := record.group.rpgProfile
+	profile := record.group.RPGProfile
 	if profile == nil {
 		return nil
 	}
 	target := run.plan.target
-	if target.coreID != detector.VirtualCoreID || target.providerID == "" || target.targetID == "" {
+	if target.CoreID != detector.VirtualCoreID || target.ProviderID == "" || target.TargetID == "" {
 		return ErrInvalid
 	}
-	summary, err := loadRPGManifestSummary(record.manifestJSON, len(record.group.sources))
+	summary, err := loadRPGManifestSummary(record.manifestJSON, len(record.group.Sources))
 	if err != nil {
 		return ErrInvalid
 	}
 	_, requirementsSHA := rpgRequirements(*profile)
-	analysisJSON, err := rpgAnalysis(*profile, record.group.rpgProjectRoot, record.group.rpgRemovedFiles)
+	analysisJSON, err := rpgAnalysis(*profile, record.group.RPGProjectRoot, record.group.RPGRemovedFiles)
 	if err != nil {
 		return err
 	}
-	dependencyDigest := sha256.Sum256([]byte(record.group.dependencySnapshot))
+	dependencyDigest := sha256.Sum256([]byte(record.group.DependencySnapshot))
 	entryHTML := rpgEntryHTML(profile.ExpectedGeneration)
 	evidenceGeneration := rpgEvidenceGeneration(profile.EvidenceGeneration)
 	_, err = recordstore.CreateRpgmakerReviewProfiles(run.ctx, run.transaction, `
@@ -54,7 +54,7 @@ INSERT INTO rpgmaker_review_profiles(
 `, record.draftID, profile.ExpectedGeneration, profile.EvidenceFamily,
 		evidenceGeneration, profile.EvidenceConfidence, nullableString(profile.EngineVersion), entryHTML,
 		summary.FileCount, summary.TotalBytes, summary.FilesDigest, requirementsSHA, string(analysisJSON),
-		0, target.providerID, target.targetID, hex.EncodeToString(dependencyDigest[:]), run.now, run.now)
+		0, target.ProviderID, target.TargetID, hex.EncodeToString(dependencyDigest[:]), run.now, run.now)
 	if err != nil {
 		return fmt.Errorf("libraryimport/rpgmaker profile: %w", err)
 	}

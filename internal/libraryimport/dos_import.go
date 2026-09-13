@@ -14,9 +14,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
@@ -68,73 +66,21 @@ func newInitialImportProgress(metadataProvider string, itemCount, rejectedFileCo
 	}
 }
 
-type importSourceFile struct {
-	id, path, blobID, sha256 string
-	size                     int64
-}
+type importSourceFile = libraryservice.ImportFile
 
-type preparedDisposition struct {
-	file        importSourceFile
-	disposition string
-	reason      string
-}
+type preparedDisposition = libraryservice.PreparedDisposition
 
-type preparedSource struct {
-	file           importSourceFile
-	role           string
-	logicalName    string
-	archiveBlobID  string
-	archiveOrdinal *int
-	sortOrder      *int
-}
+type preparedSource = libraryservice.PreparedSource
 
-type preparedArchive struct {
-	blobID       string
-	entries      []importing.ArchiveEntry
-	materialized map[int]blobstore.Metadata
-}
+type preparedArchive = libraryservice.PreparedArchive
 
-type preparedGroup struct {
-	sources             []preparedSource
-	dosEntries          []preparedDOSEntry
-	defaultDOSEntry     string
-	bundleBlobID        string
-	bundle              *blobstore.Metadata
-	validationStatus    string
-	compatibilityCode   string
-	dependencySnapshot  string
-	titleSource         string
-	titleSourceExplicit bool
-	validationFiles     []preparedValidationFile
-	contentKind         string
-	groupKey            string
-	multiEntries        []preparedMultiDiscEntry
-	multiDependency     *corevalidation.MultiDiscSnapshot
-	canonicalPlaylist   *blobstore.Metadata
-	rpgProfile          *detector.Profile
-	rpgProjectRoot      string
-	rpgRemovedFiles     []string
-}
+type preparedGroup = libraryservice.PreparedGroup
 
-type preparedMultiDiscEntry struct {
-	ordinal                                             int
-	state                                               string
-	sourceReference, normalizedReference, canonicalName string
-	uploadFileID, blobID, sourceLogicalName             string
-}
+type preparedMultiDiscEntry = libraryservice.PreparedMultiDiscEntry
 
-type preparedValidationFile struct {
-	role, logicalName, blobID string
-	sortOrder                 int
-}
+type preparedValidationFile = libraryservice.PreparedValidationFile
 
-type preparedDOSEntry struct {
-	path, kind             string
-	rank                   int
-	safe                   bool
-	batchContents          []byte
-	inferredTerminalTarget bool
-}
+type preparedDOSEntry = libraryservice.PreparedDOSEntry
 
 const maxDOSBatchInspectionBytes = 64 << 10
 
@@ -144,10 +90,7 @@ type reconfigurationInput struct {
 	sourceFileIDs     []string
 }
 
-type reusableUploadFile struct {
-	id, path, blobID string
-	size             int64
-}
+type reusableUploadFile = libraryservice.PreparedReusableUploadFile
 
 func knownSidecar(path string) bool {
 	base := filepath.Base(path)
@@ -255,12 +198,12 @@ func rankDOSEntries(entries []preparedDOSEntry) {
 		return leftPath < rightPath
 	})
 	for index := range entries {
-		entries[index].rank = index
+		entries[index].Rank = index
 	}
 }
 
 func dosEntryPriority(entry preparedDOSEntry) (int, int, int, string) {
-	base := strings.TrimSuffix(strings.ToLower(filepath.Base(entry.path)), strings.ToLower(filepath.Ext(entry.path)))
+	base := strings.TrimSuffix(strings.ToLower(filepath.Base(entry.Path)), strings.ToLower(filepath.Ext(entry.Path)))
 	name := strings.Map(func(character rune) rune {
 		if character >= 'a' && character <= 'z' || character >= '0' && character <= '9' {
 			return character
@@ -269,15 +212,15 @@ func dosEntryPriority(entry preparedDOSEntry) (int, int, int, string) {
 	}, base)
 	category := 1
 	switch {
-	case entry.inferredTerminalTarget:
+	case entry.InferredTerminalTarget:
 		category = -1
 	case preferredDOSProgramName(name):
 		category = 0
 	case helperDOSProgramName(name):
 		category = 2
 	}
-	extension := map[string]int{"EXE": 0, "COM": 1, "BAT": 2}[entry.kind]
-	return category, extension, strings.Count(entry.path, "/"), strings.ToLower(entry.path)
+	extension := map[string]int{"EXE": 0, "COM": 1, "BAT": 2}[entry.Kind]
+	return category, extension, strings.Count(entry.Path, "/"), strings.ToLower(entry.Path)
 }
 
 func preferredDOSProgramName(name string) bool {
@@ -306,36 +249,36 @@ func helperDOSProgramName(name string) bool {
 func inferDOSBatchTerminalTargets(entries []preparedDOSEntry) {
 	byPath := make(map[string]int, len(entries))
 	for index := range entries {
-		entries[index].inferredTerminalTarget = false
-		byPath[strings.ToLower(entries[index].path)] = index
+		entries[index].InferredTerminalTarget = false
+		byPath[strings.ToLower(entries[index].Path)] = index
 	}
 	for index := range entries {
 		launcher := entries[index]
-		if launcher.kind != "BAT" || len(launcher.batchContents) == 0 {
+		if launcher.Kind != "BAT" || len(launcher.BatchContents) == 0 {
 			continue
 		}
-		launcherName := normalizedDOSProgramName(launcher.path)
+		launcherName := normalizedDOSProgramName(launcher.Path)
 		if !preferredDOSProgramName(launcherName) {
 			continue
 		}
-		invocations := resolveDOSBatchInvocations(launcher.path, launcher.batchContents, entries, byPath)
+		invocations := resolveDOSBatchInvocations(launcher.Path, launcher.BatchContents, entries, byPath)
 		if len(invocations) < 2 {
 			continue
 		}
 		terminal := invocations[len(invocations)-1]
-		terminalName := normalizedDOSProgramName(entries[terminal].path)
-		if terminal == index || entries[terminal].kind == "BAT" || helperDOSProgramName(terminalName) {
+		terminalName := normalizedDOSProgramName(entries[terminal].Path)
+		if terminal == index || entries[terminal].Kind == "BAT" || helperDOSProgramName(terminalName) {
 			continue
 		}
 		interactiveHelper := false
 		for _, invoked := range invocations[:len(invocations)-1] {
-			if helperDOSProgramName(normalizedDOSProgramName(entries[invoked].path)) {
+			if helperDOSProgramName(normalizedDOSProgramName(entries[invoked].Path)) {
 				interactiveHelper = true
 				break
 			}
 		}
 		if interactiveHelper {
-			entries[terminal].inferredTerminalTarget = true
+			entries[terminal].InferredTerminalTarget = true
 		}
 	}
 }
@@ -505,10 +448,10 @@ func dosDirectoryTitle(files []importSourceFile) string {
 	if len(files) == 0 {
 		return ""
 	}
-	first := strings.Split(files[0].path, "/")
+	first := strings.Split(files[0].Path, "/")
 	commonLength := len(first) - 1
 	for _, file := range files[1:] {
-		segments := strings.Split(file.path, "/")
+		segments := strings.Split(file.Path, "/")
 		limit := min(commonLength, len(segments)-1)
 		commonLength = 0
 		for commonLength < limit && first[commonLength] == segments[commonLength] {
@@ -518,7 +461,7 @@ func dosDirectoryTitle(files []importSourceFile) string {
 	if commonLength > 0 {
 		return first[commonLength-1]
 	}
-	return strings.TrimSuffix(filepath.Base(files[0].path), filepath.Ext(files[0].path))
+	return strings.TrimSuffix(filepath.Base(files[0].Path), filepath.Ext(files[0].Path))
 }
 
 func (service *Service) bundleDOSDirectory(files []importSourceFile) (blobstore.Metadata, error) {
@@ -528,7 +471,7 @@ func (service *Service) bundleDOSDirectory(files []importSourceFile) (blobstore.
 		archive := zip.NewWriter(writer)
 		var buildErr error
 		for _, file := range files {
-			header := &zip.FileHeader{Name: file.path, Method: zip.Store}
+			header := &zip.FileHeader{Name: file.Path, Method: zip.Store}
 			header.SetMode(0o644)
 			header.Modified = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
 			destination, err := archive.CreateHeader(header)
@@ -536,7 +479,7 @@ func (service *Service) bundleDOSDirectory(files []importSourceFile) (blobstore.
 				buildErr = err
 				break
 			}
-			source, err := service.blobs.OpenDigest(file.sha256)
+			source, err := service.blobs.OpenDigest(file.SHA256)
 			if err != nil {
 				buildErr = err
 				break
@@ -583,7 +526,7 @@ func partitionDOSFiles(files []importSourceFile) ([]preparedDisposition, []impor
 	dispositions := make([]preparedDisposition, 0, len(files))
 	candidates := make([]importSourceFile, 0, len(files))
 	for _, file := range files {
-		if knownSidecar(file.path) {
+		if knownSidecar(file.Path) {
 			dispositions = append(dispositions, ignoredDisposition(file))
 		} else {
 			candidates = append(candidates, file)
@@ -597,12 +540,12 @@ func (service *Service) prepareDOSArchive(
 	dispositions []preparedDisposition,
 	candidates []importSourceFile,
 ) ([]preparedDisposition, []preparedGroup, []preparedArchive) {
-	if len(candidates) != 1 || !strings.EqualFold(filepath.Ext(candidates[0].path), ".zip") ||
+	if len(candidates) != 1 || !strings.EqualFold(filepath.Ext(candidates[0].Path), ".zip") ||
 		service.blobs == nil {
 		return appendRejectedDOSFiles(dispositions, candidates, "AMBIGUOUS_DOS_BUNDLE"), nil, nil
 	}
 	file := candidates[0]
-	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.sha256), importing.DOSArchiveLimits())
+	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.SHA256), importing.DOSArchiveLimits())
 	if err != nil {
 		return append(dispositions, rejectedDisposition(file, archiveReason(err))), nil, nil
 	}
@@ -616,10 +559,10 @@ func (service *Service) prepareDOSArchive(
 	rankDOSEntries(programs)
 	dispositions = append(dispositions, sourceDisposition(file))
 	group := preparedGroup{
-		sources: sources, dosEntries: programs, defaultDOSEntry: programs[0].path,
-		bundleBlobID: file.blobID, titleSource: filepath.Base(file.path),
+		Sources: sources, DOSEntries: programs, DefaultDOSEntry: programs[0].Path,
+		BundleBlobID: file.BlobID, TitleSource: filepath.Base(file.Path),
 	}
-	archive := preparedArchive{blobID: file.blobID, entries: entries, materialized: materialized}
+	archive := preparedArchive{BlobID: file.BlobID, Entries: entries, Materialized: materialized}
 	return dispositions, []preparedGroup{group}, []preparedArchive{archive}
 }
 
@@ -643,15 +586,15 @@ func (service *Service) materializeDOSArchive(
 	sources := make([]preparedSource, 0, len(entries))
 	materialized := make(map[int]blobstore.Metadata, len(entries))
 	for _, entry := range entries {
-		metadata, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.sha256), entry)
+		metadata, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.SHA256), entry)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		ordinal := entry.Ordinal
 		materialized[ordinal] = metadata
 		sources = append(sources, preparedSource{
-			file: file, role: "DOS_SOURCE", logicalName: entry.NormalizedPath,
-			archiveBlobID: file.blobID, archiveOrdinal: &ordinal,
+			File: file, Role: "DOS_SOURCE", LogicalName: entry.NormalizedPath,
+			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
 		})
 		if program, ok := service.preparedDOSProgram(entry.NormalizedPath, metadata.SHA256, len(programs)); ok {
 			programs = append(programs, program)
@@ -670,8 +613,8 @@ func (service *Service) preparedDOSProgram(filePath, digest string, rank int) (p
 		batchContents = service.inspectDOSBatch(digest)
 	}
 	return preparedDOSEntry{
-		path: filePath, kind: kind, rank: rank, safe: directDOSPathSafe(filePath),
-		batchContents: batchContents,
+		Path: filePath, Kind: kind, Rank: rank, Safe: directDOSPathSafe(filePath),
+		BatchContents: batchContents,
 	}, true
 }
 
@@ -695,8 +638,8 @@ func (service *Service) prepareDOSDirectory(
 		return rejectSourceDispositions(dispositions, "DOS_BUNDLE_FAILED"), nil, nil
 	}
 	group := preparedGroup{
-		sources: sources, dosEntries: programs, defaultDOSEntry: programs[0].path,
-		bundle: &bundle, titleSource: dosDirectoryTitle(candidates),
+		Sources: sources, DOSEntries: programs, DefaultDOSEntry: programs[0].Path,
+		Bundle: &bundle, TitleSource: dosDirectoryTitle(candidates),
 	}
 	return dispositions, []preparedGroup{group}, nil
 }
@@ -707,8 +650,8 @@ func (service *Service) collectDOSDirectoryFiles(
 	programs := make([]preparedDOSEntry, 0)
 	sources := make([]preparedSource, 0, len(candidates))
 	for _, file := range candidates {
-		sources = append(sources, preparedSource{file: file, role: "DOS_SOURCE", logicalName: file.path})
-		if program, ok := service.preparedDOSProgram(file.path, file.sha256, len(programs)); ok {
+		sources = append(sources, preparedSource{File: file, Role: "DOS_SOURCE", LogicalName: file.Path})
+		if program, ok := service.preparedDOSProgram(file.Path, file.SHA256, len(programs)); ok {
 			programs = append(programs, program)
 		}
 	}
@@ -717,9 +660,9 @@ func (service *Service) collectDOSDirectoryFiles(
 
 func rejectSourceDispositions(dispositions []preparedDisposition, reason string) []preparedDisposition {
 	for index := range dispositions {
-		if dispositions[index].disposition == "SOURCE" {
-			dispositions[index].disposition = "REJECTED"
-			dispositions[index].reason = reason
+		if dispositions[index].Disposition == "SOURCE" {
+			dispositions[index].Disposition = "REJECTED"
+			dispositions[index].Reason = reason
 		}
 	}
 	return dispositions

@@ -127,7 +127,7 @@ func (service *Service) prepareParentCommit(
 	preparedFiles := make([]importSourceFile, 0, len(files))
 	for _, file := range files {
 		preparedFiles = append(preparedFiles, importSourceFile{
-			id: file.uploadFileID, path: file.logicalName, blobID: file.blobID, sha256: file.blobSHA,
+			ID: file.uploadFileID, Path: file.logicalName, BlobID: file.blobID, SHA256: file.blobSHA,
 		})
 	}
 	_, groups, _ := service.prepareArcadeFiles(
@@ -150,8 +150,8 @@ func (service *Service) prepareParentCommit(
 
 func selectParentGroup(groups []preparedGroup, rootMachine string) *preparedGroup {
 	for index := range groups {
-		for _, source := range groups[index].sources {
-			if source.role == "CONTENT" && source.logicalName == rootMachine+".zip" {
+		for _, source := range groups[index].Sources {
+			if source.Role == "CONTENT" && source.LogicalName == rootMachine+".zip" {
 				return &groups[index]
 			}
 		}

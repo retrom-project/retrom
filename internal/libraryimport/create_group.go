@@ -43,17 +43,17 @@ func (run *creationRun) persistGroup(group *preparedGroup) error {
 }
 
 func (run *creationRun) prepareCanonicalPlaylist(record *groupRecord) error {
-	if record.group.canonicalPlaylist == nil {
+	if record.group.CanonicalPlaylist == nil {
 		return nil
 	}
 	blobID, err := blobcatalog.EnsureRecord(
-		run.ctx, run.transaction, *record.group.canonicalPlaylist, "application/vnd.retrom.m3u", run.now,
+		run.ctx, run.transaction, *record.group.CanonicalPlaylist, "application/vnd.retrom.m3u", run.now,
 	)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
-	record.group.validationFiles = append(record.group.validationFiles, preparedValidationFile{
-		role: "MULTI_DISC_PLAYLIST", logicalName: "playlist.m3u", blobID: blobID, sortOrder: 0,
+	record.group.ValidationFiles = append(record.group.ValidationFiles, preparedValidationFile{
+		Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", BlobID: blobID, SortOrder: 0,
 	})
 	return nil
 }
@@ -72,7 +72,7 @@ func (run *creationRun) discardDuplicateGroup(record *groupRecord) (bool, error)
 	if identityDigest == "" {
 		return false, nil
 	}
-	games, err := findDuplicateGames(run.ctx, run.transaction, record.itemID, run.plan.target.platformID)
+	games, err := findDuplicateGames(run.ctx, run.transaction, record.itemID, run.plan.target.PlatformID)
 	if err != nil {
 		return false, err
 	}
@@ -80,7 +80,7 @@ func (run *creationRun) discardDuplicateGroup(record *groupRecord) (bool, error)
 		return false, nil
 	}
 	if err := claimContentIdentity(
-		run.ctx, run.transaction, run.plan.target.platformID, identityDigest, run.now,
+		run.ctx, run.transaction, run.plan.target.PlatformID, identityDigest, run.now,
 	); err != nil {
 		return false, err
 	}

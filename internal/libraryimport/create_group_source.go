@@ -35,7 +35,7 @@ func (run *creationRun) newGroupRecord(group *preparedGroup) (*groupRecord, erro
 	validationID, _ := uuid.NewV7()
 	draftID, _ := uuid.NewV7()
 	contentKind := preparedGroupContentKind(*group)
-	manifestFiles, err := run.buildManifestFiles(group.sources)
+	manifestFiles, err := run.buildManifestFiles(group.Sources)
 	if err != nil {
 		return nil, err
 	}
@@ -68,18 +68,18 @@ func (run *creationRun) buildManifestFiles(sources []preparedSource) ([]contentm
 			archiveSHA = &archiveSHAValue
 		}
 		files = append(files, contentmanifest.File{
-			Role: source.role, LogicalName: source.logicalName, BlobSHA256: blobSHA, SizeBytes: blobSize,
-			SourceArchiveSHA256: archiveSHA, SourceArchiveEntryOrdinal: source.archiveOrdinal,
+			Role: source.Role, LogicalName: source.LogicalName, BlobSHA256: blobSHA, SizeBytes: blobSize,
+			SourceArchiveSHA256: archiveSHA, SourceArchiveEntryOrdinal: source.ArchiveOrdinal,
 		})
 	}
 	return files, nil
 }
 
 func (run *creationRun) sourceBlobID(source preparedSource) string {
-	if source.archiveOrdinal == nil {
-		return source.file.blobID
+	if source.ArchiveOrdinal == nil {
+		return source.File.BlobID
 	}
-	return run.materialized[fmt.Sprintf("%s:%d", source.archiveBlobID, *source.archiveOrdinal)]
+	return run.materialized[fmt.Sprintf("%s:%d", source.ArchiveBlobID, *source.ArchiveOrdinal)]
 }
 
 func (run *creationRun) blobIdentity(blobID string) (string, int64, error) {
@@ -95,13 +95,13 @@ SELECT sha256,size_bytes FROM blobs WHERE id=?
 }
 
 func (run *creationRun) sourceArchiveSHA(source preparedSource) (string, bool, error) {
-	if source.archiveOrdinal == nil {
+	if source.ArchiveOrdinal == nil {
 		return "", false, nil
 	}
 	var value string
 	err := run.transaction.QueryRowContext(run.ctx, `
 SELECT sha256 FROM blobs WHERE id=?
-`, source.archiveBlobID).Scan(&value)
+`, source.ArchiveBlobID).Scan(&value)
 	if err != nil {
 		return "", false, fmt.Errorf("libraryimport/service: %w", err)
 	}
@@ -109,9 +109,9 @@ SELECT sha256 FROM blobs WHERE id=?
 }
 
 func (run *creationRun) persistGroupSource(record *groupRecord) error {
-	groupKey, searchText := groupIdentity(record.group.sources)
-	if record.group.groupKey != "" {
-		groupKey = record.group.groupKey
+	groupKey, searchText := groupIdentity(record.group.Sources)
+	if record.group.GroupKey != "" {
+		groupKey = record.group.GroupKey
 	}
 	record.searchParts = searchText
 	_, err := run.transaction.ExecContext(run.ctx, `
@@ -136,11 +136,11 @@ func groupIdentity(sources []preparedSource) (string, []string) {
 	searchParts := make([]string, 0, len(sources))
 	for _, source := range sources {
 		identity = append(identity, map[string]any{
-			"relativePath": source.file.path, "sourceSha256": source.file.sha256,
-			"role": source.role, "logicalName": source.logicalName,
-			"archiveOrdinal": nullableIntPointer(source.archiveOrdinal),
+			"relativePath": source.File.Path, "sourceSha256": source.File.SHA256,
+			"role": source.Role, "logicalName": source.LogicalName,
+			"archiveOrdinal": nullableIntPointer(source.ArchiveOrdinal),
 		})
-		searchParts = append(searchParts, source.file.path)
+		searchParts = append(searchParts, source.File.Path)
 	}
 	input, _ := json.Marshal(identity)
 	digest := sha256.Sum256(input)
@@ -148,22 +148,22 @@ func groupIdentity(sources []preparedSource) (string, []string) {
 }
 
 func (run *creationRun) persistGroupSourceFiles(record *groupRecord) error {
-	for index, source := range record.group.sources {
+	for index, source := range record.group.Sources {
 		sortOrder := index
-		if source.sortOrder != nil {
-			sortOrder = *source.sortOrder
+		if source.SortOrder != nil {
+			sortOrder = *source.SortOrder
 		}
 		_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO import_item_source_files(
   import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,
   source_archive_entry_ordinal,sort_order,created_at_ms
 ) VALUES(?,?,?,?,?,?,?,?,?)
-`, record.itemID, source.role, source.logicalName, source.file.id, run.sourceBlobID(source),
-			nullableText(source.archiveBlobID), nullableIntPointer(source.archiveOrdinal), sortOrder, run.now)
+`, record.itemID, source.Role, source.LogicalName, source.File.ID, run.sourceBlobID(source),
+			nullableText(source.ArchiveBlobID), nullableIntPointer(source.ArchiveOrdinal), sortOrder, run.now)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}
-		record.uploadFileIDs[source.file.id] = struct{}{}
+		record.uploadFileIDs[source.File.ID] = struct{}{}
 	}
 	return nil
 }
@@ -194,15 +194,15 @@ FROM import_item_source_files WHERE import_item_id=?
 }
 
 func (run *creationRun) persistMultiDiscEntries(record *groupRecord) error {
-	for _, entry := range record.group.multiEntries {
+	for _, entry := range record.group.MultiEntries {
 		_, err := recordstore.CreateImportItemMultidiscEntries(run.ctx, run.transaction, `
 INSERT INTO import_item_multidisc_entries(
   source_snapshot_id,ordinal,source_reference,normalized_reference,canonical_name,state,
   upload_file_id,blob_id,source_logical_name,created_at_ms
 ) VALUES(?,?,?,?,?,?,?,?,?,?)
-`, record.sourceSnapshotID, entry.ordinal, entry.sourceReference, entry.normalizedReference,
-			entry.canonicalName, entry.state, nullableText(entry.uploadFileID), nullableText(entry.blobID),
-			nullableText(entry.sourceLogicalName), run.now)
+`, record.sourceSnapshotID, entry.Ordinal, entry.SourceReference, entry.NormalizedReference,
+			entry.CanonicalName, entry.State, nullableText(entry.UploadFileID), nullableText(entry.BlobID),
+			nullableText(entry.SourceLogicalName), run.now)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}

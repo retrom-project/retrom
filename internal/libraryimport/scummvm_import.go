@@ -44,7 +44,7 @@ func (service *Service) prepareScummVMDirectory(
 	for _, file := range project.Files {
 		source := files[file.SourceIndex]
 		metadata[file.SourceIndex] = blobstore.Metadata{
-			Path: service.blobs.Path(source.sha256), SHA256: source.sha256, Size: source.size,
+			Path: service.blobs.Path(source.SHA256), SHA256: source.SHA256, Size: source.Size,
 		}
 	}
 	snapshot, err := service.detectScummVMTree(ctx, project.Files, metadata, nil)
@@ -60,7 +60,7 @@ func (service *Service) prepareScummVMArchive(
 	ctx context.Context,
 	file importSourceFile,
 ) (preparedDisposition, preparedGroup, preparedArchive, error) {
-	format, reason := profileArchiveFormat(file.path)
+	format, reason := profileArchiveFormat(file.Path)
 	if reason != "" || format != contentprofile.ArchiveZIP && format != contentprofile.ArchiveSevenZip {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, ErrInvalid
 	}
@@ -94,8 +94,8 @@ func (service *Service) prepareScummVMArchive(
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
-	group, err := newScummVMGroup(archiveProjectSources(file, project.Files), snapshot, file.path)
-	archive := preparedArchive{blobID: file.blobID, entries: entries, materialized: materialized}
+	group, err := newScummVMGroup(archiveProjectSources(file, project.Files), snapshot, file.Path)
+	archive := preparedArchive{BlobID: file.BlobID, Entries: entries, Materialized: materialized}
 	return sourceDisposition(file), group, archive, err
 }
 
@@ -107,7 +107,7 @@ func newScummVMGroup(sources []preparedSource, snapshot scummvm.Snapshot, title 
 	status, code := snapshot.Status()
 	sortPreparedSources(sources)
 	return preparedGroup{
-		sources: sources, contentKind: scummvm.ContentKind, validationStatus: status,
-		compatibilityCode: code, dependencySnapshot: string(encoded), titleSource: title, titleSourceExplicit: true,
+		Sources: sources, ContentKind: scummvm.ContentKind, ValidationStatus: status,
+		CompatibilityCode: code, DependencySnapshot: string(encoded), TitleSource: title, TitleSourceExplicit: true,
 	}, nil
 }

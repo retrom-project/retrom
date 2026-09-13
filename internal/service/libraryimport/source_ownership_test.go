@@ -23,8 +23,8 @@ func (records *sourceRecordsStub) BindSource(_ context.Context, change SourceBin
 }
 
 func sourceOwnershipFixture() (SourceCreationIntent, SourceCreationSnapshot) {
-	intent := SourceCreationIntent{ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{"games/main.gba"}}
-	snapshot := SourceCreationSnapshot{ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, SourceVersion: 2, ImportVersion: 3, JobVersion: 4, SourceState: "COPYING", ImportState: "RUNNING", JobState: "RUNNING", LeaseUntilMS: 100, DeadlineMS: 200, TargetPlatformInstanceID: "target", TargetVersion: 1, MappingAction: "IMPORT", PrimaryPaths: []string{"games/main.gba"}}
+	intent := SourceCreationIntent{Kind: SourceOwnerPegasus, ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{"games/main.gba"}}
+	snapshot := SourceCreationSnapshot{Kind: SourceOwnerPegasus, ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, SourceVersion: 2, ImportVersion: 3, JobVersion: 4, SourceState: "COPYING", ImportState: "RUNNING", JobState: "RUNNING", LeaseUntilMS: 100, DeadlineMS: 200, TargetPlatformInstanceID: "target", TargetVersion: 1, MappingAction: "IMPORT", PrimaryPaths: []string{"games/main.gba"}}
 	return intent, snapshot
 }
 

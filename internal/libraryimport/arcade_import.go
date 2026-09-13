@@ -239,17 +239,17 @@ func (service *Service) prepareArcadeArchive(
 	datID sql.NullString,
 ) (arcadePreparedArchive, *preparedArchive) {
 	candidate := arcadePreparedArchive{
-		file: file, machine: strings.TrimSuffix(filepath.Base(file.path), filepath.Ext(file.path)),
+		file: file, machine: strings.TrimSuffix(filepath.Base(file.Path), filepath.Ext(file.Path)),
 	}
-	if knownSidecar(file.path) {
+	if knownSidecar(file.Path) {
 		candidate.reason = "IGNORED_SYSTEM_SIDECAR"
 		return candidate, nil
 	}
-	if !strings.EqualFold(filepath.Ext(file.path), ".zip") || service.blobs == nil {
+	if !strings.EqualFold(filepath.Ext(file.Path), ".zip") || service.blobs == nil {
 		candidate.reason = "UNSUPPORTED_CONTENT_FORMAT"
 		return candidate, nil
 	}
-	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.sha256), importing.DefaultArchiveLimits())
+	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.SHA256), importing.DefaultArchiveLimits())
 	if err != nil {
 		candidate.reason = archiveReason(err)
 		return candidate, nil
@@ -259,7 +259,7 @@ func (service *Service) prepareArcadeArchive(
 	for _, entry := range entries {
 		candidate.entryByName[entry.NormalizedPath] = entry
 	}
-	archive := &preparedArchive{blobID: file.blobID, entries: entries}
+	archive := &preparedArchive{BlobID: file.BlobID, Entries: entries}
 	if !datID.Valid {
 		candidate.reason = "ARCADE_DAT_UNAVAILABLE"
 		return candidate, archive
@@ -358,7 +358,7 @@ func newArcadeGroupBuilder(
 		missing: make([]string, 0), mismatched: make([]string, 0), warnings: make([]string, 0),
 		dependencies: make([]map[string]any, 0), validationFiles: make([]preparedValidationFile, 0),
 		sources: []preparedSource{{
-			file: primary.file, role: "CONTENT", logicalName: primary.machine + ".zip",
+			File: primary.file, Role: "CONTENT", LogicalName: primary.machine + ".zip",
 		}},
 	}
 }
@@ -510,13 +510,13 @@ func (builder *arcadeGroupBuilder) recordExternalDependency(
 		builder.warnings = append(builder.warnings, mismatched...)
 	}
 	builder.warnings = append(builder.warnings, warnings...)
-	builder.referenced[companion.file.id] = struct{}{}
+	builder.referenced[companion.file.ID] = struct{}{}
 	builder.sources = append(builder.sources, preparedSource{
-		file: companion.file, role: "COMPANION", logicalName: name + ".zip",
+		File: companion.file, Role: "COMPANION", LogicalName: name + ".zip",
 	})
 	builder.validationFiles = append(builder.validationFiles, preparedValidationFile{
-		role: role, logicalName: name + ".zip", blobID: companion.file.blobID,
-		sortOrder: len(builder.validationFiles),
+		Role: role, LogicalName: name + ".zip", BlobID: companion.file.BlobID,
+		SortOrder: len(builder.validationFiles),
 	})
 	builder.appendDependency(node, name, kind, state, requiredEntries)
 }
@@ -546,8 +546,8 @@ func (builder *arcadeGroupBuilder) result() preparedGroup {
 		"warnings": builder.warnings,
 	})
 	return preparedGroup{
-		sources: builder.sources, validationStatus: builder.status, compatibilityCode: builder.code,
-		dependencySnapshot: string(snapshot), validationFiles: builder.validationFiles,
+		Sources: builder.sources, ValidationStatus: builder.status, CompatibilityCode: builder.code,
+		DependencySnapshot: string(snapshot), ValidationFiles: builder.validationFiles,
 	}
 }
 
@@ -584,7 +584,7 @@ func arcadeDispositions(
 		case candidate.classification == "NORMAL":
 			result = append(result, sourceDisposition(candidate.file))
 		default:
-			_, used := referenced[candidate.file.id]
+			_, used := referenced[candidate.file.ID]
 			if used {
 				result = append(result, sourceDisposition(candidate.file))
 			} else {

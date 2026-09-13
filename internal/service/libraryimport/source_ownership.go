@@ -18,7 +18,8 @@ func (service *SourceOwnership) Prepare(
 	intent SourceCreationIntent,
 	target string,
 ) (SourceCreationSnapshot, error) {
-	if intent.ImportID == "" || intent.ItemID == "" || intent.JobID == "" || intent.WorkerID == "" ||
+	if !intent.Kind.Valid() || intent.ImportID == "" || intent.ItemID == "" ||
+		intent.JobID == "" || intent.WorkerID == "" ||
 		intent.ExecutionNo < 1 || intent.Attempt < 1 || len(intent.PrimaryPaths) == 0 || target == "" {
 		return SourceCreationSnapshot{}, ErrInvalid
 	}
@@ -34,12 +35,11 @@ func (service *SourceOwnership) Prepare(
 }
 
 func validSourceExecution(current SourceCreationSnapshot, intent SourceCreationIntent, now int64) bool {
-	return current.ImportID == intent.ImportID && current.ItemID == intent.ItemID && current.JobID == intent.JobID &&
-		current.WorkerID == intent.WorkerID && current.ExecutionNo == intent.ExecutionNo &&
-		current.Attempt == intent.Attempt &&
+	return sameSourceExecution(current, intent) &&
 		current.ImportState == "RUNNING" && current.JobState == "RUNNING" && current.SourceState == "COPYING" &&
 		current.MappingAction == "IMPORT" && current.LeaseUntilMS > now && current.DeadlineMS > now &&
-		validSourceVersions(current) && current.LibraryJobID == "" && current.LibraryItemID == ""
+		validSourceVersions(current) && validSourceFrozen(current) &&
+		current.LibraryJobID == "" && current.LibraryItemID == ""
 }
 
 func validSourceVersions(current SourceCreationSnapshot) bool {
@@ -59,7 +59,7 @@ func (service *SourceOwnership) Revalidate(
 	if err != nil {
 		return SourceCreationSnapshot{}, err
 	}
-	if !slices.Equal(current.Files, before.Files) {
+	if current.Frozen != before.Frozen || !slices.Equal(current.Files, before.Files) {
 		return SourceCreationSnapshot{}, ErrVersionConflict
 	}
 	if current.SourceVersion != before.SourceVersion || current.TargetVersion != before.TargetVersion ||
@@ -133,4 +133,10 @@ func ValidateOwnedSourceFiles(snapshot SourceCreationSnapshot, inputs []ServerSo
 		}
 	}
 	return nil
+}
+
+func sameSourceExecution(current SourceCreationSnapshot, intent SourceCreationIntent) bool {
+	return current.Kind == intent.Kind && current.ImportID == intent.ImportID && current.ItemID == intent.ItemID &&
+		current.JobID == intent.JobID && current.WorkerID == intent.WorkerID && current.ExecutionNo == intent.ExecutionNo &&
+		current.Attempt == intent.Attempt
 }

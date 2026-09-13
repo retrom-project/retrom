@@ -20,8 +20,8 @@ func TestRPGMakerStandardArchiveAdmissionCanonicalizesToProjectDetection(t *test
 				contentcapability.ModeStandard,
 				"GENERAL",
 				"FILES",
-				[]importSourceFile{{path: logicalName}},
-				creationTarget{platformID: "rpgmaker"},
+				[]importSourceFile{{Path: logicalName}},
+				creationTarget{PlatformID: "rpgmaker"},
 			)
 			if err != nil || mode != contentcapability.ModeRPGMakerProject ||
 				request.ContentMode != contentcapability.ModeRPGMakerProject || request.MetadataProvider != "NONE" {
@@ -38,8 +38,8 @@ func TestRPGMakerStandardFileAdmissionRejectsNonProjectShapes(t *testing.T) {
 		sourceType string
 		files      []importSourceFile
 	}{
-		{name: "multiple archives", sourceType: "FILES", files: []importSourceFile{{path: "one.zip"}, {path: "two.zip"}}},
-		{name: "unsupported extension", sourceType: "FILES", files: []importSourceFile{{path: "game.exe"}}},
+		{name: "multiple archives", sourceType: "FILES", files: []importSourceFile{{Path: "one.zip"}, {Path: "two.zip"}}},
+		{name: "unsupported extension", sourceType: "FILES", files: []importSourceFile{{Path: "game.exe"}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -49,7 +49,7 @@ func TestRPGMakerStandardFileAdmissionRejectsNonProjectShapes(t *testing.T) {
 				"GENERAL",
 				test.sourceType,
 				test.files,
-				creationTarget{platformID: "rpgmaker"},
+				creationTarget{PlatformID: "rpgmaker"},
 			)
 			if !errors.Is(err, ErrInvalid) {
 				t.Fatalf("normalizeTargetCreateRequest() error = %v, want ErrInvalid", err)
@@ -66,8 +66,8 @@ func TestStandardArchiveAdmissionDoesNotRewriteOtherPlatforms(t *testing.T) {
 		contentcapability.ModeStandard,
 		"GENERAL",
 		"FILES",
-		[]importSourceFile{{path: "game.zip"}},
-		creationTarget{platformID: "nes"},
+		[]importSourceFile{{Path: "game.zip"}},
+		creationTarget{PlatformID: "nes"},
 	)
 	if err != nil || request.ContentMode != want.ContentMode ||
 		request.MetadataProvider != want.MetadataProvider || mode != contentcapability.ModeStandard {
@@ -95,10 +95,10 @@ func TestExpandedPlatformsAdmitTheirVerifiedRawExtensions(t *testing.T) {
 				context.Background(),
 				test.platformID,
 				"FILES",
-				[]importSourceFile{{id: "fixture", path: test.logicalName, blobID: "blob", sha256: "digest", size: 1}},
+				[]importSourceFile{{ID: "fixture", Path: test.logicalName, BlobID: "blob", SHA256: "digest", Size: 1}},
 				sql.NullString{},
 			)
-			testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 1 }, func() bool { return dispositions[0].disposition != "SOURCE" }, func() bool { return dispositions[0].reason != "" }, func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].sources) != 1 }, func() bool { return groups[0].sources[0].logicalName != test.logicalName }, func() bool { return len(archives) != 0 }), "admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
+			testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 1 }, func() bool { return dispositions[0].Disposition != "SOURCE" }, func() bool { return dispositions[0].Reason != "" }, func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].Sources) != 1 }, func() bool { return groups[0].Sources[0].LogicalName != test.logicalName }, func() bool { return len(archives) != 0 }), "admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
 		})
 	}
 }
@@ -109,8 +109,8 @@ func TestExpandedPlatformsRejectUnregisteredRawExtensions(t *testing.T) {
 		context.Background(),
 		"nintendo3ds",
 		"FILES",
-		[]importSourceFile{{id: "fixture", path: "game.3dsx", blobID: "blob", sha256: "digest", size: 1}},
+		[]importSourceFile{{ID: "fixture", Path: "game.3dsx", BlobID: "blob", SHA256: "digest", Size: 1}},
 		sql.NullString{},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 1 }, func() bool { return dispositions[0].disposition != "REJECTED" }, func() bool { return dispositions[0].reason != "UNSUPPORTED_CONTENT_FORMAT" }, func() bool { return len(groups) != 0 }, func() bool { return len(archives) != 0 }), "unexpected unsupported admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 1 }, func() bool { return dispositions[0].Disposition != "REJECTED" }, func() bool { return dispositions[0].Reason != "UNSUPPORTED_CONTENT_FORMAT" }, func() bool { return len(groups) != 0 }, func() bool { return len(archives) != 0 }), "unexpected unsupported admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
 }

@@ -12,17 +12,7 @@ import (
 	"retrom/internal/rpgmaker/detector"
 )
 
-type creationTarget struct {
-	platformID      string
-	defaultCoreID   string
-	coreID          string
-	bindingID       string
-	providerID      string
-	targetID        string
-	deliveryProfile string
-	contentPolicy   contentcapability.Policy
-	instanceVersion int64
-}
+type creationTarget = application.ImportTarget
 
 type creationOptions struct {
 	reviewHandoffKind string
@@ -81,14 +71,14 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 		return creationPlan{}, err
 	}
 	capabilities := contentcapability.Resolve(
-		target.platformID, true, service.multiDiscImportEnabled, target.contentPolicy,
+		target.PlatformID, true, service.multiDiscImportEnabled, target.Policy,
 	)
 	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return creationPlan{}, ErrMultiDiscModeUnavailable
 	}
 	datID := sql.NullString{}
-	if target.providerID != "" {
-		datID = service.loadActiveDATID(ctx, target.providerID, target.targetID)
+	if target.ProviderID != "" {
+		datID = service.loadActiveDATID(ctx, target.ProviderID, target.TargetID)
 	}
 	plan := creationPlan{
 		request: request, contentMode: contentMode, sourceType: sourceType, reviewHandoffKind: reviewHandoffDirect,
@@ -101,9 +91,9 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 		return creationPlan{}, err
 	}
 	if contentMode == contentcapability.ModeRPGMakerProject {
-		plan.datID = service.loadActiveDATID(ctx, plan.target.providerID, plan.target.targetID)
+		plan.datID = service.loadActiveDATID(ctx, plan.target.ProviderID, plan.target.TargetID)
 	}
-	return plan, nil
+	return service.prepareCreationArtifacts(ctx, plan)
 }
 
 // A single archive selected through the ordinary file picker is still an RPG
@@ -130,10 +120,10 @@ func (service *Service) resolveRPGMakerTarget(ctx context.Context, plan *creatio
 	if plan.contentMode != contentcapability.ModeRPGMakerProject {
 		return nil
 	}
-	if len(plan.groups) != 1 || plan.groups[0].rpgProfile == nil {
+	if len(plan.groups) != 1 || plan.groups[0].RPGProfile == nil {
 		return ErrInvalid
 	}
-	profile := plan.groups[0].rpgProfile
+	profile := plan.groups[0].RPGProfile
 	return service.loadRPGTarget(ctx, &plan.target, profile.ExpectedGeneration)
 }
 
@@ -147,11 +137,11 @@ func (service *Service) prepareContent(
 	case contentcapability.ModeMultiDisc:
 		plan.dispositions, plan.groups, err = service.prepareMultiDiscFiles(plan.files, *capabilities.MultiDisc)
 	case contentcapability.ModeRPGMakerProject:
-		if plan.target.platformID != "rpgmaker" {
+		if plan.target.PlatformID != "rpgmaker" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareRPGMakerProject(
-			ctx, plan.sourceType, plan.files, plan.target.defaultCoreID,
+			ctx, plan.sourceType, plan.files, plan.target.DefaultCoreID,
 		)
 	case contentcapability.ModeONSProject, contentcapability.ModeKiriKiriProject, contentcapability.ModeNXEngineProject,
 		contentcapability.ModeButterscotchProject, contentcapability.ModeTyranoScriptProject,
@@ -159,7 +149,7 @@ func (service *Service) prepareContent(
 		return service.prepareEngineProject(ctx, plan)
 	case contentcapability.ModeStandard:
 		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
-			ctx, plan.target.platformID, plan.sourceType, plan.files, plan.datID,
+			ctx, plan.target.PlatformID, plan.sourceType, plan.files, plan.datID,
 		)
 	default:
 		return ErrInvalid
@@ -198,7 +188,7 @@ func (service *Service) loadRPGTarget(
 	target *creationTarget,
 	generation detector.Generation,
 ) error {
-	target.coreID = detector.VirtualCoreID
+	target.CoreID = detector.VirtualCoreID
 	return service.loadBoundTarget(ctx, target, string(generation))
 }
 
@@ -229,53 +219,47 @@ func (service *Service) loadImportSourceFiles(ctx context.Context, uploadID stri
 	if len(files) == 0 {
 		return nil, ErrInvalid
 	}
-	result := make([]importSourceFile, 0, len(files))
-	for _, file := range files {
-		result = append(result, importSourceFile{
-			id: file.ID, path: file.Path, blobID: file.BlobID, sha256: file.SHA256, size: file.Size,
-		})
-	}
-	return result, nil
+	return files, nil
 }
 
 func (service *Service) prepareEngineProject(ctx context.Context, plan *creationPlan) error {
 	var err error
 	switch plan.contentMode {
 	case contentcapability.ModeONSProject:
-		if plan.target.platformID != "ons" {
+		if plan.target.PlatformID != "ons" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareONSProject(
 			ctx, plan.sourceType, plan.files,
 		)
 	case contentcapability.ModeKiriKiriProject:
-		if plan.target.platformID != "kirikiri" {
+		if plan.target.PlatformID != "kirikiri" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareKiriKiriProject(
 			ctx, plan.sourceType, plan.files,
 		)
 	case contentcapability.ModeNXEngineProject:
-		if plan.target.platformID != "cavestory" {
+		if plan.target.PlatformID != "cavestory" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareNXEngineProject(ctx, plan.sourceType, plan.files)
 	case contentcapability.ModeButterscotchProject:
-		if plan.target.platformID != "butterscotch" {
+		if plan.target.PlatformID != "butterscotch" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareButterscotchProject(
 			ctx, plan.sourceType, plan.files,
 		)
 	case contentcapability.ModeTyranoScriptProject:
-		if plan.target.platformID != "tyranoscript" {
+		if plan.target.PlatformID != "tyranoscript" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareTyranoScriptProject(
 			ctx, plan.sourceType, plan.files,
 		)
 	case contentcapability.ModeScummVMProject:
-		if plan.target.platformID != "scummvm" {
+		if plan.target.PlatformID != "scummvm" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareScummVMProject(ctx, plan.sourceType, plan.files)
@@ -283,4 +267,14 @@ func (service *Service) prepareEngineProject(ctx context.Context, plan *creation
 		return ErrInvalid
 	}
 	return err
+}
+
+func (service *Service) prepareCreationArtifacts(ctx context.Context, plan creationPlan) (creationPlan, error) {
+	var err error
+	artifacts := application.NewImportArtifacts(creationArtifactBlobs{store: service.blobs})
+	plan.groups, err = artifacts.Prepare(ctx, plan.groups, plan.archives)
+	if err != nil {
+		return creationPlan{}, fmt.Errorf("prepare creation artifacts: %w", err)
+	}
+	return plan, nil
 }

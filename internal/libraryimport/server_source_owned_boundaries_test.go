@@ -60,20 +60,20 @@ func TestOwnedServerSourceRejectsUndeclaredPrimaryWithoutReview(t *testing.T) {
 
 func TestOwnedSourcePlanRetainsCompanionInsideSelectedGroup(t *testing.T) {
 	t.Parallel()
-	group := preparedGroup{sources: []preparedSource{
-		{role: "CONTENT", file: importSourceFile{path: "child.zip"}},
-		{role: "COMPANION", file: importSourceFile{path: "parent.zip"}},
+	group := preparedGroup{Sources: []preparedSource{
+		{Role: "CONTENT", File: importSourceFile{Path: "child.zip"}},
+		{Role: "COMPANION", File: importSourceFile{Path: "parent.zip"}},
 	}}
 	plan := creationPlan{
 		sourceCreation: &ownedSourceCreation{
-			intent: application.SourceCreationIntent{PrimaryPaths: []string{"child.zip"}},
+			intent: application.SourceCreationIntent{Kind: application.SourceOwnerPegasus, PrimaryPaths: []string{"child.zip"}},
 			before: application.SourceCreationSnapshot{TargetVersion: 1},
-		}, target: creationTarget{instanceVersion: 1}, groups: []preparedGroup{group},
+		}, target: creationTarget{Version: 1}, groups: []preparedGroup{group},
 	}
 	if err := validateOwnedCreationPlan(plan); err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.groups[0].sources) != 2 || plan.groups[0].sources[1].role != "COMPANION" {
+	if len(plan.groups[0].Sources) != 2 || plan.groups[0].Sources[1].Role != "COMPANION" {
 		t.Fatalf("owned selection dropped dependency: %#v", plan.groups)
 	}
 }

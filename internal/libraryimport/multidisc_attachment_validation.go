@@ -190,8 +190,8 @@ func (service *Service) resolveMultiDiscAttachmentValidation(
 	for _, dependency := range snapshot.BIOS {
 		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
 			files = append(files, preparedValidationFile{
-				role: "BIOS_BUNDLE", logicalName: dependency.LogicalName,
-				blobID: *dependency.BlobID, sortOrder: len(files),
+				Role: "BIOS_BUNDLE", LogicalName: dependency.LogicalName,
+				BlobID: *dependency.BlobID, SortOrder: len(files),
 			})
 		}
 	}
@@ -356,13 +356,13 @@ VALUES(?,?,?,?,?,?,?,NULL,NULL,?,?,?,?,?,?,?)
 		return multiDiscAttachmentStoreError("insert validation", err)
 	}
 	files = append(files, preparedValidationFile{
-		role: "MULTI_DISC_PLAYLIST", logicalName: "playlist.m3u", blobID: canonicalBlobID, sortOrder: 0,
+		Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", BlobID: canonicalBlobID, SortOrder: 0,
 	})
 	for _, file := range files {
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,
 sort_order,created_at_ms) VALUES(?,?,?,?,?,?)
-`, validationID, file.role, file.logicalName, file.blobID, file.sortOrder, now); err != nil {
+`, validationID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, now); err != nil {
 			return multiDiscAttachmentStoreError("insert validation file", err)
 		}
 	}
