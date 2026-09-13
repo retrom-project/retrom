@@ -17,9 +17,18 @@ import (
 	"syscall"
 	"time"
 
+	netplayservice "retrom/internal/service/netplay"
+
+	"retrom/internal/composition"
+
+	providerpersistence "retrom/internal/persistence/runtimeprovider"
+	providerservice "retrom/internal/service/runtimeprovider"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"golang.org/x/term"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -27,13 +36,16 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/httpapi"
 	"retrom/internal/importing"
-	"retrom/internal/maintenance"
 	"retrom/internal/netplay"
-	"retrom/internal/platforminstance"
+	maintenancepersistence "retrom/internal/persistence/maintenance"
+	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimeprovider"
 	"retrom/internal/scummvm"
+	"retrom/internal/service/accounts"
+	"retrom/internal/service/maintenance"
+	"retrom/internal/service/platforminstance"
 	"retrom/internal/store"
 )
 
@@ -136,7 +148,14 @@ func executeBackup(arguments []string) error {
 	if err != nil {
 		return fmt.Errorf("retrom/main: %w", err)
 	}
-	manifest, err := maintenance.Backup(context.Background(), configuration, *output, time.Now)
+	manifest, err := maintenance.New(
+		maintenancepersistence.New(),
+		time.Now,
+	).Backup(
+		context.Background(),
+		configuration,
+		*output,
+	)
 	if err != nil {
 		return fmt.Errorf("retrom/main: %w", err)
 	}
@@ -156,7 +175,15 @@ func executeRestore(arguments []string) error {
 	if err != nil {
 		return fmt.Errorf("retrom/main: %w", err)
 	}
-	manifest, err := maintenance.Restore(context.Background(), configuration, *input, *output)
+	manifest, err := maintenance.New(
+		maintenancepersistence.New(),
+		time.Now,
+	).Restore(
+		context.Background(),
+		configuration,
+		*input,
+		*output,
+	)
 	if err != nil {
 		return fmt.Errorf("retrom/main: %w", err)
 	}
@@ -177,7 +204,7 @@ func readSetupCode(ctx context.Context, configuration config.Maintenance) (strin
 	if err != nil {
 		return "", fmt.Errorf("load setup-code credentials: %w", err)
 	}
-	code, err := accounts.ReadSetupCode(ctx, database, credentials)
+	code, err := composition.ReadAccountSetupCode(ctx, database, credentials)
 	if err != nil {
 		return "", fmt.Errorf("derive setup code: %w", err)
 	}
@@ -216,7 +243,7 @@ func resetOfflineAdmin(
 	if err != nil {
 		return fmt.Errorf("load offline recovery password blocklist: %w", err)
 	}
-	accountService, err := accounts.New(
+	accountService, err := composition.NewAccounts(
 		ctx, database.SQL, credentials, config.ModeRelease, blocklist, time.Now,
 	)
 	if err != nil {
@@ -294,7 +321,6 @@ func run(mode config.Mode) error {
 		resources.credentials, accountService, accountService, time.Now, resources.scummVMDetector,
 	).WithReadinessDatabase(resources.database.ReadOnly).WithNetplay(netplayService)
 	apiServer.WithRuntimeProvider(
-		resources.runtimeProviders.Catalog,
 		resources.runtimeProviders.Builder,
 		resources.runtimeProviders.Handler,
 	)
@@ -422,13 +448,15 @@ func openAndBootstrapDatabase(
 		return fmt.Errorf("retrom/main: %w", err)
 	}
 	resources.database = database
-	if err := resources.runtimeProviders.Reconcile(ctx, database.SQL, time.Now()); err != nil {
+	providers := providerservice.New(providerpersistence.New(database.SQL))
+	if err := providers.Reconcile(ctx, resources.runtimeProviders.Projection, time.Now()); err != nil {
 		return fmt.Errorf("reconcile runtime providers: %w", err)
 	}
-	if err := resources.dependencies.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	dependencies := dependencyservice.New(resources.dependencies, dependencypersistence.New(database.SQL))
+	if err := dependencies.Bootstrap(ctx, time.Now()); err != nil {
 		return fmt.Errorf("bootstrap dependency records: %w", err)
 	}
-	if err := platforminstance.New(database.SQL, time.Now).ValidateCatalog(ctx); err != nil {
+	if err := platforminstance.New(platformpersistence.New(database.SQL), time.Now).ValidateCatalog(ctx); err != nil {
 		return fmt.Errorf("validate recommended game directories: %w", err)
 	}
 	if err := database.IntegrityCheck(ctx); err != nil {
@@ -441,8 +469,8 @@ func initializeRuntimeServices(
 	ctx context.Context,
 	configuration config.Config,
 	resources serverResources,
-) (*netplay.Service, *accounts.Service, error) {
-	netplayService := netplay.NewService(
+) (*netplayservice.Service, *accounts.Service, error) {
+	netplayService := composition.NewNetplay(
 		resources.database.SQL, resources.netplayRegistry, resources.netplayCredentials,
 		netplay.Options{
 			MaxActiveRooms: configuration.NetplayMaxActiveRooms,
@@ -458,7 +486,7 @@ func initializeRuntimeServices(
 	if err != nil {
 		return nil, nil, fmt.Errorf("load password blocklist: %w", err)
 	}
-	accountService, err := accounts.New(
+	accountService, err := composition.NewAccounts(
 		ctx, resources.database.SQL, resources.credentials,
 		configuration.Mode, blocklist, time.Now,
 	)
@@ -478,7 +506,8 @@ func startCatalogBootstrap(resources serverResources) context.CancelFunc {
 }
 
 func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database *sql.DB) {
-	if err := dependencySet.BootstrapCatalogs(ctx, database, time.Now()); err != nil {
+	dependencies := dependencyservice.New(dependencySet, dependencypersistence.New(database))
+	if err := dependencies.BootstrapCatalogs(ctx, time.Now()); err != nil {
 		slog.Error("background DAT indexing failed", "error", err)
 		return
 	}

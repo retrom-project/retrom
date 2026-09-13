@@ -23,13 +23,17 @@ const (
 type SessionValidator func(context.Context, string, string) SessionValidation
 
 type Hub struct {
-	service  *Service
+	services HubServices
+	options  HubOptions
 	mu       sync.Mutex
 	sessions map[string]*realtimeSession
 }
 
-func NewHub(service *Service) *Hub {
-	return &Hub{service: service, sessions: make(map[string]*realtimeSession)}
+func NewHub(services HubServices, options HubOptions) *Hub {
+	if options.Now == nil {
+		options.Now = time.Now
+	}
+	return &Hub{services: services, options: options, sessions: make(map[string]*realtimeSession)}
 }
 
 type outbound struct {
@@ -76,7 +80,8 @@ type stateTransfer struct {
 type realtimeSession struct {
 	mu            sync.Mutex
 	hub           *Hub
-	service       *Service
+	services      HubServices
+	options       HubOptions
 	roomID        string
 	sessionID     string
 	profileDigest string
@@ -127,7 +132,7 @@ func (hub *Hub) session(participant SocketParticipant) (*realtimeSession, error)
 		return current, nil
 	}
 	current = &realtimeSession{
-		hub: hub, service: hub.service, roomID: participant.RoomID, sessionID: participant.SessionID,
+		hub: hub, services: hub.services, options: hub.options, roomID: participant.RoomID, sessionID: participant.SessionID,
 		profileDigest: participant.ProfileDigest, providerID: participant.ProviderID,
 		targetID: participant.TargetID, bundleSHA256: participant.BundleSHA256,
 		occupiedMask: participant.OccupiedSeatMask, playerCount: participant.PlayerCount,
@@ -153,7 +158,7 @@ func (hub *Hub) Connect(
 	client := &peer{
 		participant: participant, connection: connection, writes: make(chan outbound, 256),
 		authToken: authToken, validator: validator,
-		inputTokens: 240, inputRefill: session.service.clock.Now(),
+		inputTokens: 240, inputRefill: session.options.Now(),
 	}
 	writerDone := make(chan struct{})
 	go client.writeLoop(ctx, writerDone)
@@ -436,7 +441,7 @@ func (session *realtimeSession) sendPeerHistoryLocked(
 	}
 	session.sendLocked(ctx, client, websocket.MessageText, session.serverMessageLocked("WELCOME", map[string]any{
 		"roomVersion": client.participant.RoomVersion, "sessionVersion": client.participant.SessionVersion,
-		"leaseMs": session.service.options.ReconnectLease.Milliseconds(), "historyStartFrame": start,
+		"leaseMs": session.options.ReconnectLease.Milliseconds(), "historyStartFrame": start,
 		"historyEndFrame": end, "occupiedSeatMask": session.occupiedMask, "playerNo": client.participant.PlayerNo,
 	}))
 	if !reconnecting {
@@ -468,7 +473,7 @@ func (session *realtimeSession) sendPeerHistoryLocked(
 }
 
 func (session *realtimeSession) prepareResync(ctx context.Context) {
-	if err := session.service.PrepareReconnectResync(ctx, session.roomID, session.sessionID); err != nil {
+	if err := session.services.Sessions.PrepareReconnectResync(ctx, session.roomID, session.sessionID); err != nil {
 		slog.ErrorContext(ctx, "netplay reconnect resync preparation failed",
 			"roomId", session.roomID, "sessionId", session.sessionID, "error", err,
 		)
@@ -496,7 +501,7 @@ func (session *realtimeSession) removePeer(ctx context.Context, client *peer) {
 		session.beginPauseLocked(workContext, "PEER_DISCONNECTED", playerNo, pauseActionReconnect)
 		participant := client.participant
 		go func() {
-			if err := session.service.MarkDisconnected(workContext, participant); err != nil {
+			if err := session.services.Peers.MarkDisconnected(workContext, participant); err != nil {
 				slog.ErrorContext(workContext, "netplay disconnect persistence failed",
 					"roomId", session.roomID, "sessionId", session.sessionID, "playerNo", playerNo,
 				)
@@ -505,7 +510,7 @@ func (session *realtimeSession) removePeer(ctx context.Context, client *peer) {
 	} else {
 		session.invalidateTransferLocked()
 	}
-	session.leaseTimers[playerNo] = time.AfterFunc(session.service.options.ReconnectLease, func() {
+	session.leaseTimers[playerNo] = time.AfterFunc(session.options.ReconnectLease, func() {
 		session.mu.Lock()
 		missing := session.peers[playerNo] == nil && !session.ended
 		session.mu.Unlock()

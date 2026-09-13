@@ -11,25 +11,25 @@ import (
 func TestReviewValidityIgnoresPlatformPresentationChangesButNotActualInputs(t *testing.T) {
 	t.Parallel()
 	evidence := reviewValidationEvidence{
-		platformVersion: 1, currentPlatformVersion: 2,
-		sourceSnapshotID: "source", draftSnapshotID: "source",
-		platformInstanceID: "folder", draftPlatformInstanceID: "folder",
-		coreID: "gambatte", currentCoreID: "gambatte", providerID: "emulatorjs", targetID: "gambatte",
-		manifestDigest: "content", snapshotManifestDigest: "content", contentKind: "SINGLE_FILE",
-		contentPolicy:  contentcapability.NewPolicy("SINGLE_FILE"),
-		dependencyJSON: `{"schemaVersion":1,"dependencies":[]}`, status: "READY", compatibilityCode: "READY",
+		PlatformVersion: 1, CurrentPlatformVersion: 2,
+		SourceSnapshotID: "source", DraftSnapshotID: "source",
+		PlatformInstanceID: "folder", DraftPlatformInstanceID: "folder",
+		CoreID: "gambatte", CurrentCoreID: "gambatte", ProviderID: "emulatorjs", TargetID: "gambatte",
+		ManifestDigest: "content", SnapshotManifestDigest: "content", ContentKind: "SINGLE_FILE",
+		ContentPolicy:  contentcapability.NewPolicy("SINGLE_FILE"),
+		DependencyJSON: `{"schemaVersion":1,"dependencies":[]}`, Status: "READY", CompatibilityCode: "READY",
 	}
-	if _, current := evidence.currentInput(); !current {
+	if _, current := evidence.CurrentInput(); !current {
 		t.Fatal("a folder presentation edit invalidated validation")
 	}
 	for _, change := range []func(*reviewValidationEvidence){
-		func(value *reviewValidationEvidence) { value.currentCoreID = "other-core" },
-		func(value *reviewValidationEvidence) { value.draftSnapshotID = "replacement-source" },
-		func(value *reviewValidationEvidence) { value.snapshotManifestDigest = "replacement-bytes" },
+		func(value *reviewValidationEvidence) { value.CurrentCoreID = "other-core" },
+		func(value *reviewValidationEvidence) { value.DraftSnapshotID = "replacement-source" },
+		func(value *reviewValidationEvidence) { value.SnapshotManifestDigest = "replacement-bytes" },
 	} {
 		changed := evidence
 		change(&changed)
-		if _, current := changed.currentInput(); current {
+		if _, current := changed.CurrentInput(); current {
 			t.Fatal("a real input change was ignored")
 		}
 	}
@@ -128,10 +128,10 @@ func TestValidationPolicyDigestIgnoresUnrelatedCapabilities(t *testing.T) {
 
 func TestPreparedGroupContentKind(t *testing.T) {
 	t.Parallel()
-	if got := preparedGroupContentKind(preparedGroup{sources: []preparedSource{{role: "CONTENT"}}}); got != "SINGLE_FILE" {
+	if got := preparedGroupContentKind(preparedGroup{Sources: []preparedSource{{Role: "CONTENT"}}}); got != "SINGLE_FILE" {
 		t.Fatalf("single content kind = %s", got)
 	}
-	if got := preparedGroupContentKind(preparedGroup{sources: []preparedSource{{role: "DOS_SOURCE"}}}); got != "DOS_BUNDLE" {
+	if got := preparedGroupContentKind(preparedGroup{Sources: []preparedSource{{Role: "DOS_SOURCE"}}}); got != "DOS_BUNDLE" {
 		t.Fatalf("DOS content kind = %s", got)
 	}
 }

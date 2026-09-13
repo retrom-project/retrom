@@ -143,6 +143,9 @@ func preflightExistingDatabase(ctx context.Context, path string) error {
 	if err := database.QueryRowContext(ctx, `
 SELECT count(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'
 `).Scan(&tableCount); err != nil {
+		if cancellation := ctx.Err(); cancellation != nil {
+			return fmt.Errorf("probe database schema: %w", cancellation)
+		}
 		return fmt.Errorf("%w: unreadable schema", ErrSchemaInvalid)
 	}
 	return inspectMigrationHistory(ctx, database, tableCount)

@@ -50,14 +50,17 @@ CREATE TABLE "pegasus_imports" (
 CREATE TABLE pegasus_import_metadata_files (
   import_id TEXT NOT NULL REFERENCES pegasus_imports(id),
   relative_path TEXT NOT NULL CHECK(length(CAST(relative_path AS BLOB)) BETWEEN 1 AND 4096),
-  size_bytes INTEGER NOT NULL CHECK(size_bytes>=0 AND size_bytes<=8388608),
-  content_digest TEXT NOT NULL CHECK(length(content_digest)=64 AND content_digest=lower(content_digest)),
+  size_bytes INTEGER NOT NULL CHECK(size_bytes>=0),
+  content_digest TEXT CHECK(content_digest IS NULL OR (length(content_digest)=64 AND content_digest=lower(content_digest))),
   source_facts_digest TEXT NOT NULL CHECK(length(source_facts_digest)=64 AND source_facts_digest=lower(source_facts_digest)),
   parse_state TEXT NOT NULL CHECK(parse_state IN ('VALID','INVALID')),
   error_code TEXT,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(import_id,relative_path),
-  CHECK((parse_state='INVALID')=(error_code IS NOT NULL))
+  CHECK((parse_state='INVALID')=(error_code IS NOT NULL)),
+  CHECK((size_bytes<=8388608 AND content_digest IS NOT NULL) OR
+    (size_bytes>8388608 AND content_digest IS NULL AND parse_state='INVALID'
+     AND error_code='PEGASUS_METADATA_TOO_LARGE'))
 );
 
 CREATE TABLE pegasus_collection_tags (

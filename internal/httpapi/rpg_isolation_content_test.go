@@ -14,11 +14,14 @@ import (
 	"testing"
 	"time"
 
+	isolationpersistence "retrom/internal/persistence/isolation"
+
 	_ "modernc.org/sqlite"
 
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/config"
 	"retrom/internal/launch"
-	"retrom/internal/rpgmaker/isolation"
+	"retrom/internal/service/isolation"
 )
 
 func TestRPGFrameDocumentsCanBeEmbeddedOnlyThroughTheirCSP(t *testing.T) {
@@ -165,7 +168,7 @@ UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 	now := func() time.Time { return time.UnixMilli(*nowMS) }
 	server := &Server{
 		database: database, rpgIsolation: isolationService,
-		launcher: launch.New(database, nil, nil, now), now: now,
+		launcher: launchcomposition.New(database, launch.NewSources(nil, nil), "", now), now: now,
 	}
 	request := httptest.NewRequestWithContext(
 		t.Context(), http.MethodHead,
@@ -350,6 +353,8 @@ func newBootstrapReloadFixture(
 	t.Cleanup(func() { _ = database.Close() })
 	ctx := context.Background()
 	if _, err := database.ExecContext(ctx, `
+CREATE TABLE users(id TEXT PRIMARY KEY,profile_id TEXT);
+INSERT INTO users VALUES('isolation-actor','profile');
 CREATE TABLE launch_sessions(
  id TEXT PRIMARY KEY,profile_id TEXT,state TEXT,hard_expires_at_ms INTEGER
 );
@@ -357,7 +362,7 @@ CREATE TABLE launch_content_files(
  launch_session_id TEXT,logical_name TEXT,format_version TEXT
 );
 CREATE TABLE review_preview_sessions(
- id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,content_format TEXT
+ actor_user_id TEXT DEFAULT 'isolation-actor', id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,content_format TEXT
 );
 CREATE TABLE isolated_runtime_bootstrap_tickets(
  ticket_sha256 BLOB,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
@@ -387,7 +392,7 @@ CREATE TABLE isolated_runtime_capabilities(
 			t.Fatal(err)
 		}
 	}
-	service := isolation.New(database, "https://{launchId}.rpg-runtime.example", func() time.Time {
+	service := isolation.New(isolationpersistence.New(database), "https://{launchId}.rpg-runtime.example", func() time.Time {
 		return time.UnixMilli(nowMS)
 	})
 	return database, service, &nowMS, launchID, origin, ticket

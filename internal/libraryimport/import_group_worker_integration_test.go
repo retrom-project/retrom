@@ -15,12 +15,17 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/service/uploads"
 	"retrom/internal/store"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testing.T) {
@@ -28,13 +33,8 @@ func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testin
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
 	service := New(database.SQL, time.Now).WithBlobStore(blobs)
-	service.importGroupSlots <- struct{}{}
-	released := false
-	defer func() {
-		if !released {
-			<-service.importGroupSlots
-		}
-	}()
+	t.Cleanup(service.Close)
+	release := gateImportWorker(t, service)
 
 	created, err := service.QueueCreate(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
@@ -70,8 +70,7 @@ WHERE import.id=?
 		)
 	}
 
-	<-service.importGroupSlots
-	released = true
+	release()
 	waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT state,total_item_count FROM import_jobs WHERE id=?
@@ -107,6 +106,7 @@ func TestQueuedImportGroupReportsInvalidProjectAsTerminalFailure(t *testing.T) {
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, invalidONSArchive(t))
 	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	t.Cleanup(service.Close)
 	created, err := service.QueueCreate(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
@@ -133,13 +133,8 @@ func TestQueuedImportGroupCanBeCancelledBeforePreparation(t *testing.T) {
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
 	service := New(database.SQL, time.Now).WithBlobStore(blobs)
-	service.importGroupSlots <- struct{}{}
-	released := false
-	defer func() {
-		if !released {
-			<-service.importGroupSlots
-		}
-	}()
+	t.Cleanup(service.Close)
+	release := gateImportWorker(t, service)
 	created, err := service.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)
@@ -160,8 +155,7 @@ WHERE import.id=?
 	if importState != "CANCELLED" || jobState != "CANCELLED" || itemCount != 0 {
 		t.Fatalf("cancelled projection = %s/%s items=%d", importState, jobState, itemCount)
 	}
-	<-service.importGroupSlots
-	released = true
+	release()
 }
 
 func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
@@ -169,13 +163,7 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
 	original := New(database.SQL, time.Now).WithBlobStore(blobs)
-	original.importGroupSlots <- struct{}{}
-	released := false
-	defer func() {
-		if !released {
-			<-original.importGroupSlots
-		}
-	}()
+	release := gateImportWorker(t, original)
 	created, err := original.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)
@@ -183,7 +171,11 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	if _, err := original.claimImportGroup(ctx, created.JobID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE jobs SET leased_until_ms=1 WHERE id=?`, created.JobID); err != nil {
+		t.Fatal(err)
+	}
 	recovered := New(database.SQL, time.Now).WithBlobStore(blobs)
+	t.Cleanup(recovered.Close)
 	recovered.RecoverImportGroupJobs(ctx)
 	waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
 	var importState string
@@ -198,8 +190,7 @@ WHERE import.id=?
 	if importState != "REVIEW_PENDING" || attempts != 2 {
 		t.Fatalf("recovered projection = %s attempts=%d", importState, attempts)
 	}
-	<-original.importGroupSlots
-	released = true
+	release()
 }
 
 func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
@@ -229,7 +220,9 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 			uploadID := completeProjectUpload(
 				t, ctx, database.SQL, blobs, dataDir, test.purpose, test.archive(t),
 			)
-			created, err := New(database.SQL, time.Now).WithBlobStore(blobs).QueueCreate(ctx, CreateRequest{
+			service := New(database.SQL, time.Now).WithBlobStore(blobs)
+			t.Cleanup(service.Close)
+			created, err := service.QueueCreate(ctx, CreateRequest{
 				UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 					t, database.SQL, test.catalogKey,
 				),
@@ -282,7 +275,7 @@ func openImportGroupFixture(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
@@ -312,7 +305,7 @@ func completeProjectUpload(
 	archive []byte,
 ) string {
 	t.Helper()
-	uploadService := uploads.New(database, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		Purpose: purpose, SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{

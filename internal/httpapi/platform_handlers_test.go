@@ -11,13 +11,20 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/composition"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/contentcapability"
 	"retrom/internal/libraryimport"
 	"retrom/internal/netplay"
 	"retrom/internal/platformcatalog"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -25,7 +32,7 @@ import (
 func TestAdminPlatformsProjectsManifestBoundNetplayCapability(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.UnixMilli(1_786_000_000_000)); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
@@ -34,7 +41,7 @@ func TestAdminPlatformsProjectsManifestBoundNetplayCapability(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	credentials, err := netplay.LoadOrCreateCredentials(server.config.DataDir)
 	testassert.False(t, err != nil, err)
-	server.WithNetplay(netplay.NewService(server.database, registry, credentials, netplay.Options{}, time.Now))
+	server.WithNetplay(composition.NewNetplay(server.database, registry, credentials, netplay.Options{}, time.Now))
 
 	response := httptest.NewRecorder()
 	server.platforms(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/platforms", nil))
@@ -205,13 +212,19 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.UnixMilli(1_786_000_000_000)
-	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
-	server.importer.WithMultiDiscImportEnabled(true)
+	server.importer.Close()
+	server.importer = libraryimport.New(server.database, server.now, server.metadata).
+		WithBlobStore(server.blobs).WithMultiDiscImportEnabled(true)
+	server.importer.Start()
+	server.importAdmissions = composition.NewLibraryImportAdmissions(server.database, server.importer, libraryservice.ImportAdmissionOptions{
+		Now: server.now, MultiDiscEnabled: true, MetadataScraperAvailable: true,
+	})
 	metadata, err := server.blobs.Put(strings.NewReader("MComprHDdeterministic CHD fixture"))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", now.UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", now.UnixMilli())
 	testassert.False(t, err != nil, err)
 	createUpload := func(uploadID, fileID string) {
 		t.Helper()
@@ -347,7 +360,7 @@ func assertPlatformExtensions(
 func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.UnixMilli(1_786_000_000_000)); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
 	read := func() map[string]platformCapabilityProjection {

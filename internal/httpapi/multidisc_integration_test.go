@@ -15,15 +15,19 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 type multiDiscHTTPFile struct {
@@ -72,7 +76,7 @@ func seedMultiDiscHTTPBIOS(t *testing.T, server *Server) {
 	ctx := context.Background()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic HTTP Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
@@ -100,10 +104,10 @@ func multiDiscHTTPCHD(value string) []byte {
 func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, string) {
 	t.Helper()
 	ctx := context.Background()
-	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -140,7 +144,7 @@ func addParentBundleToLaunch(t *testing.T, server *Server, created launch.Create
 	t.Helper()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic parent bundle fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(
+	blobID, err := blobcatalog.EnsureRecord(
 		t.Context(), server.database, metadata, "application/zip", time.Now().UnixMilli(),
 	)
 	testassert.False(t, err != nil, err)
@@ -154,7 +158,7 @@ WHERE launch.id=?`, created.LaunchID).Scan(&variantID); err != nil {
 	}
 	transaction, err := server.database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(t.Context(), `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'PARENT','parent.zip',?,0)
@@ -335,10 +339,10 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -449,10 +453,10 @@ WHERE provider_id=(
 func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)

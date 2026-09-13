@@ -2,9 +2,12 @@ package netplay
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/dbexec"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
@@ -31,7 +34,7 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 	testassert.False(t, err != nil, err)
 	tx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	if _, err := tx.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +89,7 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 	)
 	tx, err = database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	if _, err := tx.ExecContext(context.Background(), `
 INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_id,provider_id,target_id,bundle_sha256,
 netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,version,created_at_ms,updated_at_ms)
@@ -118,10 +121,11 @@ VALUES(?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)
 		now.UnixMilli(), now.UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if err := closeNetplaySession(ctx, tx, finishedSessionID, "FINISHED", "USER_EXIT", now.UnixMilli()); err != nil {
+	reactivateRecoveryFixture(t, tx, roomID, finishedSessionID, memberID)
+	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := service.EndRoom(ctx, roomID, profileID, "USER_EXIT", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := database.SQL.QueryRowContext(context.Background(), `SELECT state,ended_at_ms FROM play_sessions WHERE id=?`, finishedPlayID).
@@ -132,4 +136,15 @@ VALUES(?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return playState != "FINISHED" }, func() bool { return playEndedAt != now.UnixMilli() }, func() bool { return launchState != "REVOKED" }), "normal end launch=%s play=%s/%d", launchState, playState, playEndedAt)
+}
+
+func reactivateRecoveryFixture(t *testing.T, tx *sql.Tx, roomID, finishedSessionID, memberID string) {
+	t.Helper()
+	ctx := t.Context()
+	if _, err := tx.ExecContext(ctx, `UPDATE netplay_rooms SET state='RUNNING',current_session_id=?,ended_at_ms=NULL,end_reason=NULL WHERE id=?`, finishedSessionID, roomID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE netplay_room_members SET left_at_ms=NULL,leave_reason=NULL WHERE id=?`, memberID); err != nil {
+		t.Fatal(err)
+	}
 }

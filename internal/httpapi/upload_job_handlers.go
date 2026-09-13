@@ -1,13 +1,13 @@
 package httpapi
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 
-	"retrom/internal/uploads"
+	"retrom/internal/service/jobs"
+	"retrom/internal/service/uploads"
 )
 
 func (server *Server) createUpload(writer http.ResponseWriter, request *http.Request) {
@@ -27,7 +27,7 @@ func (server *Server) createUpload(writer http.ResponseWriter, request *http.Req
 
 func (server *Server) getUpload(writer http.ResponseWriter, request *http.Request) {
 	session, err := server.uploads.Get(request.Context(), request.PathValue("uploadId"))
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, uploads.ErrNotFound) {
 		server.notFound(writer, request)
 		return
 	}
@@ -84,6 +84,10 @@ func (server *Server) completeUpload(writer http.ResponseWriter, request *http.R
 	}
 	jobID, finalization, err := server.uploads.Complete(request.Context(), request.PathValue("uploadId"), version)
 	if err != nil {
+		if !errors.Is(err, uploads.ErrInvalid) && !errors.Is(err, uploads.ErrNotFound) {
+			server.databaseError(writer, request, err)
+			return
+		}
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "上传状态或版本已经变化", map[string]any{})
 		return
 	}
@@ -126,39 +130,8 @@ func (server *Server) cancelUpload(writer http.ResponseWriter, request *http.Req
 }
 
 func (server *Server) job(writer http.ResponseWriter, request *http.Request) {
-	var id, scopeType, scopeID, kind, state string
-	var version, attempts, maxAttempts, updatedAtMS int64
-	var errorCode sql.NullString
-	var retryable sql.NullInt64
-	err := server.database.QueryRowContext(request.Context(), `
-SELECT id,
-scope_type,
-scope_id,
-kind,
-state,
-version,
-attempt_count,
-max_attempts,
-error_code,
-error_retryable,
-updated_at_ms
-FROM jobs
-WHERE id=?
-`, request.PathValue("jobId")).
-		Scan(
-			&id,
-			&scopeType,
-			&scopeID,
-			&kind,
-			&state,
-			&version,
-			&attempts,
-			&maxAttempts,
-			&errorCode,
-			&retryable,
-			&updatedAtMS,
-		)
-	if errors.Is(err, sql.ErrNoRows) {
+	snapshot, err := server.jobService.Get(request.Context(), request.PathValue("jobId"))
+	if errors.Is(err, jobs.ErrNotFound) {
 		server.notFound(writer, request)
 		return
 	}
@@ -166,24 +139,8 @@ WHERE id=?
 		server.databaseError(writer, request, err)
 		return
 	}
-	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
-	writeJSON(
-		writer,
-		http.StatusOK,
-		map[string]any{
-			"jobId":        id,
-			"scopeType":    scopeType,
-			"scopeId":      scopeID,
-			"kind":         kind,
-			"state":        state,
-			"version":      version,
-			"attemptCount": attempts,
-			"maxAttempts":  maxAttempts,
-			"errorCode":    nullableString(errorCode),
-			"retryable":    retryable.Valid && retryable.Int64 == 1,
-			"updatedAtMs":  updatedAtMS,
-		},
-	)
+	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, snapshot.Version))
+	writeJSON(writer, http.StatusOK, snapshot)
 }
 
 func (server *Server) jobEvents(writer http.ResponseWriter, request *http.Request) {

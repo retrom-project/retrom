@@ -4,9 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"sort"
+
+	"retrom/internal/dbexec"
+	repository "retrom/internal/persistence/libraryimport"
+
+	application "retrom/internal/service/libraryimport"
+
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
 
 	"retrom/internal/contentcapability"
 
@@ -18,7 +24,7 @@ import (
 // Keep immutable validation refresh branches together for auditability.
 func (service *Service) ensureCompatibleDraftValidation(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	itemID, targetID string,
 	dosEntry sql.NullString,
 ) (string, error) {
@@ -48,9 +54,10 @@ func (service *Service) ensureCompatibleDraftValidation(
 type draftValidationRefresh struct {
 	service                 *Service
 	ctx                     context.Context
-	transaction             *sql.Tx
+	transaction             dbexec.Executor
 	itemID                  string
 	targetID                string
+	draftID                 string
 	dosEntry                sql.NullString
 	effectiveSnapshotID     string
 	effectiveManifestDigest string
@@ -71,89 +78,45 @@ type draftValidationRefresh struct {
 }
 
 func (state *draftValidationRefresh) loadInputs() error {
-	err := state.transaction.QueryRowContext(state.ctx, `
-SELECT snapshot.id,snapshot.source_manifest_digest,snapshot.content_kind
-FROM review_drafts draft
-JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
-WHERE draft.import_item_id=?
-`, state.itemID).Scan(
-		&state.effectiveSnapshotID, &state.effectiveManifestDigest, &state.contentKind,
+	inputs, err := repository.BindReviewValidation(state.transaction).Inputs(
+		state.ctx, state.itemID, state.targetID,
 	)
 	if err != nil {
-		return ErrInvalid
+		return fmt.Errorf("read review validation inputs: %w", err)
 	}
-	var platformID, defaultCoreID string
-	err = state.transaction.QueryRowContext(state.ctx, `
-SELECT version,platform_id,default_core_id
-FROM platform_instances
-WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
-`, state.targetID).Scan(&state.platformVersion, &platformID, &defaultCoreID)
-	if err != nil {
-		return ErrInvalid
-	}
-	if platformID == "rpgmaker" {
-		return state.loadRPGMakerInputs()
-	}
-	state.coreID = defaultCoreID
-	err = state.transaction.QueryRowContext(state.ctx, `
-SELECT binding.provider_id,binding.target_id,
-  (SELECT id FROM dat_versions WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
-  `+contentcapability.BindingPolicySQL+`
-FROM runtime_target_bindings binding
-JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
- AND binding_platform.platform_id=?
-JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
-WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
-	`, platformID, defaultCoreID).Scan(
-		&state.providerID, &state.runtimeTargetID, &state.datID, &state.contentPolicy,
-	)
-	if err != nil {
-		return ErrInvalid
-	}
-	return nil
-}
-
-func (state *draftValidationRefresh) loadRPGMakerInputs() error {
-	err := state.transaction.QueryRowContext(state.ctx, `
-SELECT 'rpgmaker',profile.provider_id,profile.target_id,
- (SELECT id FROM dat_versions WHERE provider_id=profile.provider_id AND target_id=profile.target_id AND is_active=1),
- `+contentcapability.BindingPolicySQL+`
-FROM review_drafts draft
-JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
-JOIN runtime_targets target ON target.provider_id=profile.provider_id AND target.target_id=profile.target_id
-JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
- AND binding.core_id='rpgmaker' AND binding.launch_policy<>'DISABLED'
-WHERE draft.import_item_id=? AND draft.target_platform_instance_id=?
-`, state.itemID, state.targetID).Scan(
-		&state.coreID, &state.providerID, &state.runtimeTargetID, &state.datID, &state.contentPolicy,
-	)
-	if err != nil {
-		return ErrInvalid
-	}
+	state.draftID = inputs.DraftID
+	state.effectiveSnapshotID = inputs.EffectiveSnapshotID
+	state.effectiveManifestDigest = inputs.EffectiveManifestDigest
+	state.contentKind = inputs.ContentKind
+	state.platformVersion = inputs.PlatformVersion
+	state.coreID = inputs.CoreID
+	state.providerID = inputs.ProviderID
+	state.runtimeTargetID = inputs.RuntimeTargetID
+	state.datID = nullableCandidate(inputs.DATVersionID)
+	state.contentPolicy = inputs.ContentPolicy
 	return nil
 }
 
 func (state *draftValidationRefresh) loadExactValidation() (string, bool, error) {
-	err := state.transaction.QueryRowContext(state.ctx, `
-SELECT id,source_manifest_digest,prepublish_input_digest,status,
-  compatibility_code,dependency_snapshot_json
-FROM import_item_core_validations
-WHERE import_item_id=? AND source_snapshot_id=? AND target_platform_instance_id=?
-  AND core_id=? AND provider_id=? AND target_id=?
-  AND dat_version_id IS ? AND default_dos_entry IS ?
-ORDER BY created_at_ms DESC,id DESC LIMIT 1
-	`, state.itemID, state.effectiveSnapshotID, state.targetID,
-		state.coreID, state.providerID, state.runtimeTargetID,
-		nullable(state.datID), nullable(state.dosEntry)).Scan(
-		&state.sourceID, &state.sourceManifestDigest, &state.sourceInputDigest,
-		&state.sourceStatus, &state.compatibilityCode, &state.dependencySnapshot,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", false, nil
-	}
+	record, found, err := repository.BindReviewValidation(state.transaction).Exact(state.ctx,
+		application.ReviewValidationRefreshLookup{
+			ItemID: state.itemID, SourceSnapshotID: state.effectiveSnapshotID,
+			TargetPlatformInstanceID: state.targetID, CoreID: state.coreID,
+			ProviderID: state.providerID, TargetID: state.runtimeTargetID,
+			DATVersionID: nullStringPointer(state.datID), DefaultDOSEntry: nullStringPointer(state.dosEntry),
+		})
 	if err != nil {
 		return "", false, fmt.Errorf("libraryimport/review: %w", err)
 	}
+	if !found {
+		return "", false, nil
+	}
+	state.sourceID = record.ID
+	state.sourceManifestDigest = record.SourceManifestDigest
+	state.sourceInputDigest = record.PrepublishInputDigest
+	state.sourceStatus = record.Status
+	state.compatibilityCode = record.CompatibilityCode
+	state.dependencySnapshot = record.DependencySnapshot
 	dependencyState, err := state.resolveDependencyState()
 	if err != nil {
 		return "", false, err
@@ -193,25 +156,25 @@ func (state *draftValidationRefresh) loadFallbackValidation() error {
 	if state.sourceID != "" && (state.sourceStatus == "READY" || state.dependencyState.tracked) {
 		return nil
 	}
-	err := state.transaction.QueryRowContext(state.ctx, `
-SELECT validation.id,validation.source_manifest_digest,validation.prepublish_input_digest,
-  validation.status,validation.compatibility_code,validation.dependency_snapshot_json
-FROM import_item_core_validations validation
-WHERE validation.import_item_id=? AND validation.source_snapshot_id=? AND validation.core_id=?
-  AND validation.provider_id=? AND validation.target_id=? AND validation.dat_version_id IS ?
-ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
-`, state.itemID, state.effectiveSnapshotID, state.coreID, state.providerID,
-		state.runtimeTargetID, nullable(state.datID)).Scan(
-		&state.sourceID, &state.sourceManifestDigest, &state.sourceInputDigest,
-		&state.sourceStatus, &state.compatibilityCode, &state.dependencySnapshot,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		state.sourceID = ""
-		return nil
-	}
+	record, found, err := repository.BindReviewValidation(state.transaction).Fallback(state.ctx,
+		application.ReviewValidationRefreshLookup{
+			ItemID: state.itemID, SourceSnapshotID: state.effectiveSnapshotID,
+			CoreID: state.coreID, ProviderID: state.providerID, TargetID: state.runtimeTargetID,
+			DATVersionID: nullStringPointer(state.datID),
+		})
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
+	if !found {
+		state.sourceID = ""
+		return nil
+	}
+	state.sourceID = record.ID
+	state.sourceManifestDigest = record.SourceManifestDigest
+	state.sourceInputDigest = record.PrepublishInputDigest
+	state.sourceStatus = record.Status
+	state.compatibilityCode = record.CompatibilityCode
+	state.dependencySnapshot = record.DependencySnapshot
 	return nil
 }
 
@@ -244,22 +207,26 @@ func (state *draftValidationRefresh) insertValidation() (string, error) {
 	createdID, _ := uuid.NewV7()
 	now := state.service.now().UnixMilli()
 	digest := prepublishDigest(state.digestInput())
-	_, err := state.transaction.ExecContext(state.ctx, `
-INSERT INTO import_item_core_validations(
-  id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
-  provider_id,target_id,dat_version_id,
-  default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
-  status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-`, createdID.String(), state.itemID, state.targetID, state.platformVersion, state.coreID,
-		state.providerID, state.runtimeTargetID, nullable(state.datID),
-		nullable(state.dosEntry), state.effectiveManifestDigest, state.effectiveSnapshotID,
-		digest, state.sourceStatus, state.compatibilityCode, state.dependencySnapshot, now)
+	repository := repository.BindReviewValidation(state.transaction)
+	err := repository.Create(state.ctx, application.ReviewValidationRefreshCreate{
+		ID: createdID.String(), ItemID: state.itemID, TargetPlatformInstanceID: state.targetID,
+		PlatformInstanceVersion: state.platformVersion, CoreID: state.coreID,
+		ProviderID: state.providerID, TargetID: state.runtimeTargetID,
+		DATVersionID: nullStringPointer(state.datID), DefaultDOSEntry: nullStringPointer(state.dosEntry),
+		SourceManifestDigest: state.effectiveManifestDigest, SourceSnapshotID: state.effectiveSnapshotID,
+		PrepublishInputDigest: digest, Status: state.sourceStatus,
+		CompatibilityCode: state.compatibilityCode, DependencySnapshotJSON: state.dependencySnapshot,
+		CreatedAtMS: now,
+	})
 	if err != nil {
 		return "", fmt.Errorf("libraryimport/review: %w", err)
 	}
-	if err := state.copyValidationFiles(createdID.String(), now); err != nil {
-		return "", err
+	if err := repository.CopyFiles(state.ctx, application.ReviewValidationRefreshFileCopy{
+		ValidationID: createdID.String(), SourceValidationID: state.sourceID, CreatedAtMS: now,
+		ReplaceBIOSBundle: state.dependencyState.replaceBundle,
+		Dependencies:      state.dependencyState.dependencies,
+	}); err != nil {
+		return "", fmt.Errorf("copy review validation files: %w", err)
 	}
 	if state.sourceStatus != "READY" {
 		return "", nil
@@ -280,51 +247,6 @@ func (state *draftValidationRefresh) digestInput() prepublishDigestInput {
 	}
 }
 
-func (state *draftValidationRefresh) copyValidationFiles(createdID string, now int64) error {
-	_, err := state.transaction.ExecContext(state.ctx, `
-INSERT INTO import_item_validation_files(
-  import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
-)
-SELECT ?,role,logical_name,blob_id,sort_order,?
-FROM import_item_validation_files
-WHERE import_item_core_validation_id=? AND (?=0 OR role<>'BIOS_BUNDLE')
-`, createdID, now, state.sourceID, state.dependencyState.replaceBundle)
-	if err != nil {
-		return fmt.Errorf("libraryimport/review: %w", err)
-	}
-	if !state.dependencyState.tracked {
-		return nil
-	}
-	return state.insertBIOSValidationFiles(createdID, now)
-}
-
-func (state *draftValidationRefresh) insertBIOSValidationFiles(createdID string, now int64) error {
-	var sortOrder int
-	err := state.transaction.QueryRowContext(state.ctx, `
-SELECT COALESCE(MAX(sort_order),-1)+1
-FROM import_item_validation_files
-WHERE import_item_core_validation_id=?
-`, createdID).Scan(&sortOrder)
-	if err != nil {
-		return fmt.Errorf("libraryimport/review: %w", err)
-	}
-	for _, dependency := range state.dependencyState.dependencies {
-		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
-			continue
-		}
-		_, err := state.transaction.ExecContext(state.ctx, `
-INSERT INTO import_item_validation_files(
-  import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
-) VALUES(?,'BIOS_BUNDLE',?,?,?,?)
-`, createdID, dependency.LogicalName, *dependency.BlobID, sortOrder, now)
-		if err != nil {
-			return fmt.Errorf("libraryimport/review: %w", err)
-		}
-		sortOrder++
-	}
-	return nil
-}
-
 type draftDependencyState struct {
 	tracked       bool
 	replaceBundle bool
@@ -336,7 +258,7 @@ type draftDependencyState struct {
 
 func resolveDraftBIOSState(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	sourceSnapshotID, providerID, targetID, previousSnapshot, previousStatus, previousCode string,
 ) (draftDependencyState, error) {
 	if !isStaticBIOSSnapshot(previousSnapshot) {
@@ -348,7 +270,16 @@ func resolveDraftBIOSState(
 	if err != nil {
 		return draftDependencyState{}, err
 	}
-	snapshot, status, code, err := corevalidation.ResolveBIOS(ctx, transaction, providerID, targetID, logicalName)
+	snapshot, status, code, err := validationservice.New(
+		validationpersistence.New(
+			transaction,
+		),
+	).ResolveBIOS(
+		ctx,
+		providerID,
+		targetID,
+		logicalName,
+	)
 	if err != nil {
 		return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
@@ -371,177 +302,39 @@ func resolveDraftBIOSState(
 // row, so their first deterministic DOS_SOURCE is the bundle identity.
 func snapshotContentLogicalName(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	sourceSnapshotID string,
 ) (string, error) {
-	var logicalName string
-	err := transaction.QueryRowContext(ctx, `
-SELECT logical_name
-FROM import_item_source_snapshot_files
-WHERE source_snapshot_id=? AND role IN ('CONTENT','DISC','DOS_SOURCE')
-ORDER BY CASE role WHEN 'CONTENT' THEN 0 WHEN 'DISC' THEN 1 ELSE 2 END,
-  sort_order,logical_name
-LIMIT 1
-`, sourceSnapshotID).Scan(&logicalName)
-	if err != nil || logicalName == "" {
-		return "", fmt.Errorf("libraryimport/review: %w", ErrInvalid)
+	logicalName, err := repository.BindReviewValidation(transaction).ContentLogicalName(ctx, sourceSnapshotID)
+	if err != nil {
+		return "", fmt.Errorf("libraryimport/review: %w", err)
 	}
 	return logicalName, nil
 }
 
-type arcadeDraftDependency struct {
-	Kind                string   `json:"kind"`
-	Machine             string   `json:"machine"`
-	RequiredBy          *string  `json:"requiredBy,omitempty"`
-	Depth               int      `json:"depth,omitempty"`
-	ExpectedLogicalName string   `json:"expectedLogicalName,omitempty"`
-	State               string   `json:"state"`
-	RequiredEntryCount  int      `json:"requiredEntryCount,omitempty"`
-	RequiredEntries     []string `json:"requiredEntries"`
-}
-
-type arcadeDraftSnapshot struct {
-	SchemaVersion     int                     `json:"schemaVersion"`
-	Kind              string                  `json:"kind"`
-	Machine           string                  `json:"machine"`
-	DatVersionID      string                  `json:"datVersionId"`
-	Closure           json.RawMessage         `json:"closure"`
-	Dependencies      []arcadeDraftDependency `json:"dependencies"`
-	MissingEntries    []string                `json:"missingEntries"`
-	MismatchedEntries []string                `json:"mismatchedEntries"`
-	Warnings          []string                `json:"warnings"`
-}
+type (
+	arcadeDraftDependency = application.ArcadeDraftDependency
+	arcadeDraftSnapshot   = application.ArcadeDraftSnapshot
+)
 
 func resolveArcadeDraftBIOSState(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	providerID, targetID, previousSnapshot, previousStatus, previousCode string,
 ) (draftDependencyState, error) {
-	snapshot, valid := parseArcadeDraftSnapshot(previousSnapshot)
-	if !valid {
-		return draftDependencyState{}, nil
-	}
-	state := draftDependencyState{
-		tracked: true, replaceBundle: false, snapshotJSON: previousSnapshot, status: previousStatus, code: previousCode,
-		dependencies: make([]corevalidation.BIOSDependency, 0),
-	}
-	resolvedNames := make(map[string]struct{})
-	for index := range snapshot.Dependencies {
-		dependency := &snapshot.Dependencies[index]
-		if dependency.Kind != "BIOS_OR_BASE" || dependency.State != "MISSING" {
-			continue
-		}
-		resolved, dependencyState, err := resolveArcadeBIOSDependency(
-			ctx, transaction, providerID, targetID, dependency.Machine+".zip",
-		)
-		if err != nil {
-			return draftDependencyState{}, err
-		}
-		if resolved == nil {
-			continue
-		}
-		dependency.State = dependencyState
-		if dependencyState == "HASH_WARNING" {
-			snapshot.Warnings = append(snapshot.Warnings, dependency.Machine+".zip:"+*resolved.InstallationStatus)
-		}
-		resolvedNames[dependency.Machine+".zip"] = struct{}{}
-		state.dependencies = append(state.dependencies, *resolved)
-	}
-	if len(resolvedNames) == 0 {
-		return state, nil
-	}
-	missing := snapshot.MissingEntries[:0]
-	for _, entry := range snapshot.MissingEntries {
-		if _, resolved := resolvedNames[entry]; !resolved {
-			missing = append(missing, entry)
-		}
-	}
-	snapshot.MissingEntries = missing
-	sort.Strings(snapshot.Warnings)
-	if previousCode == "LAUNCH_BIOS_MISSING" && len(snapshot.MissingEntries) == 0 {
-		state.status, state.code = "READY", "READY"
-	}
-	encoded, err := json.Marshal(snapshot)
+	resolved, err := application.ResolveCreationArcade(ctx, repository.BindCreationArcade(transaction),
+		providerID, targetID, previousSnapshot, previousStatus, previousCode)
 	if err != nil {
-		return draftDependencyState{}, fmt.Errorf("libraryimport/review: encode arcade BIOS snapshot: %w", err)
+		return draftDependencyState{}, fmt.Errorf("resolve arcade BIOS: %w", err)
 	}
-	state.snapshotJSON = string(encoded)
-	return state, nil
+	return draftDependencyState{
+		tracked: resolved.Tracked, status: resolved.Status, code: resolved.Code,
+		snapshotJSON: resolved.SnapshotJSON, dependencies: resolved.Dependencies,
+	}, nil
 }
 
 func parseArcadeDraftSnapshot(raw string) (arcadeDraftSnapshot, bool) {
-	var snapshot arcadeDraftSnapshot
-	if json.Unmarshal([]byte(raw), &snapshot) != nil ||
-		snapshot.SchemaVersion != corevalidation.SnapshotSchemaVersion ||
-		snapshot.Kind != corevalidation.SnapshotKindArcade ||
-		snapshot.Machine == "" ||
-		snapshot.DatVersionID == "" || snapshot.Dependencies == nil {
-		return arcadeDraftSnapshot{}, false
-	}
-	return snapshot, true
-}
-
-func resolveArcadeBIOSDependency(
-	ctx context.Context,
-	transaction *sql.Tx,
-	providerID, targetID, logicalName string,
-) (*corevalidation.BIOSDependency, string, error) {
-	var resolved corevalidation.BIOSDependency
-	var condition, emulatorPath, installationID, blobID, installationStatus sql.NullString
-	var installationVersion sql.NullInt64
-	err := transaction.QueryRowContext(ctx, `
-SELECT q.id,
-q.version,
-q.catalog_digest,
-q.logical_name,
-q.requirement_mode,
-q.condition_code,
-q.delivery_kind,
-q.emulator_path,
-i.id,
-i.version,
-i.blob_id,
-i.status
-FROM bios_requirements q
-JOIN bios_installations i ON i.requirement_id=q.id
-AND i.is_active=1
-AND i.validated_requirement_version=q.version
-AND i.status IN ('MATCHED','HASH_WARNING','MISSING_ENTRY')
-WHERE q.provider_id=? AND q.target_id=?
-AND q.source_kind='DAT_MACHINE'
-AND q.enabled=1
-AND q.logical_name=?
-`, providerID, targetID, logicalName).Scan(
-		&resolved.RequirementID,
-		&resolved.RequirementVersion,
-		&resolved.CatalogDigest,
-		&resolved.LogicalName,
-		&resolved.RequirementMode,
-		&condition,
-		&resolved.DeliveryKind,
-		&emulatorPath,
-		&installationID,
-		&installationVersion,
-		&blobID,
-		&installationStatus,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, "", nil
-	}
-	if err != nil {
-		return nil, "", fmt.Errorf("libraryimport/review: resolve arcade BIOS: %w", err)
-	}
-	resolved.ConditionCode = nullableStringPointer(condition)
-	resolved.EmulatorPath = nullableStringPointer(emulatorPath)
-	resolved.ActivationOptions = map[string]string{}
-	resolved.InstallationID = nullableStringPointer(installationID)
-	resolved.InstallationVersion = nullableInt64Pointer(installationVersion)
-	resolved.BlobID = nullableStringPointer(blobID)
-	resolved.InstallationStatus = nullableStringPointer(installationStatus)
-	if installationStatus.String != "MATCHED" {
-		return &resolved, "HASH_WARNING", nil
-	}
-	return &resolved, "SATISFIED_EXTERNAL", nil
+	return application.ParseArcadeDraftSnapshot(raw)
 }
 
 func nullableStringPointer(value sql.NullString) *string {
@@ -563,42 +356,9 @@ func isStaticBIOSSnapshot(raw string) bool {
 	return err == nil
 }
 
-func nullablePatchInt(value *int64) any {
-	if value == nil {
-		return nil
-	}
-	return *value
-}
-
 func nullableCandidate(value *string) sql.NullString {
 	if value == nil || *value == "" {
 		return sql.NullString{}
 	}
 	return sql.NullString{String: *value, Valid: true}
-}
-
-func (service *Service) validCandidateAsset(ctx context.Context, transaction *sql.Tx, itemID, assetID string) bool {
-	var count int
-	err := transaction.QueryRowContext(ctx, `
-SELECT count(*)
-FROM scrape_candidate_assets a
-JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
-JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
-WHERE a.id=?
-AND r.import_item_id=?
-AND r.state='COMPLETED'
-AND a.status='READY'
-`, assetID, itemID).
-		Scan(&count)
-	return err == nil && count == 1
-}
-
-func (service *Service) validUploadedAsset(ctx context.Context, transaction *sql.Tx, itemID, assetID string) bool {
-	var count int
-	err := transaction.QueryRowContext(ctx, `
-SELECT count(*)
-FROM review_uploaded_assets
-WHERE id=? AND import_item_id=? AND kind='COVER'
-`, assetID, itemID).Scan(&count)
-	return err == nil && count == 1
 }

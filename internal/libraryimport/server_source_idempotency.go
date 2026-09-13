@@ -3,12 +3,12 @@ package libraryimport
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
+
+	librarypersistence "retrom/internal/persistence/libraryimport"
 
 	"github.com/google/uuid"
 
@@ -128,59 +128,24 @@ func (service *Service) serverSourceUploadPresent(
 	totalBytes int64,
 	totalFiles int,
 ) (bool, error) {
-	var state, storedSourceType, storedDigest string
-	var storedFiles int
-	var storedBytes int64
-	err := service.database.QueryRowContext(ctx, `
-SELECT state,source_type,total_files,total_bytes,manifest_digest
-FROM upload_sessions
-WHERE id=?
-`, uploadID).Scan(&state, &storedSourceType, &storedFiles, &storedBytes, &storedDigest)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
+	present, err := librarypersistence.NewServerSourceUploads(service.database).Present(
+		ctx, uploadID, sourceType, manifestDigest, totalBytes, totalFiles,
+	)
 	if err != nil {
-		return false, fmt.Errorf("libraryimport/server source idempotency: %w", err)
+		return false, fmt.Errorf("check reusable server upload: %w", err)
 	}
-	if state != "COMPLETE" || storedSourceType != sourceType || storedFiles != totalFiles ||
-		storedBytes != totalBytes || storedDigest != manifestDigest {
-		return false, ErrInvalid
-	}
-	return true, nil
+	return present, nil
 }
 
 func (service *Service) serverSourceCreation(
 	ctx context.Context,
 	uploadID, targetPlatformInstanceID, contentMode string,
 ) (Created, bool, error) {
-	var created Created
-	err := service.database.QueryRowContext(ctx, `
-SELECT import.id,job.id,import.state,import.total_item_count
-FROM import_jobs import
-JOIN jobs job ON job.scope_type='IMPORT_GROUP' AND job.scope_id=import.id AND job.kind='IMPORT_GROUP'
-WHERE import.upload_session_id=?
-AND import.target_platform_instance_id=?
-AND json_extract(import.config_snapshot_json,'$.contentMode')=?
-`, uploadID, targetPlatformInstanceID, contentMode).Scan(
-		&created.ImportJobID,
-		&created.JobID,
-		&created.State,
-		&created.ItemCount,
+	created, found, err := librarypersistence.NewServerSourceUploads(service.database).Creation(
+		ctx, uploadID, targetPlatformInstanceID, contentMode,
 	)
-	if errors.Is(err, sql.ErrNoRows) {
-		var count int
-		if countErr := service.database.QueryRowContext(
-			ctx, `SELECT count(*) FROM import_jobs WHERE upload_session_id=?`, uploadID,
-		).Scan(&count); countErr != nil {
-			return Created{}, false, fmt.Errorf("libraryimport/server source idempotency: %w", countErr)
-		}
-		if count != 0 {
-			return Created{}, false, ErrInvalid
-		}
-		return Created{}, false, nil
-	}
 	if err != nil {
-		return Created{}, false, fmt.Errorf("libraryimport/server source idempotency: %w", err)
+		return Created{}, false, fmt.Errorf("read reusable server import: %w", err)
 	}
-	return created, true, nil
+	return created, found, nil
 }

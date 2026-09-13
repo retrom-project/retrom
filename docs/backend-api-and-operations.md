@@ -40,24 +40,61 @@ cmd/retrom/               进程入口、配置和优雅关闭
 internal/httpapi/         路由、中间件、DTO、错误映射
 internal/catalog/         Platform、PlatformInstance、Game、GameVariant
 internal/importing/       导入任务、分组、刮削与审核编排
+internal/pegasusimport/   服务器目录、metadata/媒体读取、CAS 写入及路径脱敏适配器
+internal/service/pegasusimport/ 应用入口、扫描/导入编排、计划/映射/启动、worker 生命周期与结果恢复
+internal/persistence/pegasusimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
 internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
 internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
+internal/service/emulationstationimport/ 查询、计划与映射、扫描发布、worker 生命周期、取消/重试与恢复
+internal/persistence/emulationstationimport/ 查询映射、计划/扫描/租约/恢复事务与来源归属校验
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
-internal/bios/            BIOS 要求、安装和状态聚合
+internal/firmware/        BIOS 文件与归档匹配、候选质量比较
+internal/service/firmware/ BIOS 安装、替换决策与归档检查
+internal/persistence/firmware/ BIOS 事实查询及安装、消费、替换与进度记录事务
 internal/runtimeprovider/ Provider Bundle 安装、激活、静态文件与只前进升级校验
-internal/runtimecatalog/  产品 Core 到 Provider Target 的绑定 catalog
+internal/runtimecatalog/  产品 Core 到 Provider Target 的纯 catalog 解析与类型
+internal/persistence/runtimecatalog/ 已验证目录定义的事务投影
+internal/corevalidation/  BIOS/多盘快照、格式校验与确定性摘要
+internal/service/corevalidation/ 静态 BIOS 适用性、可用性与阻断判定
+internal/persistence/corevalidation/ BIOS 目录及安装事实查询
+internal/service/datindex/ DAT BIOS 需求身份、摘要与同步编排
+internal/persistence/datindex/ DAT 索引与需求记录写入
 internal/runtimebundle/   Bundle 与 Launch Envelope V1 的闭合解析/语义校验
 internal/runtimelaunch/   Provider-neutral Launch Envelope 投影
-internal/launch/          启动预检、LaunchSession/capability 与产品编排
+internal/launch/          Provider、凭据/隔离签名、内容与截图文件适配器
+internal/service/launch/ 启动应用入口、内容授权、Preview/Product/Netplay、截图、游玩与校验 worker 生命周期
+internal/persistence/launch/ 授权与内容快照、会话/响应收据/截图/游玩事务与校验任务调度
 internal/rpgmaker/        RPG 项目识别、Target binding、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
 internal/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢复协议
-internal/rpgmaker/isolation/ unique-origin capability 与 Host 隔离服务
+internal/service/isolation/ unique-origin Host、票据及 capability 授权规则
+internal/persistence/isolation/ 票据、会话与 capability 读取及原子签发
 internal/netplay/         Room/Session 控制面、严格实时协议与有界内存 Hub
-internal/saves/           状态存档、截图与兼容性
+internal/service/saves/   存档授权、格式兼容、幂等和 GAME_SAVE 版本决策
+internal/persistence/saves/ 存档、Blob 登记、恢复绑定与幂等记录的原子读写
 internal/playtime/        PlaySession 和有效时长
 internal/blobstore/       CAS 写入、读取、引用与垃圾回收
-internal/jobs/            SQLite 队列、租约、重试和 Worker
+internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮换、离线恢复、用户管理、账户链接与账户限流策略
+internal/persistence/accounts/ 账户安全事务、限流桶及原子多主体计数
+internal/service/serverimport/ 服务器 BIOS 导入查询、分页及取消/重试规则
+internal/persistence/serverimport/ 导入目录/候选查询及取消/重试原子事务
+internal/service/libraryimport/ 审核查询、封面上传、发布/丢弃决定、元数据与服务器来源创建规则
+internal/persistence/libraryimport/ 审核快照、发布/媒体/消费/审计事务和服务器来源原子绑定
+internal/service/metadatascrape/ 抓取调度、证据查询、候选规则与执行收口
+internal/persistence/metadatascrape/ 抓取证据、结果、任务租约与事务存储
+internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排
+internal/service/importprogress/ ImportJob 条目驱动聚合的纯状态规则
+internal/service/importdiscard/ 导入批次丢弃、取消与归属判断
+internal/persistence/importdiscard/ 处置快照、归属恢复与原子释放写入
+internal/service/gamecontent/ 内容替换校验、执行身份与发布业务编排
+internal/persistence/gamecontent/ 上传消费、租约、内容及事件的原子持久化
+internal/persistence/contentquery/ 共用内容能力投影与数据库值映射
+internal/service/maintenance/ 离线备份、恢复校验和安全撤销编排
+internal/persistence/maintenance/ 数据库检查点、引用清单和恢复写事务
+internal/composition/     Repository 注入和跨模块端口适配
+internal/persistence/jobs/ 任务状态、快照和事件的事务读写
+internal/service/blobgc/  确定性 GC 维护入口与计数结果
+internal/persistence/blobgc/ Blob 计数与保护引用读取
 internal/store/           SQLite 连接、迁移和事务辅助
 internal/observability/   结构化日志、健康检查和诊断导出
 internal/httpapi/generated/ OpenAPI 编译期生成的 strict server types；禁止手改且不提交 Git
@@ -88,6 +125,34 @@ web/features/admin/       导入、审核、游戏、游戏目录、BIOS/DAT
 web/lib/api/              类型化 API client 与错误映射
 web/components/           无业务状态的通用组件
 ```
+
+### 2.1 Service 与持久化边界
+
+业务模块按 `internal/service/<模块>` 组织，包含用例编排、业务类型和由消费者定义的 Repository 接口。`internal/persistence/<模块>` 实现这些接口，封装 SQL、字段映射和原子操作；目录不绑定数据库产品名称。解析器、算法和内容格式校验仍按独立基础能力组织，不因分层统一迁入 Service。
+
+Handler 负责协议解析、身份提取和结果映射，通过 Service 执行业务；Service 不导入数据库驱动或持久化实现，也不接收 SQL、表名、SET/WHERE、连接或事务对象。组装代码创建 Repository 并注入 Service。接口返回业务结果与可识别错误，不把 `sql.Rows`、`sql.Result`、`sql.Null*` 传播到上层。
+
+数据访问层共享 `internal/dbexec.Executor`，统一数据库连接、事务及独占连接的 SQL 执行接口；各 Repository 不重复定义相同接口。该接口只属于 SQL 基础设施，Service 仍依赖业务 Repository 接口。
+
+公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`blobregistry` 管理保护引用，`blobcatalog` 登记已校验的 CAS 对象。它们由各模块 Repository 复用；`blobstore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `dbexec`。
+
+Service 决定事务范围；Repository 的事务回调只提供绑定到同一事务的业务能力。跨表校验、乐观条件、幂等响应和联动写入保持原子，失败与取消必须回滚。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
+
+BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后缀决定适用性，再解析激活选项并判断安装是否阻断启动。快照与摘要保留在纯 `corevalidation` 包，使用可选业务值而非 SQL nullable 类型；参与摘要的 JSON 口径保持稳定。运行目录的纯解析与数据库投影分开，投影仍加入调用方的启动事务。DAT 索引写入属于持久化层；BIOS 需求同步由 Service 生成稳定身份与摘要，并通过调用方事务绑定的记录端口完成新增/更新及旧版本需求停用。
+
+独立运行域授权 Service 验证凭据编码、会话类型/状态、过期与撤销，Repository 返回业务记录并将票据消费与 capability 签发绑定到同一事务；凭据只以 digest 进入持久化端口。
+
+通用任务 Service 先判定取消或重试资格，再通过一个事务内的业务端口写入任务、事件及新的执行输入；服务器 BIOS 导入的关联取消共享该事务。存储故障保留原因，缺失记录与版本冲突映射为业务冲突。GC 维护入口通过独立端口调用持久 payload release dispatcher，并读取计数与保护集合。
+
+Pegasus 与 EmulationStation 的通用 Job 取消由领域 Service 接管：通用资格读取事务结束后，携带原始 Job 版本、kind、scope 与操作者进入领域事务，重新校验当前关联并原子取消；不得只更新 Job 而遗漏来源计划，也不得用刷新后的版本替换客户端 ETag。返回值取自提交前同一快照，提交失败不返回成功或发送唤醒。
+
+Pegasus 的 HTTP 与批次处置直接调用应用 Service；`composition.NewPegasusImport` 在启动时一次性组装查询、命令、Repository、来源适配器与 worker。HTTP 显式传入操作者，Service 决定提交后的唤醒；扫描与导入共用 worker 的维护、取消和关闭流程，每次执行只绑定冻结来源，不重新构造数据库依赖。旧 `internal/pegasusimport` 包只保留文件/CAS 适配器，架构测试禁止它导入数据库实现，也禁止 HTTP 重新依赖该包。
+
+Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `internal/composition/launch` 一次组装用例、Repository 和来源适配器。Product 提交后的异步校验、显式重试与启动恢复共用一个 `ValidationSupervisor`；调度前登记执行，关闭时取消并等待所有执行和清理结束。请求结束可与已提交的后台工作分离，但后台工作仍受进程关闭控制。根 Launch 包只保留文件/Provider/签名适配与类型兼容，不读写数据库。
+
+沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。容量分析 Repository 一次返回完整的 Blob、保护集合、用途和引用快照，Service 完成 archive 用途传播、分类优先级、去重口径及受检整数汇总；聚合不再占用数据库事务。
+
+分层按业务模块逐步迁移，收藏、标签、平台目录创建与推荐补齐、沉浸式查询、容量分析、通用任务操作、GC 维护入口、独立运行域授权及静态 BIOS 判定及 DAT BIOS 需求同步使用上述边界；迁入 `internal/service/` 的全部生产源码由架构测试禁止直接依赖数据库实现，不能为单个模块增加绕过项。详细收藏事务与读取快照见 [收藏与收藏夹](./favorites-and-collections.md)。
 
 ## 3. HTTP 与数据约定
 
@@ -339,12 +404,26 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，主机操作者再运行只读 `retrom setup-code` 取得证明并通过 `/setup` 创建首位管理员；该命令不取写锁、不修改数据库且不打印路径或其他状态。`retrom admin-reset --username <existing-admin>` 必须在服务停止并取得同一 data-root lock 后，从 `/dev/tty` 隐藏读取两次 release 合规密码；它只操作现有非 DELETED ADMIN，重新启用、撤销 session并写 SYSTEM 审计，密码不允许进入参数、环境或日志。
 
+初始化 Service 在一个读快照中判断实例状态、用户/Profile 数量和管理员不变量，并在写事务内重新检查首位管理员的创建资格。密码哈希与 Session 随机材料在写事务前准备；用户、Profile、凭据、实例状态、Session 和初始化审计一起提交。已初始化实例启动时，每个未删除的用户都必须具有可验证格式的凭据；已删除用户允许清除凭据。
+
+认证 Service 保留凭据读取、会话读取与续期写入的存储错误原因；存储故障不能转换为密码错误或匿名状态。续期事务重新检查用户状态、会话撤销、版本及到期时间，只有提交成功才返回延长后的有效期。登录时间更新与 Session 登记在同一事务中提交。密码轮换在哈希计算后重新检查会话撤销、用户 session version 和先前验证的密码摘要；密码、撤销、替代 Session、默认密码标记和审计必须一起提交，任何一步失败都回滚。
+
+账户应用统一由 `internal/service/accounts` 对接 HTTP 与离线命令；`internal/composition` 只组装具体依赖，Service 不持有数据库连接或 SQL 执行器。账户身份、安全及链接的 DTO 使用明确的可空字段，不以 `any` 传递持久化结果。
+
+账户链接 Service 负责 capability 校验、消费/撤销/过期状态优先级、查询边界及撤销策略；Repository 将链接更新、审计和幂等响应放在同一事务。存储故障不能伪装成无效 capability 或筛选错误，也不能因此增加认证失败计数。签发策略由 Service 校验管理员确认、目标状态和版本；Repository 原子完成旧重置链接撤销、新链接签发、审计与幂等响应。幂等记录不保存 capability，只有事务提交成功后才生成返回给调用方的 token。消费链接时，密码哈希在写事务外准备，写入前重新检查链接有效期、撤销状态及目标账户快照；身份/凭据、会话撤销与替换、默认密码标记、链接消费和审计在同一事务提交。禁用账户可以完成密码重置，但不创建会话；事务失败不能返回可用会话。
+
+用户角色、启停和删除规则由 Service 判定，包括自身保护、最后一名启用管理员保护、确认字段、版本及幂等冲突。Repository 在同一事务内更新账户、撤销受影响 Session/链接/Launch、维护安全标记、保存审计和幂等响应；失败不得返回已提交结果或留下部分撤销。
+
+账户目录由 Service 规范化筛选条件、校验游标并投影已删除用户名称，Repository 负责排序分页和有效会话计数。并列排序值始终以用户 ID 稳定分页，未登录用户使用独立的空值排序规则；数据库故障保留服务端错误，不映射为筛选参数错误。
+
+离线管理员恢复由 Service 校验目标、准备密码哈希，并在写入前重新检查管理员角色与版本。Repository 将账户启用、凭据替换、安全会话与重置链接撤销、默认密码标记清除和审计作为一个事务提交；任一步失败均回滚。
+
 已初始化实例必须登录。ADMIN 可以管理共享游戏内容、服务器配置和账号安全状态，但不能浏览其他用户的私有游戏历史、存档或截图；主机操作者因可读取 data root/backup/进程内存属于更高信任域，部署方必须用文件权限、磁盘加密和备份访问控制保护。上传仍执行大小、归档、路径和文件魔数安全；第三方文本按纯文本展示。日志/诊断不记录密码、session/CSRF、account-link capability、完整 IP/XFF、ROM/BIOS 内容或完整宿主路径，非秘密 `launchId` 可以与 `request_id` 关联。
 
 ## 10. 可观测性与故障诊断
 
 - 每个 HTTP 请求和后台任务携带 `request_id` / `job_id`，结构化日志包含稳定错误码。
-- `GET /health/live` 只证明进程存活；`GET /health/ready` 每次使用独立只读连接池执行实时探测，仅在数据库可读写、migration checksum、CAS 数据根、两个 active Provider Bundle 的完整性、61 个 Target 与产品 binding 闭包、仍被历史记录引用的 Target 可用，以及每个当前 Arcade Target 的 READY active DatVersion 均通过时返回 `200`。旧存档格式不可读只影响该存档的 availability；Bundle 降级、同版本换字节、删除被引用 Target 或 binding/catalog 漂移属于全局 readiness 故障。503 的闭集 reason code 按优先级为 `DATABASE_UNAVAILABLE`、`CAS_UNAVAILABLE`、`DEPENDENCY_INVALID`、`DEPENDENCY_DAT_PARSE_FAILED`、`DEPENDENCY_INDEXING`；响应不含路径/hash。冷库 DAT indexing 期间 HTTP/worker 可以存活，但除 health 外全部路由由前置启动门禁返回 `503 SERVICE_NOT_READY`，不得让部分业务读到未激活目录；首次完整就绪后该启动门禁单向打开，普通业务请求不再逐次执行健康 SQL 或因写连接短暂繁忙误报 503，实时运维状态继续由 `/health/ready` 表达。
+- `GET /health/live` 只证明进程存活；`GET /health/ready` 每次使用独立只读连接池执行实时探测，仅在数据库可读写、migration checksum、CAS 数据根、两个 active Provider Bundle 的完整性、当前 Provider Target 与产品 binding 闭包、仍被历史记录引用的 Target 可用，以及每个当前 Arcade Target 的 READY active DatVersion 均通过时返回 `200`。旧存档格式不可读只影响该存档的 availability；Bundle 降级、同版本换字节、删除被引用 Target 或 binding/catalog 漂移属于全局 readiness 故障。503 的闭集 reason code 按优先级为 `DATABASE_UNAVAILABLE`、`CAS_UNAVAILABLE`、`DEPENDENCY_INVALID`、`DEPENDENCY_DAT_PARSE_FAILED`、`DEPENDENCY_INDEXING`；响应不含路径/hash。冷库 DAT indexing 期间 HTTP/worker 可以存活，但除 health 外全部路由由前置启动门禁返回 `503 SERVICE_NOT_READY`，不得让部分业务读到未激活目录；首次完整就绪后该启动门禁单向打开，普通业务请求不再逐次执行健康 SQL 或因写连接短暂繁忙误报 503，实时运维状态继续由 `/health/ready` 表达。
 - 管理后台任务详情展示阶段、进度、最近错误、重试次数和下次重试时间，不展示堆栈。
 - 启动失败日志关联 `launchId`、game、GameVariant、Provider Target、DAT 版本和缺失依赖，但不记录 capability。
 - RPG 运行日志只允记录非秘密 `launchId`、validation ID、selected core、generation、`providerId/targetId/bundleSha256`、checkpoint format、pack 状态、gate 名/结果/时长和稳定错误码；不记录 bootstrap ticket/cookie、项目 bytes/JS、文件名/绝对路径、存档 payload、截图 bytes 或 MV/MZ bridge message 内容。Host confusion/replay 只记录低基数 reason，不回显恶意 Host/ticket。
@@ -360,7 +439,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复发布前还要在单一事务撤销全部旧 AuthSession、ACTIVE AccountLink和非终态 Launch，把遗留联机 Session/Room 以 `RESTORE` 收口，并写 SYSTEM安全围栏审计；因此恢复后的旧 cookie/capability/WebSocket 全部无效，实时 history 不尝试恢复。命令本身不启动服务、不覆盖旧目录。
 
-当前未发布基线只接受 001–010 bootstrap 的精确有序前缀或完整集合；旧开发数据库停机归档并重建，不进行兼容升级。未知 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级、回滚。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
+当前未发布基线只接受 001–014 bootstrap 的精确有序前缀或完整集合；旧开发数据库停机归档并重建，不进行兼容升级。未知 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级、回滚。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
 
 ## 12. 统一验收入口
 
@@ -368,11 +447,25 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 13. 服务器导入运维
 
+服务器 BIOS 导入由 `internal/service/serverimport` 统一提供应用接口和 worker 编排，`internal/composition` 组装来源配置、Blob/固件接口与 Repository；HTTP 不再依赖旧导入包或构造底层存储。Service 不接受数据库连接，数据库实现全部位于 `internal/persistence/serverimport`。
+
+服务器 BIOS 导入的创建 Service 校验来源与目录快照、按 requirement ID 固定快照顺序，并计算目录和执行输入摘要；来源适配器负责不跟随符号链接的目录访问。Repository 在短事务中检查活动任务并原子创建 Job、不可变输入、导入条目与审计，提交成功后才唤醒 worker。
+
+服务器 BIOS 导入的查询 Service 校验分页边界和游标，Repository 负责汇总及稳定排序；缺少导入记录返回领域错误，损坏的候选/选择证据或其他存储故障不能伪装成空结果或资源不存在。取消与手动重试由 Service 在事务内检查导入版本、任务状态和来源配置；Repository 原子维护条目、任务、执行输入、事件和审计，并在提交前读取返回的汇总。取消排队任务保留已完成条目，只取消未完成条目；运行中任务等待 worker 确认。手动重试要求没有其他同类活动导入，生成新执行输入并重置执行预算，过期版本和任何事务故障均不能留下部分重置或成功响应。
+
 服务器目录浏览与导入只对 ADMIN 开放，不配置应用目录白名单。固定 source ID 为 `filesystem`、路径 `/`，可浏览和选择服务进程有权限读取的普通目录；容器部署须将来源目录挂载进容器。导入只读取来源，仍不跟随符号链接、不读取设备文件，也不执行来源命令。旧部署须移除已废弃的 `RETROM_SERVER_IMPORT_ROOTS` 设置；未知环境变量仍按启动配置规则拒绝。旧任务保留历史摘要，使用旧 root ID 的未完成任务需从新路径重新扫描。
 
 服务从现有 credential root key 目的分离派生 HMAC，任务保存 `rootId + canonical real path` 的不可逆 digest；同 ID 被重定向后 retry 以 `SERVER_IMPORT_ROOT_CHANGED` 失败。共享 reader semaphore 固定为 2，hash worker 固定 2、archive scanner 固定 1；数据库/HTTP 不能按格式再建立一套磁盘并发额度。
 
 EmulationStation 单实例至多一个 active execution、20 个未开始/等待映射计划，等待映射 7 天过期。扫描上限固定为深度 64、目录 250,000、普通文件 2,000,000、精确小写 `gamelist.xml` 1,000、单 XML 8 MiB、XML 总量 64 MiB、XML depth/attributes 16、单 token 1 MiB、总 token 1,000,000、游戏 100,000、单 Item source file 64、warning 64、预计来源 2 TiB与单 execution 8 小时；HTTP 不能放宽。扫描只读取 XML/facts/M3U/媒体与 CHD 头，执行才复制完整内容。
+
+BIOS 发现结果的排序、未选中原因和证据编码由 Service 在写事务前完成，Repository 原子保存候选、条目计数与发现阶段；无法编码的证据不能留下部分结果，归档安全标志必须保留评估原值。重置发现结果也在同一执行的事务栅栏内，重置失败不得继续扫描。
+
+BIOS 候选恢复先由 Repository 完整读取并关闭结果集，再由 Service 重建静态/DAT 评估、应用归档完整性规则与加载冻结的期望条目；不得持有结果集时嵌套查询。损坏的评估证据、缺失的目录关联或可用候选缺少评估均应中止恢复，不得伪装成空证据继续安装。
+
+BIOS 条目结果、终态汇总、自动重试和取消恢复由 Service 决定，Repository 在执行栅栏内原子保存条目、聚合、Job 与事件。终态条目不能重复产生结果事件，完成任务前必须确认所有条目终结；编码、读取或提交失败保留错误原因，后台调度遇到存储错误时结束当前轮询，不得在失败的恢复操作上持续空转。专用导入取消与通用 Job 取消入口均保留已完成条目和计数。
+
+BIOS 每次领取生成独立 worker 身份，并携带 Job execution number；领取、心跳和进度更新由 Service/Repository 协作完成。进度、候选写入、条目结果与 BIOS 安装事务必须锁定同一执行和 worker，旧 worker 不得写入被接管或手动重试后的执行。自动接管保留原执行 deadline，事务失败不得发布可执行的 work。
 
 Worker lease 为 60 秒、每 15 秒 heartbeat，并每读取 8 MiB 检查 cancel/deadline。进程恢复复用完整发现结果和终态 Item；root 暂不可用或内部瞬时错误只在零终态 Item 时按 1/5/30/120 秒有界自动重试，最多 4 attempt。日志、JobEvent 和 diagnostics 仅记录 root ID、相对路径的必要脱敏投影和稳定错误码，不记录绝对路径、basename/hash 或底层 `os.PathError`。
 

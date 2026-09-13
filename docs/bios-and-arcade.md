@@ -15,6 +15,8 @@
 - BIOS 与 DAT 按 Provider Target declaration管理，不按 PlatformInstance 复制；游戏目录只引用默认 Core，Core binding 决定当前 Target。
 - 浏览器和 EmulatorJS 不解析原始 DAT。后端预解析并持久化，页面查询物化结果，启动查询依赖快照。
 
+文件匹配和候选质量比较位于纯逻辑包 `internal/firmware`。`internal/service/firmware` 编排安装、替换与归档检查，`internal/persistence/firmware` 负责事实查询和记录写入。浏览器上传归档在写事务之外扫描，提交时重新检查 Requirement version 与上传 Blob；旧安装退役、新安装、上传消费或服务器导入结果和 JobEvent 原子提交，提交成功后才唤醒释放任务。归档检查在一个读快照内取得当前 Requirement、active Installation 与全部预期/实际成员，避免拼接不同版本的事实。
+
 精确来源、commit、artifact hash、DAT hash 和已知格式差异以 [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md)及 [`data/dat` manifest](../data/dat/emulatorjs/4.2.3/manifest.json) 为唯一事实源。
 
 ## 2. 哈希规则

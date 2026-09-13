@@ -19,17 +19,26 @@ import (
 	"testing"
 	"time"
 
+	payloadcomposition "retrom/internal/composition/payloadrelease"
+
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/persistence/recordstore"
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/importing"
-	"retrom/internal/payloadrelease"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestMain(m *testing.M) {
@@ -54,7 +63,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	archiveBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "importing", "testdata", "sevenzip", "single.7z"))
@@ -63,7 +72,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
@@ -161,7 +170,7 @@ func TestUploadImportReviewPublishPipeline(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	const (
@@ -179,10 +188,10 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 		t.Fatal(err)
 	}
 	ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: adminID, ProfileID: profileID, Role: "ADMIN"})
-	defaultTag, err := tagging.New(database.SQL, time.Now).Create(ctx, adminID, "待通关")
+	defaultTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "待通关")
 	testassert.False(t, err != nil, err)
 	blobs, _ := blobstore.Open(dataDir)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	contents := []byte("deterministic gba fixture")
 	upload, err := uploadService.Create(
 		ctx,
@@ -262,15 +271,15 @@ WHERE job.id=?
 		t.Fatalf("default tag inheritance = drafts:%d config:%s error:%v", inheritedDrafts, initialConfigSnapshot, err)
 	}
 	importer := New(database.SQL, time.Now)
-	transientTag, err := tagging.New(database.SQL, time.Now).Create(ctx, adminID, "删除失效")
+	transientTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "删除失效")
 	testassert.False(t, err != nil, err)
 	transientDraft, err := importer.PatchDraft(ctx, discardItemID, 1, DraftPatch{
 		TagIDs: []string{defaultTag.TagID, transientTag.TagID},
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return transientDraft.Version != 2 }), "add transient review tag = %#v, %v", transientDraft, err)
-	currentTransientTag, err := tagging.New(database.SQL, time.Now).Get(ctx, transientTag.TagID)
+	currentTransientTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Get(ctx, transientTag.TagID)
 	testassert.False(t, err != nil, err)
-	if _, _, err := tagging.New(database.SQL, time.Now).Delete(
+	if _, _, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Delete(
 		ctx, adminID, transientTag.TagID, transientTag.Name, currentTransientTag.Version,
 	); err != nil {
 		t.Fatal(err)
@@ -307,12 +316,15 @@ WHERE d.import_item_id=?
 `, itemID).Scan(&oldValidationID, &importConfigSnapshot); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE platform_instances
-SET version=version+1,
+	if _, err := recordstore.UpdatePlatformInstances(ctx, database.SQL, recordstore.Update{
+		Set: `
+version=version+1,
 updated_at_ms=updated_at_ms+1
-WHERE catalog_template_key='gba/mgba'
-`); err != nil {
+`,
+		Scope: recordstore.Scope{
+			Where: `catalog_template_key='gba/mgba'`,
+		},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if current, err := importer.ReviewValidationCurrent(ctx, oldValidationID); err != nil || !current {
@@ -443,10 +455,11 @@ WHERE job.id=? AND item.id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return discardedJobState != "COMPLETED" }, func() bool { return discardedJobPending != 0 }, func() bool { return discardedJobPublished != 1 }, func() bool { return discardedJobDiscarded != 1 }, func() bool { return discardedItemState != "DISCARDED" }), "discard aggregate = job:%s pending:%d published:%d discarded:%d item:%s", discardedJobState, discardedJobPending, discardedJobPublished, discardedJobDiscarded, discardedItemState)
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releases, err := payloadcomposition.New(ctx, database.SQL, blobs, time.Now, 7*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(releases.Close)
 	for attempt := 0; attempt < 10; attempt++ {
 		worked, runErr := releases.RunOnce(ctx)
 		if runErr != nil {
@@ -505,7 +518,13 @@ WHERE id=?
 		!strings.Contains(datEvidenceJSON, `"datMatched":false`) {
 		t.Fatalf("discard evidence = games:%d blob:%d before:%s config:%s dat:%s error=%v", publishedDiscard, retainedBlob, beforeJSON, configEvidenceJSON, datEvidenceJSON, err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `UPDATE review_events SET reason='tampered' WHERE id=?`, discarded.EventID); err == nil ||
+	if _, err := recordstore.UpdateReviewEvents(ctx, database.SQL, recordstore.Update{
+		Set: `reason='tampered'`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{discarded.EventID},
+		},
+	}); err == nil ||
 		!strings.Contains(err.Error(), "immutable") {
 		t.Fatalf("immutable review event update error = %v", err)
 	}

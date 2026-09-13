@@ -2,11 +2,10 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"retrom/internal/authn"
+	idempotencyservice "retrom/internal/service/idempotency"
 )
 
 const operationIDContextKey contextKey = "openapi-operation-id"
@@ -40,9 +40,10 @@ var domainIdempotencyOperations = map[string]struct{}{
 }
 
 type bufferedResponse struct {
-	header http.Header
-	body   bytes.Buffer
-	status int
+	header      http.Header
+	body        bytes.Buffer
+	status      int
+	afterCommit []func()
 }
 
 func (response *bufferedResponse) Header() http.Header { return response.header }
@@ -103,45 +104,26 @@ func (server *Server) idempotencyHandler(next http.Handler) http.Handler {
 		}
 		server.lockIdempotentRequest()
 		defer server.idempotency.Unlock()
+		idempotencyRecords := server.idempotencyRecords()
 		now := server.now().UnixMilli()
-		_, _ = server.database.ExecContext(
-			request.Context(),
-			`
-DELETE
-FROM idempotency_records
-WHERE operation_id=?
-AND key=?
-AND principal_id=?
-AND expires_at_ms<=?
-`,
-			operationID,
-			key,
-			principalID,
-			now,
-		)
-		var storedDigest, headersJSON string
-		var storedStatus int
-		var storedBody []byte
-		err = server.database.QueryRowContext(request.Context(), `
-SELECT request_digest,
-http_status,
-response_headers_json,
-response_body
-FROM idempotency_records
-WHERE operation_id=?
-AND key=?
-AND principal_id=?
-		`, operationID, key, principalID).
-			Scan(&storedDigest, &storedStatus, &headersJSON, &storedBody)
-		if err == nil {
-			server.replayIdempotentResponse(
-				writer, request, operationID, digest, storedDigest,
-				storedStatus, headersJSON, storedBody,
-			)
+		if err := idempotencyRecords.PurgeExpired(
+			request.Context(), operationID, key, principalID, now,
+		); err != nil {
+			server.databaseError(writer, request, err)
 			return
 		}
-		if !errors.Is(err, sql.ErrNoRows) {
+		stored, found, err := idempotencyRecords.Lookup(
+			request.Context(), operationID, key, principalID,
+		)
+		if err != nil {
 			server.databaseError(writer, request, err)
+			return
+		}
+		if found {
+			server.replayIdempotentResponse(
+				writer, request, operationID, digest, stored.RequestDigest,
+				stored.HTTPStatus, stored.HeadersJSON, stored.Body,
+			)
 			return
 		}
 		response := &bufferedResponse{header: make(http.Header)}
@@ -149,49 +131,48 @@ AND principal_id=?
 		if response.status == 0 {
 			response.status = http.StatusOK
 		}
-		if response.status >= 200 && response.status < 300 && response.body.Len() <= 1<<20 {
-			headers := responseHeadersForReplay(response.header)
-			encodedHeaders, _ := json.Marshal(headers)
-			responseBody := make([]byte, response.body.Len())
-			copy(responseBody, response.body.Bytes())
-			_, err = server.database.ExecContext(
-				request.Context(),
-				`
-INSERT INTO idempotency_records(principal_id,
-operation_id,
-key,
-request_digest,
-http_status,
-response_headers_json,
-response_body,
-created_at_ms,
-expires_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?)
-`,
-				principalID,
-				operationID,
-				key,
-				digest,
-				response.status,
-				string(encodedHeaders),
-				responseBody,
-				now,
-				now+int64(24*time.Hour/time.Millisecond),
-			)
-			if err != nil {
-				server.databaseError(writer, request, err)
-				return
-			}
+		committed, err := server.storeBufferedIdempotencyResponse(
+			request.Context(), idempotencyRecords, operationID, key, principalID, digest, response, now,
+		)
+		if err != nil {
+			server.databaseError(writer, request, err)
+			return
 		}
 		copyResponse(writer, response)
+		response.runAfterCommit(committed)
 	})
+}
+
+func (server *Server) storeBufferedIdempotencyResponse(
+	ctx context.Context,
+	records *idempotencyservice.Service,
+	operationID, key, principalID, digest string,
+	response *bufferedResponse,
+	nowMS int64,
+) (bool, error) {
+	if response.status < 200 || response.status >= 300 || response.body.Len() > 1<<20 {
+		return false, nil
+	}
+	headers := responseHeadersForReplay(response.header)
+	encodedHeaders, err := json.Marshal(headers)
+	if err != nil {
+		return false, fmt.Errorf("encode idempotency response headers: %w", err)
+	}
+	responseBody := make([]byte, response.body.Len())
+	copy(responseBody, response.body.Bytes())
+	if err := records.Store(
+		ctx, operationID, key, principalID,
+		idempotencyservice.Receipt{
+			RequestDigest: digest,
+			HTTPStatus:    response.status,
+			HeadersJSON:   string(encodedHeaders),
+			Body:          responseBody,
+		},
+		nowMS, nowMS+int64(24*time.Hour/time.Millisecond),
+	); err != nil {
+		return false, fmt.Errorf("store idempotency response: %w", err)
+	}
+	return true, nil
 }
 
 func (server *Server) lockIdempotentRequest() {

@@ -17,12 +17,17 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestRetryAndCancelKeepImportItemAggregatesInSync(t *testing.T) {
@@ -35,7 +40,7 @@ func TestRetryAndCancelKeepImportItemAggregatesInSync(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
@@ -164,12 +169,12 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploader := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	contents := []byte("duplicate-content-identity-fixture")
 	platformInstanceID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
@@ -278,7 +283,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
@@ -290,7 +295,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 		"wrong-platform.iso": []byte("raw-psp-content"),
 		".DS_Store":          []byte("sidecar"),
 	}
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	declarations := make([]uploads.FileDeclaration, 0, len(files))
 	paths := make([]string, 0, len(files))
 	for path := range files {

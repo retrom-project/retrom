@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cursor"
-	"retrom/internal/tagging"
+	"retrom/internal/service/tagging"
 )
 
 func writeTagError(writer http.ResponseWriter, request *http.Request, err error) {
@@ -19,7 +19,14 @@ func writeTagError(writer http.ResponseWriter, request *http.Request, err error)
 		writeError(writer, request, http.StatusUnprocessableEntity, "TAG_REFERENCE_INVALID", "标签引用无效",
 			map[string]any{"invalidTagIds": invalidReferences.IDs})
 	case errors.Is(err, tagging.ErrNameInvalid):
-		writeError(writer, request, http.StatusUnprocessableEntity, "TAG_NAME_INVALID", "标签名称无效", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusUnprocessableEntity,
+			"TAG_NAME_INVALID",
+			"标签名称无效",
+			map[string]any{},
+		)
 	case errors.Is(err, tagging.ErrNotFound):
 		writeError(writer, request, http.StatusNotFound, "TAG_NOT_FOUND", "标签不存在", map[string]any{})
 	case errors.Is(err, tagging.ErrGameNotFound):
@@ -27,7 +34,14 @@ func writeTagError(writer http.ResponseWriter, request *http.Request, err error)
 	case errors.Is(err, tagging.ErrNameConflict):
 		writeError(writer, request, http.StatusConflict, "TAG_NAME_CONFLICT", "已存在同名活动标签", map[string]any{})
 	case errors.Is(err, tagging.ErrLimitReached):
-		writeError(writer, request, http.StatusConflict, "TAG_LIMIT_REACHED", "活动标签数量已达上限", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"TAG_LIMIT_REACHED",
+			"活动标签数量已达上限",
+			map[string]any{},
+		)
 	case errors.Is(err, tagging.ErrAlreadyDeleted):
 		writeError(writer, request, http.StatusConflict, "TAG_ALREADY_DELETED", "标签已经删除", map[string]any{})
 	case errors.Is(err, tagging.ErrVersionConflict):
@@ -43,7 +57,14 @@ func writeTagError(writer http.ResponseWriter, request *http.Request, err error)
 			"TAG_DELETE_CONFIRMATION_MISMATCH", "标签名称确认不匹配", map[string]any{},
 		)
 	case errors.Is(err, tagging.ErrReferenceInvalid):
-		writeError(writer, request, http.StatusUnprocessableEntity, "TAG_REFERENCE_INVALID", "标签引用无效", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusUnprocessableEntity,
+			"TAG_REFERENCE_INVALID",
+			"标签引用无效",
+			map[string]any{},
+		)
 	case errors.Is(err, tagging.ErrInvalid):
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "标签请求无效", map[string]any{})
 	default:
@@ -201,7 +222,14 @@ func (server *Server) patchAdminTag(writer http.ResponseWriter, request *http.Re
 	}
 	expected, err := ParseETag(request.Header.Get("If-Match"))
 	if err != nil {
-		writeError(writer, request, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "需要当前标签版本", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusPreconditionRequired,
+			"PRECONDITION_REQUIRED",
+			"需要当前标签版本",
+			map[string]any{},
+		)
 		return
 	}
 	var body struct {
@@ -226,7 +254,14 @@ func (server *Server) deleteAdminTag(writer http.ResponseWriter, request *http.R
 	}
 	expected, err := ParseETag(request.Header.Get("If-Match"))
 	if err != nil {
-		writeError(writer, request, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "需要当前标签版本", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusPreconditionRequired,
+			"PRECONDITION_REQUIRED",
+			"需要当前标签版本",
+			map[string]any{},
+		)
 		return
 	}
 	var body struct {
@@ -253,7 +288,14 @@ func (server *Server) putAdminGameTags(writer http.ResponseWriter, request *http
 	}
 	expected, err := ParseETag(request.Header.Get("If-Match"))
 	if err != nil {
-		writeError(writer, request, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "需要当前游戏版本", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusPreconditionRequired,
+			"PRECONDITION_REQUIRED",
+			"需要当前游戏版本",
+			map[string]any{},
+		)
 		return
 	}
 	var body struct {

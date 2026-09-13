@@ -32,15 +32,15 @@ func TestPrepareRPGMakerDirectoryKeepsOneNormalizedProject(t *testing.T) {
 
 func assertPreparedMVProject(t *testing.T, groups []preparedGroup, archives []preparedArchive) {
 	t.Helper()
-	if len(groups) != 1 || len(archives) != 0 || groups[0].contentKind != "RPG_MAKER_PROJECT" ||
-		groups[0].rpgProfile == nil || groups[0].rpgProfile.ExpectedGeneration != detector.RPGMV ||
-		groups[0].rpgProjectRoot != "www" || groups[0].titleSource != "Export" ||
-		len(groups[0].sources) != 10 {
+	if len(groups) != 1 || len(archives) != 0 || groups[0].ContentKind != "RPG_MAKER_PROJECT" ||
+		groups[0].RPGProfile == nil || groups[0].RPGProfile.ExpectedGeneration != detector.RPGMV ||
+		groups[0].RPGProjectRoot != "www" || groups[0].TitleSource != "Export" ||
+		len(groups[0].Sources) != 10 {
 		t.Fatalf("prepared group = %#v, archives=%d", groups, len(archives))
 	}
-	for _, source := range groups[0].sources {
-		if source.role != "PROJECT_FILE" || filepath.ToSlash(source.logicalName) == "" ||
-			len(source.logicalName) >= 4 && source.logicalName[:4] == "www/" {
+	for _, source := range groups[0].Sources {
+		if source.Role != "PROJECT_FILE" || filepath.ToSlash(source.LogicalName) == "" ||
+			len(source.LogicalName) >= 4 && source.LogicalName[:4] == "www/" {
 			t.Fatalf("project source = %#v", source)
 		}
 	}
@@ -49,7 +49,7 @@ func assertPreparedMVProject(t *testing.T, groups []preparedGroup, archives []pr
 func countIgnoredDispositions(dispositions []preparedDisposition) int {
 	count := 0
 	for _, disposition := range dispositions {
-		if disposition.disposition == "IGNORED" {
+		if disposition.Disposition == "IGNORED" {
 			count++
 		}
 	}
@@ -59,12 +59,12 @@ func countIgnoredDispositions(dispositions []preparedDisposition) int {
 func TestRPGMakerDirectoryTitleRequiresOneSharedTopLevelDirectory(t *testing.T) {
 	t.Parallel()
 	if title := rpgMakerDirectoryTitle([]importSourceFile{
-		{path: "Dungeon/index.html"}, {path: "Dungeon/data/System.json"},
+		{Path: "Dungeon/index.html"}, {Path: "Dungeon/data/System.json"},
 	}); title != "Dungeon" {
 		t.Fatalf("shared directory title = %q", title)
 	}
 	if title := rpgMakerDirectoryTitle([]importSourceFile{
-		{path: "index.html"}, {path: "data/System.json"},
+		{Path: "index.html"}, {Path: "data/System.json"},
 	}); title != "" {
 		t.Fatalf("root project title = %q, want empty", title)
 	}
@@ -95,17 +95,17 @@ func TestPrepareRPGMakerDirectoryKeepsOpaqueNestedProjectFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if countIgnoredDispositions(dispositions) != 2 || len(groups) != 1 || len(groups[0].sources) != 11 {
+	if countIgnoredDispositions(dispositions) != 2 || len(groups) != 1 || len(groups[0].Sources) != 11 {
 		t.Fatalf("dispositions=%#v group=%#v", dispositions, groups)
 	}
 	found := false
-	for _, source := range groups[0].sources {
-		if source.logicalName == "audio/bgm/config" {
+	for _, source := range groups[0].Sources {
+		if source.LogicalName == "audio/bgm/config" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("opaque nested project file missing: %#v", groups[0].sources)
+		t.Fatalf("opaque nested project file missing: %#v", groups[0].Sources)
 	}
 }
 
@@ -121,22 +121,22 @@ func TestPrepareRPGMakerDirectoryKeepsOpaqueNativeProjectFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if countIgnoredDispositions(dispositions) != 2 || len(groups) != 1 || len(groups[0].sources) != 11 {
+	if countIgnoredDispositions(dispositions) != 2 || len(groups) != 1 || len(groups[0].Sources) != 11 {
 		t.Fatalf("dispositions=%#v group=%#v", dispositions, groups)
 	}
-	for _, source := range groups[0].sources {
-		if source.logicalName == "plugin.node" && source.role == "PROJECT_FILE" {
+	for _, source := range groups[0].Sources {
+		if source.LogicalName == "plugin.node" && source.Role == "PROJECT_FILE" {
 			return
 		}
 	}
-	t.Fatalf("opaque native project file missing: %#v", groups[0].sources)
+	t.Fatalf("opaque native project file missing: %#v", groups[0].Sources)
 }
 
 func TestPrepareRPGMakerRootProjectPreservesDesktopPayloadInSourceFiles(t *testing.T) {
 	t.Parallel()
 	service, files := rpgMakerMVImportFixture(t)
 	for index := range files {
-		files[index].path = strings.Replace(files[index].path, "Export/www/", "Export/", 1)
+		files[index].Path = strings.Replace(files[index].Path, "Export/www/", "Export/", 1)
 	}
 	for _, file := range []struct {
 		name string
@@ -154,15 +154,15 @@ func TestPrepareRPGMakerRootProjectPreservesDesktopPayloadInSourceFiles(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if countIgnoredDispositions(dispositions) != 1 || len(groups) != 1 || groups[0].rpgProjectRoot != "." {
+	if countIgnoredDispositions(dispositions) != 1 || len(groups) != 1 || groups[0].RPGProjectRoot != "." {
 		t.Fatalf("dispositions=%#v groups=%#v", dispositions, groups)
 	}
 	want := map[string]bool{
 		"Game.exe": false, "nw.dll": false, "plugin.node": false, "launcher.bat": false,
 	}
-	for _, source := range groups[0].sources {
-		if _, exists := want[source.logicalName]; exists && source.role == "PROJECT_FILE" {
-			want[source.logicalName] = true
+	for _, source := range groups[0].Sources {
+		if _, exists := want[source.LogicalName]; exists && source.Role == "PROJECT_FILE" {
+			want[source.LogicalName] = true
 		}
 	}
 	for name, found := range want {
@@ -185,7 +185,7 @@ func TestPrepareRPGMakerArchiveMaterializesNestedEntryWithoutExpandingIt(t *test
 		t.Fatal(err)
 	}
 	archiveFile := importSourceFile{
-		id: "archive", path: "fixture.zip", blobID: "archive", sha256: metadata.SHA256, size: metadata.Size,
+		ID: "archive", Path: "fixture.zip", BlobID: "archive", SHA256: metadata.SHA256, Size: metadata.Size,
 	}
 	_, groups, archives, err := New(nil, nil).WithBlobStore(blobs).prepareRPGMakerProject(
 		context.Background(), "FILES", []importSourceFile{archiveFile}, "rpgmaker_mv",
@@ -193,16 +193,16 @@ func TestPrepareRPGMakerArchiveMaterializesNestedEntryWithoutExpandingIt(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(groups) != 1 || len(groups[0].sources) != 11 || groups[0].titleSource != "fixture.zip" ||
-		len(archives) != 1 || len(archives[0].materialized) != 11 {
+	if len(groups) != 1 || len(groups[0].Sources) != 11 || groups[0].TitleSource != "fixture.zip" ||
+		len(archives) != 1 || len(archives[0].Materialized) != 11 {
 		t.Fatalf("groups=%#v archives=%#v", groups, archives)
 	}
-	for _, entry := range archives[0].entries {
+	for _, entry := range archives[0].Entries {
 		if entry.NormalizedPath == "Export/www/audio/bgm/config" {
 			if entry.NestedArchive != importing.NestedArchiveSevenZip {
 				t.Fatalf("sidecar classification=%#v", entry)
 			}
-			if _, exists := archives[0].materialized[entry.Ordinal]; !exists {
+			if _, exists := archives[0].Materialized[entry.Ordinal]; !exists {
 				t.Fatalf("opaque nested ordinal %d was not materialized", entry.Ordinal)
 			}
 			return
@@ -214,15 +214,15 @@ func TestPrepareRPGMakerArchiveMaterializesNestedEntryWithoutExpandingIt(t *test
 func TestPrepareStaticBIOSDependenciesLeavesRPGMakerValidationToProjectResources(t *testing.T) {
 	t.Parallel()
 	groups := []preparedGroup{{
-		validationStatus: "BLOCKED", compatibilityCode: "RPG_EXTERNAL_RTP_REQUIRED",
-		dependencySnapshot: `{"bindings":[],"schemaVersion":1}`,
+		ValidationStatus: "BLOCKED", CompatibilityCode: "RPG_EXTERNAL_RTP_REQUIRED",
+		DependencySnapshot: `{"bindings":[],"schemaVersion":1}`,
 	}}
 	if err := prepareStaticBIOSDependencies(
 		context.Background(), nil, "retrom-runtime", "rpgmaker-2000", "rpgmaker", groups,
 	); err != nil {
 		t.Fatalf("prepareStaticBIOSDependencies() error = %v", err)
 	}
-	if groups[0].compatibilityCode != "RPG_EXTERNAL_RTP_REQUIRED" {
+	if groups[0].CompatibilityCode != "RPG_EXTERNAL_RTP_REQUIRED" {
 		t.Fatalf("RPG validation was overwritten: %#v", groups[0])
 	}
 }
@@ -263,7 +263,7 @@ func rpgMakerMVImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			id: name, path: name, blobID: name, sha256: metadata.SHA256, size: metadata.Size,
+			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	return New(nil, nil).WithBlobStore(blobs), files
@@ -327,6 +327,6 @@ func appendRPGMakerFixtureFile(
 		t.Fatal(err)
 	}
 	return append(files, importSourceFile{
-		id: name, path: name, blobID: name, sha256: metadata.SHA256, size: metadata.Size,
+		ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
 	})
 }

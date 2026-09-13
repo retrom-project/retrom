@@ -161,7 +161,7 @@ func OpenRoot(path string) (*os.File, error) { return openDirectoryNoFollow(path
 func OpenSelectedDirectory(rootPath, relativePath string) (*os.File, error) {
 	root, err := openDirectoryNoFollow(rootPath)
 	if err != nil {
-		return nil, ErrRootUnavailable
+		return nil, fmt.Errorf("open selected source root: %w: %w", ErrRootUnavailable, err)
 	}
 	current := root
 	for _, segment := range strings.Split(relativePath, "/") {
@@ -174,7 +174,7 @@ func OpenSelectedDirectory(rootPath, relativePath string) (*os.File, error) {
 		}
 		if openErr != nil {
 			cleanup.Error("close", root.Close())
-			return nil, ErrPathInvalid
+			return nil, fmt.Errorf("open selected source directory: %w: %w", ErrPathInvalid, openErr)
 		}
 		current = next
 	}
@@ -264,18 +264,28 @@ func ListRegularFiles(rootPath, selectedPath, relativeDirectory string) ([]FileS
 // WalkFiles visits only regular files beneath an already opened selected
 // directory. File.Parent is borrowed for the duration of the callback.
 func WalkFiles(root *os.File, limits Limits, visit func(File) error) (Counts, error) {
-	state := fileWalker{limits: limits, visit: visit}
+	return WalkFilesContext(context.Background(), root, limits, visit)
+}
+
+// WalkFilesContext observes cancellation before directories and entries, including
+// empty directories. File.Parent is borrowed for the duration of the callback.
+func WalkFilesContext(ctx context.Context, root *os.File, limits Limits, visit func(File) error) (Counts, error) {
+	state := fileWalker{ctx: ctx, limits: limits, visit: visit}
 	err := state.walk(root, "", 0)
 	return state.counts, err
 }
 
 type fileWalker struct {
+	ctx    context.Context
 	limits Limits
 	visit  func(File) error
 	counts Counts
 }
 
 func (state *fileWalker) walk(directory *os.File, prefix string, depth int) error {
+	if err := state.checkCancellation(); err != nil {
+		return err
+	}
 	if depth > state.limits.MaxDepth {
 		return ErrScanLimit
 	}
@@ -284,16 +294,22 @@ func (state *fileWalker) walk(directory *os.File, prefix string, depth int) erro
 		return ErrScanLimit
 	}
 	entries, err := directory.ReadDir(-1)
+	if cancellationErr := state.checkCancellation(); cancellationErr != nil {
+		return cancellationErr
+	}
 	if err != nil {
 		return ErrRootUnavailable
 	}
 	sort.Slice(entries, func(left, right int) bool { return entries[left].Name() < entries[right].Name() })
 	for _, entry := range entries {
+		if err := state.checkCancellation(); err != nil {
+			return err
+		}
 		if err := state.entry(directory, prefix, depth, entry.Name()); err != nil {
 			return err
 		}
 	}
-	return nil
+	return state.checkCancellation()
 }
 
 func (state *fileWalker) entry(directory *os.File, prefix string, depth int, name string) error {
@@ -327,6 +343,13 @@ func (state *fileWalker) entry(directory *os.File, prefix string, depth int, nam
 	file := File{RelativePath: relative, Basename: name, SizeBytes: info.Size(), Parent: directory, Name: name}
 	if err := state.visit(file); err != nil {
 		return fmt.Errorf("serversource/visit file: %w", err)
+	}
+	return nil
+}
+
+func (state *fileWalker) checkCancellation() error {
+	if err := state.ctx.Err(); err != nil {
+		return fmt.Errorf("serversource/walk cancelled: %w", err)
 	}
 	return nil
 }

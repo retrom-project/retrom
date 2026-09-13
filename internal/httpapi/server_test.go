@@ -13,12 +13,16 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 	"retrom/internal/config"
+	"retrom/internal/service/accounts"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -186,7 +190,7 @@ func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	const now = int64(1_786_269_147_906)
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	requireHTTPTestRuntimeTarget(t, transaction, "mame2003_plus")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mame2003_plus")
 	testassert.False(t, err != nil, err)
@@ -304,14 +308,14 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	if err := decoder.Decode(&response); err != nil {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 13 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
+	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 14 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
 }
 
 func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.Now()
-	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "fceumm")
@@ -328,7 +332,7 @@ func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 	timestamp := now.UnixMilli()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `PRAGMA defer_foreign_keys=ON`)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
@@ -443,7 +447,7 @@ func TestImportOverviewCountsPegasusOnceAndHidesItsInternalJob(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.Now()
-	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")

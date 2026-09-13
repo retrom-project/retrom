@@ -957,6 +957,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Atomically freezes this finalization round and queues an UPLOAD_FINALIZE job. Invalid or stale upload state returns 409; persistence failures return 500 and preserve their original server-side cause. */
         post: operations["postAdminUploadComplete"];
         delete?: never;
         options?: never;
@@ -991,7 +992,7 @@ export interface paths {
         /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus or EmulationStation review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/pegasus-imports` and `/api/v1/admin/emulationstation-imports`. */
         get: operations["getAdminImports"];
         put?: never;
-        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
+        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
         post: operations["postAdminImport"];
         delete?: never;
         options?: never;
@@ -2499,7 +2500,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index. */
+        /** @description Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index. Only a valid static-index format may use the frozen stored index; dynamic index storage failures return INTERNAL_ERROR. */
         get: operations["getRuntimeProjectFile"];
         put?: never;
         post?: never;
@@ -7549,6 +7550,24 @@ export interface operations {
         requestBody?: never;
         responses: {
             202: components["responses"]["JSONResponse"];
+            /** @description VERSION_CONFLICT when the upload is unavailable, consumed or its state or version changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description INTERNAL_ERROR when upload finalization persistence fails. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     getAdminImportsSummary: {
@@ -7594,6 +7613,24 @@ export interface operations {
         requestBody: components["requestBodies"]["CreateImport"];
         responses: {
             202: components["responses"]["JSONResponse"];
+            /** @description IMPORT_INPUT_INVALID when admission input is invalid or its upload or target version changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description INTERNAL_ERROR when admission persistence fails. No import is committed or dispatched. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     getAdminImport: {
@@ -8019,6 +8056,24 @@ export interface operations {
         requestBody: components["requestBodies"]["Approval"];
         responses: {
             201: components["responses"]["JSONResponse"];
+            /** @description REVIEW_VALIDATION_STALE or DUPLICATE_GAME_CONFIRMATION_REQUIRED; duplicate confirmation includes the complete current match set. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description INTERNAL_ERROR when persistence fails or persisted review evidence cannot be decoded. No publication is committed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     postAdminReviewDiscard: {
@@ -9327,6 +9382,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["BinaryResponse"];
+            401: components["responses"]["JSONResponse"];
+            500: components["responses"]["JSONResponse"];
         };
     };
     headRuntimeProjectFile: {
@@ -9342,6 +9399,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["BinaryResponse"];
+            401: components["responses"]["JSONResponse"];
+            500: components["responses"]["JSONResponse"];
         };
     };
     getRuntimeLaunchConfig: {

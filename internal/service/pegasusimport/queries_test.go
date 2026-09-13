@@ -1,0 +1,174 @@
+package pegasusimport
+
+import (
+	"context"
+	"errors"
+	"reflect"
+	"testing"
+
+	"retrom/internal/service/tagging"
+)
+
+var errQueryTest = errors.New("query failed")
+
+type queryMemory struct {
+	called      int
+	err         error
+	list        ListQuery
+	collections CollectionQuery
+	items       ItemQuery
+	records     []CollectionRecord
+}
+
+func (m *queryMemory) Get(context.Context, string) (Summary, error) {
+	m.called++
+	return Summary{ID: "partial"}, m.err
+}
+
+func (m *queryMemory) List(_ context.Context, q ListQuery) ([]Summary, error) {
+	m.called++
+	m.list = q
+	return []Summary{}, m.err
+}
+
+func (m *queryMemory) Collections(_ context.Context, q CollectionQuery) ([]CollectionRecord, error) {
+	m.called++
+	m.collections = q
+	return m.records, m.err
+}
+
+func (m *queryMemory) Items(_ context.Context, q ItemQuery) ([]Item, error) {
+	m.called++
+	m.items = q
+	return []Item{}, m.err
+}
+
+type tagMemory struct {
+	ids    []string
+	err    error
+	called int
+	values map[string][]tagging.Reference
+}
+
+func (m *tagMemory) PegasusReferences(_ context.Context, ids []string) (map[string][]tagging.Reference, error) {
+	m.called++
+	m.ids = ids
+	return m.values, m.err
+}
+
+func TestQueriesRejectLimitsBeforeReading(t *testing.T) {
+	t.Parallel()
+	for _, limit := range []int{-1, 0, 102} {
+		t.Run(string(rune(limit+1000)), func(t *testing.T) {
+			t.Parallel()
+			repo := &queryMemory{}
+			service := NewQueries(repo, &tagMemory{})
+			_, a := service.List(t.Context(), ListQuery{Limit: limit})
+			_, b := service.Collections(t.Context(), CollectionQuery{Limit: limit})
+			_, c := service.Items(t.Context(), ItemQuery{Limit: limit})
+			for _, err := range []error{a, b, c} {
+				if !errors.Is(err, ErrInvalid) {
+					t.Fatalf("limit %d: %v", limit, err)
+				}
+			}
+			if repo.called != 0 {
+				t.Fatal("invalid query reached repository")
+			}
+		})
+	}
+}
+
+func TestQueriesPreserveTypedFiltersAndBoundaries(t *testing.T) {
+	t.Parallel()
+	repo := &queryMemory{}
+	service := NewQueries(repo, &tagMemory{})
+	list := ListQuery{State: "RUNNING", BeforeAtMS: 123, BeforeID: "before", Limit: 21}
+	collections := CollectionQuery{ImportID: "import", AfterPath: "metadata", AfterOrdinal: 4, AfterID: "collection", Limit: 101}
+	items := ItemQuery{ImportID: "import", Text: "title", Outcome: "COMMIT_FAILED", Warning: "MEDIA", CollectionID: "collection", AfterTitle: "after", AfterID: "item", Limit: 51}
+	if _, err := service.List(t.Context(), list); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Collections(t.Context(), collections); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Items(t.Context(), items); err != nil {
+		t.Fatal(err)
+	}
+	if repo.list != list || repo.collections != collections || repo.items != items {
+		t.Fatalf("filters changed: %#v", repo)
+	}
+	for _, err := range queryOverflows(t, service) {
+		if !errors.Is(err, ErrInvalid) {
+			t.Fatalf("overflow: %v", err)
+		}
+	}
+}
+
+func queryOverflows(t *testing.T, service *Queries) []error {
+	t.Helper()
+	_, a := service.List(t.Context(), ListQuery{Limit: 22})
+	_, b := service.Items(t.Context(), ItemQuery{Limit: 52})
+	return []error{a, b}
+}
+
+func TestQueriesPreserveErrorsWithoutPartialResults(t *testing.T) {
+	t.Parallel()
+	repo := &queryMemory{err: errQueryTest}
+	service := NewQueries(repo, &tagMemory{})
+	summary, a := service.Get(t.Context(), "import")
+	list, b := service.List(t.Context(), ListQuery{Limit: 1})
+	collections, c := service.Collections(t.Context(), CollectionQuery{Limit: 1})
+	items, d := service.Items(t.Context(), ItemQuery{Limit: 1})
+	for _, err := range []error{a, b, c, d} {
+		if !errors.Is(err, errQueryTest) {
+			t.Fatalf("lost cause: %v", err)
+		}
+	}
+	if summary.ID != "" || list != nil || collections != nil || items != nil {
+		t.Fatal("failed queries leaked partial results")
+	}
+}
+
+func TestCollectionTagsUseLiveMappingAndPreserveFrozenSelection(t *testing.T) {
+	t.Parallel()
+	frozen := []tagging.Reference{{TagID: "old", Name: "Frozen"}}
+	live := []tagging.Reference{{TagID: "active", Name: "Live"}}
+	repo := &queryMemory{records: []CollectionRecord{{Collection: Collection{ID: "mapping", TagSnapshot: frozen}, ImportState: "AWAITING_MAPPING"}, {Collection: Collection{ID: "frozen", TagSnapshot: frozen}, ImportState: "RUNNING"}, {Collection: Collection{ID: "deleted", TagSnapshot: frozen}, ImportState: "AWAITING_MAPPING"}}}
+	tags := &tagMemory{values: map[string][]tagging.Reference{"mapping": live}}
+	service := NewQueries(repo, tags)
+	values, err := service.Collections(t.Context(), CollectionQuery{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(tags.ids, []string{"mapping", "deleted"}) {
+		t.Fatalf("queried tags: %v", tags.ids)
+	}
+	if !reflect.DeepEqual(values[0].TagSnapshot, live) || !reflect.DeepEqual(values[1].TagSnapshot, frozen) || values[2].TagSnapshot == nil || len(values[2].TagSnapshot) != 0 {
+		t.Fatalf("tags: %#v", values)
+	}
+	if !reflect.DeepEqual(repo.records[0].TagSnapshot, frozen) {
+		t.Fatal("mutated repository snapshot")
+	}
+}
+
+func TestCollectionTagFailureReturnsNoPartialProjection(t *testing.T) {
+	t.Parallel()
+	repo := &queryMemory{records: []CollectionRecord{{Collection: Collection{ID: "mapping"}, ImportState: "AWAITING_MAPPING"}}}
+	tags := &tagMemory{err: errQueryTest}
+	values, err := NewQueries(repo, tags).Collections(t.Context(), CollectionQuery{Limit: 10})
+	if !errors.Is(err, errQueryTest) || values != nil {
+		t.Fatalf("tag failure: %#v, %v", values, err)
+	}
+}
+
+func TestFrozenCollectionsDoNotReadMutableTags(t *testing.T) {
+	t.Parallel()
+	tags := &tagMemory{err: errQueryTest}
+	repo := &queryMemory{records: []CollectionRecord{{Collection: Collection{ID: "frozen"}, ImportState: "RUNNING"}}}
+	if _, err := NewQueries(repo, tags).Collections(t.Context(), CollectionQuery{Limit: 10}); err != nil {
+		t.Fatal(err)
+	}
+	if tags.called != 0 {
+		t.Fatal("frozen projection queried live tags")
+	}
+}

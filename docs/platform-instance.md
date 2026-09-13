@@ -59,6 +59,12 @@ erDiagram
 - 游戏目录不持有 BIOS 或 DAT 副本。BIOS/DAT 按稳定 Provider Target 管理，多个游戏目录共享解析结果。
 - 核心若仍是任一游戏目录的默认核心，不允许从该平台解除关联或被禁用。
 
+### 3.1 创建与推荐补齐的实现边界
+
+`internal/service/platforminstance` 负责输入与默认核心校验、slug 选择、推荐状态投影、补齐顺序和幂等重放决策。Service 通过业务 Repository 接口读取目录与 catalog 引用，接口不暴露 SQL、数据库连接或可空字段的驱动类型。
+
+`internal/persistence/platforminstance` 封装查询、字段映射、目录与审计写入及幂等记录。推荐查询使用同一读取快照；手动创建与推荐补齐的写入能力绑定到同一事务，目录、审计、幂等响应必须全部提交或全部回滚，提交前请求取消也必须释放事务与连接。模板定义仍由 `internal/platformcatalog` 管理，扩展名仍以平台 profile 为准。
+
 ## 4. 字段与数据库约束
 
 <code>platform_instances</code> 必需字段：
@@ -124,7 +130,7 @@ CREATE TABLE games (
 );
 ~~~
 
-SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVariant 核心属于 Game 间接关联的平台”。两条规则必须同时由服务层事务和数据库触发器保护，并有 migration/集成测试覆盖，不能只依赖前端下拉框。`slug` 由服务端从展示名称生成小写 ASCII 标识；名称无法产生 ASCII 单词时回退为 `<platform_id>-library`，同一基础平台发生冲突时追加从 `-2` 开始的最小可用序号。最终值匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$`、最长 80 byte，创建后不可修改。
+SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVariant 核心属于 Game 间接关联的平台”。两条规则必须由服务层调用应用存储 SQL，在同一事务中校验，并有空库及集成测试覆盖，不能只依赖前端下拉框。`slug` 由服务端从展示名称生成小写 ASCII 标识；名称无法产生 ASCII 单词时回退为 `<platform_id>-library`，同一基础平台发生冲突时追加从 `-2` 开始的最小可用序号。最终值匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$`、最长 80 byte，创建后不可修改。
 
 所有其他时间点与时长字段遵循 [存储与数据库设计](./storage-and-database.md) 的 Unix 毫秒规则，不使用 TEXT 时间。
 

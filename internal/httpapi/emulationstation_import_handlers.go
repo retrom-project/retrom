@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"retrom/internal/emulationstationimport"
+	"retrom/internal/service/emulationstationimport"
 )
 
 func (server *Server) createEmulationStationImport(writer http.ResponseWriter, request *http.Request) {

@@ -42,6 +42,17 @@ test("duplicate project import requires a fresh acceptance database", () => {
   );
 });
 
+test("duplicate detection accepts the import detail matches projection", () => {
+  assert.throws(
+    () => requireFreshImportReview({ items: [] }, {
+      state: "COMPLETED",
+      alreadyImportedMatches: [{ importItemId: "duplicate", existingGame: { id: "published" } }],
+    }),
+    (error) => error instanceof SecurityInputBlocked &&
+      error.message === "RPG_ACCEPTANCE_SECURITY_FRESH_DATABASE_REQUIRED",
+  );
+});
+
 test("unexpected review cardinality remains a product failure", () => {
   assert.doesNotThrow(
     () => requireFreshImportReview({ items: [{ itemId: "one" }, { itemId: "two" }] }, {

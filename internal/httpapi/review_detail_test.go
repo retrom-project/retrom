@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -13,10 +14,17 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
+	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -35,7 +43,16 @@ func TestProjectReviewArchiveFormatRequiresValidatedTyranoScriptExecutableContex
 		{"TYRANOSCRIPT_PROJECT", "game.zip", "ELECTRON_ASAR", "ELECTRON_ASAR"},
 		{"TYRANOSCRIPT_PROJECT", "game.exe", nil, nil},
 	} {
-		if actual := projectReviewArchiveFormat(test.contentKind, test.name, test.stored); actual != test.expected {
+		var storedFormat *string
+		if value, ok := test.stored.(string); ok {
+			storedFormat = &value
+		}
+		actualFormat := libraryservice.ProjectReviewArchiveFormat(test.contentKind, test.name, storedFormat)
+		var actual any
+		if actualFormat != nil {
+			actual = *actualFormat
+		}
+		if actual != test.expected {
 			t.Fatalf("projectReviewArchiveFormat(%q,%q,%v)=%v, want %v",
 				test.contentKind, test.name, test.stored, actual, test.expected)
 		}
@@ -48,7 +65,9 @@ func TestReviewListRejectsMultipleSourceBatchFilters(t *testing.T) {
 		"importJobId":              {"01980000-0000-7000-8000-000000000001"},
 		"emulationStationImportId": {"01980000-0000-7000-8000-000000000002"},
 	}
-	_, _, _, err := applyReviewListFilters("SELECT 1 WHERE 1=1", values)
+	_, err := libraryservice.NormalizeReviewQueueFilter(libraryservice.ReviewQueueFilter{
+		ImportJobID: values.Get("importJobId"), EmulationStationImportID: values.Get("emulationStationImportId"),
+	})
 	testassert.Truef(t, errors.Is(err, errInvalidReviewQuery), "error = %v", err)
 }
 
@@ -56,7 +75,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.Now()
-	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
@@ -87,7 +106,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	testassert.False(t, err != nil, err)
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	manifest := `{"files":[{"logicalName":"blocked.gba","role":"CONTENT"}]}`
 	seedReviewSources(t, transaction, uploadID, digest, importID, target, itemID, sourceBlobID, coverBlobID, uploadFileID, coverUploadFileID, sourceSnapshotID, manifest, timestamp, coverMetadata)
 	seedReviewValidation(t, transaction, validationID, itemID, target, digest, sourceSnapshotID, draftID, scrapeJobID, timestamp)
@@ -100,9 +119,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 		return !strings.Contains(recorder.Body.String(), `"compatibilityCode":"DEPENDENCY_MISSING"`)
 	}, func() bool { return !strings.Contains(recorder.Body.String(), `"title":"Visible candidate"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"errorCode":"ASSET_HTTP_STATUS"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"name":"blocked.zip"`) }, func() bool { return !strings.Contains(recorder.Body.String(), `"archive":true`) }, func() bool {
 		return !strings.Contains(recorder.Body.String(), `"archiveEntries":[{"crc32":"`+strings.Repeat("e", 8)+`","name":"blocked.gba","sizeBytes":4096}]`)
-	}, func() bool {
-		return !strings.Contains(recorder.Body.String(), `"scrapeRuns":[{"attemptCount":0,"candidateCount":1,"completedAtMs":`)
-	}, func() bool { return !strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) }, func() bool {
+	}, func() bool { return !reviewHasExpectedScrapeRun(recorder.Body.Bytes()) }, func() bool { return !strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) }, func() bool {
 		return strings.Contains(recorder.Body.String(), `"validationStale"`)
 	}), "blocked review detail = %d %s", recorder.Code, recorder.Body.String())
 	mustExecHTTPTest(t, server.database, `
@@ -146,9 +163,14 @@ WHERE provider_id=?
 	testassert.Falsef(t, anyTrue(staleCover.Code != http.StatusConflict,
 		!strings.Contains(staleCover.Body.String(), `"code":"REVIEW_VERSION_CONFLICT"`)),
 		"stale review cover upload = %d %s", staleCover.Code, staleCover.Body.String())
-	if _, err := server.database.ExecContext(context.Background(), `
-UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
-`, readyCoverAssetID, itemID); err == nil || !strings.Contains(err.Error(), "invalid review uploaded cover") {
+	if _, err := recordstore.UpdateReviewDrafts(context.Background(), server.database, recordstore.Update{
+		Set: `cover_candidate_asset_id=?`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=?`,
+			Args:  []any{itemID},
+		},
+		Values: []any{readyCoverAssetID},
+	}); err == nil || !strings.Contains(err.Error(), "invalid review uploaded cover") {
 		t.Fatalf("manual and candidate cover database invariant error = %v", err)
 	}
 	list := httptest.NewRecorder()
@@ -662,4 +684,19 @@ VALUES(?,?,?,'cover-ready','COVER',1,'/api/v1/images/cover-ready','READY',?,600,
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func reviewHasExpectedScrapeRun(body []byte) bool {
+	var detail struct {
+		ScrapeRuns []struct {
+			AttemptCount   int64  `json:"attemptCount"`
+			CandidateCount int64  `json:"candidateCount"`
+			CompletedAtMS  *int64 `json:"completedAtMs"`
+		} `json:"scrapeRuns"`
+	}
+	if err := json.Unmarshal(body, &detail); err != nil {
+		return false
+	}
+	return len(detail.ScrapeRuns) == 1 && detail.ScrapeRuns[0].AttemptCount == 0 &&
+		detail.ScrapeRuns[0].CandidateCount == 1 && detail.ScrapeRuns[0].CompletedAtMS != nil
 }

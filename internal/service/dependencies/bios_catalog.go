@@ -1,0 +1,453 @@
+package dependencies
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type staticBIOS struct {
+	coreID       string
+	logical      string
+	mode         string
+	condition    string
+	size         int64
+	md5          string
+	sha256       string
+	options      string
+	sourceURL    string
+	delivery     string
+	emulatorPath string
+	members      string
+	sourceDigest string
+	providerID   string
+	targetID     string
+}
+
+var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
+	{
+		coreID: "freeintv", logical: "exec.bin", mode: "REQUIRED", size: 8192,
+		md5: "62e761035cb657903761800f4437b8af", sha256: "1aeb614856beba95463166daf09304b414d5617d3f37d221724b3337fc4b2722",
+		sourceURL: "https://docs.libretro.com/library/freeintv/",
+	},
+	{
+		coreID: "freeintv", logical: "grom.bin", mode: "REQUIRED", size: 2048,
+		md5: "0cd5946c6473e42e8e4c2137785e427f", sha256: "a80b6841182547d08635ad30a6af71441c4c9eed9391b3dd22feb30d8e50cc85",
+		sourceURL: "https://docs.libretro.com/library/freeintv/",
+	},
+	{
+		coreID: "neocd", logical: "neocd.bin", mode: "REQUIRED", size: 524288,
+		md5: "f39572af7584cb5b3f70ae8cc848aba2", sha256: "2e93af5848080ea04d17a7841b742f009330d30e4ff40c3410547581d921c892",
+		sourceURL: "https://github.com/libretro/neocd_libretro/blob/3118c6901787e863e80e79170d02d47657b3b0ab/README.md",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/neocd/neocd.bin",
+	},
+	{
+		delivery: "EXTERNAL_FILE", emulatorPath: "/bios.min",
+		coreID: "gbe_plus", logical: "bios.min", mode: "REQUIRED", size: 4096,
+		md5: "1e4fb124a3a886865acb574f388c803d", sha256: "45a1c7f28b9ad585e67f047abe9c1c956724bfcab8c9011002af4274e7c50e8f",
+		sourceURL: "https://docs.libretro.com/library/pokemini/",
+	},
+	{
+		delivery: "EXTERNAL_FILE", emulatorPath: "/game/keropi/iplrom.dat",
+		coreID: "px68k", logical: "iplrom.dat", mode: "REQUIRED", size: 131072,
+		md5: "7fd4caabac1d9169e289f0f7bbf71d8e", sha256: "8ead1d0f4ebb9c59a7fa118596f819e191c310442a00c56ab5ec5e9e7a189677",
+		sourceURL: "https://docs.libretro.com/library/px68k/",
+	},
+	{
+		delivery: "EXTERNAL_FILE", emulatorPath: "/game/keropi/cgrom.dat",
+		coreID: "px68k", logical: "cgrom.dat", mode: "REQUIRED", size: 786432,
+		md5: "cb0a5cfcf7247a7eab74bb2716260269", sha256: "c4e47e1480af0b00b330a49650480c8caa34054a6e97db7ae03cbade9890185d",
+		sourceURL: "https://docs.libretro.com/library/px68k/",
+	},
+	{
+		coreID: "flycast", logical: "dc_boot.bin", mode: "REQUIRED", size: 2097152,
+		md5: "e10c53c2f8b90bab96ead2d368858623", sha256: "88d6a666495ad14ab5988d8cb730533cfc94ec2cfd53a7eeda14642ab0d4abf9",
+		sourceURL: "https://docs.libretro.com/library/flycast/",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/dc/dc_boot.bin",
+		options: `{"reicast_hle_bios":"disabled"}`,
+	},
+	{
+		// Flash contains mutable console settings; accept the correct size without a fixed digest.
+		coreID: "flycast", logical: "dc_flash.bin", mode: "REQUIRED", size: 131072,
+		sourceURL: "https://github.com/nasomers/flycast-wasm/tree/v1.0",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/dc/dc_flash.bin",
+	},
+	{
+		coreID: "mednafen_pce", logical: "syscard3.pce", mode: "CONDITIONAL", condition: "PCE_CD_CONTENT", size: 262144,
+		md5: "38179df8f4ac870017db21ebcbf53114", sha256: "e11527b3b96ce112a037138988ca72fd117a6b0779c2480d9e03eaebece3d9ce",
+		sourceURL: "https://docs.libretro.com/library/beetle_pce_fast/",
+	},
+	{
+		coreID:    "fceumm",
+		logical:   "disksys.rom",
+		mode:      "CONDITIONAL",
+		condition: "FDS_CONTENT",
+		size:      8192,
+		md5:       "ca30b50f880eb660a320674ed365ef7a",
+		sha256:    "99c18490ed9002d9c6d999b9d8d15be5c051bdfa7cc7e73318053c9a994b0178",
+		sourceURL: "https://docs.libretro.com/library/fceumm/",
+	},
+	{
+		coreID:    "fceumm",
+		logical:   "gamegenie.nes",
+		mode:      "CONDITIONAL",
+		condition: "GAME_GENIE_ADDON_MODE",
+		md5:       "7f98d77d7a094ad7d069b74bd553ec98",
+		sourceURL: "https://docs.libretro.com/library/fceumm/",
+	},
+	{
+		coreID:    "snes9x",
+		logical:   "BS-X.bin",
+		mode:      "OPTIONAL",
+		condition: "SNES_BSX_FIRMWARE",
+		size:      1048576,
+		md5:       "fed4d8242cfbed61343d53d48432aced",
+		sha256:    "3ce321496edc5d77038de2034eb3fb354d7724afd0bc7fd0319f3eb5d57b984d",
+		sourceURL: "https://docs.libretro.com/library/snes9x/",
+	},
+	{
+		coreID:    "snes9x",
+		logical:   "STBIOS.bin",
+		mode:      "OPTIONAL",
+		condition: "SNES_SUFAMI_FIRMWARE",
+		size:      262144,
+		md5:       "d3a44ba7d42a74d3ac58cb9c14c6a5ca",
+		sha256:    "edacb453da14f825f05d1134d6035f4bf034e55f7cfb97c70c4ee107eabc7342",
+		sourceURL: "https://docs.libretro.com/library/snes9x/",
+	},
+	{
+		coreID:    "gambatte",
+		logical:   "gb_bios.bin",
+		mode:      "OPTIONAL",
+		condition: "GB_CONTENT",
+		size:      256,
+		md5:       "32fbbd84168d3482956eb3c5051637f5",
+		sha256:    "cf053eccb4ccafff9e67339d4e78e98dce7d1ed59be819d2a1ba2232c6fce1c7",
+		options:   `{"gambatte_gb_bootloader":"enabled"}`,
+		sourceURL: "https://docs.libretro.com/library/gambatte/",
+	},
+	{
+		coreID: "gearcoleco", logical: "colecovision.rom", mode: "REQUIRED", size: 8192,
+		md5: "2c66f5911e5b42b8ebe113403548eee7", sha256: "990bf1956f10207d8781b619eb74f89b00d921c8d45c95c334c16c8cceca09ad",
+		sourceURL: "https://docs.libretro.com/library/gearcoleco/",
+	},
+	{
+		coreID:    "gambatte",
+		logical:   "gbc_bios.bin",
+		mode:      "OPTIONAL",
+		condition: "GBC_CONTENT",
+		size:      2304,
+		md5:       "dbfce9db9deaa2567f6a84fde55f9680",
+		sha256:    "b4f2e416a35eef52cba161b159c7c8523a92594facb924b3ede0d722867c50c7",
+		options:   `{"gambatte_gb_bootloader":"enabled"}`,
+		sourceURL: "https://docs.libretro.com/library/gambatte/",
+	},
+	{
+		coreID:    "mgba",
+		logical:   "gba_bios.bin",
+		mode:      "OPTIONAL",
+		condition: "GBA_CONTENT",
+		size:      16384,
+		md5:       "a860e8c0b6d573d191e4ec7db1b1e4f6",
+		sha256:    "fd2547724b505f487e6dcb29ec2ecff3af35a841a77ab2e85fd87350abd36570",
+		options:   `{"mgba_use_bios":"ON"}`,
+		sourceURL: "https://docs.libretro.com/library/mgba/",
+	},
+	{
+		coreID:    "mgba",
+		logical:   "gb_bios.bin",
+		mode:      "OPTIONAL",
+		condition: "GB_CONTENT",
+		size:      256,
+		md5:       "32fbbd84168d3482956eb3c5051637f5",
+		sha256:    "cf053eccb4ccafff9e67339d4e78e98dce7d1ed59be819d2a1ba2232c6fce1c7",
+		options:   `{"mgba_use_bios":"ON"}`,
+		sourceURL: "https://docs.libretro.com/library/mgba/",
+	},
+	{
+		coreID:    "mgba",
+		logical:   "gbc_bios.bin",
+		mode:      "OPTIONAL",
+		condition: "GBC_CONTENT",
+		size:      2304,
+		md5:       "dbfce9db9deaa2567f6a84fde55f9680",
+		sha256:    "b4f2e416a35eef52cba161b159c7c8523a92594facb924b3ede0d722867c50c7",
+		options:   `{"mgba_use_bios":"ON"}`,
+		sourceURL: "https://docs.libretro.com/library/mgba/",
+	},
+	{
+		coreID:    "mgba",
+		logical:   "sgb_bios.bin",
+		mode:      "OPTIONAL",
+		condition: "MGBA_SGB_MODEL",
+		size:      256,
+		md5:       "d574d4f9c12f305074798f54c091a8b4",
+		sha256:    "0e4ddff32fc9d1eeaae812a157dd246459b00c9e14f2f61751f661f32361e360",
+		options:   `{"mgba_use_bios":"ON"}`,
+		sourceURL: "https://docs.libretro.com/library/mgba/",
+	},
+	{
+		coreID: "nestopia", logical: "disksys.rom", mode: "CONDITIONAL", condition: "FDS_CONTENT", size: 8192,
+		md5: "ca30b50f880eb660a320674ed365ef7a", sha256: "99c18490ed9002d9c6d999b9d8d15be5c051bdfa7cc7e73318053c9a994b0178",
+		sourceURL: "https://docs.libretro.com/library/nestopia_ue/",
+	},
+	{
+		coreID: "melonds", logical: "bios7.bin", mode: "REQUIRED", size: 16384,
+		md5: "df692a80a5b1bc90728bc3dfc76cd948", sha256: "ba65f690eb04ec92db67c0e299e21ad71de087d6d5de8a9cb17a62eaab563c17",
+		sourceURL:    "https://docs.libretro.com/library/melonds/",
+		delivery:     "EXTERNAL_FILE",
+		emulatorPath: "/retroarch/userdata/system/bios7.bin",
+	},
+	{
+		coreID: "melonds", logical: "bios9.bin", mode: "REQUIRED", size: 4096,
+		md5: "a392174eb3e572fed6447e956bde4b25", sha256: "1693983a7707ae394786fa526c0552457888a51d4e410d715ef07acd5a540555",
+		sourceURL:    "https://docs.libretro.com/library/melonds/",
+		delivery:     "EXTERNAL_FILE",
+		emulatorPath: "/retroarch/userdata/system/bios9.bin",
+	},
+	{
+		coreID: "melonds", logical: "firmware.bin", mode: "REQUIRED", size: 262144,
+		md5: "6de7f8d5bdf66f6f5583fac51fcc5a07", sha256: "7d0e3e7f9ae2d9eda596d889ed8ce6d517da227460c120c0ab8d54432246380d",
+		sourceURL:    "https://docs.libretro.com/library/melonds/",
+		delivery:     "EXTERNAL_FILE",
+		emulatorPath: "/retroarch/userdata/system/firmware.bin",
+	},
+	{
+		coreID: "a5200", logical: "5200.rom", mode: "REQUIRED", size: 2048,
+		md5: "281f20ea4320404ec820fb7ec0693b38", sha256: "06b250f18983d058c0f156ce7ee88ae48b6eaf11e6f10f21dccf6ac7ffb6a6af",
+		sourceURL: "https://docs.libretro.com/library/atari800/",
+	},
+	{
+		coreID: "pcsx_rearmed", logical: "scph5500.bin", mode: "REQUIRED", size: 524288,
+		md5: "8dd7d5296a650fac7319bce665a6a53c", sha256: "9c0421858e217805f4abe18698afea8d5aa36ff0727eb8484944e00eb5e7eadb",
+		sourceURL: "https://docs.libretro.com/library/pcsx_rearmed/",
+	},
+	{
+		coreID: "mednafen_psx_hw", logical: "scph5500.bin", mode: "REQUIRED", size: 524288,
+		md5: "8dd7d5296a650fac7319bce665a6a53c", sha256: "9c0421858e217805f4abe18698afea8d5aa36ff0727eb8484944e00eb5e7eadb",
+		sourceURL: "https://docs.libretro.com/library/beetle_psx_hw/",
+	},
+	{
+		coreID: "handy", logical: "lynxboot.img", mode: "REQUIRED", size: 512,
+		md5: "fcd403db69f54290b51035d82f835e7b", sha256: "c26a36c1990bcf841155e5a6fea4d2ee1a4d53b3cc772e70f257a962ad43b383",
+		sourceURL: "https://docs.libretro.com/library/handy/",
+	},
+	{
+		coreID: "yabause", logical: "saturn_bios.bin", mode: "REQUIRED", size: 524288,
+		md5: "af5828fdff51384f99b3c4926be27762", sha256: "ae4058627bb5db9be6d8d83c6be95a4aa981acc8a89042e517e73317886c8bc2",
+		sourceURL: "https://docs.libretro.com/library/yabause/",
+	},
+	{
+		coreID: "opera", logical: "panafz10.bin", mode: "REQUIRED", size: 1048576,
+		md5: "51f2f43ae2f3508a14d9f56597e2d3ce", sha256: "8d72334395cfc98e44c89804eabf036cf95a23645353e7fe8ab886445a3b6354",
+		sourceURL: "https://docs.libretro.com/library/opera/",
+	},
+	{
+		coreID: "prosystem", logical: "7800 BIOS (U).rom", mode: "REQUIRED", size: 4096,
+		md5: "0763f1ffb006ddbe32e52d497ee848ae", sha256: "7d94551defcd8e7b045a34255654d6d169a683f63062d51dee3eedabf2042db0",
+		sourceURL: "https://docs.libretro.com/library/prosystem/",
+	},
+	{
+		coreID: "prboom", logical: "prboom.wad", mode: "REQUIRED", size: 143312,
+		md5: "72ae1b47820fcc93cc0df9c428d0face", sha256: "b4dd3642932193cc42bca0ee98bf30004888ca4850d69e85023b8baacfba1d1d",
+		sourceURL: "https://docs.libretro.com/library/prboom/",
+	},
+	{
+		coreID: "mednafen_pcfx", logical: "pcfx.rom", mode: "REQUIRED", size: 1048576,
+		md5: "08e36edbea28a017f79f8d4f7ff9b6d7", sha256: "4b44ccf5d84cc83daa2e6a2bee00fdafa14eb58bdf5859e96d8861a891675417",
+		sourceURL: "https://docs.libretro.com/library/beetle_pc_fx/",
+	},
+}...)
+
+// Static BIOS definitions are synchronized atomically with their aliases and version provenance.
+func bootstrapStaticBIOS(
+	ctx context.Context,
+	records BIOSRecords,
+	versionName string,
+	selectedTargets map[string]RuntimeTarget,
+	now time.Time,
+) error {
+	catalog, err := completeStaticBIOSCatalog()
+	if err != nil {
+		return err
+	}
+	if err := validateBIOSActivationOptions(catalog); err != nil {
+		return err
+	}
+	for _, requirement := range catalog {
+		target, selected := selectedTargets[requirement.coreID]
+		if !selected {
+			continue
+		}
+		if requirement.providerID != "" &&
+			(target.ProviderID != requirement.providerID || target.TargetID != requirement.targetID) {
+			return fmt.Errorf("%w: firmware target %s", errBIOSOptions, requirement.coreID)
+		}
+		delivery := requirement.delivery
+		if delivery == "" {
+			delivery = "BIOS_BUNDLE"
+		}
+		canonical, _ := json.Marshal(
+			map[string]any{
+				"activationOptions": json.RawMessage(nullableJSON(requirement.options)),
+				"conditionCode":     requirement.condition,
+				"deliveryKind":      delivery,
+				"emulatorPath":      nullableStringValue(requirement.emulatorPath),
+				"logicalName":       requirement.logical,
+				"archiveMembers":    json.RawMessage(nullableJSON(requirement.members)),
+				"sourceDigest":      requirement.sourceDigest,
+				"md5":               requirement.md5,
+				"mode":              requirement.mode,
+				"sha256":            nullableStringValue(requirement.sha256),
+				"sizeBytes":         nullablePositive(requirement.size),
+			},
+		)
+		digest := sha256.Sum256(canonical)
+		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
+			"retrom:bios:"+target.ProviderID+":"+target.TargetID+":"+requirement.logical,
+		)).String()
+		err := records.Upsert(ctx, BIOSRequirement{
+			ID: id, CoreID: requirement.coreID, ProviderID: target.ProviderID, TargetID: target.TargetID,
+			LogicalName: requirement.logical, Mode: requirement.mode, ConditionCode: requirement.condition,
+			Options: nullableOptions(
+				requirement.options,
+			), Digest: hex.EncodeToString(
+				digest[:],
+			), SizeBytes: nullablePositive(
+				requirement.size,
+			),
+			MD5: requirement.md5, SHA256: nullableStringValue(requirement.sha256), SourceURL: requirement.sourceURL,
+			VersionName: versionName, AtMS: now.UnixMilli(), Delivery: delivery, EmulatorPath: nullableStringValue(
+				requirement.emulatorPath,
+			),
+			ArchiveMembers: nullableStringValue(requirement.members),
+		})
+		if err != nil {
+			return fmt.Errorf("seed BIOS requirement: %w", err)
+		}
+	}
+	return nil
+}
+
+func validateBIOSActivationOptions(catalog []staticBIOS) error {
+	byCore := make(map[string]map[string]string)
+	for _, requirement := range catalog {
+		if err := validateBIOSDelivery(requirement); err != nil {
+			return err
+		}
+		options, err := decodeBIOSOptions(requirement)
+		if err != nil {
+			return err
+		}
+		if err := mergeBIOSOptions(byCore, requirement, options); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateBIOSDelivery(requirement staticBIOS) error {
+	delivery := requirement.delivery
+	if delivery == "" {
+		delivery = "BIOS_BUNDLE"
+	}
+	valid := delivery == "BIOS_BUNDLE" && requirement.emulatorPath == "" ||
+		delivery == "EXTERNAL_FILE" && validEmulatorPath(requirement.emulatorPath)
+	if !valid || requirement.size < 0 || requirement.sha256 != "" && len(requirement.sha256) != 64 {
+		return fmt.Errorf("%w: %s/%s delivery", errBIOSOptions, requirement.coreID, requirement.logical)
+	}
+	return nil
+}
+
+func decodeBIOSOptions(requirement staticBIOS) (map[string]string, error) {
+	if requirement.options == "" {
+		return map[string]string{}, nil
+	}
+	var options map[string]string
+	if err := json.Unmarshal([]byte(requirement.options), &options); err != nil || len(options) > 8 {
+		return nil, fmt.Errorf("%w: %s/%s", errBIOSOptions, requirement.coreID, requirement.logical)
+	}
+	return options, nil
+}
+
+func mergeBIOSOptions(
+	byCore map[string]map[string]string,
+	requirement staticBIOS,
+	options map[string]string,
+) error {
+	if len(options) == 0 {
+		return nil
+	}
+	if byCore[requirement.coreID] == nil {
+		byCore[requirement.coreID] = make(map[string]string)
+	}
+	for name, value := range options {
+		if !validASCIIOption(name, 1) || !validASCIIOption(value, 0) {
+			return fmt.Errorf("%w: %s/%s", errBIOSOptions, requirement.coreID, requirement.logical)
+		}
+		if existing, ok := byCore[requirement.coreID][name]; ok && existing != value {
+			return fmt.Errorf("%w: %s/%s", errBIOSOptions, requirement.coreID, name)
+		}
+		byCore[requirement.coreID][name] = value
+	}
+	return nil
+}
+
+func validEmulatorPath(value string) bool {
+	if len(value) < 1 || len(value) > 512 || value[0] != '/' || strings.ContainsAny(value, "\\?#\x00") ||
+		strings.Contains(value, "//") || strings.HasSuffix(value, "/") {
+		return false
+	}
+	for _, segment := range strings.Split(strings.TrimPrefix(value, "/"), "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+func nullablePositive(value int64) *int64 {
+	if value <= 0 {
+		return nil
+	}
+	return &value
+}
+
+func nullableStringValue(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func validASCIIOption(value string, minimum int) bool {
+	if len(value) < minimum || len(value) > 128 {
+		return false
+	}
+	for index := 0; index < len(value); index++ {
+		if value[index] < 0x20 || value[index] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+func nullableJSON(value string) string {
+	if value == "" {
+		return "null"
+	}
+	return value
+}
+
+func nullableOptions(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}

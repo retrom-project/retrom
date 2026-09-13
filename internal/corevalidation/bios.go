@@ -1,9 +1,7 @@
 package corevalidation
 
 import (
-	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,7 +9,6 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 )
 
@@ -29,10 +26,6 @@ const (
 )
 
 var ErrInvalidSnapshot = errors.New("CORE_VALIDATION_SNAPSHOT_INVALID")
-
-type Queryer interface {
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-}
 
 type BIOSCatalogEntry struct {
 	RequirementID      string  `json:"requirementId"`
@@ -87,124 +80,6 @@ type arcadeRuntimeSnapshot struct {
 	MissingEntries    []string          `json:"missingEntries"`
 	MismatchedEntries []string          `json:"mismatchedEntries"`
 	Warnings          []string          `json:"warnings"`
-}
-
-func Catalog(ctx context.Context, database Queryer, providerID, targetID string) ([]BIOSCatalogEntry, error) {
-	rows, err := database.QueryContext(ctx, `
-SELECT id,version,catalog_digest,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path
-FROM bios_requirements
-WHERE provider_id=? AND target_id=? AND source_kind='STATIC' AND enabled=1
-ORDER BY logical_name,id
-`, providerID, targetID)
-	if err != nil {
-		return nil, fmt.Errorf("corevalidation/catalog: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	entries := make([]BIOSCatalogEntry, 0)
-	for rows.Next() {
-		var entry BIOSCatalogEntry
-		var condition, emulatorPath sql.NullString
-		if err := rows.Scan(
-			&entry.RequirementID,
-			&entry.RequirementVersion,
-			&entry.CatalogDigest,
-			&entry.LogicalName,
-			&entry.RequirementMode,
-			&condition,
-			&entry.DeliveryKind,
-			&emulatorPath,
-		); err != nil {
-			return nil, fmt.Errorf("corevalidation/catalog: %w", err)
-		}
-		entry.ConditionCode = nullableString(condition)
-		entry.EmulatorPath = nullableString(emulatorPath)
-		entries = append(entries, entry)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("corevalidation/catalog: %w", err)
-	}
-	return entries, nil
-}
-
-// ResolveBIOS returns the exact applicable static BIOS dependency set. Its
-// ordered JSON is suitable for immutable validation evidence and digest input.
-func ResolveBIOS(
-	ctx context.Context,
-	database Queryer,
-	providerID, targetID, contentLogicalName string,
-) (Snapshot, string, string, error) {
-	if providerID == "" || targetID == "" || contentLogicalName == "" {
-		return Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", ErrInvalidSnapshot
-	}
-	rows, err := database.QueryContext(ctx, `
-SELECT q.id,q.version,q.catalog_digest,q.logical_name,q.requirement_mode,q.condition_code,
-       q.delivery_kind,q.emulator_path,q.activation_options_json,
-       i.id,i.version,i.blob_id,i.status
-FROM bios_requirements q
-LEFT JOIN bios_installations i ON i.requirement_id=q.id AND i.is_active=1
-WHERE q.provider_id=? AND q.target_id=? AND q.source_kind='STATIC' AND q.enabled=1
-ORDER BY q.logical_name,q.id
-`, providerID, targetID)
-	if err != nil {
-		return Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", fmt.Errorf("corevalidation/bios: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	snapshot := Snapshot{SchemaVersion: SnapshotSchemaVersion, Kind: SnapshotKindStatic, BIOS: make([]BIOSDependency, 0)}
-	status, code := "READY", "READY"
-	for rows.Next() {
-		dependency, applies, validInstallation, scanErr := scanBIOSDependency(rows, contentLogicalName)
-		if scanErr != nil {
-			return Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", scanErr
-		}
-		if !applies {
-			continue
-		}
-		if !validInstallation &&
-			(dependency.RequirementMode != "OPTIONAL" || dependency.InstallationStatus != nil) {
-			status, code = "BLOCKED", "LAUNCH_BIOS_MISSING"
-		}
-		snapshot.BIOS = append(snapshot.BIOS, dependency)
-	}
-	if err := rows.Err(); err != nil {
-		return Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", fmt.Errorf("corevalidation/bios: %w", err)
-	}
-	return snapshot, status, code, nil
-}
-
-func scanBIOSDependency(
-	rows *sql.Rows,
-	contentLogicalName string,
-) (BIOSDependency, bool, bool, error) {
-	var dependency BIOSDependency
-	var condition, emulatorPath, optionsJSON sql.NullString
-	var installationID, blobID, installationStatus sql.NullString
-	var installationVersion sql.NullInt64
-	if err := rows.Scan(
-		&dependency.RequirementID, &dependency.RequirementVersion,
-		&dependency.CatalogDigest, &dependency.LogicalName, &dependency.RequirementMode,
-		&condition, &dependency.DeliveryKind, &emulatorPath, &optionsJSON,
-		&installationID, &installationVersion, &blobID, &installationStatus,
-	); err != nil {
-		return BIOSDependency{}, false, false, fmt.Errorf("corevalidation/bios: %w", err)
-	}
-	if condition.Valid && !BIOSApplies(condition.String, contentLogicalName) {
-		return BIOSDependency{}, false, false, nil
-	}
-	dependency.ConditionCode = nullableString(condition)
-	dependency.EmulatorPath = nullableString(emulatorPath)
-	dependency.ActivationOptions = map[string]string{}
-	if optionsJSON.Valid {
-		if err := json.Unmarshal([]byte(optionsJSON.String), &dependency.ActivationOptions); err != nil {
-			return BIOSDependency{}, false, false, ErrInvalidSnapshot
-		}
-	}
-	dependency.InstallationID = nullableString(installationID)
-	dependency.InstallationVersion = nullableInt64(installationVersion)
-	dependency.BlobID = nullableString(blobID)
-	dependency.InstallationStatus = nullableString(installationStatus)
-	validInstallation := installationStatus.Valid && blobID.Valid &&
-		BIOSInstallationUsable(installationStatus.String)
-	return dependency, true, validInstallation, nil
 }
 
 func (snapshot Snapshot) JSON() ([]byte, error) {
@@ -320,7 +195,7 @@ func validCompleteMultiDiscSnapshot(snapshot MultiDiscSnapshot) bool {
 
 func ProviderValidationInputDigest(
 	providerID, targetID, gameID string,
-	datID sql.NullString,
+	datID *string,
 	snapshot Snapshot,
 ) (string, error) {
 	snapshotJSON, err := snapshot.JSON()
@@ -332,7 +207,7 @@ func ProviderValidationInputDigest(
 		"biosDependencyDigest": hex.EncodeToString(biosDigest[:]),
 		"providerId":           providerID,
 		"targetId":             targetID,
-		"datVersionId":         nullableSQLString(datID),
+		"datVersionId":         datID,
 		"gameId":               gameID,
 		"schemaVersion":        1,
 	})
@@ -352,7 +227,7 @@ type MultiDiscValidationInput struct {
 	ProviderID              string
 	TargetID                string
 	ContentPolicySHA256     string
-	DATVersionID            sql.NullString
+	DATVersionID            *string
 	BIOSDependencySHA256    string
 	OrderedDiscSHA256       []string
 	CanonicalPlaylistSHA256 string
@@ -383,7 +258,7 @@ func MultiDiscValidationInputDigest(input MultiDiscValidationInput) (string, err
 		ProviderID              string   `json:"providerId"`
 		TargetID                string   `json:"targetId"`
 		ContentPolicySHA256     string   `json:"contentPolicySha256"`
-		DATVersionID            any      `json:"datVersionId"`
+		DATVersionID            *string  `json:"datVersionId"`
 		BIOSDependencySHA256    string   `json:"biosDependencySha256"`
 		OrderedDiscSHA256       []string `json:"orderedDiscSha256"`
 		CanonicalPlaylistSHA256 string   `json:"canonicalPlaylistSha256"`
@@ -392,7 +267,7 @@ func MultiDiscValidationInputDigest(input MultiDiscValidationInput) (string, err
 		GameVariantID: input.GameVariantID, GameID: input.GameID,
 		ContentKind: input.ContentKind, ProviderID: input.ProviderID, TargetID: input.TargetID,
 		ContentPolicySHA256:     input.ContentPolicySHA256,
-		DATVersionID:            nullableSQLString(input.DATVersionID),
+		DATVersionID:            input.DATVersionID,
 		BIOSDependencySHA256:    input.BIOSDependencySHA256,
 		OrderedDiscSHA256:       ordered,
 		CanonicalPlaylistSHA256: input.CanonicalPlaylistSHA256,
@@ -445,29 +320,6 @@ func BIOSApplies(condition, contentName string) bool {
 	default:
 		return true
 	}
-}
-
-func nullableString(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	copyValue := value.String
-	return &copyValue
-}
-
-func nullableInt64(value sql.NullInt64) *int64 {
-	if !value.Valid {
-		return nil
-	}
-	copyValue := value.Int64
-	return &copyValue
-}
-
-func nullableSQLString(value sql.NullString) any {
-	if value.Valid {
-		return value.String
-	}
-	return nil
 }
 
 // BIOSInstallationUsable keeps catalog findings advisory after a safe upload.

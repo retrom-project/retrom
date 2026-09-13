@@ -15,12 +15,7 @@ import (
 	"retrom/internal/runtimecatalog"
 )
 
-var (
-	ErrInvalid          = errors.New("DEPENDENCY_INVALID")
-	errDATJobNotClaimed = errors.New("DEPENDENCY_DAT_JOB_NOT_CLAIMABLE")
-	errDATParseFailed   = errors.New("DEPENDENCY_DAT_PARSE_FAILED")
-	errBIOSOptions      = errors.New("DEPENDENCY_BIOS_ACTIVATION_OPTIONS_INVALID")
-)
+var ErrInvalid = errors.New("DEPENDENCY_INVALID")
 
 // Manifest is the third-party DAT provenance document. Runtime selection,
 // implementation assets and licenses are owned exclusively by Provider bundles.

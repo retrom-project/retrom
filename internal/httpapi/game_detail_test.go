@@ -16,11 +16,15 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
+	"retrom/internal/persistence/recordstore"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -88,7 +92,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	saveStateID := "01980000-0000-7000-8000-000000000108"
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	now := time.Now().UnixMilli()
 	fixture := gameDetailSeed{now: now}
 	seedGameDetailMedia(t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture)
@@ -244,9 +248,14 @@ INSERT INTO save_states(
 	).Scan(&alternateLaunchID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := server.database.ExecContext(
-		context.Background(), `UPDATE save_states SET source_launch_session_id=? WHERE id=?`, alternateLaunchID, sessionSaveID,
-	); err == nil ||
+	if _, err := recordstore.UpdateSaveStates(context.Background(), server.database, recordstore.Update{
+		Set: `source_launch_session_id=?`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{sessionSaveID},
+		},
+		Values: []any{alternateLaunchID},
+	}); err == nil ||
 		!strings.Contains(err.Error(), "immutable") {
 		t.Fatalf("mutable save source error = %v", err)
 	}
@@ -478,7 +487,7 @@ func TestGameListUsesFilteredCursorPagesAndReturnsFacetsOnlyOnFirstPage(t *testi
 	server := newTestServer(t)
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `PRAGMA defer_foreign_keys=ON`)
 	const baseTime = int64(1_786_000_000_000)
 	gameIDs := []string{
@@ -591,7 +600,7 @@ func seedRecentGameHistory(t *testing.T, database *sql.DB, now int64, count int)
 	testassert.False(t, err != nil, err)
 	transaction, err := database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, "PRAGMA defer_foreign_keys=ON")
 	for index := 0; index < count; index++ {
 		gameID := uuid.NewString()
@@ -699,7 +708,7 @@ created_at_ms) VALUES(?,
 	fixture.videoPayload = []byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0, 'i', 's', 'o', 'm', 'm', 'p', '4', '2'}
 	fixture.videoMetadata, err = server.blobs.Put(bytes.NewReader(fixture.videoPayload))
 	testassert.False(t, err != nil, err)
-	fixture.videoBlobID, err = blobstore.EnsureRecord(t.Context(), transaction, fixture.videoMetadata, "video/mp4", now)
+	fixture.videoBlobID, err = blobcatalog.EnsureRecord(t.Context(), transaction, fixture.videoMetadata, "video/mp4", now)
 	testassert.False(t, err != nil, err)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
@@ -747,7 +756,7 @@ INSERT INTO game_variants(
 	fixture.screenshot = []byte("retrom-save-fixture.screenshot")
 	screenshotMetadata, err := server.blobs.Put(bytes.NewReader(fixture.screenshot))
 	testassert.False(t, err != nil, err)
-	fixture.screenshotBlobID, err = blobstore.EnsureRecord(t.Context(), transaction, screenshotMetadata, "image/png", now)
+	fixture.screenshotBlobID, err = blobcatalog.EnsureRecord(t.Context(), transaction, screenshotMetadata, "image/png", now)
 	testassert.False(t, err != nil, err)
 	sourceLaunchID := uuid.NewString()
 	mustExecHTTPTest(t, transaction, `

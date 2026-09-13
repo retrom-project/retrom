@@ -20,14 +20,23 @@ import (
 	"testing"
 	"time"
 
+	savepersistence "retrom/internal/persistence/saves"
+
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/persistence/storequery"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
-	retromsaves "retrom/internal/saves"
+	retromsaves "retrom/internal/service/saves"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestONSReviewPreviewRunsProjectAndUnlocksApproval(t *testing.T) {
@@ -52,7 +61,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
@@ -196,7 +205,7 @@ func assertONSProductRoundTrip(
 	if err != nil || content.Format != onsProjectFormat {
 		t.Fatalf("Content(ONS product) = %#v, %v", content, err)
 	}
-	saveService := retromsaves.New(database, blobs, service.credentials, time.Now)
+	saveService := retromsaves.New(savepersistence.New(database), blobs, time.Now)
 	checkpoint := []byte("RETROM ONS CHECKPOINT V1")
 	result, replayed, err := saveService.CreateManual(
 		ctx, created.LaunchID, created.Capability, "ons-product-save-1",
@@ -269,7 +278,7 @@ WHERE provider_id=? AND target_id=?
 		t.Fatal(err)
 	}
 	if err := database.QueryRowContext(ctx, `
-SELECT status FROM save_state_runtime_compatibility WHERE save_state_id=?
+SELECT status FROM (`+storequery.SaveRuntimeCompatibility+`) WHERE save_state_id=?
 `, result.SaveStateID).Scan(&compatibilityStatus); err != nil || launchCountAfter != launchCount ||
 		compatibilityStatus != "INCOMPATIBLE_RUNTIME" {
 		t.Fatalf("incompatible ONS save = launches:%d/%d status:%s error=%v",
@@ -277,7 +286,7 @@ SELECT status FROM save_state_runtime_compatibility WHERE save_state_id=?
 	}
 }
 
-func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) *http.Request {
+func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) retromsaves.ManualUpload {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -310,7 +319,7 @@ func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) *http.Request
 		t.Fatal(err)
 	}
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	return request
+	return retromsaves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
 }
 
 func createONSReviewItem(
@@ -322,7 +331,7 @@ func createONSReviewItem(
 ) (string, *libraryimport.Service) {
 	t.Helper()
 	archive := onsReviewArchive(t)
-	uploadService := uploads.New(database, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{

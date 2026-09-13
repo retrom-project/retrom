@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	application "retrom/internal/service/payloadrelease"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -14,8 +16,8 @@ import (
 func TestImpactSourceKindsIncludeEmulationStationAndNeverReturnNull(t *testing.T) {
 	t.Parallel()
 	for _, source := range []string{"SERVER_PEGASUS_IMPORT", "SERVER_EMULATIONSTATION_IMPORT"} {
-		normalized, ok := normalizedImpactSourceKind(source)
-		testassert.Truef(t, ok && normalized == "SERVER_SCAN", "%s normalized to %q", source, normalized)
+		normalized := application.NormalizeImpactSourceKinds([]string{source})
+		testassert.Truef(t, len(normalized) == 1 && normalized[0] == "SERVER_SCAN", "%s normalized to %q", source, normalized)
 	}
 
 	database, err := testsupport.OpenDatabase(
@@ -25,10 +27,7 @@ func TestImpactSourceKindsIncludeEmulationStationAndNeverReturnNull(t *testing.T
 	)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	transaction, err := database.SQL.BeginTx(context.Background(), nil)
+	result, err := GameDeleteImpact(context.Background(), database.SQL, "missing-game")
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
-	kinds, err := impactSourceKinds(context.Background(), transaction, "missing-game")
-	testassert.False(t, err != nil, err)
-	testassert.Truef(t, kinds != nil && len(kinds) == 0, "empty source kinds = %#v", kinds)
+	testassert.Truef(t, result.SourceKinds != nil && len(result.SourceKinds) == 0, "empty source kinds = %#v", result.SourceKinds)
 }

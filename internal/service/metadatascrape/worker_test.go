@@ -1,0 +1,109 @@
+package metadatascrape
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+)
+
+type workerMemory struct {
+	run     WorkerRun
+	claim   WorkerClaim
+	claimed bool
+	status  WorkerStatus
+	outcome WorkerOutcome
+	initial initialMemory
+	writes  int
+}
+
+func (memory *workerMemory) Run(context.Context, string) (WorkerRun, error) { return memory.run, nil }
+
+func (memory *workerMemory) WithWrite(ctx context.Context, work func(WorkerScope) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return work(WorkerScope{Leases: memory, Write: memory, Initial: InitialReviewScope{Read: &memory.initial, Write: &memory.initial}})
+}
+
+func (memory *workerMemory) Claim(_ context.Context, claim WorkerClaim) (bool, error) {
+	memory.claim = claim
+	return memory.claimed, nil
+}
+
+func (memory *workerMemory) Refresh(context.Context, WorkerClaim, int64) (bool, error) {
+	return true, nil
+}
+
+func (memory *workerMemory) Status(context.Context, WorkerClaim, int64) (WorkerStatus, error) {
+	return memory.status, nil
+}
+
+func (memory *workerMemory) Finish(_ context.Context, outcome WorkerOutcome) error {
+	memory.outcome = outcome
+	memory.writes++
+	return nil
+}
+
+type processFunc func(context.Context, WorkerClaim, string) (int, string, error)
+
+func (process processFunc) Process(ctx context.Context, claim WorkerClaim, payload string) (int, string, error) {
+	return process(ctx, claim, payload)
+}
+
+func TestUnclaimedMetadataExecutionDoesNotProcessOrFinish(t *testing.T) {
+	memory := &workerMemory{run: WorkerRun{RunID: "run", JobID: "job", Provider: "HASHEOUS", State: "RUNNING", JobState: "QUEUED", ExecutionNo: 3}}
+	processor := processFunc(func(context.Context, WorkerClaim, string) (int, string, error) {
+		t.Fatal("unclaimed execution processed")
+		return 0, "", nil
+	})
+	if err := NewWorker(memory, processor, func() time.Time { return time.UnixMilli(100) }).Run(t.Context(), "run"); err != nil {
+		t.Fatal(err)
+	}
+	if memory.writes != 0 || memory.claim.WorkerID == "" || memory.claim.ExecutionNo != 3 || memory.claim.Deadline != 3600100 {
+		t.Fatalf("unclaimed execution: %+v", memory)
+	}
+}
+
+func TestCancelledContextStillSettlesOwnedExecutionAndPreservesCause(t *testing.T) {
+	parent, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	memory := &workerMemory{run: WorkerRun{RunID: "run", JobID: "job", Provider: "HASHEOUS", State: "RUNNING", JobState: "QUEUED", ExecutionNo: 1}, claimed: true, status: WorkerStatus{State: "RUNNING"}}
+	original := errors.New("provider storage failed")
+	processor := processFunc(func(context.Context, WorkerClaim, string) (int, string, error) {
+		cancel()
+		return 0, "STORAGE_FAILED", original
+	})
+	err := NewWorker(memory, processor, time.Now).Run(parent, "run")
+	if !errors.Is(err, original) || !errors.Is(err, context.Canceled) || memory.writes != 1 || memory.outcome.State != "FAILED" {
+		t.Fatalf("settlement=%+v error=%v", memory.outcome, err)
+	}
+}
+
+func TestQueuedCancellationReconcilesInitialItemWithoutProcessing(t *testing.T) {
+	memory := &workerMemory{run: WorkerRun{RunID: "run", JobID: "job", Provider: "HASHEOUS", State: "RUNNING", JobState: "CANCELLED", ExecutionNo: 1}, status: WorkerStatus{State: "CANCELLED"}, initial: initialMemory{found: true, item: InitialImport{ItemState: "SCRAPING", Running: 1}}}
+	processor := processFunc(func(context.Context, WorkerClaim, string) (int, string, error) {
+		t.Fatal("cancelled execution processed")
+		return 0, "", nil
+	})
+	if err := NewWorker(memory, processor, time.Now).Run(t.Context(), "run"); err != nil {
+		t.Fatal(err)
+	}
+	if memory.outcome.State != "CANCELLED" || len(memory.initial.changes) != 1 || memory.initial.changes[0].ItemState != "REVIEW_PENDING" {
+		t.Fatalf("cancelled initial review: %+v", memory)
+	}
+}
+
+func TestExpiredExecutionCannotPublishSuccess(t *testing.T) {
+	memory := &workerMemory{status: WorkerStatus{State: "RUNNING", Expired: true}}
+	err := NewWorker(memory, nil, time.Now).settle(t.Context(), WorkerClaim{RunID: "run"}, 1, "", nil)
+	if !errors.Is(err, context.DeadlineExceeded) || memory.outcome.State != "FAILED" || memory.outcome.Code != "METADATA_EXECUTION_EXPIRED" {
+		t.Fatalf("expired publication: %+v / %v", memory.outcome, err)
+	}
+}
+
+func (memory *workerMemory) Recoverable(context.Context, int64) ([]string, error) { return nil, nil }
+
+func (memory *workerMemory) Requeue(context.Context, WorkerClaim, int64) (bool, error) {
+	return true, nil
+}

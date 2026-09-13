@@ -16,10 +16,18 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/launch"
@@ -31,10 +39,10 @@ import (
 func TestGameMovePreviewQueuesTargetCoreValidationAndPreservesHistory(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	gameID, contentID := seedMovableGame(t, server)
@@ -181,10 +189,10 @@ func waitForIdempotencyQueue(t *testing.T, server *Server, expected int) {
 
 func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	server := newTestServer(t)
-	if err := server.dependencies.Bootstrap(context.Background(), server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.dependencies.BootstrapCatalogs(context.Background(), server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	gameID, _ := seedMovableGame(t, server)
@@ -258,10 +266,10 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	gameID, _ := seedMovableGame(t, server)
@@ -694,10 +702,10 @@ WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
 func newReadyHTTPServer(t *testing.T) *Server {
 	t.Helper()
 	server := newTestServer(t)
-	if err := server.dependencies.Bootstrap(context.Background(), server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.dependencies.BootstrapCatalogs(context.Background(), server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	return server
@@ -717,7 +725,7 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	contents := []byte("move-game")
 	metadata, err := server.blobs.Put(bytes.NewReader(contents))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	gameID := "01980000-0000-7000-8000-000000000176"
 	variantID := "01980000-0000-7000-8000-000000000179"
@@ -725,7 +733,7 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	now := time.Now().UnixMilli()
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	statements := []struct {
 		query string
 		args  []any
@@ -773,7 +781,7 @@ func cloneMovableGame(
 	ctx := context.Background()
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -865,12 +873,10 @@ func validationFixture(
 	contentID, logicalName string,
 ) (string, string) {
 	t.Helper()
-	snapshot, _, _, err := corevalidation.ResolveBIOS(
-		context.Background(), database, target.ProviderID, target.TargetID, logicalName,
-	)
+	snapshot, _, _, err := validationservice.New(validationpersistence.New(database)).ResolveBIOS(context.Background(), target.ProviderID, target.TargetID, logicalName)
 	testassert.False(t, err != nil, err)
 	digest, err := corevalidation.ProviderValidationInputDigest(
-		target.ProviderID, target.TargetID, contentID, sql.NullString{}, snapshot,
+		target.ProviderID, target.TargetID, contentID, nil, snapshot,
 	)
 	testassert.False(t, err != nil, err)
 	encoded, err := snapshot.JSON()

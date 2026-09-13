@@ -13,22 +13,23 @@ import (
 	"hash/crc32"
 	"io"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/dependencies"
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/launch"
 	"retrom/internal/legacychecksum"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t *testing.T) {
@@ -69,7 +70,7 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
@@ -128,7 +129,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	childZIP := arcadeZIP(t, "a.bin", []byte("child"))
 	parentZIP := arcadeZIP(t, "b.bin", []byte("parent"))
 	rootZIP := arcadeZIPEntries(t, map[string][]byte{
@@ -250,16 +251,13 @@ JOIN variant_files file ON file.game_variant_id=variant.id
 WHERE game.id=? ORDER BY file.role,file.logical_name
 `, approved.GameID)
 	testassert.Falsef(t, fmt.Sprint(variantNames) != "[PARENT:b.zip PARENT:c.zip]", "published variant files = %v", variantNames)
-	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
-	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now).
-		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
+	launcher := launchcomposition.New(database.SQL,
+		launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder), "", time.Now)
+	t.Cleanup(launcher.Close)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{

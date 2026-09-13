@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -132,7 +134,7 @@ func seedReadyRPGDependency(t *testing.T, database *sql.DB, blobs *blobstore.Sto
 		t.Fatal(err)
 	}
 	now := time.Now().UnixMilli()
-	blobID, err := blobstore.EnsureRecord(t.Context(), database, blob, "application/octet-stream", now)
+	blobID, err := blobcatalog.EnsureRecord(t.Context(), database, blob, "application/octet-stream", now)
 	if err != nil {
 		t.Fatal(err)
 	}

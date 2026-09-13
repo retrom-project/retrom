@@ -13,23 +13,26 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/emulationstationimport"
+	"retrom/internal/composition"
 	"retrom/internal/libraryimport"
 	"retrom/internal/serversource"
+	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func TestEmulationStationReviewHandoffReservationBlocksEveryReviewEntry(t *testing.T) {
-	server, handler, cookie, csrf, summary := startReservedReviewHandoffFixture(t)
+	fault := &reviewAttachFault{}
+	fault.enabled.Store(true)
+	server, handler, cookie, csrf, summary := startReservedReviewHandoffFixture(t, fault)
 	itemID := waitForBlockedReviewHandoff(t, server, summary.ID)
+	if fault.hits.Load() != 1 {
+		t.Fatalf("review attachment fault missed real reservation: hits=%d", fault.hits.Load())
+	}
 	assertReviewHandoffBlocked(t, server, handler, cookie, csrf, summary.ID, itemID)
 
-	if _, err := server.database.ExecContext(
-		context.Background(),
-		"DROP TRIGGER test_fail_before_emulationstation_review_attach",
-	); err != nil {
-		t.Fatal(err)
-	}
+	fault.enabled.Store(false)
+
 	retryEmulationStationReviewHandoff(t, handler, cookie, csrf, &summary)
 	waitForCompletedReviewHandoff(t, server, handler, cookie, &summary, itemID)
 	assertReviewHandoffAvailable(t, server, handler, cookie, csrf, summary.ID, itemID)
@@ -37,6 +40,7 @@ func TestEmulationStationReviewHandoffReservationBlocksEveryReviewEntry(t *testi
 
 func startReservedReviewHandoffFixture(
 	t *testing.T,
+	fault *reviewAttachFault,
 ) (*Server, http.Handler, *http.Cookie, string, emulationstationimport.Summary) {
 	t.Helper()
 	server := newTestServer(t)
@@ -50,8 +54,10 @@ func startReservedReviewHandoffFixture(
 	if err := os.WriteFile(filepath.Join(library, "fixture.nes"), []byte("reserved-rom"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	server.emulationStationImports = emulationstationimport.New(
-		server.database,
+	fault.database = server.database
+	faultPool := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{BeforeExec: fault.beforeExec})
+	server.emulationStationImports = composition.NewEmulationStationImport(
+		faultPool,
 		server.blobs,
 		server.importer,
 		server.credentials,
@@ -60,16 +66,9 @@ func startReservedReviewHandoffFixture(
 		}},
 		time.Now,
 	)
+	t.Cleanup(server.emulationStationImports.Close)
 	server.emulationStationImports.Start()
 	seedEmulationStationHTTPArtifact(t, server)
-	if _, err := server.database.ExecContext(context.Background(), `
-CREATE TRIGGER test_fail_before_emulationstation_review_attach
-BEFORE UPDATE OF library_import_item_id ON emulationstation_import_items
-WHEN OLD.library_import_item_id IS NULL AND NEW.library_import_item_id IS NOT NULL
-BEGIN SELECT RAISE(ABORT,'test failpoint before EmulationStation review attach'); END;
-`); err != nil {
-		t.Fatal(err)
-	}
 	handler := server.Handler()
 	cookie, csrf := testSessionCredentials()
 	summary := createEmulationStationReviewPlan(t, server, handler, cookie, csrf)
@@ -198,7 +197,7 @@ WHERE import_id=?
 		func() bool { return itemState != "REVIEW_PENDING" },
 		func() bool { return handoffKind != "EMULATIONSTATION" },
 		func() bool { return sourceState != "COMMIT_FAILED" },
-		func() bool { return sourceItemID != nil },
+		func() bool { return sourceItemID == nil || *sourceItemID != itemID },
 		func() bool { return importJobs != 1 },
 	), "blocked handoff = item:%s/%s source:%s/%v imports:%d",
 		itemState, handoffKind, sourceState, sourceItemID, importJobs)

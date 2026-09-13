@@ -3,25 +3,23 @@ package libraryimport
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
-	"time"
+
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	application "retrom/internal/service/libraryimport"
 
 	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
-
-	"retrom/internal/cleanup"
 )
 
-const parentAttachmentDeadline = 30 * time.Minute
+const parentAttachmentDeadline = application.ArcadeParentAttachmentDeadline
 
 const (
 	ParentErrorInvalid       = "REVIEW_PARENT_UPLOAD_INVALID"
@@ -80,19 +78,7 @@ type ParentAttachmentCreated struct {
 	Version      int64  `json:"-"`
 }
 
-type parentAttachmentInput struct {
-	SchemaVersion        int    `json:"schemaVersion"`
-	AttachmentID         string `json:"attachmentId"`
-	ImportItemID         string `json:"importItemId"`
-	ReviewDraftID        string `json:"reviewDraftId"`
-	BaseSourceSnapshotID string `json:"baseSourceSnapshotId"`
-	DependencyMachine    string `json:"dependencyMachine"`
-	ProviderID           string `json:"providerId"`
-	TargetID             string `json:"targetId"`
-	ContentPolicyDigest  string `json:"contentPolicyDigest"`
-	DATVersionID         string `json:"datVersionId"`
-	UploadFileID         string `json:"uploadFileId"`
-}
+type parentAttachmentInput = application.ArcadeParentAttachmentInput
 
 type parentAttachmentCandidate struct {
 	attachmentID, itemID, draftID, baseSnapshotID    string
@@ -114,23 +100,32 @@ func (service *Service) CreateArcadeParentAttachment(
 	if invalidParentAttachmentRequest(service, itemID, expectedVersion, request) {
 		return ParentAttachmentCreated{}, parentError(ParentErrorInvalid, ErrInvalid)
 	}
-	transaction, err := service.database.BeginTx(ctx, nil)
+	var result ParentAttachmentCreated
+	repository := librarypersistence.NewArcadeParentAttachments(service.database)
+	err := repository.WithAdmission(ctx, func(scope application.ArcadeParentAttachmentAdmissionScope) error {
+		setup := parentAttachmentSetup{
+			service: service, ctx: ctx, scope: scope,
+			itemID: itemID, expectedVersion: expectedVersion, request: request,
+		}
+		if err := setup.load(); err != nil {
+			return err
+		}
+		var err error
+		result, err = setup.persist()
+		return err
+	})
 	if err != nil {
-		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
-	}
-	defer cleanup.Rollback(transaction)
-	setup := parentAttachmentSetup{
-		service: service, ctx: ctx, transaction: transaction,
-		itemID: itemID, expectedVersion: expectedVersion, request: request,
-	}
-	if err := setup.load(); err != nil {
-		return ParentAttachmentCreated{}, err
-	}
-	result, err := setup.persist()
-	if err != nil {
-		return ParentAttachmentCreated{}, err
-	}
-	if err := transaction.Commit(); err != nil {
+		err = fmt.Errorf("admit arcade parent attachment: %w", err)
+		var known *ParentAttachmentError
+		if errors.As(err, &known) {
+			return ParentAttachmentCreated{}, err
+		}
+		if errors.Is(err, application.ErrArcadeParentAttachmentActive) {
+			return ParentAttachmentCreated{}, parentError(ParentErrorInProgress, err)
+		}
+		if errors.Is(err, application.ErrVersionConflict) {
+			return ParentAttachmentCreated{}, parentError(ParentErrorVersion, err)
+		}
 		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
 	}
 	go service.runParentAttachment(context.WithoutCancel(ctx), result.JobID)
@@ -151,7 +146,7 @@ func invalidParentAttachmentRequest(
 type parentAttachmentSetup struct {
 	service             *Service
 	ctx                 context.Context
-	transaction         *sql.Tx
+	scope               application.ArcadeParentAttachmentAdmissionScope
 	itemID              string
 	expectedVersion     int64
 	request             ParentAttachmentRequest
@@ -163,7 +158,8 @@ type parentAttachmentSetup struct {
 	providerID          string
 	runtimeTargetID     string
 	contentPolicy       contentcapability.Policy
-	activeDATID         sql.NullString
+	activeDATID         string
+	hasActiveDAT        bool
 	platformVersion     int64
 	dependency          arcadeDraftDependency
 	uploadSessionID     string
@@ -187,74 +183,48 @@ func (setup *parentAttachmentSetup) load() error {
 }
 
 func (setup *parentAttachmentSetup) loadDraft() error {
-	var itemState string
-	var draftVersion int64
-	err := setup.transaction.QueryRowContext(setup.ctx, `
-SELECT draft.id,item.state,draft.version,draft.target_platform_instance_id,
-  draft.effective_source_snapshot_id,platform.platform_id,platform.version,
-  platform.default_core_id,target.provider_id,target.target_id,
-  `+contentcapability.BindingPolicySQL+`,
-  (SELECT dat.id FROM dat_versions dat
-   WHERE dat.provider_id=target.provider_id AND dat.target_id=target.target_id AND dat.is_active=1)
-FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
-JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
-  AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN runtime_target_bindings binding ON binding.core_id=platform.default_core_id
-  AND binding.launch_policy<>'DISABLED'
-JOIN runtime_binding_platforms platform_binding ON platform_binding.binding_id=binding.binding_id
-  AND platform_binding.platform_id=platform.platform_id
-JOIN runtime_targets target ON target.provider_id=binding.provider_id
-  AND target.target_id=binding.target_id
-WHERE item.id=?
-`, setup.itemID).Scan(
-		&setup.draftID, &itemState, &draftVersion, &setup.targetID, &setup.effectiveSnapshotID,
-		&setup.platformID, &setup.platformVersion, &setup.coreID, &setup.providerID, &setup.runtimeTargetID,
-		&setup.contentPolicy, &setup.activeDATID,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return parentError(ParentErrorNotFound, err)
-	}
+	draft, found, err := setup.scope.Read.Draft(setup.ctx, setup.itemID)
 	if err != nil {
 		return parentError(ParentErrorUnavailable, err)
 	}
-	if itemState != "REVIEW_PENDING" {
+	if !found {
+		return parentError(ParentErrorNotFound, application.ErrInvalid)
+	}
+	setup.draftID, setup.targetID, setup.effectiveSnapshotID = draft.DraftID, draft.TargetID, draft.EffectiveSnapshotID
+	setup.platformID, setup.platformVersion = draft.PlatformID, draft.PlatformVersion
+	setup.coreID, setup.providerID, setup.runtimeTargetID = draft.CoreID, draft.ProviderID, draft.RuntimeTargetID
+	setup.contentPolicy = draft.ContentPolicy
+	setup.activeDATID = draft.ActiveDATVersionID
+	setup.hasActiveDAT = draft.HasActiveDAT
+	if draft.ItemState != "REVIEW_PENDING" {
 		return parentError(ParentErrorFinalized, ErrInvalid)
 	}
-	if draftVersion != setup.expectedVersion {
+	if draft.DraftVersion != setup.expectedVersion {
 		return parentError(ParentErrorVersion, ErrInvalid)
 	}
 	if setup.platformID != "arcade" ||
-		setup.effectiveSnapshotID != setup.request.BaseSourceSnapshotID || !setup.activeDATID.Valid {
+		setup.effectiveSnapshotID != setup.request.BaseSourceSnapshotID || !setup.hasActiveDAT {
 		return parentError(ParentErrorInputStale, ErrInvalid)
 	}
 	return nil
 }
 
 func (setup *parentAttachmentSetup) validateSelectedValidation() error {
-	var targetID, snapshotID, coreID, providerID, runtimeTargetID string
-	var datID sql.NullString
-	var dependencyJSON string
-	err := setup.transaction.QueryRowContext(setup.ctx, `
-SELECT target_platform_instance_id,core_id,provider_id,target_id,
-  dat_version_id,source_snapshot_id,
-  dependency_snapshot_json
-FROM import_item_core_validations
-WHERE id=? AND import_item_id=?
-`, setup.request.ValidationID, setup.itemID).Scan(
-		&targetID, &coreID, &providerID, &runtimeTargetID,
-		&datID, &snapshotID, &dependencyJSON,
-	)
+	validation, found, err := setup.scope.Read.Validation(setup.ctx, setup.request.ValidationID, setup.itemID)
 	if err != nil {
 		return parentError(ParentErrorInputStale, err)
 	}
+	if !found {
+		return parentError(ParentErrorInputStale, ErrInvalid)
+	}
 	if !setup.validationMatches(
-		targetID, snapshotID, coreID, providerID, runtimeTargetID, datID,
+		validation.TargetPlatformInstanceID, validation.SourceSnapshotID, validation.CoreID,
+		validation.ProviderID, validation.TargetID, validation.DATVersionID, validation.HasDATVersion,
 	) {
 		return parentError(ParentErrorInputStale, ErrInvalid)
 	}
 	snapshot, err := setup.service.canonicalArcadeSnapshotWithQueryer(
-		setup.ctx, setup.transaction, dependencyJSON,
+		setup.ctx, setup.scope.Read, validation.DependencySnapshotJSON,
 	)
 	if err != nil {
 		return parentError(ParentErrorInputStale, err)
@@ -273,34 +243,25 @@ WHERE id=? AND import_item_id=?
 
 func (setup *parentAttachmentSetup) validationMatches(
 	targetID, snapshotID, coreID, providerID, runtimeTargetID string,
-	datID sql.NullString,
+	datID string, hasDAT bool,
 ) bool {
 	return targetID == setup.targetID &&
 		coreID == setup.coreID && providerID == setup.providerID && runtimeTargetID == setup.runtimeTargetID &&
 		snapshotID == setup.effectiveSnapshotID &&
-		datID.Valid && datID.String == setup.activeDATID.String
+		hasDAT && datID == setup.activeDATID
 }
 
 func (setup *parentAttachmentSetup) loadUpload() error {
-	var uploadState, fileState string
-	var wholeSessionConsumed int64
-	err := setup.transaction.QueryRowContext(setup.ctx, `
-SELECT session.id,session.state,file.state,file.relative_path,file.final_blob_id,
-  blob.sha256,blob.size_bytes,
-  EXISTS(SELECT 1 FROM upload_consumptions consumption
-    WHERE consumption.upload_session_id=session.id AND consumption.upload_file_id IS NULL)
-FROM upload_files file
-JOIN upload_sessions session ON session.id=file.upload_session_id
-JOIN blobs blob ON blob.id=file.final_blob_id
-WHERE file.id=?
-`, setup.request.UploadFileID).Scan(
-		&setup.uploadSessionID, &uploadState, &fileState, &setup.originalName,
-		&setup.blobID, &setup.blobSHA, &setup.blobSize, &wholeSessionConsumed,
-	)
-	if err != nil || uploadState != "COMPLETE" || fileState != "COMPLETE" ||
-		wholeSessionConsumed != 0 || !strings.EqualFold(filepath.Ext(setup.originalName), ".zip") {
+	upload, found, err := setup.scope.Read.Upload(setup.ctx, setup.request.UploadFileID)
+	if err != nil {
 		return parentError(ParentErrorInvalid, err)
 	}
+	if !found || upload.SessionState != "COMPLETE" || upload.FileState != "COMPLETE" ||
+		upload.WholeSessionConsumed || !strings.EqualFold(filepath.Ext(upload.RelativePath), ".zip") {
+		return parentError(ParentErrorInvalid, ErrInvalid)
+	}
+	setup.uploadSessionID, setup.originalName = upload.UploadSessionID, upload.RelativePath
+	setup.blobID, setup.blobSHA, setup.blobSize = upload.BlobID, upload.BlobSHA, upload.BlobSize
 	info, err := os.Stat(setup.service.blobs.Path(setup.blobSHA))
 	if err != nil || !info.Mode().IsRegular() || info.Size() != setup.blobSize {
 		return parentError(ParentErrorInvalid, err)
@@ -309,15 +270,11 @@ WHERE file.id=?
 }
 
 func (setup *parentAttachmentSetup) ensureNoActiveAttachment() error {
-	var count int
-	err := setup.transaction.QueryRowContext(setup.ctx, `
-SELECT count(*) FROM review_arcade_parent_attachments
-WHERE import_item_id=? AND state IN ('QUEUED','RUNNING')
-`, setup.itemID).Scan(&count)
+	active, err := setup.scope.Read.HasActive(setup.ctx, setup.itemID)
 	if err != nil {
 		return parentError(ParentErrorUnavailable, err)
 	}
-	if count != 0 {
+	if active {
 		return parentError(ParentErrorInProgress, ErrInvalid)
 	}
 	return nil
@@ -334,14 +291,29 @@ func (setup *parentAttachmentSetup) persist() (ParentAttachmentCreated, error) {
 		setup.itemID, setup.effectiveSnapshotID, setup.dependency.Machine,
 		setup.blobSHA, setup.request.ValidationID,
 	}, "\x00")))
-	if err := setup.insertJob(jobID.String(), inputJSON, inputDigest, dedupe, now); err != nil {
-		return ParentAttachmentCreated{}, err
-	}
-	if err := setup.insertAttachment(attachmentID.String(), jobID.String(), now); err != nil {
-		return ParentAttachmentCreated{}, err
-	}
-	if err := setup.advanceDraftAndRecordEvent(attachmentID.String(), now); err != nil {
-		return ParentAttachmentCreated{}, err
+	evidence := marshalReviewEventV2(map[string]any{
+		"attachmentKind": "ARCADE_PARENT", "machine": setup.dependency.Machine,
+		"originalFilename": filepath.Base(setup.originalName), "state": "QUEUED",
+	})
+	err := setup.scope.Write.Create(setup.ctx, application.ArcadeParentAttachmentWrite{
+		Input: input, InputJSON: string(inputJSON),
+		InputDigest: hex.EncodeToString(inputDigest[:]), DedupeKey: hex.EncodeToString(dedupe[:]),
+		AttachmentID: attachmentID.String(), JobID: jobID.String(), ItemID: setup.itemID,
+		DraftID: setup.draftID, BaseSourceSnapshotID: setup.effectiveSnapshotID,
+		DependencyMachine: setup.dependency.Machine, RequiredByMachine: *setup.dependency.RequiredBy,
+		Depth: setup.dependency.Depth, ProviderID: setup.providerID, TargetID: setup.runtimeTargetID,
+		DATVersionID: setup.activeDATID, UploadID: setup.request.UploadFileID,
+		OriginalFilename: filepath.Base(setup.originalName), ExpectedDraftVersion: setup.expectedVersion,
+		NowMS: now, Actor: reviewActor(setup.ctx), EvidenceJSON: evidence,
+	})
+	if err != nil {
+		if errors.Is(err, application.ErrArcadeParentAttachmentActive) {
+			return ParentAttachmentCreated{}, parentError(ParentErrorInProgress, err)
+		}
+		if errors.Is(err, application.ErrVersionConflict) {
+			return ParentAttachmentCreated{}, parentError(ParentErrorVersion, err)
+		}
+		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
 	}
 	return ParentAttachmentCreated{
 		AttachmentID: attachmentID.String(), State: "QUEUED",
@@ -355,95 +327,8 @@ func (setup *parentAttachmentSetup) input(attachmentID string) parentAttachmentI
 		ReviewDraftID: setup.draftID, BaseSourceSnapshotID: setup.effectiveSnapshotID,
 		DependencyMachine: setup.dependency.Machine, ProviderID: setup.providerID,
 		TargetID: setup.runtimeTargetID, ContentPolicyDigest: setup.contentPolicy.DigestFor("SINGLE_FILE"),
-		DATVersionID: setup.activeDATID.String, UploadFileID: setup.request.UploadFileID,
+		DATVersionID: setup.activeDATID, UploadFileID: setup.request.UploadFileID,
 	}
-}
-
-func (setup *parentAttachmentSetup) insertJob(
-	jobID string,
-	inputJSON []byte,
-	inputDigest [32]byte,
-	dedupe [32]byte,
-	now int64,
-) error {
-	_, err := setup.transaction.ExecContext(setup.ctx, `
-INSERT INTO jobs(
-  id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,
-  state,attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms
-) VALUES(?,'IMPORT_ITEM',?,'REVIEW_ARCADE_PARENT_VALIDATE',?,1,?,1,'QUEUED',0,4,?,?,?)
-`, jobID, setup.itemID, hex.EncodeToString(dedupe[:]), string(inputJSON), now, now, now)
-	if err != nil {
-		return parentError(ParentErrorUnavailable, err)
-	}
-	_, err = setup.transaction.ExecContext(setup.ctx, `
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES(?,1,?,?,?)
-`, jobID, string(inputJSON), hex.EncodeToString(inputDigest[:]), now)
-	if err != nil {
-		return parentError(ParentErrorUnavailable, err)
-	}
-	return nil
-}
-
-func (setup *parentAttachmentSetup) insertAttachment(attachmentID, jobID string, now int64) error {
-	_, err := setup.transaction.ExecContext(setup.ctx, `
-INSERT INTO review_arcade_parent_attachments(
-  id,import_item_id,review_draft_id,base_source_snapshot_id,dependency_machine,
-  expected_logical_name,required_by_machine,depth,provider_id,target_id,dat_version_id,
-  upload_file_id,original_filename,state,diagnostics_json,job_id,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'QUEUED','{}',?,1,?,?)
-`, attachmentID, setup.itemID, setup.draftID, setup.effectiveSnapshotID,
-		setup.dependency.Machine, setup.dependency.Machine+".zip", *setup.dependency.RequiredBy,
-		setup.dependency.Depth, setup.providerID, setup.runtimeTargetID, setup.activeDATID.String,
-		setup.request.UploadFileID, filepath.Base(setup.originalName), jobID, now, now)
-	if err != nil {
-		if strings.Contains(err.Error(), "review_arcade_parent_active") {
-			return parentError(ParentErrorInProgress, err)
-		}
-		return parentError(ParentErrorUnavailable, err)
-	}
-	_, err = setup.transaction.ExecContext(setup.ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'IMPORT_ITEM',?,'QUEUED','{}',?)
-`, jobID, setup.itemID, now)
-	if err != nil {
-		return parentError(ParentErrorUnavailable, err)
-	}
-	return nil
-}
-
-func (setup *parentAttachmentSetup) advanceDraftAndRecordEvent(
-	_ string,
-	now int64,
-) error {
-	result, err := setup.transaction.ExecContext(setup.ctx, `
-UPDATE review_drafts SET version=version+1,updated_at_ms=?
-WHERE id=? AND version=?
-`, now, setup.draftID, setup.expectedVersion)
-	if err != nil {
-		return parentError(ParentErrorUnavailable, err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return parentError(ParentErrorVersion, ErrInvalid)
-	}
-	eventID, _ := uuid.NewV7()
-	evidence := marshalReviewEventV2(map[string]any{
-		"attachmentKind": "ARCADE_PARENT", "machine": setup.dependency.Machine,
-		"originalFilename": filepath.Base(setup.originalName), "state": "QUEUED",
-	})
-	actor := reviewActor(setup.ctx)
-	_, err = setup.transaction.ExecContext(setup.ctx, `
-INSERT INTO review_events(
-  id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
-  after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms
-) VALUES(?,?,'PARENT_UPLOAD_REQUESTED',?,?,?,?,?,?,?,?,?,?)
-`, eventID.String(), setup.itemID, actor.Kind, actor.UserID, actor.Label,
-		emptyReviewEventV2, evidence, evidence, emptyReviewEventV2, emptyReviewEventV2,
-		emptyReviewEventV2, now)
-	if err != nil {
-		return parentError(ParentErrorUnavailable, err)
-	}
-	return nil
 }
 
 func validArcadeMachine(value string) bool {
@@ -459,76 +344,21 @@ func attachmentDependency(snapshot arcadeDraftSnapshot, machine string) (arcadeD
 	return arcadeDraftDependency{}, false
 }
 
-func (service *Service) canonicalArcadeSnapshot(
-	ctx context.Context,
-	raw string,
-) (arcadeDraftSnapshot, error) {
-	return service.canonicalArcadeSnapshotWithQueryer(ctx, service.database, raw)
-}
-
 func (service *Service) canonicalArcadeSnapshotWithQueryer(
 	ctx context.Context,
-	queryer arcadeRelationQueryer,
+	reader application.ArcadeRelationReader,
 	raw string,
 ) (arcadeDraftSnapshot, error) {
-	snapshot, valid := parseArcadeDraftSnapshot(raw)
-	if !valid {
-		return arcadeDraftSnapshot{}, ErrInvalid
-	}
-	nodes, cyclic, err := loadArcadeDependencyClosure(ctx, queryer, snapshot.DatVersionID, snapshot.Machine)
-	if err != nil || cyclic {
-		return arcadeDraftSnapshot{}, ErrInvalid
-	}
-	byMachine := make(map[string]arcadeClosureNode, len(nodes))
-	for _, node := range nodes {
-		byMachine[node.Machine] = node
-	}
-	for index := range snapshot.Dependencies {
-		dependency := &snapshot.Dependencies[index]
-		node, exists := byMachine[dependency.Machine]
-		if !exists || node.Kind != dependency.Kind {
-			return arcadeDraftSnapshot{}, ErrInvalid
-		}
-		dependency.RequiredBy = node.RequiredBy
-		dependency.Depth = node.Depth
-		dependency.ExpectedLogicalName = dependency.Machine + ".zip"
-		dependency.RequiredEntryCount = len(dependency.RequiredEntries)
-	}
-	closure, err := json.Marshal(nodes)
+	snapshot, err := application.CanonicalArcadeSnapshot(ctx, reader, raw)
 	if err != nil {
-		return arcadeDraftSnapshot{}, fmt.Errorf("project arcade snapshot: %w", err)
+		return arcadeDraftSnapshot{}, fmt.Errorf("read canonical arcade snapshot: %w", err)
 	}
-	snapshot.Closure = closure
-	sort.Slice(snapshot.Dependencies, func(left, right int) bool {
-		if snapshot.Dependencies[left].Kind != snapshot.Dependencies[right].Kind {
-			return snapshot.Dependencies[left].Kind < snapshot.Dependencies[right].Kind
-		}
-		if snapshot.Dependencies[left].Depth != snapshot.Dependencies[right].Depth {
-			return snapshot.Dependencies[left].Depth < snapshot.Dependencies[right].Depth
-		}
-		return snapshot.Dependencies[left].Machine < snapshot.Dependencies[right].Machine
-	})
 	return snapshot, nil
 }
 
 func (service *Service) ResumeParentAttachmentJobs(ctx context.Context) {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT id FROM jobs
-WHERE kind='REVIEW_ARCADE_PARENT_VALIDATE' AND state='QUEUED'
-ORDER BY available_at_ms,id
-`)
+	jobIDs, err := librarypersistence.NewReviewArcadeParentJobs(service.database).Queued(ctx)
 	if err != nil {
-		return
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	jobIDs := make([]string, 0)
-	for rows.Next() {
-		var id string
-		if rows.Scan(&id) == nil {
-			jobIDs = append(jobIDs, id)
-		}
-	}
-	if rows.Err() != nil {
 		return
 	}
 	workerContext := context.WithoutCancel(ctx)

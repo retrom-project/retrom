@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { lockstepDelayBaseline, type LockstepBaseline } from "./netplay-buffer-baseline";
 
 export type DiagnosticEvent = {
   eventSeq?: number; kind: string; frame?: number; epoch?: number; nextFrame?: number; atFrame?: number;
@@ -134,4 +135,13 @@ export async function verifySNESNoOpHashRecovery(
       .toHaveLength(1);
     expect(events.filter((event) => event.kind === "ended")).toHaveLength(0);
   }
+}
+
+export async function waitForLockstepDelayBaseline(page: Page): Promise<LockstepBaseline> {
+  const observed: { baseline: LockstepBaseline | null } = { baseline: null };
+  await expect.poll(async () => {
+    observed.baseline = lockstepDelayBaseline(await diagnosticEvents(page));
+    return observed.baseline !== null;
+  }, { timeout: 30_000 }).toBe(true);
+  return observed.baseline!;
 }

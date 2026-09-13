@@ -15,13 +15,22 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/dbexec"
+
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestReviewBulkApprovalPublishesStrictReadyCandidatesAtomically(t *testing.T) {
@@ -35,7 +44,7 @@ func TestReviewBulkApprovalPublishesStrictReadyCandidatesAtomically(t *testing.T
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	const (
@@ -57,7 +66,7 @@ VALUES(?,?,'bulk.review.admin','Bulk Review Admin','ADMIN','ENABLED',1,1)
 	ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: adminID, ProfileID: profileID, Role: "ADMIN"})
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploader := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	createImport := func(name, contents string) string {
 		t.Helper()
@@ -126,27 +135,38 @@ SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
 		Scan(&importState); err != nil || importState != "COMPLETED" {
 		t.Fatalf("import aggregate = %s, %v", importState, err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE review_bulk_approvals SET scope_json='{}' WHERE id=?
-`, created.BulkApprovalID); err == nil {
+	if _, err := recordstore.UpdateReviewBulkApprovals(ctx, database.SQL, recordstore.Update{
+		Set: `scope_json='{"tampered":true}'`,
+		Scope: recordstore.Scope{
+			Where: `id=?`,
+			Args:  []any{created.BulkApprovalID},
+		},
+	}); err == nil {
 		t.Fatal("bulk approval accepted a frozen scope update")
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE review_bulk_approval_items SET expected_review_version=expected_review_version+1
-WHERE bulk_approval_id=? AND import_item_id=(
+	if _, err := recordstore.UpdateReviewBulkApprovalItems(ctx, database.SQL, recordstore.Update{
+		Set: `expected_review_version=expected_review_version+1`,
+		Scope: recordstore.Scope{
+			Where: `
+bulk_approval_id=? AND import_item_id=(
   SELECT min(import_item_id) FROM review_bulk_approval_items WHERE bulk_approval_id=?
 )
-`, created.BulkApprovalID, created.BulkApprovalID); err == nil {
+`,
+			Args: []any{created.BulkApprovalID, created.BulkApprovalID},
+		},
+	}); err == nil {
 		t.Fatal("bulk approval item accepted a frozen review version update")
 	}
 
 	createImport("bulk-stale.gba", "bulk-ready-stale")
 	stalePreview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return stalePreview.Counts.StrictReady != 1 }), "stale preview = %#v, %v", stalePreview, err)
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE review_drafts SET version=version+1,updated_at_ms=updated_at_ms+1
-WHERE import_item_id=(SELECT id FROM import_items WHERE state='REVIEW_PENDING' LIMIT 1)
-`); err != nil {
+	if _, err := recordstore.UpdateReviewDrafts(ctx, database.SQL, recordstore.Update{
+		Set: `version=version+1,updated_at_ms=updated_at_ms+1`,
+		Scope: recordstore.Scope{
+			Where: `import_item_id=(SELECT id FROM import_items WHERE state='REVIEW_PENDING' LIMIT 1)`,
+		},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := importer.CreateReviewBulk(ctx, ReviewBulkCreateRequest{
@@ -160,7 +180,7 @@ WHERE import_item_id=(SELECT id FROM import_items WHERE state='REVIEW_PENDING' L
 		t.Helper()
 		transaction, err := database.SQL.BeginTx(ctx, nil)
 		testassert.False(t, err != nil, err)
-		defer cleanup.Rollback(transaction)
+		defer dbexec.Rollback(transaction)
 		currentPreview, candidates, err := importer.reviewBulkPreviewInTransaction(ctx, transaction, ReviewBulkScope{})
 		testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(candidates) != 1 }), "interrupted preview = %#v candidates=%d error=%v", currentPreview, len(candidates), err)
 		candidate := candidates[0]

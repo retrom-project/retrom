@@ -96,12 +96,25 @@ paths:
       - $ref: '#/components/parameters/UploadID'
     post:
       operationId: postAdminUploadComplete
+      description: Atomically freezes this finalization round and queues an UPLOAD_FINALIZE job. Invalid or stale upload state returns 409; persistence failures return 500 and preserve their original server-side cause.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       responses:
         '202':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '409':
+          description: VERSION_CONFLICT when the upload is unavailable, consumed or its state or version changed.
+          content:
+            application/json:
+              schema:
+                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
+        '500':
+          description: INTERNAL_ERROR when upload finalization persistence fails.
+          content:
+            application/json:
+              schema:
+                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
   /api/v1/admin/imports/summary:
     get:
       operationId: getAdminImportsSummary
@@ -125,7 +138,7 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
     post:
       operationId: postAdminImport
-      description: Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open.
+      description: Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
@@ -133,6 +146,18 @@ paths:
       responses:
         '202':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '409':
+          description: IMPORT_INPUT_INVALID when admission input is invalid or its upload or target version changed.
+          content:
+            application/json:
+              schema:
+                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
+        '500':
+          description: INTERNAL_ERROR when admission persistence fails. No import is committed or dispatched.
+          content:
+            application/json:
+              schema:
+                $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
   /api/v1/admin/imports/{importJobId}:
     parameters:
       - $ref: '#/components/parameters/ImportJobID'

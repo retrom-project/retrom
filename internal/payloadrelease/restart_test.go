@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
@@ -33,7 +35,7 @@ VALUES('restart-blob',?,?,?,?,?,?,?)
 	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
 VALUES('restart-upload','COMPLETE','FILES',1,?, ?,1,?,?,?)
@@ -59,6 +61,7 @@ VALUES('restart-consumption','restart-upload','restart-file','GAME_ASSET','resta
 	testassert.False(t, err != nil, err)
 	testassert.True(t, found)
 	testassert.Falsef(t, claimed.ID != jobID, "claimed job = %s, want %s", claimed.ID, jobID)
+	now = now.Add(time.Minute + time.Millisecond)
 	testassert.False(t, service.recoverInterruptedJobs(ctx) != nil)
 
 	didWork, err := service.RunOnce(ctx)

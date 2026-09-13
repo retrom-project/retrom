@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/composition"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/config"
@@ -121,7 +123,7 @@ func TestNetplayRoomCreateIsAuthenticatedIdempotentAndVersioned(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	credentials, err := netplay.LoadOrCreateCredentials(server.config.DataDir)
 	testassert.False(t, err != nil, err)
-	service := netplay.NewService(server.database, registry, credentials, netplay.Options{
+	service := composition.NewNetplay(server.database, registry, credentials, netplay.Options{
 		MaxActiveRooms: 16, DraftIdle: 15 * time.Minute, WaitingIdle: 30 * time.Minute, ReconnectLease: 10 * time.Second,
 	}, time.Now)
 	server.WithNetplay(service)

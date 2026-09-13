@@ -2,19 +2,18 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/dbexec"
+	repository "retrom/internal/persistence/libraryimport"
+	application "retrom/internal/service/libraryimport"
 )
 
-type rpgReviewAnalysis struct {
-	SelfContained bool `json:"selfContained"`
-	Requirements  struct {
-		RTP []detector.RTPDependency `json:"rtpDependencies"`
-	} `json:"requirements"`
-}
+// The validation compatibility facade still reads the RPG profile while its
+// broader refresh workflow is migrated. It accepts the shared executor so
+// callers do not need to expose a concrete transaction type.
+type rpgReviewAnalysis = application.RPGReviewAnalysis
 
 type rpgReviewBinding struct {
 	generation       string
@@ -23,46 +22,30 @@ type rpgReviewBinding struct {
 	analysis         rpgReviewAnalysis
 }
 
-func (run *draftPatchRun) applyRPGMakerBinding() error {
-	if !run.isRPG {
-		if run.patch.RPGSelfContainedOverride != nil {
-			return ErrInvalid
-		}
-		return nil
-	}
-	if run.targetOrDOSChanged {
-		return ErrInvalid
-	}
-	if run.patch.RPGSelfContainedOverride == nil {
-		return nil
-	}
-	profile, err := loadRPGReviewBinding(run.ctx, run.transaction, run.draftID)
+func loadRPGReviewBinding(
+	ctx context.Context, transaction dbexec.Executor, draftID string,
+) (rpgReviewBinding, error) {
+	profile, err := repository.BindReviewValidation(transaction).RPGProfile(ctx, draftID)
 	if err != nil {
-		return err
+		return rpgReviewBinding{}, fmt.Errorf("read RPG review profile: %w", err)
 	}
-	override := *run.patch.RPGSelfContainedOverride
-	if override && (profile.generation == "RPGMV" || profile.generation == "RPGMZ") {
-		return ErrInvalid
-	}
-	_, err = run.transaction.ExecContext(run.ctx, `
-UPDATE rpgmaker_review_profiles SET self_contained_override=?,updated_at_ms=? WHERE review_draft_id=?
-`, boolIncrement(override), run.service.now().UnixMilli(), run.draftID)
+	analysis, err := profileAnalysis(profile)
 	if err != nil {
-		return fmt.Errorf("libraryimport/review self-contained confirmation: %w", err)
+		return rpgReviewBinding{}, err
 	}
-	return nil
+	return rpgReviewBinding{
+		generation: profile.Generation, override: profile.SelfContainedOverride,
+		dependencySHA256: profile.DependencySHA256,
+		analysis:         analysis,
+	}, nil
 }
 
-func loadRPGReviewBinding(ctx context.Context, transaction *sql.Tx, draftID string) (rpgReviewBinding, error) {
-	var result rpgReviewBinding
-	var analysisJSON string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT generation,self_contained_override,dependency_snapshot_sha256,analysis_json
-FROM rpgmaker_review_profiles WHERE review_draft_id=?
-`, draftID).Scan(
-		&result.generation, &result.override, &result.dependencySHA256, &analysisJSON,
-	); err != nil || json.Unmarshal([]byte(analysisJSON), &result.analysis) != nil {
-		return rpgReviewBinding{}, ErrInvalid
+func profileAnalysis(profile application.RPGReviewProfile) (rpgReviewAnalysis, error) {
+	var analysis rpgReviewAnalysis
+	if err := json.Unmarshal([]byte(profile.AnalysisJSON), &analysis); err != nil {
+		// RPGProfile validates the same payload before returning. Keep this
+		// defensive branch total for callers using a test double.
+		return rpgReviewAnalysis{}, fmt.Errorf("decode RPG review profile: %w", ErrInvalid)
 	}
-	return result, nil
+	return analysis, nil
 }

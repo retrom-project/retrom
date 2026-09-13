@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Browser, type Page, type TestInfo } from "@playwright/test";
 import {
-  checkpointMismatches, checkpointPair, diagnosticEvents, matchingCheckpoint, verifySNESNoOpHashRecovery, waitForNetplayStartup,
+  checkpointMismatches, checkpointPair, diagnosticEvents, matchingCheckpoint, verifySNESNoOpHashRecovery, waitForNetplayStartup, waitForLockstepDelayBaseline,
   type DiagnosticEvent,
 } from "./netplay-checkpoints";
 import {
@@ -411,9 +411,7 @@ async function verifyStrictCheckpointPhase(
 
 async function verifyLockstepBufferAdaptation(session: Awaited<ReturnType<typeof createSession>>) {
   await tapDirectionalInput(session.hostPage);
-  const beforeDelay = (await diagnosticEvents(session.guestPage)).filter((event) => event.kind === "lockstep");
-  const delayStartFrame = beforeDelay.at(-1)?.frame ?? -1;
-  const baselineBuffer = beforeDelay.at(-1)?.inputBufferFrames ?? 1;
+  const { frame: delayStartFrame, inputBufferFrames: baselineBuffer } = await waitForLockstepDelayBaseline(session.guestPage);
   await session.guestPage.evaluate(() => {
     const state = (window as typeof window & { __RETROM_NETPLAY_ACCEPTANCE__?: { delayMS: number } })
       .__RETROM_NETPLAY_ACCEPTANCE__!;

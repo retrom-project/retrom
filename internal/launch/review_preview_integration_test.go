@@ -15,14 +15,21 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestReviewPreviewStoresFiveSecondScreenshotAndAllowsBlockedRuntimeOverride(t *testing.T) {
@@ -46,12 +53,12 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 		filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
 	)
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	importService := libraryimport.New(database.SQL, time.Now)
 	createReview := func(name string, contents []byte, targetID string) string {
 		t.Helper()
@@ -99,7 +106,7 @@ SELECT id FROM import_items WHERE import_job_id=?
 	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm"))
 	parentMetadata, err := blobs.Put(bytes.NewReader([]byte("review-preview-parent")))
 	testassert.False(t, err != nil, err)
-	parentBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
+	parentBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var baseValidationID, sourceSnapshotID, datVersionID string
 	if err := database.SQL.QueryRowContext(ctx, `

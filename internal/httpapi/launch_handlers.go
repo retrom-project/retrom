@@ -2,8 +2,6 @@ package httpapi
 
 import (
 	"crypto/sha256"
-	"crypto/subtle"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -20,35 +18,10 @@ import (
 	"retrom/internal/launch"
 	"retrom/internal/mediaasset"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/saves"
+	launchservice "retrom/internal/service/launch"
+	"retrom/internal/service/saves"
 )
 
-func (server *Server) writeStoredLaunchResponse(
-	writer http.ResponseWriter,
-	request *http.Request,
-	requestDigest, storedDigest string,
-	storedStatus int,
-	storedBody []byte,
-) {
-	if subtle.ConstantTimeCompare([]byte(storedDigest), []byte(requestDigest)) != 1 {
-		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
-		return
-	}
-	if storedStatus == http.StatusCreated {
-		var replay struct {
-			LaunchID string `json:"launchId"`
-		}
-		if json.Unmarshal(storedBody, &replay) == nil {
-			server.setLaunchCookie(writer, replay.LaunchID)
-		}
-	}
-	writer.Header().Set("Content-Type", "application/json")
-	writer.Header().Set("X-Retrom-Idempotent-Replay", "true")
-	writer.WriteHeader(storedStatus)
-	_, _ = writer.Write(storedBody)
-}
-
-// Contract branches stay contiguous for a single auditable decision.
 func (server *Server) createLaunch(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	key := request.Header.Get("Idempotency-Key")
@@ -63,99 +36,49 @@ func (server *Server) createLaunch(writer http.ResponseWriter, request *http.Req
 	}
 	canonical, _ := json.Marshal(body)
 	digestBytes := sha256.Sum256(append([]byte("postLaunch\x00"+principal.UserID+"\x00"), canonical...))
-	requestDigest := hex.EncodeToString(digestBytes[:])
-	server.idempotency.Lock()
-	defer server.idempotency.Unlock()
-	var storedDigest string
-	var storedStatus int
-	var storedBody []byte
-	err := server.database.QueryRowContext(request.Context(), `
-SELECT request_digest,
-http_status,
-response_body
-FROM idempotency_records
-WHERE operation_id='postLaunch'
-AND key=?
-AND principal_id=?
-`, key, principal.UserID).
-		Scan(&storedDigest, &storedStatus, &storedBody)
-	if err == nil {
-		server.writeStoredLaunchResponse(writer, request, requestDigest, storedDigest, storedStatus, storedBody)
-		return
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		server.databaseError(writer, request, err)
-		return
-	}
-	created, err := server.launcher.Create(request.Context(), principal.ProfileID, body)
+	receipt, err := server.launcher.CreateProduct(request.Context(), launchservice.ProductCreateCommand{
+		ActorID: principal.UserID, ProfileID: principal.ProfileID, Key: key,
+		Digest: hex.EncodeToString(digestBytes[:]), Request: body,
+	})
 	if err != nil {
-		code := "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
-		if errors.Is(err, launch.ErrDOSEntryMissing) {
-			code = "LAUNCH_DOS_ENTRY_MISSING"
-		}
-		if errors.Is(err, launch.ErrDOSEntryUnsafe) {
-			code = "LAUNCH_DOS_ENTRY_UNSAFE"
-		}
-		if errors.Is(err, launch.ErrSaveIncompatible) {
-			code = "LAUNCH_SAVE_INCOMPATIBLE"
-		}
-		writeError(
-			writer,
-			request,
-			http.StatusUnprocessableEntity,
-			"LAUNCH_BLOCKED",
-			"当前游戏或核心无法启动",
-			map[string]any{"blockers": []map[string]any{{"code": code, "level": "BLOCKING"}}},
-		)
+		server.productCreationError(writer, request, err)
 		return
 	}
-	status := http.StatusCreated
-	responseValue := any(created)
-	if created.Status == "VALIDATION_PENDING" {
-		status = http.StatusAccepted
-		responseValue = map[string]any{
-			"status":       created.Status,
-			"jobId":        created.JobID,
-			"retryAfterMs": created.RetryAfterMS,
-		}
-	} else {
-		server.setLaunchCookie(writer, created.LaunchID)
-	}
-	responseBody, _ := json.Marshal(responseValue)
-	now := server.now().UnixMilli()
-	if _, err := server.database.ExecContext(request.Context(), `
-INSERT INTO idempotency_records(principal_id,
-operation_id,
-key,
-request_digest,
-http_status,
-response_headers_json,
-response_body,
-created_at_ms,
-expires_at_ms) VALUES(?,
-'postLaunch',
-?,
-?,
-?,
-'{}',
-?,
-?,
-?)
-`,
-		principal.UserID,
-		key,
-		requestDigest,
-		status,
-		responseBody,
-		now,
-		now+int64(24*time.Hour/time.Millisecond),
-	); err != nil {
-		server.databaseError(writer, request, err)
-		return
+	server.writeStoredLaunchResponse(writer, receipt)
+}
+
+func (server *Server) writeStoredLaunchResponse(writer http.ResponseWriter, receipt launchservice.ProductReceipt) {
+	if receipt.Status == http.StatusCreated {
+		server.setLaunchCookieValue(writer, receipt.Created.LaunchID, receipt.Created.Capability)
 	}
 	writer.Header().Set("Content-Type", "application/json")
-	writer.WriteHeader(status)
-	_, _ = writer.Write(responseBody)
+	if receipt.Replayed {
+		writer.Header().Set("X-Retrom-Idempotent-Replay", "true")
+	}
+	writer.WriteHeader(receipt.Status)
+	_, _ = writer.Write(receipt.Body)
+}
+
+func (server *Server) productCreationError(writer http.ResponseWriter, request *http.Request, err error) {
+	if errors.Is(err, launchservice.ErrIdempotencyKeyReused) {
+		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
+		return
+	}
+	code := "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
+	switch {
+	case errors.Is(err, launch.ErrDOSEntryMissing):
+		code = "LAUNCH_DOS_ENTRY_MISSING"
+	case errors.Is(err, launch.ErrDOSEntryUnsafe):
+		code = "LAUNCH_DOS_ENTRY_UNSAFE"
+	case errors.Is(err, launch.ErrSaveIncompatible):
+		code = "LAUNCH_SAVE_INCOMPATIBLE"
+	case errors.Is(err, launch.ErrBlocked):
+	default:
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeError(writer, request, http.StatusUnprocessableEntity, "LAUNCH_BLOCKED", "当前游戏或核心无法启动",
+		map[string]any{"blockers": []map[string]any{{"code": code, "level": "BLOCKING"}}})
 }
 
 func (server *Server) setLaunchCookie(writer http.ResponseWriter, launchID string) {
@@ -384,7 +307,7 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 		request.PathValue("launchId"),
 		server.launchCapability(request),
 		key,
-		request,
+		saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body},
 	)
 	writeSaveStateResult(writer, request, result, replayed, err)
 }

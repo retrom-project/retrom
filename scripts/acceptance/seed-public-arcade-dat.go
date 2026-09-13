@@ -19,12 +19,16 @@ import (
 	"slices"
 	"time"
 
+	datservice "retrom/internal/service/datindex"
+
+	"retrom/internal/dbexec"
+
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 
 	"retrom/internal/arcadedat"
 	"retrom/internal/cleanup"
-	"retrom/internal/datindex"
+	"retrom/internal/persistence/datindex"
 )
 
 var (
@@ -210,7 +214,7 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 	if err != nil {
 		return "", "", "", fmt.Errorf("begin transaction: %w", err)
 	}
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	datID := uuid.NewSHA1(uuid.NameSpaceURL, []byte("retrom:acceptance:arcade-dat:"+providerID+":"+targetID+":"+digestHex)).String()
 	nowMS := time.Now().UTC().UnixMilli()
 	stats := catalog.Stats
@@ -241,7 +245,7 @@ UPDATE dat_versions SET is_active=1,activated_at_ms=?,updated_at_ms=?,version=ve
 `, nowMS, nowMS, datID); err != nil {
 		return "", "", "", fmt.Errorf("activate test-only built-in DAT: %w", err)
 	}
-	if err := datindex.SyncRequirements(ctx, transaction, datID, time.UnixMilli(nowMS)); err != nil {
+	if err := datservice.SyncRequirements(ctx, datindex.Bind(transaction), datID, time.UnixMilli(nowMS)); err != nil {
 		return "", "", "", fmt.Errorf("sync test-only built-in DAT requirements: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {

@@ -1,14 +1,17 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"retrom/internal/authn"
+
 	"retrom/internal/cursor"
-	"retrom/internal/pegasusimport"
+	"retrom/internal/service/pegasusimport"
 )
 
 func (server *Server) createPegasusImport(writer http.ResponseWriter, request *http.Request) {
@@ -52,7 +55,9 @@ func (server *Server) pegasusImportList(writer http.ResponseWriter, request *htt
 		}
 		beforeID = payload.ID
 	}
-	items, err := server.pegasusImports.List(request.Context(), state, beforeAt, beforeID, limit+1)
+	items, err := server.pegasusImports.List(request.Context(), pegasusimport.ListQuery{
+		State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit + 1,
+	})
 	if err != nil {
 		server.writePegasusImportError(writer, request, err)
 		return
@@ -113,12 +118,9 @@ func (server *Server) pegasusImportCollections(writer http.ResponseWriter, reque
 		afterID = payload.ID
 	}
 	items, err := server.pegasusImports.Collections(
-		request.Context(),
-		importID,
-		afterPath,
-		afterOrdinal,
-		afterID,
-		limit+1,
+		request.Context(), pegasusimport.CollectionQuery{
+			ImportID: importID, AfterPath: afterPath, AfterOrdinal: afterOrdinal, AfterID: afterID, Limit: limit + 1,
+		},
 	)
 	if err != nil {
 		server.writePegasusImportError(writer, request, err)
@@ -152,7 +154,10 @@ func (server *Server) updatePegasusMappings(writer http.ResponseWriter, request 
 		func(mapping pegasusimport.Mapping) serverImportMappingFields {
 			return serverImportMappingFields{action: mapping.Action, tagIDs: mapping.TagIDs}
 		},
-		server.pegasusImports.UpdateMappings,
+		func(ctx context.Context, id string, version int64, mappings []pegasusimport.Mapping) (pegasusimport.Summary, error) {
+			principal, _ := authn.PrincipalFromContext(ctx)
+			return server.pegasusImports.UpdateMappings(ctx, id, version, mappings, principal.UserID)
+		},
 		writePegasusSummary,
 		server.writePegasusImportError,
 	)
@@ -163,7 +168,10 @@ func (server *Server) startPegasusImport(writer http.ResponseWriter, request *ht
 		writer,
 		request,
 		"pegasusImportId",
-		server.pegasusImports.StartImport,
+		func(ctx context.Context, id string, version int64) (pegasusimport.Summary, error) {
+			principal, _ := authn.PrincipalFromContext(ctx)
+			return server.pegasusImports.StartImport(ctx, id, version, principal.UserID)
+		},
 		writePegasusSummary,
 		server.writePegasusImportError,
 	)
@@ -194,15 +202,11 @@ func (server *Server) pegasusImportItems(writer http.ResponseWriter, request *ht
 		afterTitle, afterID = payload.SortValues[0], payload.ID
 	}
 	items, err := server.pegasusImports.Items(
-		request.Context(),
-		importID,
-		strings.TrimSpace(values.Get("q")),
-		values.Get("outcome"),
-		values.Get("warning"),
-		values.Get("collectionId"),
-		afterTitle,
-		afterID,
-		limit+1,
+		request.Context(), pegasusimport.ItemQuery{
+			ImportID: importID, Text: strings.TrimSpace(values.Get("q")), Outcome: values.Get("outcome"),
+			Warning: values.Get("warning"), CollectionID: values.Get("collectionId"),
+			AfterTitle: afterTitle, AfterID: afterID, Limit: limit + 1,
+		},
 	)
 	if err != nil {
 		server.writePegasusImportError(writer, request, err)
@@ -261,7 +265,10 @@ func (server *Server) deletePegasusImport(writer http.ResponseWriter, request *h
 		)
 		return
 	}
-	if err := server.pegasusImports.Delete(request.Context(), request.PathValue("pegasusImportId"), version); err != nil {
+	principal, _ := authn.PrincipalFromContext(request.Context())
+	if err := server.pegasusImports.Delete(
+		request.Context(), request.PathValue("pegasusImportId"), version, principal.UserID,
+	); err != nil {
 		server.writePegasusImportError(writer, request, err)
 		return
 	}

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
@@ -73,7 +75,7 @@ func seedProviderRunningScrape(
 	t.Helper()
 	transaction, err := database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	statements := []struct {
 		query string
 		args  []any

@@ -14,28 +14,28 @@ import (
 func TestDOSRankingPromotesGameAfterInteractiveLauncherHelper(t *testing.T) {
 	t.Parallel()
 	entries := []preparedDOSEntry{
-		{path: "PAL/PLAY.BAT", kind: "BAT", safe: true, batchContents: []byte("@echo\r\nJS3 PAL.JS3\r\nPAL\r\n")},
-		{path: "PAL/JS3.EXE", kind: "EXE", safe: true},
-		{path: "PAL/PAL.EXE", kind: "EXE", safe: true},
-		{path: "PAL/INSTALL.EXE", kind: "EXE", safe: true},
+		{Path: "PAL/PLAY.BAT", Kind: "BAT", Safe: true, BatchContents: []byte("@echo\r\nJS3 PAL.JS3\r\nPAL\r\n")},
+		{Path: "PAL/JS3.EXE", Kind: "EXE", Safe: true},
+		{Path: "PAL/PAL.EXE", Kind: "EXE", Safe: true},
+		{Path: "PAL/INSTALL.EXE", Kind: "EXE", Safe: true},
 	}
 
 	rankDOSEntries(entries)
 
-	testassert.Falsef(t, testassert.Any(func() bool { return entries[0].path != "PAL/PAL.EXE" }, func() bool { return entries[0].rank != 0 }, func() bool { return !entries[0].inferredTerminalTarget }), "interactive launcher default = %#v", entries)
-	testassert.Falsef(t, testassert.Any(func() bool { return entries[1].path != "PAL/PLAY.BAT" }, func() bool { return entries[2].path != "PAL/INSTALL.EXE" }, func() bool { return entries[3].path != "PAL/JS3.EXE" }), "interactive launcher candidates = %#v", entries)
+	testassert.Falsef(t, testassert.Any(func() bool { return entries[0].Path != "PAL/PAL.EXE" }, func() bool { return entries[0].Rank != 0 }, func() bool { return !entries[0].InferredTerminalTarget }), "interactive launcher default = %#v", entries)
+	testassert.Falsef(t, testassert.Any(func() bool { return entries[1].Path != "PAL/PLAY.BAT" }, func() bool { return entries[2].Path != "PAL/INSTALL.EXE" }, func() bool { return entries[3].Path != "PAL/JS3.EXE" }), "interactive launcher candidates = %#v", entries)
 }
 
 func TestDOSRankingKeepsLauncherWhenBatchHasNoInteractiveHelper(t *testing.T) {
 	t.Parallel()
 	entries := []preparedDOSEntry{
-		{path: "GAME/PLAY.BAT", kind: "BAT", safe: true, batchContents: []byte("@echo off\r\nSET BLASTER=A220 I7 D1\r\nMAIN.EXE\r\n")},
-		{path: "GAME/MAIN.EXE", kind: "EXE", safe: true},
+		{Path: "GAME/PLAY.BAT", Kind: "BAT", Safe: true, BatchContents: []byte("@echo off\r\nSET BLASTER=A220 I7 D1\r\nMAIN.EXE\r\n")},
+		{Path: "GAME/MAIN.EXE", Kind: "EXE", Safe: true},
 	}
 
 	rankDOSEntries(entries)
 
-	testassert.Falsef(t, testassert.Any(func() bool { return entries[0].path != "GAME/PLAY.BAT" }, func() bool { return entries[0].rank != 0 }, func() bool { return entries[1].inferredTerminalTarget }), "non-interactive launcher default = %#v", entries)
+	testassert.Falsef(t, testassert.Any(func() bool { return entries[0].Path != "GAME/PLAY.BAT" }, func() bool { return entries[0].Rank != 0 }, func() bool { return entries[1].InferredTerminalTarget }), "non-interactive launcher default = %#v", entries)
 }
 
 func TestDOSRankingFailsClosedForConditionalUnknownAndOversizedBatch(t *testing.T) {
@@ -48,12 +48,12 @@ func TestDOSRankingFailsClosedForConditionalUnknownAndOversizedBatch(t *testing.
 	for name, contents := range tests {
 		t.Run(name, func(t *testing.T) {
 			entries := []preparedDOSEntry{
-				{path: "PAL/PLAY.BAT", kind: "BAT", safe: true, batchContents: contents},
-				{path: "PAL/JS3.EXE", kind: "EXE", safe: true},
-				{path: "PAL/PAL.EXE", kind: "EXE", safe: true},
+				{Path: "PAL/PLAY.BAT", Kind: "BAT", Safe: true, BatchContents: contents},
+				{Path: "PAL/JS3.EXE", Kind: "EXE", Safe: true},
+				{Path: "PAL/PAL.EXE", Kind: "EXE", Safe: true},
 			}
 			rankDOSEntries(entries)
-			testassert.Falsef(t, testassert.Any(func() bool { return entries[0].path != "PAL/PLAY.BAT" }, func() bool { return entries[1].inferredTerminalTarget }, func() bool { return entries[2].inferredTerminalTarget }), "%s batch was inferred: %#v", name, entries)
+			testassert.Falsef(t, testassert.Any(func() bool { return entries[0].Path != "PAL/PLAY.BAT" }, func() bool { return entries[1].InferredTerminalTarget }, func() bool { return entries[2].InferredTerminalTarget }), "%s batch was inferred: %#v", name, entries)
 		})
 	}
 }
@@ -74,11 +74,11 @@ func TestPrepareDOSFilesInspectsLauncherBatchForDirectoryAndZIP(t *testing.T) {
 		metadata, putErr := blobs.Put(bytes.NewReader(contents))
 		testassert.False(t, putErr != nil, putErr)
 		directorySources = append(directorySources, importSourceFile{
-			id: path, path: path, blobID: "blob-" + path, sha256: metadata.SHA256, size: metadata.Size,
+			ID: path, Path: path, BlobID: "blob-" + path, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	_, directoryGroups, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", directorySources)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(directoryGroups) != 1 }, func() bool { return directoryGroups[0].defaultDOSEntry != "PAL/PAL.EXE" }), "directory DOS default = %#v", directoryGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(directoryGroups) != 1 }, func() bool { return directoryGroups[0].DefaultDOSEntry != "PAL/PAL.EXE" }), "directory DOS default = %#v", directoryGroups)
 
 	var archive bytes.Buffer
 	writer := zip.NewWriter(&archive)
@@ -95,9 +95,9 @@ func TestPrepareDOSFilesInspectsLauncherBatchForDirectoryAndZIP(t *testing.T) {
 	archiveMetadata, err := blobs.Put(bytes.NewReader(archive.Bytes()))
 	testassert.False(t, err != nil, err)
 	archiveSource := importSourceFile{
-		id: "archive", path: "pal.zip", blobID: "archive-blob", sha256: archiveMetadata.SHA256,
-		size: archiveMetadata.Size,
+		ID: "archive", Path: "pal.zip", BlobID: "archive-blob", SHA256: archiveMetadata.SHA256,
+		Size: archiveMetadata.Size,
 	}
 	_, archiveGroups, _ := service.prepareDOSFiles(context.Background(), "FILES", []importSourceFile{archiveSource})
-	testassert.Falsef(t, testassert.Any(func() bool { return len(archiveGroups) != 1 }, func() bool { return archiveGroups[0].defaultDOSEntry != "PAL/PAL.EXE" }), "ZIP DOS default = %s / %#v", fmt.Sprint(len(archiveGroups)), archiveGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(archiveGroups) != 1 }, func() bool { return archiveGroups[0].DefaultDOSEntry != "PAL/PAL.EXE" }), "ZIP DOS default = %s / %#v", fmt.Sprint(len(archiveGroups)), archiveGroups)
 }

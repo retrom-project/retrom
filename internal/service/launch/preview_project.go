@@ -1,0 +1,90 @@
+package launch
+
+import (
+	"fmt"
+
+	butter "retrom/internal/butterscotch/detector"
+	kiri "retrom/internal/kirikiri/detector"
+	nx "retrom/internal/nxengine/detector"
+	ons "retrom/internal/ons/detector"
+	"retrom/internal/scummvm"
+	tyrano "retrom/internal/tyranoscript/detector"
+)
+
+func previewProjectContent(snapshot PreviewSnapshot) (PreviewContent, error) {
+	if snapshot.Source.ContentKind == rpgProjectFormat {
+		return previewRPGContent(snapshot)
+	}
+	marker, err := previewProjectMarker(snapshot)
+	if err != nil {
+		return PreviewContent{}, ErrReviewPreviewUnavailable
+	}
+	content := PreviewContent{Format: snapshot.Source.ContentKind, Files: make([]PreviewFile, 0)}
+	maximum := 10_000
+	if snapshot.Source.ContentKind == "ONS_PROJECT" {
+		maximum = MaximumProjectFiles
+	}
+	for _, file := range snapshot.SourceFiles {
+		if file.Role != "PROJECT_FILE" {
+			continue
+		}
+		if file.LogicalName == marker {
+			content.BlobID, content.LogicalName = file.BlobID, file.LogicalName
+			continue
+		}
+		if len(content.Files) >= maximum {
+			return PreviewContent{}, ErrReviewPreviewUnavailable
+		}
+		content.Files = append(content.Files, file)
+	}
+	if content.BlobID == "" || (snapshot.Source.ContentKind == "ONS_PROJECT" && len(content.Files) == 0) {
+		return PreviewContent{}, ErrReviewPreviewUnavailable
+	}
+	return content, nil
+}
+
+func previewProjectMarker(snapshot PreviewSnapshot) (string, error) {
+	raw := snapshot.Source.DependencySnapshot
+	switch snapshot.Source.ContentKind {
+	case "ONS_PROJECT":
+		profile, err := ons.ParseSnapshot(raw)
+		return previewMarkerResult(profile.MarkerPath, err)
+	case "KIRIKIRI_PROJECT":
+		profile, err := kiri.ParseSnapshot(raw)
+		return previewMarkerResult(profile.MarkerPath, err)
+	case "NXENGINE_PROJECT":
+		profile, err := nx.ParseSnapshot(raw)
+		return previewMarkerResult(profile.MarkerPath, err)
+	case "BUTTERSCOTCH_PROJECT":
+		profile, err := butter.ParseSnapshot(raw)
+		return previewMarkerResult(profile.MarkerPath, err)
+	case "TYRANOSCRIPT_PROJECT":
+		profile, err := tyrano.ParseSnapshot(raw)
+		return previewMarkerResult(profile.EntryPath, err)
+	case "SCUMMVM_PROJECT":
+		profile, err := scummvm.ParseSnapshot(raw)
+		if err != nil {
+			return previewMarkerResult("", err)
+		}
+		if _, err := profile.Selected(); err != nil {
+			return previewMarkerResult("", err)
+		}
+		first := ""
+		for _, file := range snapshot.SourceFiles {
+			if file.Role == "PROJECT_FILE" && (first == "" || file.LogicalName < first) {
+				first = file.LogicalName
+			}
+		}
+		if first != "" {
+			return first, nil
+		}
+	}
+	return "", ErrReviewPreviewUnavailable
+}
+
+func previewMarkerResult(marker string, err error) (string, error) {
+	if err != nil {
+		return "", fmt.Errorf("read preview project marker: %w", err)
+	}
+	return marker, nil
+}

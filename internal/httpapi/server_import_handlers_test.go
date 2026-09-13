@@ -12,12 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/composition"
+
 	"github.com/google/uuid"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
-	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
+	"retrom/internal/service/accounts"
+	"retrom/internal/service/serverimport"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -45,7 +47,7 @@ func TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "bios.bin"), []byte("fixture"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	server.serverImports = serverimport.New(
+	server.serverImports = composition.NewServerImports(
 		server.database, server.blobs, server.firmware, server.credentials,
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: root}},
 		time.Now,

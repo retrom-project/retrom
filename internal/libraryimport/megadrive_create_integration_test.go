@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/contentcapability"
 	"retrom/internal/testsupport"
 )
@@ -36,7 +37,7 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			blobID, err := blobstore.EnsureRecord(ctx, database.SQL, metadata, "application/octet-stream", time.Now().UnixMilli())
+			blobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, metadata, "application/octet-stream", time.Now().UnixMilli())
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -8,8 +8,9 @@ import (
 	"net/url"
 	"testing"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
 )
 
@@ -56,7 +57,7 @@ func seedImmersiveFavoriteAndSave(
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(?,?,7000)
 `, profileID, favoriteGameID)

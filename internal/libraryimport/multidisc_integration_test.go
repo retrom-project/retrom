@@ -21,17 +21,27 @@ import (
 	"testing"
 	"time"
 
+	savepersistence "retrom/internal/persistence/saves"
+
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/saves"
+	"retrom/internal/service/saves"
+	"retrom/internal/service/uploads"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 type multiDiscUploadFile struct {
@@ -55,7 +65,7 @@ func completeMultiDiscUpload(
 			ClientFileID: fmt.Sprintf("file-%d", index), RelativePath: file.path, SizeBytes: int64(len(file.contents)),
 		})
 	}
-	service := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	service := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := service.Create(ctx, uploads.CreateRequest{SourceType: sourceType, Files: declarations})
 	testassert.False(t, err != nil, err)
 	for index, file := range files {
@@ -115,14 +125,14 @@ VALUES('01980000-0000-7000-8000-000000009991','multi-disc-profile','multi-disc-a
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	bios, err := blobs.Put(bytes.NewReader([]byte("deterministic invalid Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	biosBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, bios, "application/octet-stream", time.Now().UnixMilli())
+	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, bios, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
@@ -149,7 +159,7 @@ func fakeCHD(payload string) []byte {
 	return append([]byte("MComprHD"), []byte(payload)...)
 }
 
-func multiDiscSaveRequest(t *testing.T, discIndex int) *http.Request {
+func multiDiscSaveRequest(t *testing.T, discIndex int) saves.ManualUpload {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -178,7 +188,7 @@ func multiDiscSaveRequest(t *testing.T, discIndex int) *http.Request {
 	request, err := http.NewRequest(http.MethodPost, "/", &body)
 	testassert.False(t, err != nil, err)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	return request
+	return saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
 }
 
 func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *testing.T) {
@@ -269,17 +279,13 @@ JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.role,file.sort_order
 `, approved.GameID)
 	testassert.Falsef(t, len(published) != 3, "published content = %v", published)
-	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
-	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now).
-		WithBlobStore(blobs).
-		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
+	launcher := launchcomposition.New(database.SQL,
+		launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder), "", time.Now)
+	t.Cleanup(launcher.Close)
 	createdLaunch, err := launcher.Create(ctx, "multi-disc-profile", launch.CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: launch.Capabilities{
@@ -311,7 +317,7 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	); !errors.Is(err, launch.ErrCredential) {
 		t.Fatalf("original disc name error = %v", err)
 	}
-	saveService := saves.New(database.SQL, blobs, credentials, time.Now)
+	saveService := saves.New(savepersistence.New(database.SQL), blobs, time.Now)
 	saved, replayed, err := saveService.CreateManual(
 		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "multi-disc-save-1",
 		multiDiscSaveRequest(t, 1),

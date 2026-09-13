@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,7 +9,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cursor"
-	"retrom/internal/serverimport"
+	"retrom/internal/service/serverimport"
 )
 
 func (server *Server) serverImportRoots(writer http.ResponseWriter, _ *http.Request) {
@@ -125,7 +124,7 @@ func (server *Server) serverImportList(writer http.ResponseWriter, request *http
 	}
 	items, err := server.serverImports.List(request.Context(), state, beforeAt, beforeID, limit+1)
 	if err != nil {
-		server.databaseError(writer, request, err)
+		server.writeServerImportError(writer, request, err)
 		return
 	}
 	var next *string
@@ -189,7 +188,7 @@ func (server *Server) serverImportDetail(writer http.ResponseWriter, request *ht
 		limit+1,
 	)
 	if err != nil {
-		server.databaseError(writer, request, err)
+		server.writeServerImportError(writer, request, err)
 		return
 	}
 	var next *string
@@ -353,6 +352,8 @@ func validServerImportState(value string) bool {
 
 func (server *Server) writeServerImportError(writer http.ResponseWriter, request *http.Request, err error) {
 	switch {
+	case errors.Is(err, serverimport.ErrQuery):
+		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "服务器导入筛选无效", map[string]any{})
 	case errors.Is(err, serverimport.ErrRootIDInvalid):
 		writeError(
 			writer,
@@ -366,7 +367,7 @@ func (server *Server) writeServerImportError(writer http.ResponseWriter, request
 		writeError(writer, request, http.StatusBadRequest, "SERVER_IMPORT_PATH_INVALID", "服务器目录无效", map[string]any{})
 	case errors.Is(err, serverimport.ErrRootNotFound):
 		writeError(writer, request, http.StatusNotFound, "SERVER_IMPORT_ROOT_NOT_FOUND", "服务器导入资源不存在", map[string]any{})
-	case errors.Is(err, serverimport.ErrNotFound), errors.Is(err, sql.ErrNoRows):
+	case errors.Is(err, serverimport.ErrNotFound):
 		writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "请求的资源不存在", map[string]any{})
 	case errors.Is(err, serverimport.ErrRootUnavailable):
 		writeError(

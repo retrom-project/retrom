@@ -31,7 +31,7 @@
 
 Binding 只选择接入策略、产品允许的内容子集和独立的启用策略；固定 delivery、review 和 options 行为从 `runtimecatalog` 的同一策略派生，不能在 JSON binding 中重复声明后再比较是否相等。现有数据库列是派生投影，不是第二份声明权威。
 
-项目分类、项目内容类型及上传扩展名从现有 `contentprofile` 推导；项目归档格式变更不需要维护第二份平台名单。导入、审核、启动和内容替换共用 `contentcapability.Policy`。查询通过同一个标量投影读取所选 binding 的关系化内容类型，并在原 SQL 语句/事务内构造能力；不另开查询、不在 SQL 中组装策略 JSON。多盘限制与交付规则只在 Go 构造函数中定义，只有任务快照、API 或摘要边界序列化策略。支持类型按集合规范化，与单个内容相关的校验摘要只包含所选类型及其规则，不因顺序或无关能力扩展失效。
+项目分类、项目内容类型及上传扩展名从现有 `contentprofile` 推导；项目归档格式变更不需要维护第二份平台名单。导入、审核、启动和内容替换共用 `contentcapability.Policy`。`internal/persistence/contentquery` 统一提供查询投影与扫描适配，领域 `Policy` 只保留能力判断、规范化和摘要。查询通过同一个标量投影读取所选 binding 的关系化内容类型，并在原 SQL 语句/事务内构造能力；不另开查询、不在 SQL 中组装策略 JSON。多盘限制与交付规则只在 Go 构造函数中定义，只有任务快照、API 或摘要边界序列化策略。支持类型按集合规范化，与单个内容相关的校验摘要只包含所选类型及其规则，不因顺序或无关能力扩展失效。
 
 Launch options 按声明绑定的明确接入策略一次组装，再接受 Provider 的闭合 schema 校验；不得在多个无关入口逐一猜测未知属性，更不能把不支持的配置伪装成认证错误。依赖快照中的静态 BIOS/多盘与 Arcade 是不同业务类型，使用明确 discriminator，不以 v1/v2 伪装历史兼容链。
 
@@ -39,9 +39,18 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 
 业务数据采用 current-state 模型：`games` 直接保存当前 metadata 与内容来源，`game_files` 保存当前文件，`game_variants` 保存每个 `(game,core)` 的当前 Provider Target、DAT、依赖快照和兼容状态。编辑、替换和重新验证在原稳定 ID 上推进 `version`；历史变化写入 audit/event/evidence，不再建立 metadata、content 或 variant 的平行业务修订树。
 
+启动先按 Game 与所选 Core 定位已有 Variant，再验证其 Provider/Target 对应的当前 binding。一个 Core 对应多个运行目标时，显式选择、目录默认选择和存档继承选择都保留该 Variant 的目标；目标停用或不可用时拒绝启动。只有该 Game/Core 尚无 Variant 时才进入新变体校验流程，不能因选中了其他目标而重复创建 Variant。
+
+`VARIANT_VALIDATE` 的领取、校验与恢复由 Service 编排。领取与 STARTED 事件原子提交；提前可用时间、用尽的尝试预算和已被领取的任务不能启动。输入解析保留 JSON 原始错误，耗时校验读取独立一致快照，最终写事务重验原始 execution/attempt/worker、来源、运行目标、依赖及未改变的起止期限，再一起保存 Variant 和终态事件。恢复沿用原始 30 分钟期限，不能通过重领延长；自有执行到期必须收尾，被替换的执行不能覆盖新结果。heartbeat、失败清理与执行都受进程关闭管理，关闭先禁止新执行，再取消并等待已有执行和监控退出。
+
+通用 Job retry 成功后的校验唤醒等待幂等收据持久化，重放响应不重复启动；收据写入失败不发出本次唤醒。现有 retry 与通用 HTTP 收据仍是独立事务，收据失败时已经入队的执行保留。后台执行脱离请求取消后仍归属进程生命周期，不能在数据库关闭后继续访问。
+
 `providerId` 与 `targetId` 是跨升级稳定的语义身份。Provider 当前版本和 manifest 投影可以前移，但已创建的 `launch_sessions` 会冻结当次 `bundleSha256`、内容文件、外部依赖文件、Target、options 和恢复输入。Bundle 升级不会让现有审核结果或已发布 Variant 自动 stale；只有来源内容、Core/Target、DAT、依赖闭包、项目证据或其他真实验证输入改变时才需要重新检查。
 
 内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch/Netplay、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换仅原子切换当前安装；已创建的 Launch/Play/Netplay 保留冻结的旧 BIOS 文件与授权直到各自结束或过期，game-scoped 存档继续保留。新启动（包括从存档继续）按需核对当前 BIOS，变化时先重验；创建事务再次核对快照，避免并发替换混用版本。人工截图放行的 Variant 保留放行状态，在新 Launch 事务中只刷新已安装的受管 BIOS；不清除手动提供的无关 Arcade 文件。
+
+内容替换由 `internal/service/gamecontent` 编排，`internal/persistence/gamecontent` 负责查询和写事务。执行读取并校验持久化输入摘要，首次领取时以 6 小时预算设置持久化截止时间和执行 context，领取任务时匹配游戏 scope、执行次数与输入摘要，使用每次独立的 worker 身份。发布事务重新核对未过期的租约和执行期限、当前绑定与内容身份，并在同一事务中解析 BIOS 引用、退役旧内容、发布新内容、推进任务和事件以及释放上传消费。取消请求由当前 worker 确认为取消；已终态或已更换执行身份的任务不接受旧 worker 的失败回调。释放信号只能在事务提交后发出。
+
 
 ## 3. Launch Envelope V1
 
@@ -52,6 +61,8 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 - `resources[]` 保存带 role、kind、大小、摘要和访问 URL 的授权输入；
 - `targetOptions` 是由当前 Target 的闭合 `targetOptionsSchema` 校验后的 Provider 私有配置；
 - `restore`、`netplay` 分别是可空的标准恢复和联机输入；生产 Envelope 不携带研发验证脚本或位置证明。
+
+配置签发由 `internal/service/launch.ConfigIssuer` 编排，Repository 先在只读快照内读取会话并交给 Service 校验 capability，授权通过后才读取资源。完整 Envelope 构建成功后，在短写事务内重新检查授权、bootstrap/hard/idle 期限、冻结输入和版本，再激活 CREATED 会话；提交成功才返回配置。构建、最终查询、激活或提交失败均不留下部分激活。已 ACTIVE 的配置重取不刷新 idle 或游玩时间；并发合法激活及 START/heartbeat 的版本推进可以继续签发，结束或撤销后的会话不能重新激活。可选资源只有实际缺失时可省略，存储故障与取消必须保留原因。
 
 Go 在签发前验证 envelope 和 Target options；dispatcher 验证 JSON 边界、模块 URL、模块摘要、Provider 身份与 API 版本，然后只调用 `createRuntime(envelope, host)`。Provider 创建入口按自身声明验证外部 Envelope 与 Host，直接构造核心私有的最小类型参数，不再提供单独预检，也不在内部重复验证相同 Envelope 或转换后的通用 config。下载文件、解码 checkpoint、跨 origin 消息仍在各自信任边界校验；任一身份、摘要、schema、资源或能力不一致都 fail closed。
 
@@ -71,6 +82,8 @@ Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者
 
 ## 5. 资源与项目运行时
 
+内容与会话读取由 `internal/service/launch` 判断 capability、状态、硬到期、资源类型及项目路径；`internal/persistence/launch` 只读取冻结会话、内容成员和授权事实。普通与预览 Bundle 的授权和成员必须来自同一数据库快照，包括合法空集合。RPG 项目仅在精确路径不存在时尝试唯一的大小写匹配；存储失败或取消必须保留原因，不能触发路径回退或误报凭据无效。Provider 资源仍按冻结的 Provider/Target/Bundle 和唯一 manifest 路径选择，不重新解释核心或内容配置。
+
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。游戏、BIOS、parent、多盘、项目文件和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 
 `retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。`EXIT_REQUESTED` 是可选生命周期事件，不构成 Provider/Target 准入条件；能够可靠观察游戏自身退出的 Provider 可以发出该事件，使 Player 页面同步关闭，其他会话由 Host 调用 `exit()` 结束。
@@ -82,6 +95,8 @@ Retrom 不再生成 RTP resources、安装文件索引或包下载地址，审�
 ## 6. Checkpoint 与存档
 
 Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、`readFormats[]` 和 `maxBytes` 是唯一格式规则。创建存档时，来源 Launch 必须属于同一 Profile/Game 且允许存档，格式必须位于 `readFormats`、大小和 SHA-256 必须闭合；Host 不解析 Provider payload。
+
+`internal/service/saves` 统一编排写入授权、格式与大小判断、幂等重放和 GAME_SAVE 版本冲突；`internal/persistence/saves` 只读取事实并提交记录。请求体接收及 CAS 文件写入在数据库写事务之外执行；提交前重新读取当前会话、归属、到期时间及 Target 格式与大小上限。Blob 登记、存档/预览 checkpoint、GAME_SAVE 数据版本与 Launch 绑定、幂等响应必须在同一个短事务中提交，任何一步失败均回滚。相同 payload 不递增数据版本，不覆盖用户命名；本地草稿沿用账号归属及 GAME_SAVE 绑定规则，允许已结束或到期会话，不复用运行 capability 的存活要求。
 
 checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档；运行时可显式创建新原生存档，也可要求用户在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩会话暂存到浏览器，并在退出确认后提交。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
 
@@ -111,7 +126,23 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 联机资格由稳定 Provider/Target、Target 的标准能力和 Retrom 的受控 profile 共同决定。Netplay profile 与 session 冻结 Bundle、Provider/Target、内容和依赖摘要；不再维护平行的稳定 Target字段。参与者必须取得完全一致的冻结输入。Provider 只通过 `PlayerRuntimeV1.netplayPort` 交换标准消息；单机 Launch 不取得联机凭据，联机 Launch 禁止普通存档。
 
+联机 Launch 由 `service/launch.NetplayCreator` 在写事务外准备 Provider、内容与签名，再由 Repository 的短事务重验当前 Session/Room/Member/Participant、冻结目标及内容/依赖，原子写入 Launch、引用与参与者绑定。内容或权限变化拒绝创建；只修改标题等无关字段不使冻结内容失效。同一参与者的并发请求复用唯一已提交 Launch 与凭据，提交失败不返回凭据。`ParticipantPreparation` 随后独立推进参与者与 Session 事件；第二阶段失败或请求取消仍须用有界清理撤销已经提交的 Launch，不得留下可用授权。
+
+游戏目录分页、profile 匹配和依赖快照判定由 `internal/service/netplay` 通过类型化端口编排；相应 SQL 和行映射位于 `internal/persistence/netplay`。受控 profile 解析与 canonical digest 位于无数据库依赖的 `internal/netplay/profile`。禁用的平台实例同时退出目录候选与按游戏 ID 的资格查询，不能继续用于选择游戏或启动新的联机会话。
+
+联机业务统一进入 `internal/service/netplay`，通过类型化端口访问数据；`internal/persistence/netplay` 负责 SQL、映射和事务，`internal/composition` 组装依赖。`internal/netplay` 保留 Hub、WebSocket 协议和传输处理，Hub 分别依赖会话、参与者和结束操作接口，并显式接收时钟与重连租约配置。签名与密钥文件保护由独立 capability 包维护。
+
+房间列表和详情在同一读事务中加载房间、成员、会话，再由 Service 装配权限。活动房间只包含本人仍占座的记录；退出后的房间按最近 24 小时终态窗口进入历史列表。创建、选游戏、清除选择、占座、准备和启动均在写事务内校验角色、房间/成员版本及当前状态；创建检查容量和房主唯一性，选择与启动重验资格、Variant 和冻结摘要。身份生成、写入或提交失败均不留下部分成员、Session 或事件，也不返回成功投影。
+
+结束、离房和踢人由 Service 决定房间去向与成员离开原因；Session、Launch、Play、成员和事件在同一事务中更新。关闭整个房间仅允许房主；游戏中离房保留请求的版本约束。草稿不能通过结束会话变成缺少游戏选择的 WAITING 房间。暂停、运行就绪、运行和重连准备通过同一状态机处理；连接通知必须匹配当前会话、参与者、席位与凭据代次。重复断线不延长租约或重复写事件，提交失败不得发布全员就绪。
+
+参与者 Launch 通过类型化启动接口编排，准备记录再次核对房间、会话和参与者版本。准备失败只收尾原 Session，不能影响同房间的替代会话；请求取消后仍在独立、有界的上下文中收尾，并保留原始错误。Socket 认证校验活动 Launch 和规范编码；凭据重取校验身份、凭据代次及已存哈希。缺失授权和存储故障使用不同错误，失败不返回部分身份或凭据。
+
+维护任务按有界批次扫描空闲过期、启动超时和运行时长上限，写入前重新核对候选版本和会话身份；变化的候选留给后续扫描。启动恢复只接受 SERVER_RESTARTED 或 RESTORE，在单一事务内结束旧会话及关联 Launch/Play。事件查询在一个读事务中确认房间并读取游标后的记录，条数为 1–100，缺省或无效限制使用 100。维护任务的启动与关闭幂等，未启动也可关闭；失败记录不含凭据的错误类型日志，不静默丢失。
+
 ## 9. PlaySession 生命周期
+
+游玩事件由 `internal/service/launch.PlayController` 判断权限、事件形状、连续序号、精确重放和服务端计时，`internal/persistence/launch` 在同一事务更新会话、事件、时长及 capability 撤销。加载期间 finish 直接关闭 CREATED Launch，不创建 PlaySession；预览保持不计入产品统计的语义。未知事件和已撤销会话不能借重放绕过校验，查询或提交失败保留原因。写入重验来源/游玩版本、状态、序号与硬/空闲截止时刻，失败时不能部分累计时长或部分撤销。
 
 Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat 以连续序号报告上一时段的 running/visible/paused，服务端按接收时间计费；页面隐藏、暂停、失联、重放或跳号不能伪造时长。用户菜单退出、游戏自身退出和异常退出最终都幂等 finish Launch；卸载失败由 hard expiry 收口。
 

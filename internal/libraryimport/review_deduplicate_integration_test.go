@@ -6,9 +6,13 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
+
+	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/testsupport"
@@ -38,7 +42,7 @@ func (fixture deduplicateFixture) create(t *testing.T, name, contents string, co
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobstore.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,13 +132,15 @@ func TestReviewDeduplicateRollsBackPageOnDiscardFailure(t *testing.T) {
 	if _, err := fixture.service.Approve(fixture.ctx, original.Items[0].ItemID, 1); err != nil {
 		t.Fatal(err)
 	}
-	fixture.execute(t, `CREATE TRIGGER deduplicate_fail BEFORE UPDATE OF state ON import_items
-WHEN NEW.state='DISCARDED' AND OLD.id=(SELECT max(id) FROM import_items)
-BEGIN SELECT RAISE(ABORT,'deduplicate failpoint'); END`)
+	before := captureDeduplicatePage(t, fixture, copies.Created.ImportJobID)
+	fault := newDeduplicateDiscardFault(t, fixture, copies)
 	request := ReviewDeduplicateRequest{Scope: ReviewBulkScope{ImportJobID: copies.Created.ImportJobID}}
-	if _, err := fixture.service.DeduplicateReviews(fixture.ctx, request); err == nil {
-		t.Fatal("expected failed discard")
+	failed, err := fixture.service.DeduplicateReviews(fixture.ctx, request)
+	if !errors.Is(err, errDeduplicateDiscard) || !reflect.DeepEqual(failed, ReviewDeduplicateResult{}) {
+		t.Fatalf("expected typed discard failure with zero result, result=%+v err=%v", failed, err)
 	}
+	fault.assertReached(t)
+	assertDeduplicatePageUnchanged(t, fixture, copies.Created.ImportJobID, before)
 	for _, item := range copies.Items {
 		assertDeduplicateItemState(t, fixture, item.ItemID, "REVIEW_PENDING")
 	}
@@ -145,11 +151,12 @@ BEGIN SELECT RAISE(ABORT,'deduplicate failpoint'); END`)
 	if count != 0 {
 		t.Fatalf("rolled back discard events = %d", count)
 	}
-	fixture.execute(t, "DROP TRIGGER deduplicate_fail")
+	fixture.service.database = fixture.database
 	result, err := fixture.service.DeduplicateReviews(fixture.ctx, request)
 	if err != nil || result.DiscardedCount != 2 {
 		t.Fatalf("retry = %#v, %v", result, err)
 	}
+	assertDeduplicateRetry(t, fixture, copies)
 }
 
 func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) {

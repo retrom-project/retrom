@@ -16,15 +16,24 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/dependencies"
 	"retrom/internal/importing"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testing.T) {
@@ -48,33 +57,33 @@ func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testi
 		files = append(
 			files,
 			importSourceFile{
-				id:     fmt.Sprintf("file-%d", index),
-				path:   input.path,
-				blobID: fmt.Sprintf("blob-%d", index),
-				sha256: metadata.SHA256,
+				ID:     fmt.Sprintf("file-%d", index),
+				Path:   input.path,
+				BlobID: fmt.Sprintf("blob-%d", index),
+				SHA256: metadata.SHA256,
 			},
 		)
 	}
 	service := (&Service{}).WithBlobStore(blobs)
 	dispositions, groups, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", files)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 4 }, func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].sources) != 4 }, func() bool { return len(groups[0].dosEntries) != 3 }, func() bool { return groups[0].defaultDOSEntry != "GAME/DOOM.EXE" }, func() bool { return groups[0].bundle == nil }), "DOS grouping = dispositions:%d groups:%#v", len(dispositions), groups)
-	testassert.Falsef(t, testassert.Any(func() bool { return !groups[0].dosEntries[0].safe }, func() bool { return groups[0].dosEntries[1].safe }, func() bool { return groups[0].dosEntries[2].path != "GAME/INSTALL.BAT" }, func() bool { return groups[0].dosEntries[2].rank != 2 }), "DOS direct safety = %#v", groups[0].dosEntries)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 4 }, func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].Sources) != 4 }, func() bool { return len(groups[0].DOSEntries) != 3 }, func() bool { return groups[0].DefaultDOSEntry != "GAME/DOOM.EXE" }, func() bool { return groups[0].Bundle == nil }), "DOS grouping = dispositions:%d groups:%#v", len(dispositions), groups)
+	testassert.Falsef(t, testassert.Any(func() bool { return !groups[0].DOSEntries[0].Safe }, func() bool { return groups[0].DOSEntries[1].Safe }, func() bool { return groups[0].DOSEntries[2].Path != "GAME/INSTALL.BAT" }, func() bool { return groups[0].DOSEntries[2].Rank != 2 }), "DOS direct safety = %#v", groups[0].DOSEntries)
 	_, repeated, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", files)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(repeated) != 1 }, func() bool { return repeated[0].bundle == nil }, func() bool { return repeated[0].bundle.SHA256 != groups[0].bundle.SHA256 }), "DOS bundle hash drift = %#v / %#v", groups[0].bundle, repeated)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(repeated) != 1 }, func() bool { return repeated[0].Bundle == nil }, func() bool { return repeated[0].Bundle.SHA256 != groups[0].Bundle.SHA256 }), "DOS bundle hash drift = %#v / %#v", groups[0].Bundle, repeated)
 	multi, noGroups, _ := service.prepareDOSFiles(context.Background(), "FILES", files[:2])
-	testassert.Falsef(t, testassert.Any(func() bool { return len(noGroups) != 0 }, func() bool { return len(multi) != 2 }, func() bool { return multi[0].reason != "AMBIGUOUS_DOS_BUNDLE" }, func() bool { return multi[1].reason != "AMBIGUOUS_DOS_BUNDLE" }), "ambiguous DOS files = %#v / %#v", multi, noGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(noGroups) != 0 }, func() bool { return len(multi) != 2 }, func() bool { return multi[0].Reason != "AMBIGUOUS_DOS_BUNDLE" }, func() bool { return multi[1].Reason != "AMBIGUOUS_DOS_BUNDLE" }), "ambiguous DOS files = %#v / %#v", multi, noGroups)
 	zipBytes := makeZIP(t, map[string][]byte{"GAME/DOOM.EXE": []byte("exe"), "GAME/DATA.WAD": []byte("wad")})
 	zipMetadata, err := blobs.Put(bytes.NewReader(zipBytes))
 	testassert.False(t, err != nil, err)
-	zipFile := importSourceFile{id: "zip-file", path: "Doom.zip", blobID: "zip-blob", sha256: zipMetadata.SHA256}
+	zipFile := importSourceFile{ID: "zip-file", Path: "Doom.zip", BlobID: "zip-blob", SHA256: zipMetadata.SHA256}
 	zipDispositions, zipGroups, archives := service.prepareDOSFiles(
 		context.Background(),
 		"FILES",
 		[]importSourceFile{zipFile},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(zipDispositions) != 1 }, func() bool { return len(zipGroups) != 1 }, func() bool { return len(zipGroups[0].sources) != 2 }, func() bool { return len(archives) != 1 }, func() bool { return len(archives[0].materialized) != 2 }), "DOS ZIP grouping = dispositions:%#v groups:%#v archives:%#v", zipDispositions, zipGroups, archives)
-	for _, source := range zipGroups[0].sources {
-		testassert.Falsef(t, testassert.Any(func() bool { return source.role != "DOS_SOURCE" }, func() bool { return source.archiveOrdinal == nil }, func() bool { return source.archiveBlobID != "zip-blob" }), "DOS ZIP source = %#v", source)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(zipDispositions) != 1 }, func() bool { return len(zipGroups) != 1 }, func() bool { return len(zipGroups[0].Sources) != 2 }, func() bool { return len(archives) != 1 }, func() bool { return len(archives[0].Materialized) != 2 }), "DOS ZIP grouping = dispositions:%#v groups:%#v archives:%#v", zipDispositions, zipGroups, archives)
+	for _, source := range zipGroups[0].Sources {
+		testassert.Falsef(t, testassert.Any(func() bool { return source.Role != "DOS_SOURCE" }, func() bool { return source.ArchiveOrdinal == nil }, func() bool { return source.ArchiveBlobID != "zip-blob" }), "DOS ZIP source = %#v", source)
 	}
 	for _, unsafe := range []string{"GAME/100%.BAT", "GAME/QUOTE\".EXE", "GAME/TRAILING .EXE ", "GAME/TRAILING.EXE.", "游戏.EXE"} {
 		testassert.Falsef(t, directDOSPathSafe(unsafe), "unsafe DOS path accepted: %q", unsafe)
@@ -92,7 +101,7 @@ func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
@@ -102,7 +111,7 @@ func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T
 	archive := makeZIP(t, map[string][]byte{"b.bin": []byte("bios")})
 	metadata, err := blobs.Put(bytes.NewReader(archive))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobstore.EnsureRecord(ctx, database.SQL, metadata, "application/zip", time.Now().UnixMilli())
+	blobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, metadata, "application/zip", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000101"
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -126,7 +135,7 @@ VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 	previous := `{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	t.Cleanup(func() { cleanup.Rollback(transaction) })
+	t.Cleanup(func() { dbexec.Rollback(transaction) })
 	resolved, err := resolveArcadeDraftBIOSState(
 		ctx, transaction, target.ProviderID, target.TargetID, previous, "BLOCKED", "LAUNCH_BIOS_MISSING",
 	)
@@ -156,7 +165,7 @@ func testArcadeImportUsesInstalledBIOS(t *testing.T, installationStatus string) 
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
@@ -217,7 +226,7 @@ VALUES(?,?,0,?,?,?,?,'GOOD')
 	}
 	biosMetadata, err := blobs.Put(bytes.NewReader(biosArchive))
 	testassert.False(t, err != nil, err)
-	biosBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, biosMetadata, "application/zip", now)
+	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, biosMetadata, "application/zip", now)
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000202"
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -238,7 +247,7 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 		biosMetadata.SHA256, installationStatus, now, now); err != nil {
 		t.Fatal(err)
 	}
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
@@ -323,7 +332,7 @@ WHERE item.import_job_id=?
 	testassert.False(t, err != nil, err)
 	replacementMetadata, err := blobs.Put(bytes.NewReader(append(biosArchive, []byte("replacement")...)))
 	testassert.False(t, err != nil, err)
-	replacementBlobID, err := blobstore.EnsureRecord(
+	replacementBlobID, err := blobcatalog.EnsureRecord(
 		ctx, database.SQL, replacementMetadata, "application/zip", now,
 	)
 	testassert.False(t, err != nil, err)
@@ -350,8 +359,9 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now).
-		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
+	launcher := launchcomposition.New(database.SQL,
+		launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder), "", time.Now)
+	t.Cleanup(launcher.Close)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{
 		SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,

@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/launch"
@@ -60,7 +63,7 @@ SELECT (SELECT count(*) FROM games)+(SELECT count(*) FROM launch_sessions)+
 func newCheckpointReviewHTTPFixture(t *testing.T) (*Server, string) {
 	t.Helper()
 	server := newTestServer(t)
-	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	uploadID := completeMultiDiscHTTPUpload(t, server, "FILES", []multiDiscHTTPFile{

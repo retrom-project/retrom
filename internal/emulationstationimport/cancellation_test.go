@@ -16,9 +16,12 @@ func TestContextReaderChecksCancellationEveryEightMiB(t *testing.T) {
 	reader := &contextReader{
 		ctx:    context.Background(),
 		reader: bytes.NewReader(make([]byte, interval+1)),
-		cancelled: func() bool {
+		check: func() error {
 			checks++
-			return checks == 2
+			if checks == 2 {
+				return errImportCancelled
+			}
+			return nil
 		},
 	}
 	copied, err := io.Copy(io.Discard, reader)
@@ -30,16 +33,18 @@ func TestContextReaderChecksCancellationEveryEightMiB(t *testing.T) {
 func TestCloseCancelledRefreshesExistingFailureCounts(t *testing.T) {
 	fixture := newLifecycleFixture(t)
 	started, unit := startLifecycleImport(t, fixture, "", "nes")
-	item, found, err := fixture.service.nextItem(fixture.context, started.ID)
+	item, found, err := fixture.service.nextItem(fixture.context, unit)
 	testassert.Falsef(t, err != nil || !found, "item = %#v, found = %v, error = %v", item, found, err)
-	fixture.service.closeItem(
+	if err := fixture.service.closeItem(
 		fixture.context,
+		unit,
 		item.ID,
 		"SOURCE_CHANGED",
 		"EMULATIONSTATION_SOURCE_CHANGED",
 		false,
-		"",
-	)
+	); err != nil {
+		t.Fatal(err)
+	}
 	current, err := fixture.service.Get(fixture.context, started.ID)
 	testassert.False(t, err != nil, err)
 	_, pending, err := fixture.service.Cancel(

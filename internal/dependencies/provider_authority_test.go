@@ -8,7 +8,14 @@ import (
 )
 
 func TestDependencyProductionCodeDoesNotOwnRuntimeProviderContract(t *testing.T) {
-	entries, err := filepath.Glob("*.go")
+	for _, directory := range []string{".", "../service/dependencies", "../persistence/dependencies"} {
+		assertProviderAuthority(t, directory)
+	}
+}
+
+func assertProviderAuthority(t *testing.T, directory string) {
+	t.Helper()
+	entries, err := filepath.Glob(filepath.Join(directory, "*.go"))
 	if err != nil {
 		t.Fatal(err)
 	}

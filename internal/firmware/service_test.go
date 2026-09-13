@@ -1,7 +1,6 @@
 package firmware
 
 import (
-	"database/sql"
 	"testing"
 
 	"retrom/internal/importing"
@@ -10,11 +9,11 @@ import (
 
 func TestCompareArchiveEntriesClassifiesRequiredAndExtraFiles(t *testing.T) {
 	t.Parallel()
-	expected := []expectedArchiveEntry{
-		{name: "exact.bin", size: 5, crc32: sql.NullString{String: "11111111", Valid: true}},
-		{name: "alias.bin", size: 6, crc32: sql.NullString{String: "22222222", Valid: true}},
-		{name: "wrong.bin", size: 7, crc32: sql.NullString{String: "33333333", Valid: true}},
-		{name: "missing.bin", size: 8, crc32: sql.NullString{String: "44444444", Valid: true}},
+	expected := []ExpectedDATEntry{
+		{Name: "exact.bin", SizeBytes: 5, CRC32: "11111111"},
+		{Name: "alias.bin", SizeBytes: 6, CRC32: "22222222"},
+		{Name: "wrong.bin", SizeBytes: 7, CRC32: "33333333"},
+		{Name: "missing.bin", SizeBytes: 8, CRC32: "44444444"},
 	}
 	actual := []importing.ArchiveEntry{
 		{NormalizedPath: "exact.bin", Size: 5, CRC32: "11111111"},
@@ -23,7 +22,7 @@ func TestCompareArchiveEntriesClassifiesRequiredAndExtraFiles(t *testing.T) {
 		{NormalizedPath: "extra.bin", Size: 9, CRC32: "55555555"},
 	}
 
-	comparisons, missing, mismatched, warnings := compareArchiveEntries(expected, actual)
+	comparisons, missing, mismatched, warnings := CompareArchiveEntries(expected, actual)
 	testassert.Falsef(t, len(comparisons) != 5, "comparisons = %#v", comparisons)
 	wantedStatuses := []string{"MATCHED", "ALIASED", "MISMATCHED", "MISSING", "EXTRA"}
 	for index, wanted := range wantedStatuses {
@@ -36,11 +35,11 @@ func TestCompareArchiveEntriesClassifiesRequiredAndExtraFiles(t *testing.T) {
 
 func TestCompareArchiveEntriesUsesSHA1BeforeCRC(t *testing.T) {
 	t.Parallel()
-	expected := []expectedArchiveEntry{{
-		name:  "bios.bin",
-		size:  4,
-		crc32: sql.NullString{String: "11111111", Valid: true},
-		sha1:  sql.NullString{String: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Valid: true},
+	expected := []ExpectedDATEntry{{
+		Name:      "bios.bin",
+		SizeBytes: 4,
+		CRC32:     "11111111",
+		SHA1:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 	}}
 	actual := []importing.ArchiveEntry{{
 		NormalizedPath: "bios.bin",
@@ -49,6 +48,6 @@ func TestCompareArchiveEntriesUsesSHA1BeforeCRC(t *testing.T) {
 		SHA1:           "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 	}}
 
-	comparisons, _, mismatched, _ := compareArchiveEntries(expected, actual)
+	comparisons, _, mismatched, _ := CompareArchiveEntries(expected, actual)
 	testassert.Falsef(t, testassert.Any(func() bool { return len(mismatched) != 1 }, func() bool { return len(comparisons) != 1 }, func() bool { return comparisons[0].Status != "MISMATCHED" }), "comparisons=%#v mismatched=%#v", comparisons, mismatched)
 }

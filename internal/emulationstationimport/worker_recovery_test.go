@@ -20,7 +20,7 @@ func TestLeaseRecoveryResumesPartiallyCopiedMultiDiscItem(t *testing.T) {
 	))
 
 	summary, unit := startLifecycleImport(t, fixture, "saturn", "saturn")
-	item, found, err := fixture.service.nextItem(fixture.context, summary.ID)
+	item, found, err := fixture.service.nextItem(fixture.context, unit)
 	testassert.Falsef(t, err != nil || !found || len(item.Files) != 3,
 		"claimed item = %#v, found = %v, error = %v", item, found, err)
 	first := item.Files[0]
@@ -28,7 +28,7 @@ func TestLeaseRecoveryResumesPartiallyCopiedMultiDiscItem(t *testing.T) {
 	metadata, err := fixture.service.copySource(
 		fixture.context,
 		root,
-		unit.ImportID,
+		unit,
 		unit.RelativePath,
 		first.Path,
 		first.Size,
@@ -37,8 +37,9 @@ func TestLeaseRecoveryResumesPartiallyCopiedMultiDiscItem(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	firstBlobID, err := fixture.service.recordCopiedFile(
 		fixture.context,
+		unit,
 		item.ID,
-		first.Ordinal,
+		first,
 		metadata,
 	)
 	testassert.False(t, err != nil, err)
@@ -76,10 +77,17 @@ FROM emulationstation_import_item_files WHERE item_id=?`,
 	testassert.False(t, os.Remove(filepath.Join(fixture.source, filepath.FromSlash(first.Path))) != nil,
 		"remove already copied source")
 
-	_, claimedEarly := fixture.service.claim(fixture.context)
+	_, claimedEarly, claimErr := fixture.service.claim(fixture.context)
+
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.False(t, claimedEarly, "recovered work was claimable before its backoff")
 	*fixture.now = fixture.now.Add(time.Second)
-	resumed, claimed := fixture.service.claim(fixture.context)
+	resumed, claimed, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.Truef(t, claimed && resumed.JobID == unit.JobID && resumed.Attempt == 2,
 		"resumed work = %#v, claimed = %v", resumed, claimed)
 	testassert.Falsef(t, resumed.DeadlineAtMS != unit.DeadlineAtMS,
@@ -137,7 +145,10 @@ ORDER BY sort_order,id LIMIT 1`, platformID).Scan(&platformInstanceID) != nil, "
 	testassert.False(t, err != nil, err)
 	started, err := fixture.service.StartImport(fixture.context, scanned.ID, mapped.Version)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.Truef(t, found && unit.Kind == "SERVER_EMULATIONSTATION_IMPORT",
 		"import work = %#v, found = %v", unit, found)
 	return started, unit

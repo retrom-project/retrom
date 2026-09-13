@@ -12,28 +12,29 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/dbexec"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
+	tagpersistence "retrom/internal/persistence/tagging"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
+	"retrom/internal/service/tagging"
 	"retrom/internal/store"
-	"retrom/internal/tagging"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
 
-type pegasusTestSQLExecer interface {
-	ExecContext(context.Context, string, ...any) (sql.Result, error)
-}
-
 func mustExecPegasusTest(
 	ctx context.Context,
 	t *testing.T,
-	execer pegasusTestSQLExecer,
+	execer dbexec.Executor,
 	query string,
 	arguments ...any,
 ) {
@@ -42,11 +43,7 @@ func mustExecPegasusTest(
 	testassert.False(t, err != nil, err)
 }
 
-type pegasusTestScanner interface {
-	Scan(...any) error
-}
-
-func mustScanPegasusTest(t *testing.T, scanner pegasusTestScanner, destinations ...any) {
+func mustScanPegasusTest(t *testing.T, scanner dbexec.Scanner, destinations ...any) {
 	t.Helper()
 	testassert.False(t, scanner.Scan(destinations...) != nil, "scan Pegasus fixture")
 }
@@ -72,7 +69,7 @@ func TestScanMapImportCreatesReviewBeforePublishingGameAndMedia(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	err = testsupport.SeedRuntimeProviders(ctx, database.SQL, dependencySet.RuntimeCatalog)
 	testassert.False(t, err != nil, err)
-	err = dependencySet.Bootstrap(ctx, database.SQL, time.Now())
+	err = dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now())
 	testassert.False(t, err != nil, err)
 	mustExecPegasusTest(ctx, t, database.SQL, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('pegasus-profile','Pegasus Test',1);
@@ -81,7 +78,7 @@ VALUES('01980000-0000-7000-8000-000000000800','pegasus-profile','pegasus-test','
 	ctx = authn.WithPrincipal(ctx, authn.Principal{
 		UserID: "01980000-0000-7000-8000-000000000800", ProfileID: "pegasus-profile", Role: "ADMIN",
 	})
-	tagService := tagging.New(database.SQL, time.Now)
+	tagService := tagging.New(tagpersistence.New(database.SQL), time.Now)
 	mappedTag, err := tagService.Create(ctx, "01980000-0000-7000-8000-000000000800", "扫描选择")
 	testassert.False(t, err != nil, err)
 	externalTag, err := tagService.Create(ctx, "01980000-0000-7000-8000-000000000800", "External")
@@ -108,8 +105,7 @@ VALUES('01980000-0000-7000-8000-000000000800','pegasus-profile','pegasus-test','
 		"01980000-0000-7000-8000-000000000800",
 	)
 	testassert.False(t, err != nil, err)
-	scanWork, ok := service.claim(ctx)
-	testassert.True(t, ok, "scan job was not claimable")
+	scanWork := mustClaimPegasus(t, service)
 	service.execute(ctx, scanWork)
 	scanned, err := service.Get(ctx, created.ID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return scanned.State != "AWAITING_MAPPING" }, func() bool { return scanned.Counts.Covers != 1 }, func() bool { return scanned.Counts.Videos != 1 }), "scan = %#v, error=%v", scanned, err)
@@ -148,8 +144,7 @@ VALUES('01980000-0000-7000-8000-000000000800','pegasus-profile','pegasus-test','
 	testassert.False(t, err != nil, err)
 	_, err = service.StartImport(ctx, created.ID, remapped.Version)
 	testassert.False(t, err != nil, err)
-	importWork, ok := service.claim(ctx)
-	testassert.True(t, ok, "import job was not claimable")
+	importWork := mustClaimPegasus(t, service)
 	service.execute(ctx, importWork)
 	finished, err := service.Get(ctx, created.ID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return finished.State != "COMPLETED" }, func() bool { return finished.Counts.ReviewPending != 2 }, func() bool { return finished.Counts.Published != 0 }, func() bool { return finished.Counts.Failed != 0 }), "finished = %#v, error=%v", finished, err)
@@ -338,7 +333,7 @@ WHERE item.import_id=? AND item.title='Discarded Fixture'
 	)
 	mustExecPegasusTest(ctx, t, database.SQL, `
 UPDATE pegasus_imports
-SET state='RUNNING',phase='VALIDATING',completed_at_ms=NULL
+SET state='QUEUED',phase=NULL,completed_at_ms=NULL
 WHERE id=?
 `, importID)
 	mustExecPegasusTest(ctx, t, database.SQL, `
@@ -346,9 +341,21 @@ UPDATE pegasus_import_items
 SET execution_state='PENDING',completed_at_ms=NULL
 WHERE id=? AND execution_state='REVIEW_PENDING'
 `, resumedPegasusItemID)
-	resumed, found, err := service.nextItem(ctx, importID)
+	// Reclaim the interrupted execution before resuming its attached review.
+	mustExecPegasusTest(ctx, t, database.SQL, `
+UPDATE jobs SET state='QUEUED',finished_at_ms=NULL,worker_id=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL
+WHERE id=?`, claimedWork.JobID)
+	resumedWork, claimed, err := service.claim(ctx)
+	testassert.False(t, err != nil, err)
+	if !claimed || resumedWork.JobID != claimedWork.JobID || resumedWork.Attempt != claimedWork.Attempt+1 {
+		t.Fatalf("resume did not reclaim original execution: %#v claimed=%v", resumedWork, claimed)
+	}
+	claimedWork = resumedWork
+	resumed, found, err := service.nextItem(ctx, claimedWork)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !found }, func() bool { return resumed.LibraryImportJobID != resumedImportJobID }, func() bool { return resumed.LibraryImportItemID != resumedReviewItemID }), "resumed review handoff = %#v, found=%v, error=%v", resumed, found, err)
-	service.processItem(ctx, claimedWork, service.roots["games"], resumed)
+	if err := service.importExecutor(service.roots["games"]).Process(ctx, claimedWork, resumed); err != nil {
+		t.Fatal(err)
+	}
 	err = service.finishImport(ctx, claimedWork)
 	testassert.False(t, err != nil, err)
 	var resumedState string
@@ -365,4 +372,13 @@ FROM pegasus_import_items item WHERE item.id=?
 		Scan(&mappedDrafts); err != nil || mappedDrafts != 2 {
 		t.Fatalf("resumed tag inheritance = %d, %v", mappedDrafts, err)
 	}
+}
+
+func mustClaimPegasus(t *testing.T, service *Service) work {
+	t.Helper()
+	unit, found, err := service.claim(t.Context())
+	if err != nil || !found {
+		t.Fatalf("claim found=%v error=%v", found, err)
+	}
+	return unit
 }

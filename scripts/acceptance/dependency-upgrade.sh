@@ -6,10 +6,10 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repository_root"
 make data-check
 make deps-check
-go test -tags=integration ./internal/dependencies \
+go test -tags=integration ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies \
   -run 'TestBootstrapMaterializedDependencies|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' \
   -count=1
-go test ./internal/dependencies ./internal/launch \
+go test ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies ./internal/launch \
   -run 'TestSelectedCoreStartupActionDelayBoundary|TestArtifactCompatibilityV2Validation' \
   -count=1
 make web-test

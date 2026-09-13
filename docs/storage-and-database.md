@@ -117,11 +117,15 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-冻结的 bootstrap 包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`，直接创建 current-state Game/File/Variant 和 Provider-owned Target declaration，以及最终的 EmulationStation 状态机、索引与约束。不存在旧 revision 表、转换迁移或外键关闭窗口；每步建表/索引/trigger 与 checksum 记录同事务提交，外键始终开启。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。匹配前缀用于 bootstrap 续跑和明确支持的兼容升级；011 批次丢弃扩展新增身份/处置表并在事务中替换 trigger，可保留现有 001–010 数据。012 原生存档扩展追加 `game_save_versions` 和 `launch_game_save_bindings`，保留既有存档表与数据，支持从已发布 001–011 前缀升级。其他旧开发 schema 不因此获得升级兼容。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
+当前未发布建库基线包含 `001_identity.sql` 至 `014_metadata_media_queue.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger、view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
 
-BIOS 切换和 Launch 回收排期由兼容扩展 `013_bios_session_retirement.sql` 建立索引、排期表和 trigger；保留现有游戏、存档、运行快照与安装记录，不重建开发库。回收语义见[数据模型](./data-model.md#bios-与-launch-延迟回收)。
+`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。此次改写与旧开发基线不兼容，旧 checksum 不会被覆盖；当前前缀只用于中断初始化的续跑，不能解释为支持旧开发库升级。
 
-项目首次发布前遇到不兼容开发数据库，必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。程序不提供转换器、双写或隐式导入页面，也不得把旧 DB/CAS 拆开混入新库。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。001–010 已冻结；兼容扩展从 011 起只追加，不改写旧 checksum。
+只读 schema 预检被取消或超过启动期限时保留对应的 context 错误，不将其误报为 `DATABASE_SCHEMA_INVALID`；超时本身不构成重建数据库的依据。
+
+跨表与新旧状态校验由 `recordstore` 的参数化 SQL 执行；会话、存档与回收排期的联动由 `sessionstore` 在同一事务完成。保存点保证校验失败时撤销该次写入，不能依赖调用方最终选择 rollback 来维持不变量。共享查询在 `storequery` 中维护；完整职责及空操作语义见[数据模型](./data-model.md#应用写入与数据库职责)。
+
+不兼容开发数据库必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。新建且未启动过的 PFB 直接初始化空库。程序不提供转换器、双写或隐式导入，也不得把旧 DB/CAS 拆开混入新库。默认开发数据根为 `.dev-data/data`，测试和验收使用独立临时根。未来发布后的兼容演进仍须追加 migration 并验证明确支持的升级路径，不能改写已发布 checksum。
 
 ## 4. 表目录
 
@@ -193,7 +197,8 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `content_hash_evidence` | run 内的版本化 hash profile、来源 Blob/archive entry 与查询顺序 |
 | `metadata_scrape_query_attempts` | run/evidence 到每次网络或缓存 response 的不可变关联 |
 | `scrape_candidates` / `scrape_candidate_hits` | Hasheous 元信息候选及多 hash/entry 命中关系 |
-| `scrape_candidate_assets` | 候选媒体的受控获取状态、Blob 与尺寸 |
+| `scrape_candidate_assets` | 候选媒体的受控获取状态、Blob、尺寸、任务绑定、冻结顺序与资源收费 |
+| `metadata_media_runs` | 每个刮削 Run 的媒体顺序冻结、累计收费和版本 |
 | `review_uploaded_assets` | 审核期间人工上传的不可变封面资源及 Blob 归属 |
 | `metadata_provider_cache` | provider + request digest 的可变缓存指针与过期时间 |
 | `metadata_provider_responses` | 每次查询的不可变状态、原始响应 Blob 与有效期 |
@@ -230,7 +235,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `netplay_sessions` / `netplay_session_participants` | 锁定 profile snapshot、每人 Launch/credential hash、断线 lease 与 resync 状态 |
 | `netplay_events` | 不含输入/state/秘密的房间 append-only 控制事件 |
 
-所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only evidence 和 trigger 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。
+所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only evidence 和应用写入校验 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。
 
 ## 5. 本地 CAS 文件存储
 
@@ -319,19 +324,25 @@ data/
 
 ## 7. 垃圾回收
 
+游戏内容替换由 `service/gamecontent` 决定运行终止、旧存档清理与备用 Variant 阻断；Repository 读取当前事实，按原 ID、版本、状态及精确文件键执行写入。引用每批最多读取 200 条，不能用不确定或零受影响行数表示成功。替换与发布、GC 排期、上传消费释放及 Job 完成处于同一事务；GC 和释放排期复用 payloadrelease Service，Repository 不回调旧业务包。
+
 - GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；不把可变 `ref_count` 作为事实源。
 - 业务释放同时使用代码内 `payload ownership registry`，其边集必须与 Blob registry 双向完全一致，并把每条边唯一归入 Game、运行时、ImportItem、PegasusItem、EmulationStationItem、ScrapeRun、Upload、全局 TTL、全局耐久、Archive 或记账生命周期。PayloadRelease 只解除其 scope 被授权的边；BIOS 等全局耐久引用不受 Game/Import 清理影响。
+- 释放调度由 `service/payloadrelease.Scheduler` 判断终态、重放与来源共享关系；`persistence/payloadrelease` 参与调用者的终态事务，原子登记 Job、不可变输入、排队事件与 owner 的 `RELEASING` 转换。更新必须核对读取到的版本、状态、可重试标记和普通审核绑定；受影响行数读取失败保留原始原因，未更新唯一 owner 时整体回滚。已绑定普通 ImportItem 的来源复用该 Item 的释放 Job，不创建第二份释放任务。
 - GC 保护集先取所有 `PROTECTIVE` Blob，再对其中的 archive Blob 加入该 ArchiveEntry 已物化的 entry Blob；一期从不递归展开嵌套 archive，DOS 与 RPG Maker 都只保留内层 archive 文件本身的一层原始 entry bytes，因此一层闭包即完整。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能直接采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括尚在 GC 宽限期的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
 - Game/GameFiles、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariant 和 DAT 均可能引用 Blob。
+- 游戏删除影响由 `service/payloadrelease.ImpactQueries` 计算，Repository 在一次只读快照中读取 Game 及来源的 Blob 集合、共享保护引用和运行/审核计数；删除事务内重算时复用同一类型化读取接口。Service 按 Blob ID 去重并受检累加已登记、独占与共享容量，规范化来源类型并生成稳定摘要；读取失败、事实冲突或整数溢出均使整次计算失败，不能返回部分统计或可用摘要。
 - Pegasus 与 EmulationStation 扫描阶段都不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 分别在格式专属 file/asset 表中形成 protective 边。发布后的 Game/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
 - Import publish/discard/final-fail/cancel、Pegasus/EmulationStation 终态、替换文件/媒体消费完成会异步解除流程 payload；Game 永久删除会解除 Game/运行时及其已终态来源链的 payload。游戏媒体当前态切换还会在同一事务删除旧 GameAsset 叶子引用并登记 GC 候选，避免文字 metadata 历史长期保护旧封面/视频。领域事务不直接删除 Blob 或 CAS 文件。
-- 失去最后保护引用后先进入默认 7 天回收保留期，配置只允许 24 小时至 30 天；每个候选关联唯一 BLOB_GC Job。宽限到期时再次计算完整保护集，有新引用就撤销候选，不得误删共享内容。ADMIN 可通过容量页显式确认立即回收；该操作先补齐全部未引用候选，再把仍未引用候选的 `available_at_ms/scheduled_at_ms` 推进到当前时刻，失败 Job 创建新 execution 后重排队，并写 `STORAGE_CLEANUP_REQUESTED` AuditEvent。它只跳过保留时间，不绕过 worker、保护集合复核、物理删除重试或共享引用保护。
-- 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次计算保护集并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才删除物理文件；物理删除失败由同一 Job 输入幂等重试。UploadFile 最后一个 consumption 释放且没有领域叶子后转 `PURGED` 并清空 final Blob，但保留相对路径、声明/接收大小与结果。
+- GC 候选选择、保留期、恢复引用和立即回收策略由应用 `GCScheduler` 统一编排；Repository 批量读取同一事务中的 Blob、保护引用、候选及任务输入事实，取得写入权限后重验快照。任务、不可变输入、事件和候选原子保存，任何写入、受影响行数或提交失败都不能返回成功；立即回收的审计也在同一事务，提交后才唤醒 worker。
+- 失去最后保护引用后先进入默认 7 天回收保留期，配置只允许 24 小时至 30 天；每个候选关联唯一 BLOB_GC Job。宽限到期时再次计算完整保护集，有新引用就撤销候选，不得误删共享内容。ADMIN 可通过容量页显式确认立即回收；该操作先补齐全部未引用候选，再把仍未引用候选的 `available_at_ms/scheduled_at_ms` 推进到当前时刻，失败 Job 创建新 execution 和新的输入身份、清空旧租约与执行预算后重排队，并写 `STORAGE_CLEANUP_REQUESTED` AuditEvent。它只跳过保留时间，不绕过 worker、保护集合复核、物理删除重试或共享引用保护。
+- 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次计算保护集并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才删除物理文件；物理删除失败保留底层原因，由同一 Job 输入幂等重试。每次重试重新检查摘要的当前登记归属；同摘要已被另一个 Blob 登记时，旧任务保留其文件。现存 Blob 只有仍由当前 Job 的候选授权才能删除，已取消候选不能跳过重新失去引用后的保留期；新的候选身份不依赖毫秒时钟唯一性。目录记录与候选删除的受影响行数必须确认，失败时保留原记录与物理文件。UploadFile 最后一个 consumption 释放且没有领域叶子后转 `PURGED` 并清空 final Blob，但保留相对路径、声明/接收大小与结果。
 - Hasheous raw response 是独立 TTL owner：每小时按到期时间和 ID 每批最多 200 个处理；仍被 RUNNING ScrapeRun 使用时保留，安全到期后删除 cache pointer、清空 raw Blob、转 `RELEASED` 并进入相同候选流程。
+- Provider 与审核 Preview 过期策略由 `service/payloadrelease.Expirations` 统一编排。Repository 读取有界事实并按原状态、版本、期限及 Blob 身份更新；Provider 同时重验不存在运行中的刮削引用。缓存删除、引用释放及 GC 排期共用事务，更新行数无法确认或任一步失败时全部回滚。Preview 保留原结束时刻，已撤销会话保持 `REVOKED`，只清空临时 checkpoint/restore 引用并撤销能力，内容来源仍由审核 owner 保护。
 
 ### 7.1 已登记 CAS 容量分析
 
-容量分析的唯一口径为 `REGISTERED_CAS_PAYLOAD_V1`：只计算 `blobs` 表中已登记 payload 的 `size_bytes`，按 Blob ID 去重，不读取文件系统目录大小，也不把相同 size 误当成相同内容。统计在独立只读连接池上的一个 read-only transaction 中完成，并与 GC 共用 `blob reference registry` 计算出的保护集合及“受保护 archive 单向保护已物化 member”闭包；不得在容量模块复制第二套保护规则。所有加法在 Go 中使用受检 `int64`，溢出使整次读取失败；HTTP 以十进制字符串返回 byte 数，避免 JavaScript `Number` 精度损失。
+容量分析的唯一口径为 `REGISTERED_CAS_PAYLOAD_V1`：只计算 `blobs` 表中已登记 payload 的 `size_bytes`，按 Blob ID 去重，不读取文件系统目录大小，也不把相同 size 误当成相同内容。`internal/persistence/storageanalysis` 在独立只读连接池上的一个 read-only transaction 中读取完整统计输入，`internal/service/storageanalysis` 在该一致快照上完成分类和汇总；保护集合与 GC 共用 `blob reference registry` 计算出的保护集合及“受保护 archive 单向保护已物化 member”闭包；不得在容量模块复制第二套保护规则。所有加法在 Go 中使用受检 `int64`，溢出使整次读取失败；HTTP 以十进制字符串返回 byte 数，避免 JavaScript `Number` 精度损失。
 
 每个已登记 Blob 必须且只能进入下列固定顺序的一类，零值类也保留：
 
@@ -357,7 +368,15 @@ data/
 
 批次丢弃只解除指定导入批次的流程引用，按[导入与审核](./import-and-review.md)收口正在执行和未发布的条目，再投递既有 PAYLOAD_RELEASE。内部上传尚无 ImportJob/consumer 的孤立信封可在该批次停止后删除，CAS bytes 仍由来源引用保护到 release。发布 Game、其他批次及活跃 Launch 的共享引用继续参与保护检查；服务器外部来源文件不删除。完成丢弃不等于磁盘立即腾空，无引用 Blob 沿用默认 7 天 GC 宽限；release 失败仍通过任务中心重试。验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
 
+`PAYLOAD_RELEASE` 与 `BLOB_GC` 的领取、执行监测、恢复及结果策略由 `internal/service/payloadrelease.Worker` 负责，Repository 在短事务中保存任务、事件、审计及必要的 owner 失败状态。每次领取使用独立 worker 身份、60 秒租约和 15 秒续期，自动重试与过期恢复保留最初的 30 分钟 execution 期限；恢复不接管未过期租约，每轮最多处理 100 条。达到最大 attempt 或原期限时失败收口；损坏的输入在领取后不可重试地失败，不能永远堵在队首。手动重试创建新 execution 并清空旧执行预算，包括立即 GC 入口。
+
+每个释放事务在开始及提交前校验最初的 execution、worker、输入快照、租约和期限；结果收口也比较相同身份与当前版本。被替换或过期的 worker 不得释放引用、改写新执行或追加终态证据。任务、事件或审计写入失败，包括受影响记录数无法确认，必须回滚本次事务；已经释放的 owner 不因后续恢复错误退回未释放状态。
+
+worker 启动幂等，队列与恢复维护独立运行；关闭会取消并等待活动执行、监测和维护退出。调用方较短的 deadline 或进程关闭不改变原 execution 期限，清理使用独立有界上下文，在仍持有权限时保留可恢复任务。
+
 ## 8. 备份与恢复
+
+离线维护由 `internal/service/maintenance` 编排，数据库连接、检查点、lineage 和引用清单查询归 `internal/persistence/maintenance`。Service 验证完整文件清单、摘要与依赖配置后，才通过一个恢复事务撤销访问、停止外部来源任务与快速审批并写入审计；时刻由同一可注入时钟给出。数据库取消保留原始原因，清单只接受一个完整 JSON 值，尾随第二个值或垃圾内容必须拒绝。
 
 一期备份/恢复是显式离线维护命令，不伪装成不存在的 HTTP 管理 API：
 
@@ -375,7 +394,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
 
 `retrom` serve 进程从启动到退出持有 `RETROM_DATA_DIR/retrom.lock` 的 Linux advisory exclusive lock；`backup` 使用同一非阻塞锁，服务仍运行时以 `BACKUP_REQUIRES_OFFLINE` 失败，不尝试在线复制。lock 文件不是 PID/秘密，崩溃后由内核释放。数据根已被限定为本地文件系统，这一约束也适用于 lock。`restore` 只创建新目标，无需接管正在运行的数据根。默认无参数仍启动服务，维护子命令不得隐式启动 HTTP/worker。
 
-配置的 server-import root、root digest 对应的宿主路径和原始 Pegasus/EmulationStation metadata 不进入 bundle。restore 保留数据库与已写 CAS 的待审/发布结果，但把 `SCANNING|AWAITING_MAPPING|QUEUED|RUNNING|CANCEL_REQUESTED` Pegasus/EmulationStation 聚合、其活动 Item 与 Job 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 原子失败收口；恢复服务不得根据相同 root ID 自动续跑外部 source。
+配置的 server-import root、root digest 对应的宿主路径和原始 Pegasus/EmulationStation metadata 不进入 bundle。restore 保留数据库与已写 CAS 的待审/发布结果，但把 `SCANNING|AWAITING_MAPPING|QUEUED|RUNNING|CANCEL_REQUESTED` Pegasus/EmulationStation 聚合、其活动 Item 与 Job 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 原子失败收口；恢复服务不得根据相同 root ID 自动续跑外部 source。对尚未完成的 Pegasus 扫描，恢复事务先撤销 Job 写入权限，再清除未发布且没有审核、Blob 或标签归属的暂存投影，并重算聚合计数；后续任何恢复步骤失败都回滚这些清理。已交接的审核与永久归属不属于扫描清理范围。
 
 完整 backup bundle 的 v2 目录固定如下；目录模式均为 `0700`、普通文件均为 `0600`，不保留源文件的 group/other permission、owner、mtime、xattr 或 ACL：
 
@@ -457,7 +476,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
 
 ## 9. 多盘存储边界
 
-当前 clean schema 直接创建 `import_item_multidisc_entries` 与 `review_multidisc_attachments`，并在 source/content/variant/launch/save 表中建立数据模型专题规定的受约束 enum、列与 trigger；不执行重建或回填。User/Profile owner、USER/SYSTEM actor 和 principal-scoped idempotency 由当前 schema 原生约束，完成后 `foreign_key_check` 为零。
+当前 clean schema 直接创建 `import_item_multidisc_entries` 与 `review_multidisc_attachments`，并在 source/content/variant/launch/save 表中建立数据模型专题规定的受约束 enum 与列，并由应用存储方法验证跨表归属和状态转换；不执行重建或回填。User/Profile owner、USER/SYSTEM actor 和 principal-scoped idempotency 由当前 schema 原生约束，完成后 `foreign_key_check` 为零。
 
 GC 把初始和 effective SourceSnapshot、accepted/retryable Attachment、GameContent DISC/playlist、Variant canonical playlist、Launch 锁定 DISC、SaveState 锁定 Variant 视为 Blob 引用根。缺盘 entry 没有 Blob，拒绝补传不推进 effective snapshot；未引用上传文件只受既有 Upload/Job 保留期保护，不能因 entry 占位永久保活。统一执行 `ACC-DB-001`–`002`、`ACC-CAS-001`–`002` 与 `ACC-MDISC-002`–`004`。
 
@@ -475,13 +494,17 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 候选 bytes 可由 SHA-256 CAS 去重；只有 Installation、ImportItem、来源 Item 或 Game 等业务引用保护 Blob，无引用候选由统一 GC 回收。backup 保留 ServerImport/Item/Candidate 审计和已经导入的 CAS bytes，但不打包外部目录。restore 在开放 HTTP 前把所有非终态 `SERVER_BIOS_IMPORT`、`SERVER_PEGASUS_SCAN|IMPORT` 与 `SERVER_EMULATIONSTATION_SCAN|IMPORT` Job 及对应 aggregate 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，即使恢复主机存在同名 root 也不得自动继续。已经进入普通审核或发布 Game 的 CAS 内容继续随完整数据根恢复。
 
+停止外部 execution 前，恢复 Service 在同一安全围栏事务内完成已经形成的普通待审核交接：Pegasus 永久关联与 EmulationStation 预留关系必须指向唯一普通 Item，绑定不能属于其他来源。来源仍在准备阶段时，复用冻结 metadata、搜索字段和审核审计，再将来源置为 `REVIEW_PENDING` 并刷新聚合；已经交接完成的人工草稿保持原样。EmulationStation 复用计划冻结的年份上限，允许按既有状态路径接续仍有待审预留的可重试失败。每次最多读取 100 条，全部分页、权限撤销、任务收口和最终审计仍共用一次提交；任何读取、解码、所有权变化或写入失败都使恢复整体失败。恢复不打开外部来源、不重新创建 Game，也不复用活动 worker 的租约权限。
+
+停止外部 execution 后，恢复 Service 在这同一事务中分页读取仍保留 payload 的来源，由共享释放调度规则为最终失败等终态登记释放任务。待审核记录继续保留引用；恢复生成的终态不能停留在未登记释放任务的 `RETAINED` 状态，否则会违反正常启动时的 payload 生命周期校验。调度、owner 转换或最终审计失败时，权限撤销和审核交接也一起回滚。
+
 ## 12. 审核运行预览的存储边界
 
 当前 clean schema 直接创建 review_preview_sessions、review_preview_files 与 review_runtime_screenshots。Preview 冻结来源、当前 Validation、Provider/Target 与实际 Bundle 字节身份；运行内容引用既有 CAS，不复制成假 Game 或用户游玩历史。普通 Player 事件使状态从 CREATED 到 ACTIVE，再到 FINISHED/EXPIRED/REVOKED；终态撤销内容授权。checkpoint 仅有最新 payload/format/time 以及新会话冻结的 restore payload；没有独立 proof 表。bootstrap 有 5 分钟期限，运行授权最长 2 小时；有界 GC 和审核终态 PayloadRelease 清除临时引用。
 
 重复试玩相同输入必须复用已有当前 Validation，包括需要人工试玩的 BLOCKED 结果，不因新建运行窗口追加校验记录。审核截图只维护条目的当前结果：成功保存时，在同一事务中清除该条目其他 Validation 的旧截图并覆盖当前截图；新截图校验或保存失败时保留原结果。截图不是不可变历史记录；被替换图片解除引用后由既有 CAS GC 回收。
 
-预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。在同一 Validation 下再次保存截图会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
+预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。在同一 Validation 下再次保存截图会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和应用写入约束 见 [`data-model.md`](./data-model.md)。
 
 ## 13. 联机持久化与恢复边界
 
@@ -491,7 +514,7 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 Tag、Game/Review/Pegasus/EmulationStation 关系和 tombstone 全部只存在 SQLite，不新增 CAS payload、Blob reference、外部 taxonomy 或运行期下载。离线备份必须逐行保留活动 Tag、DELETED tombstone、关系、mapping 名称 snapshot 与审计；restore 不重连同名新 Tag，也不清理指向 tombstone 的关系。GC registry、物理 CAS 枚举和依赖物化均不因标签改变。
 
-Tag 删除是业务软删除，不是存储清理：不得以减小数据库为由硬删 tombstone/关系。Tag 数据只能随完整数据根备份恢复，lineage 不匹配的应用不能写库。字段、trigger 与当前约束见 [`data-model.md`](./data-model.md)，生命周期见 [`game-tags.md`](./game-tags.md)。
+Tag 删除是业务软删除，不是存储清理：不得以减小数据库为由硬删 tombstone/关系。Tag 数据只能随完整数据根备份恢复，lineage 不匹配的应用不能写库。字段与当前应用写入约束见 [`data-model.md`](./data-model.md)，生命周期见 [`game-tags.md`](./game-tags.md)。
 
 ## 15. Provider 激活与数据库协调
 

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"retrom/internal/accounts"
 	"retrom/internal/authn"
+	"retrom/internal/service/accounts"
 )
 
 type newAccountCredentialRequest struct {

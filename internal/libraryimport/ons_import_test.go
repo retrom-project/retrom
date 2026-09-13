@@ -31,13 +31,13 @@ func TestPrepareONSDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *testing.
 			ScriptEncoding string `json:"scriptEncoding"`
 		} `json:"ons"`
 	}
-	if json.Unmarshal([]byte(groups[0].dependencySnapshot), &snapshot) != nil || snapshot.SchemaVersion != 1 ||
+	if json.Unmarshal([]byte(groups[0].DependencySnapshot), &snapshot) != nil || snapshot.SchemaVersion != 1 ||
 		snapshot.ONS.FontPath != "default.ttf" || snapshot.ONS.MarkerPath != "0.txt" ||
 		snapshot.ONS.ScriptEncoding != "utf8" {
-		t.Fatalf("dependency snapshot = %s", groups[0].dependencySnapshot)
+		t.Fatalf("dependency snapshot = %s", groups[0].DependencySnapshot)
 	}
-	for _, source := range groups[0].sources {
-		if source.role != "PROJECT_FILE" || strings.HasPrefix(source.logicalName, "Fixture/") {
+	for _, source := range groups[0].Sources {
+		if source.Role != "PROJECT_FILE" || strings.HasPrefix(source.LogicalName, "Fixture/") {
 			t.Fatalf("ONS source = %#v", source)
 		}
 	}
@@ -45,9 +45,9 @@ func TestPrepareONSDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *testing.
 
 func assertONSPreparedGroup(t *testing.T, group preparedGroup, dispositions []preparedDisposition) {
 	t.Helper()
-	if group.contentKind != "ONS_PROJECT" || group.validationStatus != "BLOCKED" ||
-		group.compatibilityCode != "ONS_RUNTIME_TRIAL_REQUIRED" || group.titleSource != "Fixture" ||
-		len(group.sources) != 3 || countIgnoredDispositions(dispositions) != 1 {
+	if group.ContentKind != "ONS_PROJECT" || group.ValidationStatus != "BLOCKED" ||
+		group.CompatibilityCode != "ONS_RUNTIME_TRIAL_REQUIRED" || group.TitleSource != "Fixture" ||
+		len(group.Sources) != 3 || countIgnoredDispositions(dispositions) != 1 {
 		t.Fatalf("group=%#v dispositions=%#v", group, dispositions)
 	}
 }
@@ -57,7 +57,7 @@ func TestPrepareONSDirectoryRejectsProjectWithoutFont(t *testing.T) {
 	service, files := onsImportFixture(t)
 	withoutFont := make([]importSourceFile, 0, len(files))
 	for _, file := range files {
-		if !strings.HasSuffix(file.path, ".ttf") {
+		if !strings.HasSuffix(file.Path, ".ttf") {
 			withoutFont = append(withoutFont, file)
 		}
 	}
@@ -86,7 +86,7 @@ func onsImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			id: name, path: name, blobID: name, sha256: metadata.SHA256, size: metadata.Size,
+			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
 	return New(nil, nil).WithBlobStore(blobs), files

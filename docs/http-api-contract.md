@@ -55,6 +55,8 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 `GET /api/v1/admin/reviews` 只返回 state=`REVIEW_PENDING` 且已满足来源交接门禁的 ImportItem，每页最多 20 条；`importJobId` 精确绑定普通导入，`pegasusImportId` 与 `emulationStationImportId` 分别绑定已完成审核交接的服务器批次，三者进入 cursor filter canonical object且互斥，不存在的批次返回空列表而不回退到全局队列。EmulationStation 内部 Item 从原子创建起携带不可变交接预留；在来源 Item attach 且进入 `REVIEW_PENDING` 前，即使普通 Item 已经待审核，也必须从全局/筛选列表、详情、批量预览/创建、Approve、Discard 与待审核统计中隐藏或拒绝。与 Pegasus/EmulationStation Item 已关联但仍处于复制或校验阶段的内部 Item 同样必须隐藏，不能提前审核。每个 `items[]` 固定包含 `itemId/reviewVersion/importJobId/sourceDisplayName/draftTitle/platformInstance{id,name}/validationStatus/validationJobId/blockerCodes/candidateCount/sourceTotalSizeBytes/sourceMd5/coverUrl/sourceKind/sourceLabel/pegasusImportId/emulationStationImportId/updatedAtMs`。`sourceKind=STANDARD|PEGASUS|EMULATIONSTATION`；服务器来源 `sourceLabel` 是 Collection 展示名，其他来源为 null，两个来源 import ID 不能同时非空。`sourceTotalSizeBytes` 是 Item 全部 source file Blob size 的非负总和；`sourceMd5` 优先取 CONTENT、再取 DOS_SOURCE/COMPANION 的首个文件，无法取得时为 null；`coverUrl` 优先取草稿已选人工封面、再取已选 READY 候选封面、再取已复制的来源 COVER，值为 `/api/v1/admin/review-assets/{assetId}` 或 `/api/v1/admin/review-assets/{sourceRefId}?kind=COVER`，没有时为 null。`validationStatus` 是队列投影枚举 `READY|BLOCKED|INCOMPATIBLE|NEEDS_VALIDATION`；`candidateCount` 只统计本 Item 已完成 Run 的候选，服务器 source metadata 独立于该计数。列表不内嵌完整候选、媒体或 source manifest。
 
+审核列表的 `updatedAtMs` 使用 ReviewDraft 的 `updated_at_ms`，与 `UPDATED_ASC/UPDATED_DESC` 及续页游标中的时间、Item ID 比较保持一致。
+
 `GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 按 `createdAtMs,id` 倒序返回最近 10 个独立批次；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。`candidates` 仍只返回 COMPLETED run 的候选及媒体；`uploadedAssets` 返回该 Item 的不可变人工审核媒体。服务器来源另返回可空 `sourceMedia={sourceKind:"PEGASUS"|"EMULATIONSTATION",sourceRefId,pegasusImportId,emulationStationImportId,sourceLabel,coverUrl,coverWidthPx,coverHeightPx,videoUrl,sourceFlags?}`；两个 import ID 互斥，EmulationStation 的 `sourceFlags={hidden,adult,kidGame}`，URL 使用受保护审核媒体路由，缺失单项为 null。详情另返回可空 `runtimeScreenshot={screenshotId,validationId,providerId,targetId,widthPx,heightPx,capturedAtMs,url}`；只有当前 ReviewDraft 选择的 Validation 仍匹配当前来源快照、目标平台、稳定 Provider/Target 与 prepublish 输入时才投影，Validation 可以是 READY 或阻断状态。草稿 PATCH、来源替换、DAT 或依赖处理必须在写事务中生成或复用完全匹配的 Validation 并原子切换当前选择；详情不返回历史 Validation，也不定义 `validationStale` 字段。Provider Bundle 的只向前升级不改变稳定 Target，也不会单独改变审核结论。当前 READY Validation 满足发布检查时 `canApprove=true`；除 RPG Maker 与 ScummVM 项目外的条目还可按既有 `REVIEW_SCREENSHOT_OVERRIDE` 规则使用当前运行截图人工放行，RPG Maker 截图不能覆盖缺失依赖，ScummVM 截图不能覆盖候选未选择或不受支持；输入变化时旧截图退出当前投影，不能继续解锁发布。`sourceFiles` 按 UploadFile 投影 name/size/SHA-256/MD5/CRC32；若来源是已支持归档则 `archive=true` 并返回有界导入时已解析的 `archiveEntries[{name,sizeBytes,crc32}]`，不会在 GET 时重新解压。识别同时覆盖“从归档中物化单成员”的来源和直接作为运行内容的完整 Arcade/DOS ZIP；后者依据 UploadFile 最终 Blob 已存在的 `archive_entries` 返回成员列表，不能因 `source_archive_blob_id` 为空而漏报。详情还必须返回当前 `contentIdentityDigest` 与 `duplicateGames[{gameId,title,platformInstanceId,platformInstanceName}]`；后者只含同基础平台、当前 `PUBLISHED` 且 GameFiles 文件集合完全相同的 Game，空集合返回 `[]`。
 
 错误统一为：
@@ -153,6 +155,16 @@ Idempotency-Key: <uuid>
 
 ### 4.2 分块、恢复与完成
 
+上传用例由 `internal/service/uploads` 编排，`internal/persistence/uploads` 负责 SQL、读快照和短事务，`internal/uploadfiles` 只执行宿主分片文件的打开、暂存、发布和有界清理。流式校验与 CAS 组装在写事务外运行；完成请求原子冻结本轮未完成文件及 part 的编号、偏移、大小、SHA-256 与 storage key，绑定不可变输入。每次发布和终态写入都重验当前会话、finalizationNo、Job/execution、worker/attempt、租约与原始期限；同 Job 重试保留已完成文件的 Blob，只重新组装未完成文件。
+
+终结 execution 的原始期限为 10 分钟，最多 2 次 attempt，60 秒租约每 15 秒续租且不超过原期限。失效租约恢复保留当前 execution 与期限，原子重排队并记录 `RETRY_SCHEDULED`，1 秒后可重试。通用 Job retry 沿用 Job/finalizationNo、递增 executionNo，新 execution 重新取得期限。确认损坏或缺失的 part 必须先修复：失败事件的 `failedPart={fileId,partNo}` 只授权清除和修复精确坏 part，并同步扣减已接收字节；正确 part 保留。普通读取、权限或存储错误保留原因，不能据此删除 part。修复后再次 complete 创建新轮次。
+
+Server 启动拾取持久队列和失效租约；人工 retry 仅在幂等 receipt 成功后派发，重放不重复派发。receipt 失败不触发本次派发，已独立提交的 retry 仍可由持久队列恢复。取消每秒检查；匹配当前轮次的已取消 Job 会补齐 UploadSession 取消状态，未完成文件保持 `FAILED` / `UPLOAD_CANCELLED`。关闭先禁止新任务登记，再取消并等待已登记执行退出。失败持久化和临时文件清理使用独立、最多 5 秒的清理 context，不能借此继续业务执行。
+
+Complete 的输入、版本或当前状态冲突返回 `409 VERSION_CONFLICT`；数据库读取或写入失败返回 `500 INTERNAL_ERROR`，服务端保留原始原因。
+
+排队中的终结 Job 被通用取消入口取消后，worker 必须同步当前上传会话与未完成文件的取消状态；过期 execution 不能执行此同步。终结超时后使用最多 5 秒的独立清理 context 保存失败结果，仍执行同样的轮次、execution 和取消检查。
+
 | 方法与路径 | 语义 |
 | --- | --- |
 | `GET /api/v1/admin/uploads/{uploadId}` | 返回会话、文件、已接收 part bitmap 和过期时间，用于断点恢复。 |
@@ -181,6 +193,8 @@ POST /api/v1/admin/imports
 `metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。普通文件入口提交 `contentMode=STANDARD`、`purpose=GENERAL` 并选择 `rpgmaker` 目标时，若输入是恰一个 ZIP/7z（或一个完整 DIRECTORY），服务端必须在写入不可变任务快照前规范化为 `RPG_MAKER_PROJECT/NONE`，再由项目 bytes 检测 2000/2003/XP/VX/VX Ace/MV/MZ 世代；不得把该归档交给普通 ROM 单文件分组，也不得依赖文件名猜世代。
 
 创建端点只执行有界准入：校验 UploadSession 已 `COMPLETE`、用途/来源类型、目标目录与当前候选 Provider Target 能力，随后在一个短事务创建 `ImportJob(state=QUEUED)`、`IMPORT_GROUP Job`、每个 UploadFile 的 `PENDING` disposition、whole-session consumption 以及不可变 `import_group_requests` 输入快照，并立即返回 `202 {importJobId,jobId,state:"QUEUED",itemCount:0}`。浏览器收到 202 后直接进入 `/admin/imports/tasks`；不得继续把上传进度停在 92% 等待项目识别。
+
+准入由 `service/libraryimport.ImportAdmissions` 统一编排，`persistence/libraryimport` 在同一短事务读取完整上传文件集合、目标版本/能力、活动标签与操作者，并在写入前校验上传及目标版本。任何写入或提交失败都不返回创建结果，也不通知 worker；只有成功提交才派发。无效或发生版本漂移的业务输入返回 `409 IMPORT_INPUT_INVALID`，存储故障返回 `500 INTERNAL_ERROR`，不得把数据库故障伪装为输入冲突。
 
 归档安全扫描、解压、实际 member hash、CAS 物化、RPG Maker/ONS/KiriKiri/Butterscotch 项目检测、分组和运行依赖检查全部由并发度 1 的 `IMPORT_GROUP` archive worker 在 HTTP 响应之后执行。ZIP 在完整验证 central directory 后逐 member 单次解压，并把选中的 member 从临时候选原子提交到 CAS；不得为“扫描 hash”和“物化 CAS”再次解压同一 member，也不得把被规范器排除的候选发布进 CAS。7z 继续使用隔离 worker 的完整扫描与受限批量提取。任务以 `QUEUED/STARTED/PROGRESS/SUCCEEDED|FAILED` 事件投影 `WAITING_FOR_WORKER/INSPECTING/PERSISTING` 阶段；重启恢复遗留 RUNNING，取消在安全检查点收口并释放上传消费。
 
@@ -211,9 +225,11 @@ source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 re
 
 一期 JobEvent 与 JobInputSnapshot 一样永久保留，不实现后台裁剪，因此不存在一边声明 append-only、一边删除事件的隐藏特权路径，也不返回 `EVENT_CURSOR_EXPIRED`。将来若数据库增长需要保留窗口，必须先增加显式 prune watermark/migration、API 过期语义和恢复测试，不能直接 `DELETE` 后让全局 ID/cursor 失真。SSE 断开不取消任务。
 
+Job 详情与进度查询由 `internal/service/jobs` 提供，`internal/persistence/jobs` 在同一读事务中获取每批事件及其任务状态。每批最多 1000 条；终态任务必须排空所有事件后才能关闭连接，不能因达到分页上限或观察到更新后的终态而漏掉尾部事件。Import 的 `PARTIAL_FAILURE` 与 `REVIEW_PENDING/COMPLETED/FAILED/CANCELLED` 均结束当前进度流，后续领域操作通过新连接读取。
+
 通用 Job 的 `GET /api/v1/admin/jobs/{jobId}/events` 使用同一套全局 JobEvent cursor 规则，但只过滤 `job_id` 精确等于路径资源的事件。无 `Last-Event-ID` 时，服务端在一个只读事务中取得与 `GET /api/v1/admin/jobs/{jobId}` 相同的 Job 快照和当时全局最大 JobEvent ID，先发送 `event: snapshot`，其 `id` 为该全局水位、`data` 为 Job 快照；随后只发送 ID 更大且属于该 Job 的持久事件。重连时可使用属于其他 scope/job 的合法全局 ID 作为水位，仍只按 `id > cursor AND job_id = :jobId` 过滤；负数、非十进制整数或超过当前全局最大值统一为 `400 INVALID_EVENT_CURSOR`。事件 JSON、无 ID 的 15 秒 comment heartbeat、永久保留和“断开不取消”语义与 Import SSE 完全相同。Launch、游戏移动和其他等待共享 `VARIANT_REVALIDATE` 的前端必须使用这条协议，不能轮询一套含不同终态或取消语义的本地状态机。
 
-审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。Approve 普通 body 可为 `{}`；Review ETag 或当前 Validation/来源证据漂移返回 `409 REVIEW_VALIDATION_STALE`。审核客户端收到该冲突后必须重新 GET Review；仅当目标目录、发布字段、素材选择、DOS entry 与标签集合和当前页面完全一致，最新 Review 又允许发布且没有 active Attachment 时，才可用新 ETag、新 Idempotency-Key 自动重试一次。字段发生并发变化、补传尚未完成、最新 Validation 不可发布或第二次仍冲突时必须停止并要求人工核对，不能用重试绕过乐观并发。若当前有完全相同内容的未删除游戏则返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED`，`details={contentIdentityDigest,games}`。继续发布必须重交 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":["..."]}`，ID 集合与事务内重查的当前 games 完全一致才成功；新增、减少、重复或未知 ID 均不接受，确认写入 ReviewEvent。历史端点只读，不提供修改或删除事件 API。
+审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。Approve 普通 body 可为 `{}`；Review ETag 或当前 Validation/来源证据漂移返回 `409 REVIEW_VALIDATION_STALE`。持久化读取、写入或已保存审核证据的解码失败返回现有 `500 INTERNAL_ERROR`，保留服务端原始原因并回滚本次发布，不能伪装成可重试的审核版本冲突。审核客户端收到该冲突后必须重新 GET Review；仅当目标目录、发布字段、素材选择、DOS entry 与标签集合和当前页面完全一致，最新 Review 又允许发布且没有 active Attachment 时，才可用新 ETag、新 Idempotency-Key 自动重试一次。字段发生并发变化、补传尚未完成、最新 Validation 不可发布或第二次仍冲突时必须停止并要求人工核对，不能用重试绕过乐观并发。若当前有完全相同内容的未删除游戏则返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED`，`details={contentIdentityDigest,games}`。继续发布必须重交 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":["..."]}`，ID 集合与事务内重查的当前 games 完全一致才成功；新增、减少、重复或未知 ID 均不接受，确认写入 ReviewEvent。历史端点只读，不提供修改或删除事件 API。
 
 ### 5.1 快速审批
 
@@ -319,6 +335,8 @@ Idempotency-Key: <uuid>
 
 并发相同 GameVariant/input digest 必须返回同一 Job。Player 使用通用 Job 快照/SSE 等待；Job SUCCEEDED 后以原 body 和新 Idempotency-Key 自动重调本端点。旧 key 永远幂等重放当时的 202，不能在后台偷换为 201；新请求看到 READY 后才签发下述 credential。Job FAILED/CANCELLED 的错误以稳定 `LAUNCH_` code 展示，不自动反复新建 Job。
 
+普通启动由 ProductCreator Service 统一编排：先读取一致的来源、目录/核心、Validation、BIOS 与存档快照，再于事务外检查 Provider、CAS 和签名。最终写事务重读实际启动输入、当前权限及相同幂等键，并把 Launch/内容/隔离凭据或待验证 Job 与原始 201/202 响应一起提交；数据库实现必须串行保护相同幂等身份。提交失败不得留下 Launch、Job 或响应 cookie；成功后才派发验证任务或设置 cookie。合法的 READY 校验并发结果允许有界重新准备，单纯元信息版本变化不能误作内容变化。领域阻断继续返回 422，存储、签名及上下文故障保留原因并按基础设施错误处理。
+
 成功返回 `201`：
 
 ```json
@@ -408,9 +426,11 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `postRuntimeReview
 | Review 快速审批 | preview：`GET /admin/review-bulk-approval-preview` + 当前审核筛选；create：`POST /admin/review-bulk-approvals` + preview digests + Idempotency-Key；cancel/retry：aggregate `If-Match` + Idempotency-Key | 只冻结严格 READY、无重复/active Attachment 的当前候选。每项复用普通 approve 事务并原子写 batch result；dependency evidence 统一使用 schemaVersion=1，按 `kind=STATIC|ARCADE` 分支核对，不按版本号猜内容类型；截图 override 继续逐项。create stale/empty/active/too-large 使用上文稳定错误码，cancel 不回滚已发布项，worker infrastructure failure 才可领域 retry。 |
 | 游戏元信息 | `PATCH /admin/games/{gameId}` + `If-Match`；body 直接包含 title/description/developer/publisher/genre/players/releaseYear 中至少一个字段，例如 `{"title":"..."}`，不再包一层 metadata | 在同一事务更新 Game 当前元信息、`title_initial`、`search_text` 与 version，并写 AuditEvent；不创建业务版本行。 |
 | 游戏媒体 | `POST /admin/games/{gameId}/assets`：`{"uploadFileId":"...","kind":"COVER|BACKGROUND|SCREENSHOT","ordinal":0}` + `If-Match` + `Idempotency-Key` | UploadFile 必须 COMPLETE 且为受支持图片；在同一事务替换对应 GameAsset 当前态并更新 Game version。COVER/BACKGROUND 的 ordinal 只能 0，SCREENSHOT 为 `0..31`。旧 Asset URL 立即失效；失去最后引用的 Blob 转入等待回收，不承诺已登记 CAS 总量立即下降。 |
-| 游戏内容替换 | `POST /admin/games/{gameId}/content-replacement`：`{"uploadId":"..."}` + Game `If-Match` + `Idempotency-Key` | UploadSession 必须 COMPLETE、未消费，且按游戏基础平台恰好组成一个内容项。事务快照 Game 当前文件、目录/version、默认 core、稳定 Provider/Target 与 DAT，创建 `GAME_CONTENT_REPLACE` Job 和 whole-session consumption，返回 `202`。Worker 在事务外安全扫描、物化和验证；单 ROM role/hash 序列相同，或多盘盘序与全部 Disc hash 相同时，以不可重试 `GAME_CONTENT_UNCHANGED` 结束并释放 consumption。只有不同的新内容 READY 且快照仍一致时，才在一个事务中替换 GameFiles、当前默认 Core 的 GameVariant/VariantFiles，递增 Game version，清理旧 payload，结束受影响的活动运行与联机，并写 AuditEvent。Game 级存档保留，后续由当前 Target `readFormats` 判定可恢复性；其他失败不改变当前内容或存档。 |
+| 游戏内容替换 | `POST /admin/games/{gameId}/content-replacement`：`{"uploadId":"..."}` + Game `If-Match` + `Idempotency-Key` | UploadSession 必须 COMPLETE、未消费，且按游戏基础平台恰好组成一个内容项。事务快照 Game 当前文件、目录/version、默认 core、稳定 Provider/Target 与 DAT，创建 `GAME_CONTENT_REPLACE` Job 和 whole-session consumption，返回 `202`。Worker 在事务外安全扫描、物化和验证；单 ROM role/hash 序列相同，或多盘盘序与全部 Disc hash 相同时，以不可重试 `GAME_CONTENT_UNCHANGED` 结束并释放 consumption。只有不同的新内容 READY 且快照仍一致时，才在一个事务中替换 GameFiles、当前默认 Core 的 GameVariant/VariantFiles，递增 Game version，清理旧 payload，结束受影响的活动运行与联机，并写 AuditEvent。成功替换同时移除绑定旧内容的存档与冻结运行文件；任何步骤失败均回滚，保留当前内容、存档和原运行状态。BIOS 替换另遵循保留既有会话与存档的规则。 |
 | 重新刮削 | `POST /admin/games/{gameId}/scrape-candidates`：`{"metadataProvider":"HASHEOUS"}` + `If-Match` + `Idempotency-Key` | 对当时 Game current GameFiles 建 MetadataScrapeRun 和有界后台任务，显式 bypass cache，不改 current metadata；若任务执行前 content 已变化则以 retryable conflict 结束，不能对旧内容冒充最新 run。 |
 | 应用重新刮削候选 | `POST /admin/games/{gameId}/scrape-candidates/{candidateId}/apply`：`{"fields":["title",...],"selectedAssets":{"coverCandidateAssetId":null|string,"backgroundCandidateAssetId":null|string,"screenshotCandidateAssetIds":[]}}` + `If-Match` + `Idempotency-Key` | candidate/asset 必须属于直接引用 Game current GameFiles、并按 `(created_at_ms,id)` 确定的最新 COMPLETED HASHEOUS run，且每个选中 asset 为 READY；fields 只能是 metadata 白名单且不重复。复制未选字段/媒体，创建 RESCRAPE_APPLY Game 当前元信息字段 和完整 Asset 清单。 |
+
+通用 `MEDIA_FETCH` retry 在重试状态提交且幂等 receipt 保存成功后唤醒受管理的媒体 worker；receipt 重放不重复唤醒。若重试事务已独立提交而 receipt 保存失败，当前请求不调用提交后回调，持久队列仍可恢复补领。请求结束或取消不终止已成功交接的后台执行，服务关闭会取消并等待执行结束。任务种类仅用于内部调度，不增加响应 JSON 字段。
 
 `GET /admin/games/{gameId}/scrape-candidates` 的每个候选除 metadata/evidence/hitCount 外还返回 `assets[]`，字段与审核候选媒体投影一致，预览 URL 仍使用受保护的 `/api/v1/admin/review-assets/{candidateAssetId}`。管理页不得只凭“证据命中”提供一键文字覆盖；应用候选时只更新明确选择的字段和媒体，未选择的当前封面、背景与截图保持不变。
 | 游戏移动预览 / 提交 | preview：`{"targetPlatformInstanceId":"..."}` + Game `If-Match` + `Idempotency-Key`；commit：`{"targetPlatformInstanceId":"...","impactDigest":"...","confirmBlocked":false}` + 同一 Game 当前 `If-Match` + 新 `Idempotency-Key` | 只允许同基础平台且目标不能等于当前目录。目标默认 Provider Target 对 GameFiles 缺少当前验证结果时，preview 创建或复用共享 `VARIANT_REVALIDATE` Job，返回 `202 {"status":"VALIDATION_PENDING","jobId":"...","retryAfterMs":1000}`，不返回 digest、不移动；Job 终态后客户端用新 key 重新 preview。已有 READY/BLOCKED/INCOMPATIBLE 当前结果时返回 `200` 影响与 digest，不写业务状态。commit 重算 digest/version/结果；有 blocker 仅在 `confirmBlocked=true` 时移动，否则 `422 MOVE_TARGET_CORE_BLOCKED`。移动只更新 Game 归属/version并写 AuditEvent，不删除 GameVariant 或存档。 |
@@ -856,7 +876,7 @@ ONS/KiriKiri/Butterscotch 的 `index.json` 逐项必须包含准确 `path/sizeBy
 Butterscotch core 需要本地文件路径，因此 adapter 必须先把冻结索引的每个项目文件流式写入按 content digest 分区的 OPFS，再启动 worker；下载过程按总字节上报进度。缓存文件长度与索引一致时跨 Launch 复用，长度漂移则删除并重新下载；恢复 Launch 仍重新读取 `index.json` 和 grant，但不重复获取已完整缓存的 `data.win`。
 
 - `GET|HEAD /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 只允许命中已激活 Provider Bundle 的逐文件 allowlist，本地逐字节复核 size/hash 后返回不可变公共响应；未知 Provider、摘要、路径或 MIME 返回 404；
-- `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生索引与 bundle 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri/Butterscotch adapter 使用的保留虚拟索引，不提供外部 RTP 索引或文件端点。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、当前可变 GameFiles 或 ReviewDraft。
+- `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生索引与 bundle 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri/Butterscotch adapter 使用的保留虚拟索引，不提供外部 RTP 索引或文件端点。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、当前可变 GameFiles 或 ReviewDraft。 动态项目索引在同一只读快照中校验授权并读取冻结文件，Service 按唯一格式生成索引；只有确认使用静态索引的格式才允许读取其冻结索引文件。授权失效返回 `401 LAUNCH_CREDENTIAL_INVALID`，真实存储失败返回 `500 INTERNAL_ERROR`，不得把失败当作其他格式继续尝试。
 
 两条路径都必须以 `x-retrom-router-template` 保留含 `/` 的尾部路径。OpenAPI 中间件必须先识别它们再进入内容 handler；否则即使文件已物化也会被错误地提前映射为 404。
 

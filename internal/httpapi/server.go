@@ -9,37 +9,75 @@ import (
 	"sync/atomic"
 	"time"
 
-	"retrom/internal/accounts"
+	netplayservice "retrom/internal/service/netplay"
+
+	gamecontentpersistence "retrom/internal/persistence/gamecontent"
+
+	"retrom/internal/composition"
+	librarycomposition "retrom/internal/composition/libraryimport"
+	payloadcomposition "retrom/internal/composition/payloadrelease"
+
+	firmwarepersistence "retrom/internal/persistence/firmware"
+	firmwareservice "retrom/internal/service/firmware"
+
+	savepersistence "retrom/internal/persistence/saves"
+
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	isolationpersistence "retrom/internal/persistence/isolation"
+
+	jobpersistence "retrom/internal/persistence/jobs"
+
+	immersivepersistence "retrom/internal/persistence/immersive"
+	storagepersistence "retrom/internal/persistence/storageanalysis"
+
+	tagpersistence "retrom/internal/persistence/tagging"
+
 	"retrom/internal/blobstore"
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/config"
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
-	"retrom/internal/emulationstationimport"
-	"retrom/internal/favorites"
-	"retrom/internal/firmware"
-	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
-	"retrom/internal/immersive"
-	"retrom/internal/importdiscard"
-	"retrom/internal/jobs"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
-	"retrom/internal/metadatascrape"
 	"retrom/internal/netplay"
-	"retrom/internal/payloadrelease"
-	"retrom/internal/pegasusimport"
-	"retrom/internal/platforminstance"
-	"retrom/internal/rpgmaker/isolation"
+	favoritepersistence "retrom/internal/persistence/favorites"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
+	mediapersistence "retrom/internal/persistence/mediaaccess"
+	platformpersistence "retrom/internal/persistence/platforminstance"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimecatalog"
 	"retrom/internal/runtimelaunch"
-	"retrom/internal/saves"
 	"retrom/internal/scummvm"
-	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
-	"retrom/internal/storageanalysis"
-	"retrom/internal/tagging"
-	"retrom/internal/uploads"
+	"retrom/internal/service/accounts"
+	biosservice "retrom/internal/service/bios"
+	catalogservice "retrom/internal/service/catalog"
+	diagnosticsservice "retrom/internal/service/diagnostics"
+	"retrom/internal/service/emulationstationimport"
+	"retrom/internal/service/favorites"
+	gameassetsservice "retrom/internal/service/gameassets"
+	"retrom/internal/service/gamecontent"
+	gamelistservice "retrom/internal/service/gamelist"
+	gamemetadataservice "retrom/internal/service/gamemetadata"
+	homeservice "retrom/internal/service/home"
+	idempotencyservice "retrom/internal/service/idempotency"
+	"retrom/internal/service/immersive"
+	"retrom/internal/service/importdiscard"
+	"retrom/internal/service/isolation"
+	"retrom/internal/service/jobs"
+	launchservice "retrom/internal/service/launch"
+	libraryservice "retrom/internal/service/libraryimport"
+	"retrom/internal/service/mediaaccess"
+	"retrom/internal/service/metadatascrape"
+	"retrom/internal/service/pegasusimport"
+	"retrom/internal/service/platforminstance"
+	readinessservice "retrom/internal/service/readiness"
+	"retrom/internal/service/saves"
+	"retrom/internal/service/serverimport"
+	"retrom/internal/service/storageanalysis"
+	"retrom/internal/service/tagging"
+	"retrom/internal/service/uploads"
 )
 
 var (
@@ -59,11 +97,9 @@ var (
 	errStaleImpact          = errors.New("stale")
 	errInvalidCore          = errors.New("invalid core")
 	errCandidateMetadata    = errors.New("candidate metadata invalid")
-	errCandidateAssetKind   = errors.New("candidate asset kind mismatch")
 	errInvalidCursorPayload = errors.New("invalid cursor payload")
 	errInvalidGameTagFilter = errors.New("invalid game tag filter")
 	errTagProjectionType    = errors.New("invalid tag projection identifier type")
-	errGamePagination       = errors.New("game pagination projection invalid")
 )
 
 type contextKey string
@@ -74,6 +110,7 @@ type Server struct {
 	config                  config.Config
 	database                *sql.DB
 	readinessDatabase       *sql.DB
+	readinessService        *readinessservice.Service
 	startupReadinessMu      sync.Mutex
 	startupReady            atomic.Bool
 	dependencies            *dependencies.Set
@@ -83,20 +120,36 @@ type Server struct {
 	uploads                 *uploads.Service
 	importer                *libraryimport.Service
 	importDiscards          *importdiscard.Service
-	launcher                *launch.Service
+	launcher                *launchservice.Service
+	launchSources           *launch.Sources
 	jobService              *jobs.Service
 	immersive               *immersive.Service
-	firmware                *firmware.Service
+	firmware                *firmwareservice.Service
+	biosService             *biosservice.Service
+	catalogService          *catalogservice.Service
+	mediaAccess             *mediaaccess.Service
 	metadata                *metadatascrape.Service
 	gameContent             *gamecontent.Service
+	gameListService         *gamelistservice.Service
+	homeService             *homeservice.Service
+	gameAssets              *gameassetsservice.Service
+	gameMetadata            *gamemetadataservice.Service
 	saveService             *saves.Service
 	rpgIsolation            *isolation.Service
 	favoriteService         *favorites.Service
 	tagService              *tagging.Service
+	reviewQueue             *libraryservice.ReviewQueue
+	reviewDetails           *libraryservice.ReviewDetails
+	reviewCoverUploads      *libraryservice.ReviewCoverUploads
+	reviewDiscards          *libraryservice.ReviewDiscards
+	reviewApprovals         *libraryservice.ReviewApprovals
+	reviewBulkQueries       *libraryservice.ReviewBulkQueries
+	importAdmissions        *libraryservice.ImportAdmissions
+	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
 	emulationStationImports *emulationstationimport.Service
-	payloadReleases         *payloadrelease.Service
+	payloadReleases         *payloadcomposition.Service
 	platformDirectories     *platforminstance.Service
 	storageAnalysis         *storageanalysis.Service
 	now                     func() time.Time
@@ -107,7 +160,9 @@ type Server struct {
 	idempotencyQueueDrained *sync.Cond
 	authenticator           Authenticator
 	accounts                *accounts.Service
-	netplay                 *netplay.Service
+	netplay                 *netplayservice.Service
+	diagnosticsService      *diagnosticsservice.Service
+	idempotencyService      *idempotencyservice.Service
 	netplayHub              *netplay.Hub
 	netplayObserversMu      sync.Mutex
 	netplayObservers        map[string]int
@@ -122,17 +177,22 @@ func (server *Server) WithRuntimeProviderHandler(handler http.Handler) *Server {
 }
 
 func (server *Server) WithRuntimeProvider(
-	catalog runtimecatalog.Catalog,
 	builder *runtimelaunch.Builder,
 	handler http.Handler,
 ) *Server {
-	server.launcher.WithRuntimeProvider(catalog, builder)
+	server.launchSources.WithRuntimeProvider(builder)
 	return server.WithRuntimeProviderHandler(handler)
 }
 
-func (server *Server) WithNetplay(service *netplay.Service) *Server {
+func (server *Server) WithNetplay(service *netplayservice.Service) *Server {
 	server.netplay = service
-	server.netplayHub = netplay.NewHub(service)
+	if server.catalogService != nil {
+		server.catalogService.WithNetplay(service)
+	}
+	server.netplayHub = netplay.NewHub(
+		netplay.HubServices{Sessions: service, Peers: service, Termination: service},
+		netplay.HubOptions{ReconnectLease: server.config.NetplayReconnectLease, Now: server.now},
+	)
 	service.StartMaintenance()
 	return server
 }
@@ -140,9 +200,17 @@ func (server *Server) WithNetplay(service *netplay.Service) *Server {
 func (server *Server) WithReadinessDatabase(database *sql.DB) *Server {
 	if database != nil {
 		server.readinessDatabase = database
-		server.storageAnalysis = storageanalysis.New(database, server.now)
+		server.readinessService = composition.NewReadiness(database)
+		server.storageAnalysis = storageanalysis.New(storagepersistence.New(database), server.now)
 	}
 	return server
+}
+
+func (server *Server) idempotencyRecords() *idempotencyservice.Service {
+	if server.idempotencyService != nil {
+		return server.idempotencyService
+	}
+	return idempotencyservice.New(idempotencypersistence.New(server.database))
 }
 
 type Authenticator interface {
@@ -160,14 +228,14 @@ func New(
 	now func() time.Time,
 	scummVMDetector ...*scummvm.Detector,
 ) *Server {
-	payloadReleaseService, err := payloadrelease.New(database, blobs, now, 7*24*time.Hour)
+	payloadReleaseService, err := payloadcomposition.New(context.Background(), database, blobs, now, 7*24*time.Hour)
 	if err != nil {
 		panic(err)
 	}
-	scraper := metadatascrape.New(database, blobs, hasheous.New(nil, nil, now), now)
-	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs).
-		WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate).
-		WithPublicOrigin(config.PublicOrigin.String())
+	scraper := composition.NewMetadata(database, blobs, hasheous.New(nil, nil, now), now)
+	scraper.Start(context.Background())
+	launchSources := launch.NewSources(blobs, credentials).WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate)
+	launcher := launchcomposition.New(database, launchSources, config.PublicOrigin.String(), now)
 	launcher.ResumeQueuedValidationJobs()
 	importer := libraryimport.New(database, now, scraper).
 		WithBlobStore(blobs).
@@ -175,13 +243,13 @@ func New(
 	if len(scummVMDetector) > 0 {
 		importer.WithScummVMDetector(scummVMDetector[0])
 	}
-	importer.RecoverImportGroupJobs(context.Background())
+	importer.Start()
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
 	importer.ResumeReviewBulkJobs(context.Background())
-	firmwareService := firmware.New(database, now).WithBlobStore(blobs).
+	firmwareService := firmwareservice.New(firmwarepersistence.New(database), now).WithBlobStore(blobs).
 		WithPayloadRelease(payloadReleaseService)
-	serverImportService := serverimport.New(
+	serverImportService := composition.NewServerImports(
 		database,
 		blobs,
 		firmwareService,
@@ -190,55 +258,94 @@ func New(
 		now,
 	)
 	serverImportService.Start()
-	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, serversource.FilesystemRoots(), now)
+	pegasusImportService := composition.NewPegasusImport(
+		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
+	)
 	pegasusImportService.Start()
-	emulationStationImportService := emulationstationimport.New(
+	emulationStationImportService := composition.NewEmulationStationImport(
 		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
 	)
 	emulationStationImportService.Start()
+	tagService := tagging.New(tagpersistence.New(database), now)
 	server := &Server{
 		config:                  config,
 		database:                database,
 		readinessDatabase:       database,
+		readinessService:        composition.NewReadiness(database),
 		dependencies:            dependencySet,
 		blobs:                   blobs,
 		credentials:             credentials,
 		authenticator:           authenticator,
 		accounts:                accountService,
 		cursors:                 cursor.New(credentials.CursorKey(), now),
-		uploads:                 uploads.New(database, blobs, config.DataDir, now),
+		uploads:                 uploads.New(uploadpersistence.New(database), blobs, config.DataDir, now),
 		importer:                importer,
 		launcher:                launcher,
-		jobService:              jobs.New(database, now),
-		immersive:               immersive.New(database),
+		launchSources:           launchSources,
+		jobService:              jobs.New(jobpersistence.New(database), now),
+		immersive:               immersive.New(immersivepersistence.New(database)),
 		firmware:                firmwareService,
+		biosService:             composition.NewBIOS(database),
+		catalogService:          composition.NewCatalog(database, nil),
 		serverImports:           serverImportService,
 		pegasusImports:          pegasusImportService,
 		emulationStationImports: emulationStationImportService,
 		payloadReleases:         payloadReleaseService,
-		platformDirectories:     platforminstance.New(database, now),
+		diagnosticsService:      composition.NewDiagnostics(database),
+		platformDirectories:     platforminstance.New(platformpersistence.New(database), now),
 		metadata:                scraper,
-		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
-			WithPayloadRelease(payloadReleaseService).
+		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithBlobStore(blobs).
+			WithPayloadRelease(payloadReleaseService).WithGCStager(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
-		saveService:      saves.New(database, blobs, credentials, now),
-		rpgIsolation:     isolation.New(database, config.RPGRuntimeOriginTemplate, now),
-		favoriteService:  favorites.New(database, now),
-		tagService:       tagging.New(database, now),
-		now:              now,
-		sseHeartbeat:     15 * time.Second,
-		netplayObservers: make(map[string]int),
-		runtimeProvider:  http.NotFoundHandler(),
+		gameListService:    composition.NewGameList(database),
+		homeService:        composition.NewHome(database, tagService),
+		gameAssets:         composition.NewGameAssets(database, blobs, now, payloadReleaseService),
+		gameMetadata:       composition.NewGameMetadata(database, payloadReleaseService, now),
+		saveService:        saves.New(savepersistence.New(database), blobs, now),
+		rpgIsolation:       isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
+		favoriteService:    favorites.New(favoritepersistence.New(database), now),
+		tagService:         tagService,
+		now:                now,
+		sseHeartbeat:       15 * time.Second,
+		netplayObservers:   make(map[string]int),
+		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database)),
+		runtimeProvider:    http.NotFoundHandler(),
 	}
-	server.importDiscards = importdiscard.New(database, importer, pegasusImportService, emulationStationImportService, now)
+	server.reviewQueue = composition.NewLibraryReviewQueue(database, server.tagService)
+	server.reviewDetails = composition.NewLibraryReviewDetails(database)
+	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
+	server.reviewDiscards = composition.NewLibraryReviewDiscards(database, now)
+	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now)
+	server.reviewBulkQueries = librarycomposition.NewReviewBulkQueries(database)
+	server.importAdmissions = composition.NewLibraryImportAdmissions(
+		database, importer, libraryservice.ImportAdmissionOptions{
+			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
+		},
+	)
+	server.jobService = composition.WithPegasusJobCancellation(server.jobService, pegasusImportService)
+	server.jobService = composition.WithEmulationStationJobCancellation(server.jobService, emulationStationImportService)
+	server.jobService = librarycomposition.WithJobCancellation(server.jobService, database, now)
+	server.mediaAccess = mediaaccess.New(mediapersistence.New(database))
+	server.metadataEvidence = composition.NewMetadataEvidenceQueries(database)
+	server.importDiscards = composition.NewImportDiscard(
+		database,
+		libraryimport.NewDiscardWorkflow(importer),
+		pegasusImportService,
+		emulationStationImportService,
+		now,
+	)
 	server.importDiscards.Start()
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	payloadReleaseService.Start()
+	server.uploads.Start(context.Background())
 	return server
 }
 
 func (server *Server) Close() {
+	server.uploads.Close()
+	server.launcher.Close()
 	server.importDiscards.Close()
+	server.importer.Close()
 	if server.netplay != nil {
 		server.netplayHub.Close()
 		server.netplay.Close()
@@ -246,6 +353,7 @@ func (server *Server) Close() {
 	server.serverImports.Close()
 	server.pegasusImports.Close()
 	server.emulationStationImports.Close()
+	server.metadata.Close()
 	server.payloadReleases.Close()
 }
 

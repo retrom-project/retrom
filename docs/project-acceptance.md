@@ -357,16 +357,16 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-001`。
-- 流程：在空临时目录运行真实 migration；枚举全部表、列、外键、索引和 trigger；在一个事务创建 Game、GameFiles、三个 Core 的 GameVariant 与对应 VariantFiles；尝试跨 Game 文件/Variant 引用、重复 Game+Core Variant、非法 Provider/Target、重复 active BIOS/DAT、冲突 whole/file Upload consumption、无效平台/core 关系和负数 duration；读取一条 API JSON 与 SQLite typeof()。
-- 通过标准：所有业务时刻以 *_at_ms INTEGER 存储并通过 API 输出 JSON integer；时长为有单位的整数；不存在业务时刻 TEXT、CURRENT_TIMESTAMP 主存储或单位不明字段；bootstrap 不含 DROP/ALTER 转换或外键关闭标记；来源证据无 revision_no，初始来源唯一、当前来源由草稿明确选择。schema 不含 game_content_revisions、game_metadata_revisions、game_variant_revisions 及其 current pointer；Game/GameFiles/GameVariant 约束、partial unique index、外键索引和 append-only 审计 trigger 均存在，全部负向约束在数据库层拒绝，合法当前态事务可提交。
-- 证据：完整 schema 摘要、合法事务、每个负向 SQL 结果和 API 响应。
+- 流程：在空临时目录运行真实 migration；枚举全部表、列、外键与索引，并确认数据库没有 trigger/view；在一个事务创建 Game、GameFiles、三个 Core 的 GameVariant 与对应 VariantFiles；尝试跨 Game 文件/Variant 引用、重复 Game+Core Variant、非法 Provider/Target、重复 active BIOS/DAT、冲突 whole/file Upload consumption、无效平台/core 关系和负数 duration；读取一条 API JSON 与 SQLite typeof()。
+- 通过标准：所有业务时刻以 *_at_ms INTEGER 存储并通过 API 输出 JSON integer；时长为有单位的整数；不存在业务时刻 TEXT、CURRENT_TIMESTAMP 主存储或单位不明字段；bootstrap 不含 DROP/ALTER 转换或外键关闭标记；来源证据无 revision_no，初始来源唯一、当前来源由草稿明确选择。schema 不含 game_content_revisions、game_metadata_revisions、game_variant_revisions 及其 current pointer；Game/GameFiles/GameVariant 声明式约束、partial unique index、外键索引与应用写入校验均存在；跨表归属、状态转换和不可变审计通过存储方法拒绝，合法当前态事务可提交。校验失败后继续外层事务不泄漏非法记录，批量操作整体回滚。
+- 证据：完整 schema 摘要、合法事务、每个负向存储操作的 SQL 结果和 API 响应。
 
 ### ACC-DB-002：干净迁移链与 lineage 保护
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-002`。
-- 流程：使用全新数据根执行当前 001→010，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚；另验证当前备份往返，以及旧 manifest schema 或旧 lineage 恢复拒绝。
-- 通过标准：全新库到 010 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库；备份只允许与当前完整 lineage 精确一致的数据库恢复。
+- 流程：使用全新数据根执行当前 001→013，再次启动验证幂等；分别从当前迁移链的合法前缀恢复执行，并构造名称或 checksum 不匹配、版本缺口、未知/未来版本的 lineage。对单个 migration 注入确定性失败，确认该步 schema 与 migration 记录同事务回滚；另验证当前备份往返，以及旧 manifest schema 或旧 lineage 恢复拒绝。
+- 通过标准：全新库到 013 后 `foreign_key_check` 与 `integrity_check` 通过，重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。已应用记录必须是当前链的精确有序前缀，任一名称/checksum/缺口/未知/未来差异都在业务写入前以 `DATABASE_REBUILD_REQUIRED` 拒绝且不改库；备份只允许与当前完整 lineage 精确一致的数据库恢复。
 - 证据：当前 migration 名称/checksum、各实际起始/最终 schema 摘要、行数/hash、原子失败前后 schema、二次启动结果、lineage 负向矩阵与备份恢复结果。
 
 ### ACC-CAS-001：SHA-256 去重与原子写入
@@ -577,7 +577,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-PLAT-006`。
-- 流程：使用全新数据根建到 schema 040，确认零目录；ADMIN 读取推荐状态并第一次补齐。随后修改一个模板目录名称/核心、停用一个、软删除一个，再手动创建一个缺失 pair 的等价目录；以新 key 再次补齐，并并发提交两次相同缺失集合。另故障注入一次 AuditEvent 写入失败。
+- 流程：使用全新数据根建到当前 schema，确认零目录；ADMIN 读取推荐状态并第一次补齐。随后修改一个模板目录名称/核心、停用一个、软删除一个，再手动创建一个缺失 pair 的等价目录；以新 key 再次补齐，并并发提交两次相同缺失集合。另故障注入一次 AuditEvent 写入失败。
 - 通过标准：catalog 固定返回 31 项且扩展名来自平台 profile；RPG Maker 恰有一个 `rpgmaker/rpgmaker` 虚拟核心推荐目录，GameMaker 恰有一个 `butterscotch/butterscotch` 推荐目录，不存在 FDS/MAME 2003 独立模板，NES 包含 `.fds`，Arcade `.zip` 不重复。第一次补齐在一个事务创建 31 项并逐项审计；模板、自定义、等价、停用/删除分别投影为 `ACTIVE/CUSTOMIZED/COVERED_BY_EQUIVALENT/SUPPRESSED`。后续补齐不覆盖、不恢复、不重排、不重复创建，新的缺失项只追加到末尾；同 key 精确重放，并发只有一组创建结果；故障使目录、审计和幂等记录全部回滚。手动目录 key 为 NULL，推荐目录 key 唯一。
 - 证据：GET/POST 响应、Idempotency replay header、并发结果、目录/审计/幂等行和 catalog/contentprofile 对照。
 
@@ -1285,7 +1285,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-FAV-001`。
 - 流程：由当前 bootstrap 创建空库并同步声明；两个 Profile 对同 Game 建独立关系；执行跨 owner、未收藏 Membership、重名、非法 UPDATE/version 负向 SQL；隐藏 Game/目录后备份恢复。不读取历史版本 fixture。
-- 通过：schema/checksum/FK/index/trigger 正确，负向 SQL 全部拒绝，隐藏关系保留而投影为零，恢复逐项一致且认证安全围栏仍生效。
+- 通过：schema/checksum/FK/index/应用写入校验 正确，负向 SQL 全部拒绝，隐藏关系保留而投影为零，恢复逐项一致且认证安全围栏仍生效。
 - 证据：起止版本、schema 摘要、负向矩阵、owner 行数与恢复前后 hash。
 
 ### ACC-FAV-002：API、幂等、并发与隔离
@@ -1315,7 +1315,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-TAG-001`。
 - 流程：由当前 bootstrap 创建新库；覆盖 NFC、Unicode 空白/case-fold/control、40/41 code point、160/161 byte、活动同名、20/21 owner 与 1,000/1,001 实例上限；关联后软删除，再用同名创建新 ID，并完成带 Tag/关系/tombstone/审计的离线 backup/restore。
-- 通过：当前表/列/partial unique/index/trigger、INTEGER 时刻、FK 与完整性正确；DELETED 不可恢复/改名/硬删，立即退出当前投影但历史关系和审计保留；同名新 ID 不继承旧关系；恢复前后标签快照逐项一致且 restore 安全围栏不退化。
+- 通过：当前表/列/partial unique/index/应用写入校验、INTEGER 时刻、FK 与完整性正确；DELETED 不可恢复/改名/硬删，立即退出当前投影但历史关系和审计保留；同名新 ID 不继承旧关系；恢复前后标签快照逐项一致且 restore 安全围栏不退化。
 - 证据：起止 migration/schema 摘要、名称/容量负向矩阵、删除前后 owner/version/关系、恢复前后 canonical hash 与完整性结果。
 
 ### ACC-TAG-002：API、权限、并发与游戏维护
@@ -1399,7 +1399,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 通过：冻结期间不因 native frame/load 墙钟预算、缺少输入或 state transfer timer 异常结束；恢复后继续产生 canonical frame。transport drop 只暂停/重同步该 Session，不释放座位、不新建 Session/Launch；P2 在 lease 内以同一 room/session/participant 身份连接，收到严格更大的 epoch 后继续推进，结束回调计数为 0。两种 core 均无重复 controller、旧 generation 消息污染、页面异常或残留连接。
 - 证据：两种 profile 的双 context trace、freeze/恢复时刻、connect/epoch/canonical/ended 诊断 JSON、drop 前后 Room/Session/Participant/Launch identity 与资源计数。
 
-`ACC-NP-017`–`022` 共用严格 lockstep 产品矩阵：每个 Case 都从项目自有 fixture 的真实 upload、导入、审核、发布开始，先确认 manifest 把 profile 显式关联到预期 NES/SNES/Arcade 基础平台、房间 DRAFT 目录能按该平台列出游戏及 profile；再由 `test/alice` 两个真实账号与两个独立 Chrome context 创建房间和 Launch。验证 authority native state 捕获、target native load、1 MiB state 上限、每个 canonical input 恰推进一个原生帧，frame 119/239/719 的完整 core digest 默认必须一致；100ms RTT 使输入缓冲升高且恢复后下降、prediction/rollback 恒为 0。原生帧增长不是 1 必须阻断，不能容忍或用 checkpoint 投影掩盖。
+`ACC-NP-017`–`022` 共用严格 lockstep 产品矩阵：每个 Case 都从项目自有 fixture 的真实 upload、导入、审核、发布开始，先确认 manifest 把 profile 显式关联到预期 NES/SNES/Arcade 基础平台、房间 DRAFT 目录能按该平台列出游戏及 profile；再由 `test/alice` 两个真实账号与两个独立 Chrome context 创建房间和 Launch。验证 authority native state 捕获、target native load、1 MiB state 上限、每个 canonical input 恰推进一个原生帧，frame 119/239/719 的完整 core digest 默认必须一致；延迟注入前须在 30 秒内观察到启动时 RTT 膨胀已回落至 1–2 帧输入缓冲，再以该最新样本作为基线；100ms RTT 必须使输入缓冲严格升高，移除延迟后至少经过 120 个连续较低 RTT 样本才下降，prediction/rollback 恒为 0。原生帧增长不是 1 必须阻断，不能容忍或用 checkpoint 投影掩盖。
 
 唯一窄例外是 `ACC-NP-017` 的 SNES9x 在整个 Session 的任一合法 120-frame 检查点最多出现一次边界瞬时摘要差异；它只能在本局尚未消费该例外时进入产品既有的 hash-resync，双方还必须各自提供相同的 12 个 SNES 取证块且至少一个块确实不同。块名只用于定位原生 serializer 相位，不能成为排除或允许差异的白名单。还必须同时证明：两端各只有一个 `STATE_MISMATCH` PAUSE；epoch 恰加一且 `nextFrame=atFrame+1`；P1 authority capture 与 P2 load 的 state/core digest 相等；P1 原生归一化没有差异；P2 在真实 native load 前后 `changed=false`，并且 `byteExact/coreExact/nativeCompletion=true`、`firstCoreMismatch=-1`；新 epoch 的前两个合法 120-frame 检查点连续完整一致，期间没有第二次 mismatch、resync、ended 或页面错误。`changed=true`、一局第二次瞬时差异、任一持续差异、跨 epoch 搜索任意较晚摘要或排除任何 SNES bytes 都必须失败；不能按 epoch 重置例外额度。其他五个新 profile 不适用此例外。
 
@@ -1924,6 +1924,8 @@ red/green/root cause/fix/result/rerun 映射、green command 非零或超时的�
 `BLOCKED` 不是产品 defect，不得登记或要求伪造修复 commit。
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧实际 Retrom 产品 E2E 或 UI runner 断言。不得用“只能人工复现”免除固化，也不得新增绕过产品链路的独立 example 页面代替回归。
+
+验收命令使用 `make acceptance-case` 选择的仓库 Node 工具链；`NODE_HOME` 的显式覆盖也传入产品 Case 和缺陷回归命令。子命令继承已选择的 PATH，不加载登录 shell 配置，避免宿主机版本改变同一 Case 的执行环境。
 
 ## 25. 最终通过标准
 

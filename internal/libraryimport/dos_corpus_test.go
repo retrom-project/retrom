@@ -100,7 +100,7 @@ func corpusDOSPrograms(entries []importing.ArchiveEntry) []preparedDOSEntry {
 	for _, entry := range entries {
 		if kind, ok := dosProgram(entry.NormalizedPath); ok {
 			programs = append(programs, preparedDOSEntry{
-				path: entry.NormalizedPath, kind: kind, safe: directDOSPathSafe(entry.NormalizedPath),
+				Path: entry.NormalizedPath, Kind: kind, Safe: directDOSPathSafe(entry.NormalizedPath),
 			})
 		}
 	}
@@ -109,8 +109,8 @@ func corpusDOSPrograms(entries []importing.ArchiveEntry) []preparedDOSEntry {
 
 func firstSafeDOSProgram(programs []preparedDOSEntry) string {
 	for _, program := range programs {
-		if program.safe {
-			return program.path
+		if program.Safe {
+			return program.Path
 		}
 	}
 	return ""

@@ -55,19 +55,20 @@ stateDiagram-v2
 ```text
 internal/httpapi/favorite_handlers.go
             ↓
-internal/favorites
+internal/service/favorites（业务与 Repository 接口）
             ↓
-database/sql + 既有 authn/cursor/idempotency
+internal/persistence/favorites（SQL 与事务实现）
 ```
 
-- Handler 只负责严格协议解析、认证主体提取与稳定错误映射；名称规范、上限、集合差异、可见性和事务属于 `internal/favorites`。
+- Handler 只负责严格协议解析、认证主体提取与稳定错误映射；名称规范、上限、集合差异、幂等决策和事务范围属于 `internal/service/favorites`。Service 只依赖本模块定义的 Repository 接口，不接收数据库连接、SQL 或 SET/WHERE 片段。
+- `internal/persistence/favorites` 实现 Repository，封装字段扫描、列表投影和原子写入。`WithWrite` 提供绑定到同一事务的收藏、成员、目录和幂等记录能力；回调失败或提交前请求取消时撤销全部修改。列表使用同一读取快照，生成时刻由 Service 注入的时钟提供。
 - UUID、批量边数、JSON 和名称格式在事务前校验；所有可见性、owner、Folder 数量与版本在短 `BEGIN IMMEDIATE` 事务内重新校验。
 - 收藏、精确分类、创建 Folder、批量整理、取消、恢复和删除 Folder 都以一次事务提交；事务内不访问网络、文件系统或 Blob，也不逐 Game 提交。
 - 取消收藏按 Membership → Favorite 删除，删除 Folder 按 Membership → Folder 删除；数据库使用限制型外键，不用隐藏级联代替业务顺序。
 - 列表、总计数、Folder 可见计数、平台摘要和当前页来自同一只读事务。主查询先按 Principal、PUBLISHED Game 和 enabled PlatformInstance 限定，不能先读其他 owner 或隐藏 Game 再在 Go 过滤。
 - Membership 按当前页 Game ID 集合一次聚合，Folder count 使用集合查询；不得形成每张卡一次查询。查询计划由索引断言保护，不使用易抖动的耗时阈值。
 
-字段、索引和 trigger 的精确定义见 [`data-model.md`](./data-model.md)；route、DTO、上限、cursor、ETag、幂等和错误见 [`http-api-contract.md`](./http-api-contract.md)。
+字段、索引和应用写入校验 的精确定义见 [`data-model.md`](./data-model.md)；route、DTO、上限、cursor、ETag、幂等和错误见 [`http-api-contract.md`](./http-api-contract.md)。
 
 ## 4. 隔离、安全与并发结果
 

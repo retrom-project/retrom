@@ -16,13 +16,18 @@ import (
 	"testing"
 	"time"
 
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 type singleBlobCase struct {
@@ -69,7 +74,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
@@ -84,7 +89,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 			t.Fatal(err)
 		}
 	}
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		SourceType: "FILES", Files: []uploads.FileDeclaration{{
 			ClientFileID: "pong", RelativePath: input.filename, SizeBytes: int64(len(cart)),

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,51 +9,35 @@ import (
 	"strings"
 
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 	"retrom/internal/cursor"
+	saveservice "retrom/internal/service/saves"
 )
 
 type saveListFilters struct {
-	Conditions   []string
-	Arguments    []any
-	NormalizedQ  string
-	Availability string
-	Digest       string
+	NormalizedQ        string
+	GameID             string
+	PlatformID         string
+	PlatformInstanceID string
+	CoreID             string
+	Availability       string
+	Digest             string
+	CursorCreatedAtMS  *int64
+	CursorID           string
 }
 
 func parseSaveListFilters(values url.Values, principal authn.Principal) (saveListFilters, error) {
 	filters := saveListFilters{
-		Conditions:   []string{"s.profile_id=?", "s.deleted_at_ms IS NULL", "pi.enabled=1"},
-		Arguments:    []any{principal.ProfileID},
-		NormalizedQ:  strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " ")),
+		NormalizedQ: strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " ")),
+		GameID:      values.Get("gameId"), PlatformID: values.Get("platformId"),
+		PlatformInstanceID: values.Get("platformInstanceId"), CoreID: values.Get("coreId"),
 		Availability: values.Get("availability"),
-	}
-	if filters.NormalizedQ != "" {
-		filters.Conditions = append(filters.Conditions, "(instr(g.search_text,?)>0 OR instr(lower(s.name),?)>0)")
-		filters.Arguments = append(filters.Arguments, filters.NormalizedQ, filters.NormalizedQ)
-	}
-	for _, filter := range []struct{ queryName, column string }{
-		{"gameId", "s.game_id"},
-		{"platformId", "pi.platform_id"},
-		{"platformInstanceId", "pi.id"},
-		{"coreId", "source_launch.core_id"},
-	} {
-		if value := values.Get(filter.queryName); value != "" {
-			filters.Conditions = append(filters.Conditions, filter.column+"=?")
-			filters.Arguments = append(filters.Arguments, value)
-		}
 	}
 	if filters.Availability == "" {
 		filters.Availability = "AVAILABLE"
 	}
 	switch filters.Availability {
 	case "AVAILABLE":
-		filters.Conditions = append(filters.Conditions, "g.status='PUBLISHED'", "runtime_compatibility.status='AVAILABLE'")
 	case "BLOCKED":
-		filters.Conditions = append(
-			filters.Conditions,
-			"(g.status!='PUBLISHED' OR runtime_compatibility.status!='AVAILABLE')",
-		)
 	case "ALL":
 	default:
 		return saveListFilters{}, fmt.Errorf("%w: availability", errUnknownQuery)
@@ -84,69 +67,52 @@ func (server *Server) applySaveCursor(values url.Values, filters *saveListFilter
 	if err != nil {
 		return errInvalidCursorPayload
 	}
-	filters.Conditions = append(filters.Conditions, `(COALESCE(native.last_synced_at_ms,s.created_at_ms)<?
- OR (COALESCE(native.last_synced_at_ms,s.created_at_ms)=? AND s.id<?))`)
-	filters.Arguments = append(filters.Arguments, createdAt, createdAt, payload.ID)
+	filters.CursorCreatedAtMS = &createdAt
+	filters.CursorID = payload.ID
 	return nil
 }
 
-type saveListRow struct {
-	id, gameID, gameTitle, name, coreID, coreName, gameStatus string
-	platformID, platformName, instanceID, instanceName        string
-	compatibilityStatus                                       string
-	version, createdAtMS, activeDurationMS, sizeBytes         int64
-	hasScreenshot                                             bool
-	discIndex                                                 sql.NullInt64
-	lastSyncedAtMS                                            sql.NullInt64
-}
-
-func scanSaveListRows(rows *sql.Rows, capacity int) ([]map[string]any, error) {
-	items := make([]map[string]any, 0, capacity)
-	for rows.Next() {
-		var row saveListRow
-		if err := rows.Scan(
-			&row.id, &row.gameID, &row.gameTitle, &row.name, &row.version,
-			&row.createdAtMS, &row.lastSyncedAtMS, &row.activeDurationMS, &row.sizeBytes, &row.coreID, &row.coreName,
-			&row.gameStatus, &row.platformID, &row.platformName, &row.instanceID,
-			&row.instanceName, &row.discIndex, &row.hasScreenshot, &row.compatibilityStatus,
-		); err != nil {
-			return nil, fmt.Errorf("scan save list row: %w", err)
-		}
-		items = append(items, row.projection())
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate save list rows: %w", err)
-	}
-	return items, nil
-}
-
-func (row saveListRow) projection() map[string]any {
+func projectSaveListItem(row saveservice.ListItem) map[string]any {
 	reasons := []any{}
-	switch row.compatibilityStatus {
+	switch row.CompatibilityStatus {
 	case "INCOMPATIBLE_RUNTIME":
 		reasons = append(reasons, map[string]any{"code": "SAVE_RUNTIME_INCOMPATIBLE"})
 	case "CORE_UNAVAILABLE":
 		reasons = append(reasons, map[string]any{"code": "SAVE_CORE_UNAVAILABLE"})
 	}
-	available := row.gameStatus == "PUBLISHED" && row.compatibilityStatus == "AVAILABLE"
+	available := row.GameStatus == "PUBLISHED" && row.CompatibilityStatus == "AVAILABLE"
 	return map[string]any{
-		"saveStateId": row.id, "gameId": row.gameID, "gameTitle": row.gameTitle,
-		"name": row.name, "version": row.version, "createdAtMs": row.createdAtMS,
-		"lastSyncedAtMs": nullableInteger(row.lastSyncedAtMS),
-		"discIndex":      nullableInteger(row.discIndex), "discLabel": discLabel(row.discIndex),
-		"activeDurationMs": row.activeDurationMS, "sizeBytes": row.sizeBytes,
-		"screenshotUrl": optionalSaveScreenshotURL(row.id, row.hasScreenshot),
-		"core":          map[string]any{"id": row.coreID, "name": row.coreName},
-		"platformId":    row.platformID,
-		"platform":      map[string]any{"id": row.platformID, "name": row.platformName},
+		"saveStateId": row.ID, "gameId": row.GameID, "gameTitle": row.GameTitle,
+		"name": row.Name, "version": row.Version, "createdAtMs": row.CreatedAtMS,
+		"lastSyncedAtMs": saveNullableInteger(row.LastSyncedAtMS),
+		"discIndex":      saveNullableInteger(row.DiscIndex), "discLabel": saveDiscLabel(row.DiscIndex),
+		"activeDurationMs": row.ActiveDurationMS, "sizeBytes": row.SizeBytes,
+		"screenshotUrl": optionalSaveScreenshotURL(row.ID, row.HasScreenshot),
+		"core":          map[string]any{"id": row.CoreID, "name": row.CoreName},
+		"platformId":    row.PlatformID,
+		"platform":      map[string]any{"id": row.PlatformID, "name": row.PlatformName},
 		"platformInstance": map[string]any{
-			"id": row.instanceID, "name": row.instanceName,
+			"id": row.InstanceID, "name": row.InstanceName,
 		},
 		"availability": map[string]any{
 			"status":  map[bool]string{true: "AVAILABLE", false: "BLOCKED"}[available],
 			"reasons": reasons,
 		},
 	}
+}
+
+func saveNullableInteger(value *int64) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func saveDiscLabel(value *int64) any {
+	if value == nil {
+		return nil
+	}
+	return fmt.Sprintf("光盘 %d", *value+1)
 }
 
 // Query projection stays contiguous with pagination assembly.
@@ -166,52 +132,20 @@ func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
 	if raw := values.Get("limit"); raw != "" {
 		limit, _ = strconv.Atoi(raw)
 	}
-	query := queryWithConditions(
-		`
-SELECT s.id,
-s.game_id,
-m.title,
-s.name,
-s.version,
-s.created_at_ms,
-native.last_synced_at_ms,
-s.active_duration_ms,
-s.payload_size_bytes,
-source_launch.core_id,
-c.name,
-g.status,
-p.id,
-p.name,
-pi.id,
-pi.name,
-s.disc_index,
-s.screenshot_blob_id IS NOT NULL,
-runtime_compatibility.status
-FROM save_states s
-LEFT JOIN game_save_versions native ON native.save_state_id=s.id
-JOIN save_state_runtime_compatibility runtime_compatibility
-  ON runtime_compatibility.save_state_id=s.id
-JOIN games g ON g.id=s.game_id
-JOIN games m ON m.id=g.id
-JOIN launch_sessions source_launch ON source_launch.id=s.source_launch_session_id
-JOIN cores c ON c.id=source_launch.core_id
-JOIN platform_instances pi ON pi.id=g.platform_instance_id
-JOIN platforms p ON p.id=pi.platform_id
-`,
-		filters.Conditions,
-		` ORDER BY COALESCE(native.last_synced_at_ms,s.created_at_ms) DESC,s.id DESC LIMIT ?`,
-	)
-	filters.Arguments = append(filters.Arguments, limit+1)
-	rows, err := server.database.QueryContext(request.Context(), query, filters.Arguments...)
+	rows, err := server.saveService.List(request.Context(), saveservice.ListQuery{
+		ProfileID: principal.ProfileID, Query: filters.NormalizedQ,
+		GameID: filters.GameID, PlatformID: filters.PlatformID,
+		PlatformInstanceID: filters.PlatformInstanceID, CoreID: filters.CoreID,
+		Availability: filters.Availability, CursorCreatedAtMS: filters.CursorCreatedAtMS,
+		CursorID: filters.CursorID, Limit: limit + 1,
+	})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items, err := scanSaveListRows(rows, limit+1)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
+	items := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, projectSaveListItem(row))
 	}
 	if err := projectMapTags(request.Context(), items, "gameId", server.tagService.References); err != nil {
 		server.databaseError(writer, request, err)
@@ -281,43 +215,20 @@ func (server *Server) patchSave(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	now := server.now().UnixMilli()
-	result, err := server.database.ExecContext(
-		request.Context(),
-		`
-UPDATE save_states
-SET name=?,
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-AND profile_id=?
-AND version=?
-AND deleted_at_ms IS NULL
-`,
-		body.Name,
-		now,
-		request.PathValue("saveStateId"),
-		principal.ProfileID,
-		expected,
-	)
-	if err != nil {
-		server.databaseError(writer, request, err)
+	err = server.saveService.Rename(request.Context(), saveservice.RenameRequest{
+		SaveStateID: request.PathValue("saveStateId"), ProfileID: principal.ProfileID,
+		Name: body.Name, ExpectedVersion: expected, UpdatedAtMS: now,
+	})
+	if errors.Is(err, saveservice.ErrNotFound) {
+		writeError(writer, request, http.StatusNotFound, "SAVE_STATE_NOT_FOUND", "存档不存在", map[string]any{})
 		return
 	}
-	changed, _ := result.RowsAffected()
-	if changed != 1 {
-		var exists int
-		lookupErr := server.database.QueryRowContext(request.Context(), `
-SELECT 1 FROM save_states WHERE id=? AND profile_id=? AND deleted_at_ms IS NULL
-`, request.PathValue("saveStateId"), principal.ProfileID).Scan(&exists)
-		if errors.Is(lookupErr, sql.ErrNoRows) {
-			writeError(writer, request, http.StatusNotFound, "SAVE_STATE_NOT_FOUND", "存档不存在", map[string]any{})
-			return
-		}
-		if lookupErr != nil {
-			server.databaseError(writer, request, lookupErr)
-			return
-		}
+	if errors.Is(err, saveservice.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "存档已被修改", map[string]any{})
+		return
+	}
+	if err != nil {
+		server.databaseError(writer, request, err)
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
@@ -348,43 +259,20 @@ func (server *Server) deleteSave(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	now := server.now().UnixMilli()
-	result, err := server.database.ExecContext(
-		request.Context(),
-		`
-UPDATE save_states
-SET deleted_at_ms=?,
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-AND profile_id=?
-AND version=?
-AND deleted_at_ms IS NULL
-`,
-		now,
-		now,
-		request.PathValue("saveStateId"),
-		principal.ProfileID,
-		expected,
-	)
-	if err != nil {
-		server.databaseError(writer, request, err)
+	err = server.saveService.Delete(request.Context(), saveservice.DeleteRequest{
+		SaveStateID: request.PathValue("saveStateId"), ProfileID: principal.ProfileID,
+		ExpectedVersion: expected, UpdatedAtMS: now,
+	})
+	if errors.Is(err, saveservice.ErrNotFound) {
+		writeError(writer, request, http.StatusNotFound, "SAVE_STATE_NOT_FOUND", "存档不存在", map[string]any{})
 		return
 	}
-	changed, _ := result.RowsAffected()
-	if changed != 1 {
-		var exists int
-		lookupErr := server.database.QueryRowContext(request.Context(), `
-SELECT 1 FROM save_states WHERE id=? AND profile_id=? AND deleted_at_ms IS NULL
-`, request.PathValue("saveStateId"), principal.ProfileID).Scan(&exists)
-		if errors.Is(lookupErr, sql.ErrNoRows) {
-			writeError(writer, request, http.StatusNotFound, "SAVE_STATE_NOT_FOUND", "存档不存在", map[string]any{})
-			return
-		}
-		if lookupErr != nil {
-			server.databaseError(writer, request, lookupErr)
-			return
-		}
+	if errors.Is(err, saveservice.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "存档已被修改", map[string]any{})
+		return
+	}
+	if err != nil {
+		server.databaseError(writer, request, err)
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))

@@ -33,13 +33,19 @@
 
 ## 3. 关系写入与事务
 
-所有集合替换遵守同一过程：先验证数组长度、规范 UUIDv7、重复和全部 Tag 的活动状态；读取当前活动集合；完全相同则 no-op；否则删除不再选择的活动关系、插入新增关系，保留指向 DELETED tombstone 的历史行，推进 touched Tag 和 owner aggregate 的版本并记录领域事件或审计。数据库 trigger 再次保护活动状态、owner 状态和 20 个上限。
+所有集合替换遵守同一过程：先验证数组长度、规范 UUIDv7、重复和全部 Tag 的活动状态；读取当前活动集合；完全相同则 no-op；否则删除不再选择的活动关系、插入新增关系，保留指向 DELETED tombstone 的历史行，推进 touched Tag 和 owner aggregate 的版本并记录领域事件或审计。应用存储方法在同一事务中保护活动状态、owner 状态和 20 个上限。
 
 - `PUT /admin/games/{gameId}/tags` 以 Game `If-Match` 原子替换 PUBLISHED 或 DELETED Game 的当前标签，推进 Game version 并写 `GAME_TAGS_REPLACED` 审计；它不创建 Game 当前元信息字段。
 - Review 标签属于 ReviewDraft version。PATCH 自动保存的 `tagIds` 与标题、媒体、Validation 等草稿选择共同提交；Approve 在原发布事务内重新验证活动 Tag，并将当前 ReviewDraftTag 原子复制到 GameTag。任何失败都回滚整个发布。Discard 保留关系与最终 ReviewEvent 的名称快照。
 - Pegasus Collection 标签属于 mapping version。每个 `IMPORT` Collection 的映射保存关系及稳定 `{tagId,name}` snapshot；`SKIP` 必须是空数组。start 后映射冻结，retry 复用该映射；handoff 只把仍活动的选择复制到所创建的 ReviewDraft，且崩溃恢复不得重复写入。
 
 Tag 删除与关系变化都在短数据库写事务内完成，不执行文件扫描、hash、归档读取或网络访问。Tag 删除使用 Tag ETag；Game/Review/Pegasus 写使用各自 owner ETag，因此删除和并发分配只有一种提交顺序能成功。
+
+### 3.1 Service 与 Repository
+
+`internal/service/tagging` 维护名称与容量校验、活动引用验证、版本与删除确认、关系差异、no-op 和审计快照。`internal/persistence/tagging` 实现业务 Repository 接口，集中 SQL、nullable 映射、分页及联动版本更新，并复用 `internal/dbexec` 的执行与扫描接口。
+
+独立标签用例通过 Repository 开启短写事务。参与导入、审核发布及 Collection 映射时，标签 Service 接收绑定到外层事务的 `WriteScope` 业务能力；它不接收 `sql.Tx`，也不独立提交。外层操作失败必须同时撤销标签关系和版本推进。分页 cursor 先在 Service 验证并转换为类型明确的查询参数，再交给 Repository 生成 SQL 条件。
 
 ## 4. 普通导入与 Pegasus
 

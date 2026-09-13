@@ -12,9 +12,14 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	isolationpersistence "retrom/internal/persistence/isolation"
+
 	"retrom/internal/libraryimport"
-	"retrom/internal/rpgmaker/isolation"
 	"retrom/internal/runtimelaunch"
+	"retrom/internal/service/isolation"
 	"retrom/internal/testsupport"
 )
 
@@ -105,8 +110,8 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 	t.Helper()
 	server := newTestServer(t)
 	const template = "http://{launchId}.rpg.localhost:3000"
-	server.launcher.WithRPGRuntimeOriginTemplate(template)
-	server.rpgIsolation = isolation.New(server.database, template, time.Now)
+	server.launchSources.WithRPGRuntimeOriginTemplate(template)
+	server.rpgIsolation = isolation.New(isolationpersistence.New(server.database), template, time.Now)
 	active, manifests, err := testsupport.RuntimeProviderInputs(t.Context(), server.database)
 	if err != nil {
 		t.Fatal(err)
@@ -122,7 +127,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.WithRuntimeProvider(server.dependencies.RuntimeCatalog, builder, http.NotFoundHandler())
+	server.WithRuntimeProvider(builder, http.NotFoundHandler())
 	// The installed Provider handler is not part of this HTTP authorization test.
 	server.runtimeProvider = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/native/bridge.js") {
@@ -132,7 +137,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 			t.Error(err)
 		}
 	})
-	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	prefix, version := "rpg", "1.6.2"

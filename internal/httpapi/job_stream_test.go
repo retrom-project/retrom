@@ -11,13 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/accounts"
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/accounts"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -243,7 +246,7 @@ func newTestServer(t *testing.T) *Server {
 func newRecommendationTestServer(t *testing.T) *Server {
 	t.Helper()
 	server := newTestServerWithPlatformFixtures(t, false, []string{"4.2.3", "4.3.0-pre"})
-	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatalf("bootstrap recommendation dependencies: %v", err)
 	}
 	server.startupReady.Store(true)
@@ -296,7 +299,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	).WithReadinessDatabase(database.ReadOnly)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(context.Background(), database.SQL)
 	testassert.Falsef(t, err != nil, "build runtime Provider fixture: %v", err)
-	server.WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder, http.NotFoundHandler())
+	server.WithRuntimeProvider(runtimeBuilder, http.NotFoundHandler())
 	// General HTTP contract tests exercise handlers, not the asynchronous DAT
 	// readiness lifecycle. Readiness-specific tests explicitly clear this bit.
 	server.startupReady.Store(true)

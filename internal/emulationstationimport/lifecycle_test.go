@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -43,7 +46,7 @@ func newLifecycleFixture(t *testing.T) lifecycleFixture {
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
 	testassert.False(t, testsupport.SeedRuntimeProviders(t.Context(), database.SQL, dependencySet.RuntimeCatalog) != nil, "seed runtime providers")
-	testassert.False(t, dependencySet.Bootstrap(t.Context(), database.SQL, time.Now()) != nil, "bootstrap dependencies")
+	testassert.False(t, dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), time.Now()) != nil, "bootstrap dependencies")
 	const userID = "01980000-0000-7000-8000-000000000841"
 	mustExecEmulationStationTest(t, database.SQL, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('emulationstation-lifecycle-profile','Lifecycle',1);
@@ -83,7 +86,10 @@ func (fixture lifecycleFixture) createAndScan(t *testing.T) Summary {
 		fixture.context, CreateRequest{RootID: "games", SourceRelativePath: ""}, fixture.userID,
 	)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "scan work was not claimable")
 	fixture.service.execute(fixture.context, unit)
 	scanned, err := fixture.service.Get(fixture.context, created.ID)
@@ -157,7 +163,10 @@ SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY
 	testassert.False(t, err != nil, err)
 	_, err = fixture.service.StartImport(fixture.context, scanned.ID, mapped.Version)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found && unit.Kind == "SERVER_EMULATIONSTATION_IMPORT", "import work was not claimed")
 	*fixture.now = fixture.now.Add(9 * time.Hour)
 	err = fixture.service.recoverWork(fixture.context)
@@ -184,7 +193,10 @@ func TestAllInvalidScanPersistsBoundedGamelistEvidence(t *testing.T) {
 		fixture.context, CreateRequest{RootID: "games", SourceRelativePath: ""}, fixture.userID,
 	)
 	testassert.False(t, err != nil, err)
-	unit, found := fixture.service.claim(fixture.context)
+	unit, found, claimErr := fixture.service.claim(fixture.context)
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
 	testassert.True(t, found, "invalid scan work was not claimable")
 	fixture.service.execute(fixture.context, unit)
 	failed, err := fixture.service.Get(fixture.context, created.ID)

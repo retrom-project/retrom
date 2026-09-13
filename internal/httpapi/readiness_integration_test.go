@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
 	"retrom/internal/testassert"
 )
 
@@ -18,7 +21,7 @@ func TestReadinessGatesBusinessRoutesDuringDATIndexing(t *testing.T) {
 	server := newTestServer(t)
 	server.startupReady.Store(false)
 	ctx := context.Background()
-	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -29,7 +32,7 @@ func TestReadinessGatesBusinessRoutesDuringDATIndexing(t *testing.T) {
 	server.Handler().ServeHTTP(blocked, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return blocked.Code != http.StatusServiceUnavailable }, func() bool { return !strings.Contains(blocked.Body.String(), `"code":"SERVICE_NOT_READY"`) }, func() bool { return !strings.Contains(blocked.Body.String(), `"reasonCode":"DEPENDENCY_INDEXING"`) }), "business gate = %d %s", blocked.Code, blocked.Body.String())
 
-	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	ready = httptest.NewRecorder()
@@ -45,10 +48,10 @@ func TestStartupReadinessGateDoesNotReprobeForEveryBusinessRequest(t *testing.T)
 	server := newTestServer(t)
 	server.startupReady.Store(false)
 	ctx := context.Background()
-	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 

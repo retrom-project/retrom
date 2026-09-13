@@ -2,7 +2,6 @@ package netplay
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +9,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/composition"
+
+	"retrom/internal/dbexec"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
@@ -125,7 +128,7 @@ func TestGamePageBoundsInitialCatalogWorkAndUsesStableCursor(t *testing.T) {
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -217,27 +220,27 @@ func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 			profile, ok := registry.Profile(test.profileID)
 			testassert.Truef(t, ok, "profile %q missing", test.profileID)
 			contentAllowed, targetMatches := service.matchesTargetProfile(eligibilityRow{
-				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
-				targetID:    profile.TargetID,
-				contentKind: "SINGLE_FILE", logicalName: test.logicalName,
+				PlatformID: test.platformID, CoreID: test.coreID, ProviderID: profile.ProviderID,
+				TargetID:    profile.TargetID,
+				ContentKind: "SINGLE_FILE", LogicalName: test.logicalName,
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return !targetMatches }), "arbitrary %s content did not match Target profile", test.coreID)
 			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
-				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
-				targetID:    profile.TargetID,
-				contentKind: "MULTI_DISC",
+				PlatformID: test.platformID, CoreID: test.coreID, ProviderID: profile.ProviderID,
+				TargetID:    profile.TargetID,
+				ContentKind: "MULTI_DISC",
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return contentAllowed }, func() bool { return targetMatches }), "unsupported %s content kind matched Target profile", test.coreID)
 			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
-				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
-				targetID:    "drifted-target",
-				contentKind: "SINGLE_FILE",
+				PlatformID: test.platformID, CoreID: test.coreID, ProviderID: profile.ProviderID,
+				TargetID:    "drifted-target",
+				ContentKind: "SINGLE_FILE",
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return targetMatches }), "drifted %s Target matched profile", test.coreID)
 			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
-				platformID: "unverified-platform", coreID: test.coreID, providerID: profile.ProviderID,
-				targetID:    profile.TargetID,
-				contentKind: "SINGLE_FILE",
+				PlatformID: "unverified-platform", CoreID: test.coreID, ProviderID: profile.ProviderID,
+				TargetID:    profile.TargetID,
+				ContentKind: "SINGLE_FILE",
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return targetMatches }), "unverified %s platform matched Target profile", test.coreID)
 		})
@@ -262,7 +265,7 @@ func TestArcadeEligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	snapshot := fmt.Sprintf(`{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":%q,"closure":[{"machine":"child","kind":"CONTENT","requiredBy":null,"depth":0},{"machine":"bios","kind":"BIOS_OR_BASE","requiredBy":"child","depth":1}],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","requiredBy":"child","depth":1,"expectedLogicalName":"bios.zip","state":"SATISFIED_EXTERNAL","requiredEntryCount":1,"requiredEntries":["bios.bin"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datID)
 	tx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(tx)
+	defer dbexec.Rollback(tx)
 	if _, err := tx.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -288,19 +291,13 @@ func TestArcadeEligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := NewService(database.SQL, nil, nil, Options{}, func() time.Time { return now })
+	datValue := datID
 	row := eligibilityRow{
-		variantID: variantID, logicalName: "child.zip", dependencyJSON: snapshot,
-		datVersionID: sql.NullString{String: datID, Valid: true},
+		VariantID: variantID, LogicalName: "child.zip", DependencyJSON: snapshot,
+		DATVersionID: &datValue,
 	}
 	runnable, err := service.arcadeDependencySnapshotRunnable(ctx, row)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !runnable }), "typed Arcade Arcade variant runnable=%t error=%v", runnable, err)
-}
-
-func TestHostCannotClaimGuestSeatThroughTheService(t *testing.T) {
-	t.Parallel()
-	if err := validateSeatMember(sql.NullString{String: "HOST", Valid: true}, sql.NullInt64{}); !errors.Is(err, ErrForbidden) {
-		t.Fatalf("host seat mutation error = %v", err)
-	}
 }
 
 func TestAuthenticateSocketDistinguishesForbiddenFromDatabaseFailure(t *testing.T) {
@@ -371,7 +368,7 @@ func TestPrepareFailureReturnsRoomToWaitingAndClearsReady(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -428,7 +425,7 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 		t.Fatal(err)
 	}
 	sentinel := errors.New("launch preflight failed")
-	if err := service.failPreparation(ctx, room.RoomID, sentinel); !errors.Is(err, sentinel) {
+	if err := service.preparation.Fail(ctx, room.RoomID, sessionID, sentinel); !errors.Is(err, sentinel) {
 		t.Fatalf("failPreparation() error = %v", err)
 	}
 	updated, err := service.Room(ctx, room.RoomID, hostID)
@@ -448,10 +445,11 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 	testassert.False(t, err != nil, err)
 	service.registry, err = parseRegistry(manifest, fixtureDependencySet())
 	testassert.False(t, err != nil, err)
+	service.Service = composition.NewNetplay(database.SQL, service.registry, nil, service.options, service.clock.Now)
 	games, err := service.Games(ctx, hostID, "SUPPORTED")
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return len(games) != 1 }, func() bool { return games[0].GameID != gameID }, func() bool { return len(games[0].NetplayProfiles) != 1 }, func() bool { return games[0].NetplayProfiles[0].ID != "fceumm-423-v1" }, func() bool { return games[0].BlockerCode != nil }), "eligible games = %#v", games)
-	eligible, err := service.eligibleProfiles(ctx, gameID)
+	eligible, err := service.eligibility().Profiles(ctx, gameID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(eligible) != 1 }), "eligible profile for retry = %#v, %v", eligible, err)
 	_, retryDigest, err := service.registry.CanonicalProfile(CanonicalProfileInput{
 		ManifestProfile:        eligible[0].Manifest,

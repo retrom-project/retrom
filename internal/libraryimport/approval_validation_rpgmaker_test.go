@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"testing"
 
+	"retrom/internal/dbexec"
+
 	"retrom/internal/corevalidation"
 )
 
@@ -20,7 +22,7 @@ func TestRPGMakerApprovalUsesProviderValidationInputDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 	want, err := corevalidation.ProviderValidationInputDigest(
-		input.ProviderID, input.TargetID, input.ContentID, input.DATID,
+		input.ProviderID, input.TargetID, input.ContentID, dbexec.StringPointer(input.DATID),
 		corevalidation.Snapshot{SchemaVersion: corevalidation.SnapshotSchemaVersion, Kind: corevalidation.SnapshotKindStatic, BIOS: []corevalidation.BIOSDependency{}},
 	)
 	if err != nil {

@@ -16,15 +16,25 @@ import (
 	"testing"
 	"time"
 
+	persistence "retrom/internal/persistence/launch"
+	application "retrom/internal/service/launch"
+
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/dbexec"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
@@ -41,7 +51,7 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 		filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3",
 	)
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
@@ -51,7 +61,7 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 		{ClientFileID: "wad", RelativePath: "DOOM/DATA.WAD", SizeBytes: 3},
 		{ClientFileID: "unsafe", RelativePath: "DOOM/SETUP%.BAT", SizeBytes: 3},
 	}
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "DIRECTORY", Files: files})
 	testassert.False(t, err != nil, err)
 	for index, body := range [][]byte{[]byte("exe"), []byte("wad"), []byte("bat")} {
@@ -214,20 +224,15 @@ WHERE variant.game_id=?
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	invalidJobID, _, err := service.queueValidationJob(
-		ctx,
-		transaction,
-		variantID,
-		"missing-game",
-		gameVersion,
-		strings.Repeat("a", 64),
-		providerID,
-		targetID,
-		contentcapability.NewPolicy("SINGLE_FILE"),
-		sql.NullString{},
-		strings.Repeat("0", 64),
-		strings.Repeat("0", 64),
-	)
+	inputs := application.ValidationInputs{
+		GameVariantID: variantID, GameID: "missing-game", GameVersion: gameVersion,
+		SourceManifestDigest: strings.Repeat("a", 64), ProviderID: providerID, TargetID: targetID,
+		ContentPolicy:         contentcapability.NewPolicy("SINGLE_FILE"),
+		ValidationInputDigest: strings.Repeat("0", 64), BIOSDependencyDigest: strings.Repeat("0", 64),
+	}
+	invalid, err := application.NewValidationScheduler(persistence.NewValidationJobs(transaction),
+		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+	invalidJobID := invalid.JobID
 	if err != nil {
 		_ = transaction.Rollback()
 		t.Fatal(err)
@@ -244,21 +249,10 @@ WHERE variant.game_id=?
 	}
 	retryTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(retryTx)
-	retriedJobID, queued, err := service.queueValidationJob(
-		ctx,
-		retryTx,
-		variantID,
-		"missing-game",
-		gameVersion,
-		strings.Repeat("a", 64),
-		providerID,
-		targetID,
-		contentcapability.NewPolicy("SINGLE_FILE"),
-		sql.NullString{},
-		strings.Repeat("0", 64),
-		strings.Repeat("0", 64),
-	)
+	defer dbexec.Rollback(retryTx)
+	retried, err := application.NewValidationScheduler(persistence.NewValidationJobs(retryTx),
+		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+	retriedJobID, queued := retried.JobID, retried.Queued
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !queued }, func() bool { return retriedJobID != invalidJobID }), "automatic validation retry = %s/%t, error=%v", retriedJobID, queued, err)
 	if err := retryTx.Commit(); err != nil {
 		t.Fatal(err)
@@ -287,7 +281,9 @@ WHERE id=?
 		Scan(&duplicateState, &duplicateAttempts); err != nil || duplicateState != "RUNNING" || duplicateAttempts != 1 {
 		t.Fatalf("duplicate validation resume = %s/%d, error=%v", duplicateState, duplicateAttempts, err)
 	}
-	service.recoverStaleValidationJobs(ctx)
+	if _, err := service.validationWorker().Recover(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&failedState); err != nil || failedState != "QUEUED" {
 		t.Fatalf("stale validation recovery = %s, error=%v", failedState, err)

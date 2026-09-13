@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/rpgmaker/isolation"
+	"retrom/internal/service/isolation"
 )
 
 const tyranoScriptBootstrapDocument = `<!doctype html>

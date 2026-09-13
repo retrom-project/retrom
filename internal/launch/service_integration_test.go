@@ -16,6 +16,18 @@ import (
 	"testing"
 	"time"
 
+	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationservice "retrom/internal/service/corevalidation"
+	application "retrom/internal/service/launch"
+
+	uploadpersistence "retrom/internal/persistence/uploads"
+
+	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencyservice "retrom/internal/service/dependencies"
+
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/blobcatalog"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -23,9 +35,9 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
-	"retrom/internal/uploads"
 )
 
 func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
@@ -42,12 +54,12 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 		filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
 	)
 	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, _ := blobstore.Open(dataDir)
 	contents := []byte("launchable-gba")
-	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
 		ctx,
 		uploads.CreateRequest{
@@ -95,7 +107,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	firmwareMetadata, err := blobs.Put(bytes.NewReader([]byte("local-gba-bios")))
 	testassert.False(t, err != nil, err)
-	firmwareBlobID, err := blobstore.EnsureRecord(
+	firmwareBlobID, err := blobcatalog.EnsureRecord(
 		ctx,
 		database.SQL,
 		firmwareMetadata,
@@ -171,9 +183,9 @@ updated_at_ms) VALUES(?,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status, code := service.validateStaticBIOSForContent(
+	if _, status, code, err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(
 		ctx, fceummTarget.ProviderID, fceummTarget.TargetID, "Missing.fds",
-	); status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
+	); err != nil || status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
 		t.Fatalf("missing required FDS BIOS validation = %s/%s", status, code)
 	}
 	assertMissingFDSValidationFinishes(t, ctx, database.SQL, service, approved.GameID)
@@ -213,7 +225,7 @@ SELECT state,error_code FROM jobs WHERE id=?
 		)
 		testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "create launch after BIOS dependency revalidation = %#v, error=%v", createdLaunch, err)
 	}
-	if _, err := service.Config(ctx, createdLaunch.LaunchID, "bad-capability"); err != ErrCredential {
+	if _, err := service.Config(ctx, createdLaunch.LaunchID, "bad-capability"); !errors.Is(err, ErrCredential) {
 		t.Fatalf("bad credential error = %v", err)
 	}
 	configuration, err := service.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
@@ -325,15 +337,7 @@ WHERE launch_session_id=?
 	testassert.Falsef(t, err != nil, "locked save quick launch: %v", err)
 	quickConfig, err := service.Config(ctx, quickLaunch.LaunchID, quickLaunch.Capability)
 	if err != nil {
-		source, sourceErr := service.productConfigSource(ctx, quickLaunch.LaunchID)
-		target, _ := service.runtimeBuilder.Target(source.providerID, source.targetID)
-		resources, resourcesErr := service.providerResources(
-			ctx, quickLaunch.LaunchID, quickLaunch.Capability, source, target,
-		)
-		options, optionsErr := providerTargetOptions(target.TargetOptionsSchema, source)
-		restore, _, restoreErr := service.providerRestore(ctx, quickLaunch.LaunchID, source, target)
-		t.Fatalf("quick launch config: %v; source=%#v/%v resources=%#v/%v options=%#v/%v restore=%#v/%v",
-			err, source, sourceErr, resources, resourcesErr, options, optionsErr, restore, restoreErr)
+		t.Fatalf("quick launch config: %v", err)
 	}
 	quickEnvelope := testsupport.RuntimeEnvelope(t, quickConfig)
 	quickRuntime := testsupport.RuntimeEnvelopeObject(t, quickEnvelope, "runtime")
@@ -343,7 +347,7 @@ WHERE launch_session_id=?
 	), "locked save envelope = %#v", quickEnvelope)
 	contentTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(contentTx)
+	defer dbexec.Rollback(contentTx)
 	if _, err := contentTx.ExecContext(ctx, `
 	UPDATE game_files SET logical_name='Launch.gb' WHERE game_id=? AND role='CONTENT'
 `, approved.GameID); err != nil {
@@ -388,7 +392,7 @@ WHERE j.id=?
 		t.Fatal(err)
 	}
 	var payload map[string]any
-	var snapshot validationSnapshot
+	var snapshot application.ValidationSnapshot
 	testassert.Falsef(t, testassert.Any(func() bool { return json.Unmarshal([]byte(payloadJSON), &payload) != nil }, func() bool { return json.Unmarshal([]byte(inputJSON), &snapshot) != nil }, func() bool { return cancellable != 0 }, func() bool { return len(dedupeKey) != 64 }, func() bool { return dedupeKey == snapshot.Inputs.ValidationInputDigest }, func() bool { return payload["inputExecutionNo"] != float64(1) }, func() bool { return snapshot.Inputs.GameVariantID == "" }), "validation job contract = cancellable:%d dedupe:%s payload:%s snapshot:%s", cancellable, dedupeKey, payloadJSON, inputJSON)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
@@ -482,7 +486,7 @@ func assertMissingFDSValidationFinishes(
 	const gameID = "60000000-0000-7000-8000-000000000001"
 	transaction, err := database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer cleanup.Rollback(transaction)
+	defer dbexec.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}

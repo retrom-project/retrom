@@ -3,7 +3,6 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +14,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/service/mediaaccess"
 )
 
 func decodeJSON(writer http.ResponseWriter, request *http.Request, target any, limit int64) error {
@@ -139,246 +138,64 @@ func (parser lexicalJSONParser) consumeClosing(opening json.Delim) error {
 	return nil
 }
 
-func nullableString(value sql.NullString) any {
-	if value.Valid {
-		return value.String
-	}
-	return nil
-}
-
-func gameCoverURL(assetID sql.NullString) any {
-	if assetID.Valid {
-		return "/content/assets/" + assetID.String
-	}
-	return nil
-}
-
-func reviewAssetURL(assetID sql.NullString) any {
-	if assetID.Valid {
-		return "/api/v1/admin/review-assets/" + assetID.String
-	}
-	return nil
-}
-
 func saveStateScreenshotURL(saveStateID string) string {
 	return "/content/save-states/" + saveStateID + "/screenshot"
 }
 
-func nullableInt64(value sql.NullInt64) any {
-	if value.Valid {
-		return value.Int64
-	}
-	return nil
-}
-
 func (server *Server) reviewCandidateAsset(writer http.ResponseWriter, request *http.Request) {
-	var digest, mediaType string
-	err := server.database.QueryRowContext(request.Context(), `
-SELECT digest,media_type FROM (
-  SELECT b.sha256 AS digest,a.media_type AS media_type
-  FROM scrape_candidate_assets a
-  JOIN blobs b ON b.id=a.blob_id
-  JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
-  JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
-  LEFT JOIN import_items i ON i.id=r.import_item_id
-  LEFT JOIN games g ON g.id=r.game_id
-  WHERE a.id=? AND a.status='READY'
-  AND (i.state='REVIEW_PENDING' OR g.status='PUBLISHED' OR EXISTS (
-    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
-  ))
-  UNION ALL
-  SELECT b.sha256 AS digest,a.media_type AS media_type
-  FROM review_uploaded_assets a
-  JOIN blobs b ON b.id=a.blob_id
-  JOIN import_items i ON i.id=a.import_item_id
-  WHERE a.id=?
-  AND (i.state='REVIEW_PENDING' OR EXISTS (
-    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
-  ))
-  UNION ALL
-  SELECT b.sha256 AS digest,screenshot.media_type AS media_type
-  FROM review_runtime_screenshots screenshot
-  JOIN blobs b ON b.id=screenshot.blob_id
-  JOIN import_items i ON i.id=screenshot.import_item_id
-  WHERE screenshot.id=?
-  AND (i.state='REVIEW_PENDING' OR EXISTS (
-    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
-  ))
-) LIMIT 1
-`, request.PathValue("assetId"), request.PathValue("assetId"), request.PathValue("assetId")).Scan(&digest, &mediaType)
-	if errors.Is(err, sql.ErrNoRows) {
-		kind := request.URL.Query().Get("kind")
-		if kind == "" {
-			kind = "COVER"
-		}
-		if kind != "COVER" && kind != "VIDEO" {
-			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "审核来源媒体类型无效", map[string]any{})
-			return
-		}
-		err = server.database.QueryRowContext(request.Context(), `
-SELECT min(candidate.digest),min(candidate.media_type) FROM (
- SELECT blob.sha256 AS digest,asset.media_type
- FROM pegasus_import_item_assets asset
- JOIN blobs blob ON blob.id=asset.blob_id
- JOIN pegasus_import_items source ON source.id=asset.item_id
- JOIN import_items item ON item.id=source.library_import_item_id
- WHERE source.id=? AND asset.kind=? AND asset.state='COPIED'
- AND (item.state='REVIEW_PENDING' OR EXISTS(
-  SELECT 1 FROM review_events event
-  WHERE event.import_item_id=item.id AND event.event_type IN ('APPROVED','DISCARDED')
- ))
- UNION ALL
- SELECT blob.sha256 AS digest,asset.media_type
- FROM emulationstation_import_item_assets asset
- JOIN blobs blob ON blob.id=asset.blob_id
- JOIN emulationstation_import_items source ON source.id=asset.item_id
- JOIN import_items item ON item.id=source.library_import_item_id
- WHERE source.id=? AND asset.kind=? AND asset.state='COPIED'
- AND (item.state='REVIEW_PENDING' OR EXISTS(
-  SELECT 1 FROM review_events event
-  WHERE event.import_item_id=item.id AND event.event_type IN ('APPROVED','DISCARDED')
- ))
-) candidate HAVING count(*)=1
-`, request.PathValue("assetId"), kind, request.PathValue("assetId"), kind).Scan(&digest, &mediaType)
-	}
-	if err != nil {
+	asset, err := server.mediaAccess.Review(
+		request.Context(), request.PathValue("assetId"), request.URL.Query().Get("kind"),
+	)
+	switch {
+	case errors.Is(err, mediaaccess.ErrKind):
+		writeError(
+			writer, request, http.StatusBadRequest, "INVALID_QUERY", "审核来源媒体类型无效", map[string]any{},
+		)
+		return
+	case errors.Is(err, mediaaccess.ErrNotFound):
 		writeError(writer, request, http.StatusNotFound, "REVIEW_ASSET_NOT_FOUND", "候选媒体不存在", map[string]any{})
 		return
+	case err != nil:
+		server.databaseError(writer, request, err)
+		return
 	}
-	server.serveBlob(writer, request, digest, mediaType, true)
+	server.serveBlob(writer, request, asset.Digest, asset.MediaType, true)
 }
 
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) diagnostics(writer http.ResponseWriter, request *http.Request) {
-	transaction, err := server.database.BeginTx(request.Context(), &sql.TxOptions{ReadOnly: true})
+	report, err := server.diagnosticsService.Report(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer cleanup.Rollback(transaction)
-	var schemaVersion int64
-	if err := transaction.QueryRowContext(request.Context(), `
-SELECT COALESCE(MAX(version),
-0)
-FROM schema_migrations
-`).Scan(&schemaVersion); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	var publishedGames, deletedGames, activeSaves, deletedSaves, blobCount int64
-	var queuedJobs, runningJobs, cancelRequestedJobs, succeededJobs, failedJobs, cancelledJobs int64
-	var pendingDATs, parsingDATs, readyDATs, failedDATs, cancelledDATs int64
-	err = transaction.QueryRowContext(request.Context(), `
-SELECT
-(SELECT count(*)
-FROM games
-WHERE status='PUBLISHED'),
-(SELECT count(*)
-FROM games
-WHERE status='DELETED'),
-(SELECT count(*)
-FROM save_states
-WHERE deleted_at_ms IS NULL),
-(SELECT count(*)
-FROM save_states
-WHERE deleted_at_ms IS NOT NULL),
-(SELECT count(*)
-FROM blobs),
-(SELECT count(*)
-FROM jobs
-WHERE state='QUEUED'),
-(SELECT count(*)
-FROM jobs
-WHERE state='RUNNING'),
-(SELECT count(*)
-FROM jobs
-WHERE state='CANCEL_REQUESTED'),
-(SELECT count(*)
-FROM jobs
-WHERE state='SUCCEEDED'),
-(SELECT count(*)
-FROM jobs
-WHERE state='FAILED'),
-(SELECT count(*)
-FROM jobs
-WHERE state='CANCELLED'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='PENDING'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='PARSING'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='READY'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='FAILED'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='CANCELLED')
-`).Scan(
-		&publishedGames, &deletedGames, &activeSaves, &deletedSaves, &blobCount,
-		&queuedJobs, &runningJobs, &cancelRequestedJobs, &succeededJobs, &failedJobs, &cancelledJobs,
-		&pendingDATs, &parsingDATs, &readyDATs, &failedDATs, &cancelledDATs,
-	)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	providerRows, err := transaction.QueryContext(request.Context(), `
-SELECT provider_id,provider_version,bundle_sha256,source
-FROM runtime_providers ORDER BY provider_id
-`)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer func() { cleanup.Error("close provider rows", providerRows.Close()) }()
-	runtimeProviders := make([]map[string]any, 0, 2)
-	for providerRows.Next() {
-		var providerID, providerVersion, bundleSHA256, source string
-		if err := providerRows.Scan(&providerID, &providerVersion, &bundleSHA256, &source); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
+	runtimeProviders := make([]map[string]any, 0, len(report.RuntimeProviders))
+	for _, provider := range report.RuntimeProviders {
 		runtimeProviders = append(runtimeProviders, map[string]any{
-			"providerId": providerID, "providerVersion": providerVersion,
-			"bundleSha256": bundleSHA256, "source": source,
+			"providerId": provider.ProviderID, "providerVersion": provider.ProviderVersion,
+			"bundleSha256": provider.BundleSHA256, "source": provider.Source,
 		})
 	}
-	providerErr := providerRows.Err()
-	if providerErr != nil {
-		server.databaseError(writer, request, providerErr)
-		return
-	}
-	if err := transaction.Commit(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
+	counts := report.Counts
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.Header().Set("Content-Disposition", `attachment; filename="retrom-diagnostics.json"`)
 	writeJSON(writer, http.StatusOK, map[string]any{
-		"schemaVersion": 2, "generatedAtMs": server.now().UnixMilli(), "databaseSchemaVersion": schemaVersion,
-		"runtimeProviders": runtimeProviders,
+		"schemaVersion": 2, "generatedAtMs": server.now().UnixMilli(),
+		"databaseSchemaVersion": report.DatabaseSchemaVersion,
+		"runtimeProviders":      runtimeProviders,
 		"counts": map[string]any{
-			"games":      map[string]any{"published": publishedGames, "deleted": deletedGames},
-			"saveStates": map[string]any{"active": activeSaves, "deleted": deletedSaves},
-			"blobs":      blobCount,
+			"games":      map[string]any{"published": counts.PublishedGames, "deleted": counts.DeletedGames},
+			"saveStates": map[string]any{"active": counts.ActiveSaves, "deleted": counts.DeletedSaves},
+			"blobs":      counts.Blobs,
 			"jobs": map[string]any{
-				"queued":          queuedJobs,
-				"running":         runningJobs,
-				"cancelRequested": cancelRequestedJobs,
-				"succeeded":       succeededJobs,
-				"failed":          failedJobs,
-				"cancelled":       cancelledJobs,
+				"queued": counts.QueuedJobs, "running": counts.RunningJobs,
+				"cancelRequested": counts.CancelRequestedJobs, "succeeded": counts.SucceededJobs,
+				"failed": counts.FailedJobs, "cancelled": counts.CancelledJobs,
 			},
 			"datVersions": map[string]any{
-				"pending":   pendingDATs,
-				"parsing":   parsingDATs,
-				"ready":     readyDATs,
-				"failed":    failedDATs,
-				"cancelled": cancelledDATs,
+				"pending": counts.PendingDATs, "parsing": counts.ParsingDATs,
+				"ready": counts.ReadyDATs, "failed": counts.FailedDATs,
+				"cancelled": counts.CancelledDATs,
 			},
 		},
 	})
@@ -400,7 +217,9 @@ func (server *Server) databaseError(writer http.ResponseWriter, request *http.Re
 		"error",
 		err,
 	)
-	writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "数据库操作失败", map[string]any{})
+	writeError(
+		writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "数据库操作失败", map[string]any{},
+	)
 }
 
 func writeJSON(writer http.ResponseWriter, status int, value any) {

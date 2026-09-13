@@ -1,0 +1,38 @@
+package gamecontent
+
+func replacementBindingMatchesSnapshot(binding Binding, snapshot JobSnapshot) bool {
+	return binding.identity() == snapshot.bindingIdentity()
+}
+
+type replacementBindingIdentity struct {
+	ManifestDigest, InstanceID, PlatformID, CoreID string
+	ProviderID, TargetID                           string
+	contentPolicyDigest                            string
+	VariantID, generation, dependencySHA256        string
+	RequirementsSHA256                             string
+	Version, PlatformVersion                       int64
+}
+
+func (binding Binding) identity() replacementBindingIdentity {
+	return replacementBindingIdentity{
+		ManifestDigest: binding.ManifestDigest, InstanceID: binding.InstanceID, PlatformID: binding.PlatformID,
+		CoreID: binding.CoreID, ProviderID: binding.ProviderID, TargetID: binding.TargetID,
+		contentPolicyDigest: binding.ContentPolicy.Digest(),
+		VariantID:           binding.VariantID, generation: binding.RPGGeneration,
+		dependencySHA256: binding.RPGDependencySHA256, RequirementsSHA256: binding.RPGRequirementsSHA256,
+		Version: binding.Version, PlatformVersion: binding.PlatformVersion,
+	}
+}
+
+func (snapshot JobSnapshot) bindingIdentity() replacementBindingIdentity {
+	return replacementBindingIdentity{
+		ManifestDigest: snapshot.BaseManifestDigest, InstanceID: snapshot.PlatformInstanceID,
+		PlatformID: snapshot.PlatformID, CoreID: snapshot.CoreID,
+		ProviderID: snapshot.ProviderID, TargetID: snapshot.TargetID,
+		contentPolicyDigest: snapshot.ContentPolicy.Digest(),
+		VariantID:           snapshot.VariantID, generation: snapshot.RPGGeneration,
+		dependencySHA256:   snapshot.RPGDependencySHA256,
+		RequirementsSHA256: snapshot.RPGRequirementsSHA256,
+		Version:            snapshot.GameVersion, PlatformVersion: snapshot.PlatformInstanceVersion,
+	}
+}

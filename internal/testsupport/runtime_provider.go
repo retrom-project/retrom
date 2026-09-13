@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	runtimecatalogpersistence "retrom/internal/persistence/runtimecatalog"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
@@ -146,7 +148,7 @@ func SeedRuntimeProviders(ctx context.Context, database *sql.DB, catalog runtime
 		return fmt.Errorf("testsupport: begin provider projection: %w", err)
 	}
 	defer func() { cleanup.Error("rollback", transaction.Rollback()) }()
-	if err := runtimecatalog.SynchronizeDefinitions(ctx, transaction, catalog, 0); err != nil {
+	if err := runtimecatalogpersistence.SynchronizeDefinitions(ctx, transaction, catalog, 0); err != nil {
 		return fmt.Errorf("testsupport: project Host definitions: %w", err)
 	}
 	targets, providerIDs := runtimeProjectionFixtures(catalog)

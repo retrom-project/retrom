@@ -1,7 +1,6 @@
 package corevalidation
 
 import (
-	"database/sql"
 	"errors"
 	"testing"
 
@@ -37,7 +36,7 @@ func TestMultiDiscValidationInputDigestIsOrderedAndIncludesSemanticInputs(t *tes
 	input := MultiDiscValidationInput{
 		GameVariantID: "variant", GameID: "content",
 		ContentKind: MultiDiscContentKind, ProviderID: "emulatorjs", TargetID: "yabause",
-		ContentPolicySHA256: strings64("f"), DATVersionID: sql.NullString{},
+		ContentPolicySHA256: strings64("f"), DATVersionID: nil,
 		BIOSDependencySHA256:    strings64("b"),
 		OrderedDiscSHA256:       []string{strings64("c"), strings64("d")},
 		CanonicalPlaylistSHA256: strings64("e"),
@@ -53,11 +52,11 @@ func TestValidationDigestsUseStableProviderTargetIdentity(t *testing.T) {
 	t.Parallel()
 	snapshot := Snapshot{SchemaVersion: SnapshotSchemaVersion, Kind: SnapshotKindStatic, BIOS: []BIOSDependency{}}
 	first, err := ProviderValidationInputDigest(
-		"retrom-runtime", "rpgmaker-mv", "content", sql.NullString{}, snapshot,
+		"retrom-runtime", "rpgmaker-mv", "content", nil, snapshot,
 	)
 	testassert.False(t, err != nil, err)
 	second, err := ProviderValidationInputDigest(
-		"retrom-runtime", "rpgmaker-mv", "content", sql.NullString{}, snapshot,
+		"retrom-runtime", "rpgmaker-mv", "content", nil, snapshot,
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first != second }),
 		"Provider deployment changed validation digest: %q != %q, error=%v", first, second, err)
@@ -65,7 +64,7 @@ func TestValidationDigestsUseStableProviderTargetIdentity(t *testing.T) {
 	multi := MultiDiscValidationInput{
 		GameVariantID: "variant", GameID: "content",
 		ContentKind: MultiDiscContentKind, ProviderID: "emulatorjs", TargetID: "yabause",
-		ContentPolicySHA256: strings64("f"), DATVersionID: sql.NullString{},
+		ContentPolicySHA256: strings64("f"), DATVersionID: nil,
 		BIOSDependencySHA256: strings64("b"), OrderedDiscSHA256: []string{strings64("c"), strings64("d")},
 		CanonicalPlaylistSHA256: strings64("e"),
 	}
