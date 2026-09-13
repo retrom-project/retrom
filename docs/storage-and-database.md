@@ -324,6 +324,8 @@ data/
 
 ## 7. 垃圾回收
 
+游戏内容替换由 `service/gamecontent` 决定运行终止、旧存档清理与备用 Variant 阻断；Repository 读取当前事实，按原 ID、版本、状态及精确文件键执行写入。引用每批最多读取 200 条，不能用不确定或零受影响行数表示成功。替换与发布、GC 排期、上传消费释放及 Job 完成处于同一事务；GC 和释放排期复用 payloadrelease Service，Repository 不回调旧业务包。
+
 - GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；不把可变 `ref_count` 作为事实源。
 - 业务释放同时使用代码内 `payload ownership registry`，其边集必须与 Blob registry 双向完全一致，并把每条边唯一归入 Game、运行时、ImportItem、PegasusItem、EmulationStationItem、ScrapeRun、Upload、全局 TTL、全局耐久、Archive 或记账生命周期。PayloadRelease 只解除其 scope 被授权的边；BIOS 等全局耐久引用不受 Game/Import 清理影响。
 - 释放调度由 `service/payloadrelease.Scheduler` 判断终态、重放与来源共享关系；`persistence/payloadrelease` 参与调用者的终态事务，原子登记 Job、不可变输入、排队事件与 owner 的 `RELEASING` 转换。更新必须核对读取到的版本、状态、可重试标记和普通审核绑定；受影响行数读取失败保留原始原因，未更新唯一 owner 时整体回滚。已绑定普通 ImportItem 的来源复用该 Item 的释放 Job，不创建第二份释放任务。

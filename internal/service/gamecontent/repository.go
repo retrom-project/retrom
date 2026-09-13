@@ -22,7 +22,7 @@ type WriteScope struct {
 	Jobs          JobWriter
 	Leases        LeaseRecords
 	ContentWriter ContentWriter
-	Retirements   RetirementRecords
+	Retirements   RetirementScope
 }
 type Reader interface {
 	Binding(context.Context, string) (Binding, error)
@@ -105,10 +105,5 @@ type ContentWriter interface {
 type RetirementImpact struct {
 	SaveStateCount   int64
 	CandidateBlobIDs []string
-}
-type RetirementRecords interface {
-	Retire(context.Context, string, string, int64) (RetirementImpact, error)
-	Stage(context.Context, []string) error
-	ReleaseUpload(context.Context, string, int64) error
 }
 type ReleaseSignal interface{ Signal() }

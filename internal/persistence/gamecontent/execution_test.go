@@ -61,7 +61,7 @@ func finishedTime(state string) *int64 {
 
 func TestReplacementFailureCannotOverwriteCancelledJob(t *testing.T) {
 	database, claim := executionFixture(t, "CANCELLED")
-	err := New(database, nil).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	err := New(database).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
 		changed, err := scope.Jobs.Fail(t.Context(), gamecontent.Outcome{Claim: claim, GameID: "game", Code: "GAME_CONTENT_INPUT_UNAVAILABLE", Retryable: true, Now: 17})
 		if changed {
 			t.Fatal("cancelled execution accepted failure write")
@@ -79,7 +79,7 @@ func TestReplacementClaimAndStartedEventRollbackTogether(t *testing.T) {
 	if _, err := database.ExecContext(t.Context(), `DROP TABLE job_events`); err != nil {
 		t.Fatal(err)
 	}
-	err := New(database, nil).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	err := New(database).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
 		_, err := scope.Leases.Claim(t.Context(), claim)
 		return err
 	})
@@ -98,7 +98,7 @@ func TestReplacementClaimAndStartedEventRollbackTogether(t *testing.T) {
 
 func TestReplacementLeaseRejectsExpiredOrReplacedWorkers(t *testing.T) {
 	database, claim := executionFixture(t, "QUEUED")
-	err := New(database, nil).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	err := New(database).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
 		claimed, err := scope.Leases.Claim(t.Context(), claim)
 		if err != nil {
 			return err
@@ -133,7 +133,7 @@ func TestReplacementLeaseRejectsExpiredOrReplacedWorkers(t *testing.T) {
 
 func TestReplacementFailureEventCannotPartiallyCommit(t *testing.T) {
 	database, claim := executionFixture(t, "RUNNING")
-	err := New(database, nil).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	err := New(database).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
 		changed, err := scope.Jobs.Fail(t.Context(), gamecontent.Outcome{Claim: claim, GameID: "game", Code: "failed", Retryable: true, Now: 100})
 		if err != nil {
 			return err
@@ -168,7 +168,7 @@ func TestReplacementClaimRejectsDifferentGameScope(t *testing.T) {
 	if _, err := database.ExecContext(t.Context(), `UPDATE jobs SET scope_id='different-game' WHERE id='replacement'`); err != nil {
 		t.Fatal(err)
 	}
-	err := New(database, nil).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	err := New(database).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
 		claimed, err := scope.Leases.Claim(t.Context(), claim)
 		if claimed {
 			t.Fatal("worker claimed a different game")

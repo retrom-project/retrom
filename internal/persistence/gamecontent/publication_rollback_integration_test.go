@@ -37,8 +37,8 @@ func assertLatePublicationRollback(t *testing.T, database *sql.DB, blobs *blobst
 ) {
 	t.Helper()
 	upload := completeUpload(t, t.Context(), database, uploadService, "rollback.gba", []byte("late failure content"))
-	repository := failingPublicationRepository{New(database, releases)}
-	service := gamecontent.New(repository, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
+	repository := failingPublicationRepository{New(database)}
+	service := gamecontent.New(repository, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
 	result, err := service.Schedule(t.Context(), gameID, upload, version)
 	if err != nil {
 		t.Fatal(err)

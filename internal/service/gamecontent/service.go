@@ -7,6 +7,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/contentcapability"
+	"retrom/internal/service/payloadrelease"
 )
 
 var (
@@ -25,6 +26,7 @@ type Service struct {
 	repository             Repository
 	blobs                  *blobstore.Store
 	payloadReleases        ReleaseSignal
+	gc                     payloadrelease.GCStager
 	multiDiscImportEnabled bool
 	now                    func() time.Time
 }
@@ -116,4 +118,9 @@ func pointerText(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func (service *Service) WithGCStager(gc payloadrelease.GCStager) *Service {
+	service.gc = gc
+	return service
 }

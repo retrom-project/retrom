@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"retrom/internal/service/payloadrelease"
 )
 
 type workflowRepository struct {
@@ -105,13 +107,23 @@ func (jobs *failureJobs) Fail(_ context.Context, outcome Outcome) (bool, error) 
 }
 
 type failureRetirements struct {
-	RetirementRecords
+	payloadrelease.SchedulingScope
 	releases int
 }
 
-func (records *failureRetirements) ReleaseUpload(context.Context, string, int64) error {
+func (records *failureRetirements) Consumption(context.Context, string) (payloadrelease.Consumption, error) {
+	return payloadrelease.Consumption{Version: 1}, nil
+}
+
+func (records *failureRetirements) CreateJob(context.Context, payloadrelease.ScheduledJob) error {
 	records.releases++
 	return nil
+}
+
+type failureConsumption struct{ RetirementReader }
+
+func (failureConsumption) Consumption(context.Context, string) (string, error) {
+	return "consumption", nil
 }
 
 type commitSignal struct {
@@ -141,7 +153,7 @@ func TestFailureSettlementHonorsCancellationAndOwnership(t *testing.T) {
 	} {
 		t.Run(test.state, func(t *testing.T) {
 			jobs, retirements := &failureJobs{}, &failureRetirements{}
-			repository := &workflowRepository{scope: WriteScope{Leases: workflowLeases{state: test.state}, Jobs: jobs, Retirements: retirements}}
+			repository := &workflowRepository{scope: WriteScope{Leases: workflowLeases{state: test.state}, Jobs: jobs, Retirements: RetirementScope{Read: failureConsumption{}, Payload: retirements}}}
 			signal := &commitSignal{t: t, repository: repository}
 			service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithPayloadRelease(signal)
 			ctx, cancel := context.WithCancel(t.Context())
@@ -164,7 +176,7 @@ func TestFailureSettlementHonorsCancellationAndOwnership(t *testing.T) {
 
 func TestFailureSettlementPreservesLateErrorWithoutSignalling(t *testing.T) {
 	jobs, retirements := &failureJobs{}, &failureRetirements{}
-	repository := &workflowRepository{scope: WriteScope{Leases: workflowLeases{state: "RUNNING"}, Jobs: jobs, Retirements: retirements}, lateError: context.DeadlineExceeded}
+	repository := &workflowRepository{scope: WriteScope{Leases: workflowLeases{state: "RUNNING"}, Jobs: jobs, Retirements: RetirementScope{Read: failureConsumption{}, Payload: retirements}}, lateError: context.DeadlineExceeded}
 	signal := &commitSignal{t: t, repository: repository}
 	service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithPayloadRelease(signal)
 	cause := &replacementValidationError{code: "GAME_CONTENT_CHANGED"}

@@ -182,7 +182,7 @@ func (service *Service) settleFailure(parent context.Context, claim Claim, snaps
 			return fmt.Errorf("finish failed replacement: %w", err)
 		}
 		if changed && !outcome.Retryable {
-			if err := scope.Retirements.ReleaseUpload(ctx, claim.JobID, outcome.Now); err != nil {
+			if err := releaseReplacementUpload(ctx, scope.Retirements, claim.JobID, outcome.Now); err != nil {
 				return fmt.Errorf("release terminal replacement upload: %w", err)
 			}
 		}

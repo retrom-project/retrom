@@ -6,25 +6,22 @@ import (
 	"fmt"
 
 	"retrom/internal/dbexec"
-	"retrom/internal/payloadrelease"
 	validation "retrom/internal/persistence/corevalidation"
 	"retrom/internal/service/gamecontent"
 )
 
 type Repository struct {
 	database *sql.DB
-	releases *payloadrelease.Service
 }
 type (
 	records struct{ executor dbexec.Executor }
 	writes  struct {
 		transaction *sql.Tx
-		releases    *payloadrelease.Service
 	}
 )
 
-func New(database *sql.DB, releases *payloadrelease.Service) *Repository {
-	return &Repository{database, releases}
+func New(database *sql.DB) *Repository {
+	return &Repository{database: database}
 }
 
 func readScope(executor dbexec.Executor) gamecontent.ReadScope {
@@ -52,7 +49,7 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(gameconte
 		return fmt.Errorf("begin content replacement write: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	bound := writes{tx, repository.releases}
+	bound := writes{tx}
 	if err := work(
 		gamecontent.WriteScope{
 			ReadScope: readScope(
@@ -62,7 +59,7 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(gameconte
 			Jobs:          bound,
 			Leases:        bound,
 			ContentWriter: bound,
-			Retirements:   bound,
+			Retirements:   BindRetirement(tx),
 		},
 	); err != nil {
 		return err

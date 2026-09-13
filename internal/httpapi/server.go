@@ -256,8 +256,8 @@ func New(
 		payloadReleases:         payloadReleaseService,
 		platformDirectories:     platforminstance.New(platformpersistence.New(database), now),
 		metadata:                scraper,
-		gameContent: gamecontent.New(gamecontentpersistence.New(database, payloadReleaseService), now).WithBlobStore(blobs).
-			WithPayloadRelease(payloadReleaseService).
+		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithBlobStore(blobs).
+			WithPayloadRelease(payloadReleaseService).WithGCStager(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(savepersistence.New(database), blobs, now),
 		rpgIsolation:     isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),

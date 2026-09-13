@@ -26,7 +26,7 @@ func (service *Service) publish(
 		if err != nil {
 			return err
 		}
-		impact, err := scope.Retirements.Retire(ctx, snapshot.GameID, snapshot.VariantID, now)
+		impact, err := RetireInScope(ctx, scope.Retirements, snapshot.GameID, snapshot.VariantID, now)
 		if err != nil {
 			return fmt.Errorf("retire current game content: %w", err)
 		}
@@ -42,7 +42,7 @@ func (service *Service) publish(
 		); err != nil {
 			return fmt.Errorf("publish replacement content: %w", err)
 		}
-		if err := scope.Retirements.Stage(ctx, impact.CandidateBlobIDs); err != nil {
+		if err := service.gc.StageInScope(ctx, scope.Retirements.GC, impact.CandidateBlobIDs); err != nil {
 			return fmt.Errorf("stage replaced blob candidates: %w", err)
 		}
 		if err := scope.Jobs.Succeed(ctx, Outcome{
@@ -51,7 +51,7 @@ func (service *Service) publish(
 		}); err != nil {
 			return fmt.Errorf("complete replacement execution: %w", err)
 		}
-		if err := scope.Retirements.ReleaseUpload(ctx, claim.JobID, now); err != nil {
+		if err := releaseReplacementUpload(ctx, scope.Retirements, claim.JobID, now); err != nil {
 			return fmt.Errorf("release completed replacement upload: %w", err)
 		}
 		return nil
