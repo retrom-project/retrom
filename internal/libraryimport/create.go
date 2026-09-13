@@ -2,45 +2,25 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	composition "retrom/internal/composition/libraryimport"
+	application "retrom/internal/service/libraryimport"
 )
+
+func (service *Service) importCreations() *application.ImportCreations {
+	return composition.NewCreations(service.database, service.now, service.creationDependencies())
+}
+
+func (service *Service) creationDependencies() composition.CreationOptions {
+	return composition.CreationOptions{
+		Blobs: service.blobs, Tags: service.tags, Scraper: service.scraper,
+		ScummVMDetector: service.scummVMDetector, MultiDiscEnabled: service.multiDiscImportEnabled,
+	}
+}
 
 func (service *Service) Create(ctx context.Context, request CreateRequest) (Created, error) {
 	return service.create(ctx, request, nil)
-}
-
-func resolveInitialArcadeBIOSState(
-	ctx context.Context,
-	transaction *sql.Tx,
-	platformID, providerID, targetID string,
-	group *preparedGroup,
-	status, code, snapshotJSON string,
-) (string, string, string, error) {
-	if platformID != "arcade" {
-		return status, code, snapshotJSON, nil
-	}
-	biosState, err := resolveArcadeDraftBIOSState(
-		ctx, transaction, providerID, targetID, snapshotJSON, status, code,
-	)
-	if err != nil {
-		return "", "", "", err
-	}
-	if !biosState.tracked {
-		return status, code, snapshotJSON, nil
-	}
-	for _, dependency := range biosState.dependencies {
-		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
-			continue
-		}
-		group.ValidationFiles = append(group.ValidationFiles, preparedValidationFile{
-			Role:        "BIOS_BUNDLE",
-			LogicalName: dependency.LogicalName,
-			BlobID:      *dependency.BlobID,
-			SortOrder:   len(group.ValidationFiles),
-		})
-	}
-	return biosState.status, biosState.code, biosState.snapshotJSON, nil
 }
 
 func (service *Service) create(
@@ -49,32 +29,31 @@ func (service *Service) create(
 	reconfiguration *reconfigurationInput,
 	options ...creationOptions,
 ) (Created, error) {
-	plan, err := service.prepareCreation(ctx, request)
-	if err != nil {
-		return Created{}, err
-	}
 	if len(options) > 1 {
 		return Created{}, ErrInvalid
 	}
-	if len(options) == 1 {
-		plan.sourceCreation = options[0].sourceCreation
-		if options[0].reviewHandoffKind != "" {
-			plan.reviewHandoffKind = options[0].reviewHandoffKind
+	intent := application.ImportCreationOptions{}
+	if reconfiguration != nil {
+		intent.Reconfiguration = &application.ImportReconfiguration{
+			ImportID: reconfiguration.sourceImportJobID,
+			Version:  reconfiguration.sourceVersion,
+			FileIDs:  reconfiguration.sourceFileIDs,
 		}
 	}
-	if plan.reviewHandoffKind != reviewHandoffDirect && plan.reviewHandoffKind != reviewHandoffEmulationStation {
-		return Created{}, ErrInvalid
+	var binding *ownedSourceCreation
+	if len(options) == 1 {
+		intent.ReviewHandoffKind = options[0].reviewHandoffKind
+		binding = options[0].sourceCreation
+		if binding != nil {
+			intent.Source = &application.OwnedImportCreation{Intent: binding.intent, Before: binding.before}
+		}
 	}
-	if err := validateOwnedCreationPlan(plan); err != nil {
-		return Created{}, err
-	}
-	transaction, err := service.database.BeginTx(ctx, nil)
+	result, err := service.importCreations().Create(ctx, request, intent)
 	if err != nil {
-		return Created{}, fmt.Errorf("libraryimport/service: %w", err)
+		return Created{}, fmt.Errorf("create library import: %w", err)
 	}
-	run := newCreationRun(ctx, service, transaction, plan, reconfiguration)
-	if err := run.execute(); err != nil {
-		return Created{}, err
+	if binding != nil {
+		binding.result = result.Owned
 	}
-	return run.result(), nil
+	return result.Created, nil
 }

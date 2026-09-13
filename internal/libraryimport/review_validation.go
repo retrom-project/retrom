@@ -6,7 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
+
+	repository "retrom/internal/persistence/libraryimport"
 
 	application "retrom/internal/service/libraryimport"
 
@@ -421,123 +422,19 @@ func resolveArcadeDraftBIOSState(
 	transaction *sql.Tx,
 	providerID, targetID, previousSnapshot, previousStatus, previousCode string,
 ) (draftDependencyState, error) {
-	snapshot, valid := parseArcadeDraftSnapshot(previousSnapshot)
-	if !valid {
-		return draftDependencyState{}, nil
-	}
-	state := draftDependencyState{
-		tracked: true, replaceBundle: false, snapshotJSON: previousSnapshot, status: previousStatus, code: previousCode,
-		dependencies: make([]corevalidation.BIOSDependency, 0),
-	}
-	resolvedNames := make(map[string]struct{})
-	for index := range snapshot.Dependencies {
-		dependency := &snapshot.Dependencies[index]
-		if dependency.Kind != "BIOS_OR_BASE" || dependency.State != "MISSING" {
-			continue
-		}
-		resolved, dependencyState, err := resolveArcadeBIOSDependency(
-			ctx, transaction, providerID, targetID, dependency.Machine+".zip",
-		)
-		if err != nil {
-			return draftDependencyState{}, err
-		}
-		if resolved == nil {
-			continue
-		}
-		dependency.State = dependencyState
-		if dependencyState == "HASH_WARNING" {
-			snapshot.Warnings = append(snapshot.Warnings, dependency.Machine+".zip:"+*resolved.InstallationStatus)
-		}
-		resolvedNames[dependency.Machine+".zip"] = struct{}{}
-		state.dependencies = append(state.dependencies, *resolved)
-	}
-	if len(resolvedNames) == 0 {
-		return state, nil
-	}
-	missing := snapshot.MissingEntries[:0]
-	for _, entry := range snapshot.MissingEntries {
-		if _, resolved := resolvedNames[entry]; !resolved {
-			missing = append(missing, entry)
-		}
-	}
-	snapshot.MissingEntries = missing
-	sort.Strings(snapshot.Warnings)
-	if previousCode == "LAUNCH_BIOS_MISSING" && len(snapshot.MissingEntries) == 0 {
-		state.status, state.code = "READY", "READY"
-	}
-	encoded, err := json.Marshal(snapshot)
+	resolved, err := application.ResolveCreationArcade(ctx, repository.BindCreationArcade(transaction),
+		providerID, targetID, previousSnapshot, previousStatus, previousCode)
 	if err != nil {
-		return draftDependencyState{}, fmt.Errorf("libraryimport/review: encode arcade BIOS snapshot: %w", err)
+		return draftDependencyState{}, fmt.Errorf("resolve arcade BIOS: %w", err)
 	}
-	state.snapshotJSON = string(encoded)
-	return state, nil
+	return draftDependencyState{
+		tracked: resolved.Tracked, status: resolved.Status, code: resolved.Code,
+		snapshotJSON: resolved.SnapshotJSON, dependencies: resolved.Dependencies,
+	}, nil
 }
 
 func parseArcadeDraftSnapshot(raw string) (arcadeDraftSnapshot, bool) {
 	return application.ParseArcadeDraftSnapshot(raw)
-}
-
-func resolveArcadeBIOSDependency(
-	ctx context.Context,
-	transaction *sql.Tx,
-	providerID, targetID, logicalName string,
-) (*corevalidation.BIOSDependency, string, error) {
-	var resolved corevalidation.BIOSDependency
-	var condition, emulatorPath, installationID, blobID, installationStatus sql.NullString
-	var installationVersion sql.NullInt64
-	err := transaction.QueryRowContext(ctx, `
-SELECT q.id,
-q.version,
-q.catalog_digest,
-q.logical_name,
-q.requirement_mode,
-q.condition_code,
-q.delivery_kind,
-q.emulator_path,
-i.id,
-i.version,
-i.blob_id,
-i.status
-FROM bios_requirements q
-JOIN bios_installations i ON i.requirement_id=q.id
-AND i.is_active=1
-AND i.validated_requirement_version=q.version
-AND i.status IN ('MATCHED','HASH_WARNING','MISSING_ENTRY')
-WHERE q.provider_id=? AND q.target_id=?
-AND q.source_kind='DAT_MACHINE'
-AND q.enabled=1
-AND q.logical_name=?
-`, providerID, targetID, logicalName).Scan(
-		&resolved.RequirementID,
-		&resolved.RequirementVersion,
-		&resolved.CatalogDigest,
-		&resolved.LogicalName,
-		&resolved.RequirementMode,
-		&condition,
-		&resolved.DeliveryKind,
-		&emulatorPath,
-		&installationID,
-		&installationVersion,
-		&blobID,
-		&installationStatus,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, "", nil
-	}
-	if err != nil {
-		return nil, "", fmt.Errorf("libraryimport/review: resolve arcade BIOS: %w", err)
-	}
-	resolved.ConditionCode = nullableStringPointer(condition)
-	resolved.EmulatorPath = nullableStringPointer(emulatorPath)
-	resolved.ActivationOptions = map[string]string{}
-	resolved.InstallationID = nullableStringPointer(installationID)
-	resolved.InstallationVersion = nullableInt64Pointer(installationVersion)
-	resolved.BlobID = nullableStringPointer(blobID)
-	resolved.InstallationStatus = nullableStringPointer(installationStatus)
-	if installationStatus.String != "MATCHED" {
-		return &resolved, "HASH_WARNING", nil
-	}
-	return &resolved, "SATISFIED_EXTERNAL", nil
 }
 
 func nullableStringPointer(value sql.NullString) *string {

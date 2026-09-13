@@ -33,20 +33,6 @@ func loadReviewRPGDependencies(ctx context.Context, transaction *sql.Tx, draftID
 	return profile, digest, state, nil
 }
 
-func (run *creationRun) prepareRPGDependencies(record *groupRecord) error {
-	profile := record.group.RPGProfile
-	if profile == nil {
-		return nil
-	}
-	binding := rpgReviewBinding{generation: string(profile.ExpectedGeneration)}
-	binding.analysis.SelfContained = profile.SelfContained
-	binding.analysis.Requirements.RTP = profile.RTPDependencies
-	state, _ := resolveRPGDependencies(binding)
-	record.group.ValidationStatus, record.group.CompatibilityCode = state.status, state.code
-	record.group.DependencySnapshot = state.snapshotJSON
-	return nil
-}
-
 func (state *draftValidationRefresh) resolveRPGDependencies() (draftDependencyState, error) {
 	var draftID string
 	if err := state.transaction.QueryRowContext(state.ctx,

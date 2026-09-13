@@ -10,10 +10,7 @@ import (
 	application "retrom/internal/service/libraryimport"
 )
 
-var (
-	ErrDuplicateContent    = application.ErrDuplicateContent
-	errMultiDiscIncomplete = application.ErrMultiDiscIncomplete
-)
+var ErrDuplicateContent = application.ErrDuplicateContent
 
 type DuplicateGame = application.DuplicateGame
 

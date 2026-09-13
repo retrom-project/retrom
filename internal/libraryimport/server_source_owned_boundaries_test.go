@@ -58,26 +58,6 @@ func TestOwnedServerSourceRejectsUndeclaredPrimaryWithoutReview(t *testing.T) {
 	}
 }
 
-func TestOwnedSourcePlanRetainsCompanionInsideSelectedGroup(t *testing.T) {
-	t.Parallel()
-	group := preparedGroup{Sources: []preparedSource{
-		{Role: "CONTENT", File: importSourceFile{Path: "child.zip"}},
-		{Role: "COMPANION", File: importSourceFile{Path: "parent.zip"}},
-	}}
-	plan := creationPlan{
-		sourceCreation: &ownedSourceCreation{
-			intent: application.SourceCreationIntent{Kind: application.SourceOwnerPegasus, PrimaryPaths: []string{"child.zip"}},
-			before: application.SourceCreationSnapshot{TargetVersion: 1},
-		}, target: creationTarget{Version: 1}, groups: []preparedGroup{group},
-	}
-	if err := validateOwnedCreationPlan(plan); err != nil {
-		t.Fatal(err)
-	}
-	if len(plan.groups[0].Sources) != 2 || plan.groups[0].Sources[1].Role != "COMPANION" {
-		t.Fatalf("owned selection dropped dependency: %#v", plan.groups)
-	}
-}
-
 func TestOwnedSourceRejectsDifferentCopiedBlobAtDeclaredPath(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)

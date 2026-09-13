@@ -2,8 +2,9 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	composition "retrom/internal/composition/libraryimport"
 
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
@@ -16,27 +17,10 @@ type creationOptions struct {
 	sourceCreation    *ownedSourceCreation
 }
 
-type creationPlan struct {
-	reviewHandoffKind string
-	sourceCreation    *ownedSourceCreation
-	request           CreateRequest
-	contentMode       string
-	sourceType        string
-	target            creationTarget
-	datID             sql.NullString
-	files             []importSourceFile
-	dispositions      []preparedDisposition
-	groups            []preparedGroup
-	archives          []preparedArchive
-}
+type creationPlan = application.PreparedImport
 
 func (service *Service) importPreparation() *application.ImportPreparation {
-	return application.NewImportPreparation(
-		repository.BindImportFacts(service.database), repository.BindPreparationCatalog(service.database),
-		service.blobs, application.ImportPreparationOptions{
-			MultiDiscEnabled: service.multiDiscImportEnabled, MetadataScraperAvailable: service.scraper != nil,
-			ScummVMDetector: service.scummVMDetector,
-		})
+	return composition.NewPreparation(service.database, service.creationDependencies())
 }
 
 func (service *Service) prepareCreation(ctx context.Context, request CreateRequest) (creationPlan, error) {
@@ -44,12 +28,7 @@ func (service *Service) prepareCreation(ctx context.Context, request CreateReque
 	if err != nil {
 		return creationPlan{}, fmt.Errorf("prepare import creation: %w", err)
 	}
-	return creationPlan{
-		request: prepared.Request, contentMode: prepared.ContentMode, sourceType: prepared.SourceType,
-		reviewHandoffKind: reviewHandoffDirect, target: prepared.Target, files: prepared.Files,
-		datID:        sql.NullString{String: prepared.DATVersionID, Valid: prepared.DATVersionID != ""},
-		dispositions: prepared.Dispositions, groups: prepared.Groups, archives: prepared.Archives,
-	}, nil
+	return prepared, nil
 }
 
 func normalizeTargetCreateRequest(

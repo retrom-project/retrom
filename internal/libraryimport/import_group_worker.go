@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	repository "retrom/internal/persistence/libraryimport"
+
 	"retrom/internal/dbexec"
 	application "retrom/internal/service/libraryimport"
 
@@ -27,26 +29,11 @@ const (
 )
 
 type queuedCreationWork struct {
-	importID, jobID, workerID, actorUserID string
-	request                                CreateRequest
-	targetSnapshot                         importGroupTargetSnapshot
-	executionStartedAt, executionNo        int64
-	attempt                                int
-}
-
-func (work queuedCreationWork) accepts(target creationTarget) bool {
-	if target.Version != work.targetSnapshot.PlatformInstanceVersion ||
-		target.PlatformID != work.targetSnapshot.PlatformID ||
-		target.DefaultCoreID != work.targetSnapshot.DefaultCoreID {
-		return false
-	}
-	wanted := targetGuard(target)
-	for _, candidate := range work.targetSnapshot.Targets {
-		if candidate == wanted {
-			return true
-		}
-	}
-	return false
+	importID, jobID, workerID, actorUserID             string
+	request                                            CreateRequest
+	targetSnapshot                                     importGroupTargetSnapshot
+	executionStartedAt, executionNo, executionDeadline int64
+	attempt                                            int
 }
 
 func (service *Service) scheduleImportGroup(ctx context.Context, jobID string, delay time.Duration) {
@@ -172,18 +159,13 @@ func (service *Service) runImportGroup(ctx context.Context, jobID string) {
 	defer close(heartbeatDone)
 	plan, err := service.prepareCreation(queuedPrincipalContext(workerContext, work.actorUserID), work.request)
 	if err == nil {
-		err = service.recordImportGroupProgress(workerContext, work, "PERSISTING", len(plan.groups))
+		err = service.recordImportGroupProgress(workerContext, work, "PERSISTING", len(plan.Groups))
 	}
 	if err == nil {
-		transaction, beginErr := service.database.BeginTx(workerContext, nil)
-		if beginErr != nil {
-			err = fmt.Errorf("libraryimport/group worker: %w", beginErr)
-		} else {
-			run := newQueuedCreationRun(
-				queuedPrincipalContext(workerContext, work.actorUserID), service, transaction, plan, work,
-			)
-			err = run.execute()
-		}
+		_, err = service.importCreations().CommitPrepared(
+			queuedPrincipalContext(workerContext, work.actorUserID), plan,
+			application.ImportCreationOptions{Queued: work.creationIntent()},
+		)
 	}
 	if err == nil {
 		return
@@ -257,7 +239,7 @@ func readImportGroupWork(
 	var expectedManifestDigest, currentManifestDigest, uploadState string
 	var actorUserID sql.NullString
 	err := transaction.QueryRowContext(ctx, `
-SELECT job.scope_id,job.execution_started_at_ms,job.execution_no,job.attempt_count,
+SELECT job.scope_id,job.execution_started_at_ms,job.execution_no,job.attempt_count,job.execution_deadline_at_ms,
  request.request_json,request.request_digest,
  request.actor_user_id,request.target_snapshot_json,request.target_snapshot_digest,
  request.upload_version,request.upload_manifest_digest,upload.version,upload.manifest_digest,upload.state
@@ -267,7 +249,7 @@ JOIN import_jobs import ON import.id=job.scope_id
 JOIN upload_sessions upload ON upload.id=import.upload_session_id
 WHERE job.id=? AND job.state='RUNNING' AND job.worker_id=?
 `, jobID, workerID).Scan(
-		&work.importID, &work.executionStartedAt, &work.executionNo, &work.attempt,
+		&work.importID, &work.executionStartedAt, &work.executionNo, &work.attempt, &work.executionDeadline,
 		&requestJSON, &requestDigest,
 		&actorUserID, &targetJSON, &targetDigest, &expectedUploadVersion, &expectedManifestDigest,
 		&currentUploadVersion, &currentManifestDigest, &uploadState,
@@ -403,13 +385,11 @@ func (service *Service) finishImportGroupFailure(ctx context.Context, work queue
 		return
 	}
 	defer dbexec.Rollback(transaction)
-	var state string
-	var attempt, maxAttempts int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT state,attempt_count,max_attempts FROM jobs WHERE id=? AND worker_id=?
-`, work.jobID, work.workerID).Scan(&state, &attempt, &maxAttempts); err != nil {
+	current, err := repository.BindImportCreation(transaction).Headers.Queued(ctx, work.jobID)
+	if err != nil || !application.ImportExecutionCurrent(*work.creationIntent(), current, service.now().UnixMilli()) {
 		return
 	}
+	state, attempt, maxAttempts := current.JobState, int(current.Execution.Attempt), int(current.MaxAttempts)
 	if state == "CANCEL_REQUESTED" || errors.Is(cause, context.Canceled) {
 		service.finishImportGroupCancellation(ctx, transaction, work)
 		return
@@ -587,4 +567,18 @@ func importGroupFailure(cause error) (string, bool) {
 		}
 	}
 	return "IMPORT_GROUP_FAILED", true
+}
+
+func (work queuedCreationWork) creationIntent() *application.QueuedImportExecution {
+	return &application.QueuedImportExecution{
+		ImportID:    work.importID,
+		JobID:       work.jobID,
+		WorkerID:    work.workerID,
+		ActorUserID: work.actorUserID,
+		ExecutionNo: work.executionNo,
+		Attempt:     int64(work.attempt),
+		StartedAtMS: work.executionStartedAt,
+		DeadlineMS:  work.executionDeadline,
+		Target:      work.targetSnapshot,
+	}
 }

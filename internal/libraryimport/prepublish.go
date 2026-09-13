@@ -34,15 +34,7 @@ func stringPointer(value string) *string {
 }
 
 func preparedGroupContentKind(group preparedGroup) string {
-	if group.ContentKind != "" {
-		return group.ContentKind
-	}
-	for _, source := range group.Sources {
-		if source.Role == "DOS_SOURCE" {
-			return "DOS_BUNDLE"
-		}
-	}
-	return "SINGLE_FILE"
+	return application.PreparedGroupContentKind(group)
 }
 
 type reviewValidationEvidence = application.ReviewValidationEvidence

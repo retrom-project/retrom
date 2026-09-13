@@ -37,14 +37,18 @@ type sourceFaultConnection struct {
 	beforeCreation func() error
 }
 
-func (connection *sourceFaultConnection) Begin() (driver.Tx, error) {
+func (connection *sourceFaultConnection) BeginTx(ctx context.Context, options driver.TxOptions) (driver.Tx, error) {
 	connection.begins++
 	if connection.begins == 2 && connection.beforeCreation != nil {
 		if err := connection.beforeCreation(); err != nil {
 			return nil, err
 		}
 	}
-	tx, err := connection.Conn.Begin()
+	begin, ok := connection.Conn.(driver.ConnBeginTx)
+	if !ok {
+		return nil, errors.New("source transaction fixture requires context-aware driver")
+	}
+	tx, err := begin.BeginTx(ctx, options)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +83,7 @@ type sourceFaultTransaction struct {
 
 func (transaction sourceFaultTransaction) Commit() error {
 	if transaction.connection.phase == "commit" && transaction.connection.bound {
-		return errors.Join(transaction.connection.cause, transaction.Tx.Rollback())
+		return errors.Join(transaction.connection.cause, transaction.Rollback())
 	}
 	return transaction.Tx.Commit()
 }
