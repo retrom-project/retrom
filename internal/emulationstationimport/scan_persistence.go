@@ -110,10 +110,3 @@ func stringPointer(value string) *string {
 }
 
 func int64Pointer(value int64) *int64 { return &value }
-
-func nullIfEmpty(value string) any {
-	if value == "" {
-		return nil
-	}
-	return value
-}

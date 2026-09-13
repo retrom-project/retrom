@@ -43,7 +43,7 @@ func reserveExecutionReview(
 	unit work,
 ) (executionItem, libraryimport.ServerImportResult) {
 	t.Helper()
-	item, found, err := fixture.service.nextItem(fixture.context, unit.ImportID)
+	item, found, err := fixture.service.nextItem(fixture.context, unit)
 	if err != nil || !found {
 		t.Fatalf("item=%v error=%v", found, err)
 	}
@@ -52,10 +52,21 @@ func reserveExecutionReview(
 	}
 	files := make([]libraryimport.ServerSourceFile, 0, len(item.Files))
 	for _, file := range item.Files {
-		files = append(files, libraryimport.ServerSourceFile{RelativePath: file.Path, BlobID: file.BlobID, SizeBytes: file.Size})
+		files = append(
+			files,
+			libraryimport.ServerSourceFile{RelativePath: file.Path, BlobID: file.BlobID, SizeBytes: file.Size},
+		)
 	}
-	result, err := fixture.service.importer.CreateServerSourceOnce(fixture.context,
-		"SERVER_EMULATIONSTATION_IMPORT:"+item.ID, item.TargetPlatformID, "STANDARD", files, item.TagIDs, unit.CreatedByUserID)
+	result, err := fixture.service.importer.CreateServerSourceOnce(
+		fixture.context,
+
+		"SERVER_EMULATIONSTATION_IMPORT:"+item.ID,
+		item.TargetPlatformID,
+		"STANDARD",
+		files,
+		item.TagIDs,
+		unit.CreatedByUserID,
+	)
 	if err != nil || len(result.Items) != 1 || result.Items[0].State != "REVIEW_PENDING" {
 		t.Fatalf("reserved=%#v error=%v", result, err)
 	}

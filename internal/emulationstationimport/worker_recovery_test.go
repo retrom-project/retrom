@@ -20,7 +20,7 @@ func TestLeaseRecoveryResumesPartiallyCopiedMultiDiscItem(t *testing.T) {
 	))
 
 	summary, unit := startLifecycleImport(t, fixture, "saturn", "saturn")
-	item, found, err := fixture.service.nextItem(fixture.context, summary.ID)
+	item, found, err := fixture.service.nextItem(fixture.context, unit)
 	testassert.Falsef(t, err != nil || !found || len(item.Files) != 3,
 		"claimed item = %#v, found = %v, error = %v", item, found, err)
 	first := item.Files[0]
@@ -28,7 +28,7 @@ func TestLeaseRecoveryResumesPartiallyCopiedMultiDiscItem(t *testing.T) {
 	metadata, err := fixture.service.copySource(
 		fixture.context,
 		root,
-		unit.ImportID,
+		unit,
 		unit.RelativePath,
 		first.Path,
 		first.Size,
@@ -37,8 +37,9 @@ func TestLeaseRecoveryResumesPartiallyCopiedMultiDiscItem(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	firstBlobID, err := fixture.service.recordCopiedFile(
 		fixture.context,
+		unit,
 		item.ID,
-		first.Ordinal,
+		first,
 		metadata,
 	)
 	testassert.False(t, err != nil, err)

@@ -4,15 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
-
-	"retrom/internal/dbexec"
 
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
+	application "retrom/internal/service/emulationstationimport"
 )
 
 func (service *Service) attachLibraryResult(
@@ -40,106 +37,18 @@ execution_state='VALIDATING',library_import_job_id=?,library_import_item_id=?,up
 	return nil
 }
 
-func (service *Service) closeItem(
-	ctx context.Context,
-	itemID, state, code string,
+func (service *Service) closeItem(ctx context.Context, unit work, itemID, state, code string,
 	retryable bool,
-	existingGameID string,
-) {
-	service.closeItemWithFailure(ctx, itemID, state, code, retryable, existingGameID, nil)
+) error {
+	return service.closeItemWithFailure(ctx, unit, itemID, state, code, retryable, nil)
 }
 
-func (service *Service) closeItemWithFailure(
-	ctx context.Context,
-	itemID, state, code string,
-	retryable bool,
-	existingGameID string,
-	failure *FailureDetails,
-) {
-	now := service.now().UnixMilli()
-	var encodedFailure any
-	if failure != nil {
-		if encoded, err := json.Marshal(failure); err == nil {
-			encodedFailure = string(encoded)
-		}
-	}
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return
-	}
-	defer dbexec.Rollback(transaction)
-	result, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
-		Set: `
-execution_state=?,error_code=?,retryable=?,
-error_details_json=?,
-existing_game_id=COALESCE(?,existing_game_id),
-completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND execution_state IN ('COPYING','VALIDATING')`,
-			Args:  []any{itemID},
-		},
-		Values: []any{
-			state,
-			nullIfEmpty(code),
-			boolInt(retryable),
-			encodedFailure,
-			nullIfEmpty(existingGameID),
-			now,
-			now,
-		},
+func (service *Service) closeItemWithFailure(ctx context.Context, unit work, itemID, state, code string,
+	retryable bool, failure *FailureDetails,
+) error {
+	return service.finishItemOutcome(ctx, unit, itemID, application.ItemOutcome{
+		State: state, Code: code, Retryable: retryable, Failure: failure,
 	})
-	if err != nil || rowsAffected(result) != 1 {
-		return
-	}
-	if _, err := payloadrelease.ScheduleTerminalEmulationStationItem(ctx, transaction, itemID, now); err != nil {
-		return
-	}
-	_ = transaction.Commit()
-}
-
-func (service *Service) closeAssetWarning(ctx context.Context, itemID, kind, code string) {
-	now := service.now().UnixMilli()
-	state := "READ_FAILED"
-	if code == "EMULATIONSTATION_SOURCE_CHANGED" {
-		state = "SOURCE_CHANGED"
-	}
-	_, _ = recordstore.UpdateEmulationstationImportItemAssets(ctx, service.database, recordstore.Update{
-		Set: `state=?,warning_code=?,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `item_id=? AND kind=?`,
-			Args:  []any{itemID, kind},
-		},
-		Values: []any{state, code, now},
-	})
-	var encoded string
-	if err := service.database.QueryRowContext(
-		ctx, `SELECT warnings_json FROM emulationstation_import_items WHERE id=?`, itemID,
-	).Scan(&encoded); err != nil {
-		return
-	}
-	warnings := make([]map[string]any, 0, 1)
-	_ = json.Unmarshal([]byte(encoded), &warnings)
-	warnings = boundedWarnings(append(warnings, scanMediaWarning(code, kind)))
-	encodedBytes, _ := json.Marshal(warnings)
-	_, _ = recordstore.UpdateEmulationstationImportItems(ctx, service.database, recordstore.Update{
-		Set: `warnings_json=?,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{itemID},
-		},
-		Values: []any{string(encodedBytes), now},
-	})
-}
-
-func mediaWarning(kind string, err error) string {
-	if errors.Is(err, ErrSourceChanged) {
-		return "EMULATIONSTATION_SOURCE_CHANGED"
-	}
-	if kind == "COVER" {
-		return "EMULATIONSTATION_IMAGE_INVALID"
-	}
-	return "EMULATIONSTATION_VIDEO_UNSUPPORTED"
 }
 
 func (service *Service) refreshCountsAndEvent(
@@ -227,106 +136,4 @@ func (service *Service) closeCancelled(ctx context.Context, unit work) (bool, er
 		return false, fmt.Errorf("close cancelled EmulationStation execution: %w", err)
 	}
 	return closed, nil
-}
-
-func (service *Service) finishImport(ctx context.Context, unit work) error {
-	now := service.now().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("emulationstationimport/start finish transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	var blocked, failed, retryableFailed, reviewPending, published, reviewDiscarded, existing, cancelled int64
-	if err := transaction.QueryRowContext(ctx, `
-SELECT count(*) FILTER(
-  WHERE execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')
-),
-count(*) FILTER(
-  WHERE execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
-),
-count(*) FILTER(
-  WHERE execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED') AND retryable=1
-),
-count(*) FILTER(WHERE execution_state='REVIEW_PENDING'),
-count(*) FILTER(WHERE execution_state='PUBLISHED'),
-count(*) FILTER(WHERE execution_state='REVIEW_DISCARDED'),
-count(*) FILTER(WHERE execution_state='SKIPPED_EXISTING'),
-count(*) FILTER(WHERE execution_state='CANCELLED')
-FROM emulationstation_import_items
-WHERE import_id=?`, unit.ImportID).
-		Scan(
-			&blocked,
-			&failed,
-			&retryableFailed,
-			&reviewPending,
-			&published,
-			&reviewDiscarded,
-			&existing,
-			&cancelled,
-		); err != nil {
-		return fmt.Errorf("emulationstationimport/read final counts: %w", err)
-	}
-	state := "COMPLETED"
-	if blocked+failed > 0 {
-		state = "PARTIAL_FAILURE"
-	}
-	if _, err := recordstore.UpdateEmulationstationImports(ctx, transaction, recordstore.Update{
-		Set: `
-state=?,phase=NULL,review_pending_item_count=?,published_item_count=?,
-review_discarded_item_count=?,existing_item_count=?,
-blocked_item_count=?,failed_item_count=?,cancelled_item_count=?,retryable=?,
-completed_at_ms=?,version=version+1,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{unit.ImportID},
-		},
-		Values: []any{
-			state,
-			reviewPending,
-			published,
-			reviewDiscarded,
-			existing,
-			blocked,
-			failed,
-			cancelled,
-			boolInt(retryableFailed > 0),
-			now,
-			now,
-		},
-	}); err != nil {
-		return fmt.Errorf("emulationstationimport/finish import: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE jobs
-SET state='SUCCEEDED',finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
-version=version+1,updated_at_ms=?
-WHERE id=?`, now, now, unit.JobID); err != nil {
-		return fmt.Errorf("emulationstationimport/finish job: %w", err)
-	}
-	data, _ := json.Marshal(
-		map[string]any{
-			"schemaVersion":   1,
-			"state":           state,
-			"reviewPending":   reviewPending,
-			"published":       published,
-			"reviewDiscarded": reviewDiscarded,
-			"existing":        existing,
-			"blocked":         blocked,
-			"failed":          failed,
-		},
-	)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'EMULATIONSTATION_IMPORT',?,'SUCCEEDED',?,?)`,
-		unit.JobID, unit.ImportID, string(data), now); err != nil {
-		return fmt.Errorf("emulationstationimport/create success event: %w", err)
-	}
-	if err := scheduleTerminalItems(ctx, transaction, unit.ImportID, now); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("emulationstationimport/commit finish: %w", err)
-	}
-	return nil
 }

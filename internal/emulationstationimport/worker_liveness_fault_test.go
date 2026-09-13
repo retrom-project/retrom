@@ -41,7 +41,10 @@ func (fault *workingStateFault) beforeExec(ctx context.Context, query string, ar
 		return nil
 	}
 	var state string
-	if err := fault.database.QueryRowContext(ctx, `SELECT execution_state FROM emulationstation_import_items WHERE id=?`, fault.itemID).Scan(&state); err != nil {
+	if err := fault.database.QueryRowContext(ctx, `SELECT execution_state FROM emulationstation_import_items WHERE id=?`, fault.itemID).Scan(
+
+		&state,
+	); err != nil {
 		return fmt.Errorf("read injected working-state boundary: %w", err)
 	}
 	if state != "COPYING" {
@@ -62,8 +65,8 @@ func workingExitKind(query string, args []driver.NamedValue, itemID string) stri
 		if len(args) == 4 && args[3].Value == itemID && args[0].Value != nil && args[1].Value != nil {
 			return "attachment"
 		}
-	case "UPDATE emulationstation_import_items SET execution_state=?,error_code=?,retryable=?, error_details_json=?, existing_game_id=COALESCE(?,existing_game_id), completed_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND execution_state IN ('COPYING','VALIDATING')":
-		if len(args) == 8 && args[7].Value == itemID && args[0].Value != "COPYING" {
+	case "UPDATE emulationstation_import_items SET execution_state=?,error_code=?,retryable=?,error_details_json=?,existing_game_id=COALESCE(?,existing_game_id), existing_matches_json=COALESCE(?,existing_matches_json),completed_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND import_id=? AND version=? AND execution_state=? AND metadata_json=? AND content_kind=? AND library_import_job_id IS ? AND library_import_item_id IS ? AND execution_state IN ('COPYING','VALIDATING')":
+		if len(args) == 16 && args[8].Value == itemID && args[11].Value == "COPYING" && args[0].Value != "COPYING" {
 			return "terminal"
 		}
 	}

@@ -12,31 +12,29 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 
-	"modernc.org/sqlite"
-	sqlite3 "modernc.org/sqlite/lib"
+	"retrom/internal/persistence/dberrors"
 
 	"retrom/internal/contentcapability"
 	"retrom/internal/libraryimport"
+	application "retrom/internal/service/emulationstationimport"
 )
 
-func (service *Service) prepareReviewItem(ctx context.Context, unit work, root Root, item executionItem) {
+func (service *Service) prepareReviewItem(ctx context.Context, unit work, root Root, item executionItem) error {
 	files, err := service.executionSourceFiles(ctx, unit, root, item)
 	if err != nil {
 		if errors.Is(err, errImportCancelled) {
-			return
+			return nil
 		}
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			service.itemFailure("SOURCE_ASSEMBLY", "ASSEMBLE_SOURCE_FILES", err, firstSourcePath(item)),
 		)
-		return
 	}
-	if err := service.updateExecutionPhase(ctx, unit.ImportID, "VALIDATING"); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+	if err := service.updateExecutionPhase(ctx, unit, "VALIDATING"); err != nil {
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)),
 		)
-		return
 	}
 	mode := contentcapability.ModeStandard
 	if item.ContentKind == contentcapability.ModeMultiDisc {
@@ -53,51 +51,57 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, root R
 	)
 	if err != nil {
 		if errors.Is(err, libraryimport.ErrMultiDiscModeUnavailable) {
-			service.closeItem(ctx, item.ID, "BLOCKED_CONTENT", "MULTI_DISC_MODE_UNAVAILABLE", false, "")
-			return
+			return service.closeItem(ctx, unit, item.ID, "BLOCKED_CONTENT", "MULTI_DISC_MODE_UNAVAILABLE", false)
 		}
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "EMULATIONSTATION_LIBRARY_IMPORT_FAILED", true, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "EMULATIONSTATION_LIBRARY_IMPORT_FAILED", true,
 			service.libraryImportFailure(err, files),
 		)
-		return
 	}
 	imported, found := selectServerImportItem(result.Items, item.Files)
 	if !found {
-		service.closeItem(
-			ctx, item.ID, "BLOCKED_CONTENT", "EMULATIONSTATION_CONTENT_FORMAT_UNSUPPORTED", false, "",
+		return service.closeItem(
+			ctx, unit, item.ID, "BLOCKED_CONTENT", "EMULATIONSTATION_CONTENT_FORMAT_UNSUPPORTED", false,
 		)
-		return
 	}
 	if err := service.attachLibraryResult(ctx, item.ID, result.Created.ImportJobID, imported); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			withLibraryImportIdentity(
 				service.itemFailure("RESULT_ATTACHMENT", "ATTACH_LIBRARY_RESULT", err, firstSourcePath(item)),
 				result.Created.ImportJobID,
 				imported.ItemID,
 			),
 		)
-		return
 	}
 	if imported.ExistingGameID != "" {
-		matches, _ := json.Marshal(imported.ExistingMatches)
-		_, _ = recordstore.UpdateEmulationstationImportItems(ctx, service.database, recordstore.Update{
-			Set: `existing_matches_json=?,updated_at_ms=?`,
-			Scope: recordstore.Scope{
-				Where: `id=?`,
-				Args:  []any{item.ID},
+		matches := make([]application.ExistingMatch, 0, len(imported.ExistingMatches))
+		for _, match := range imported.ExistingMatches {
+			matches = append(matches, application.ExistingMatch{GameID: match.GameID})
+		}
+		return service.finishItemOutcome(
+			ctx,
+			unit,
+			item.ID,
+			application.ItemOutcome{
+				State:           "SKIPPED_EXISTING",
+				ExistingGameID:  imported.ExistingGameID,
+				ExistingMatches: matches,
 			},
-			Values: []any{string(matches), service.now().UnixMilli()},
-		})
-		service.closeItem(ctx, item.ID, "SKIPPED_EXISTING", "", false, imported.ExistingGameID)
-		return
+		)
 	}
+
 	if imported.State != "REVIEW_PENDING" {
-		service.closeItem(ctx, item.ID, "BLOCKED_CONTENT", "EMULATIONSTATION_CONTENT_FORMAT_UNSUPPORTED", false, "")
-		return
+		return service.closeItem(
+			ctx,
+			unit,
+			item.ID,
+			"BLOCKED_CONTENT",
+			"EMULATIONSTATION_CONTENT_FORMAT_UNSUPPORTED",
+			false,
+		)
 	}
-	service.prepareLibraryReview(ctx, unit, item, result.Created.ImportJobID, imported)
+	return service.prepareLibraryReview(ctx, unit, item, result.Created.ImportJobID, imported)
 }
 
 func (service *Service) prepareLibraryReview(
@@ -106,45 +110,42 @@ func (service *Service) prepareLibraryReview(
 	item executionItem,
 	importJobID string,
 	imported libraryimport.ServerImportItem,
-) {
+) error {
 	var metadata libraryimport.ServerMetadata
 	if err := json.Unmarshal([]byte(item.MetadataJSON), &metadata); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "BLOCKED_CONTENT", "EMULATIONSTATION_METADATA_SYNTAX_INVALID", false, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "BLOCKED_CONTENT", "EMULATIONSTATION_METADATA_SYNTAX_INVALID", false,
 			withLibraryImportIdentity(
 				service.itemFailure("METADATA", "DECODE_FROZEN_METADATA", err, firstSourcePath(item)),
 				importJobID,
 				imported.ItemID,
 			),
 		)
-		return
 	}
-	if err := service.updateExecutionPhase(ctx, unit.ImportID, "PREPARING_REVIEWS"); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+	if err := service.updateExecutionPhase(ctx, unit, "PREPARING_REVIEWS"); err != nil {
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			withLibraryImportIdentity(
 				service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)),
 				importJobID,
 				imported.ItemID,
 			),
 		)
-		return
 	}
 	_, metadataWarnings, err := service.importer.SeedServerReviewMetadataAtYear(
 		ctx, imported.ItemID, metadata, unit.ReleaseYearMax,
 	)
 	if err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			withLibraryImportIdentity(
 				service.itemFailure("METADATA", "SEED_SERVER_REVIEW", err, firstSourcePath(item)),
 				importJobID,
 				imported.ItemID,
 			),
 		)
-		return
 	}
-	service.finalizeReviewHandoff(ctx, unit, item, importJobID, imported.ItemID, metadataWarnings)
+	return service.finalizeReviewHandoff(ctx, unit, item, importJobID, imported.ItemID, metadataWarnings)
 }
 
 func (service *Service) finalizeReviewHandoff(
@@ -153,32 +154,30 @@ func (service *Service) finalizeReviewHandoff(
 	item executionItem,
 	importJobID, importItemID string,
 	metadataWarnings []libraryimport.ServerMetadataWarning,
-) {
+) error {
 	now := service.now().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			withLibraryImportIdentity(
 				service.itemFailure("STORAGE", "START_REVIEW_HANDOFF_TRANSACTION", err, firstSourcePath(item)),
 				importJobID,
 				importItemID,
 			),
 		)
-		return
 	}
 	defer dbexec.Rollback(transaction)
 	if err := appendServerMetadataWarnings(ctx, transaction, item.ID, metadataWarnings, now); err != nil {
 		dbexec.Rollback(transaction)
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			withLibraryImportIdentity(
 				service.itemFailure("STORAGE", "APPEND_METADATA_WARNINGS", err, firstSourcePath(item)),
 				importJobID,
 				importItemID,
 			),
 		)
-		return
 	}
 	result, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
 		Set: `
@@ -193,31 +192,29 @@ completed_at_ms=?,updated_at_ms=?
 	})
 	if err != nil || rowsAffected(result) != 1 {
 		dbexec.Rollback(transaction)
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			withLibraryImportIdentity(
 				service.itemFailure("STORAGE", "MARK_REVIEW_PENDING", err, firstSourcePath(item)),
 				importJobID,
 				importItemID,
 			),
 		)
-		return
 	}
 	if err := service.refreshCountsAndEvent(ctx, transaction, unit, item.ID, "REVIEW_PENDING", now); err != nil {
 		dbexec.Rollback(transaction)
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			withLibraryImportIdentity(
 				service.itemFailure("STORAGE", "REFRESH_IMPORT_COUNTS", err, firstSourcePath(item)),
 				importJobID,
 				importItemID,
 			),
 		)
-		return
 	}
 	if err := transaction.Commit(); err != nil {
-		service.closeItemWithFailure(
-			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+		return service.closeItemWithFailure(
+			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
 			withLibraryImportIdentity(
 				service.itemFailure("STORAGE", "COMMIT_REVIEW_HANDOFF_TRANSACTION", err, firstSourcePath(item)),
 				importJobID,
@@ -225,6 +222,7 @@ completed_at_ms=?,updated_at_ms=?
 			),
 		)
 	}
+	return nil
 }
 
 func appendServerMetadataWarnings(
@@ -330,20 +328,7 @@ func (service *Service) itemFailure(
 	return details
 }
 
-func sqliteFailureCause(err error) string {
-	var sqliteError *sqlite.Error
-	if !errors.As(err, &sqliteError) {
-		return ""
-	}
-	switch sqliteError.Code() & 0xff {
-	case sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED:
-		return "DATABASE_BUSY"
-	case sqlite3.SQLITE_CONSTRAINT:
-		return "DATABASE_CONSTRAINT_FAILED"
-	default:
-		return ""
-	}
-}
+func sqliteFailureCause(err error) string { return dberrors.Classify(err) }
 
 func (service *Service) libraryImportFailure(
 	err error,

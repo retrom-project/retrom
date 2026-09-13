@@ -109,13 +109,6 @@ func (service *Service) execute(ctx context.Context, unit work) {
 	service.worker.Run(ctx, unit)
 }
 
-func boolInt(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
-}
-
 func errorCode(err error) string {
 	if errors.Is(err, serversource.ErrRootUnavailable) {
 		return serversource.ErrRootUnavailable.Error()

@@ -9,19 +9,37 @@ import (
 func TestWorkflowRetryPreservesHandedOffReviewAndPayload(t *testing.T) {
 	fixture := newLifecycleFixture(t)
 	started, unit := startLifecycleImport(t, fixture, "", "nes")
-	item, found, err := fixture.service.nextItem(fixture.context, started.ID)
+	item, found, err := fixture.service.nextItem(fixture.context, unit)
 	if err != nil || !found {
 		t.Fatalf("next item found=%v error=%v", found, err)
 	}
-	fixture.service.closeItem(fixture.context, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "")
+	if err := fixture.service.closeItem(
+		fixture.context,
+		unit,
+		item.ID,
+		"COMMIT_FAILED",
+		"INTERNAL_ERROR",
+		true,
+	); err != nil {
+		t.Fatal(err)
+	}
 	fixture.service.execute(fixture.context, unit)
 	before, err := fixture.service.Get(fixture.context, started.ID)
 	if err != nil || !before.Retryable || before.Counts.ReviewPending != 1 || before.Counts.Failed != 1 {
 		t.Fatalf("retryable result=%#v error=%v", before, err)
 	}
 	var reviewID, jobID, payload, metadata string
-	if err := fixture.database.QueryRowContext(fixture.context, `SELECT library_import_item_id,library_import_job_id,payload_state,metadata_json
-FROM emulationstation_import_items WHERE import_id=? AND execution_state='REVIEW_PENDING'`, started.ID).Scan(&reviewID, &jobID, &payload, &metadata); err != nil {
+	if err := fixture.database.QueryRowContext(
+		fixture.context,
+		`SELECT library_import_item_id,library_import_job_id,payload_state,metadata_json
+FROM emulationstation_import_items WHERE import_id=? AND execution_state='REVIEW_PENDING'`,
+		started.ID,
+	).Scan(
+		&reviewID,
+		&jobID,
+		&payload,
+		&metadata,
+	); err != nil {
 		t.Fatal(err)
 	}
 	*fixture.now = fixture.now.Add(8 * 24 * time.Hour)
@@ -31,7 +49,10 @@ FROM emulationstation_import_items WHERE import_id=? AND execution_state='REVIEW
 	}
 	var unchanged bool
 	if err := fixture.database.QueryRowContext(fixture.context, `SELECT library_import_job_id=? AND payload_state=? AND metadata_json=?
-FROM emulationstation_import_items WHERE import_id=? AND library_import_item_id=? AND execution_state='REVIEW_PENDING'`, jobID, payload, metadata, started.ID, reviewID).Scan(&unchanged); err != nil {
+FROM emulationstation_import_items WHERE import_id=? AND library_import_item_id=? AND execution_state='REVIEW_PENDING'`, jobID, payload, metadata, started.ID, reviewID).Scan(
+
+		&unchanged,
+	); err != nil {
 		t.Fatal(err)
 	}
 	if !unchanged {
@@ -61,7 +82,12 @@ func TestWorkflowRunningCancellationPreservesLeaseAndPendingItems(t *testing.T) 
 	}
 	var lease int64
 	var worker string
-	if err := fixture.database.QueryRowContext(fixture.context, `SELECT leased_until_ms,worker_id FROM jobs WHERE id=?`, *started.ImportJobID).Scan(&lease, &worker); err != nil {
+	if err := fixture.database.QueryRowContext(fixture.context, `SELECT leased_until_ms,worker_id FROM jobs WHERE id=?`, *started.ImportJobID).Scan(
+
+		&lease,
+
+		&worker,
+	); err != nil {
 		t.Fatal(err)
 	}
 	result, pending, err := fixture.service.Cancel(fixture.context, before.ID, before.Version, "Stop", fixture.userID)
@@ -69,9 +95,19 @@ func TestWorkflowRunningCancellationPreservesLeaseAndPendingItems(t *testing.T) 
 		t.Fatalf("running cancel=%#v pending=%v error=%v", result, pending, err)
 	}
 	var unchanged bool
-	if err := fixture.database.QueryRowContext(fixture.context, `SELECT leased_until_ms=? AND worker_id=? AND finished_at_ms IS NULL
+	if err := fixture.database.QueryRowContext(
+		fixture.context,
+		`SELECT leased_until_ms=? AND worker_id=? AND finished_at_ms IS NULL
 AND (SELECT count(*) FROM emulationstation_import_items WHERE import_id=? AND execution_state='PENDING')=?
-FROM jobs WHERE id=?`, lease, worker, before.ID, before.Counts.Games, *before.ImportJobID).Scan(&unchanged); err != nil {
+FROM jobs WHERE id=?`,
+		lease,
+		worker,
+		before.ID,
+		before.Counts.Games,
+		*before.ImportJobID,
+	).Scan(
+		&unchanged,
+	); err != nil {
 		t.Fatal(err)
 	}
 	if !unchanged {

@@ -11,8 +11,6 @@ import (
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/persistence/recordstore"
-
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
@@ -43,78 +41,6 @@ func (service *Service) executionSourceFiles(
 		return nil, err
 	}
 	return append(files, companions...), nil
-}
-
-func (service *Service) recordCopiedFile(
-	ctx context.Context,
-	itemID string,
-	ordinal int64,
-	metadata blobstore.Metadata,
-) (string, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return "", fmt.Errorf("emulationstationimport/start copied file transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	now := service.now().UnixMilli()
-	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, "application/octet-stream", now)
-	if err != nil {
-		return "", fmt.Errorf("emulationstationimport/record copied file blob: %w", err)
-	}
-	result, err := recordstore.UpdateEmulationstationImportItemFiles(ctx, transaction, recordstore.Update{
-		Set: `blob_id=?,state='COPIED',updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `item_id=? AND ordinal=? AND state='DISCOVERED'`,
-			Args:  []any{itemID, ordinal},
-		},
-		Values: []any{blobID, now},
-	})
-	if err != nil {
-		return "", fmt.Errorf("emulationstationimport/record copied file: %w", err)
-	}
-	if rowsAffected(result) != 1 {
-		return "", fmt.Errorf("emulationstationimport/record copied file: %w", errItemStateChanged)
-	}
-	if err := transaction.Commit(); err != nil {
-		return "", fmt.Errorf("emulationstationimport/commit copied file: %w", err)
-	}
-	return blobID, nil
-}
-
-func (service *Service) recordCopiedAsset(
-	ctx context.Context,
-	itemID, kind string,
-	metadata blobstore.Metadata,
-	mediaType string,
-) (string, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return "", fmt.Errorf("emulationstationimport/start copied asset transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	now := service.now().UnixMilli()
-	blobID, err := blobcatalog.EnsureRecord(ctx, transaction, metadata, mediaType, now)
-	if err != nil {
-		return "", fmt.Errorf("emulationstationimport/record copied asset blob: %w", err)
-	}
-	result, err := recordstore.UpdateEmulationstationImportItemAssets(ctx, transaction, recordstore.Update{
-		Set: `blob_id=?,state='COPIED',updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `item_id=? AND kind=? AND state='DISCOVERED'`,
-			Args:  []any{itemID, kind},
-		},
-		Values: []any{blobID, now},
-	})
-	if err != nil {
-		return "", fmt.Errorf("emulationstationimport/record copied asset: %w", err)
-	}
-	if rowsAffected(result) != 1 {
-		return "", fmt.Errorf("emulationstationimport/record copied asset: %w", errItemStateChanged)
-	}
-	if err := transaction.Commit(); err != nil {
-		return "", fmt.Errorf("emulationstationimport/commit copied asset: %w", err)
-	}
-	return blobID, nil
 }
 
 func selectServerImportItem(
@@ -164,7 +90,7 @@ func (service *Service) arcadeCompanions(
 		metadata, err := service.copySource(
 			ctx,
 			root,
-			unit.ImportID,
+			unit,
 			unit.RelativePath,
 			file.Path,
 			file.Size,
@@ -289,17 +215,10 @@ SELECT machine FROM dependency WHERE machine<>? ORDER BY machine`,
 	return result, nil
 }
 
-func terminalForCode(code string) string {
-	if code == "EMULATIONSTATION_SOURCE_CHANGED" {
-		return "SOURCE_CHANGED"
-	}
-	return "READ_FAILED"
-}
-
 func (service *Service) copySource(
 	ctx context.Context,
 	root Root,
-	importID string,
+	unit work,
 	selectedPath, relativePath string,
 	size int64,
 	facts string,
@@ -310,23 +229,29 @@ func (service *Service) copySource(
 	}
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(root.path, selectedPath, relativePath)
-	if err != nil || before.Size() != size || serversource.FactsDigest(before) != facts {
+	if err != nil {
+		return blobstore.Metadata{}, fmt.Errorf("open frozen EmulationStation source: %w: %w", ErrSourceChanged, err)
+	}
+	if before.Size() != size || serversource.FactsDigest(before) != facts {
 		if handle != nil {
 			cleanup.Error("close", handle.Close())
 		}
 		return blobstore.Metadata{}, ErrSourceChanged
 	}
 	metadata, putErr := service.blobs.Put(&contextReader{
-		ctx:       ctx,
-		reader:    io.LimitReader(handle, size+1),
-		cancelled: func() bool { return service.importCancelled(ctx, importID) },
+		ctx:    ctx,
+		reader: io.LimitReader(handle, size+1),
+		check:  func() error { return service.checkSourceExecution(ctx, unit) },
 	})
 	after, statErr := handle.Stat()
 	cleanup.Error("close", handle.Close())
 	if putErr != nil {
 		return blobstore.Metadata{}, fmt.Errorf("emulationstationimport/copy source to CAS: %w", putErr)
 	}
-	if statErr != nil || metadata.Size != size || !serversource.SameFileFacts(before, after) ||
+	if statErr != nil {
+		return blobstore.Metadata{}, fmt.Errorf("stat frozen EmulationStation source: %w: %w", ErrSourceChanged, statErr)
+	}
+	if metadata.Size != size || !serversource.SameFileFacts(before, after) ||
 		serversource.FactsDigest(after) != facts {
 		return blobstore.Metadata{}, ErrSourceChanged
 	}
@@ -336,7 +261,7 @@ func (service *Service) copySource(
 func (service *Service) copyAsset(
 	ctx context.Context,
 	root Root,
-	importID string,
+	unit work,
 	selectedPath string,
 	asset executionAsset,
 ) (blobstore.Metadata, bool, error) {
@@ -346,7 +271,10 @@ func (service *Service) copyAsset(
 	}
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(root.path, selectedPath, asset.Path)
-	if err != nil || before.Size() != asset.Size || serversource.FactsDigest(before) != asset.Facts {
+	if err != nil {
+		return blobstore.Metadata{}, false, fmt.Errorf("open frozen EmulationStation asset: %w: %w", ErrSourceChanged, err)
+	}
+	if before.Size() != asset.Size || serversource.FactsDigest(before) != asset.Facts {
 		if handle != nil {
 			cleanup.Error("close", handle.Close())
 		}
@@ -362,16 +290,23 @@ func (service *Service) copyAsset(
 		return blobstore.Metadata{}, false, fmt.Errorf("emulationstationimport/rewind asset: %w", err)
 	}
 	metadata, putErr := service.blobs.Put(&contextReader{
-		ctx:       ctx,
-		reader:    io.LimitReader(handle, asset.Size+1),
-		cancelled: func() bool { return service.importCancelled(ctx, importID) },
+		ctx:    ctx,
+		reader: io.LimitReader(handle, asset.Size+1),
+		check:  func() error { return service.checkSourceExecution(ctx, unit) },
 	})
 	after, statErr := handle.Stat()
 	cleanup.Error("close", handle.Close())
 	if putErr != nil {
 		return blobstore.Metadata{}, false, fmt.Errorf("emulationstationimport/copy asset to CAS: %w", putErr)
 	}
-	if statErr != nil || metadata.Size != asset.Size || !serversource.SameFileFacts(before, after) ||
+	if statErr != nil {
+		return blobstore.Metadata{}, false, fmt.Errorf(
+			"stat frozen EmulationStation asset: %w: %w",
+			ErrSourceChanged,
+			statErr,
+		)
+	}
+	if metadata.Size != asset.Size || !serversource.SameFileFacts(before, after) ||
 		serversource.FactsDigest(after) != asset.Facts {
 		return blobstore.Metadata{}, false, ErrSourceChanged
 	}
@@ -382,8 +317,8 @@ func copiedAssetValid(handle io.ReadSeeker, asset executionAsset) bool {
 	if asset.Kind == "COVER" {
 		image, err := mediaasset.InspectImage(handle, asset.Size)
 		return err == nil && image.MediaType == asset.MediaType &&
-			asset.Width.Valid && asset.Height.Valid &&
-			image.WidthPX == asset.Width.Int64 && image.HeightPX == asset.Height.Int64
+			asset.Width != nil && asset.Height != nil &&
+			image.WidthPX == *asset.Width && image.HeightPX == *asset.Height
 	}
 	mediaType, err := mediaasset.InspectVideo(handle, asset.Size)
 	return err == nil && mediaType == asset.MediaType

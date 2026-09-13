@@ -8,7 +8,9 @@ func TestESItemCancellationCheckpointPreservesReservedReview(t *testing.T) {
 	item, imported := reserveExecutionReview(t, fixture, unit)
 	metadata := prepareCancellationCheckpoint(t, fixture, unit, item, imported, "reserved")
 	requestExecutionCancellation(t, fixture, started.ID)
-	fixture.service.processItem(fixture.context, unit, fixture.service.roots[unit.RootID], item)
+	if err := fixture.service.processItem(fixture.context, unit, fixture.service.roots[unit.RootID], item); err == nil {
+		t.Fatal("inactive execution process reported success")
+	}
 	closed, err := fixture.service.closeCancelled(fixture.context, unit)
 	if err != nil || !closed {
 		t.Fatalf("closed=%v error=%v", closed, err)
