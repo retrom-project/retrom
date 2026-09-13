@@ -5,36 +5,20 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
+	persistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/payloadrelease"
 )
 
 func collectIDs(ctx context.Context, transaction *sql.Tx, query string, args ...any) ([]string, error) {
-	rows, err := transaction.QueryContext(ctx, query, args...)
+	ids, err := persistence.CollectScopeIDs(ctx, transaction, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("payloadrelease/collect ids: %w", err)
+		return nil, fmt.Errorf("read payload scope identities: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	var result []string
-	for rows.Next() {
-		var id sql.NullString
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("payloadrelease/scan id: %w", err)
-		}
-		if id.Valid {
-			result = append(result, id.String)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("payloadrelease/iterate ids: %w", err)
-	}
-	return result, nil
+	return ids, nil
 }
 
-// CollectScopeIDs gives terminal transition owners the same disciplined rows
-// lifecycle used by the release worker without duplicating SQL iteration.
 func CollectScopeIDs(ctx context.Context, transaction *sql.Tx, query string, args ...any) ([]string, error) {
 	return collectIDs(ctx, transaction, query, args...)
 }

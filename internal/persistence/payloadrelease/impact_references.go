@@ -2,11 +2,12 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	"retrom/internal/dbexec"
 )
 
-func gameReferenceCount(ctx context.Context, transaction *sql.Tx, gameID, blobID string) (int64, error) {
+func gameReferenceCount(ctx context.Context, transaction dbexec.Executor, gameID, blobID string) (int64, error) {
 	var count int64
 	err := transaction.QueryRowContext(ctx, `
 WITH game_import_items(id) AS (
