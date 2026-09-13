@@ -52,7 +52,3 @@ func terminalImportItem(state string) bool { return application.TerminalImportIt
 func terminalPegasusItem(state string, retryable bool) bool {
 	return application.TerminalSourceItem(state, retryable)
 }
-
-func terminalEmulationStationItem(state string, retryable bool) bool {
-	return application.TerminalSourceItem(state, retryable)
-}

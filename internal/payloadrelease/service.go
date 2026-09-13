@@ -23,6 +23,7 @@ type Service struct {
 	garbage     *application.GarbageCollector
 	expirations *application.Expirations
 	retirements *application.Retirements
+	effects     *application.ReleaseEffects
 }
 
 type claimedJob struct {
@@ -55,6 +56,9 @@ func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retenti
 			Now: now, Maintain: service.ReconcileGC, Report: func(err error) { cleanup.Error("payload worker", err) },
 		})
 	service.garbage = application.NewGarbageCollector(repository.NewGarbage(database), service.worker, garbageFiles{blobs})
+	service.effects = application.NewReleaseEffects(
+		repository.NewReleaseEffects(database), service.worker, gc, releaseEffectWaiter{service}, now,
+	)
 	return service, nil
 }
 
@@ -126,22 +130,5 @@ func (service *Service) execute(ctx context.Context, job claimedJob) error {
 	if job.Input.Kind != "PAYLOAD_RELEASE" {
 		return releaseFailure("PAYLOAD_RELEASE_DATABASE_FAILED")
 	}
-	switch job.ScopeType {
-	case ScopeImportItem:
-		return service.releaseImportItem(ctx, job)
-	case ScopeImportJob:
-		return service.releaseImportJob(ctx, job)
-	case ScopePegasusImportItem:
-		return service.releasePegasusItem(ctx, job)
-	case ScopeEmulationStationImportItem:
-		return service.releaseEmulationStationItem(ctx, job)
-	case ScopeUploadConsumption:
-		return service.releaseConsumption(ctx, job)
-	case ScopeGame:
-		return service.releaseGame(ctx, job)
-	case ScopeBlob:
-		return releaseFailure("PAYLOAD_RELEASE_DATABASE_FAILED")
-	default:
-		return releaseFailure("PAYLOAD_RELEASE_DATABASE_FAILED")
-	}
+	return service.releaseEffect(ctx, job)
 }
