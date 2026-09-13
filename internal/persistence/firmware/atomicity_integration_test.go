@@ -22,7 +22,7 @@ func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 		if err != nil || !found {
 			t.Fatalf("active BIOS missing: found=%v error=%v", found, err)
 		}
-		if err := scope.Retirements.Supersede(t.Context(), requirementID, now); err != nil {
+		if err := firmwareservice.SupersedeInScope(t.Context(), scope.Retirements, requirementID, now); err != nil {
 			return err
 		}
 		if err := scope.Installations.Create(t.Context(), firmwareservice.InstallationWrite{

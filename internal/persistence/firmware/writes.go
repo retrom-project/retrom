@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/firmware"
@@ -17,13 +16,6 @@ func (store writes) Ensure(ctx context.Context, metadata blobstore.Metadata, now
 		return "", fmt.Errorf("register BIOS blob: %w", err)
 	}
 	return id, nil
-}
-
-func (store writes) Supersede(ctx context.Context, id string, now int64) error {
-	if err := payloadrelease.SupersedeBIOS(ctx, store.transaction, id, now); err != nil {
-		return fmt.Errorf("retire replaced BIOS: %w", err)
-	}
-	return nil
 }
 
 func (store writes) Create(ctx context.Context, value firmware.InstallationWrite) error {

@@ -70,7 +70,6 @@ func TestStaticArchivesRejectAliasesWhileDATRemainsAdvisory(t *testing.T) {
 type installMemory struct {
 	Repository
 	InstallationWriter
-	RetirementRecords
 	initial, current               Requirement
 	upload, currentUpload          Upload
 	created                        *InstallationWrite
@@ -96,7 +95,7 @@ func (memory *installMemory) WithWrite(_ context.Context, work func(WriteScope) 
 	return work(WriteScope{ReadScope: ReadScope{
 		Requirements: requirementMemory{value: memory.current},
 		Uploads:      uploadMemory{memory.currentUpload},
-	}, Installations: memory, Retirements: memory})
+	}, Installations: memory, Retirements: SupersessionScope{Read: memory, Write: memory}})
 }
 
 func (memory *installMemory) Create(_ context.Context, value InstallationWrite) error {
@@ -109,7 +108,7 @@ func (memory *installMemory) Consume(_ context.Context, value Consumption) error
 	return nil
 }
 
-func (memory *installMemory) Supersede(context.Context, string, int64) error {
+func (memory *installMemory) Deactivate(context.Context, SupersededInstallation, int64) error {
 	memory.retired = true
 	return nil
 }
@@ -133,3 +132,8 @@ type uploadMemory struct{ value Upload }
 func (records uploadMemory) Get(context.Context, string) (Upload, bool, error) {
 	return records.value, true, nil
 }
+
+func (memory *installMemory) Current(context.Context, string) (SupersededInstallation, bool, error) {
+	return SupersededInstallation{ID: "old", RequirementID: "requirement", BlobID: "blob", Version: 1}, true, nil
+}
+func (memory *installMemory) Consumption(context.Context, string) (string, error) { return "", nil }

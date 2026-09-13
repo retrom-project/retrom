@@ -50,7 +50,7 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(firmware.
 	bound := writes{transaction: transaction}
 	if err := work(firmware.WriteScope{
 		ReadScope: readScope(transaction), Archives: bound, Installations: bound,
-		Retirements: bound, Server: bound, Blobs: bound,
+		Retirements: BindSupersession(transaction), Server: bound, Blobs: bound,
 	}); err != nil {
 		return err
 	}

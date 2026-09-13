@@ -171,7 +171,7 @@ func persistBrowserInstallation(ctx context.Context, scope WriteScope, snapshot 
 		return Installation{}, fmt.Errorf("encode BIOS findings: %w", err)
 	}
 	requirement, upload := snapshot.Requirement, snapshot.Upload
-	if err := scope.Retirements.Supersede(ctx, requirement.ID, now); err != nil {
+	if err := SupersedeInScope(ctx, scope.Retirements, requirement.ID, now); err != nil {
 		return Installation{}, fmt.Errorf("retire BIOS: %w", err)
 	}
 	if err := scope.Installations.Create(ctx, InstallationWrite{

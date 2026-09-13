@@ -22,7 +22,7 @@ type WriteScope struct {
 	ReadScope
 	Archives      ArchiveWriter
 	Installations InstallationWriter
-	Retirements   RetirementRecords
+	Retirements   SupersessionScope
 	Server        ServerRecords
 	Blobs         BlobRecords
 }
@@ -45,9 +45,6 @@ type ArchiveWriter interface {
 type InstallationWriter interface {
 	Create(context.Context, InstallationWrite) error
 	Consume(context.Context, Consumption) error
-}
-type RetirementRecords interface {
-	Supersede(context.Context, string, int64) error
 }
 type ServerRecords interface {
 	LockExecution(context.Context, ServerExecution) error

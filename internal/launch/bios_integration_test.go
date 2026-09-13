@@ -29,8 +29,9 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
-	"retrom/internal/payloadrelease"
+	firmwarerepo "retrom/internal/persistence/firmware"
 	retromruntime "retrom/internal/runtime"
+	firmwareservice "retrom/internal/service/firmware"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -157,7 +158,7 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 	for index := range requirements {
 		tx, err := database.SQL.BeginTx(ctx, nil)
 		testassert.False(t, err != nil, err)
-		testassert.False(t, payloadrelease.SupersedeBIOS(ctx, tx, requirements[index].id, time.Now().UnixMilli()) != nil, "supersede BIOS")
+		testassert.False(t, firmwareservice.SupersedeInScope(ctx, firmwarerepo.BindSupersession(tx), requirements[index].id, time.Now().UnixMilli()) != nil, "supersede BIOS")
 		testassert.False(t, tx.Commit() != nil, "commit BIOS switch")
 		requirements[index].newDigest = install(&requirements[index], "new", 1)
 	}

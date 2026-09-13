@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/payloadrelease"
+	firmwareservice "retrom/internal/service/firmware"
 	"retrom/internal/testassert"
 )
 
@@ -29,7 +29,7 @@ func TestBIOSRetirementPreservesReinstalledSharedBytes(t *testing.T) {
 	var requirement string
 	err = tx.QueryRowContext(t.Context(), `SELECT requirement_id FROM bios_installations WHERE id='new-install'`).Scan(&requirement)
 	testassert.False(t, err != nil, err)
-	testassert.False(t, payloadrelease.SupersedeBIOS(t.Context(), tx, requirement, now) != nil, "supersede")
+	testassert.False(t, firmwareservice.SupersedeInScope(t.Context(), BindSupersession(tx), requirement, now) != nil, "supersede")
 	testassert.False(t, tx.Rollback() != nil, "rollback failed replacement")
 	err = database.QueryRowContext(t.Context(), `SELECT is_active FROM bios_installations WHERE id='new-install'`).Scan(&active)
 	testassert.False(t, err != nil, err)

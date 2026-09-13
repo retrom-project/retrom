@@ -157,7 +157,7 @@ func persistServerInstallation(ctx context.Context, scope WriteScope, request Se
 			return ServerInstallResult{}, fmt.Errorf("persist server BIOS archive: %w", err)
 		}
 	}
-	if err := scope.Retirements.Supersede(ctx, request.RequirementID, now); err != nil {
+	if err := SupersedeInScope(ctx, scope.Retirements, request.RequirementID, now); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("retire server BIOS: %w", err)
 	}
 	request.Details["schemaVersion"] = 1
