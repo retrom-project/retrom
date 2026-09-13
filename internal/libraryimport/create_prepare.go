@@ -17,18 +17,8 @@ type creationOptions struct {
 	sourceCreation    *ownedSourceCreation
 }
 
-type creationPlan = application.PreparedImport
-
 func (service *Service) importPreparation() *application.ImportPreparation {
 	return composition.NewPreparation(service.database, service.creationDependencies())
-}
-
-func (service *Service) prepareCreation(ctx context.Context, request CreateRequest) (creationPlan, error) {
-	prepared, err := service.importPreparation().Prepare(ctx, request)
-	if err != nil {
-		return creationPlan{}, fmt.Errorf("prepare import creation: %w", err)
-	}
-	return prepared, nil
 }
 
 func normalizeTargetCreateRequest(

@@ -15,7 +15,7 @@ type settlementMemory struct {
 }
 
 func (m *settlementMemory) WithSettlement(_ context.Context, work func(WorkerSettlementScope) error) error {
-	return work(WorkerSettlementScope{Read: m, Write: m})
+	return work(WorkerSettlementScope{Payload: emptyPayloadScope(), Read: m, Write: m})
 }
 
 func (m *settlementMemory) Current(context.Context, string) (ExecutionSnapshot, error) {

@@ -16,7 +16,7 @@ type executionReviewMemory struct {
 
 func (memory *executionReviewMemory) WithExecution(_ context.Context, run func(ExecutionScope) error) error {
 	before := memory.completed
-	if err := run(ExecutionScope{Read: memory, Write: memory, Metadata: memory}); err != nil {
+	if err := run(ExecutionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory, Metadata: memory}); err != nil {
 		return err
 	}
 	memory.transactions++

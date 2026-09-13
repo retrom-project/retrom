@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/pegasusimport"
 )
@@ -52,14 +51,6 @@ AND execution_state IN ('COPYING','VALIDATING')` + itemExecutionFence,
 	})
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
-	}
-	if _, err := payloadrelease.ScheduleTerminalPegasusItem(
-		ctx,
-		records.tx,
-		change.Before.Item.ID,
-		change.NowMS,
-	); err != nil {
-		return fmt.Errorf("schedule Pegasus item payload: %w", err)
 	}
 	return RefreshCountsAndEvent(ctx, records.tx, change.Before.Execution.JobID,
 		change.Before.Item.ImportID, change.Before.Item.ID, outcome.State, change.NowMS)

@@ -17,7 +17,7 @@ type workflowMemory struct {
 }
 
 func (m *workflowMemory) WithControl(_ context.Context, work func(WorkflowScope) error) error {
-	if err := work(WorkflowScope{Read: m, Write: m}); err != nil {
+	if err := work(WorkflowScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
 		return err
 	}
 	return m.commitErr

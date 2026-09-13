@@ -15,7 +15,7 @@ type completionMemory struct {
 }
 
 func (memory *completionMemory) WithCompletion(_ context.Context, run func(CompletionScope) error) error {
-	if err := run(CompletionScope{Read: memory, Write: memory}); err != nil {
+	if err := run(CompletionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.commitErr

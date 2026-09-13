@@ -62,6 +62,11 @@ func (service *ExecutionControl) failInScope(
 	if err := scope.Write.Finish(ctx, change); err != nil {
 		return "", false, fmt.Errorf("persist EmulationStation execution failure: %w", err)
 	}
+	if change.SchedulePayload {
+		if err := scheduleTerminalPayloads(ctx, scope.Payload, change.Before.ImportID, change.NowMS); err != nil {
+			return "", false, err
+		}
+	}
 	return change.JobState, false, nil
 }
 

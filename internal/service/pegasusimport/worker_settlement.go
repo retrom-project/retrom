@@ -3,6 +3,7 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 
 	library "retrom/internal/service/libraryimport"
@@ -28,6 +29,7 @@ type (
 		Close(context.Context, WorkerSettlementChange) error
 	}
 	WorkerSettlementScope struct {
+		Payload  payload.ReleaseScope
 		Read     WorkerSettlementReader
 		Write    WorkerSettlementWriter
 		Metadata library.MetadataScope
@@ -163,6 +165,9 @@ func (service *WorkerSettlement) settleInScope(
 	}
 	if err := scope.Write.Close(ctx, change); err != nil {
 		return false, false, fmt.Errorf("persist Pegasus worker settlement: %w", err)
+	}
+	if err := scheduleTerminalPayloads(ctx, scope.Payload, current.ImportID, change.NowMS); err != nil {
+		return false, false, err
 	}
 	return true, false, nil
 }

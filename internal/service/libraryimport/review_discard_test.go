@@ -28,7 +28,7 @@ type discardFixture struct {
 
 func (fixture *discardFixture) WithDiscard(_ context.Context, work func(ReviewDiscardScope) error) error {
 	fixture.transactions++
-	if err := work(ReviewDiscardScope{Reader: fixture, Tags: fixture, Writer: fixture}); err != nil {
+	if err := work(ReviewDiscardScope{Reader: fixture, Tags: fixture, Writer: fixture, Payload: fixture.releaseScope()}); err != nil {
 		return err
 	}
 	return fixture.commitError
@@ -66,10 +66,6 @@ func (fixture *discardFixture) RecordEvent(_ context.Context, event ReviewDiscar
 
 func (fixture *discardFixture) TransitionOwner(context.Context, ReviewOwnerTransition) error {
 	return fixture.step("owner")
-}
-
-func (fixture *discardFixture) SchedulePayload(context.Context, ReviewPayloadRelease) error {
-	return fixture.step("payload")
 }
 
 func newDiscardFixture() *discardFixture {

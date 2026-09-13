@@ -16,7 +16,7 @@ type executionMemory struct {
 }
 
 func (memory *executionMemory) WithExecution(_ context.Context, run func(ExecutionScope) error) error {
-	if err := run(ExecutionScope{Read: memory, Write: memory}); err != nil {
+	if err := run(ExecutionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	if memory.err != nil {

@@ -15,6 +15,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"retrom/internal/service/mediaaccess"
+
 	"retrom/internal/dbexec"
 
 	"retrom/internal/cleanup"
@@ -160,80 +162,19 @@ func saveStateScreenshotURL(saveStateID string) string {
 }
 
 func (server *Server) reviewCandidateAsset(writer http.ResponseWriter, request *http.Request) {
-	var digest, mediaType string
-	err := server.database.QueryRowContext(request.Context(), `
-SELECT digest,media_type FROM (
-  SELECT b.sha256 AS digest,a.media_type AS media_type
-  FROM scrape_candidate_assets a
-  JOIN blobs b ON b.id=a.blob_id
-  JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
-  JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
-  LEFT JOIN import_items i ON i.id=r.import_item_id
-  LEFT JOIN games g ON g.id=r.game_id
-  WHERE a.id=? AND a.status='READY'
-  AND (i.state='REVIEW_PENDING' OR g.status='PUBLISHED' OR EXISTS (
-    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
-  ))
-  UNION ALL
-  SELECT b.sha256 AS digest,a.media_type AS media_type
-  FROM review_uploaded_assets a
-  JOIN blobs b ON b.id=a.blob_id
-  JOIN import_items i ON i.id=a.import_item_id
-  WHERE a.id=?
-  AND (i.state='REVIEW_PENDING' OR EXISTS (
-    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
-  ))
-  UNION ALL
-  SELECT b.sha256 AS digest,screenshot.media_type AS media_type
-  FROM review_runtime_screenshots screenshot
-  JOIN blobs b ON b.id=screenshot.blob_id
-  JOIN import_items i ON i.id=screenshot.import_item_id
-  WHERE screenshot.id=?
-  AND (i.state='REVIEW_PENDING' OR EXISTS (
-    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
-  ))
-) LIMIT 1
-`, request.PathValue("assetId"), request.PathValue("assetId"), request.PathValue("assetId")).Scan(&digest, &mediaType)
-	if errors.Is(err, sql.ErrNoRows) {
-		kind := request.URL.Query().Get("kind")
-		if kind == "" {
-			kind = "COVER"
-		}
-		if kind != "COVER" && kind != "VIDEO" {
-			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "审核来源媒体类型无效", map[string]any{})
-			return
-		}
-		err = server.database.QueryRowContext(request.Context(), `
-SELECT min(candidate.digest),min(candidate.media_type) FROM (
- SELECT blob.sha256 AS digest,asset.media_type
- FROM pegasus_import_item_assets asset
- JOIN blobs blob ON blob.id=asset.blob_id
- JOIN pegasus_import_items source ON source.id=asset.item_id
- JOIN import_items item ON item.id=source.library_import_item_id
- WHERE source.id=? AND asset.kind=? AND asset.state='COPIED'
- AND (item.state='REVIEW_PENDING' OR EXISTS(
-  SELECT 1 FROM review_events event
-  WHERE event.import_item_id=item.id AND event.event_type IN ('APPROVED','DISCARDED')
- ))
- UNION ALL
- SELECT blob.sha256 AS digest,asset.media_type
- FROM emulationstation_import_item_assets asset
- JOIN blobs blob ON blob.id=asset.blob_id
- JOIN emulationstation_import_items source ON source.id=asset.item_id
- JOIN import_items item ON item.id=source.library_import_item_id
- WHERE source.id=? AND asset.kind=? AND asset.state='COPIED'
- AND (item.state='REVIEW_PENDING' OR EXISTS(
-  SELECT 1 FROM review_events event
-  WHERE event.import_item_id=item.id AND event.event_type IN ('APPROVED','DISCARDED')
- ))
-) candidate HAVING count(*)=1
-`, request.PathValue("assetId"), kind, request.PathValue("assetId"), kind).Scan(&digest, &mediaType)
-	}
-	if err != nil {
+	asset, err := server.mediaAccess.Review(request.Context(), request.PathValue("assetId"), request.URL.Query().Get("kind"))
+	switch {
+	case errors.Is(err, mediaaccess.ErrKind):
+		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "审核来源媒体类型无效", map[string]any{})
+		return
+	case errors.Is(err, mediaaccess.ErrNotFound):
 		writeError(writer, request, http.StatusNotFound, "REVIEW_ASSET_NOT_FOUND", "候选媒体不存在", map[string]any{})
 		return
+	case err != nil:
+		server.databaseError(writer, request, err)
+		return
 	}
-	server.serveBlob(writer, request, digest, mediaType, true)
+	server.serveBlob(writer, request, asset.Digest, asset.MediaType, true)
 }
 
 // Contract branches stay contiguous for a single auditable decision.

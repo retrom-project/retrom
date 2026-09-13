@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	payloadpersistence "retrom/internal/persistence/payloadrelease"
+
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/recordstore"
 	tagpersistence "retrom/internal/persistence/tagging"
@@ -40,7 +42,8 @@ func (repository *ReviewDiscards) WithDiscard(
 func BindReviewDiscard(transaction *sql.Tx) application.ReviewDiscardScope {
 	records := reviewDiscardRecords{transaction: transaction}
 	return application.ReviewDiscardScope{
-		Reader: records, Writer: records, Tags: tagpersistence.Bind(transaction).Relations,
+		Payload: payloadpersistence.BindReleases(transaction),
+		Reader:  records, Writer: records, Tags: tagpersistence.Bind(transaction).Relations,
 	}
 }
 
@@ -108,10 +111,4 @@ func (records reviewDiscardRecords) TransitionOwner(
 	ctx context.Context, change application.ReviewOwnerTransition,
 ) error {
 	return TransitionReviewOwners(ctx, records.transaction, change)
-}
-
-func (records reviewDiscardRecords) SchedulePayload(
-	ctx context.Context, change application.ReviewPayloadRelease,
-) error {
-	return ScheduleReviewPayloads(ctx, records.transaction, change)
 }

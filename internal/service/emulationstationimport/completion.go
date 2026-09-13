@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 )
 
@@ -26,8 +27,9 @@ type CompletionWriter interface {
 	Complete(context.Context, CompletionChange) error
 }
 type CompletionScope struct {
-	Read  CompletionReader
-	Write CompletionWriter
+	Payload payload.ReleaseScope
+	Read    CompletionReader
+	Write   CompletionWriter
 }
 type CompletionRepository interface {
 	WithCompletion(context.Context, func(CompletionScope) error) error
@@ -62,7 +64,7 @@ func (service *Completion) Finish(ctx context.Context, unit Execution) error {
 		if err := scope.Write.Complete(ctx, change); err != nil {
 			return fmt.Errorf("persist EmulationStation completion: %w", err)
 		}
-		return nil
+		return scheduleTerminalPayloads(ctx, scope.Payload, change.Before.ImportID, change.NowMS)
 	})
 	if err != nil {
 		return fmt.Errorf("complete EmulationStation import: %w", err)

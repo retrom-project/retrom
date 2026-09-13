@@ -52,9 +52,6 @@ OR(jobs.kind='SERVER_PEGASUS_SCAN' AND plan.scan_job_id=jobs.id AND plan.import_
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
 	}
-	if err := ScheduleTerminalItems(ctx, records.tx, before.ImportID, change.NowMS); err != nil {
-		return err
-	}
 	return records.event(ctx, change)
 }
 

@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"context"
 
+	"retrom/internal/service/payloadrelease"
+
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
 )
@@ -70,18 +72,14 @@ type ReviewOwnerTransition struct {
 	GameID *string
 	NowMS  int64
 }
-type ReviewPayloadRelease struct {
-	ItemID, ImportID string
-	Outcome          ReviewOwnerState
-	NowMS            int64
-}
 type ReviewDiscardRepository interface {
 	WithDiscard(context.Context, func(ReviewDiscardScope) error) error
 }
 type ReviewDiscardScope struct {
-	Reader ReviewDiscardReader
-	Tags   tagging.ReferenceReader
-	Writer ReviewDiscardWriter
+	Payload payloadrelease.ReleaseScope
+	Reader  ReviewDiscardReader
+	Tags    tagging.ReferenceReader
+	Writer  ReviewDiscardWriter
 }
 type ReviewDiscardReader interface {
 	Snapshot(context.Context, string) (ReviewDiscardSnapshot, bool, error)
@@ -91,5 +89,4 @@ type ReviewDiscardWriter interface {
 	DiscardItem(context.Context, ReviewDiscardChange) error
 	RecordEvent(context.Context, ReviewDiscardEvent) error
 	TransitionOwner(context.Context, ReviewOwnerTransition) error
-	SchedulePayload(context.Context, ReviewPayloadRelease) error
 }

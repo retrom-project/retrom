@@ -14,6 +14,7 @@ import (
 	gamecontentpersistence "retrom/internal/persistence/gamecontent"
 
 	"retrom/internal/composition"
+	librarycomposition "retrom/internal/composition/libraryimport"
 
 	firmwarepersistence "retrom/internal/persistence/firmware"
 	firmwareservice "retrom/internal/service/firmware"
@@ -42,6 +43,7 @@ import (
 	"retrom/internal/netplay"
 	"retrom/internal/payloadrelease"
 	favoritepersistence "retrom/internal/persistence/favorites"
+	mediapersistence "retrom/internal/persistence/mediaaccess"
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimelaunch"
@@ -57,6 +59,7 @@ import (
 	"retrom/internal/service/jobs"
 	launchservice "retrom/internal/service/launch"
 	libraryservice "retrom/internal/service/libraryimport"
+	"retrom/internal/service/mediaaccess"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/pegasusimport"
 	"retrom/internal/service/platforminstance"
@@ -113,6 +116,7 @@ type Server struct {
 	jobService              *jobs.Service
 	immersive               *immersive.Service
 	firmware                *firmwareservice.Service
+	mediaAccess             *mediaaccess.Service
 	metadata                *metadatascrape.Service
 	gameContent             *gamecontent.Service
 	saveService             *saves.Service
@@ -210,7 +214,7 @@ func New(
 	if len(scummVMDetector) > 0 {
 		importer.WithScummVMDetector(scummVMDetector[0])
 	}
-	importer.RecoverImportGroupJobs(context.Background())
+	importer.Start()
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
 	importer.ResumeReviewBulkJobs(context.Background())
@@ -280,6 +284,8 @@ func New(
 	)
 	server.jobService = composition.WithPegasusJobCancellation(server.jobService, pegasusImportService)
 	server.jobService = composition.WithEmulationStationJobCancellation(server.jobService, emulationStationImportService)
+	server.jobService = librarycomposition.WithJobCancellation(server.jobService, database, now)
+	server.mediaAccess = mediaaccess.New(mediapersistence.New(database))
 	server.metadataEvidence = composition.NewMetadataEvidenceQueries(database)
 	server.importDiscards = composition.NewImportDiscard(
 		database,
@@ -299,6 +305,7 @@ func (server *Server) Close() {
 	server.uploads.Close()
 	server.launcher.Close()
 	server.importDiscards.Close()
+	server.importer.Close()
 	if server.netplay != nil {
 		server.netplayHub.Close()
 		server.netplay.Close()

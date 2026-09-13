@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	payload "retrom/internal/persistence/payloadrelease"
+	payloadService "retrom/internal/service/payloadrelease"
 
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/recordstore"
@@ -88,9 +90,6 @@ version=version+1,updated_at_ms=?`,
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
 	}
-	if err := ScheduleTerminalItems(ctx, records.tx, before.ImportID, change.NowMS); err != nil {
-		return err
-	}
 	return records.completionEvent(ctx, change)
 }
 
@@ -117,4 +116,8 @@ VALUES(?,'PEGASUS_IMPORT',?,'SUCCEEDED',?,?)`,
 		return fmt.Errorf("record Pegasus completion: %w", err)
 	}
 	return nil
+}
+
+func (records completionRecords) Payload() payloadService.ReleaseScope {
+	return payload.BindReleases(records.tx)
 }

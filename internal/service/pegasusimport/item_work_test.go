@@ -10,12 +10,13 @@ import (
 type itemWorkFake struct {
 	execution ExecutionSnapshot
 	item      ExecutionItem
+	outcome   ItemOutcome
 	saved     bool
 	failure   error
 }
 
 func (fake *itemWorkFake) WithItemWork(_ context.Context, work func(ItemWorkScope) error) error {
-	return work(ItemWorkScope{Read: fake, Write: fake})
+	return work(ItemWorkScope{Read: fake, Write: fake, Payload: payloadItemScope(fake)})
 }
 
 func (fake *itemWorkFake) Execution(context.Context, string) (ExecutionSnapshot, error) {
@@ -40,7 +41,8 @@ func (fake *itemWorkFake) Resume(context.Context, ItemResume) error {
 	return fake.failure
 }
 
-func (fake *itemWorkFake) Finish(context.Context, ItemFinish) error {
+func (fake *itemWorkFake) Finish(_ context.Context, change ItemFinish) error {
+	fake.outcome = change.Outcome
 	fake.saved = true
 	return fake.failure
 }

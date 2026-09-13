@@ -51,7 +51,7 @@ VALUES(?,'EMULATIONSTATION_IMPORT',?,'QUEUED','{"schemaVersion":1,"executionNo":
 	if err := records.startAudit(ctx, plan); err != nil {
 		return err
 	}
-	return ScheduleTerminalItems(ctx, records.transaction, plan.Before.Summary.ID, plan.NowMS)
+	return nil
 }
 
 func (records startRecords) insertJob(ctx context.Context, plan application.StartPlan) error {

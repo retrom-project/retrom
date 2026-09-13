@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/service/payloadrelease"
 	"retrom/internal/service/tagging"
 )
 
@@ -87,7 +88,7 @@ func (service *ReviewDiscards) DiscardInScope(
 		ItemID: request.ItemID, ImportID: snapshot.ImportID, ExpectedVersion: request.ExpectedVersion,
 		NowMS: event.NowMS, Aggregate: aggregate,
 	}
-	if err := persistReviewDiscard(ctx, scope.Writer, request, change, event); err != nil {
+	if err := persistReviewDiscard(ctx, scope, request, change, event); err != nil {
 		return ReviewDecisionResult{}, err
 	}
 	return ReviewDecisionResult{
@@ -120,9 +121,10 @@ func canDiscardReview(snapshot ReviewDiscardSnapshot, request ReviewDiscardReque
 }
 
 func persistReviewDiscard(
-	ctx context.Context, writer ReviewDiscardWriter, request ReviewDiscardRequest,
+	ctx context.Context, scope ReviewDiscardScope, request ReviewDiscardRequest,
 	change ReviewDiscardChange, event ReviewDiscardEvent,
 ) error {
+	writer := scope.Writer
 	if err := writer.CancelAttachments(ctx, request.ItemID, event.NowMS); err != nil {
 		return fmt.Errorf("cancel discarded attachments: %w", err)
 	}
@@ -137,9 +139,16 @@ func persistReviewDiscard(
 	}); err != nil {
 		return fmt.Errorf("transition discarded review owner: %w", err)
 	}
-	if err := writer.SchedulePayload(ctx, ReviewPayloadRelease{
-		ItemID: request.ItemID, ImportID: change.ImportID, Outcome: ReviewOwnerDiscarded, NowMS: event.NowMS,
-	}); err != nil {
+	if err := payloadrelease.NewScheduler(nil).Review(
+		ctx,
+		scope.Payload,
+		payloadrelease.ReviewRelease{
+			ItemID:   request.ItemID,
+			ImportID: change.ImportID,
+			Reason:   payloadrelease.ReasonImportDiscarded,
+			NowMS:    event.NowMS,
+		},
+	); err != nil {
 		return fmt.Errorf("schedule discarded review payload: %w", err)
 	}
 	return nil

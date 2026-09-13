@@ -3,6 +3,7 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+	payload "retrom/internal/service/payloadrelease"
 	"testing"
 	"time"
 )
@@ -84,3 +85,5 @@ func TestCompletionCountFailureRetainsCause(t *testing.T) {
 		t.Fatalf("completion error=%v saved=%+v", err, fake.saved)
 	}
 }
+
+func (*completionFake) Payload() payload.ReleaseScope { return emptyPayloadScope() }

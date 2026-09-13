@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	payload "retrom/internal/persistence/payloadrelease"
 
 	"retrom/internal/dbexec"
 	library "retrom/internal/persistence/libraryimport"
@@ -26,7 +27,7 @@ func (repository *WorkerSettlement) WithSettlement(
 	}
 	defer dbexec.Rollback(tx)
 	records := workerSettlementRecords{tx: tx}
-	scope := application.WorkerSettlementScope{Read: records, Write: records, Metadata: library.BindMetadata(tx)}
+	scope := application.WorkerSettlementScope{Payload: payload.BindReleases(tx), Read: records, Write: records, Metadata: library.BindMetadata(tx)}
 	if err := work(scope); err != nil {
 		return err
 	}

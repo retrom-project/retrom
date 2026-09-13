@@ -3,6 +3,7 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 )
 
@@ -18,6 +19,7 @@ type (
 		NowMS       int64
 	}
 	CompletionRecords interface {
+		Payload() payload.ReleaseScope
 		Current(context.Context, string) (ExecutionSnapshot, error)
 		Counts(context.Context, string) (CompletionCounts, error)
 		Complete(context.Context, CompletionChange) error
@@ -65,7 +67,10 @@ func (service *Completion) Finish(ctx context.Context, identity ExecutionIdentit
 		if counts.Blocked > 0 || counts.Failed > 0 {
 			change.ImportState = "PARTIAL_FAILURE"
 		}
-		return records.Complete(ctx, change)
+		if err := records.Complete(ctx, change); err != nil {
+			return err
+		}
+		return scheduleTerminalPayloads(ctx, records.Payload(), before.ImportID, change.NowMS)
 	})
 	if err != nil {
 		return fmt.Errorf("complete Pegasus execution: %w", err)

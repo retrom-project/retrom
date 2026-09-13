@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	payloadpersistence "retrom/internal/persistence/payloadrelease"
+
 	"retrom/internal/dbexec"
 	biopersistence "retrom/internal/persistence/corevalidation"
 	tagpersistence "retrom/internal/persistence/tagging"
@@ -41,7 +43,8 @@ func (repository *ReviewApprovals) WithApproval(
 func BindReviewApproval(transaction *sql.Tx) application.ReviewApprovalScope {
 	records := reviewApprovalRecords{transaction: transaction}
 	return application.ReviewApprovalScope{
-		Reader: records, Media: records, Validation: BindReviewValidation(transaction),
+		Payload: payloadpersistence.BindReleases(transaction),
+		Reader:  records, Media: records, Validation: BindReviewValidation(transaction),
 		Dependencies: BindApprovalDependencies(transaction), Duplicates: BindContentDuplicates(transaction),
 		Tags: tagpersistence.Bind(transaction), Games: records, Variants: records, Decisions: records,
 		Bulk: records,
@@ -73,10 +76,4 @@ func (records reviewApprovalRecords) TransitionOwner(
 	ctx context.Context, change application.ReviewOwnerTransition,
 ) error {
 	return TransitionReviewOwners(ctx, records.transaction, change)
-}
-
-func (records reviewApprovalRecords) SchedulePayload(
-	ctx context.Context, change application.ReviewPayloadRelease,
-) error {
-	return ScheduleReviewPayloads(ctx, records.transaction, change)
 }

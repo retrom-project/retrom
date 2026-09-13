@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 )
 
@@ -21,8 +22,9 @@ type (
 		TargetsValid bool
 	}
 	WorkflowScope struct {
-		Read  WorkflowReader
-		Write WorkflowWriter
+		Payload payload.ReleaseScope
+		Read    WorkflowReader
+		Write   WorkflowWriter
 	}
 	WorkflowReader interface {
 		Current(context.Context, string) (WorkflowSnapshot, error)

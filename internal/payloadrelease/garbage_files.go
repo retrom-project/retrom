@@ -10,9 +10,9 @@ import (
 	application "retrom/internal/service/payloadrelease"
 )
 
-type garbageFiles struct{ blobs *blobstore.Store }
+type Sources struct{ blobs *blobstore.Store }
 
-func (files garbageFiles) Delete(ctx context.Context, digest string) error {
+func (files *Sources) Delete(ctx context.Context, digest string) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("stop garbage file removal: %w", err)
 	}
@@ -24,3 +24,7 @@ func (files garbageFiles) Delete(ctx context.Context, digest string) error {
 	}
 	return nil
 }
+
+func NewSources(blobs *blobstore.Store) *Sources { return &Sources{blobs: blobs} }
+
+type garbageFiles = Sources

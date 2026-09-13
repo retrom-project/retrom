@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	payload "retrom/internal/persistence/payloadrelease"
 
 	"retrom/internal/dbexec"
 	application "retrom/internal/service/emulationstationimport"
@@ -38,7 +39,7 @@ func (repository *WorkflowControl) WithControl(ctx context.Context, work func(ap
 	}
 	defer dbexec.Rollback(tx)
 	records := workflowRecords{transaction: tx, executor: tx}
-	if err := work(application.WorkflowScope{Read: records, Write: records}); err != nil {
+	if err := work(application.WorkflowScope{Payload: payload.BindReleases(tx), Read: records, Write: records}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

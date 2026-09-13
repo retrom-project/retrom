@@ -28,11 +28,6 @@ func (records recoveryRecords) Apply(ctx context.Context, change application.Rec
 	if err := records.aggregate(ctx, change); err != nil {
 		return err
 	}
-	if change.SchedulePayload {
-		if err := ScheduleTerminalItems(ctx, records.transaction, change.Before.ImportID, change.NowMS); err != nil {
-			return err
-		}
-	}
 	return records.event(ctx, change)
 }
 

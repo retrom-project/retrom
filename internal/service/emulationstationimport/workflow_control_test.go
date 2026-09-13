@@ -40,7 +40,7 @@ func (m *workflowMemory) WithControl(_ context.Context, work func(WorkflowScope)
 	if m.afterVerify != nil {
 		m.afterVerify()
 	}
-	if err := work(WorkflowScope{Read: m, Write: m}); err != nil {
+	if err := work(WorkflowScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
 		return err
 	}
 	if m.stage == "commit" {

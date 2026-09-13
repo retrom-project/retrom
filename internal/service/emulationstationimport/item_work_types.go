@@ -2,6 +2,7 @@ package emulationstationimport
 
 import (
 	"context"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 )
 
@@ -58,8 +59,9 @@ type ItemWorkWriter interface {
 	Finish(context.Context, ItemFinish) error
 }
 type ItemWorkScope struct {
-	Read  ItemWorkReader
-	Write ItemWorkWriter
+	Payload payload.ReleaseScope
+	Read    ItemWorkReader
+	Write   ItemWorkWriter
 }
 type ItemWorkRepository interface {
 	WithItemWork(context.Context, func(ItemWorkScope) error) error

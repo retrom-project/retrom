@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	payloadcomposition "retrom/internal/composition/payloadrelease"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -33,7 +35,6 @@ import (
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/importing"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
@@ -454,10 +455,11 @@ WHERE job.id=? AND item.id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return discardedJobState != "COMPLETED" }, func() bool { return discardedJobPending != 0 }, func() bool { return discardedJobPublished != 1 }, func() bool { return discardedJobDiscarded != 1 }, func() bool { return discardedItemState != "DISCARDED" }), "discard aggregate = job:%s pending:%d published:%d discarded:%d item:%s", discardedJobState, discardedJobPending, discardedJobPublished, discardedJobDiscarded, discardedItemState)
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releases, err := payloadcomposition.New(ctx, database.SQL, blobs, time.Now, 7*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(releases.Close)
 	for attempt := 0; attempt < 10; attempt++ {
 		worked, runErr := releases.RunOnce(ctx)
 		if runErr != nil {

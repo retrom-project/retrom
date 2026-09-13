@@ -42,9 +42,6 @@ WHERE id=? AND version=? AND state='RUNNING'`,
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
 	}
-	if err := ScheduleTerminalItems(ctx, records.transaction, change.Before.ImportID, change.NowMS); err != nil {
-		return err
-	}
 	return records.event(ctx, change)
 }
 

@@ -215,7 +215,10 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
-	server.importer.WithMultiDiscImportEnabled(true)
+	server.importer.Close()
+	server.importer = libraryimport.New(server.database, server.now, server.metadata).
+		WithBlobStore(server.blobs).WithMultiDiscImportEnabled(true)
+	server.importer.Start()
 	server.importAdmissions = composition.NewLibraryImportAdmissions(server.database, server.importer, libraryservice.ImportAdmissionOptions{
 		Now: server.now, MultiDiscEnabled: true, MetadataScraperAvailable: true,
 	})

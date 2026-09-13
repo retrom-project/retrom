@@ -18,7 +18,12 @@ func admissionFixture(t *testing.T) (*Service, CreateRequest) {
 	database, blobs, dataDir := openImportGroupFixture(t, t.Context())
 	uploadID := completeImportGroupUpload(t, t.Context(), database.SQL, blobs, dataDir, onsProjectArchive(t))
 	service := New(database.SQL, time.Now).WithBlobStore(blobs)
-	return service, CreateRequest{UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "ons/onscripter_yuri"), MetadataProvider: "NONE", ContentMode: "ONS_PROJECT"}
+	return service, CreateRequest{
+		UploadID:                 uploadID,
+		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "ons/onscripter_yuri"),
+		MetadataProvider:         "NONE",
+		ContentMode:              "ONS_PROJECT",
+	}
 }
 
 func TestImportAdmissionPreservesReadFailure(t *testing.T) {
@@ -50,20 +55,28 @@ func TestImportAdmissionRejectsTargetDisabledBeforeQueueWrite(t *testing.T) {
 	service, request := admissionFixture(t)
 	sourceDB := service.database
 	hits := 0
-	service.importGroupSlots <- struct{}{}
 	var queued string
-	service.database = testsupport.OpenSQLFaultDatabase(t, sourceDB, testsupport.SQLFaultHooks{
-		BeforeExec: func(ctx context.Context, query string, _ []driver.NamedValue) error {
-			if !strings.Contains(query, "UPDATE upload_sessions SET version=version") {
-				return nil
-			}
-			hits++
-			_, err := sourceDB.ExecContext(ctx, `UPDATE platform_instances SET enabled=0,version=version+1 WHERE id=?`, request.TargetPlatformInstanceID)
-			return err
+	service.database = testsupport.OpenSQLFaultDatabase(
+		t,
+		sourceDB,
+		testsupport.SQLFaultHooks{
+			BeforeExec: func(ctx context.Context, query string, _ []driver.NamedValue) error {
+				if !strings.Contains(query, "UPDATE upload_sessions SET version=version") {
+					return nil
+				}
+				hits++
+				_, err := sourceDB.ExecContext(
+					ctx,
+					`UPDATE platform_instances SET enabled=0,version=version+1 WHERE id=?`,
+					request.TargetPlatformInstanceID,
+				)
+				return err
+			},
 		},
-	})
+	)
+	release := gateImportWorker(t, service)
 	t.Cleanup(func() {
-		<-service.importGroupSlots
+		release()
 		if queued != "" {
 			waitForImportGroupTerminal(t, context.WithoutCancel(t.Context()), sourceDB, queued, "FAILED")
 		}
@@ -74,7 +87,13 @@ func TestImportAdmissionRejectsTargetDisabledBeforeQueueWrite(t *testing.T) {
 		t.Fatalf("disabled target queued stale authority: result=%+v err=%v hits=%d", result, err, hits)
 	}
 	var enabled int
-	if err := sourceDB.QueryRowContext(t.Context(), `SELECT enabled FROM platform_instances WHERE id=?`, request.TargetPlatformInstanceID).Scan(&enabled); err != nil {
+	if err := sourceDB.QueryRowContext(
+		t.Context(),
+		`SELECT enabled FROM platform_instances WHERE id=?`,
+		request.TargetPlatformInstanceID,
+	).Scan(
+		&enabled,
+	); err != nil {
 		t.Fatal(err)
 	}
 	if enabled != 0 {

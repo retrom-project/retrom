@@ -91,7 +91,6 @@ type ApprovalDecisionWriter interface {
 	RecordEvent(context.Context, ApprovalEvent) error
 	PublishItem(context.Context, ApprovalPublication) error
 	TransitionOwner(context.Context, ReviewOwnerTransition) error
-	SchedulePayload(context.Context, ReviewPayloadRelease) error
 }
 
 type BulkPublicationWriter interface {

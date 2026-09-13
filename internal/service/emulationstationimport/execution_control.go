@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 
 	library "retrom/internal/service/libraryimport"
@@ -32,6 +33,7 @@ type (
 		CompleteReview(context.Context, ExecutionReviewCompletion) error
 	}
 	ExecutionScope struct {
+		Payload  payload.ReleaseScope
 		Read     ExecutionReader
 		Write    ExecutionWriter
 		Metadata library.MetadataScope
@@ -106,6 +108,11 @@ func (service *ExecutionControl) CloseCancelled(ctx context.Context, unit Execut
 			planExecutionProjection(&change)
 			if err := scope.Write.Finish(ctx, change); err != nil {
 				return fmt.Errorf("persist EmulationStation cancellation acknowledgement: %w", err)
+			}
+			if change.SchedulePayload {
+				if err := scheduleTerminalPayloads(ctx, scope.Payload, change.Before.ImportID, change.NowMS); err != nil {
+					return err
+				}
 			}
 			closed = true
 			return nil

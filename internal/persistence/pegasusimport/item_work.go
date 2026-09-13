@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	payload "retrom/internal/persistence/payloadrelease"
 
 	"retrom/internal/dbexec"
 	application "retrom/internal/service/pegasusimport"
@@ -19,7 +20,7 @@ func (repository *ItemWork) WithItemWork(ctx context.Context, work func(applicat
 	}
 	defer dbexec.Rollback(tx)
 	records := itemWorkRecords{tx}
-	if err := work(application.ItemWorkScope{Read: records, Write: records}); err != nil {
+	if err := work(application.ItemWorkScope{Payload: payload.BindReleases(tx), Read: records, Write: records}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

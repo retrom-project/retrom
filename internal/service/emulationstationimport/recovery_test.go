@@ -23,7 +23,7 @@ func (memory *recoveryMemory) Expired(context.Context, int64, int) ([]LeaseSnaps
 }
 
 func (memory *recoveryMemory) WithRecovery(_ context.Context, work func(RecoveryScope) error) error {
-	if err := work(RecoveryScope{Read: memory, Write: memory}); err != nil {
+	if err := work(RecoveryScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	if memory.stage == "commit" {

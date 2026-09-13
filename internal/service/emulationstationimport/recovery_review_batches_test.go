@@ -17,7 +17,7 @@ func (memory *recoveryReviewMemory) Expired(context.Context, int64, int) ([]Leas
 
 func (memory *recoveryReviewMemory) WithRecovery(_ context.Context, run func(RecoveryScope) error) error {
 	before := memory.completed
-	if err := run(RecoveryScope{Read: memory, Write: memory, Metadata: memory}); err != nil {
+	if err := run(RecoveryScope{Payload: emptyPayloadScope(), Read: memory, Write: memory, Metadata: memory}); err != nil {
 		return err
 	}
 	memory.transactions++

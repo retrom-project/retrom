@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"retrom/internal/service/payloadrelease"
+
 	"retrom/internal/contentcapability"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
@@ -72,6 +74,7 @@ type ReviewApprovalRepository interface {
 }
 
 type ReviewApprovalScope struct {
+	Payload      payloadrelease.ReleaseScope
 	Reader       ReviewApprovalReader
 	Media        ApprovalMediaReader
 	Validation   ReviewValidationReader

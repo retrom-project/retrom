@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/service/payloadrelease"
+
 	"retrom/internal/authn"
 	"retrom/internal/gametitle"
 )
@@ -155,9 +157,16 @@ func (run *reviewApprovalRun) publishDecision() error {
 	}); err != nil {
 		return fmt.Errorf("publish review source owner: %w", err)
 	}
-	if err := run.scope.Decisions.SchedulePayload(run.ctx, ReviewPayloadRelease{
-		ItemID: run.request.ItemID, ImportID: run.head.ImportID, Outcome: ReviewOwnerPublished, NowMS: run.now,
-	}); err != nil {
+	if err := payloadrelease.NewScheduler(nil).Review(
+		run.ctx,
+		run.scope.Payload,
+		payloadrelease.ReviewRelease{
+			ItemID:   run.request.ItemID,
+			ImportID: run.head.ImportID,
+			Reason:   payloadrelease.ReasonImportPublished,
+			NowMS:    run.now,
+		},
+	); err != nil {
 		return fmt.Errorf("schedule approved payload release: %w", err)
 	}
 	return nil

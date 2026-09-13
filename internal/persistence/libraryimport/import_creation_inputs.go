@@ -2,6 +2,7 @@ package libraryimport
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -13,48 +14,14 @@ func (records creationRecords) Queued(
 	ctx context.Context,
 	id string,
 ) (application.CreationQueuedSnapshot, error) {
-	var result application.CreationQueuedSnapshot
-	work := &result.Execution
-	err := records.transaction.QueryRowContext(
-		ctx,
-		`
-SELECT job.scope_id,job.id,COALESCE(job.worker_id,''),COALESCE(request.actor_user_id,''),
-job.execution_no,job.attempt_count,COALESCE(job.execution_started_at_ms,0),
- COALESCE(job.execution_deadline_at_ms,0),
- job.state,parent.state,parent.version,job.version,COALESCE(job.leased_until_ms,0),
- request.request_json,request.request_digest,request.target_snapshot_json,request.target_snapshot_digest,
- parent.upload_session_id,request.upload_version,request.upload_manifest_digest,job.max_attempts
-FROM jobs job JOIN import_jobs parent ON parent.id=job.scope_id
-JOIN import_group_requests request ON request.import_job_id=parent.id
-WHERE job.id=? AND job.scope_type='IMPORT_GROUP' AND job.kind='IMPORT_GROUP'`,
-		id,
-	).Scan(
-		&work.ImportID,
-		&work.JobID,
-		&work.WorkerID,
-		&work.ActorUserID,
-		&work.ExecutionNo,
-		&work.Attempt,
-		&work.StartedAtMS,
-		&work.DeadlineMS,
-		&result.JobState,
-		&result.ImportState,
-		&result.ParentVersion,
-		&result.JobVersion,
-		&result.LeaseUntilMS,
-		&result.RequestJSON,
-		&result.RequestDigest,
-		&result.TargetJSON,
-		&result.TargetDigest,
-		&result.UploadID,
-		&result.UploadVersion,
-		&result.UploadDigest,
-		&result.MaxAttempts,
-	)
+	result, found, err := (importExecutionRecords{executor: records.transaction}).Current(ctx, id)
 	if err != nil {
-		return application.CreationQueuedSnapshot{}, fmt.Errorf("query queued creation authority: %w", err)
+		return application.CreationQueuedSnapshot{}, fmt.Errorf("read queued creation authority: %w", err)
 	}
-	return result, nil
+	if !found {
+		return application.CreationQueuedSnapshot{}, fmt.Errorf("read queued creation authority: %w", sql.ErrNoRows)
+	}
+	return result.Creation, nil
 }
 
 func (records creationRecords) FenceInputs(ctx context.Context, plan application.PreparedImport) error {

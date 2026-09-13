@@ -8,7 +8,8 @@ import (
 	libraryservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 // DiscardBatchReviews records ordinary review decisions after execution has stopped.
@@ -78,19 +79,21 @@ cancel_requested_at_ms=COALESCE(cancel_requested_at_ms,?),completed_at_ms=COALES
 updated_at_ms=?,version=version+1 WHERE id=? AND payload_state='RETAINED'`, now, now, now, importID); err != nil {
 		return fmt.Errorf("libraryimport/close batch discard: %w", err)
 	}
-	ids, err := payloadrelease.CollectScopeIDs(ctx, tx, `
+	ids, err := payloadpersistence.CollectScopeIDs(ctx, tx, `
 SELECT id FROM import_items WHERE import_job_id=? AND payload_state='RETAINED'`, importID)
 	if err != nil {
 		return fmt.Errorf("libraryimport/list discarded children: %w", err)
 	}
 	for _, id := range ids {
-		if _, err := payloadrelease.ScheduleTerminalImportItem(
-			ctx, tx, id, payloadrelease.ReasonImportDiscarded, now,
+		if _, err := payloadservice.NewScheduler(nil).TerminalItem(
+			ctx, payloadpersistence.BindScheduling(tx), id, payloadservice.ReasonImportDiscarded, now,
 		); err != nil {
 			return fmt.Errorf("libraryimport/release discarded child: %w", err)
 		}
 	}
-	if _, err := payloadrelease.ScheduleTerminalImportJob(ctx, tx, importID, now); err != nil {
+	if _, err := payloadservice.NewScheduler(nil).TerminalImport(
+		ctx, payloadpersistence.BindScheduling(tx), importID, now,
+	); err != nil {
 		return fmt.Errorf("libraryimport/release discarded batch: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

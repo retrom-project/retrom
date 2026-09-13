@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,8 +28,9 @@ type (
 		TagsValid, OtherActive                 bool
 	}
 	StartScope struct {
-		Read  StartReader
-		Write StartWriter
+		Payload payload.ReleaseScope
+		Read    StartReader
+		Write   StartWriter
 	}
 	StartReader interface {
 		Current(context.Context, string) (StartSnapshot, error)
@@ -158,6 +160,9 @@ func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64
 		plan.Before = current
 		if err := scope.Write.Queue(ctx, plan); err != nil {
 			return fmt.Errorf("queue Pegasus start: %w", err)
+		}
+		if err := scheduleTerminalPayloads(ctx, scope.Payload, plan.Before.Summary.ID, plan.NowMS); err != nil {
+			return err
 		}
 		after, err := scope.Read.Current(ctx, current.Summary.ID)
 		if err != nil {

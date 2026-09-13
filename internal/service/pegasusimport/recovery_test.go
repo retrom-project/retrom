@@ -91,7 +91,7 @@ func (fake *recoveryFake) ExpiredExecutions(_ context.Context, _ int64, limit in
 }
 
 func (fake *recoveryFake) WithRecovery(_ context.Context, work func(RecoveryScope) error) error {
-	return work(RecoveryScope{Records: fake, Metadata: fake.metadata})
+	return work(RecoveryScope{Payload: emptyPayloadScope(), Records: fake, Metadata: fake.metadata})
 }
 
 func (fake *recoveryFake) Current(context.Context, string) (RecoverySnapshot, error) {

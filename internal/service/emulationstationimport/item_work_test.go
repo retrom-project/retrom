@@ -15,7 +15,7 @@ type itemWorkMemory struct {
 }
 
 func (memory *itemWorkMemory) WithItemWork(_ context.Context, run func(ItemWorkScope) error) error {
-	if err := run(ItemWorkScope{Read: memory, Write: memory}); err != nil {
+	if err := run(ItemWorkScope{Read: memory, Write: memory, Payload: payloadItemScope(memory)}); err != nil {
 		return err
 	}
 	return memory.commitErr

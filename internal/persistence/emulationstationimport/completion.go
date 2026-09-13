@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	payload "retrom/internal/persistence/payloadrelease"
 
 	"retrom/internal/dbexec"
 	application "retrom/internal/service/emulationstationimport"
@@ -19,7 +20,7 @@ func (repository *Completion) WithCompletion(ctx context.Context, run func(appli
 	}
 	defer dbexec.Rollback(tx)
 	records := completionRecords{transaction: tx, executor: tx}
-	if err := run(application.CompletionScope{Read: records, Write: records}); err != nil {
+	if err := run(application.CompletionScope{Payload: payload.BindReleases(tx), Read: records, Write: records}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

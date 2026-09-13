@@ -69,7 +69,7 @@ VALUES(?,'PEGASUS_IMPORT',?,'CANCEL_REQUESTED','{"schemaVersion":1}',?)`,
 	if before.Summary.ImportJobID == nil {
 		return nil
 	}
-	return ScheduleTerminalItems(ctx, records.transaction, before.Summary.ID, plan.NowMS)
+	return nil
 }
 
 func (records workflowRecords) cancelAggregate(ctx context.Context, plan application.CancellationPlan) error {

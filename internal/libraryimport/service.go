@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	composition "retrom/internal/composition/libraryimport"
 	"retrom/internal/dbexec"
 
 	tagpersistence "retrom/internal/persistence/tagging"
@@ -34,9 +35,9 @@ type Service struct {
 	scraper                *metadatascrape.Service
 	tags                   *tagging.Service
 	multiDiscImportEnabled bool
-	importGroupSlots       chan struct{}
-	importGroupMu          sync.Mutex
-	importGroupCancels     map[string]context.CancelFunc
+	workerMu               sync.Mutex
+	worker                 *composition.WorkerBundle
+	workerClosed           bool
 }
 
 func (service *Service) WithMultiDiscImportEnabled(enabled bool) *Service {
@@ -56,7 +57,6 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Service) *Service {
 	service := &Service{
 		database: database, now: now, tags: tagging.New(tagpersistence.New(database), now),
-		importGroupSlots: make(chan struct{}, 1), importGroupCancels: make(map[string]context.CancelFunc),
 	}
 	if len(scraper) > 0 {
 		service.scraper = scraper[0]
@@ -211,7 +211,11 @@ WHERE id=?
 	return uploadID.String(), nil
 }
 
-func reconfigurationManifestDigest(sourceImportJobID string, sourceVersion int64, files []reusableUploadFile) string {
+func reconfigurationManifestDigest(
+	sourceImportJobID string,
+	sourceVersion int64,
+	files []reusableUploadFile,
+) string {
 	manifestFiles := make([]map[string]any, 0, len(files))
 	for _, file := range files {
 		manifestFiles = append(manifestFiles, map[string]any{

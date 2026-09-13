@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/emulationstationimport"
 )
@@ -67,14 +66,6 @@ existing_matches_json=COALESCE(?,existing_matches_json),completed_at_ms=?,versio
 	})
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
-	}
-	if _, err := payloadrelease.ScheduleTerminalEmulationStationItem(
-		ctx,
-		records.transaction,
-		change.Before.Item.ID,
-		change.NowMS,
-	); err != nil {
-		return fmt.Errorf("schedule EmulationStation item payload: %w", err)
 	}
 	return refreshItemProgress(
 		ctx,

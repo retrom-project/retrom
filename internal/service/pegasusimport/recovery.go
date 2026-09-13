@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 
 	library "retrom/internal/service/libraryimport"
@@ -33,6 +34,7 @@ type (
 		Apply(context.Context, RecoveryChange) error
 	}
 	RecoveryScope struct {
+		Payload  payload.ReleaseScope
 		Records  RecoveryRecords
 		Metadata library.MetadataScope
 	}
@@ -113,6 +115,9 @@ func (service *Recovery) recoverExecution(ctx context.Context, scope RecoverySco
 	}
 	if err := scope.Records.Apply(ctx, change); err != nil {
 		return fmt.Errorf("persist Pegasus recovery: %w", err)
+	}
+	if change.JobState != "QUEUED" {
+		return scheduleTerminalPayloads(ctx, scope.Payload, current.ImportID, change.NowMS)
 	}
 	return nil
 }

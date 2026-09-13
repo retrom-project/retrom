@@ -15,7 +15,8 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadservice "retrom/internal/service/payloadrelease"
 
 	"github.com/google/uuid"
 )
@@ -359,7 +360,7 @@ FROM jobs WHERE id=?
 }
 
 func scheduleCancelledPayloads(ctx context.Context, transaction *sql.Tx, importID string, now int64) error {
-	itemIDs, err := payloadrelease.CollectScopeIDs(ctx, transaction, `
+	itemIDs, err := payloadpersistence.CollectScopeIDs(ctx, transaction, `
 SELECT id FROM import_items
 WHERE import_job_id=? AND state='CANCELLED' AND payload_state='RETAINED'
 ORDER BY id
@@ -368,13 +369,15 @@ ORDER BY id
 		return fmt.Errorf("libraryimport/review: list cancelled payloads: %w", err)
 	}
 	for _, itemID := range itemIDs {
-		if _, err := payloadrelease.ScheduleTerminalImportItem(
-			ctx, transaction, itemID, payloadrelease.ReasonImportCancelled, now,
+		if _, err := payloadservice.NewScheduler(nil).TerminalItem(
+			ctx, payloadpersistence.BindScheduling(transaction), itemID, payloadservice.ReasonImportCancelled, now,
 		); err != nil {
 			return fmt.Errorf("libraryimport/review: schedule cancelled payload: %w", err)
 		}
 	}
-	if _, err := payloadrelease.ScheduleTerminalImportJob(ctx, transaction, importID, now); err != nil {
+	if _, err := payloadservice.NewScheduler(nil).TerminalImport(
+		ctx, payloadpersistence.BindScheduling(transaction), importID, now,
+	); err != nil {
 		return fmt.Errorf("libraryimport/review: schedule cancelled aggregate: %w", err)
 	}
 	return nil

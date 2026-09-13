@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 
 	library "retrom/internal/service/libraryimport"
@@ -26,6 +27,7 @@ type (
 		CompleteReview(context.Context, ExecutionReviewCompletion) error
 	}
 	RecoveryScope struct {
+		Payload  payload.ReleaseScope
 		Read     RecoveryReader
 		Write    RecoveryWriter
 		Metadata library.MetadataScope
@@ -92,6 +94,9 @@ func (service *Recovery) recoverInScope(ctx context.Context, scope RecoveryScope
 	}
 	if err := scope.Write.Apply(ctx, change); err != nil {
 		return fmt.Errorf("persist EmulationStation recovery: %w", err)
+	}
+	if change.SchedulePayload {
+		return scheduleTerminalPayloads(ctx, scope.Payload, change.Before.ImportID, change.NowMS)
 	}
 	return nil
 }

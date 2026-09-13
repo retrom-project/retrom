@@ -80,6 +80,11 @@ func (service *WorkflowControl) cancel(
 		if err := scope.Write.Cancel(ctx, plan); err != nil {
 			return fmt.Errorf("persist EmulationStation cancellation: %w", err)
 		}
+		if plan.Before.Summary.ImportJobID != nil {
+		if err := scheduleTerminalPayloads(ctx, scope.Payload, plan.Before.Summary.ID, plan.NowMS); err != nil {
+			return err
+		}
+		}
 		after, err := scope.Read.Current(ctx, before.Summary.ID)
 		if err != nil {
 			return fmt.Errorf("read cancelled EmulationStation plan: %w", err)

@@ -54,10 +54,7 @@ VALUES(?,'EMULATIONSTATION_IMPORT',?,'CANCEL_REQUESTED','{"schemaVersion":1}',?)
 	); err != nil {
 		return err
 	}
-	if plan.Before.Summary.ImportJobID == nil {
-		return nil
-	}
-	return ScheduleTerminalItems(ctx, records.transaction, plan.Before.Summary.ID, plan.NowMS)
+	return nil
 }
 
 func (records workflowRecords) cancelAggregate(ctx context.Context, plan application.CancellationPlan) error {

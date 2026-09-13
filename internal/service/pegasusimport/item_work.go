@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 )
 
@@ -63,8 +64,9 @@ type (
 		Finish(context.Context, ItemFinish) error
 	}
 	ItemWorkScope struct {
-		Read  ItemWorkReader
-		Write ItemWorkWriter
+		Payload payload.ReleaseScope
+		Read    ItemWorkReader
+		Write   ItemWorkWriter
 	}
 	ItemWorkRepository interface {
 		WithItemWork(context.Context, func(ItemWorkScope) error) error
@@ -173,7 +175,8 @@ func (service *ItemWork) Finish(
 		if err := scope.Write.Finish(ctx, ItemFinish{Before: before, Outcome: outcome, NowMS: now}); err != nil {
 			return fmt.Errorf("save Pegasus item outcome: %w", err)
 		}
-		return nil
+		_, err = payload.NewScheduler(nil).TerminalSource(ctx, scope.Payload.Scheduling, payload.Scope{Type: payload.ScopePegasusImportItem, ID: itemID}, now)
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("finish Pegasus item: %w", err)

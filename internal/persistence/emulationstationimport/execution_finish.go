@@ -27,11 +27,6 @@ func (records executionRecords) Finish(ctx context.Context, change application.E
 	if err := records.finishAggregate(ctx, change, change.ClearScan); err != nil {
 		return err
 	}
-	if change.SchedulePayload {
-		if err := ScheduleTerminalItems(ctx, records.transaction, change.Before.ImportID, change.NowMS); err != nil {
-			return err
-		}
-	}
 	return records.finishEvent(ctx, change)
 }
 

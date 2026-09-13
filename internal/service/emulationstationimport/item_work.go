@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+	payload "retrom/internal/service/payloadrelease"
 )
 
 func (service *ItemWork) Next(ctx context.Context, unit Execution) (ExecutionItem, bool, error) {
@@ -89,7 +90,8 @@ func (service *ItemWork) Finish(ctx context.Context, unit Execution, id string, 
 		if err := scope.Write.Finish(ctx, ItemFinish{Before: before, Outcome: outcome, NowMS: now}); err != nil {
 			return fmt.Errorf("save EmulationStation item outcome: %w", err)
 		}
-		return nil
+		_, err = payload.NewScheduler(nil).TerminalSource(ctx, scope.Payload.Scheduling, payload.Scope{Type: payload.ScopeEmulationStationImportItem, ID: id}, now)
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("finish EmulationStation item: %w", err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	payload "retrom/internal/service/payloadrelease"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,8 +19,9 @@ type (
 		RetryableItems        int64
 	}
 	WorkflowScope struct {
-		Read  WorkflowReader
-		Write WorkflowWriter
+		Payload payload.ReleaseScope
+		Read    WorkflowReader
+		Write   WorkflowWriter
 	}
 	WorkflowReader interface {
 		Current(context.Context, string) (WorkflowSnapshot, error)

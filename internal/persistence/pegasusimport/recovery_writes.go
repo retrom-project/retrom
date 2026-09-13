@@ -106,11 +106,6 @@ version=version+1,updated_at_ms=?`,
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
 	}
-	if change.JobState != "QUEUED" {
-		if err := ScheduleTerminalItems(ctx, records.tx, before.ImportID, change.NowMS); err != nil {
-			return err
-		}
-	}
 	return records.recoveryEvent(ctx, change)
 }
 

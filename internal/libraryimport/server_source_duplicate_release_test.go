@@ -6,10 +6,13 @@ import (
 	"testing"
 	"time"
 
+	payloadcomposition "retrom/internal/composition/payloadrelease"
+
 	application "retrom/internal/service/payloadrelease"
 
 	"retrom/internal/dbexec"
-	"retrom/internal/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 func TestEmulationStationDuplicateBindingReleasesSharedImportPayload(t *testing.T) {
@@ -62,7 +65,7 @@ func finishESDuplicateSource(t *testing.T, fixture deduplicateFixture, result Se
 	if _, err := tx.ExecContext(fixture.ctx, `UPDATE emulationstation_import_items SET execution_state='SKIPPED_EXISTING',library_import_job_id=?,library_import_item_id=?,existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='es-source'`, result.Created.ImportJobID, result.Items[0].ItemID, result.Items[0].ExistingGameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payloadrelease.ScheduleTerminalEmulationStationItem(fixture.ctx, tx, "es-source", ownedSourceNow().UnixMilli()); err != nil {
+	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadservice.Scope{Type: payloadservice.ScopeEmulationStationImportItem, ID: "es-source"}, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -75,10 +78,11 @@ func TestLinkedDuplicatePayloadReleaseRequiresRecordedGameMatch(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			fixture, itemID := finishedDuplicateSourceFixture(t, kind)
 			fixture.execute(t, `DELETE FROM import_item_duplicate_matches WHERE import_item_id=?`, itemID)
-			releases, err := payloadrelease.New(fixture.database, fixture.blobs, ownedSourceNow, 24*time.Hour)
+			releases, err := payloadcomposition.New(fixture.ctx, fixture.database, fixture.blobs, ownedSourceNow, 24*time.Hour)
 			if err != nil {
 				t.Fatal(err)
 			}
+			t.Cleanup(releases.Close)
 			for range 16 {
 				worked, err := releases.RunOnce(fixture.ctx)
 				if err != nil {

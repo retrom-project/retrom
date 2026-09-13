@@ -210,6 +210,7 @@ func TestDiscardPreservesPublishedGameAndOtherBatch(t *testing.T) {
 
 func TestDiscardWaitsForExecutionStopAndResumesAfterRestart(t *testing.T) {
 	f := newFixture(t)
+	t.Cleanup(f.importer.Close)
 	result := f.create(t, f.file(t, "pending.nes", 20))
 	f.exec(t, `UPDATE jobs SET state='RUNNING',finished_at_ms=NULL WHERE scope_id=? AND kind='IMPORT_GROUP'`, result.Created.ImportJobID)
 	f.exec(t, `UPDATE import_jobs SET state='RUNNING' WHERE id=?`, result.Created.ImportJobID)

@@ -3,8 +3,11 @@ package httpapi
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
+
+	"retrom/internal/service/mediaaccess"
 
 	"retrom/internal/dbexec"
 
@@ -378,49 +381,28 @@ func newUUIDString() string {
 }
 
 func (server *Server) contentAsset(writer http.ResponseWriter, request *http.Request) {
-	var digest, mediaType string
-	err := server.database.QueryRowContext(request.Context(), `
-SELECT b.sha256,
-a.media_type
-FROM game_assets a
-JOIN blobs b ON b.id=a.blob_id
-JOIN games g ON g.id=a.game_id
-WHERE a.id=?
-AND g.status='PUBLISHED'
-AND a.game_id=g.id
-`, request.PathValue("assetId")).
-		Scan(&digest, &mediaType)
-	if err != nil {
+	asset, err := server.mediaAccess.Game(request.Context(), request.PathValue("assetId"))
+	if errors.Is(err, mediaaccess.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "ASSET_NOT_FOUND", "媒体不存在", map[string]any{})
 		return
 	}
-	server.serveBlob(writer, request, digest, mediaType, false)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	server.serveBlob(writer, request, asset.Digest, asset.MediaType, false)
 }
 
 func (server *Server) saveStateScreenshot(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	var digest, mediaType string
-	err := server.database.QueryRowContext(request.Context(), `
-SELECT b.sha256,
-b.media_type
-FROM save_states s
-JOIN blobs b ON b.id=s.screenshot_blob_id
-JOIN games g ON g.id=s.game_id
-WHERE s.id=?
-AND s.profile_id=?
-AND s.deleted_at_ms IS NULL
-AND g.status='PUBLISHED'
-`, request.PathValue("saveStateId"), principal.ProfileID).Scan(&digest, &mediaType)
-	if err != nil {
-		writeError(
-			writer,
-			request,
-			http.StatusNotFound,
-			"SAVE_SCREENSHOT_NOT_FOUND",
-			"存档截图不存在",
-			map[string]any{},
-		)
+	asset, err := server.mediaAccess.Save(request.Context(), request.PathValue("saveStateId"), principal.ProfileID)
+	if errors.Is(err, mediaaccess.ErrNotFound) {
+		writeError(writer, request, http.StatusNotFound, "SAVE_SCREENSHOT_NOT_FOUND", "存档截图不存在", map[string]any{})
 		return
 	}
-	server.serveBlob(writer, request, digest, mediaType, true)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	server.serveBlob(writer, request, asset.Digest, asset.MediaType, true)
 }

@@ -24,7 +24,7 @@ func (m *startMemory) WithStart(_ context.Context, work func(StartScope) error) 
 	if m.onWrite != nil {
 		m.onWrite()
 	}
-	if err := work(StartScope{Read: m, Write: m}); err != nil {
+	if err := work(StartScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
 		return err
 	}
 	return m.commitErr
