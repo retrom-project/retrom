@@ -127,7 +127,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.WithRuntimeProvider(server.dependencies.RuntimeCatalog, builder, http.NotFoundHandler())
+	server.WithRuntimeProvider(builder, http.NotFoundHandler())
 	// The installed Provider handler is not part of this HTTP authorization test.
 	server.runtimeProvider = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/native/bridge.js") {

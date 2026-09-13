@@ -299,7 +299,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	).WithReadinessDatabase(database.ReadOnly)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(context.Background(), database.SQL)
 	testassert.Falsef(t, err != nil, "build runtime Provider fixture: %v", err)
-	server.WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder, http.NotFoundHandler())
+	server.WithRuntimeProvider(runtimeBuilder, http.NotFoundHandler())
 	// General HTTP contract tests exercise handlers, not the asynchronous DAT
 	// readiness lifecycle. Readiness-specific tests explicitly clear this bit.
 	server.startupReady.Store(true)

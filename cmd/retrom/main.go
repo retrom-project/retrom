@@ -321,7 +321,6 @@ func run(mode config.Mode) error {
 		resources.credentials, accountService, accountService, time.Now, resources.scummVMDetector,
 	).WithReadinessDatabase(resources.database.ReadOnly).WithNetplay(netplayService)
 	apiServer.WithRuntimeProvider(
-		resources.runtimeProviders.Catalog,
 		resources.runtimeProviders.Builder,
 		resources.runtimeProviders.Handler,
 	)

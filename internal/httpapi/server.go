@@ -44,7 +44,6 @@ import (
 	favoritepersistence "retrom/internal/persistence/favorites"
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimecatalog"
 	"retrom/internal/runtimelaunch"
 	"retrom/internal/scummvm"
 	"retrom/internal/serversource"
@@ -156,7 +155,6 @@ func (server *Server) WithRuntimeProviderHandler(handler http.Handler) *Server {
 }
 
 func (server *Server) WithRuntimeProvider(
-	catalog runtimecatalog.Catalog,
 	builder *runtimelaunch.Builder,
 	handler http.Handler,
 ) *Server {
