@@ -6,6 +6,7 @@ import (
 	"retrom/internal/testkit/architecture"
 )
 
-func TestSaveProductionCodeTreatsProviderCheckpointsAsOpaque(t *testing.T) {
+func TestPersistenceSaveCodeTreatsProviderCheckpointsAsOpaque(t *testing.T) {
+	t.Parallel()
 	architecture.AssertOpaqueProviderCheckpoints(t)
 }

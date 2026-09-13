@@ -6,6 +6,7 @@ import (
 	"retrom/internal/testkit/architecture"
 )
 
-func TestDependencyProductionCodeDoesNotOwnRuntimeProviderContract(t *testing.T) {
+func TestDependencyPersistenceDoesNotOwnRuntimeProviderContract(t *testing.T) {
+	t.Parallel()
 	architecture.AssertNoProviderAuthority(t)
 }

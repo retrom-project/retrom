@@ -1,25 +1,20 @@
-package architecture
+package httpapi
 
 import (
 	"go/parser"
 	"go/token"
-	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
+
+	"retrom/internal/testkit/architecture"
 )
 
 func TestServerImportHTTPUsesApplicationService(t *testing.T) {
-	entries, err := os.ReadDir("../../transport/httpapi")
+	entries, err := architecture.GoSourceFiles(t)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
-			continue
-		}
-		name := filepath.Join("../../transport/httpapi", entry.Name())
+	for _, name := range entries {
 		file, err := parser.ParseFile(token.NewFileSet(), name, nil, parser.ImportsOnly)
 		if err != nil {
 			t.Fatal(err)

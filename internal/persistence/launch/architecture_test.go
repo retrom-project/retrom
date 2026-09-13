@@ -6,6 +6,7 @@ import (
 	"retrom/internal/testkit/architecture"
 )
 
-func TestAdapterLaunchHasNoLegacyProviderAuthority(t *testing.T) {
+func TestPersistenceLaunchDoesNotOwnLegacyProviderAuthority(t *testing.T) {
+	t.Parallel()
 	architecture.AssertNoLegacyLaunchAuthority(t)
 }

@@ -1,4 +1,4 @@
-package architecture
+package dbexec
 
 import (
 	"go/ast"
@@ -8,12 +8,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"retrom/internal/testkit/architecture"
 )
 
 func TestSQLExecutorHasOneDefinition(t *testing.T) {
 	t.Parallel()
 	definitions := 0
-	err := filepath.WalkDir("../../persistence", func(path string, entry fs.DirEntry, err error) error {
+	persistenceRoot := filepath.Dir(architecture.PackageDirectory(t))
+	err := filepath.WalkDir(persistenceRoot, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -30,7 +33,7 @@ func TestSQLExecutorHasOneDefinition(t *testing.T) {
 				return true
 			}
 			definitions++
-			if path != filepath.Join("..", "..", "persistence", "dbexec", "executor.go") {
+			if path != filepath.Join(persistenceRoot, "dbexec", "executor.go") {
 				t.Errorf("%s redeclares SQL execution; reuse dbexec.Executor", path)
 			}
 			return false
