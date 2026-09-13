@@ -58,7 +58,7 @@ ScummVM 使用与浏览器核心同一上游基线的原生检测器，Host 只�
 
 浏览器创建请求只在短事务中冻结 Upload version/manifest、请求、标签和目标候选集合，创建 `QUEUED` ImportJob 后立即返回；ZIP/7z 扫描、项目根规范化、内容 hash、世代/核心裁决和 CAS member 物化由 `IMPORT_GROUP` worker 完成。任务尚未完成内部绑定时配置快照明确为 `bindingState=PENDING`，不把暂存外键显示成已选择核心；Worker 成功时以同一事务写入最终配置、Item、Validation/Review 和 SUCCEEDED 事件。只有准入本身无效才同步拒绝；依赖读取项目 bytes 才能发现的确定性错误进入任务级 `FAILED` 并显示稳定错误码。
 
-普通导入的格式准备使用共享 `Prepared*` 业务结果。EasyRPG 索引和 MKXPZ 与已有归档物化一样，在数据库写事务前完成构建及 CAS 写入；事务只登记已准备产物并形成审核和验证引用。构建、读取或 CAS 写入失败不能创建部分审核。
+普通导入的格式识别、分组与运行绑定统一由 `ImportPreparation` Service 编排，并返回共享 `Prepared*` 业务结果；同步、队列和服务器来源创建共用这一入口。Repository 提供当前目标及 DAT 依赖事实；真正缺失或不兼容的内容保留领域诊断，数据库读取失败必须保留原因并停止创建审核。EasyRPG 索引和 MKXPZ 与已有归档物化一样，在数据库写事务前完成构建及 CAS 写入；事务只登记已准备产物并形成审核和验证引用。构建、读取或 CAS 写入失败不能创建部分审核。
 
 服务器来源创建携带显式 Pegasus 或 EmulationStation 类型。耗时准备后，提交事务重新校验最初 execution、worker、租约、冻结来源与目标事实，并将普通任务、唯一主条目和来源永久绑定一起提交；重放先读取既有绑定，不能在来源 payload 已释放后重新按路径猜测普通条目。
 

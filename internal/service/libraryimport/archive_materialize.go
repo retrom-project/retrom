@@ -9,7 +9,7 @@ import (
 	"retrom/internal/importing"
 )
 
-func (service *Service) materializeArchiveEntries(
+func (service *ImportPreparation) materializeArchiveEntries(
 	ctx context.Context,
 	archivePath string,
 	expected []importing.ArchiveEntry,

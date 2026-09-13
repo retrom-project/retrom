@@ -29,7 +29,24 @@ import (
 
 func TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := t.Context()
+	fixture := newArcadeGroupingFixture(ctx, t)
+	fixture.assertExternalDependencies(ctx, t)
+	fixture.assertSelfContainedGroups(ctx, t)
+	fixture.assertMergedGroups(ctx, t)
+	fixture.assertUnsupportedDisk(ctx, t)
+}
+
+type arcadeGroupingFixture struct {
+	database *store.DB
+	blobs    *blobstore.Store
+	service  *Service
+	datID    string
+	files    []importSourceFile
+}
+
+func newArcadeGroupingFixture(ctx context.Context, t *testing.T) arcadeGroupingFixture {
+	t.Helper()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
@@ -143,6 +160,15 @@ NULL,
 `, datID, datID, datID); err != nil {
 		t.Fatal(err)
 	}
+
+	fixture := arcadeGroupingFixture{database: database, blobs: blobs, datID: datID, service: (&Service{database: database.SQL}).WithBlobStore(blobs)}
+	fixture.files = fixture.createArchives(ctx, t)
+	return fixture
+}
+
+func (fixture arcadeGroupingFixture) createArchives(ctx context.Context, t *testing.T) []importSourceFile {
+	t.Helper()
+	database, blobs, datID := fixture.database, fixture.blobs, fixture.datID
 	type archiveFixture struct {
 		id, name, entry string
 		body            []byte
@@ -195,35 +221,54 @@ status) VALUES(?,
 			t.Fatalf("insert ROM %x: %v", entryDigest, err)
 		}
 	}
-	service := (&Service{database: database.SQL}).WithBlobStore(blobs)
-	files := []importSourceFile{fixtures[0].file, fixtures[1].file, fixtures[2].file}
-	dispositions, groups, archives := service.prepareArcadeFiles(ctx, files, sql.NullString{String: datID, Valid: true})
+
+	return []importSourceFile{fixtures[0].file, fixtures[1].file, fixtures[2].file}
+}
+
+func (fixture arcadeGroupingFixture) assertExternalDependencies(ctx context.Context, t *testing.T) {
+	t.Helper()
+	service, files, datID := fixture.service, fixture.files, fixture.datID
+	dispositions, groups, archives, preparationErr := service.prepareArcadeFiles(ctx, files, sql.NullString{String: datID, Valid: true})
+	if preparationErr != nil {
+		t.Fatal(preparationErr)
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 3 }, func() bool { return len(groups) != 1 }, func() bool { return len(archives) != 3 }), "arcade grouping counts = dispositions:%#v groups:%#v archives:%d", dispositions, groups, len(archives))
 	child := groups[0]
 	testassert.Falsef(t, testassert.Any(func() bool { return child.ValidationStatus != "READY" }, func() bool { return len(child.Sources) != 3 }, func() bool { return len(child.ValidationFiles) != 2 }, func() bool { return child.ValidationFiles[0].Role != "PARENT" }, func() bool { return child.ValidationFiles[1].Role != "BIOS_BUNDLE" }), "child dependency closure = %#v", child)
 	for _, disposition := range dispositions {
 		testassert.Falsef(t, disposition.Disposition != "SOURCE", "referenced archive disposition = %#v", disposition)
 	}
-	missingDispositions, missingGroups, _ := service.prepareArcadeFiles(
+	missingDispositions, missingGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
-		[]importSourceFile{fixtures[0].file},
+		[]importSourceFile{files[0]},
 		sql.NullString{String: datID, Valid: true},
 	)
+	if preparationErr != nil {
+		t.Fatal(preparationErr)
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(missingDispositions) != 1 }, func() bool { return len(missingGroups) != 1 }, func() bool { return missingGroups[0].ValidationStatus != "BLOCKED" }, func() bool {
 		return missingGroups[0].CompatibilityCode != "LAUNCH_BIOS_MISSING" &&
 			missingGroups[0].CompatibilityCode != "LAUNCH_PARENT_MISSING"
 	}), "missing dependency = dispositions:%#v groups:%#v", missingDispositions, missingGroups)
+}
+
+func (fixture arcadeGroupingFixture) assertSelfContainedGroups(ctx context.Context, t *testing.T) {
+	t.Helper()
+	service, blobs, datID := fixture.service, fixture.blobs, fixture.datID
 	fullBytes := makeZIP(
 		t,
 		map[string][]byte{"c.bin": []byte("child"), "p.bin": []byte("parent"), "b.bin": []byte("bios")},
 	)
 	fullMetadata, err := blobs.Put(bytes.NewReader(fullBytes))
 	testassert.False(t, err != nil, err)
-	_, fullGroups, _ := service.prepareArcadeFiles(
+	_, fullGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{ID: "full", Path: "child.zip", BlobID: "full-blob", SHA256: fullMetadata.SHA256}},
 		sql.NullString{String: datID, Valid: true},
 	)
+	if preparationErr != nil {
+		t.Fatal(preparationErr)
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(fullGroups) != 1 }, func() bool { return fullGroups[0].ValidationStatus != "READY" }, func() bool { return len(fullGroups[0].Sources) != 1 }, func() bool { return len(fullGroups[0].ValidationFiles) != 0 }), "full non-merged closure = %#v", fullGroups)
 	fullWithCloneExtraBytes := makeZIP(
 		t,
@@ -236,7 +281,7 @@ status) VALUES(?,
 	)
 	fullWithCloneExtraMetadata, err := blobs.Put(bytes.NewReader(fullWithCloneExtraBytes))
 	testassert.False(t, err != nil, err)
-	_, fullWithCloneExtraGroups, _ := service.prepareArcadeFiles(
+	_, fullWithCloneExtraGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{
 			ID: "full-with-clone-extra", Path: "child.zip", BlobID: "full-with-clone-extra-blob",
@@ -244,15 +289,26 @@ status) VALUES(?,
 		}},
 		sql.NullString{String: datID, Valid: true},
 	)
+	if preparationErr != nil {
+		t.Fatal(preparationErr)
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(fullWithCloneExtraGroups) != 1 }, func() bool { return fullWithCloneExtraGroups[0].ValidationStatus != "READY" }, func() bool { return fullWithCloneExtraGroups[0].CompatibilityCode != "READY" }), "full non-merged closure with clone extra = %#v", fullWithCloneExtraGroups)
+}
+
+func (fixture arcadeGroupingFixture) assertMergedGroups(ctx context.Context, t *testing.T) {
+	t.Helper()
+	service, blobs, datID := fixture.service, fixture.blobs, fixture.datID
 	mergedBytes := makeZIP(t, map[string][]byte{"c.bin": []byte("child"), "parent/p.bin": []byte("parent")})
 	mergedMetadata, err := blobs.Put(bytes.NewReader(mergedBytes))
 	testassert.False(t, err != nil, err)
-	_, mergedGroups, _ := service.prepareArcadeFiles(
+	_, mergedGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{ID: "merged", Path: "child.zip", BlobID: "merged-blob", SHA256: mergedMetadata.SHA256}},
 		sql.NullString{String: datID, Valid: true},
 	)
+	if preparationErr != nil {
+		t.Fatal(preparationErr)
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(mergedGroups) != 1 }, func() bool { return mergedGroups[0].ValidationStatus != "BLOCKED" }, func() bool { return mergedGroups[0].CompatibilityCode != "UNSUPPORTED_MERGED_ROMSET" }), "merged ROM set = %#v", mergedGroups)
 	nestedMismatchBytes := makeZIP(
 		t,
@@ -260,7 +316,7 @@ status) VALUES(?,
 	)
 	nestedMismatchMetadata, err := blobs.Put(bytes.NewReader(nestedMismatchBytes))
 	testassert.False(t, err != nil, err)
-	_, nestedMismatchGroups, _ := service.prepareArcadeFiles(
+	_, nestedMismatchGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{
 			ID: "nested-mismatch", Path: "child.zip", BlobID: "nested-mismatch-blob",
@@ -268,7 +324,15 @@ status) VALUES(?,
 		}},
 		sql.NullString{String: datID, Valid: true},
 	)
+	if preparationErr != nil {
+		t.Fatal(preparationErr)
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(nestedMismatchGroups) != 1 }, func() bool { return nestedMismatchGroups[0].ValidationStatus != "BLOCKED" }, func() bool { return nestedMismatchGroups[0].CompatibilityCode != "LAUNCH_PARENT_MISSING" }), "nested name-only match must remain a missing parent = %#v", nestedMismatchGroups)
+}
+
+func (fixture arcadeGroupingFixture) assertUnsupportedDisk(ctx context.Context, t *testing.T) {
+	t.Helper()
+	service, database, files, datID := fixture.service, fixture.database, fixture.files, fixture.datID
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_disk_entries(dat_version_id,
 machine_name,
@@ -284,7 +348,10 @@ status) VALUES(?,
 `, datID, strings.Repeat("0", 40)); err != nil {
 		t.Fatal(err)
 	}
-	_, diskGroups, _ := service.prepareArcadeFiles(ctx, files, sql.NullString{String: datID, Valid: true})
+	_, diskGroups, _, preparationErr := service.prepareArcadeFiles(ctx, files, sql.NullString{String: datID, Valid: true})
+	if preparationErr != nil {
+		t.Fatal(preparationErr)
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(diskGroups) == 0 }, func() bool { return diskGroups[0].ValidationStatus != "INCOMPATIBLE" }, func() bool { return diskGroups[0].CompatibilityCode != "UNSUPPORTED_CHD" }), "CHD compatibility = %#v", diskGroups)
 }
 

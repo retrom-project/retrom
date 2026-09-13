@@ -32,7 +32,7 @@ func TestScummVMDirectoryUsesUpstreamDetectorAndImmutableCompleteTree(t *testing
 	})
 	service := New(nil, nil).WithBlobStore(blobs).WithScummVMDetector(detector)
 	files := []importSourceFile{{ID: "one", BlobID: "one", Path: "Game/opaque.bin", SHA256: data.SHA256, Size: data.Size}}
-	_, groups, _, err := service.prepareScummVMProject(t.Context(), "DIRECTORY", files)
+	_, groups, _, err := service.importPreparation().PrepareScummVMProject(t.Context(), "DIRECTORY", files)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestScummVMDirectoryUsesUpstreamDetectorAndImmutableCompleteTree(t *testing
 	if json.Unmarshal([]byte(groups[0].DependencySnapshot), &encoded) != nil {
 		t.Fatal("invalid snapshot")
 	}
-	if _, _, _, err := New(nil, nil).WithBlobStore(blobs).prepareScummVMProject(t.Context(), "DIRECTORY", files); err == nil {
+	if _, _, _, err := New(nil, nil).WithBlobStore(blobs).importPreparation().PrepareScummVMProject(t.Context(), "DIRECTORY", files); err == nil {
 		t.Fatal("missing detector became a successful empty scan")
 	}
 }

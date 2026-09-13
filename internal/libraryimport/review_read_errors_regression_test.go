@@ -7,6 +7,9 @@ import (
 	"errors"
 	"testing"
 
+	repository "retrom/internal/persistence/libraryimport"
+	application "retrom/internal/service/libraryimport"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -30,7 +33,7 @@ func TestReviewReadHelpersPreserveDatabaseFailure(t *testing.T) {
 		{"content identity", func() error { _, err := importItemContentIdentity(t.Context(), database, "item"); return err }},
 		{"duplicate matches", func() error { _, err := findDuplicateGames(t.Context(), database, "item", "gba"); return err }},
 		{"arcade relations", func() error {
-			_, _, err := loadArcadeDependencyClosure(t.Context(), database, "dat", "machine")
+			_, _, err := application.LoadArcadeClosure(t.Context(), repository.BindArcadeRelations(database), "dat", "machine")
 			return err
 		}},
 	} {

@@ -130,9 +130,13 @@ func (service *Service) prepareParentCommit(
 			ID: file.uploadFileID, Path: file.logicalName, BlobID: file.blobID, SHA256: file.blobSHA,
 		})
 	}
-	_, groups, _ := service.prepareArcadeFiles(
+	_, groups, _, preparationErr := service.prepareArcadeFiles(
 		ctx, preparedFiles, sql.NullString{String: candidate.datID, Valid: true},
 	)
+	if preparationErr != nil {
+		service.finishRetryableParentAttachment(ctx, candidate, jobID, workerID, ParentErrorUnavailable)
+		return preparedParentCommit{}, false
+	}
 	rootMachine, err := service.parentAttachmentRootMachine(ctx, candidate)
 	if err != nil {
 		service.finishRetryableParentAttachment(ctx, candidate, jobID, workerID, ParentErrorUnavailable)

@@ -82,7 +82,7 @@ SELECT bios_name FROM dat_bios_sets WHERE dat_version_id=? AND machine_name=? AN
 		return facts, fmt.Errorf("read approval default BIOS: %w", err)
 	}
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT name,COALESCE(status,'GOOD'),bios_name FROM dat_rom_entries
+SELECT name,COALESCE(status,'GOOD'),bios_name,size_bytes,crc32,sha1,merge_name FROM dat_rom_entries
 WHERE dat_version_id=? AND machine_name=? ORDER BY ordinal`, datID, machine)
 	if err != nil {
 		return facts, fmt.Errorf("query approval arcade ROMs: %w", err)
@@ -90,7 +90,9 @@ WHERE dat_version_id=? AND machine_name=? ORDER BY ordinal`, datID, machine)
 	defer func() { cleanup.Error("close approval arcade ROMs", rows.Close()) }()
 	for rows.Next() {
 		var rom application.ApprovalArcadeROM
-		if err := rows.Scan(&rom.Name, &rom.Status, &rom.BIOSName); err != nil {
+		if err := rows.Scan(
+			&rom.Name, &rom.Status, &rom.BIOSName, &rom.Size, &rom.CRC32, &rom.SHA1, &rom.MergeName,
+		); err != nil {
 			return application.ApprovalArcadeRequirements{}, fmt.Errorf("scan approval arcade ROM: %w", err)
 		}
 		facts.ROMs = append(facts.ROMs, rom)

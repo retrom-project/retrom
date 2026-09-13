@@ -130,20 +130,26 @@ func readAdmissionFacts(
 func (service *ImportAdmissions) checkContent(
 	request ImportRequest, mode string, change ImportAdmissionChange,
 ) (ImportRequest, string, error) {
+	return checkImportContent(request, mode, change, service.options)
+}
+
+func checkImportContent(
+	request ImportRequest, mode string, change ImportAdmissionChange, options ImportAdmissionOptions,
+) (ImportRequest, string, error) {
 	request, mode, err := NormalizeTargetImport(
 		request, mode, change.Upload.Purpose, change.Upload.SourceType, change.Files, change.Target,
 	)
 	if err != nil {
 		return ImportRequest{}, "", err
 	}
-	if request.MetadataProvider == "HASHEOUS" && !service.options.MetadataScraperAvailable {
+	if request.MetadataProvider == "HASHEOUS" && !options.MetadataScraperAvailable {
 		return ImportRequest{}, "", ErrMetadataScraperNotConfigured
 	}
 	if err := ValidateImportUpload(mode, change.Upload.SourceType, change.Upload.Purpose); err != nil {
 		return ImportRequest{}, "", err
 	}
 	capabilities := contentcapability.Resolve(
-		change.Target.PlatformID, true, service.options.MultiDiscEnabled, change.Target.Policy,
+		change.Target.PlatformID, true, options.MultiDiscEnabled, change.Target.Policy,
 	)
 	if mode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return ImportRequest{}, "", ErrMultiDiscModeUnavailable

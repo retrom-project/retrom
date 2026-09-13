@@ -13,8 +13,8 @@ import (
 	"retrom/internal/importing"
 )
 
-func (service *Service) rpgMakerNestedArchiveFormat(
-	file importSourceFile,
+func (service *ImportPreparation) rpgMakerNestedArchiveFormat(
+	file ImportFile,
 ) (importing.NestedArchiveFormat, error) {
 	reader, err := os.Open(service.blobs.Path(file.SHA256))
 	if err != nil {
@@ -30,15 +30,15 @@ func (service *Service) rpgMakerNestedArchiveFormat(
 	return importing.DetectNestedArchive(file.Path, prefix), nil
 }
 
-func (service *Service) scanProjectArchive(
+func (service *ImportPreparation) scanProjectArchive(
 	ctx context.Context,
-	file importSourceFile,
+	file ImportFile,
 	archiveFormat contentprofile.ArchiveFormat,
 ) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, error) {
 	return service.scanProjectArchivePath(ctx, service.blobs.Path(file.SHA256), archiveFormat)
 }
 
-func (service *Service) scanProjectArchivePath(
+func (service *ImportPreparation) scanProjectArchivePath(
 	ctx context.Context,
 	archivePath string,
 	archiveFormat contentprofile.ArchiveFormat,
@@ -84,9 +84,9 @@ func (service *Service) scanProjectArchivePath(
 	return entries, candidates, nil
 }
 
-func (service *Service) projectArchiveReadMetadata(
+func (service *ImportPreparation) projectArchiveReadMetadata(
 	ctx context.Context,
-	file importSourceFile,
+	file ImportFile,
 	entries []importing.ArchiveEntry,
 	candidates map[int]*blobstore.Candidate,
 ) (map[int]blobstore.Metadata, error) {

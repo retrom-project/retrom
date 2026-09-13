@@ -91,13 +91,16 @@ func TestExpandedPlatformsAdmitTheirVerifiedRawExtensions(t *testing.T) {
 	service := &Service{}
 	for _, test := range tests {
 		t.Run(test.platformID+"/"+test.logicalName, func(t *testing.T) {
-			dispositions, groups, archives := service.prepareImportFiles(
+			dispositions, groups, archives, preparationErr := service.prepareImportFiles(
 				context.Background(),
 				test.platformID,
 				"FILES",
 				[]importSourceFile{{ID: "fixture", Path: test.logicalName, BlobID: "blob", SHA256: "digest", Size: 1}},
 				sql.NullString{},
 			)
+			if preparationErr != nil {
+				t.Fatal(preparationErr)
+			}
 			testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 1 }, func() bool { return dispositions[0].Disposition != "SOURCE" }, func() bool { return dispositions[0].Reason != "" }, func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].Sources) != 1 }, func() bool { return groups[0].Sources[0].LogicalName != test.logicalName }, func() bool { return len(archives) != 0 }), "admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
 		})
 	}
@@ -105,12 +108,15 @@ func TestExpandedPlatformsAdmitTheirVerifiedRawExtensions(t *testing.T) {
 
 func TestExpandedPlatformsRejectUnregisteredRawExtensions(t *testing.T) {
 	t.Parallel()
-	dispositions, groups, archives := (&Service{}).prepareImportFiles(
+	dispositions, groups, archives, preparationErr := (&Service{}).prepareImportFiles(
 		context.Background(),
 		"nintendo3ds",
 		"FILES",
 		[]importSourceFile{{ID: "fixture", Path: "game.3dsx", BlobID: "blob", SHA256: "digest", Size: 1}},
 		sql.NullString{},
 	)
+	if preparationErr != nil {
+		t.Fatal(preparationErr)
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 1 }, func() bool { return dispositions[0].Disposition != "REJECTED" }, func() bool { return dispositions[0].Reason != "UNSUPPORTED_CONTENT_FORMAT" }, func() bool { return len(groups) != 0 }, func() bool { return len(archives) != 0 }), "unexpected unsupported admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
 }

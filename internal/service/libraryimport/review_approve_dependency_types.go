@@ -32,16 +32,10 @@ type ApprovalMultiDisc struct {
 	PlaylistCount, DiscCount, SourceCount, CanonicalCount int64
 }
 
-type ApprovalArcadeROM struct {
-	Name, Status string
-	BIOSName     *string
-}
-
-type ApprovalArcadeRequirements struct {
-	DefaultBIOS *string
-	ROMs        []ApprovalArcadeROM
-	HasDisk     bool
-}
+type (
+	ApprovalArcadeROM          = ArcadeROMRequirement
+	ApprovalArcadeRequirements = ArcadeCatalogRequirements
+)
 
 type ApprovalDependencyReader interface {
 	LogicalName(context.Context, string) (string, error)

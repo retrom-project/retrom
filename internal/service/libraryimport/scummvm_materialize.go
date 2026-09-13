@@ -17,11 +17,11 @@ import (
 	"retrom/internal/scummvm"
 )
 
-func (service *Service) detectScummVMTree(
+func (service *ImportPreparation) detectScummVMTree(
 	ctx context.Context,
 	files []fileset.SourceFile,
 	metadata map[int]blobstore.Metadata,
-	archive *importSourceFile,
+	archive *ImportFile,
 ) (scummvm.Snapshot, error) {
 	root, err := os.MkdirTemp("", "retrom-scummvm-input-")
 	if err != nil {
@@ -52,7 +52,7 @@ func materializeScummVMInputs(
 	root string,
 	files []fileset.SourceFile,
 	metadata map[int]blobstore.Metadata,
-	archive *importSourceFile,
+	archive *ImportFile,
 ) ([]contentmanifest.File, error) {
 	manifest := make([]contentmanifest.File, 0, len(files))
 	limits := importing.DefaultArchiveLimits()

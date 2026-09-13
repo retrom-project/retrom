@@ -3,21 +3,21 @@ package libraryimport
 import "context"
 
 type projectDirectoryPreparer func(
-	[]importSourceFile,
-) ([]preparedDisposition, preparedGroup, error)
+	[]ImportFile,
+) ([]PreparedDisposition, PreparedGroup, error)
 
 type projectArchivePreparer func(
 	context.Context,
-	importSourceFile,
-) (preparedDisposition, preparedGroup, preparedArchive, error)
+	ImportFile,
+) (PreparedDisposition, PreparedGroup, PreparedArchive, error)
 
-func (service *Service) prepareProject(
+func (service *ImportPreparation) prepareProject(
 	ctx context.Context,
 	sourceType string,
-	files []importSourceFile,
+	files []ImportFile,
 	prepareDirectory projectDirectoryPreparer,
 	prepareArchive projectArchivePreparer,
-) ([]preparedDisposition, []preparedGroup, []preparedArchive, error) {
+) ([]PreparedDisposition, []PreparedGroup, []PreparedArchive, error) {
 	if service.blobs == nil {
 		return nil, nil, nil, ErrInvalid
 	}
@@ -26,7 +26,7 @@ func (service *Service) prepareProject(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		return dispositions, []preparedGroup{group}, nil, nil
+		return dispositions, []PreparedGroup{group}, nil, nil
 	}
 	if sourceType != "FILES" || len(files) != 1 {
 		return nil, nil, nil, ErrInvalid
@@ -35,5 +35,5 @@ func (service *Service) prepareProject(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return []preparedDisposition{disposition}, []preparedGroup{group}, []preparedArchive{archive}, nil
+	return []PreparedDisposition{disposition}, []PreparedGroup{group}, []PreparedArchive{archive}, nil
 }
