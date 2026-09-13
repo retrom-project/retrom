@@ -161,7 +161,7 @@ func OpenRoot(path string) (*os.File, error) { return openDirectoryNoFollow(path
 func OpenSelectedDirectory(rootPath, relativePath string) (*os.File, error) {
 	root, err := openDirectoryNoFollow(rootPath)
 	if err != nil {
-		return nil, ErrRootUnavailable
+		return nil, fmt.Errorf("open selected source root: %w: %w", ErrRootUnavailable, err)
 	}
 	current := root
 	for _, segment := range strings.Split(relativePath, "/") {
@@ -174,7 +174,7 @@ func OpenSelectedDirectory(rootPath, relativePath string) (*os.File, error) {
 		}
 		if openErr != nil {
 			cleanup.Error("close", root.Close())
-			return nil, ErrPathInvalid
+			return nil, fmt.Errorf("open selected source directory: %w: %w", ErrPathInvalid, openErr)
 		}
 		current = next
 	}
