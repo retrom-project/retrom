@@ -9,11 +9,18 @@ import (
 )
 
 type WorkerEvidence struct {
-	ID     string
-	Hashes Hashes
+	ID          string
+	Hashes      Hashes
+	Attempts    int
+	LastOutcome hasheous.ProviderOutcome
+	LastSource  string
+}
+type EvidenceProgress struct {
+	Items          []WorkerEvidence
+	CandidateCount int
 }
 type EvidenceReader interface {
-	Evidence(context.Context, string) ([]WorkerEvidence, error)
+	Evidence(context.Context, string) (EvidenceProgress, error)
 }
 type EvidenceLookup interface {
 	Lookup(context.Context, hasheous.ContentHashes, bool) (ResolvedLookup, error)

@@ -27,3 +27,5 @@ func TestServiceDelegatesExecutionAndPreservesWorkerFailure(t *testing.T) {
 		t.Fatalf("executed %q", runner.runID)
 	}
 }
+
+func (runner *serviceRunner) Recover(context.Context) ([]string, error) { return nil, nil }

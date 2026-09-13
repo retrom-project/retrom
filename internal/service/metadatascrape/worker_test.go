@@ -101,3 +101,9 @@ func TestExpiredExecutionCannotPublishSuccess(t *testing.T) {
 		t.Fatalf("expired publication: %+v / %v", memory.outcome, err)
 	}
 }
+
+func (memory *workerMemory) Recoverable(context.Context, int64) ([]string, error) { return nil, nil }
+
+func (memory *workerMemory) Requeue(context.Context, WorkerClaim, int64) (bool, error) {
+	return true, nil
+}

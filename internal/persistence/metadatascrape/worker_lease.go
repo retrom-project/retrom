@@ -10,30 +10,19 @@ import (
 )
 
 func (records workerRecords) Claim(ctx context.Context, claim metadatascrape.WorkerClaim) (bool, error) {
-	changed, err := workerChanged(
-		records.transaction.ExecContext(
-			ctx,
-			`UPDATE jobs SET state='RUNNING',attempt_count=attempt_count+1,
- execution_started_at_ms=COALESCE(execution_started_at_ms,?),
- execution_deadline_at_ms=COALESCE(execution_deadline_at_ms,?),
- leased_until_ms=?,heartbeat_at_ms=?,worker_id=?,version=version+1,updated_at_ms=?
- WHERE id=? AND execution_no=? AND kind='METADATA_SCRAPE' AND state='QUEUED' AND available_at_ms<=?
+	if claim.Terminal {
+		return records.claimTerminal(ctx, claim)
+	}
+	changed, err := workerChanged(records.transaction.ExecContext(ctx, `UPDATE jobs SET state='RUNNING',
+ attempt_count=attempt_count+1,execution_started_at_ms=COALESCE(execution_started_at_ms,?),
+ execution_deadline_at_ms=COALESCE(execution_deadline_at_ms,?),leased_until_ms=?,heartbeat_at_ms=?,
+ worker_id=?,version=version+1,updated_at_ms=?
+ WHERE id=? AND execution_no=? AND version=? AND kind='METADATA_SCRAPE'
+ AND state='QUEUED' AND available_at_ms<=?
  AND attempt_count<max_attempts AND (execution_deadline_at_ms IS NULL OR execution_deadline_at_ms>?)
  AND EXISTS(SELECT 1 FROM metadata_scrape_runs r WHERE r.id=? AND r.job_id=jobs.id AND r.state='RUNNING')`,
-
-			claim.Now,
-			claim.Deadline,
-			claim.Now+60000,
-			claim.Now,
-			claim.WorkerID,
-			claim.Now,
-			claim.JobID,
-			claim.ExecutionNo,
-			claim.Now,
-			claim.Now,
-			claim.RunID,
-		),
-	)
+		claim.Now, claim.Deadline, claim.Now+60000, claim.Now, claim.WorkerID, claim.Now,
+		claim.JobID, claim.ExecutionNo, claim.Version, claim.Now, claim.Now, claim.RunID))
 	if err != nil || !changed {
 		return changed, err
 	}
@@ -41,6 +30,18 @@ func (records workerRecords) Claim(ctx context.Context, claim metadatascrape.Wor
 		return false, err
 	}
 	return true, nil
+}
+
+func (records workerRecords) claimTerminal(ctx context.Context, claim metadatascrape.WorkerClaim) (bool, error) {
+	return workerChanged(records.transaction.ExecContext(ctx, `
+ UPDATE jobs SET worker_id=?,version=version+1,updated_at_ms=?
+ WHERE id=? AND execution_no=? AND version=? AND kind='METADATA_SCRAPE'
+ AND (state='QUEUED' OR (state IN ('RUNNING','CANCEL_REQUESTED')
+ AND (leased_until_ms<=? OR execution_deadline_at_ms<=?)))
+ AND (execution_deadline_at_ms<=? OR attempt_count>=max_attempts OR state='CANCEL_REQUESTED')
+ AND EXISTS(SELECT 1 FROM metadata_scrape_runs r WHERE r.id=? AND r.job_id=jobs.id AND r.state='RUNNING')`,
+		claim.WorkerID, claim.Now, claim.JobID, claim.ExecutionNo, claim.Version,
+		claim.Now, claim.Now, claim.Now, claim.RunID))
 }
 
 func (records workerRecords) Refresh(ctx context.Context, claim metadatascrape.WorkerClaim, now int64) (bool, error) {

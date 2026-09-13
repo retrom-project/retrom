@@ -26,7 +26,7 @@ func (worker *Worker) settle(parent context.Context, claim WorkerClaim, count in
 			outcome.State = "CANCELLED"
 			outcome.RunState = "CANCELLED"
 			err = initial.Cancel(ctx, claim.RunID, status.ParentCancelled, now)
-		case status.State != "RUNNING":
+		case status.State != "RUNNING" && status.State != "QUEUED":
 			return nil
 		case cause != nil || status.Expired:
 			if cause == nil {

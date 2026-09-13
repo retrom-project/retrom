@@ -117,7 +117,7 @@ func TestCachedCandidateHitReusesResponseAndDoesNotDuplicateAssets(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created || blobs.calls != 0 || records.responses != 0 || records.attempt.ResponseID != "cached" || records.attempt.Source != "CACHE" || records.attempt.AttemptNo != 1 || records.hit.CandidateID != "existing" || len(records.assets) != 0 {
+	if created || blobs.calls != 0 || records.responses != 0 || records.attempt.ResponseID != "cached" || records.attempt.Source != "CACHE" || records.attempt.AttemptNo != 3 || records.hit.CandidateID != "existing" || len(records.assets) != 0 {
 		t.Fatalf("cached hit: %+v / %+v", records.attempt, records.hit)
 	}
 	if records.hit.HashesJSON != `{"sha1":"sha1"}` {

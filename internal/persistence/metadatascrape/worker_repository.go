@@ -19,11 +19,14 @@ func (repository *WorkerRepository) Run(ctx context.Context, id string) (metadat
 	var run metadatascrape.WorkerRun
 	err := repository.database.QueryRowContext(
 		ctx,
-		`SELECT r.id,r.job_id,r.provider,r.state,j.state,j.payload_json,j.execution_no
+		`SELECT r.id,r.job_id,r.provider,r.state,j.state,j.payload_json,j.execution_no,
+ j.version,j.attempt_count,j.max_attempts,
+ COALESCE(j.execution_deadline_at_ms,0),COALESCE(j.leased_until_ms,0),j.available_at_ms
  FROM metadata_scrape_runs r JOIN jobs j ON j.id=r.job_id WHERE r.id=?`,
 		id,
 	).
-		Scan(&run.RunID, &run.JobID, &run.Provider, &run.State, &run.JobState, &run.Payload, &run.ExecutionNo)
+		Scan(&run.RunID, &run.JobID, &run.Provider, &run.State, &run.JobState, &run.Payload, &run.ExecutionNo,
+			&run.Version, &run.AttemptCount, &run.MaxAttempts, &run.Deadline, &run.LeaseUntil, &run.AvailableAt)
 	if err != nil {
 		return run, fmt.Errorf("query metadata execution: %w", err)
 	}

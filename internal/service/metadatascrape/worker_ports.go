@@ -5,15 +5,21 @@ import (
 	"errors"
 )
 
-var ErrExecutionLost = errors.New("metadata execution ownership lost")
+var (
+	ErrExecutionLost     = errors.New("metadata execution ownership lost")
+	ErrAttemptsExhausted = errors.New("metadata execution attempts exhausted")
+)
 
 type WorkerRun struct {
 	RunID, JobID, Provider, State, JobState, Payload string
-	ExecutionNo                                      int64
+	ExecutionNo, Version, AttemptCount, MaxAttempts  int64
+	Deadline, LeaseUntil, AvailableAt                int64
 }
 type WorkerClaim struct {
 	RunID, JobID, WorkerID     string
 	ExecutionNo, Now, Deadline int64
+	Version, AttemptCount      int64
+	Terminal                   bool
 }
 type WorkerStatus struct {
 	State                    string
@@ -27,6 +33,7 @@ type WorkerOutcome struct {
 }
 type WorkerLeases interface {
 	Claim(context.Context, WorkerClaim) (bool, error)
+	Requeue(context.Context, WorkerClaim, int64) (bool, error)
 	Refresh(context.Context, WorkerClaim, int64) (bool, error)
 	Status(context.Context, WorkerClaim, int64) (WorkerStatus, error)
 }
@@ -40,6 +47,7 @@ type WorkerScope struct {
 }
 type WorkerRepository interface {
 	Run(context.Context, string) (WorkerRun, error)
+	Recoverable(context.Context, int64) ([]string, error)
 	WithWrite(context.Context, func(WorkerScope) error) error
 }
 type WorkerProcessor interface {

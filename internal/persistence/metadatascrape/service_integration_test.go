@@ -129,6 +129,7 @@ WHERE id=?
 		return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
 	})
 	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
+	t.Cleanup(scraper.Close)
 	importer := libraryimport.New(database.SQL, time.Now, scraper).WithBlobStore(blobs)
 	created, err := importer.Create(
 		ctx,
@@ -699,6 +700,7 @@ WHERE id=?
 		return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
 	})
 	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
+	t.Cleanup(scraper.Close)
 	importer := libraryimport.New(database.SQL, time.Now, scraper).WithBlobStore(blobs)
 	created, err := importer.Create(
 		ctx,

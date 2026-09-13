@@ -81,6 +81,6 @@ type ScheduleScope struct {
 type ScheduleRepository interface {
 	WithWrite(context.Context, func(ScheduleScope) error) error
 }
-type ScrapeRunner interface {
-	Run(context.Context, string) error
+type ScrapeDispatcher interface {
+	Dispatch(context.Context, string) bool
 }

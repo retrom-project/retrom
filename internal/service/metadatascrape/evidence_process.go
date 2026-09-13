@@ -18,11 +18,14 @@ func hashString(value *string) string {
 func (processor *EvidenceProcessor) processScrapeEvidence(
 	ctx context.Context,
 	claim WorkerClaim,
-	evidenceList []WorkerEvidence,
+	evidence EvidenceProgress,
 	bypassCache bool,
 ) (int, string, error) {
-	candidateCount := 0
-	for _, item := range evidenceList {
+	candidateCount := evidence.CandidateCount
+	for _, item := range evidence.Items {
+		if evidenceTerminal(item) {
+			continue
+		}
 		created, code, err := processor.processEvidenceItem(ctx, claim, item, bypassCache, candidateCount < 20)
 		if err != nil {
 			return 0, code, err
@@ -51,7 +54,7 @@ func (processor *EvidenceProcessor) processEvidenceItem(
 			item.Hashes.SHA256,
 		),
 	}
-	for attempt := 1; attempt <= 3; attempt++ {
+	for attempt := item.Attempts + 1; attempt <= 3; attempt++ {
 		resolved, err := processor.lookup.Lookup(ctx, hashes, bypassCache)
 		if err != nil {
 			return false, "METADATA_REQUEST_INVALID", fmt.Errorf("metadata_request_invalid: %w", err)
@@ -93,4 +96,8 @@ func waitRetry(ctx context.Context, delay time.Duration) error {
 	case <-timer.C:
 		return nil
 	}
+}
+
+func evidenceTerminal(item WorkerEvidence) bool {
+	return item.Attempts > 0 && (item.LastSource == "CACHE" || !retryableOutcome(item.LastOutcome) || item.Attempts >= 3)
 }

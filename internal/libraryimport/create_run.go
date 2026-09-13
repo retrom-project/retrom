@@ -231,7 +231,6 @@ func (run *creationRun) startScheduledScrapes(ctx context.Context) {
 		if scheduled.IsNoop() {
 			continue
 		}
-		runID := scheduled.ScrapeRunID()
-		go func() { _ = run.service.scraper.Run(context.WithoutCancel(ctx), runID) }()
+		run.service.scraper.Dispatch(ctx, scheduled.ScrapeRunID())
 	}
 }

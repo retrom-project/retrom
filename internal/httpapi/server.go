@@ -202,6 +202,7 @@ func New(
 		panic(err)
 	}
 	scraper := composition.NewMetadata(database, blobs, hasheous.New(nil, nil, now), now)
+	scraper.Start(context.Background())
 	launchSources := launch.NewSources(blobs, credentials).WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate)
 	launcher := launchcomposition.New(database, launchSources, config.PublicOrigin.String(), now)
 	launcher.ResumeQueuedValidationJobs()
@@ -305,6 +306,7 @@ func (server *Server) Close() {
 	server.serverImports.Close()
 	server.pegasusImports.Close()
 	server.emulationStationImports.Close()
+	server.metadata.Close()
 	server.payloadReleases.Close()
 }
 

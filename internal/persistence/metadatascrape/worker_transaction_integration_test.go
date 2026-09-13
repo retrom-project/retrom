@@ -19,6 +19,12 @@ func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, ru
 	claim := workerservice.WorkerClaim{RunID: runID, JobID: jobID, WorkerID: "transaction-test", ExecutionNo: 1, Now: time.Now().UnixMilli()}
 	claim.Deadline = claim.Now + 3600000
 	repository := workerpersistence.NewWorker(database)
+	snapshot, readErr := repository.Run(t.Context(), runID)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	claim.Version = snapshot.Version
+	claim.AttemptCount = snapshot.AttemptCount
 	err := repository.WithWrite(t.Context(), func(scope workerservice.WorkerScope) error {
 		claimed, err := scope.Leases.Claim(t.Context(), claim)
 		if err != nil {

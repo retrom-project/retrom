@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/cleanup"
-
 	"github.com/google/uuid"
 )
 
@@ -31,11 +29,11 @@ func (scheduled Scheduled) IsNoop() bool        { return scheduled.Noop }
 
 type Scheduler struct {
 	repository ScheduleRepository
-	runner     ScrapeRunner
+	runner     ScrapeDispatcher
 	now        func() time.Time
 }
 
-func NewScheduler(repository ScheduleRepository, runner ScrapeRunner, now func() time.Time) *Scheduler {
+func NewScheduler(repository ScheduleRepository, runner ScrapeDispatcher, now func() time.Time) *Scheduler {
 	return &Scheduler{repository: repository, runner: runner, now: now}
 }
 
@@ -151,7 +149,5 @@ func (scheduler *Scheduler) start(ctx context.Context, scheduled Scheduled) {
 	if scheduled.Noop || scheduler.runner == nil {
 		return
 	}
-	go func() {
-		cleanup.Error("run metadata scrape", scheduler.runner.Run(context.WithoutCancel(ctx), scheduled.RunID))
-	}()
+	scheduler.runner.Dispatch(ctx, scheduled.RunID)
 }

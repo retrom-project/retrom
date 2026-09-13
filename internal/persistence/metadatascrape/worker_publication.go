@@ -22,7 +22,7 @@ func (records workerRecords) Finish(ctx context.Context, value metadatascrape.Wo
 				ctx,
 				`UPDATE jobs SET state=?,error_code=?,error_retryable=?,
  finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=?,version=version+1,updated_at_ms=?
- WHERE id=? AND execution_no=? AND worker_id=? AND state IN ('RUNNING','CANCEL_REQUESTED')`,
+ WHERE id=? AND execution_no=? AND worker_id=? AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')`,
 
 				value.State,
 				code,

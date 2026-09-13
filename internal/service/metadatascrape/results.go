@@ -79,9 +79,6 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 			return err
 		}
 		number := attempt.AttemptNo
-		if source == "CACHE" {
-			number = 1
-		}
 		if err := scope.Write.Attempt(ctx, AttemptRecord{
 			ID: attemptID, RunID: attempt.Claim.RunID, EvidenceID: attempt.EvidenceID,
 			ResponseID: responseID, Source: source, AttemptNo: number, Now: now,

@@ -31,29 +31,24 @@ func (worker *Worker) Run(parent context.Context, runID string) error {
 	if run.JobState == "CANCELLED" {
 		return worker.settle(parent, claim, 0, "", nil)
 	}
-	workerID, err := scheduleID()
-	if err != nil {
+	claim, claimed, err := worker.claim(parent, run)
+	if err != nil || !claimed {
 		return err
 	}
-	claim.WorkerID = workerID
-	claimed := false
-	err = worker.repository.WithWrite(parent, func(scope WorkerScope) error {
-		claim.Now = worker.now().UnixMilli()
-		claim.Deadline = claim.Now + metadataExecutionTimeout.Milliseconds()
-		var err error
-		claimed, err = scope.Leases.Claim(parent, claim)
-		if err != nil {
-			return fmt.Errorf("claim scrape lease: %w", err)
+	if claim.Terminal {
+		if run.JobState == "CANCEL_REQUESTED" {
+			return worker.settle(parent, claim, 0, "", nil)
 		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("claim metadata execution: %w", err)
+		code := "METADATA_EXECUTION_EXPIRED"
+		cause := context.DeadlineExceeded
+		if run.Deadline == 0 || run.Deadline > claim.Now {
+			code = "METADATA_ATTEMPTS_EXHAUSTED"
+			cause = ErrAttemptsExhausted
+		}
+		return worker.settle(parent, claim, 0, code, cause)
 	}
-	if !claimed {
-		return nil
-	}
-	ctx, deadlineCancel := context.WithTimeout(parent, metadataExecutionTimeout)
+	remaining := time.Duration(claim.Deadline-worker.now().UnixMilli()) * time.Millisecond
+	ctx, deadlineCancel := context.WithTimeout(parent, remaining)
 	defer deadlineCancel()
 	ctx, cancel := context.WithCancelCause(ctx)
 	stopped := make(chan struct{})
