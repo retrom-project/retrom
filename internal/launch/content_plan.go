@@ -11,10 +11,3 @@ type (
 		Discs       []lockedDisc
 	}
 )
-
-func (plan launchContentPlan) singleFile() (lockedContentFile, bool) {
-	if len(plan.Files) != 1 {
-		return lockedContentFile{}, false
-	}
-	return plan.Files[0], true
-}

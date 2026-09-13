@@ -126,6 +126,8 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 联机资格由稳定 Provider/Target、Target 的标准能力和 Retrom 的受控 profile 共同决定。Netplay profile 与 session 冻结 Bundle、Provider/Target、内容和依赖摘要；不再维护平行的稳定 Target字段。参与者必须取得完全一致的冻结输入。Provider 只通过 `PlayerRuntimeV1.netplayPort` 交换标准消息；单机 Launch 不取得联机凭据，联机 Launch 禁止普通存档。
 
+联机 Launch 由 `service/launch.NetplayCreator` 在写事务外准备 Provider、内容与签名，再由 Repository 的短事务重验当前 Session/Room/Member/Participant、冻结目标及内容/依赖，原子写入 Launch、引用与参与者绑定。内容或权限变化拒绝创建；只修改标题等无关字段不使冻结内容失效。同一参与者的并发请求复用唯一已提交 Launch 与凭据，提交失败不返回凭据。`ParticipantPreparation` 随后独立推进参与者与 Session 事件；第二阶段失败或请求取消仍须用有界清理撤销已经提交的 Launch，不得留下可用授权。
+
 游戏目录分页、profile 匹配和依赖快照判定由 `internal/service/netplay` 通过类型化端口编排；相应 SQL 和行映射位于 `internal/persistence/netplay`。受控 profile 解析与 canonical digest 位于无数据库依赖的 `internal/netplay/profile`。禁用的平台实例同时退出目录候选与按游戏 ID 的资格查询，不能继续用于选择游戏或启动新的联机会话。
 
 联机业务统一进入 `internal/service/netplay`，通过类型化端口访问数据；`internal/persistence/netplay` 负责 SQL、映射和事务，`internal/composition` 组装依赖。`internal/netplay` 保留 Hub、WebSocket 协议和传输处理，Hub 分别依赖会话、参与者和结束操作接口，并显式接收时钟与重连租约配置。签名与密钥文件保护由独立 capability 包维护。
