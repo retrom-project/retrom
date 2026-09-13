@@ -3,8 +3,8 @@ package composition
 import (
 	"database/sql"
 
-	validationpersistence "retrom/internal/persistence/corevalidation"
-	gamemovepersistence "retrom/internal/persistence/gamemove"
+	validationpersistence "retrom/internal/repo/corevalidation"
+	gamemovepersistence "retrom/internal/repo/gamemove"
 	validationservice "retrom/internal/service/corevalidation"
 	gamemove "retrom/internal/service/gamemove"
 )

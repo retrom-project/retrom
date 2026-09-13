@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/engine/scummvm"
-	repository "retrom/internal/persistence/libraryimport"
+	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"

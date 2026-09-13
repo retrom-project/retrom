@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	savepersistence "retrom/internal/persistence/saves"
+	savepersistence "retrom/internal/repo/saves"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"

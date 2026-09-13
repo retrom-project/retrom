@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"time"
 
-	persistence "retrom/internal/persistence/emulationstationimport"
+	persistence "retrom/internal/repo/emulationstationimport"
 
 	application "retrom/internal/service/emulationstationimport"
 
-	tagpersistence "retrom/internal/persistence/tagging"
+	tagpersistence "retrom/internal/repo/tagging"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"

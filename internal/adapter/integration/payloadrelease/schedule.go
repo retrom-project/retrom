@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	persistence "retrom/internal/persistence/payloadrelease"
+	persistence "retrom/internal/repo/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 )
 

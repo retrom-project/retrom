@@ -16,15 +16,15 @@ import (
 	"testing"
 	"time"
 
-	persistence "retrom/internal/persistence/launch"
+	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 
-	uploadpersistence "retrom/internal/persistence/uploads"
+	uploadpersistence "retrom/internal/repo/uploads"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"

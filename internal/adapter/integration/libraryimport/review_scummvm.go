@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 
 	"retrom/internal/capability/engine/scummvm"
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 )
 
 func (service *Service) selectScummVMCandidate(

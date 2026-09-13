@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"retrom/internal/capability/format/arcadedat"
-	"retrom/internal/persistence/datindex"
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/datindex"
+	"retrom/internal/repo/dbexec"
 	"retrom/internal/testkit/testsupport"
 )
 

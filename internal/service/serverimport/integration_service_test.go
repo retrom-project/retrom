@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	firmwarepersistence "retrom/internal/persistence/firmware"
+	firmwarepersistence "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
 	"retrom/internal/adapter/files/serversource"
@@ -20,7 +20,7 @@ import (
 	"retrom/internal/adapter/integration/payloadrelease"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/legacychecksum"
-	"retrom/internal/persistence/store"
+	"retrom/internal/repo/store"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )

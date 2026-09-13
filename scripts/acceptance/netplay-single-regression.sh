@@ -4,7 +4,7 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repository_root"
 
-go test -tags=integration ./internal/adapter/runtime/launch ./internal/adapter/integration/libraryimport ./internal/service/saves ./internal/persistence/saves \
+go test -tags=integration ./internal/adapter/runtime/launch ./internal/adapter/integration/libraryimport ./internal/service/saves ./internal/repo/saves \
   -run 'TestPublishedGameLaunchLocksContentAndCredential|TestArcadeImportUsesInstalledBIOSBeforeCreatingReview|TestManualStateRequiresAtomicNonEmptyStateAndScreenshot' \
   -count=1 -timeout=120s
 

@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"context"
 
-	librarypersistence "retrom/internal/persistence/libraryimport"
+	librarypersistence "retrom/internal/repo/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 

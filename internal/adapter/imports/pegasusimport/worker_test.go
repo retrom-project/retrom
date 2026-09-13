@@ -16,7 +16,7 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/foundation/cleanup"
-	repository "retrom/internal/persistence/pegasusimport"
+	repository "retrom/internal/repo/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 	"retrom/internal/testkit/testassert"
 )

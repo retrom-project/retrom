@@ -21,8 +21,8 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
-	jobpersistence "retrom/internal/persistence/jobs"
-	uploadpersistence "retrom/internal/persistence/uploads"
+	jobpersistence "retrom/internal/repo/jobs"
+	uploadpersistence "retrom/internal/repo/uploads"
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"

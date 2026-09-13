@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/repo/blobcatalog"
 	application "retrom/internal/service/libraryimport"
 )
 

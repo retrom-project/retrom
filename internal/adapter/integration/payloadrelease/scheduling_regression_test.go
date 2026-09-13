@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 	"retrom/internal/testkit/testsupport"
 )
 

@@ -3,8 +3,8 @@ package composition
 import (
 	"database/sql"
 
-	repository "retrom/internal/persistence/libraryimport"
-	tagpersistence "retrom/internal/persistence/tagging"
+	repository "retrom/internal/repo/libraryimport"
+	tagpersistence "retrom/internal/repo/tagging"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
 )

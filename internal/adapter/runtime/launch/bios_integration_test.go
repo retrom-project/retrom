@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationpersistence "retrom/internal/repo/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
-	"retrom/internal/persistence/blobcatalog"
-	"retrom/internal/persistence/dbexec"
-	launchpersistence "retrom/internal/persistence/launch"
+	"retrom/internal/repo/blobcatalog"
+	"retrom/internal/repo/dbexec"
+	launchpersistence "retrom/internal/repo/launch"
 	launchservice "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
@@ -30,7 +30,7 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
-	firmwarerepo "retrom/internal/persistence/firmware"
+	firmwarerepo "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"

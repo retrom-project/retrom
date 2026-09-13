@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/repo/blobcatalog"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/testkit/testsupport"

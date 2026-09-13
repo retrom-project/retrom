@@ -10,7 +10,7 @@ import (
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/runtime/runtimelaunch"
-	persistence "retrom/internal/persistence/launch"
+	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
 

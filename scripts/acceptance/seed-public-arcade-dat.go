@@ -21,14 +21,14 @@ import (
 
 	datservice "retrom/internal/service/datindex"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 
 	"retrom/internal/capability/format/arcadedat"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/persistence/datindex"
+	"retrom/internal/repo/datindex"
 )
 
 var (

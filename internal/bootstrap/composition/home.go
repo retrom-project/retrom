@@ -3,7 +3,7 @@ package composition
 import (
 	"database/sql"
 
-	homepersistence "retrom/internal/persistence/home"
+	homepersistence "retrom/internal/repo/home"
 	homeservice "retrom/internal/service/home"
 	"retrom/internal/service/tagging"
 )

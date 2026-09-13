@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	jobpersistence "retrom/internal/persistence/jobs"
+	jobpersistence "retrom/internal/repo/jobs"
 	"retrom/internal/service/jobs"
 	"retrom/internal/testkit/testsupport"
 )

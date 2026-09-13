@@ -3,8 +3,8 @@ package emulationstationimport
 import (
 	"context"
 
-	"retrom/internal/persistence/dberrors"
-	persistence "retrom/internal/persistence/emulationstationimport"
+	"retrom/internal/repo/dberrors"
+	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 

@@ -3,7 +3,7 @@ package composition
 import (
 	"database/sql"
 
-	diagnosticspersistence "retrom/internal/persistence/diagnostics"
+	diagnosticspersistence "retrom/internal/repo/diagnostics"
 	diagnosticsservice "retrom/internal/service/diagnostics"
 )
 

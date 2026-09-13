@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/testkit/testassert"
 
-	"retrom/internal/persistence/store"
+	"retrom/internal/repo/store"
 )
 
 func TestRetryableCurrentFailureCanBeRecheckedWithoutRescanning(t *testing.T) {

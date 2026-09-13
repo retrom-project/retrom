@@ -11,7 +11,7 @@ import (
 	"time"
 
 	composition "retrom/internal/bootstrap/composition/libraryimport"
-	repository "retrom/internal/persistence/libraryimport"
+	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"

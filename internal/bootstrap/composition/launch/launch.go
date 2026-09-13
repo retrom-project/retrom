@@ -7,7 +7,7 @@ import (
 	"retrom/internal/adapter/runtime/launch"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
-	repository "retrom/internal/persistence/launch"
+	repository "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
 

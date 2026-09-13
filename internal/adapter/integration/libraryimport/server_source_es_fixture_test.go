@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"testing"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/repo/blobcatalog"
 	application "retrom/internal/service/libraryimport"
 )
 

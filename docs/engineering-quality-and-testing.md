@@ -169,7 +169,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 模块路径确定后必须用 `depguard` 把以下方向写入 `.golangci.yml`，不能只靠代码评审记忆：
 
 1. `internal/**` 不得导入 `cmd/**`；
-2. `internal/persistence/store/**` 与 `internal/adapter/files/blobstore/**` 不得导入 `httpapi`、`jobs` 或上层功能模块；
+2. `internal/repo/store/**` 与 `internal/adapter/files/blobstore/**` 不得导入 `httpapi`、`jobs` 或上层功能模块；
 3. `internal/capability/format/arcadedat/**` 是解析与依赖图底层，不得导入 `httpapi`、`jobs`、`metadata`、`bios` 或 `catalog`；
 4. `internal/transport/httpapi/**` 可以调用应用模块，但 handler 不得绕过模块直接依赖具体 SQL 实现；
 5. `internal/service/jobs/**` 管理通用取消与重试；领域 Service 不得反向依赖该管理用例，领域 Worker 仍维护自身领取和执行协议。

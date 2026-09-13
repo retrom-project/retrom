@@ -57,7 +57,7 @@ linters:
               desc: internal packages must not depend on process entrypoints
         storage-layer:
           files:
-            - "internal/persistence/store/**/*.go"
+            - "internal/repo/store/**/*.go"
             - "internal/adapter/files/blobstore/**/*.go"
           deny:
             - pkg: retrom/internal/transport/httpapi

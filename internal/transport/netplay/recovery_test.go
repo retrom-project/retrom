@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/testkit/testassert"

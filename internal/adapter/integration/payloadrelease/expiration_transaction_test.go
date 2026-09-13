@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/dbexec"
-	repository "retrom/internal/persistence/payloadrelease"
+	"retrom/internal/repo/dbexec"
+	repository "retrom/internal/repo/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testkit/testsupport"
 )

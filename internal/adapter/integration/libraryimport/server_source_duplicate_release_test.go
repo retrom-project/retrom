@@ -10,8 +10,8 @@ import (
 
 	application "retrom/internal/service/payloadrelease"
 
-	"retrom/internal/persistence/dbexec"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	"retrom/internal/repo/dbexec"
+	payloadpersistence "retrom/internal/repo/payloadrelease"
 	payloadservice "retrom/internal/service/payloadrelease"
 )
 

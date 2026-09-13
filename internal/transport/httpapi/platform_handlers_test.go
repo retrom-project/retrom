@@ -13,10 +13,10 @@ import (
 
 	"retrom/internal/bootstrap/composition"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/repo/blobcatalog"
 
 	"github.com/google/uuid"
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	"retrom/internal/persistence/recordstore"
+	"retrom/internal/repo/recordstore"
 	application "retrom/internal/service/emulationstationimport"
 )
 

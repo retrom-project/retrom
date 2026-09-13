@@ -1,8 +1,8 @@
 package pegasusimport
 
 import (
-	"retrom/internal/persistence/dberrors"
-	repository "retrom/internal/persistence/pegasusimport"
+	"retrom/internal/repo/dberrors"
+	repository "retrom/internal/repo/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 

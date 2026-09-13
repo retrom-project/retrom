@@ -7,9 +7,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	validationpersistence "retrom/internal/persistence/corevalidation"
-	"retrom/internal/persistence/dbexec"
-	librarypersistence "retrom/internal/persistence/libraryimport"
+	validationpersistence "retrom/internal/repo/corevalidation"
+	"retrom/internal/repo/dbexec"
+	librarypersistence "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
 	"retrom/internal/capability/content/contentcapability"

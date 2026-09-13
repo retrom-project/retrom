@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/repo/blobcatalog"
 
 	"github.com/google/uuid"
 

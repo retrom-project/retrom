@@ -3,7 +3,7 @@ package composition
 import (
 	"database/sql"
 
-	biospersistence "retrom/internal/persistence/bios"
+	biospersistence "retrom/internal/repo/bios"
 	biosservice "retrom/internal/service/bios"
 )
 

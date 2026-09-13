@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 )
 
 func seedEffectOrdinarySource(t *testing.T, database *sql.DB) string {

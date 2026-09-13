@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/recordstore"
+	"retrom/internal/repo/recordstore"
 )
 
 func TestReviewPreviewCreationRechecksItsOwnerInTheWriteTransaction(t *testing.T) {

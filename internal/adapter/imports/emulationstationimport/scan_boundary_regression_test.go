@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	jobrepository "retrom/internal/persistence/jobs"
+	jobrepository "retrom/internal/repo/jobs"
 	jobservice "retrom/internal/service/jobs"
 
 	"github.com/google/uuid"

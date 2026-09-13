@@ -12,10 +12,10 @@ import (
 
 	"retrom/internal/bootstrap/composition"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/persistence/store"
+	"retrom/internal/repo/store"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )

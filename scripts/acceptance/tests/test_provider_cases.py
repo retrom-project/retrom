@@ -42,7 +42,7 @@ class ProviderAcceptanceRegistrationTests(unittest.TestCase):
                         self.assertTrue(any(name.startswith(prefix) for name in names), f"retired test: {prefix}")
 
     def test_database_cases_select_existing_tests(self):
-        source = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "internal/persistence/store").glob("*_test.go"))
+        source = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "internal/repo/store").glob("*_test.go"))
         names = re.findall(r"func (Test\w+)\(", source)
         for case_id in ("ACC-DB-001", "ACC-DB-002"):
             command = runner.CASE_COMMANDS[case_id][1]

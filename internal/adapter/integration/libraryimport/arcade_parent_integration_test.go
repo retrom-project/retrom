@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	uploadpersistence "retrom/internal/persistence/uploads"
+	uploadpersistence "retrom/internal/repo/uploads"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/launch"

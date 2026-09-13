@@ -17,7 +17,7 @@ import (
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/foundation/processlock"
-	"retrom/internal/persistence/store"
+	"retrom/internal/repo/store"
 	"retrom/internal/testkit/testassert"
 )
 

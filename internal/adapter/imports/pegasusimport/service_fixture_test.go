@@ -10,8 +10,8 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/integration/libraryimport"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
-	repository "retrom/internal/persistence/pegasusimport"
-	tagpersistence "retrom/internal/persistence/tagging"
+	repository "retrom/internal/repo/pegasusimport"
+	tagpersistence "retrom/internal/repo/tagging"
 	application "retrom/internal/service/pegasusimport"
 	"retrom/internal/service/tagging"
 )

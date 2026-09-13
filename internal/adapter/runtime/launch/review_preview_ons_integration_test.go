@@ -20,14 +20,14 @@ import (
 	"testing"
 	"time"
 
-	savepersistence "retrom/internal/persistence/saves"
+	savepersistence "retrom/internal/repo/saves"
 
-	uploadpersistence "retrom/internal/persistence/uploads"
+	uploadpersistence "retrom/internal/repo/uploads"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/storequery"
+	"retrom/internal/repo/storequery"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"

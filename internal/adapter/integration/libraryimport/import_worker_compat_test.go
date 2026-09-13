@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	repository "retrom/internal/persistence/libraryimport"
+	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 

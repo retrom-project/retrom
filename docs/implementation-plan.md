@@ -139,7 +139,7 @@ flowchart LR
 
 ### M9：收藏与收藏夹垂直切片
 
-范围：先同步正式契约和 OpenAPI；再实现 `internal/service/favorites`、`internal/persistence/favorites`、owner-scoped API 与游戏投影；最后接通游戏库、详情、`/favorites`、批量整理和两秒撤销。Folder 名称、批量上限、幂等、cursor、ETag、可见性和两个 Profile 隔离均按正式专题闭合，不引入 Job、Blob 或运行时变化。
+范围：先同步正式契约和 OpenAPI；再实现 `internal/service/favorites`、`internal/repo/favorites`、owner-scoped API 与游戏投影；最后接通游戏库、详情、`/favorites`、批量整理和两秒撤销。Folder 名称、批量上限、幂等、cursor、ETag、可见性和两个 Profile 隔离均按正式专题闭合，不引入 Job、Blob 或运行时变化。
 
 退出门禁：`ACC-FAV-001`–`004`、第 3 节 clean lineage 的 current-schema 测试、`make api-check`、`make ci` 与 `make web-e2e`。
 
@@ -169,7 +169,7 @@ flowchart LR
 
 ### M14：游戏标签垂直切片
 
-范围：先同步 [标签领域契约](./game-tags.md) 与 OpenAPI，再实现 `internal/service/tagging` 与 `internal/persistence/tagging`、管理员 CRUD/usage、GameTag 集合替换、SQL 分页前的 `q/tagId` 搜索和批量 DTO 投影；随后把 `tagIds` 配置快照接入普通 import/reconfigure、ReviewDraft 自动保存与 Approve 原子发布、Pegasus Collection mapping/handoff/retry；最后接通 `/admin/tags`、共享 TagPicker、游戏库/详情、收藏/最近/存档/联机与管理入口。
+范围：先同步 [标签领域契约](./game-tags.md) 与 OpenAPI，再实现 `internal/service/tagging` 与 `internal/repo/tagging`、管理员 CRUD/usage、GameTag 集合替换、SQL 分页前的 `q/tagId` 搜索和批量 DTO 投影；随后把 `tagIds` 配置快照接入普通 import/reconfigure、ReviewDraft 自动保存与 Approve 原子发布、Pegasus Collection mapping/handoff/retry；最后接通 `/admin/tags`、共享 TagPicker、游戏库/详情、收藏/最近/存档/联机与管理入口。
 
 退出门禁：完整执行 `ACC-TAG-001`–`005`，运行 `make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、前端五门禁、`make api-check`、`make web-e2e` 与 `make ci`。当前 clean schema 必须通过完整性检查；正式 UI 源、导出 HTML、标签桌面/移动/Drawer 与受影响页面的当次本地视觉复核闭环，且本地 `make dev` 的 CRUD→导入/审核→发布→搜索主链实际通过后，才可删除临时设计目录。本地图片不得提交；标签不进入模拟器执行路径，因此本里程碑不运行 core smoke 或依赖/fixture 基线检查。
 

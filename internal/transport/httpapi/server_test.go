@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 
 	"github.com/google/uuid"
 

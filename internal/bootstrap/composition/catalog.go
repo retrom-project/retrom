@@ -3,7 +3,7 @@ package composition
 import (
 	"database/sql"
 
-	catalogpersistence "retrom/internal/persistence/catalog"
+	catalogpersistence "retrom/internal/repo/catalog"
 	catalogservice "retrom/internal/service/catalog"
 	"retrom/internal/service/netplay"
 )

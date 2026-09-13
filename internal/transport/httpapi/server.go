@@ -11,27 +11,27 @@ import (
 
 	netplayservice "retrom/internal/service/netplay"
 
-	gamecontentpersistence "retrom/internal/persistence/gamecontent"
+	gamecontentpersistence "retrom/internal/repo/gamecontent"
 
 	"retrom/internal/bootstrap/composition"
 	librarycomposition "retrom/internal/bootstrap/composition/libraryimport"
 	payloadcomposition "retrom/internal/bootstrap/composition/payloadrelease"
 
-	firmwarepersistence "retrom/internal/persistence/firmware"
+	firmwarepersistence "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
-	savepersistence "retrom/internal/persistence/saves"
+	savepersistence "retrom/internal/repo/saves"
 
-	uploadpersistence "retrom/internal/persistence/uploads"
+	uploadpersistence "retrom/internal/repo/uploads"
 
-	isolationpersistence "retrom/internal/persistence/isolation"
+	isolationpersistence "retrom/internal/repo/isolation"
 
-	jobpersistence "retrom/internal/persistence/jobs"
+	jobpersistence "retrom/internal/repo/jobs"
 
-	immersivepersistence "retrom/internal/persistence/immersive"
-	storagepersistence "retrom/internal/persistence/storageanalysis"
+	immersivepersistence "retrom/internal/repo/immersive"
+	storagepersistence "retrom/internal/repo/storageanalysis"
 
-	tagpersistence "retrom/internal/persistence/tagging"
+	tagpersistence "retrom/internal/repo/tagging"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
@@ -45,10 +45,10 @@ import (
 	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/capability/runtime/runtimelaunch"
 	"retrom/internal/foundation/cursor"
-	favoritepersistence "retrom/internal/persistence/favorites"
-	idempotencypersistence "retrom/internal/persistence/idempotency"
-	mediapersistence "retrom/internal/persistence/mediaaccess"
-	platformpersistence "retrom/internal/persistence/platforminstance"
+	favoritepersistence "retrom/internal/repo/favorites"
+	idempotencypersistence "retrom/internal/repo/idempotency"
+	mediapersistence "retrom/internal/repo/mediaaccess"
+	platformpersistence "retrom/internal/repo/platforminstance"
 	"retrom/internal/service/accounts"
 	biosservice "retrom/internal/service/bios"
 	catalogservice "retrom/internal/service/catalog"

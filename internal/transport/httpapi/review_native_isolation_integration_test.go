@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	isolationpersistence "retrom/internal/persistence/isolation"
+	isolationpersistence "retrom/internal/repo/isolation"
 
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/capability/runtime/runtimelaunch"

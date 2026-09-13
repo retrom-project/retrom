@@ -15,15 +15,15 @@ import (
 	"testing"
 	"time"
 
-	uploadpersistence "retrom/internal/persistence/uploads"
+	uploadpersistence "retrom/internal/repo/uploads"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/persistence/store"
+	"retrom/internal/repo/store"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )

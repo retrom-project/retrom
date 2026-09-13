@@ -1,7 +1,7 @@
 package emulationstationimport
 
 import (
-	persistence "retrom/internal/persistence/emulationstationimport"
+	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	library "retrom/internal/service/libraryimport"
 )

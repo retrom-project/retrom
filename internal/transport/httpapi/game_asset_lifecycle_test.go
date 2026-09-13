@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobcatalog"
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/blobcatalog"
+	"retrom/internal/repo/dbexec"
 
-	storagepersistence "retrom/internal/persistence/storageanalysis"
+	storagepersistence "retrom/internal/repo/storageanalysis"
 
 	"github.com/google/uuid"
 

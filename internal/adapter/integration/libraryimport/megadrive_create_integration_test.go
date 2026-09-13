@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/repo/blobcatalog"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/testkit/testsupport"

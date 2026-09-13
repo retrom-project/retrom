@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	isolationpersistence "retrom/internal/persistence/isolation"
+	isolationpersistence "retrom/internal/repo/isolation"
 
 	_ "modernc.org/sqlite"
 

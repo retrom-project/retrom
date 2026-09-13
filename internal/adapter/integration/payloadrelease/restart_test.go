@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/foundation/cleanup"

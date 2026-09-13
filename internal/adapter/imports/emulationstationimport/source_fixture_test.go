@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/persistence/dberrors"
+	"retrom/internal/repo/dberrors"
 	application "retrom/internal/service/emulationstationimport"
 )
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )

@@ -8,7 +8,7 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/runtime/runtime"
-	importpersistence "retrom/internal/persistence/serverimport"
+	importpersistence "retrom/internal/repo/serverimport"
 	"retrom/internal/service/firmware"
 	"retrom/internal/service/serverimport"
 )

@@ -155,7 +155,7 @@ Idempotency-Key: <uuid>
 
 ### 4.2 分块、恢复与完成
 
-上传用例由 `internal/service/uploads` 编排，`internal/persistence/uploads` 负责 SQL、读快照和短事务，`internal/adapter/files/uploadfiles` 只执行宿主分片文件的打开、暂存、发布和有界清理。流式校验与 CAS 组装在写事务外运行；完成请求原子冻结本轮未完成文件及 part 的编号、偏移、大小、SHA-256 与 storage key，绑定不可变输入。每次发布和终态写入都重验当前会话、finalizationNo、Job/execution、worker/attempt、租约与原始期限；同 Job 重试保留已完成文件的 Blob，只重新组装未完成文件。
+上传用例由 `internal/service/uploads` 编排，`internal/repo/uploads` 负责 SQL、读快照和短事务，`internal/adapter/files/uploadfiles` 只执行宿主分片文件的打开、暂存、发布和有界清理。流式校验与 CAS 组装在写事务外运行；完成请求原子冻结本轮未完成文件及 part 的编号、偏移、大小、SHA-256 与 storage key，绑定不可变输入。每次发布和终态写入都重验当前会话、finalizationNo、Job/execution、worker/attempt、租约与原始期限；同 Job 重试保留已完成文件的 Blob，只重新组装未完成文件。
 
 终结 execution 的原始期限为 10 分钟，最多 2 次 attempt，60 秒租约每 15 秒续租且不超过原期限。失效租约恢复保留当前 execution 与期限，原子重排队并记录 `RETRY_SCHEDULED`，1 秒后可重试。通用 Job retry 沿用 Job/finalizationNo、递增 executionNo，新 execution 重新取得期限。确认损坏或缺失的 part 必须先修复：失败事件的 `failedPart={fileId,partNo}` 只授权清除和修复精确坏 part，并同步扣减已接收字节；正确 part 保留。普通读取、权限或存储错误保留原因，不能据此删除 part。修复后再次 complete 创建新轮次。
 
@@ -194,7 +194,7 @@ POST /api/v1/admin/imports
 
 创建端点只执行有界准入：校验 UploadSession 已 `COMPLETE`、用途/来源类型、目标目录与当前候选 Provider Target 能力，随后在一个短事务创建 `ImportJob(state=QUEUED)`、`IMPORT_GROUP Job`、每个 UploadFile 的 `PENDING` disposition、whole-session consumption 以及不可变 `import_group_requests` 输入快照，并立即返回 `202 {importJobId,jobId,state:"QUEUED",itemCount:0}`。浏览器收到 202 后直接进入 `/admin/imports/tasks`；不得继续把上传进度停在 92% 等待项目识别。
 
-准入由 `service/libraryimport.ImportAdmissions` 统一编排，`persistence/libraryimport` 在同一短事务读取完整上传文件集合、目标版本/能力、活动标签与操作者，并在写入前校验上传及目标版本。任何写入或提交失败都不返回创建结果，也不通知 worker；只有成功提交才派发。无效或发生版本漂移的业务输入返回 `409 IMPORT_INPUT_INVALID`，存储故障返回 `500 INTERNAL_ERROR`，不得把数据库故障伪装为输入冲突。
+准入由 `service/libraryimport.ImportAdmissions` 统一编排，`repo/libraryimport` 在同一短事务读取完整上传文件集合、目标版本/能力、活动标签与操作者，并在写入前校验上传及目标版本。任何写入或提交失败都不返回创建结果，也不通知 worker；只有成功提交才派发。无效或发生版本漂移的业务输入返回 `409 IMPORT_INPUT_INVALID`，存储故障返回 `500 INTERNAL_ERROR`，不得把数据库故障伪装为输入冲突。
 
 归档安全扫描、解压、实际 member hash、CAS 物化、RPG Maker/ONS/KiriKiri/Butterscotch 项目检测、分组和运行依赖检查全部由并发度 1 的 `IMPORT_GROUP` archive worker 在 HTTP 响应之后执行。ZIP 在完整验证 central directory 后逐 member 单次解压，并把选中的 member 从临时候选原子提交到 CAS；不得为“扫描 hash”和“物化 CAS”再次解压同一 member，也不得把被规范器排除的候选发布进 CAS。7z 继续使用隔离 worker 的完整扫描与受限批量提取。任务以 `QUEUED/STARTED/PROGRESS/SUCCEEDED|FAILED` 事件投影 `WAITING_FOR_WORKER/INSPECTING/PERSISTING` 阶段；重启恢复遗留 RUNNING，取消在安全检查点收口并释放上传消费。
 
@@ -225,7 +225,7 @@ source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 re
 
 一期 JobEvent 与 JobInputSnapshot 一样永久保留，不实现后台裁剪，因此不存在一边声明 append-only、一边删除事件的隐藏特权路径，也不返回 `EVENT_CURSOR_EXPIRED`。将来若数据库增长需要保留窗口，必须先增加显式 prune watermark/migration、API 过期语义和恢复测试，不能直接 `DELETE` 后让全局 ID/cursor 失真。SSE 断开不取消任务。
 
-Job 详情与进度查询由 `internal/service/jobs` 提供，`internal/persistence/jobs` 在同一读事务中获取每批事件及其任务状态。每批最多 1000 条；终态任务必须排空所有事件后才能关闭连接，不能因达到分页上限或观察到更新后的终态而漏掉尾部事件。Import 的 `PARTIAL_FAILURE` 与 `REVIEW_PENDING/COMPLETED/FAILED/CANCELLED` 均结束当前进度流，后续领域操作通过新连接读取。
+Job 详情与进度查询由 `internal/service/jobs` 提供，`internal/repo/jobs` 在同一读事务中获取每批事件及其任务状态。每批最多 1000 条；终态任务必须排空所有事件后才能关闭连接，不能因达到分页上限或观察到更新后的终态而漏掉尾部事件。Import 的 `PARTIAL_FAILURE` 与 `REVIEW_PENDING/COMPLETED/FAILED/CANCELLED` 均结束当前进度流，后续领域操作通过新连接读取。
 
 通用 Job 的 `GET /api/v1/admin/jobs/{jobId}/events` 使用同一套全局 JobEvent cursor 规则，但只过滤 `job_id` 精确等于路径资源的事件。无 `Last-Event-ID` 时，服务端在一个只读事务中取得与 `GET /api/v1/admin/jobs/{jobId}` 相同的 Job 快照和当时全局最大 JobEvent ID，先发送 `event: snapshot`，其 `id` 为该全局水位、`data` 为 Job 快照；随后只发送 ID 更大且属于该 Job 的持久事件。重连时可使用属于其他 scope/job 的合法全局 ID 作为水位，仍只按 `id > cursor AND job_id = :jobId` 过滤；负数、非十进制整数或超过当前全局最大值统一为 `400 INVALID_EVENT_CURSOR`。事件 JSON、无 ID 的 15 秒 comment heartbeat、永久保留和“断开不取消”语义与 Import SSE 完全相同。Launch、游戏移动和其他等待共享 `VARIANT_REVALIDATE` 的前端必须使用这条协议，不能轮询一套含不同终态或取消语义的本地状态机。
 

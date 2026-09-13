@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	librarypersistence "retrom/internal/persistence/libraryimport"
+	librarypersistence "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
 	"retrom/internal/capability/content/contentcapability"

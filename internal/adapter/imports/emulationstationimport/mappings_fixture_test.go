@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/security/authn"
-	repository "retrom/internal/persistence/emulationstationimport"
+	repository "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 

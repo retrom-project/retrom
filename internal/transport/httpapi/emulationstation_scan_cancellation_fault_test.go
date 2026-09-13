@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/composition"
-	esrepository "retrom/internal/persistence/emulationstationimport"
+	esrepository "retrom/internal/repo/emulationstationimport"
 	es "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )

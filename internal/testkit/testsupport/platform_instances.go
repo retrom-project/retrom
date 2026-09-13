@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	platformpersistence "retrom/internal/persistence/platforminstance"
-	"retrom/internal/persistence/recordstore"
+	platformpersistence "retrom/internal/repo/platforminstance"
+	"retrom/internal/repo/recordstore"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/capability/runtime/platformcatalog"
 	"retrom/internal/capability/runtime/runtimecatalog"
-	"retrom/internal/persistence/store"
+	"retrom/internal/repo/store"
 	"retrom/internal/service/platforminstance"
 )
 

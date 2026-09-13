@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	librarypersistence "retrom/internal/persistence/libraryimport"
+	librarypersistence "retrom/internal/repo/libraryimport"
 
 	"github.com/google/uuid"
 

@@ -13,7 +13,7 @@ import (
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/runtime/runtimecatalog"
-	reviewpersistence "retrom/internal/persistence/libraryimport"
+	reviewpersistence "retrom/internal/repo/libraryimport"
 	reviewservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )

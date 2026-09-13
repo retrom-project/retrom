@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 )
 
 func TestImmediateGCManualRetryStartsANewExecutionBudget(t *testing.T) {

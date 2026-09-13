@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 )
 
 func TestGameCoreOptionsAllowPendingDependencyRevalidation(t *testing.T) {

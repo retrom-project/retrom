@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	composition "retrom/internal/bootstrap/composition/libraryimport"
-	jobpersistence "retrom/internal/persistence/jobs"
-	repository "retrom/internal/persistence/libraryimport"
+	jobpersistence "retrom/internal/repo/jobs"
+	repository "retrom/internal/repo/libraryimport"
 	"retrom/internal/service/jobs"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"

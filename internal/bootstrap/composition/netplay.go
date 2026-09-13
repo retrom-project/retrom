@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"time"
 
-	validationrepository "retrom/internal/persistence/corevalidation"
-	repository "retrom/internal/persistence/netplay"
-	tagrepository "retrom/internal/persistence/tagging"
+	validationrepository "retrom/internal/repo/corevalidation"
+	repository "retrom/internal/repo/netplay"
+	tagrepository "retrom/internal/repo/tagging"
 	"retrom/internal/service/corevalidation"
 	"retrom/internal/service/netplay"
 	"retrom/internal/service/tagging"

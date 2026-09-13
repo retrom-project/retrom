@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -23,9 +23,9 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/persistence/dbexec"
-	"retrom/internal/persistence/store"
-	tagpersistence "retrom/internal/persistence/tagging"
+	"retrom/internal/repo/dbexec"
+	"retrom/internal/repo/store"
+	tagpersistence "retrom/internal/repo/tagging"
 	"retrom/internal/service/tagging"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"

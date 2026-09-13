@@ -21,10 +21,10 @@ import (
 
 	"retrom/internal/bootstrap/composition"
 
-	providerpersistence "retrom/internal/persistence/runtimeprovider"
+	providerpersistence "retrom/internal/repo/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"golang.org/x/term"
@@ -39,9 +39,9 @@ import (
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/foundation/processlock"
-	maintenancepersistence "retrom/internal/persistence/maintenance"
-	platformpersistence "retrom/internal/persistence/platforminstance"
-	"retrom/internal/persistence/store"
+	maintenancepersistence "retrom/internal/repo/maintenance"
+	platformpersistence "retrom/internal/repo/platforminstance"
+	"retrom/internal/repo/store"
 	"retrom/internal/service/accounts"
 	"retrom/internal/service/maintenance"
 	"retrom/internal/service/platforminstance"

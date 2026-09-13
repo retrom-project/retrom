@@ -15,7 +15,7 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/runtime/dependencies"
-	tagrepository "retrom/internal/persistence/tagging"
+	tagrepository "retrom/internal/repo/tagging"
 	"retrom/internal/service/tagging"
 	"retrom/internal/testkit/testsupport"
 

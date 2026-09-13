@@ -14,7 +14,7 @@ import (
 	accountservice "retrom/internal/service/accounts"
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
-	"retrom/internal/persistence/store"
+	"retrom/internal/repo/store"
 	"retrom/internal/testkit/testassert"
 )
 

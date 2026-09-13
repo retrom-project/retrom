@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	platformpersistence "retrom/internal/persistence/platforminstance"
+	platformpersistence "retrom/internal/repo/platforminstance"
 	"retrom/internal/service/platforminstance"
 )
 

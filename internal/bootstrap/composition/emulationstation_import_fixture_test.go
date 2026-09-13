@@ -15,7 +15,7 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
-	dependencyrepository "retrom/internal/persistence/dependencies"
+	dependencyrepository "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"

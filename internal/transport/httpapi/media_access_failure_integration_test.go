@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	mediarepo "retrom/internal/persistence/mediaaccess"
+	mediarepo "retrom/internal/repo/mediaaccess"
 	"retrom/internal/service/mediaaccess"
 
 	"retrom/internal/capability/security/authn"

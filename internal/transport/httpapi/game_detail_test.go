@@ -16,10 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobcatalog"
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/blobcatalog"
+	"retrom/internal/repo/dbexec"
 
-	"retrom/internal/persistence/recordstore"
+	"retrom/internal/repo/recordstore"
 
 	"github.com/google/uuid"
 

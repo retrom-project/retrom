@@ -14,14 +14,14 @@ import (
 	"testing"
 	"time"
 
-	providerpersistence "retrom/internal/persistence/runtimeprovider"
+	providerpersistence "retrom/internal/repo/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/capability/runtime/runtimelaunch"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/persistence/store"
+	"retrom/internal/repo/store"
 )
 
 func TestLoadInstallationValidatesAndReconcilesBeforeServing(t *testing.T) {

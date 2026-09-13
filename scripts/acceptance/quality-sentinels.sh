@@ -85,7 +85,7 @@ EOF
 expect_failure \
   migration-text-time \
   'qa_sentinel_times\.broken_at_ms type = TEXT' \
-  bash -lc "cd '$sentinel_root' && go test ./internal/persistence/store -run '^TestMigrationsCreateCurrentSchemaWithoutProductSeeds$' -count=1"
+  bash -lc "cd '$sentinel_root' && go test ./internal/repo/store -run '^TestMigrationsCreateCurrentSchemaWithoutProductSeeds$' -count=1"
 rm -f -- "$sentinel_root/migrations/011_qa_sentinel.sql"
 
 cat >"$sentinel_root/internal/capability/format/importing/qa_sentinel_test.go" <<'EOF'

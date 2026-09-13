@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"retrom/internal/persistence/dbexec"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	"retrom/internal/repo/dbexec"
+	payloadpersistence "retrom/internal/repo/payloadrelease"
 	application "retrom/internal/service/libraryimport"
 	payloadservice "retrom/internal/service/payloadrelease"
 )

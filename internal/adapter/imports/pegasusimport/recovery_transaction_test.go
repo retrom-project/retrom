@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	repository "retrom/internal/persistence/pegasusimport"
+	repository "retrom/internal/repo/pegasusimport"
 	library "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/pegasusimport"
 )

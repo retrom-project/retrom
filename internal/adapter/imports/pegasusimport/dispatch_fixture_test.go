@@ -3,7 +3,7 @@ package pegasusimport
 import (
 	"log/slog"
 
-	repository "retrom/internal/persistence/pegasusimport"
+	repository "retrom/internal/repo/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 

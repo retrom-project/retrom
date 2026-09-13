@@ -42,59 +42,59 @@ internal/service/catalog/ Platform、PlatformInstance、Game、GameVariant 应�
 internal/capability/format/importing/       归档、7z、ASAR 与可执行归档输入处理
 internal/adapter/imports/pegasusimport/   服务器目录、metadata/媒体读取、CAS 写入及路径脱敏适配器
 internal/service/pegasusimport/ 应用入口、扫描/导入编排、计划/映射/启动、worker 生命周期与结果恢复
-internal/persistence/pegasusimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
+internal/repo/pegasusimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
 internal/capability/format/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
 internal/adapter/imports/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
 internal/service/emulationstationimport/ 查询、计划与映射、扫描发布、worker 生命周期、取消/重试与恢复
-internal/persistence/emulationstationimport/ 查询映射、计划/扫描/租约/恢复事务与来源归属校验
+internal/repo/emulationstationimport/ 查询映射、计划/扫描/租约/恢复事务与来源归属校验
 internal/adapter/metadata/hasheous/        Hasheous 适配器与缓存
 internal/capability/format/arcadedat/       DAT 安装、解析、依赖图与诊断
 internal/capability/content/firmware/        BIOS 文件与归档匹配、候选质量比较
 internal/service/firmware/ BIOS 安装、替换决策与归档检查
-internal/persistence/firmware/ BIOS 事实查询及安装、消费、替换与进度记录事务
+internal/repo/firmware/ BIOS 事实查询及安装、消费、替换与进度记录事务
 internal/adapter/runtime/runtimeprovider/ Provider Bundle 安装、激活、静态文件与只前进升级校验
 internal/capability/runtime/runtimecatalog/  产品 Core 到 Provider Target 的纯 catalog 解析与类型
-internal/persistence/runtimecatalog/ 已验证目录定义的事务投影
+internal/repo/runtimecatalog/ 已验证目录定义的事务投影
 internal/capability/content/corevalidation/  BIOS/多盘快照、格式校验与确定性摘要
 internal/service/corevalidation/ 静态 BIOS 适用性、可用性与阻断判定
-internal/persistence/corevalidation/ BIOS 目录及安装事实查询
+internal/repo/corevalidation/ BIOS 目录及安装事实查询
 internal/service/datindex/ DAT BIOS 需求身份、摘要与同步编排
-internal/persistence/datindex/ DAT 索引与需求记录写入
+internal/repo/datindex/ DAT 索引与需求记录写入
 internal/capability/runtime/runtimebundle/   Bundle 与 Launch Envelope V1 的闭合解析/语义校验
 internal/capability/runtime/runtimelaunch/   Provider-neutral Launch Envelope 投影
 internal/adapter/runtime/launch/          Provider、凭据/隔离签名、内容与截图文件适配器
 internal/service/launch/ 启动应用入口、内容授权、Preview/Product/Netplay、截图、游玩与校验 worker 生命周期
-internal/persistence/launch/ 授权与内容快照、会话/响应收据/截图/游玩事务与校验任务调度
+internal/repo/launch/ 授权与内容快照、会话/响应收据/截图/游玩事务与校验任务调度
 internal/capability/engine/rpgmaker/        RPG 项目识别、Target binding、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
 internal/capability/engine/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢复协议
 internal/service/isolation/ unique-origin Host、票据及 capability 授权规则
-internal/persistence/isolation/ 票据、会话与 capability 读取及原子签发
+internal/repo/isolation/ 票据、会话与 capability 读取及原子签发
 internal/transport/netplay/         Room/Session 控制面、严格实时协议与有界内存 Hub
 internal/service/saves/   存档授权、格式兼容、幂等和 GAME_SAVE 版本决策
-internal/persistence/saves/ 存档、Blob 登记、恢复绑定与幂等记录的原子读写
+internal/repo/saves/ 存档、Blob 登记、恢复绑定与幂等记录的原子读写
 internal/adapter/files/blobstore/       CAS 写入、读取、引用与垃圾回收
 internal/service/accounts/ 初始化、登录、会话校验/续期、密码轮换、离线恢复、用户管理、账户链接与账户限流策略
-internal/persistence/accounts/ 账户安全事务、限流桶及原子多主体计数
+internal/repo/accounts/ 账户安全事务、限流桶及原子多主体计数
 internal/service/serverimport/ 服务器 BIOS 导入查询、分页及取消/重试规则
-internal/persistence/serverimport/ 导入目录/候选查询及取消/重试原子事务
+internal/repo/serverimport/ 导入目录/候选查询及取消/重试原子事务
 internal/service/libraryimport/ 审核查询、封面上传、发布/丢弃决定、元数据与服务器来源创建规则
-internal/persistence/libraryimport/ 审核快照、发布/媒体/消费/审计事务和服务器来源原子绑定
+internal/repo/libraryimport/ 审核快照、发布/媒体/消费/审计事务和服务器来源原子绑定
 internal/service/metadatascrape/ 抓取调度、证据查询、候选规则与执行收口
-internal/persistence/metadatascrape/ 抓取证据、结果、任务租约与事务存储
+internal/repo/metadatascrape/ 抓取证据、结果、任务租约与事务存储
 internal/service/jobs/    通用任务取消、重试资格、详情与事件流进度编排
 internal/service/importprogress/ ImportJob 条目驱动聚合的纯状态规则
 internal/service/importdiscard/ 导入批次丢弃、取消与归属判断
-internal/persistence/importdiscard/ 处置快照、归属恢复与原子释放写入
+internal/repo/importdiscard/ 处置快照、归属恢复与原子释放写入
 internal/service/gamecontent/ 内容替换校验、执行身份与发布业务编排
-internal/persistence/gamecontent/ 上传消费、租约、内容及事件的原子持久化
-internal/persistence/contentquery/ 共用内容能力投影与数据库值映射
+internal/repo/gamecontent/ 上传消费、租约、内容及事件的原子持久化
+internal/repo/contentquery/ 共用内容能力投影与数据库值映射
 internal/service/maintenance/ 离线备份、恢复校验和安全撤销编排
-internal/persistence/maintenance/ 数据库检查点、引用清单和恢复写事务
+internal/repo/maintenance/ 数据库检查点、引用清单和恢复写事务
 internal/bootstrap/composition/     Repository 注入和跨模块端口适配
-internal/persistence/jobs/ 任务状态、快照和事件的事务读写
+internal/repo/jobs/ 任务状态、快照和事件的事务读写
 internal/service/blobgc/  确定性 GC 维护入口与计数结果
-internal/persistence/blobgc/ Blob 计数与保护引用读取
-internal/persistence/store/           SQLite 连接、迁移和事务辅助
+internal/repo/blobgc/ Blob 计数与保护引用读取
+internal/repo/store/           SQLite 连接、迁移和事务辅助
 internal/service/diagnostics/   诊断报告应用服务
 internal/transport/httpapi/generated/ OpenAPI 编译期生成的 strict server types；禁止手改且不提交 Git
 migrations/               Go package：embed.go 与有序 SQL migration，编译进后端
@@ -127,13 +127,13 @@ web/components/           无业务状态的通用组件
 
 ### 2.1 Service 与持久化边界
 
-业务模块按 `internal/service/<模块>` 组织，包含用例编排、业务类型和由消费者定义的 Repository 接口。`internal/persistence/<模块>` 实现这些接口，封装 SQL、字段映射和原子操作；目录不绑定数据库产品名称。解析器、算法和内容格式校验仍按独立基础能力组织，不因分层统一迁入 Service。
+业务模块按 `internal/service/<模块>` 组织，包含用例编排、业务类型和由消费者定义的 Repository 接口。`internal/repo/<模块>` 实现这些接口，封装 SQL、字段映射和原子操作；目录不绑定数据库产品名称。解析器、算法和内容格式校验仍按独立基础能力组织，不因分层统一迁入 Service。
 
 Handler 负责协议解析、身份提取和结果映射，通过 Service 执行业务；Service 不导入数据库驱动或持久化实现，也不接收 SQL、表名、SET/WHERE、连接或事务对象。组装代码创建 Repository 并注入 Service。接口返回业务结果与可识别错误，不把 `sql.Rows`、`sql.Result`、`sql.Null*` 传播到上层。
 
-数据访问层共享 `internal/persistence/dbexec.Executor`，统一数据库连接、事务及独占连接的 SQL 执行接口；各 Repository 不重复定义相同接口。该接口只属于 SQL 基础设施，Service 仍依赖业务 Repository 接口。
+数据访问层共享 `internal/repo/dbexec.Executor`，统一数据库连接、事务及独占连接的 SQL 执行接口；各 Repository 不重复定义相同接口。该接口只属于 SQL 基础设施，Service 仍依赖业务 Repository 接口。
 
-公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`blobregistry` 管理保护引用，`blobcatalog` 登记已校验的 CAS 对象。它们由各模块 Repository 复用；`blobstore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `dbexec`。
+公共 SQL 组件也归入 `internal/repo/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`blobregistry` 管理保护引用，`blobcatalog` 登记已校验的 CAS 对象。它们由各模块 Repository 复用；`blobstore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `dbexec`。
 
 Service 决定事务范围；Repository 的事务回调只提供绑定到同一事务的业务能力。跨表校验、乐观条件、幂等响应和联动写入保持原子，失败与取消必须回滚。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
 
@@ -446,7 +446,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 13. 服务器导入运维
 
-服务器 BIOS 导入由 `internal/service/serverimport` 统一提供应用接口和 worker 编排，`internal/bootstrap/composition` 组装来源配置、Blob/固件接口与 Repository；HTTP 不再依赖旧导入包或构造底层存储。Service 不接受数据库连接，数据库实现全部位于 `internal/persistence/serverimport`。
+服务器 BIOS 导入由 `internal/service/serverimport` 统一提供应用接口和 worker 编排，`internal/bootstrap/composition` 组装来源配置、Blob/固件接口与 Repository；HTTP 不再依赖旧导入包或构造底层存储。Service 不接受数据库连接，数据库实现全部位于 `internal/repo/serverimport`。
 
 服务器 BIOS 导入的创建 Service 校验来源与目录快照、按 requirement ID 固定快照顺序，并计算目录和执行输入摘要；来源适配器负责不跟随符号链接的目录访问。Repository 在短事务中检查活动任务并原子创建 Job、不可变输入、导入条目与审计，提交成功后才唤醒 worker。
 

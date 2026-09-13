@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/adapter/files/payloadfiles"
 	"retrom/internal/foundation/cleanup"
-	repository "retrom/internal/persistence/payloadrelease"
+	repository "retrom/internal/repo/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 
 	"retrom/internal/adapter/files/blobstore"

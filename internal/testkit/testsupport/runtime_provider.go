@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	runtimecatalogpersistence "retrom/internal/persistence/runtimecatalog"
+	runtimecatalogpersistence "retrom/internal/repo/runtimecatalog"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"

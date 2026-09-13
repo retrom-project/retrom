@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -20,7 +20,7 @@ import (
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/persistence/store"
+	"retrom/internal/repo/store"
 	"retrom/internal/service/accounts"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"

@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/persistence/dbexec"
-	repository "retrom/internal/persistence/libraryimport"
+	"retrom/internal/repo/dbexec"
+	repository "retrom/internal/repo/libraryimport"
 
 	application "retrom/internal/service/libraryimport"
 
-	validationpersistence "retrom/internal/persistence/corevalidation"
+	validationpersistence "retrom/internal/repo/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
 	"retrom/internal/capability/content/contentcapability"

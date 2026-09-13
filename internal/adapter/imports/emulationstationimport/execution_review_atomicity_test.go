@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	persistence "retrom/internal/persistence/emulationstationimport"
+	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )

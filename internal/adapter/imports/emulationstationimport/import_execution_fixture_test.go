@@ -5,7 +5,7 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/foundation/cleanup"
-	persistence "retrom/internal/persistence/emulationstationimport"
+	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 

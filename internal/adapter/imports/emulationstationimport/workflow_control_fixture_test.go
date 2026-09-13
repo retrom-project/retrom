@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	repository "retrom/internal/persistence/emulationstationimport"
+	repository "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 

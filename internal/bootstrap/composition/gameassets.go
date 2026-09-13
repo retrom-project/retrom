@@ -9,8 +9,8 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	payloadcomposition "retrom/internal/bootstrap/composition/payloadrelease"
-	"retrom/internal/persistence/dbexec"
-	gameassetspersistence "retrom/internal/persistence/gameassets"
+	"retrom/internal/repo/dbexec"
+	gameassetspersistence "retrom/internal/repo/gameassets"
 	gameassetsservice "retrom/internal/service/gameassets"
 )
 

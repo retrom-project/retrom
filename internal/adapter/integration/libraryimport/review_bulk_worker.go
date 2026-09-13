@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
-	librarypersistence "retrom/internal/persistence/libraryimport"
+	librarypersistence "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"

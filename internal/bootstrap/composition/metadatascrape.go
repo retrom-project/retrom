@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/metadata/hasheous"
-	metadatapersistence "retrom/internal/persistence/metadatascrape"
+	metadatapersistence "retrom/internal/repo/metadatascrape"
 	"retrom/internal/service/metadatascrape"
 )
 

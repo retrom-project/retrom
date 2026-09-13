@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	repository "retrom/internal/persistence/libraryimport"
+	repository "retrom/internal/repo/libraryimport"
 	"retrom/internal/service/jobs"
 	application "retrom/internal/service/libraryimport"
 )

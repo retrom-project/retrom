@@ -13,8 +13,8 @@ import (
 	"modernc.org/sqlite"
 
 	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/persistence/dbexec"
-	persistence "retrom/internal/persistence/launch"
+	"retrom/internal/repo/dbexec"
+	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
 

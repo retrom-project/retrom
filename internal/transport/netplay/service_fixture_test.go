@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/composition"
-	validationrepository "retrom/internal/persistence/corevalidation"
-	repository "retrom/internal/persistence/netplay"
+	validationrepository "retrom/internal/repo/corevalidation"
+	repository "retrom/internal/repo/netplay"
 	"retrom/internal/service/corevalidation"
 	application "retrom/internal/service/netplay"
 )

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	persistence "retrom/internal/persistence/launch"
+	persistence "retrom/internal/repo/launch"
 )
 
 func (service *Service) ensureVariant(

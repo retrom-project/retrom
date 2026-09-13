@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/capability/security/authn"
-	repository "retrom/internal/persistence/libraryimport"
+	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
 )

@@ -13,8 +13,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"retrom/internal/persistence/dbexec"
-	librarypersistence "retrom/internal/persistence/libraryimport"
+	"retrom/internal/repo/dbexec"
+	librarypersistence "retrom/internal/repo/libraryimport"
 
 	"github.com/google/uuid"
 

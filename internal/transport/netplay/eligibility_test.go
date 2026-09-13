@@ -3,7 +3,7 @@ package netplay
 import (
 	"context"
 
-	repository "retrom/internal/persistence/netplay"
+	repository "retrom/internal/repo/netplay"
 	application "retrom/internal/service/netplay"
 )
 

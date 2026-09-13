@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/capability/content/corevalidation"
 )

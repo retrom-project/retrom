@@ -19,7 +19,7 @@ import (
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/bootstrap/composition"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/repo/blobcatalog"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )

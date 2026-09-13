@@ -9,8 +9,8 @@ import (
 
 	composition "retrom/internal/bootstrap/composition/libraryimport"
 
-	librarypersistence "retrom/internal/persistence/libraryimport"
-	tagpersistence "retrom/internal/persistence/tagging"
+	librarypersistence "retrom/internal/repo/libraryimport"
+	tagpersistence "retrom/internal/repo/tagging"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/engine/scummvm"

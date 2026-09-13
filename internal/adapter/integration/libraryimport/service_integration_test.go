@@ -21,13 +21,13 @@ import (
 
 	payloadcomposition "retrom/internal/bootstrap/composition/payloadrelease"
 
-	uploadpersistence "retrom/internal/persistence/uploads"
+	uploadpersistence "retrom/internal/repo/uploads"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/recordstore"
-	tagpersistence "retrom/internal/persistence/tagging"
+	"retrom/internal/repo/recordstore"
+	tagpersistence "retrom/internal/repo/tagging"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"

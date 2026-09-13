@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	repository "retrom/internal/persistence/pegasusimport"
+	repository "retrom/internal/repo/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 

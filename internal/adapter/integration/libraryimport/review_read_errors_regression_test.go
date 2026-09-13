@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	repository "retrom/internal/persistence/libraryimport"
+	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
 	_ "modernc.org/sqlite"

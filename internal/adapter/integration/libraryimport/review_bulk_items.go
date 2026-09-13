@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	librarypersistence "retrom/internal/persistence/libraryimport"
+	librarypersistence "retrom/internal/repo/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 

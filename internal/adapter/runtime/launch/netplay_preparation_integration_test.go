@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	netplaypersistence "retrom/internal/persistence/netplay"
+	netplaypersistence "retrom/internal/repo/netplay"
 	netplayservice "retrom/internal/service/netplay"
 	"retrom/internal/testkit/testsupport"
 	"retrom/internal/transport/netplay/capability"

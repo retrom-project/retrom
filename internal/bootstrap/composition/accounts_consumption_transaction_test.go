@@ -10,7 +10,7 @@ import (
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
 
-	accountpersistence "retrom/internal/persistence/accounts"
+	accountpersistence "retrom/internal/repo/accounts"
 
 	accountservice "retrom/internal/service/accounts"
 )

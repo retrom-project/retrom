@@ -107,16 +107,16 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-DEV-001": (180, "scripts/acceptance/local-development.sh"),
     "ACC-NET-001": (180, "scripts/acceptance/network-boundary.sh"),
-    "ACC-DB-001": (120, "go test -tags=integration ./internal/persistence/store -run '^Test(Bootstrap|MigrationsCreateCurrent|Schema|Fresh|CurrentCrossDomain|CurrentSession|Application|ActiveNetplay|InvalidSession|BatchAdmin|Launch|SaveCreation|NativeLaunch)' -count=1"),
-    "ACC-DB-002": (120, "go test -tags=integration ./internal/persistence/store -run '^Test(CurrentMigration|MigrationPreflight|FailedMigration)' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
-    "ACC-STOR-002": (180, "go test ./internal/service/importdiscard ./internal/persistence/importdiscard ./internal/transport/httpapi -run '^TestDiscard|^TestImportBatchDiscard' -count=1 && cd web && npm exec vitest run features/imports/import-batch-discard.test.tsx"),
+    "ACC-DB-001": (120, "go test -tags=integration ./internal/repo/store -run '^Test(Bootstrap|MigrationsCreateCurrent|Schema|Fresh|CurrentCrossDomain|CurrentSession|Application|ActiveNetplay|InvalidSession|BatchAdmin|Launch|SaveCreation|NativeLaunch)' -count=1"),
+    "ACC-DB-002": (120, "go test -tags=integration ./internal/repo/store -run '^Test(CurrentMigration|MigrationPreflight|FailedMigration)' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/repo/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
+    "ACC-STOR-002": (180, "go test ./internal/service/importdiscard ./internal/repo/importdiscard ./internal/transport/httpapi -run '^TestDiscard|^TestImportBatchDiscard' -count=1 && cd web && npm exec vitest run features/imports/import-batch-discard.test.tsx"),
     "ACC-CAS-001": (120, "go test ./internal/adapter/files/blobstore -run '^TestPutDeduplicatesConcurrentContent$' -count=1"),
-    "ACC-CAS-002": (120, "go test ./internal/persistence/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1"),
-    "ACC-BKP-001": (300, "go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
+    "ACC-CAS-002": (120, "go test ./internal/repo/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1"),
+    "ACC-BKP-001": (300, "go test -tags=integration ./internal/service/maintenance ./internal/repo/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
     "ACC-SEC-001": (120, "go test -tags=integration ./internal/capability/format/arcadedat ./internal/capability/format/importing -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective|TestValidateLogicalPath' -count=1"),
     "ACC-SEC-002": (
         120,
-        "go test ./internal/adapter/runtime/runtime ./internal/transport/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/adapter/runtime/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1",
+        "go test ./internal/adapter/runtime/runtime ./internal/transport/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/adapter/runtime/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/repo/launch -count=1",
     ),
     "ACC-SEC-003": (
         120,
@@ -126,21 +126,21 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-API-001": (120, "go test ./internal/transport/httpapi ./internal/foundation/cursor -count=1"),
     "ACC-FAV-001": (
         120,
-        "go test ./internal/persistence/store ./internal/service/favorites ./internal/persistence/favorites -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceConcurrentFavoriteFolderConflictVersionAndLimit|TestServiceListPaginationScopesAndVisibility|TestOrganizeFaultRollsBackEveryFavoriteMembershipAndIdempotencyRecord' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
+        "go test ./internal/repo/store ./internal/service/favorites ./internal/repo/favorites -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceConcurrentFavoriteFolderConflictVersionAndLimit|TestServiceListPaginationScopesAndVisibility|TestOrganizeFaultRollsBackEveryFavoriteMembershipAndIdempotencyRecord' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/repo/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
     ),
     "ACC-FAV-002": (
         120,
-        "go test ./internal/service/favorites ./internal/persistence/favorites ./internal/transport/httpapi -run 'TestNormalizeFolderName|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceListPaginationScopesAndVisibility|TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection|TestFavoriteHTTPRejectsAnonymousUnsafeAndNonStrictRequests' -count=1",
+        "go test ./internal/service/favorites ./internal/repo/favorites ./internal/transport/httpapi -run 'TestNormalizeFolderName|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceListPaginationScopesAndVisibility|TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection|TestFavoriteHTTPRejectsAnonymousUnsafeAndNonStrictRequests' -count=1",
     ),
     "ACC-FAV-003": (180, "scripts/acceptance/ui-case.sh ACC-FAV-003"),
     "ACC-FAV-004": (180, "scripts/acceptance/ui-case.sh ACC-FAV-004"),
     "ACC-TAG-001": (
         120,
-        "go test ./internal/persistence/store ./internal/service/tagging ./internal/persistence/tagging -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestNormalizeName|TestValidateIDsRejectsDuplicatesAndLimit|TestTagLifecycleAndNameReuse|TestTagCapacityAndDatabaseAssignmentGuard' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
+        "go test ./internal/repo/store ./internal/service/tagging ./internal/repo/tagging -run 'TestMigrationsCreateCurrentSchemaWithoutProductSeeds|TestNormalizeName|TestValidateIDsRejectsDuplicatesAndLimit|TestTagLifecycleAndNameReuse|TestTagCapacityAndDatabaseAssignmentGuard' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/repo/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
     ),
     "ACC-TAG-002": (
         120,
-        "go test ./internal/service/tagging ./internal/persistence/tagging ./internal/transport/httpapi -run 'TestReplaceGameTagsAndDeleteInvalidatesGameVersion|TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation' -count=1",
+        "go test ./internal/service/tagging ./internal/repo/tagging ./internal/transport/httpapi -run 'TestReplaceGameTagsAndDeleteInvalidatesGameVersion|TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation' -count=1",
     ),
     "ACC-TAG-003": (
         180,
@@ -161,7 +161,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-AUTH-002": (
         120,
-        "go test ./internal/bootstrap/composition ./internal/persistence/store -run 'TestTestModeBootstrapsExactlyOnceAndReleaseRejectsDefaultCredential|TestCurrentMigrationLineageResumeAndReopen|TestMigrationPreflightRejectsOldCorruptGapAndFutureLineages' -count=1",
+        "go test ./internal/bootstrap/composition ./internal/repo/store -run 'TestTestModeBootstrapsExactlyOnceAndReleaseRejectsDefaultCredential|TestCurrentMigrationLineageResumeAndReopen|TestMigrationPreflightRejectsOldCorruptGapAndFutureLineages' -count=1",
     ),
     "ACC-AUTH-003": (
         120,
@@ -213,70 +213,70 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PLAT-006": (
         180,
-        "go test ./internal/capability/runtime/platformcatalog ./internal/capability/content/contentprofile ./internal/service/platforminstance ./internal/persistence/platforminstance -count=1 && go test ./internal/transport/httpapi -run '^TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent$' -count=1",
+        "go test ./internal/capability/runtime/platformcatalog ./internal/capability/content/contentprofile ./internal/service/platforminstance ./internal/repo/platforminstance -count=1 && go test ./internal/transport/httpapi -run '^TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent$' -count=1",
     ),
-    "ACC-GAME-002": (180, "go test -tags=integration ./internal/service/gamecontent ./internal/persistence/gamecontent -run '^TestReplacementPublishesAtomicallyAndFailureKeepsCurrent$' -count=1"),
+    "ACC-GAME-002": (180, "go test -tags=integration ./internal/service/gamecontent ./internal/repo/gamecontent -run '^TestReplacementPublishesAtomicallyAndFailureKeepsCurrent$' -count=1"),
     "ACC-GAME-001": (
         180,
-        "go test -tags=integration ./internal/transport/httpapi ./internal/persistence/metadatascrape -run 'TestGameMetadataCurrentStateProjectionAndOptimisticEdit|TestImportPersistsHasheousEvidenceCandidateAndAsset' -count=1 -timeout=30s",
+        "go test -tags=integration ./internal/transport/httpapi ./internal/repo/metadatascrape -run 'TestGameMetadataCurrentStateProjectionAndOptimisticEdit|TestImportPersistsHasheousEvidenceCandidateAndAsset' -count=1 -timeout=30s",
     ),
     "ACC-GAME-003": (
         180,
         "go test -tags=integration ./internal/transport/httpapi -run '^TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone$' -count=1 -timeout=30s",
     ),
-    "ACC-IMP-001": (180, "go test -tags=integration ./internal/service/uploads ./internal/persistence/uploads ./internal/adapter/integration/libraryimport -run 'TestUploadPartAndFinalization|TestCreateRejectsUnsafeAndDuplicatePaths|TestUploadImportReviewPublishPipeline' -count=1"),
+    "ACC-IMP-001": (180, "go test -tags=integration ./internal/service/uploads ./internal/repo/uploads ./internal/adapter/integration/libraryimport -run 'TestUploadPartAndFinalization|TestCreateRejectsUnsafeAndDuplicatePaths|TestUploadImportReviewPublishPipeline' -count=1"),
     "ACC-IMP-002": (
         180,
         "go test -tags=integration ./internal/adapter/integration/libraryimport -run 'TestImportGroupsSingleArchiveMemberAndReportsEveryFile|TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms|TestMegaDriveROMImportPreservesPayloadAndReachesReview' -count=1",
     ),
     "ACC-IMP-003": (
         180,
-        "go test -tags=integration ./internal/persistence/metadatascrape ./internal/adapter/integration/libraryimport -run 'TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly|TestImportGroupsSingleArchiveMemberAndReportsEveryFile|TestSevenZipImportMaterializesSingleROMAndPreservesEvidence|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure' -count=1",
+        "go test -tags=integration ./internal/repo/metadatascrape ./internal/adapter/integration/libraryimport -run 'TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly|TestImportGroupsSingleArchiveMemberAndReportsEveryFile|TestSevenZipImportMaterializesSingleROMAndPreservesEvidence|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure' -count=1",
     ),
     "ACC-IMP-004": (
         180,
         "go test -tags=integration ./internal/adapter/integration/libraryimport -run '^TestUploadImportReviewPublishPipeline$' -count=1",
     ),
-    "ACC-IMP-005": (180, "go test -tags=integration ./internal/adapter/metadata/hasheous ./internal/service/metadatascrape ./internal/persistence/metadatascrape -count=1"),
+    "ACC-IMP-005": (180, "go test -tags=integration ./internal/adapter/metadata/hasheous ./internal/service/metadatascrape ./internal/repo/metadatascrape -count=1"),
     "ACC-IMP-006": (
         180,
-        "go test -tags=integration ./internal/persistence/metadatascrape -run '^TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly$' -count=1",
+        "go test -tags=integration ./internal/repo/metadatascrape -run '^TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly$' -count=1",
     ),
     "ACC-IMP-007": (
         180,
-        "go test -tags=integration ./internal/adapter/integration/libraryimport ./internal/persistence/metadatascrape -run 'TestUploadImportReviewPublishPipeline|TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview|TestImportPersistsHasheousEvidenceCandidateAndAsset' -count=1",
+        "go test -tags=integration ./internal/adapter/integration/libraryimport ./internal/repo/metadatascrape -run 'TestUploadImportReviewPublishPipeline|TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview|TestImportPersistsHasheousEvidenceCandidateAndAsset' -count=1",
     ),
     "ACC-IMP-008": (
         180,
-        "go test ./internal/persistence/jobs -run '^TestCancelAndRetryEnforceVersionedState$' -count=1 && go test ./internal/capability/format/importing -run 'TestSevenZip' -count=1 && go test -tags=integration ./internal/adapter/integration/libraryimport -run '^TestImportGroupsSingleArchiveMemberAndReportsEveryFile$' -count=1",
+        "go test ./internal/repo/jobs -run '^TestCancelAndRetryEnforceVersionedState$' -count=1 && go test ./internal/capability/format/importing -run 'TestSevenZip' -count=1 && go test -tags=integration ./internal/adapter/integration/libraryimport -run '^TestImportGroupsSingleArchiveMemberAndReportsEveryFile$' -count=1",
     ),
     "ACC-IMP-009": (
         240,
-        "go test ./internal/adapter/integration/libraryimport ./internal/persistence/store -run 'TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence|TestMigrationsCreateCurrentSchemaWithoutProductSeeds' -count=1 && "
+        "go test ./internal/adapter/integration/libraryimport ./internal/repo/store -run 'TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence|TestMigrationsCreateCurrentSchemaWithoutProductSeeds' -count=1 && "
         "go test -tags=integration ./internal/adapter/integration/libraryimport -run '^TestReviewBulkApprovalPublishes(StrictReadyCandidatesAtomically|CurrentTypedArcadeSnapshot)$' -count=1 -timeout=60s && "
-        "go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 -timeout=60s",
+        "go test -tags=integration ./internal/service/maintenance ./internal/repo/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 -timeout=60s",
     ),
     "ACC-IMP-010": (
         180,
         "go test -tags=integration ./internal/adapter/integration/libraryimport ./internal/transport/httpapi -run '^TestReviewDeduplicate' -count=1 -timeout=120s && "
         "cd web && npm run test -- features/reviews/review-deduplicate.test.tsx",
     ),
-    "ACC-DAT-001": (300, "go test -tags=integration ./internal/capability/format/arcadedat ./internal/adapter/runtime/dependencies ./internal/service/dependencies ./internal/persistence/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
+    "ACC-DAT-001": (300, "go test -tags=integration ./internal/capability/format/arcadedat ./internal/adapter/runtime/dependencies ./internal/service/dependencies ./internal/repo/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-002": (
         300,
         "go test -tags=integration ./internal/adapter/integration/libraryimport -run '^TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure$' -count=1",
     ),
-    "ACC-DAT-003": (180, "go test -tags=integration ./internal/persistence/store ./internal/adapter/runtime/dependencies ./internal/service/dependencies ./internal/persistence/dependencies -run 'TestCurrentDATSchemaRejectsNonReleaseCatalogState|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
+    "ACC-DAT-003": (180, "go test -tags=integration ./internal/repo/store ./internal/adapter/runtime/dependencies ./internal/service/dependencies ./internal/repo/dependencies -run 'TestCurrentDATSchemaRejectsNonReleaseCatalogState|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-004": (
         180,
-        "go test -tags=integration ./internal/adapter/runtime/dependencies ./internal/service/dependencies ./internal/persistence/dependencies -run '^TestBootstrapCatalogsMaterializesPinnedDATsIdempotently$' -count=1",
+        "go test -tags=integration ./internal/adapter/runtime/dependencies ./internal/service/dependencies ./internal/repo/dependencies -run '^TestBootstrapCatalogsMaterializesPinnedDATsIdempotently$' -count=1",
     ),
     "ACC-DAT-005": (120, "go test ./internal/capability/format/arcadedat -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective' -count=1"),
     "ACC-DAT-006": (900, "scripts/acceptance/dependency-upgrade.sh"),
-    "ACC-BIOS-001": (120, "go test -tags=integration ./internal/capability/content/firmware ./internal/service/firmware ./internal/persistence/firmware -run '^TestStaticBIOSHashMismatchIsInstalledAsWarning$' -count=1"),
+    "ACC-BIOS-001": (120, "go test -tags=integration ./internal/capability/content/firmware ./internal/service/firmware ./internal/repo/firmware -run '^TestStaticBIOSHashMismatchIsInstalledAsWarning$' -count=1"),
     "ACC-BIOS-002": (
         180,
-        "go test -tags=integration ./internal/adapter/runtime/dependencies ./internal/service/dependencies ./internal/persistence/dependencies ./internal/adapter/runtime/launch ./internal/adapter/integration/libraryimport ./internal/capability/content/firmware ./internal/service/firmware ./internal/persistence/firmware -run 'TestPublishedGameLaunchLocksContentAndCredential|TestMelonDSExternalBIOSIsLockedPerLaunch|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestStaticBIOSHashMismatchIsInstalledAsWarning|TestBIOSLaunchRetirementDeadlines|TestBIOSRetirement|TestFinishedLaunchRetirementDrainsLargeFileSets|TestBIOSSwitchPreservesManualApproval' -count=1",
+        "go test -tags=integration ./internal/adapter/runtime/dependencies ./internal/service/dependencies ./internal/repo/dependencies ./internal/adapter/runtime/launch ./internal/adapter/integration/libraryimport ./internal/capability/content/firmware ./internal/service/firmware ./internal/repo/firmware -run 'TestPublishedGameLaunchLocksContentAndCredential|TestMelonDSExternalBIOSIsLockedPerLaunch|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestStaticBIOSHashMismatchIsInstalledAsWarning|TestBIOSLaunchRetirementDeadlines|TestBIOSRetirement|TestFinishedLaunchRetirementDrainsLargeFileSets|TestBIOSSwitchPreservesManualApproval' -count=1",
     ),
     "ACC-BIOS-003": (
         120,
@@ -284,15 +284,15 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-BIOS-004": (
         180,
-        "go test ./internal/capability/content/firmware ./internal/service/firmware ./internal/persistence/firmware ./internal/service/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
+        "go test ./internal/capability/content/firmware ./internal/service/firmware ./internal/repo/firmware ./internal/service/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
     ),
     "ACC-BIOS-005": (
         180,
-        "go test -race ./internal/capability/content/firmware ./internal/service/firmware ./internal/persistence/firmware ./internal/service/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
+        "go test -race ./internal/capability/content/firmware ./internal/service/firmware ./internal/repo/firmware ./internal/service/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
     ),
     "ACC-BIOS-006": (
         300,
-        "go test ./internal/service/serverimport -run 'TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate|TestRelativePathAndNoFollowDirectoryBoundary|TestDiscoveryStopsCancelledTraversalWithoutCandidateFiles' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && scripts/acceptance/ui-case.sh ACC-BIOS-006",
+        "go test ./internal/service/serverimport -run 'TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate|TestRelativePathAndNoFollowDirectoryBoundary|TestDiscoveryStopsCancelledTraversalWithoutCandidateFiles' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/repo/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && scripts/acceptance/ui-case.sh ACC-BIOS-006",
     ),
     "ACC-BIOS-007": (
         240,
@@ -308,11 +308,11 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-003": (
         300,
-        "go test -tags=integration ./internal/adapter/imports/pegasusimport ./internal/adapter/integration/libraryimport ./internal/service/pegasusimport ./internal/persistence/pegasusimport ./internal/service/libraryimport ./internal/persistence/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestReviewPreparation|TestOwned|TestSourceOwnership|TestServerSource|TestServerImportResult|TestServerRPGArchive|TestLinkedDuplicate|TestEmulationStationDuplicateBinding|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestReviewHandoff|TestServerMetadata|TestMetadata|TestReviewDiscard' -count=1",
+        "go test -tags=integration ./internal/adapter/imports/pegasusimport ./internal/adapter/integration/libraryimport ./internal/service/pegasusimport ./internal/repo/pegasusimport ./internal/service/libraryimport ./internal/repo/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestReviewPreparation|TestOwned|TestSourceOwnership|TestServerSource|TestServerImportResult|TestServerRPGArchive|TestLinkedDuplicate|TestEmulationStationDuplicateBinding|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestReviewHandoff|TestServerMetadata|TestMetadata|TestReviewDiscard' -count=1",
     ),
     "ACC-PEG-004": (
         300,
-        "go test ./internal/adapter/imports/pegasusimport ./internal/adapter/files/serversource -run 'TestClaim|TestFinishImport|TestItemCompletion|TestQueuedRecovery|TestRecovery|TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors|TestRetry|TestCancel|TestWorker|TestScanner|TestScanCancellation' -count=1 && go test ./internal/service/pegasusimport ./internal/persistence/pegasusimport -run 'TestLease|TestCompletion|TestItemWork|TestQueuedRecovery|TestWorkflow|TestQueuedCancellation|TestRecovery|TestWorker|TestScan|TestMaterial|TestCreation' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run 'TestBackupRestoreRoundTripAndOnlineRefusal|TestRestore.*Pegasus' -count=1 && go test ./internal/persistence/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1 && go test ./internal/transport/httpapi -run 'TestJobHTTPScanCancellationChangesPegasusPlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead|TestJobCancellationSQLFailureIsAnInfrastructureError' -count=1",
+        "go test ./internal/adapter/imports/pegasusimport ./internal/adapter/files/serversource -run 'TestClaim|TestFinishImport|TestItemCompletion|TestQueuedRecovery|TestRecovery|TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors|TestRetry|TestCancel|TestWorker|TestScanner|TestScanCancellation' -count=1 && go test ./internal/service/pegasusimport ./internal/repo/pegasusimport -run 'TestLease|TestCompletion|TestItemWork|TestQueuedRecovery|TestWorkflow|TestQueuedCancellation|TestRecovery|TestWorker|TestScan|TestMaterial|TestCreation' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/repo/maintenance -run 'TestBackupRestoreRoundTripAndOnlineRefusal|TestRestore.*Pegasus' -count=1 && go test ./internal/repo/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1 && go test ./internal/transport/httpapi -run 'TestJobHTTPScanCancellationChangesPegasusPlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead|TestJobCancellationSQLFailureIsAnInfrastructureError' -count=1",
     ),
     "ACC-PEG-005": (240, "scripts/acceptance/ui-case.sh ACC-PEG-005"),
     "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
@@ -322,7 +322,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ES-002": (
         240,
-        "go test ./internal/adapter/imports/emulationstationimport ./internal/adapter/files/serversource ./internal/transport/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestEmulationStationImportHTTP|TestCreation|TestMapping|TestStart|TestQuer|TestGamelistsReject' -count=1 && go test ./internal/service/emulationstationimport ./internal/persistence/emulationstationimport -count=1",
+        "go test ./internal/adapter/imports/emulationstationimport ./internal/adapter/files/serversource ./internal/transport/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestEmulationStationImportHTTP|TestCreation|TestMapping|TestStart|TestQuer|TestGamelistsReject' -count=1 && go test ./internal/service/emulationstationimport ./internal/repo/emulationstationimport -count=1",
     ),
     "ACC-ES-003": (
         300,
@@ -330,7 +330,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ES-004": (
         300,
-        "go test ./internal/adapter/imports/emulationstationimport ./internal/service/emulationstationimport ./internal/persistence/emulationstationimport ./internal/adapter/integration/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/transport/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesEmulationStationPlanInSameCommit|TestESJobCancellation|TestESGenericCancellation' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestoreClearsUnexecutedScanningAndPendingCancellation|TestRestoredScan' -count=1",
+        "go test ./internal/adapter/imports/emulationstationimport ./internal/service/emulationstationimport ./internal/repo/emulationstationimport ./internal/adapter/integration/payloadrelease ./internal/repo/blobgc -count=1 && go test -tags=integration ./internal/transport/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesEmulationStationPlanInSameCommit|TestESJobCancellation|TestESGenericCancellation' -count=1 && go test -tags=integration ./internal/repo/maintenance -run 'TestRestoreClearsUnexecutedScanningAndPendingCancellation|TestRestoredScan' -count=1",
     ),
     "ACC-ES-005": (300, "scripts/acceptance/ui-case.sh ACC-ES-005"),
     "ACC-ES-006": (
@@ -350,7 +350,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-IMM-009": (
         180,
-        "go test ./internal/capability/content/gametitle ./internal/persistence/store ./internal/transport/httpapi "
+        "go test ./internal/capability/content/gametitle ./internal/repo/store ./internal/transport/httpapi "
         "-run 'TestInitial|TestGameMetadataTitleInitialConstraint|TestImmersiveDestinationsAndProfileLibraries|TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection' -count=1 && "
         "scripts/acceptance/ui-case.sh ACC-IMM-009",
     ),
@@ -385,7 +385,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         240,
         "go test ./internal/adapter/files/mediaasset ./internal/transport/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",
     ),
-    "ACC-RUN-001": (180, "go test -tags=integration ./internal/adapter/runtime/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository|TestProduct|TestPreview|TestScreenshot' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1"),
+    "ACC-RUN-001": (180, "go test -tags=integration ./internal/adapter/runtime/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository|TestProduct|TestPreview|TestScreenshot' -count=1 && go test ./internal/service/launch ./internal/repo/launch -count=1"),
     "ACC-RUN-014": (180, "scripts/acceptance/input-diagnostics.sh"),
     "ACC-RUN-002": (180, "scripts/acceptance/ui-case.sh ACC-RUN-002"),
     "ACC-RUN-003": (180, "scripts/acceptance/ui-case.sh ACC-RUN-003"),
@@ -403,12 +403,12 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-SAVE-001": (
         180,
-        "go test -tags=integration ./internal/service/saves ./internal/persistence/saves -run '^TestManualStateRequiresAtomicNonEmptyStateAndScreenshot$' -count=1",
+        "go test -tags=integration ./internal/service/saves ./internal/repo/saves -run '^TestManualStateRequiresAtomicNonEmptyStateAndScreenshot$' -count=1",
     ),
     "ACC-SAVE-002": (180, "scripts/acceptance/ui-case.sh ACC-SAVE-002"),
     "ACC-SAVE-003": (
         180,
-        "go test -tags=integration ./internal/service/saves ./internal/persistence/saves -run '^TestManualStateRequiresAtomicNonEmptyStateAndScreenshot$' -count=1 && make web-test",
+        "go test -tags=integration ./internal/service/saves ./internal/repo/saves -run '^TestManualStateRequiresAtomicNonEmptyStateAndScreenshot$' -count=1 && make web-test",
     ),
     "ACC-NP-010": (
         120,
@@ -437,7 +437,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-NP-020": (300, "scripts/acceptance/ui-case.sh ACC-NP-020"),
     "ACC-NP-021": (300, "scripts/acceptance/ui-case.sh ACC-NP-021"),
     "ACC-NP-022": (300, "scripts/acceptance/ui-case.sh ACC-NP-022"),
-    "ACC-PLAY-001": (120, "go test -tags=integration ./internal/adapter/runtime/launch -run 'TestConfig|TestRecordPlay|TestPlay|TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository|TestProduct|TestPreview|TestScreenshot' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1"),
+    "ACC-PLAY-001": (120, "go test -tags=integration ./internal/adapter/runtime/launch -run 'TestConfig|TestRecordPlay|TestPlay|TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository|TestProduct|TestPreview|TestScreenshot' -count=1 && go test ./internal/service/launch ./internal/repo/launch -count=1"),
     "ACC-MDISC-001": (
         600,
         "go test -tags=integration ./internal/adapter/integration/libraryimport -run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=60s && make web-test",
@@ -481,7 +481,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-UI-010": (180, "scripts/acceptance/ui-case.sh ACC-UI-010"),
     "ACC-STOR-001": (
         240,
-        "go test ./internal/service/storageanalysis ./internal/persistence/storageanalysis ./internal/transport/httpapi ./internal/adapter/integration/payloadrelease "
+        "go test ./internal/service/storageanalysis ./internal/repo/storageanalysis ./internal/transport/httpapi ./internal/adapter/integration/payloadrelease "
         "-run 'TestAnalyze|TestReferenceCoverage|TestAdminStorageAnalysis|TestImmediateGC' -count=1 && "
         "scripts/acceptance/ui-case.sh ACC-STOR-001",
     ),

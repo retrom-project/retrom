@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	repository "retrom/internal/persistence/gamemetadata"
+	repository "retrom/internal/repo/gamemetadata"
 	application "retrom/internal/service/gamemetadata"
 	payloadservice "retrom/internal/service/payloadrelease"
 )

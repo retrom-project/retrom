@@ -45,7 +45,7 @@ case "$CASE_ID" in
       features/player/runtime/runtime-host.test.ts
     ;;
   ACC-PROVIDER-004)
-    (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/persistence/saves ./internal/adapter/runtime/launch -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/repo/saves ./internal/adapter/runtime/launch -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/transport/httpapi \
       -run 'OrdinaryReviewCheckpointHTTP' -count=1)
     runtime_test src/providers/emulatorjs/state-restore.test.ts src/providers/retrom-runtime/module.test.ts
@@ -54,8 +54,8 @@ case "$CASE_ID" in
       features/player/player-checkpoint-availability.test.ts
     ;;
   ACC-PROVIDER-005)
-    (cd "$ROOT" && "$GO" test ./internal/adapter/runtime/runtimeprovider ./internal/service/runtimeprovider ./internal/persistence/runtimeprovider -count=1)
-    (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/persistence/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/adapter/runtime/runtimeprovider ./internal/service/runtimeprovider ./internal/repo/runtimeprovider -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/repo/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/adapter/runtime/launch \
       -run 'TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC|TestPublishingReviewReleasesAllTemporaryPreviewOwners' -count=1)
     python_test scripts/test_runtime_providers.py

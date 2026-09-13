@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	repository "retrom/internal/persistence/pegasusimport"
+	repository "retrom/internal/repo/pegasusimport"
 	libraryservice "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/pegasusimport"
 	"retrom/internal/testkit/testsupport"

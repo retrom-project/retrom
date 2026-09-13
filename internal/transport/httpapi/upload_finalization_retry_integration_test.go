@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	uploadpersistence "retrom/internal/persistence/uploads"
+	uploadpersistence "retrom/internal/repo/uploads"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )

@@ -3,7 +3,7 @@ package composition
 import (
 	"database/sql"
 
-	readinesspersistence "retrom/internal/persistence/readiness"
+	readinesspersistence "retrom/internal/repo/readiness"
 	readinessservice "retrom/internal/service/readiness"
 )
 

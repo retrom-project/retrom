@@ -1,7 +1,7 @@
 package pegasusimport
 
 import (
-	repository "retrom/internal/persistence/pegasusimport"
+	repository "retrom/internal/repo/pegasusimport"
 	libraryservice "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/pegasusimport"
 

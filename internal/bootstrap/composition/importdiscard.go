@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	discardpersistence "retrom/internal/persistence/importdiscard"
+	discardpersistence "retrom/internal/repo/importdiscard"
 	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/importdiscard"
 	"retrom/internal/service/libraryimport"

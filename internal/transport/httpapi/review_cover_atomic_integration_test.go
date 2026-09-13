@@ -14,7 +14,7 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/bootstrap/composition"
-	repository "retrom/internal/persistence/libraryimport"
+	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )

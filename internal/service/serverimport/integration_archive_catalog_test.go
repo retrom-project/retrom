@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	firmwarepersistence "retrom/internal/persistence/firmware"
+	firmwarepersistence "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
 	"retrom/internal/adapter/files/blobstore"

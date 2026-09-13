@@ -178,7 +178,7 @@ func assertNoTokens(t testing.TB, directory string, tokens []string, message str
 
 func databaseDependency(value string) bool {
 	for _, prefix := range []string{
-		"database/sql", "modernc.org/sqlite", "retrom/internal/persistence",
+		"database/sql", "modernc.org/sqlite", "retrom/internal/repo",
 	} {
 		if value == prefix || strings.HasPrefix(value, prefix+"/") {
 			return true

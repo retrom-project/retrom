@@ -63,7 +63,7 @@ erDiagram
 
 `internal/service/platforminstance` 负责输入与默认核心校验、slug 选择、推荐状态投影、补齐顺序和幂等重放决策。Service 通过业务 Repository 接口读取目录与 catalog 引用，接口不暴露 SQL、数据库连接或可空字段的驱动类型。
 
-`internal/persistence/platforminstance` 封装查询、字段映射、目录与审计写入及幂等记录。推荐查询使用同一读取快照；手动创建与推荐补齐的写入能力绑定到同一事务，目录、审计、幂等响应必须全部提交或全部回滚，提交前请求取消也必须释放事务与连接。模板定义仍由 `internal/capability/runtime/platformcatalog` 管理，扩展名仍以平台 profile 为准。
+`internal/repo/platforminstance` 封装查询、字段映射、目录与审计写入及幂等记录。推荐查询使用同一读取快照；手动创建与推荐补齐的写入能力绑定到同一事务，目录、审计、幂等响应必须全部提交或全部回滚，提交前请求取消也必须释放事务与连接。模板定义仍由 `internal/capability/runtime/platformcatalog` 管理，扩展名仍以平台 profile 为准。
 
 ## 4. 字段与数据库约束
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
-	persistence "retrom/internal/persistence/launch"
+	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
 

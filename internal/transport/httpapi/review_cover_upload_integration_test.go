@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/composition"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/testkit/testsupport"
 )
 

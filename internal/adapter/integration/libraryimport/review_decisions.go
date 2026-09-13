@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	librarycomposition "retrom/internal/bootstrap/composition/libraryimport"
-	librarypersistence "retrom/internal/persistence/libraryimport"
+	librarypersistence "retrom/internal/repo/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 

@@ -13,7 +13,7 @@ import (
 	"modernc.org/sqlite"
 
 	"retrom/internal/foundation/cleanup"
-	persistence "retrom/internal/persistence/launch"
+	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
 

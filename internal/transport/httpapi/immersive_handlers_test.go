@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobcatalog"
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/blobcatalog"
+	"retrom/internal/repo/dbexec"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"

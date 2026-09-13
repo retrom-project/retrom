@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"testing"
 
-	"retrom/internal/persistence/dbexec"
+	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/testkit/testassert"

@@ -1,0 +1,70 @@
+package metadatascrape
+
+import (
+	"context"
+	"errors"
+	"io"
+	"testing"
+
+	"retrom/internal/adapter/metadata/hasheous"
+	jobpersistence "retrom/internal/repo/jobs"
+	"retrom/internal/service/jobs"
+	"retrom/internal/service/metadatascrape"
+)
+
+func TestMediaFailedBytesRemainChargedAcrossManualRetry(t *testing.T) {
+	fixture := newMediaFixture(t)
+	source := mediaSource(func(_ context.Context, _ hasheous.AssetRef, limit int64) (hasheous.AssetData, error) {
+		if limit != hasheous.MaximumAssetReadBytes {
+			t.Errorf("reservation=%d", limit)
+		}
+		return hasheous.AssetData{ReceivedBytes: 3}, errors.Join(hasheous.ErrAssetNetwork, io.ErrUnexpectedEOF)
+	})
+	err := fixture.worker(source).Run(t.Context(), fixture.jobID)
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("read cause lost: %v", err)
+	}
+	first := fixture.snapshot(t)
+	if first.Job.State != "FAILED" || first.Asset.Status != "FAILED" || first.Charged != 3 || first.Asset.Reserved != 0 {
+		t.Fatalf("failed read accounting=%+v", first)
+	}
+	_, err = jobs.New(jobpersistence.New(fixture.database), fixture.clock).Retry(t.Context(), fixture.jobID, first.Job.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatal(err)
+	}
+	second := fixture.snapshot(t)
+	if second.Job.Execution != 2 || second.Charged != 6 || second.Asset.Charged != 6 || second.Asset.Order != first.Asset.Order {
+		t.Fatalf("manual retry reset run budget/order: %+v", second)
+	}
+}
+
+func TestMediaBudgetUsesRemainingReservationAndRejectsFurtherReads(t *testing.T) {
+	fixture := newMediaFixture(t)
+	recoveryExec(t, fixture.database, `UPDATE metadata_media_runs SET charged_bytes=?`, metadatascrape.MediaRunBudget-2)
+	calls := 0
+	source := mediaSource(func(_ context.Context, _ hasheous.AssetRef, limit int64) (hasheous.AssetData, error) {
+		calls++
+		if limit != 2 {
+			t.Errorf("unbounded final reservation=%d", limit)
+		}
+		return hasheous.AssetData{ReceivedBytes: 2}, hasheous.ErrAssetReadLimit
+	})
+	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, hasheous.ErrAssetReadLimit) {
+		t.Fatal(err)
+	}
+	first := fixture.snapshot(t)
+	if first.Charged != metadatascrape.MediaRunBudget || first.Asset.Reserved != 0 {
+		t.Fatalf("budget=%+v", first)
+	}
+	recoveryExec(t, fixture.database, `UPDATE jobs SET state='QUEUED',finished_at_ms=NULL,error_code=NULL,error_retryable=NULL,
+ worker_id=NULL,version=version+1 WHERE id=?`, fixture.jobID)
+	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, hasheous.ErrAssetReadLimit) {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("exhausted budget issued %d requests", calls)
+	}
+}

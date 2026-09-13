@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	tagrepository "retrom/internal/persistence/tagging"
+	tagrepository "retrom/internal/repo/tagging"
 	"retrom/internal/service/tagging"
 )
 

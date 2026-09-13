@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/multidisc"
-	repository "retrom/internal/persistence/libraryimport"
+	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 

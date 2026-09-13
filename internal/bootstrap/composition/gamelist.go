@@ -3,7 +3,7 @@ package composition
 import (
 	"database/sql"
 
-	gamelistpersistence "retrom/internal/persistence/gamelist"
+	gamelistpersistence "retrom/internal/repo/gamelist"
 	gamelistservice "retrom/internal/service/gamelist"
 )
 
