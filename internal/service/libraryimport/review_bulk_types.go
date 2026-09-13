@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
 )
 
 // ReviewBulkQueryLimit is the maximum number of candidate rows a preview can

@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestRestorePagesReviewsWithoutLosingTheLastBatch(t *testing.T) {

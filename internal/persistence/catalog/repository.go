@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/catalog"
 )

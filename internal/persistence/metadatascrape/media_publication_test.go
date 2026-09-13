@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/metadata/hasheous"
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestMediaFinalEventFailureRollsBackBlobAndReadyAsset(t *testing.T) {

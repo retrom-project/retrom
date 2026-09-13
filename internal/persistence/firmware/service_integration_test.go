@@ -24,20 +24,20 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/dbexec"
 
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/dependencies"
-	"retrom/internal/legacychecksum"
-	"retrom/internal/payloadrelease"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/integration/payloadrelease"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/foundation/legacychecksum"
 	"retrom/internal/service/uploads"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {

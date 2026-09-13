@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/dbexec"
 )
 
 var (

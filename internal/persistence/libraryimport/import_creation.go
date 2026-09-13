@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
 	biopersistence "retrom/internal/persistence/corevalidation"
+	"retrom/internal/persistence/dbexec"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	tagpersistence "retrom/internal/persistence/tagging"

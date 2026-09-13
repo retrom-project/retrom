@@ -14,17 +14,17 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
-	"retrom/internal/dependencies"
-	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/integration/libraryimport"
+	"retrom/internal/adapter/integration/payloadrelease"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/persistence/dbexec"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	uploadpersistence "retrom/internal/persistence/uploads"
 	dependencyservice "retrom/internal/service/dependencies"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/service/uploads"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 type retirementFixture struct {

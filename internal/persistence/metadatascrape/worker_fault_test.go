@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestMetadataRecoveredLeaseAndRetryEventRollbackTogether(t *testing.T) {

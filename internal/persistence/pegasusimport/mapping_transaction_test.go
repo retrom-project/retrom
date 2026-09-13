@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dependencies"
+	"retrom/internal/adapter/runtime/dependencies"
 	tagrepository "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/pegasusimport"
 	"retrom/internal/service/tagging"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 const (

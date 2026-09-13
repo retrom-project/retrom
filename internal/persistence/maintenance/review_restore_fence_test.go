@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	application "retrom/internal/service/maintenance"
 )
 

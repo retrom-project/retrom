@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"retrom/internal/blobstore"
-	butterscotchdetector "retrom/internal/butterscotch/detector"
-	"retrom/internal/contentprofile"
-	"retrom/internal/importing"
-	onsdetector "retrom/internal/ons/detector"
-	"retrom/internal/rpgmaker/fileset"
-	tyranodetector "retrom/internal/tyranoscript/detector"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/contentprofile"
+	butterscotchdetector "retrom/internal/capability/engine/butterscotch/detector"
+	onsdetector "retrom/internal/capability/engine/ons/detector"
+	"retrom/internal/capability/engine/rpgmaker/fileset"
+	tyranodetector "retrom/internal/capability/engine/tyranoscript/detector"
+	"retrom/internal/capability/format/importing"
 )
 
 type markerProjectDefinition struct {

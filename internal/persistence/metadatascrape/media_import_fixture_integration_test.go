@@ -13,18 +13,18 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/composition"
-	"retrom/internal/dependencies"
-	"retrom/internal/hasheous"
-	"retrom/internal/libraryimport"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/integration/libraryimport"
+	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/bootstrap/composition"
 	dependencypersistence "retrom/internal/persistence/dependencies"
+	"retrom/internal/persistence/store"
 	uploadpersistence "retrom/internal/persistence/uploads"
 	dependencyservice "retrom/internal/service/dependencies"
 	metadataservice "retrom/internal/service/metadatascrape"
 	"retrom/internal/service/uploads"
-	"retrom/internal/store"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func mediaFixtureNow() time.Time { return time.Date(2028, 4, 5, 6, 7, 8, 0, time.UTC) }

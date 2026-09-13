@@ -63,7 +63,7 @@ erDiagram
 
 `internal/service/platforminstance` 负责输入与默认核心校验、slug 选择、推荐状态投影、补齐顺序和幂等重放决策。Service 通过业务 Repository 接口读取目录与 catalog 引用，接口不暴露 SQL、数据库连接或可空字段的驱动类型。
 
-`internal/persistence/platforminstance` 封装查询、字段映射、目录与审计写入及幂等记录。推荐查询使用同一读取快照；手动创建与推荐补齐的写入能力绑定到同一事务，目录、审计、幂等响应必须全部提交或全部回滚，提交前请求取消也必须释放事务与连接。模板定义仍由 `internal/platformcatalog` 管理，扩展名仍以平台 profile 为准。
+`internal/persistence/platforminstance` 封装查询、字段映射、目录与审计写入及幂等记录。推荐查询使用同一读取快照；手动创建与推荐补齐的写入能力绑定到同一事务，目录、审计、幂等响应必须全部提交或全部回滚，提交前请求取消也必须释放事务与连接。模板定义仍由 `internal/capability/runtime/platformcatalog` 管理，扩展名仍以平台 profile 为准。
 
 ## 4. 字段与数据库约束
 
@@ -216,7 +216,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 ### Release 推荐目录 catalog
 
-推荐模板的唯一机器事实源是 `internal/platformcatalog`，每项只定义稳定 `templateKey=<platform_id>/<default_core_id>`、平台、默认核心、名称、说明和 catalog 顺序。模板不定义 slug 或扩展名：slug 仍由创建服务生成，支持的 payload 扩展名只从 `internal/contentprofile` 按基础平台读取，数据库、模板与前端不得复制该集合。
+推荐模板的唯一机器事实源是 `internal/capability/runtime/platformcatalog`，每项只定义稳定 `templateKey=<platform_id>/<default_core_id>`、平台、默认核心、名称、说明和 catalog 顺序。模板不定义 slug 或扩展名：slug 仍由创建服务生成，支持的 payload 扩展名只从 `internal/capability/content/contentprofile` 按基础平台读取，数据库、模板与前端不得复制该集合。
 
 每次读取推荐状态时，服务按全部未硬删除目录投影：
 

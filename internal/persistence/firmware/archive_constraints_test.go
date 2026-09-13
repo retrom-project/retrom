@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"retrom/internal/importing"
+	"retrom/internal/capability/format/importing"
 	firmwareservice "retrom/internal/service/firmware"
 )
 

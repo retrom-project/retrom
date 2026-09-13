@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/composition"
-	"retrom/internal/libraryimport"
+	"retrom/internal/adapter/integration/libraryimport"
+	"retrom/internal/bootstrap/composition"
 	"retrom/internal/service/importdiscard"
 )
 

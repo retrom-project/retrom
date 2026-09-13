@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 	service "retrom/internal/service/runtimeprovider"
 )
 

@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"retrom/internal/importing"
+	"retrom/internal/capability/format/importing"
 )
 
 type runtimeProjectIndex struct {

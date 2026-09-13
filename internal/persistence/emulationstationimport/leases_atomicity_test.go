@@ -12,7 +12,7 @@ import (
 	"time"
 
 	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 var errLeaseStorage = errors.New("lease storage unavailable")

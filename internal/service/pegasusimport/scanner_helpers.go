@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"retrom/internal/pegasusmeta"
+	"retrom/internal/capability/format/pegasusmeta"
 )
 
 func parserErrorCode(err error) string {

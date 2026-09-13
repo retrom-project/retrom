@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/service/importdiscard"
 )

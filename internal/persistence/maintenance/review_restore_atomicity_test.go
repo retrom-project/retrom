@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	application "retrom/internal/service/maintenance"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestRestoredReviewFailureRollsBackSecurityAndHandoff(t *testing.T) {

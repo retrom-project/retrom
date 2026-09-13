@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/netplay/capability"
+	"retrom/internal/transport/netplay/capability"
 
 	"github.com/google/uuid"
 )

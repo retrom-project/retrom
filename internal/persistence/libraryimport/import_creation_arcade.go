@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/corevalidation"
-	"retrom/internal/dbexec"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/persistence/dbexec"
 	application "retrom/internal/service/libraryimport"
 )
 

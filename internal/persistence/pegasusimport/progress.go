@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/recordstore"
 )
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/firmware"
+	"retrom/internal/capability/content/firmware"
 )
 
 type CatalogItem struct {

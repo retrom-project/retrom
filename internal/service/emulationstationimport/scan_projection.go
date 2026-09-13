@@ -1,6 +1,6 @@
 package emulationstationimport
 
-import "retrom/internal/emulationstationmeta"
+import "retrom/internal/capability/format/emulationstationmeta"
 
 type ScanGamelist struct {
 	Path, Digest, Facts, State, ErrorCode string

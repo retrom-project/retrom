@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	initialpersistence "retrom/internal/persistence/metadatascrape"
 	initialservice "retrom/internal/service/metadatascrape"
 )

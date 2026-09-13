@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/runtimebundle"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/capability/runtime/runtimebundle"
 )
 
 type productTestRepository struct {

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/contentcapability"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/scummvm"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/capability/engine/rpgmaker/detector"
+	"retrom/internal/capability/engine/scummvm"
 )
 
 type ImportPreparation struct {

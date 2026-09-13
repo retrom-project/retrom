@@ -5,7 +5,7 @@ package serverimport
 import (
 	"os"
 
-	"retrom/internal/serversource"
+	"retrom/internal/adapter/files/serversource"
 )
 
 func openDirectoryNoFollow(path string) (*os.File, error) { return serversource.OpenRoot(path) }

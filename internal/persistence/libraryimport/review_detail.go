@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/payloadrelease"
+	"retrom/internal/adapter/integration/payloadrelease"
 )
 
 func TestRestoredSourceFailureSatisfiesStartupPayloadLifecycle(t *testing.T) {

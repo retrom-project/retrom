@@ -10,7 +10,7 @@ import (
 	"retrom/internal/persistence/recordstore"
 
 	firmwareservice "retrom/internal/service/firmware"
-	"retrom/internal/testassert"
+	"retrom/internal/testkit/testassert"
 )
 
 func TestBIOSRetirementPreservesReinstalledSharedBytes(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/capability/runtime/runtimebundle"
+	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/persistence/recordstore"
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
 	service "retrom/internal/service/runtimeprovider"
 )
 

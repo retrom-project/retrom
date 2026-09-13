@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sort"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 )
 
 //go:embed registry.json

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/multidisc"
 )
 
 func classifyMissingMultiDiscInput(ctx context.Context, read MultiDiscAttachmentReader, itemID string) error {

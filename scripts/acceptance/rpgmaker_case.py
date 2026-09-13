@@ -1194,7 +1194,7 @@ def write_blocked(case_dir: Path, case_id: str, missing: list[str], reason: str)
 def run_detector_matrix(case_dir: Path) -> dict[str, Any]:
     log_path = case_dir / "detector-matrix.log"
     command = [
-        "go", "test", "./internal/rpgmaker/detector",
+        "go", "test", "./internal/capability/engine/rpgmaker/detector",
         "-run", "^TestPublicWrongCoreMatrixHasFortyTwoMismatches$", "-count=1",
     ]
     try:

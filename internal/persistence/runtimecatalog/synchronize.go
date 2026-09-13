@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/runtimecatalog"
+	"retrom/internal/capability/runtime/runtimecatalog"
 
 	"retrom/internal/persistence/recordstore"
 )

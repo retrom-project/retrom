@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	library "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/emulationstationimport"
 )

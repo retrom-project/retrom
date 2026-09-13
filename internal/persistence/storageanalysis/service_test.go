@@ -11,8 +11,8 @@ import (
 
 	"retrom/internal/service/storageanalysis"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/store"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/store"
 )
 
 func TestAnalyzeClassifiesRegisteredCASAndReferenceViews(t *testing.T) {

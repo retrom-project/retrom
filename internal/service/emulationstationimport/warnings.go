@@ -1,6 +1,6 @@
 package emulationstationimport
 
-import "retrom/internal/emulationstationmeta"
+import "retrom/internal/capability/format/emulationstationmeta"
 
 func BoundedWarnings(values []map[string]any) []map[string]any {
 	if len(values) <= emulationstationmeta.MaxWarnings {

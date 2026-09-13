@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 )
 
 var errLibraryImportDatabaseUnavailable = errors.New("library import database unavailable")

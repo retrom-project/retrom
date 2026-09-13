@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 )
 
 func gameReferenceCount(ctx context.Context, transaction dbexec.Executor, gameID, blobID string) (int64, error) {

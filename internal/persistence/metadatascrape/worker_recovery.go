@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 )
 
 func (repository *WorkerRepository) Recoverable(ctx context.Context, now int64) ([]string, error) {

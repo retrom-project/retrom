@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"retrom/internal/authn"
+	"retrom/internal/capability/security/authn"
 )
 
 type (

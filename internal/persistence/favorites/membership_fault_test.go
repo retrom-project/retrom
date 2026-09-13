@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func favoriteMembershipFault(t *testing.T, db *sql.DB, cause error) (*sql.DB, func()) {

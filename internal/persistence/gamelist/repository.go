@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/persistence/storequery"
 	application "retrom/internal/service/gamelist"
 )

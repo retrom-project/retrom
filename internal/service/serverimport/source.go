@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"os"
 
-	"retrom/internal/serversource"
+	"retrom/internal/adapter/files/serversource"
 )
 
 var (

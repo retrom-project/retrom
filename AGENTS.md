@@ -194,7 +194,7 @@ make acceptance-case CASE=ACC-IMM-006
 make ci
 ```
 
-新增/修改 HTTP route、DTO、错误码或 client 调用时，必须先改 `api/openapi.yaml` 并运行 `make api-generate`。Go 生成物 `internal/httpapi/generated/api.gen.go` 由后端 build/test/lint/integration/dev 与镜像构建按需生成，必须被 Git 忽略且不得提交；TypeScript 生成物 `web/lib/api/generated/schema.d.ts` 必须提交。随后运行不会写工作树的 `make api-check`；禁止手改 generated 文件。
+新增/修改 HTTP route、DTO、错误码或 client 调用时，必须先改 `api/openapi.yaml` 并运行 `make api-generate`。Go 生成物 `internal/transport/httpapi/generated/api.gen.go` 由后端 build/test/lint/integration/dev 与镜像构建按需生成，必须被 Git 忽略且不得提交；TypeScript 生成物 `web/lib/api/generated/schema.d.ts` 必须提交。随后运行不会写工作树的 `make api-check`；禁止手改 generated 文件。
 
 修改 Dockerfile、镜像内容、构建参数或发布资产时还必须运行：
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
 	validation "retrom/internal/service/corevalidation"
 )
 

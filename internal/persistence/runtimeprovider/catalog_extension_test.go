@@ -9,8 +9,8 @@ import (
 
 	service "retrom/internal/service/runtimeprovider"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
+	"retrom/internal/capability/runtime/runtimebundle"
+	"retrom/internal/capability/runtime/runtimecatalog"
 )
 
 func TestDeclaredCoreCanBeAddedToInitializedDatabaseWithoutSchemaChange(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 )
 
 func (records companionRecords) Dependencies(ctx context.Context, datVersionID, machine string) ([]string, error) {

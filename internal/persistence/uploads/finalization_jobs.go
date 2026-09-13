@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 	service "retrom/internal/service/uploads"
 )
 

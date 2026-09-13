@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"slices"
 
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/multidisc"
 )
 
 func validProductRequest(command ProductCreateCommand) bool {

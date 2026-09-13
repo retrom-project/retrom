@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/service/payloadrelease"
 
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
 )

@@ -3,7 +3,7 @@ package platforminstance
 import (
 	"errors"
 
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
 )
 
 const applyOperationID = "postAdminPlatformInstanceRecommendationsApply"

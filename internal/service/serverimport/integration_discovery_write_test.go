@@ -7,7 +7,7 @@ import (
 	"math"
 	"testing"
 
-	"retrom/internal/firmware"
+	"retrom/internal/capability/content/firmware"
 )
 
 func discoveryWriteFixture(t *testing.T) (*Service, *sql.DB, work, *evaluatedCandidate) {

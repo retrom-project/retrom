@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/authn"
-	"retrom/internal/cleanup"
+	"retrom/internal/capability/security/authn"
+	"retrom/internal/foundation/cleanup"
 )
 
 // Start reconciles persisted dispositions, including requests interrupted by a restart.

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	application "retrom/internal/service/maintenance"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func restoredPegasusScan(t *testing.T, state string) (*sql.DB, string) {

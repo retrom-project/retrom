@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestCandidateMediaJobAndFrozenInputRollbackWithResult(t *testing.T) {

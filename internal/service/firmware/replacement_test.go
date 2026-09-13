@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/firmware"
-	"retrom/internal/importing"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/firmware"
+	"retrom/internal/capability/format/importing"
 )
 
 func TestServerReplacementPreservesEqualQualityAndMissingEvidence(t *testing.T) {

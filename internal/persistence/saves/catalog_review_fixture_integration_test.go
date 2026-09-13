@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 
 	"github.com/google/uuid"
 )

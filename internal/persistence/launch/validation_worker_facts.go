@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"retrom/internal/arcadedat"
+	"retrom/internal/capability/format/arcadedat"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/launch"
 )

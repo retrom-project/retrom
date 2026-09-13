@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
 )
 
 func TestGameSaveRejectsChangedSlotBeforePublishing(t *testing.T) {

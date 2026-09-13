@@ -6,8 +6,8 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/engine/rpgmaker/detector"
 )
 
 func TestPreparedArtifactsPreserveStorageFailureAndClearResult(t *testing.T) {

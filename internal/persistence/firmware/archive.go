@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/firmware"
-	"retrom/internal/importing"
+	"retrom/internal/capability/content/firmware"
+	"retrom/internal/capability/format/importing"
+	"retrom/internal/foundation/cleanup"
 )
 
 func (store requirementRecords) DATEntries(ctx context.Context, id string) ([]firmware.ExpectedDATEntry, error) {

@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"retrom/internal/corevalidation"
-	"retrom/internal/netplay/profile"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/transport/netplay/profile"
 )
 
 func (service *Eligibility) dependencySnapshotCurrent(ctx context.Context, row EligibilityRow) (bool, error) {

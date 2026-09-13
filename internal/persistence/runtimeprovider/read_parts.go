@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	service "retrom/internal/service/runtimeprovider"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 )
 
 func loadCurrentProviders(

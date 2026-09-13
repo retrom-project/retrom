@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/composition"
+	"retrom/internal/bootstrap/composition"
 	"retrom/internal/service/importdiscard"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -18,13 +18,13 @@ import (
 
 	"retrom/internal/persistence/blobcatalog"
 
-	"retrom/internal/authn"
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/dependencies"
-	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
-	"retrom/internal/testsupport"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/integration/libraryimport"
+	"retrom/internal/adapter/integration/payloadrelease"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/capability/security/authn"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/testkit/testsupport"
 )
 
 const adminID = "01980000-0000-7000-8000-000000009992"

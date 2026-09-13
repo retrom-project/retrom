@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"time"
 
-	"retrom/internal/authn"
+	"retrom/internal/capability/security/authn"
 )
 
 const (

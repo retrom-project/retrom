@@ -154,7 +154,7 @@ Saturn/yabause 的 `MULTI_DISC` 内容由同一物理目录中的一个来源 M3
 
 ### 3.10 联机是版本锁定的非串流 rollback 能力
 
-联机不是所有 Core 自动获得的通用能力。`data/netplay/v2/manifest.json` 锁定八个已发布 profile 的 Provider/Target、Bundle、适用基础平台、允许的内容类型、24 个控制值和 prediction/rollback/state 上限；Provider 内部使用的普通运行与联机 adapter 不进入 Retrom 契约。当前平台标记为 FCEUmm/Nestopia→NES、SNES9x→SNES、五个 Arcade profile→Arcade；房间目录只枚举平台、Target、内容类型与依赖快照同时合格的游戏。游戏仍须有对应 READY GameVariant；Netplay session 冻结 Bundle、Variant、内容与依赖摘要，确保每位参与者运行同一输入。Go `internal/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 checkpoint 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile/平台漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
+联机不是所有 Core 自动获得的通用能力。`data/netplay/v2/manifest.json` 锁定八个已发布 profile 的 Provider/Target、Bundle、适用基础平台、允许的内容类型、24 个控制值和 prediction/rollback/state 上限；Provider 内部使用的普通运行与联机 adapter 不进入 Retrom 契约。当前平台标记为 FCEUmm/Nestopia→NES、SNES9x→SNES、五个 Arcade profile→Arcade；房间目录只枚举平台、Target、内容类型与依赖快照同时合格的游戏。游戏仍须有对应 READY GameVariant；Netplay session 冻结 Bundle、Variant、内容与依赖摘要，确保每位参与者运行同一输入。Go `internal/transport/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 checkpoint 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile/平台漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
 
 ### 3.11 标签是实例共享、管理员维护的分类
 
@@ -285,7 +285,7 @@ erDiagram
 
 ## 6. 平台、核心与推荐游戏目录
 
-空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的当前 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
+空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/capability/runtime/platformcatalog` 中的当前 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
 
 | 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |

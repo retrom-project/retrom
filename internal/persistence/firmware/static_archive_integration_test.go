@@ -14,17 +14,17 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/firmware"
+	"retrom/internal/capability/content/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/firmwaremanifest"
-	"retrom/internal/legacychecksum"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/firmwaremanifest"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/foundation/legacychecksum"
 	"retrom/internal/service/uploads"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestStaticArchiveUploadValidatesMembersAndSupportsInspection(t *testing.T) {

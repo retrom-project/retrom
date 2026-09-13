@@ -29,21 +29,21 @@ import (
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
-	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/dbexec"
 
 	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/dependencies"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/runtime/dependencies"
+	retromruntime "retrom/internal/adapter/runtime/runtime"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/persistence/sessionstore"
-	retromruntime "retrom/internal/runtime"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/persistence/store"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 )
 
 type saveFixture struct {

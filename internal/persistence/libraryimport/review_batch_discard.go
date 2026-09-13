@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/dbexec"
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/libraryimport"
 	payloadservice "retrom/internal/service/payloadrelease"

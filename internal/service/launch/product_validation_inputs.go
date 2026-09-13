@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"retrom/internal/corevalidation"
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/capability/content/multidisc"
 )
 
 func ProductValidationInputs(snapshot ProductSnapshot, variantID string) (ValidationInputs, error) {

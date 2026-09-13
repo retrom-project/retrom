@@ -165,8 +165,8 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
         paths = [
             ROOT / "api/domains/catalog.yaml", ROOT / "api/domains/imports.yaml",
             ROOT / "api/domains/runtime.yaml", ROOT / "data/runtime-target-bindings/v1/catalog.json",
-            ROOT / "internal/contentcapability", ROOT / "internal/contentmanifest", ROOT / "internal/contentprofile",
-            ROOT / "internal/launch", ROOT / "internal/runtimecatalog", ROOT / "migrations",
+            ROOT / "internal/capability/content/contentcapability", ROOT / "internal/capability/content/contentmanifest", ROOT / "internal/capability/content/contentprofile",
+            ROOT / "internal/adapter/runtime/launch", ROOT / "internal/capability/runtime/runtimecatalog", ROOT / "migrations",
             ROOT / "web/features/imports", ROOT / "web/features/player", ROOT / "web/features/reviews",
         ]
         quoted = re.compile(r'(?<![A-Z0-9_])([A-Z][A-Z0-9_]*_V[0-9]+)(?![A-Z0-9_])')

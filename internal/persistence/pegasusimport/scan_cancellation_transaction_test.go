@@ -11,7 +11,7 @@ import (
 	"time"
 
 	application "retrom/internal/service/pegasusimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestScanCancellationRechecksOriginalJobVersionAndOwnership(t *testing.T) {

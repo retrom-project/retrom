@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	application "retrom/internal/service/libraryimport"
 )
 

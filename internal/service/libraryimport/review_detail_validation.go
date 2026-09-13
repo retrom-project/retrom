@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/capability/engine/rpgmaker/detector"
 )
 
 func readReviewValidation(ctx context.Context, scope ReviewReadScope, head ReviewHead, result *ReviewDetail) error {

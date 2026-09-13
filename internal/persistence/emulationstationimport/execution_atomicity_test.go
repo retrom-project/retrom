@@ -10,7 +10,7 @@ import (
 	"time"
 
 	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func executionTestDatabase(t *testing.T, operation string) (*sql.DB, application.Execution) {

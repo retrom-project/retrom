@@ -3,7 +3,7 @@ package tagging_test
 import (
 	"testing"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 	tagpersistence "retrom/internal/persistence/tagging"
 	"retrom/internal/service/tagging"
 )

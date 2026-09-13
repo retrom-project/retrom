@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/hasheous"
-	"retrom/internal/testsupport"
+	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestCacheExpiryBoundaryAndCancellation(t *testing.T) {

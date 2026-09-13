@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/store"
+	"retrom/internal/persistence/dbexec"
+	"retrom/internal/persistence/store"
 )
 
 func restoredScanDatabase(t *testing.T, pending bool) *sql.DB {

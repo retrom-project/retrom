@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/foundation/cleanup"
 	firmwareservice "retrom/internal/service/firmware"
 )
 

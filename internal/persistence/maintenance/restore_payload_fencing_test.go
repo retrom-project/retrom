@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	persistence "retrom/internal/persistence/payloadrelease"
 	release "retrom/internal/service/payloadrelease"
 )

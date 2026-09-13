@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"retrom/internal/authn"
-	"retrom/internal/blobstore"
-	"retrom/internal/corevalidation"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/capability/security/authn"
 	validation "retrom/internal/service/corevalidation"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/metadatascrape"

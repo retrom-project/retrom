@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/netplay/profile"
 	validation "retrom/internal/service/corevalidation"
+	"retrom/internal/transport/netplay/profile"
 )
 
 type SessionStartPlan struct {

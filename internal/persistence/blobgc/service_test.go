@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/payloadrelease"
+	"retrom/internal/adapter/integration/payloadrelease"
 	"retrom/internal/service/blobgc"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/store"
+	"retrom/internal/testkit/testassert"
 )
 
 func TestRunOnceHonorsGraceAndConcurrentReference(t *testing.T) {

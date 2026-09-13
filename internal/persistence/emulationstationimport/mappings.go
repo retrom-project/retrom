@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/recordstore"
 	tagrepository "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/emulationstationimport"

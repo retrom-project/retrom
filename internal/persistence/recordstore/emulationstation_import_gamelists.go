@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 )
 
 func CreateEmulationstationImportGamelists(

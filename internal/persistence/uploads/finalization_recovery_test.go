@@ -10,7 +10,7 @@ import (
 	"time"
 
 	uploadservice "retrom/internal/service/uploads"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestFinalizationRecoveryPreservesOriginalDeadline(t *testing.T) {

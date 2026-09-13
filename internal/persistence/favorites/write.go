@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/favorites"
 )

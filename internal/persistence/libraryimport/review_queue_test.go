@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	application "retrom/internal/service/libraryimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 
 	"modernc.org/sqlite"
 )

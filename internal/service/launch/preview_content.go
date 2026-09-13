@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"retrom/internal/contentprofile"
+	"retrom/internal/capability/content/contentprofile"
 )
 
 func previewContent(snapshot PreviewSnapshot) (PreviewContent, error) {

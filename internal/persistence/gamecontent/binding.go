@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/persistence/contentquery"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/service/gamecontent"
 )
 

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/metadata/hasheous"
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestResponseAndCacheRollbackTogether(t *testing.T) {

@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/persistence/blobregistry"
+	"retrom/internal/persistence/dbexec"
+	"retrom/internal/persistence/store"
 	"retrom/internal/service/maintenance"
-	"retrom/internal/store"
 )
 
 type (

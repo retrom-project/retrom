@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/capability/engine/rpgmaker/detector"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
-	"retrom/internal/rpgmaker/detector"
 	"retrom/internal/service/gamecontent"
 )
 

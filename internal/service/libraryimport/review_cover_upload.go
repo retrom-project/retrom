@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/metadata/hasheous"
 
 	"github.com/google/uuid"
 )

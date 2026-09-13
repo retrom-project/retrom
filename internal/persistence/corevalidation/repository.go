@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
-	"retrom/internal/dbexec"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/dbexec"
 	service "retrom/internal/service/corevalidation"
 )
 

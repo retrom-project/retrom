@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	"retrom/internal/foundation/cleanup"
 	validation "retrom/internal/persistence/corevalidation"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/service/netplay"
 )
 

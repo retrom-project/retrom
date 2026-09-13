@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/corevalidation"
+	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/launch"
 )

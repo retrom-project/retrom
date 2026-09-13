@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/composition"
+	"retrom/internal/bootstrap/composition"
 
-	"retrom/internal/libraryimport"
-	retromruntime "retrom/internal/runtime"
-	"retrom/internal/serversource"
+	"retrom/internal/adapter/files/serversource"
+	"retrom/internal/adapter/integration/libraryimport"
+	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/service/emulationstationimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func (f *fixture) emulationStationSource(t *testing.T, file libraryimport.ServerSourceFile) (string, string) {

@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )

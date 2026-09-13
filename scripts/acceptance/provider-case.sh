@@ -32,21 +32,21 @@ case "$CASE_ID" in
     ;;
   ACC-PROVIDER-002)
     python_test scripts/test_runtime_target_bindings.py
-    (cd "$ROOT" && "$GO" test ./internal/runtimecatalog -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/capability/runtime/runtimecatalog -count=1)
     runtime_test src/provider/declarations.test.ts src/providers/emulatorjs/catalog.test.ts \
       src/providers/retrom-runtime/target-adapter.test.ts tests/repository-boundary.test.ts
     ;;
   ACC-PROVIDER-003)
-    (cd "$ROOT" && "$GO" test ./internal/runtimeoptions -count=1)
-    (cd "$ROOT" && "$GO" test ./internal/runtimebundle ./internal/runtimelaunch ./internal/httpapi \
+    (cd "$ROOT" && "$GO" test ./internal/capability/runtime/runtimeoptions -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/capability/runtime/runtimebundle ./internal/capability/runtime/runtimelaunch ./internal/transport/httpapi \
       -run 'Provider|LaunchEnvelope|RuntimeStatic|RuntimeAsset' -count=1)
     web_test features/player/runtime/envelope-fixtures.test.ts \
       features/player/runtime/provider-module-v1.test.ts features/player/runtime/runtime-controller.test.ts \
       features/player/runtime/runtime-host.test.ts
     ;;
   ACC-PROVIDER-004)
-    (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/persistence/saves ./internal/launch -count=1)
-    (cd "$ROOT" && "$GO" test -tags=integration ./internal/httpapi \
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/persistence/saves ./internal/adapter/runtime/launch -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/transport/httpapi \
       -run 'OrdinaryReviewCheckpointHTTP' -count=1)
     runtime_test src/providers/emulatorjs/state-restore.test.ts src/providers/retrom-runtime/module.test.ts
     web_test features/player/runtime/runtime-actions.test.ts features/player/runtime/runtime-host.test.ts \
@@ -54,9 +54,9 @@ case "$CASE_ID" in
       features/player/player-checkpoint-availability.test.ts
     ;;
   ACC-PROVIDER-005)
-    (cd "$ROOT" && "$GO" test ./internal/runtimeprovider ./internal/service/runtimeprovider ./internal/persistence/runtimeprovider -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/adapter/runtime/runtimeprovider ./internal/service/runtimeprovider ./internal/persistence/runtimeprovider -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/persistence/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
-    (cd "$ROOT" && "$GO" test -tags=integration ./internal/launch \
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/adapter/runtime/launch \
       -run 'TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC|TestPublishingReviewReleasesAllTemporaryPreviewOwners' -count=1)
     python_test scripts/test_runtime_providers.py
     ;;
@@ -74,7 +74,7 @@ case "$CASE_ID" in
     ;;
   ACC-PROVIDER-008)
     runtime_test src/providers/retrom-runtime tests/repository-boundary.test.ts
-    (cd "$ROOT" && "$GO" test -tags=integration ./internal/launch ./internal/httpapi \
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/adapter/runtime/launch ./internal/transport/httpapi \
       -run 'RPG|Review|Provider|UniqueOrigin|Isolation' -count=1)
     web_test features/reviews/review-preview-provider-authority.test.ts \
       features/reviews/review-rpg-actions.test.tsx features/reviews/review-rpg-dependencies.test.tsx \

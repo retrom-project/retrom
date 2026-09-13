@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
 	uploadservice "retrom/internal/service/uploads"
 )
 

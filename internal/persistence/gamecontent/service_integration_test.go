@@ -25,19 +25,19 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/dbexec"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/dependencies"
-	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/integration/libraryimport"
+	"retrom/internal/adapter/integration/payloadrelease"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/service/uploads"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {

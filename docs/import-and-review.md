@@ -480,7 +480,7 @@ Pegasus Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不�
 
 ## 15. EmulationStation 服务器目录导入
 
-HTTP、通用 Job 操作和批次丢弃统一对接 `internal/service/emulationstationimport.Service`，进程通过 composition 组装全部用例、Repository、来源适配器和受控 Worker。应用层负责业务编排、调度、取消与生命周期；`internal/emulationstationimport` 仅保留有界来源读取、CAS 复制及诊断适配，SQL 与数据库事务集中在对应持久化包。
+HTTP、通用 Job 操作和批次丢弃统一对接 `internal/service/emulationstationimport.Service`，进程通过 composition 组装全部用例、Repository、来源适配器和受控 Worker。应用层负责业务编排、调度、取消与生命周期；`internal/adapter/imports/emulationstationimport` 仅保留有界来源读取、CAS 复制及诊断适配，SQL 与数据库事务集中在对应持久化包。
 
 创建及未开始计划的删除、过期由 EmulationStation Service 编排，Repository 原子保存。创建从同一次时钟读取冻结七天期限和 UTC `releaseYearMax`，检查所有身份生成结果，并在最终事务内检查未开始计划容量；Job、输入、计划、事件、审计及返回结果一起提交。删除按当前版本解除标签关系、递增相关 Tag version、删除扫描投影并记录操作者，保留不可变执行证据。过期每轮最多处理 100 个候选，逐个事务重验版本和截止时刻，取消未执行条目并同时重算阻断/取消计数，避免重复计数；未执行扫描投影不创建 payload 释放任务。
 

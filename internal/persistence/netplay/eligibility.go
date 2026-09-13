@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/service/netplay"
 )
 

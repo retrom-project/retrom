@@ -13,14 +13,14 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dependencies"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/capability/runtime/platformcatalog"
+	"retrom/internal/foundation/cleanup"
 	platformpersistence "retrom/internal/persistence/platforminstance"
-	"retrom/internal/platformcatalog"
+	"retrom/internal/persistence/store"
 	"retrom/internal/service/platforminstance"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 )
 
 const testUserID = "01980000-0000-7000-8000-000000009901"

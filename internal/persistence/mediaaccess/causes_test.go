@@ -10,7 +10,7 @@ import (
 	"time"
 
 	service "retrom/internal/service/mediaaccess"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestMediaSnapshotsPreserveStorageAndCancellationCauses(t *testing.T) {

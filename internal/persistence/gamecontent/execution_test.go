@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/service/gamecontent"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func executionFixture(t *testing.T, state string) (*sql.DB, gamecontent.Claim) {

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/fileset"
+	"retrom/internal/capability/engine/rpgmaker/detector"
+	"retrom/internal/capability/engine/rpgmaker/fileset"
+	"retrom/internal/capability/format/importing"
 )
 
 var ErrImportWorkerClosed = errors.New("import worker is closed")

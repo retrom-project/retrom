@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dependencies"
+	"retrom/internal/adapter/runtime/dependencies"
 	service "retrom/internal/service/dependencies"
 )
 

@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	firmwareservice "retrom/internal/service/firmware"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestBIOSSupersessionRejectsUnconfirmedDeactivate(t *testing.T) {

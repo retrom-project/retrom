@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"retrom/internal/corevalidation"
+	"retrom/internal/capability/content/corevalidation"
 )
 
 type CreationArcadeState struct {

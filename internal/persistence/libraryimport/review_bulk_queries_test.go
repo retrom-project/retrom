@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	application "retrom/internal/service/libraryimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func insertReviewBulkQueryFixture(t *testing.T, db *sql.DB) (string, string) {

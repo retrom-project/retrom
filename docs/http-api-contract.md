@@ -155,7 +155,7 @@ Idempotency-Key: <uuid>
 
 ### 4.2 分块、恢复与完成
 
-上传用例由 `internal/service/uploads` 编排，`internal/persistence/uploads` 负责 SQL、读快照和短事务，`internal/uploadfiles` 只执行宿主分片文件的打开、暂存、发布和有界清理。流式校验与 CAS 组装在写事务外运行；完成请求原子冻结本轮未完成文件及 part 的编号、偏移、大小、SHA-256 与 storage key，绑定不可变输入。每次发布和终态写入都重验当前会话、finalizationNo、Job/execution、worker/attempt、租约与原始期限；同 Job 重试保留已完成文件的 Blob，只重新组装未完成文件。
+上传用例由 `internal/service/uploads` 编排，`internal/persistence/uploads` 负责 SQL、读快照和短事务，`internal/adapter/files/uploadfiles` 只执行宿主分片文件的打开、暂存、发布和有界清理。流式校验与 CAS 组装在写事务外运行；完成请求原子冻结本轮未完成文件及 part 的编号、偏移、大小、SHA-256 与 storage key，绑定不可变输入。每次发布和终态写入都重验当前会话、finalizationNo、Job/execution、worker/attempt、租约与原始期限；同 Job 重试保留已完成文件的 Blob，只重新组装未完成文件。
 
 终结 execution 的原始期限为 10 分钟，最多 2 次 attempt，60 秒租约每 15 秒续租且不超过原期限。失效租约恢复保留当前 execution 与期限，原子重排队并记录 `RETRY_SCHEDULED`，1 秒后可重试。通用 Job retry 沿用 Job/finalizationNo、递增 executionNo，新 execution 重新取得期限。确认损坏或缺失的 part 必须先修复：失败事件的 `failedPart={fileId,partNo}` 只授权清除和修复精确坏 part，并同步扣减已接收字节；正确 part 保留。普通读取、权限或存储错误保留原因，不能据此删除 part。修复后再次 complete 创建新轮次。
 

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"retrom/internal/testassert"
+	"retrom/internal/testkit/testassert"
 )
 
 func TestProjectRuntimeCheckReturnsActionableArcadeDependencies(t *testing.T) {

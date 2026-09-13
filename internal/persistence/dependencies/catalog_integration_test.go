@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dependencies"
+	"retrom/internal/adapter/runtime/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/store"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {

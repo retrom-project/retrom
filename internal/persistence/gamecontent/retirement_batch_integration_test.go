@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"retrom/internal/service/gamecontent"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestContentRetirementDrainsReferencesAcrossBatchBoundary(t *testing.T) {

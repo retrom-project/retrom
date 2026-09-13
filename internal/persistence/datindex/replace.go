@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/arcadedat"
-	"retrom/internal/cleanup"
+	"retrom/internal/capability/format/arcadedat"
+	"retrom/internal/foundation/cleanup"
 )
 
 func Replace(ctx context.Context, transaction *sql.Tx, datID string, catalog arcadedat.Catalog) error {

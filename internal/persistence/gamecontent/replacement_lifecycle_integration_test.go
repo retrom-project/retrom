@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
 )
 
 func seedReplacementSave(

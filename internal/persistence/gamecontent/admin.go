@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/gametitle"
+	"retrom/internal/capability/content/gametitle"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/gamecontent"
 

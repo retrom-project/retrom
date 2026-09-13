@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/libraryimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/adapter/integration/libraryimport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func (f *fixture) source(t *testing.T, kind string, file libraryimport.ServerSourceFile) (string, string) {

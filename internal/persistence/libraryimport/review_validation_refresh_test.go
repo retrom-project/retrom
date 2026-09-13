@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/corevalidation"
+	"retrom/internal/capability/content/corevalidation"
 	application "retrom/internal/service/libraryimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestReviewValidationRefreshRepositoryLoadsTypedInputsAndCandidates(t *testing.T) {

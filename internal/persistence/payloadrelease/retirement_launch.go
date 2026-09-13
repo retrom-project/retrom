@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 	application "retrom/internal/service/payloadrelease"

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 	esrepository "retrom/internal/persistence/emulationstationimport"
 	"retrom/internal/persistence/recordstore"
 )

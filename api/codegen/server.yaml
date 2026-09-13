@@ -1,5 +1,5 @@
 package: generated
-output: internal/httpapi/generated/server.gen.go
+output: internal/transport/httpapi/generated/server.gen.go
 generate:
   std-http-server: true
   strict-server: true

@@ -10,8 +10,8 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/payloadrelease"
-	"retrom/internal/testassert"
+	"retrom/internal/adapter/integration/payloadrelease"
+	"retrom/internal/testkit/testassert"
 )
 
 func assertDeferredBIOSRelease(t *testing.T, ctx context.Context, database *sql.DB,

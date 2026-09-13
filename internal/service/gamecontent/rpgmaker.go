@@ -12,12 +12,12 @@ import (
 	"os"
 	"sort"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/contentmanifest"
-	"retrom/internal/contentprofile"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/fileset"
-	"retrom/internal/rpgmaker/materializer"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/contentmanifest"
+	"retrom/internal/capability/content/contentprofile"
+	"retrom/internal/capability/engine/rpgmaker/detector"
+	"retrom/internal/capability/engine/rpgmaker/fileset"
+	"retrom/internal/capability/engine/rpgmaker/materializer"
 )
 
 type PreparedRPGMakerReplacement struct {

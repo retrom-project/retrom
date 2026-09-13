@@ -11,11 +11,11 @@ import (
 
 	"retrom/internal/persistence/contentquery"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
-	"retrom/internal/testsupport"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestBindingPolicyUsesTheConsumersTransactionSnapshot(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/metadata/hasheous"
 )
 
 type assetFetcher struct {

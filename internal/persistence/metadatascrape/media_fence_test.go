@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"testing"
 
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/metadata/hasheous"
 	"retrom/internal/service/metadatascrape"
 )
 

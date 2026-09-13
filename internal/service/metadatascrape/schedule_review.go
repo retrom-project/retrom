@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/authn"
+	"retrom/internal/capability/security/authn"
 )
 
 func (scheduler *Scheduler) ScheduleReview(

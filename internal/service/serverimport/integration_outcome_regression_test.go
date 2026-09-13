@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"retrom/internal/firmware"
+	"retrom/internal/capability/content/firmware"
 	jobpersistence "retrom/internal/persistence/jobs"
 	jobservice "retrom/internal/service/jobs"
 )

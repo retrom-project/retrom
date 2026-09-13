@@ -6,8 +6,8 @@ import (
 	"database/sql"
 	"testing"
 
-	"retrom/internal/composition"
-	"retrom/internal/libraryimport"
+	"retrom/internal/adapter/integration/libraryimport"
+	"retrom/internal/bootstrap/composition"
 	jobpersistence "retrom/internal/persistence/jobs"
 	"retrom/internal/service/jobs"
 )

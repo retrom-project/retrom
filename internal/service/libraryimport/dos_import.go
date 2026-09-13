@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/importing"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/format/importing"
+	"retrom/internal/foundation/cleanup"
 )
 
 const MaxDOSBatchInspectionBytes = 64 << 10

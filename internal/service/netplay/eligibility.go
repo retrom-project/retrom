@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"retrom/internal/netplay/profile"
 	"retrom/internal/service/tagging"
+	"retrom/internal/transport/netplay/profile"
 )
 
 type ProfileSummary struct {

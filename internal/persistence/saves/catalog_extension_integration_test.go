@@ -17,9 +17,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
-	"retrom/internal/testsupport"
+	"retrom/internal/capability/runtime/runtimebundle"
+	"retrom/internal/capability/runtime/runtimecatalog"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves(t *testing.T) {

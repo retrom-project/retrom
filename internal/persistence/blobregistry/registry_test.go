@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/store"
+	"retrom/internal/testkit/testassert"
 )
 
 func TestRegistryExactlyCoversBlobForeignKeys(t *testing.T) {

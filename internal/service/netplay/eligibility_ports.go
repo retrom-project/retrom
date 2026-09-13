@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/corevalidation"
-	"retrom/internal/netplay/profile"
+	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/service/tagging"
+	"retrom/internal/transport/netplay/profile"
 )
 
 var ErrInvalidProfile = errors.New("NETPLAY_INVALID_PROFILE")

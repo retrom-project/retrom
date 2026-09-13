@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"sort"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/config"
-	"retrom/internal/dependencies"
-	"retrom/internal/processlock"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/bootstrap/config"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/foundation/processlock"
 )
 
 var (

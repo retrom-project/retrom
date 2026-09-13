@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/metadata/hasheous"
 	jobpersistence "retrom/internal/persistence/jobs"
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/metadatascrape"

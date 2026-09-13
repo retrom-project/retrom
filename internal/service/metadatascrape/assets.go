@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
 )
 
 var (

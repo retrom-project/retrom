@@ -2,7 +2,7 @@
   "version": 1,
   "exceptions": [
     {
-      "path": "internal/rpgmaker/materializer/mkxpz.go",
+      "path": "internal/capability/engine/rpgmaker/materializer/mkxpz.go",
       "line": 70,
       "symbol": "func StoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
@@ -11,7 +11,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/rpgmaker/materializer/mkxpz.go",
+      "path": "internal/capability/engine/rpgmaker/materializer/mkxpz.go",
       "line": 71,
       "symbol": "func StoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
@@ -29,7 +29,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/httpapi/game_list_handlers.go",
+      "path": "internal/transport/httpapi/game_list_handlers.go",
       "line": 221,
       "symbol": "func (server *Server) applyGameListCursor(token string, operationID string, filterDigest string, sortCode string) (*gamelistservice.Cursor, error)",
       "linter": "nilnil",

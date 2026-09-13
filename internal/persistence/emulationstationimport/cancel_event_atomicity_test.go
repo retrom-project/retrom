@@ -8,7 +8,7 @@ import (
 	"time"
 
 	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestCancellationEventAndAuditRowCountFailuresRollback(t *testing.T) {

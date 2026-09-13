@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/authn"
+	"retrom/internal/capability/security/authn"
 )
 
 var (

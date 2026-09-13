@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/firmware"
+	"retrom/internal/capability/content/firmware"
+	"retrom/internal/foundation/cleanup"
 )
 
 func (repository *Recovery) DATEntries(

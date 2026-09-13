@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/emulationstationmeta"
+	"retrom/internal/capability/format/emulationstationmeta"
 	application "retrom/internal/service/emulationstationimport"
 )
 

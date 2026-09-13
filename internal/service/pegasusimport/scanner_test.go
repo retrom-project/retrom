@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/pegasusmeta"
+	"retrom/internal/capability/format/pegasusmeta"
 )
 
 type scanSourceMemory struct {

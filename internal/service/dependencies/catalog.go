@@ -9,9 +9,9 @@ import (
 	"sort"
 	"time"
 
-	"retrom/internal/arcadedat"
-	"retrom/internal/cleanup"
-	"retrom/internal/dependencies"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/capability/format/arcadedat"
+	"retrom/internal/foundation/cleanup"
 )
 
 func (service *Service) BootstrapCatalogs(ctx context.Context, now time.Time) error {

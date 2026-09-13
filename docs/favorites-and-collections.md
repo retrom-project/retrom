@@ -53,7 +53,7 @@ stateDiagram-v2
 实现依赖方向固定为：
 
 ```text
-internal/httpapi/favorite_handlers.go
+internal/transport/httpapi/favorite_handlers.go
             ↓
 internal/service/favorites（业务与 Repository 接口）
             ↓

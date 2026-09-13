@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/dbexec"
 	release "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/maintenance"
 	"retrom/internal/service/payloadrelease"

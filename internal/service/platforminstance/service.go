@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/contentprofile"
-	"retrom/internal/platformcatalog"
+	"retrom/internal/capability/content/contentprofile"
+	"retrom/internal/capability/runtime/platformcatalog"
 )
 
 type Service struct {

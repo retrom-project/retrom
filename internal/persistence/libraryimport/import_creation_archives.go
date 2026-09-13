@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sort"
 
-	"retrom/internal/importing"
+	"retrom/internal/capability/format/importing"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"

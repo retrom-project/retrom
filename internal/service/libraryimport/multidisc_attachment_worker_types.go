@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"time"
 
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/multidisc"
 )
 
 type MultiDiscAttachmentBaseFiles struct {

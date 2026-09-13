@@ -58,7 +58,7 @@ catalog 中的 content kind、detector/delivery profile、launch/review policy �
 
 Provider 安装和数据库 reconcile 在对外 ready 之前完成。激活事务登记 Bundle 与 Target、验证所有当前 binding 和 checkpoint 格式引用，然后一次切换 active identity。
 
-安装资源读取与完整性检查位于 `internal/runtimeprovider`；激活候选校验、版本比较、引用保护和 checkpoint 兼容性规则位于 `internal/service/runtimeprovider`。`internal/persistence/runtimeprovider` 提供当前目录事实和事务内的写入能力。Service 在同一个事务范围内完成兼容性判断、终止受影响的联机会话、发布新目录及写入审计；候选未变化时不终止会话、不重复写入。任一步失败时目录与会话状态共同回滚。
+安装资源读取与完整性检查位于 `internal/adapter/runtime/runtimeprovider`；激活候选校验、版本比较、引用保护和 checkpoint 兼容性规则位于 `internal/service/runtimeprovider`。`internal/persistence/runtimeprovider` 提供当前目录事实和事务内的写入能力。Service 在同一个事务范围内完成兼容性判断、终止受影响的联机会话、发布新目录及写入审计；候选未变化时不终止会话、不重复写入。任一步失败时目录与会话状态共同回滚。
 
 系统只支持向前升级：
 
@@ -113,7 +113,7 @@ Retrom 镜像构建输入必须包含：
 
 ## 8. DAT 与 BIOS
 
-`internal/dependencies` 负责清单与文件校验；`internal/service/dependencies` 编排 BIOS 定义初始化、DAT 任务恢复、解析及激活；`internal/persistence/dependencies` 实现事务和目录读写。DAT 解析在写事务之外运行。任务领取、目录状态与事件必须共同提交或回滚；发布索引、切换激活版本、同步 Requirement、记录审计及完成任务也共享一个写事务。失败事件不能静默丢弃，保留的失败任务不在启动时自动重建。
+`internal/adapter/runtime/dependencies` 负责清单与文件校验；`internal/service/dependencies` 编排 BIOS 定义初始化、DAT 任务恢复、解析及激活；`internal/persistence/dependencies` 实现事务和目录读写。DAT 解析在写事务之外运行。任务领取、目录状态与事件必须共同提交或回滚；发布索引、切换激活版本、同步 Requirement、记录审计及完成任务也共享一个写事务。失败事件不能静默丢弃，保留的失败任务不在启动时自动重建。
 
 EmulatorJS DAT 的 binding 使用稳定 `(providerId,targetId)`。`data-check` 与启动校验都要求：
 
@@ -122,7 +122,7 @@ EmulatorJS DAT 的 binding 使用稳定 `(providerId,targetId)`。`data-check` �
 - 平台/Core/Target 映射唯一；
 - 内置 DAT 更新不会删除仍被锁定 Variant 使用的事实。
 
-源码固件目录维护：使用 `python3 scripts/firmware_catalog.py --recipe internal/firmwaremanifest/source.json --source-archive <已物化且锁定的source.tar.gz> --output internal/firmwaremanifest/catalog.json` 生成；增加 `--check` 只验证生成物与来源一致。启动仅消费内嵌目录，不联网或读取开发者源码路径。更新核心 pin 时需同时核对来源配方、生成物及 [BIOS 专题](./bios-and-arcade.md) 的上传/交付契约，不能把压缩包成员提升为上传槽。
+源码固件目录维护：使用 `python3 scripts/firmware_catalog.py --recipe internal/capability/content/firmwaremanifest/source.json --source-archive <已物化且锁定的source.tar.gz> --output internal/capability/content/firmwaremanifest/catalog.json` 生成；增加 `--check` 只验证生成物与来源一致。启动仅消费内嵌目录，不联网或读取开发者源码路径。更新核心 pin 时需同时核对来源配方、生成物及 [BIOS 专题](./bios-and-arcade.md) 的上传/交付契约，不能把压缩包成员提升为上传槽。
 
 BIOS Requirement 同样从 Target binding 和 DAT 生成，不从前端或 Provider 私有 registry 推断。安装内容按逻辑名、大小与摘要校验；游戏 Launch 冻结实际 installation/dependency snapshot。
 

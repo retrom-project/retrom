@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"retrom/internal/emulationstationmeta"
+	"retrom/internal/capability/format/emulationstationmeta"
 )
 
 func TestScannerIsolatesOversizedMetadataWithoutReadingBytes(t *testing.T) {

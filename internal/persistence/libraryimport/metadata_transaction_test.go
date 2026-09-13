@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/authn"
-	"retrom/internal/dbexec"
+	"retrom/internal/capability/security/authn"
+	"retrom/internal/persistence/dbexec"
 	application "retrom/internal/service/libraryimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func metadataDatabase(t *testing.T) *sql.DB {

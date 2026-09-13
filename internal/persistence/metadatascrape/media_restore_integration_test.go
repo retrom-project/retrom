@@ -13,14 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/config"
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/bootstrap/config"
 	maintenancepersistence "retrom/internal/persistence/maintenance"
 	mediatapersistence "retrom/internal/persistence/metadatascrape"
+	"retrom/internal/persistence/store"
 	"retrom/internal/service/maintenance"
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/store"
 )
 
 func TestMediaBackupRestorePreservesBudgetAndOriginalExecution(t *testing.T) {

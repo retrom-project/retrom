@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	payloadrepo "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/service/gamecontent"
 )

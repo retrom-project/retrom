@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
 )
 
 const (

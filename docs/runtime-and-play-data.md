@@ -15,7 +15,7 @@
 
 ### 1.1 产品目录与数据库解耦
 
-复用 `data/runtime-target-bindings/v1/catalog.json` 与 `internal/runtimecatalog`，将平台、核心、平台/核心关系、可接收内容分类、内置资源包定义及产品 binding 汇入同一 Host 声明目录。Provider manifest 仍独占 Target 能力、私有 options schema、当前 checkpoint 格式与实现资产；推荐目录模板只负责用户目录的创建建议，不另立核心接入注册中心。
+复用 `data/runtime-target-bindings/v1/catalog.json` 与 `internal/capability/runtime/runtimecatalog`，将平台、核心、平台/核心关系、可接收内容分类、内置资源包定义及产品 binding 汇入同一 Host 声明目录。Provider manifest 仍独占 Target 能力、私有 options schema、当前 checkpoint 格式与实现资产；推荐目录模板只负责用户目录的创建建议，不另立核心接入注册中心。
 
 目录只保留当前 `schemaVersion` 和内容摘要，不设独立 `catalogVersion`、revision 或算法代际。新增现有平台的核心/Target、采用已注册存储/检测/交付策略的接入、采用现有布局策略的资源包，只修改声明及对应 Provider 产物，不修改 SQL 或清库。新增真正的持久化业务结构才需要 migration。
 
@@ -128,9 +128,9 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 联机 Launch 由 `service/launch.NetplayCreator` 在写事务外准备 Provider、内容与签名，再由 Repository 的短事务重验当前 Session/Room/Member/Participant、冻结目标及内容/依赖，原子写入 Launch、引用与参与者绑定。内容或权限变化拒绝创建；只修改标题等无关字段不使冻结内容失效。同一参与者的并发请求复用唯一已提交 Launch 与凭据，提交失败不返回凭据。`ParticipantPreparation` 随后独立推进参与者与 Session 事件；第二阶段失败或请求取消仍须用有界清理撤销已经提交的 Launch，不得留下可用授权。
 
-游戏目录分页、profile 匹配和依赖快照判定由 `internal/service/netplay` 通过类型化端口编排；相应 SQL 和行映射位于 `internal/persistence/netplay`。受控 profile 解析与 canonical digest 位于无数据库依赖的 `internal/netplay/profile`。禁用的平台实例同时退出目录候选与按游戏 ID 的资格查询，不能继续用于选择游戏或启动新的联机会话。
+游戏目录分页、profile 匹配和依赖快照判定由 `internal/service/netplay` 通过类型化端口编排；相应 SQL 和行映射位于 `internal/persistence/netplay`。受控 profile 解析与 canonical digest 位于无数据库依赖的 `internal/transport/netplay/profile`。禁用的平台实例同时退出目录候选与按游戏 ID 的资格查询，不能继续用于选择游戏或启动新的联机会话。
 
-联机业务统一进入 `internal/service/netplay`，通过类型化端口访问数据；`internal/persistence/netplay` 负责 SQL、映射和事务，`internal/composition` 组装依赖。`internal/netplay` 保留 Hub、WebSocket 协议和传输处理，Hub 分别依赖会话、参与者和结束操作接口，并显式接收时钟与重连租约配置。签名与密钥文件保护由独立 capability 包维护。
+联机业务统一进入 `internal/service/netplay`，通过类型化端口访问数据；`internal/persistence/netplay` 负责 SQL、映射和事务，`internal/bootstrap/composition` 组装依赖。`internal/transport/netplay` 保留 Hub、WebSocket 协议和传输处理，Hub 分别依赖会话、参与者和结束操作接口，并显式接收时钟与重连租约配置。签名与密钥文件保护由独立 capability 包维护。
 
 房间列表和详情在同一读事务中加载房间、成员、会话，再由 Service 装配权限。活动房间只包含本人仍占座的记录；退出后的房间按最近 24 小时终态窗口进入历史列表。创建、选游戏、清除选择、占座、准备和启动均在写事务内校验角色、房间/成员版本及当前状态；创建检查容量和房主唯一性，选择与启动重验资格、Variant 和冻结摘要。身份生成、写入或提交失败均不留下部分成员、Session 或事件，也不返回成功投影。
 
@@ -324,7 +324,7 @@ checkpoint 同时封装机器、磁盘内容、帧计数及游戏摘要；新实
 平台 `pokemini`、Core `gbe_plus` 绑定 `retrom-runtime/gbe-pokemini`。
 `POKEMINI_ROM` 接受单个 `.min` 或只含一个候选 ROM 的 ZIP 上传；多 ROM 归档不得猜选。
 Host 通过 `ROM_BLOB` 提供游戏，通过 `EXTERNAL_FILE_SET` 提供单独安装的 4096 字节
-`bios.min`；BIOS 精确哈希见 `internal/dependencies/bios_catalog.go`。
+`bios.min`；BIOS 精确哈希见 `internal/adapter/runtime/dependencies/bios_catalog.go`。
 
 Provider 在同源空白 iframe 中运行 GBE+ Pokémon Mini，支持标准手柄、暂停、音量、截图、
 帧计数和即时存档。原生状态同时绑定游戏 SHA-256 与状态 SHA-256，公共层写入

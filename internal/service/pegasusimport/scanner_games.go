@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path"
 
-	"retrom/internal/pegasusmeta"
-	"retrom/internal/serversource"
+	"retrom/internal/adapter/files/serversource"
+	"retrom/internal/capability/format/pegasusmeta"
 )
 
 func (service *Scanner) scanGame(ctx context.Context, metadataPath, collectionID string, segmentOrdinal int,

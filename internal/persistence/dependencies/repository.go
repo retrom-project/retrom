@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
 	"retrom/internal/persistence/datindex"
+	"retrom/internal/persistence/dbexec"
 	service "retrom/internal/service/dependencies"
 )
 

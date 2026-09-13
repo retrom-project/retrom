@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 
 	"retrom/internal/service/storageanalysis"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/persistence/blobregistry"
 )
 

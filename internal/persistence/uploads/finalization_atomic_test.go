@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	uploadservice "retrom/internal/service/uploads"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 type finalizationCountError struct {

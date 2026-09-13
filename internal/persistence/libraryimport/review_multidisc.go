@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/multidisc"
+	"retrom/internal/foundation/cleanup"
 	application "retrom/internal/service/libraryimport"
 )
 

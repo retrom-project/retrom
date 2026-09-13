@@ -9,7 +9,7 @@ import (
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	"retrom/internal/service/metadatascrape"
 
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestScheduleStorageFailureIsNotVersionConflict(t *testing.T) {

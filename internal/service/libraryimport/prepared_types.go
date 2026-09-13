@@ -1,10 +1,10 @@
 package libraryimport
 
 import (
-	"retrom/internal/blobstore"
-	"retrom/internal/corevalidation"
-	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/capability/engine/rpgmaker/detector"
+	"retrom/internal/capability/format/importing"
 )
 
 type PreparedDisposition struct {

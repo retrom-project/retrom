@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/store"
 	tagpersistence "retrom/internal/persistence/tagging"
 	"retrom/internal/service/tagging"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 )
 
 const (

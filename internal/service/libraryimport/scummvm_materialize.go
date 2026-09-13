@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/contentmanifest"
-	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/fileset"
-	"retrom/internal/scummvm"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/contentmanifest"
+	"retrom/internal/capability/engine/rpgmaker/fileset"
+	"retrom/internal/capability/engine/scummvm"
+	"retrom/internal/capability/format/importing"
+	"retrom/internal/foundation/cleanup"
 )
 
 func (service *ImportPreparation) detectScummVMTree(

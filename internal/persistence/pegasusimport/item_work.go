@@ -7,7 +7,7 @@ import (
 
 	payload "retrom/internal/persistence/payloadrelease"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	application "retrom/internal/service/pegasusimport"
 )
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 var recoveryTime = time.Date(2028, 4, 5, 6, 7, 8, 0, time.UTC)

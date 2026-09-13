@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/service/maintenance"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestRestoreSecurityFailureRollsBackRevocationsAndAudit(t *testing.T) {

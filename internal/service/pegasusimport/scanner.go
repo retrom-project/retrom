@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sort"
 
-	"retrom/internal/pegasusmeta"
+	"retrom/internal/capability/format/pegasusmeta"
 
 	"github.com/google/uuid"
 )

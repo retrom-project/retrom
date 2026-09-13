@@ -57,41 +57,41 @@ linters:
               desc: internal packages must not depend on process entrypoints
         storage-layer:
           files:
-            - "internal/store/**/*.go"
-            - "internal/blobstore/**/*.go"
+            - "internal/persistence/store/**/*.go"
+            - "internal/adapter/files/blobstore/**/*.go"
           deny:
-            - pkg: retrom/internal/httpapi
+            - pkg: retrom/internal/transport/httpapi
               desc: storage must not depend on HTTP
             - pkg: retrom/internal/service/jobs
               desc: storage must not depend on job orchestration
-            - pkg: retrom/internal/libraryimport
+            - pkg: retrom/internal/adapter/integration/libraryimport
               desc: storage must not depend on application modules
-            - pkg: retrom/internal/launch
+            - pkg: retrom/internal/adapter/runtime/launch
               desc: storage must not depend on application modules
         arcade-parser-layer:
           files:
-            - "internal/arcadedat/**/*.go"
+            - "internal/capability/format/arcadedat/**/*.go"
           deny:
-            - pkg: retrom/internal/httpapi
+            - pkg: retrom/internal/transport/httpapi
               desc: DAT parsing must remain protocol independent
             - pkg: retrom/internal/service/jobs
               desc: DAT parsing must remain orchestration independent
-            - pkg: retrom/internal/metadatascrape
+            - pkg: retrom/internal/adapter/metadata/hasheous
               desc: DAT evidence must not depend on metadata providers
-            - pkg: retrom/internal/firmware
+            - pkg: retrom/internal/capability/content/firmware
               desc: DAT parsing must not depend on BIOS workflows
-            - pkg: retrom/internal/arcadecatalog
+            - pkg: retrom/internal/service/catalog
               desc: the parser must remain below the catalog application layer
         application-no-jobs:
           files:
-            - "internal/arcadecatalog/**/*.go"
-            - "internal/firmware/**/*.go"
-            - "internal/gamecontent/**/*.go"
-            - "internal/launch/**/*.go"
-            - "internal/libraryimport/**/*.go"
-            - "internal/metadatascrape/**/*.go"
-            - "internal/saves/**/*.go"
-            - "internal/uploads/**/*.go"
+            - "internal/service/catalog/**/*.go"
+            - "internal/capability/content/firmware/**/*.go"
+            - "internal/service/gamecontent/**/*.go"
+            - "internal/adapter/runtime/launch/**/*.go"
+            - "internal/adapter/integration/libraryimport/**/*.go"
+            - "internal/service/metadatascrape/**/*.go"
+            - "internal/service/saves/**/*.go"
+            - "internal/service/uploads/**/*.go"
           deny:
             - pkg: retrom/internal/service/jobs
               desc: application modules must not depend on job orchestration

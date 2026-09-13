@@ -9,7 +9,7 @@ import (
 	"time"
 
 	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestMaterializationSQLAndAffectedFailuresRollback(t *testing.T) {

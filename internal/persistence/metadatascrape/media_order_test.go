@@ -9,7 +9,7 @@ import (
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/metadatascrape"
 
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/metadata/hasheous"
 )
 
 func TestMediaRunSerializesFrozenPositions(t *testing.T) {

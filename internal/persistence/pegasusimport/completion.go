@@ -9,7 +9,7 @@ import (
 	payload "retrom/internal/persistence/payloadrelease"
 	payloadService "retrom/internal/service/payloadrelease"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/pegasusimport"
 )

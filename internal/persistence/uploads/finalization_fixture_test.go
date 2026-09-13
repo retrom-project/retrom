@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/persistence/store"
 	uploadservice "retrom/internal/service/uploads"
-	"retrom/internal/store"
 )
 
 type finalizationFixture struct {

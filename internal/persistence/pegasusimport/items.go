@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/dbexec"
 	application "retrom/internal/service/pegasusimport"
 )
 

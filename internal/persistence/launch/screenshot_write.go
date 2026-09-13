@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/launch"

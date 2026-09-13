@@ -7,7 +7,7 @@ import (
 
 	service "retrom/internal/service/runtimeprovider"
 
-	"retrom/internal/runtimecatalog"
+	"retrom/internal/capability/runtime/runtimecatalog"
 )
 
 func TestProviderPackDeclarationsDoNotCreateInstallableProductDefinitions(t *testing.T) {

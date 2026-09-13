@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/capability/content/multidisc"
 )
 
 func TestReplacementUploadModeAndConsumptionRules(t *testing.T) {

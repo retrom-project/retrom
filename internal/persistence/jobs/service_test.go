@@ -12,9 +12,9 @@ import (
 
 	"retrom/internal/service/jobs"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/store"
+	"retrom/internal/testkit/testassert"
 )
 
 func insertJob(t *testing.T, database *store.DB, id, kind, state string, retryable any, now int64) {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobregistry"
+	"retrom/internal/persistence/dbexec"
 )
 
 func globalReferenceCount(ctx context.Context, transaction dbexec.Executor, blobID string) (int64, error) {

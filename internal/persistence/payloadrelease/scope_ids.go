@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/dbexec"
 )
 
 func collectIDs(ctx context.Context, transaction dbexec.Executor, query string, args ...any) ([]string, error) {

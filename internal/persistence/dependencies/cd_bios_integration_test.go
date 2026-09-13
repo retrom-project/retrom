@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dependencies"
+	"retrom/internal/adapter/runtime/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/testsupport"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestCDRequirementsDoNotBlockPCECartridges(t *testing.T) {

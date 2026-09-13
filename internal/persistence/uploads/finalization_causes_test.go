@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	uploadservice "retrom/internal/service/uploads"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestFinalizationReadAndCountFailuresPreserveCauses(t *testing.T) {

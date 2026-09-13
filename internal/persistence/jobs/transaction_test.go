@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/store"
 	jobservice "retrom/internal/service/jobs"
-	"retrom/internal/store"
 )
 
 func TestCancellationEventRollsBackWithOuterFailure(t *testing.T) {

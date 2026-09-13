@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/firmware"
+	"retrom/internal/capability/content/firmware"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/service/serverimport"
 )
 

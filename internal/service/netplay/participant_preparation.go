@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"retrom/internal/netplay/capability"
 	launch "retrom/internal/service/launch"
+	"retrom/internal/transport/netplay/capability"
 )
 
 type PreparationRequest struct {

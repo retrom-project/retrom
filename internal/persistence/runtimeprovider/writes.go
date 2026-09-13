@@ -11,7 +11,7 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/runtimecatalog"
+	"retrom/internal/capability/runtime/runtimecatalog"
 )
 
 func terminateProviderSessions(ctx context.Context, transaction *sql.Tx, providerID string, now int64) error {

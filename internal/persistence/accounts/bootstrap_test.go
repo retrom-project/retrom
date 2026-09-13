@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/service/accounts"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestBootstrapLateFailureRollsBackIdentitySessionStateAndAudit(t *testing.T) {

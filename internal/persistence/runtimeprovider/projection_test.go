@@ -11,9 +11,9 @@ import (
 
 	service "retrom/internal/service/runtimeprovider"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
-	"retrom/internal/store"
+	"retrom/internal/capability/runtime/runtimebundle"
+	"retrom/internal/capability/runtime/runtimecatalog"
+	"retrom/internal/persistence/store"
 )
 
 func TestReconcileProjectsProviderTargetsAndCatalogAtomically(t *testing.T) {

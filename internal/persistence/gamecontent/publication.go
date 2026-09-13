@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/multidisc"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/gamecontent"

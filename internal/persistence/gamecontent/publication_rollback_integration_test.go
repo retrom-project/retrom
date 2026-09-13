@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/payloadrelease"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/integration/payloadrelease"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/service/uploads"
 )

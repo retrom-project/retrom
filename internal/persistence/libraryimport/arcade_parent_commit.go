@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/dbexec"
-	"retrom/internal/importing"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/capability/format/importing"
 	"retrom/internal/persistence/contentquery"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 

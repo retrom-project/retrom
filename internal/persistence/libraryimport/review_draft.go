@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/authn"
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	"retrom/internal/capability/security/authn"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/recordstore"
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"

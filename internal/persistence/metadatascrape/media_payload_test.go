@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/hasheous"
-	"retrom/internal/payloadrelease"
+	"retrom/internal/adapter/integration/payloadrelease"
+	"retrom/internal/adapter/metadata/hasheous"
 	"retrom/internal/service/metadatascrape"
 )
 

@@ -14,12 +14,12 @@ import (
 
 	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/dependencies"
-	"retrom/internal/payloadrelease"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/integration/payloadrelease"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestBIOSLaunchRetirementDeadlines(t *testing.T) {

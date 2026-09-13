@@ -3,7 +3,7 @@ package serverimport
 import (
 	"context"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/service/serverimport"
 )
 

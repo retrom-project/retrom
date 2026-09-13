@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/dbexec"
 	service "retrom/internal/service/uploads"
 )
 

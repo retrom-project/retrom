@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
 	validation "retrom/internal/persistence/corevalidation"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/service/gamecontent"
 )
 

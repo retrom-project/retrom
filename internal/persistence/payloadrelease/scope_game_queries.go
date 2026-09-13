@@ -3,7 +3,7 @@ package payloadrelease
 import (
 	"context"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 )
 
 func GameBlobIDs(ctx context.Context, transaction dbexec.Executor, gameID string) ([]string, error) {

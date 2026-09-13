@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/service/tagging"
 )
 

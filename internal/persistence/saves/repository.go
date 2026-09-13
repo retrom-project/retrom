@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/service/saves"
 )
 

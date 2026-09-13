@@ -8,7 +8,7 @@ import (
 
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/recordstore"
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"

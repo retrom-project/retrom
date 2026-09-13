@@ -11,7 +11,7 @@ import (
 	"time"
 
 	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestExecutionControlReadFailuresRetainCauseAndState(t *testing.T) {

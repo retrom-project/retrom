@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestRestoredScanCleanupRefusesExistingTagOwnership(t *testing.T) {

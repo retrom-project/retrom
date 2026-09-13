@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {

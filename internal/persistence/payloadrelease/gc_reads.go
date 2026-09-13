@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 	"retrom/internal/persistence/blobregistry"
 	application "retrom/internal/service/payloadrelease"
 )

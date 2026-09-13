@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func (f *fixture) sourceCollection(t *testing.T, batch string) string {

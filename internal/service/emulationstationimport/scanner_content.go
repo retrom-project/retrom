@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"retrom/internal/emulationstationmeta"
-	"retrom/internal/multidisc"
-	"retrom/internal/serversource"
+	"retrom/internal/adapter/files/serversource"
+	"retrom/internal/capability/content/multidisc"
+	"retrom/internal/capability/format/emulationstationmeta"
 )
 
 type contentProjection struct {

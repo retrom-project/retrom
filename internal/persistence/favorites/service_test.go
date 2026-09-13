@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/gametitle"
+	"retrom/internal/capability/content/gametitle"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/store"
 	"retrom/internal/service/favorites"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 )
 
 const (

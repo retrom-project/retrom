@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/authn"
+	"retrom/internal/capability/security/authn"
 )
 
 // ReviewDrafts coordinates review draft commands while the repository owns

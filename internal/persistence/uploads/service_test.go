@@ -13,10 +13,10 @@ import (
 
 	uploadservice "retrom/internal/service/uploads"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/store"
+	"retrom/internal/testkit/testassert"
 )
 
 func TestUploadPartAndFinalization(t *testing.T) {

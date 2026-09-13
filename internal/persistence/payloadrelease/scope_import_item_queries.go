@@ -3,7 +3,7 @@ package payloadrelease
 import (
 	"context"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/persistence/dbexec"
 )
 
 func ImportItemBlobIDs(ctx context.Context, transaction dbexec.Executor, itemID string) ([]string, error) {

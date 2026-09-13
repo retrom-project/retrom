@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestMissingScrapeSubjectRollsBackCreatedJob(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"maps"
 
-	"retrom/internal/firmware"
+	"retrom/internal/capability/content/firmware"
 
 	"github.com/google/uuid"
 )

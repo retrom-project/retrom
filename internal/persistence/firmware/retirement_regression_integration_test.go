@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/payloadrelease"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/integration/payloadrelease"
 	"retrom/internal/persistence/recordstore"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testsupport"
 )
 
 type retirementFailedCount struct {

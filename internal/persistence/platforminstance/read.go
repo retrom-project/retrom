@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
 	"retrom/internal/persistence/contentquery"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/service/platforminstance"
 
-	"retrom/internal/platformcatalog"
+	"retrom/internal/capability/runtime/platformcatalog"
 )
 
 func (reader records) CatalogReferences(

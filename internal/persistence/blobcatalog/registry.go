@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/persistence/dbexec"
 
 	"github.com/google/uuid"
 )

@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/composition"
+	"retrom/internal/bootstrap/composition"
 
 	"retrom/internal/service/maintenance"
 
@@ -28,18 +28,18 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/authn"
-	"retrom/internal/blobstore"
-	"retrom/internal/config"
-	"retrom/internal/dependencies"
-	"retrom/internal/netplay"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/runtime/dependencies"
+	retromruntime "retrom/internal/adapter/runtime/runtime"
+	"retrom/internal/bootstrap/config"
+	"retrom/internal/capability/security/authn"
+	"retrom/internal/foundation/processlock"
 	tagpersistence "retrom/internal/persistence/tagging"
-	"retrom/internal/processlock"
-	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
+	"retrom/internal/transport/netplay"
 )
 
 const backupGameID = "01980000-0000-7000-8000-00000000f501"

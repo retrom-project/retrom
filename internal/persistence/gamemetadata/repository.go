@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
-	"retrom/internal/gametitle"
+	"retrom/internal/capability/content/gametitle"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/persistence/dbexec"
 	"retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/gamemetadata"
