@@ -14,13 +14,14 @@ import (
 )
 
 type Service struct {
-	database *sql.DB
-	blobs    *blobstore.Store
-	now      func() time.Time
-	waitFor  func(context.Context, time.Duration) error
-	worker   *application.Worker
-	gc       *application.GCScheduler
-	garbage  *application.GarbageCollector
+	database    *sql.DB
+	blobs       *blobstore.Store
+	now         func() time.Time
+	waitFor     func(context.Context, time.Duration) error
+	worker      *application.Worker
+	gc          *application.GCScheduler
+	garbage     *application.GarbageCollector
+	expirations *application.Expirations
 }
 
 type claimedJob struct {
@@ -40,6 +41,7 @@ func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retenti
 		return nil, fmt.Errorf("initialize GC scheduling: %w", err)
 	}
 	service.gc = gc
+	service.expirations = application.NewExpirations(repository.NewExpiration(database), gc, now)
 	if err := ValidateOwnershipRegistry(); err != nil {
 		return nil, err
 	}
