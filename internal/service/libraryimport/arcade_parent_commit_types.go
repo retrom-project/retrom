@@ -3,8 +3,8 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/authn"
-	"retrom/internal/importing"
+	"retrom/internal/capability/format/importing"
+	"retrom/internal/capability/security/authn"
 )
 
 // ArcadeParentCommitCandidate is the immutable input captured when a parent

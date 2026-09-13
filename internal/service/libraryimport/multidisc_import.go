@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"sort"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
-	"retrom/internal/contentprofile"
-	"retrom/internal/corevalidation"
-	"retrom/internal/importing"
-	"retrom/internal/multidisc"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/capability/content/contentprofile"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/capability/content/multidisc"
+	"retrom/internal/capability/format/importing"
+	"retrom/internal/foundation/cleanup"
 )
 
 // Contract branches stay contiguous for a single auditable decision.

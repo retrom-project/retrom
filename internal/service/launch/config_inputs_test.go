@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/runtimebundle"
+	"retrom/internal/capability/runtime/runtimebundle"
 )
 
 func TestOptionalConfigInputPreservesCanceledRead(t *testing.T) {

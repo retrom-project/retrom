@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/corevalidation"
+	"retrom/internal/capability/content/corevalidation"
 )
 
 type Repository interface {

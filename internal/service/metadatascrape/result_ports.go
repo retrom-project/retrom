@@ -3,8 +3,8 @@ package metadatascrape
 import (
 	"context"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/metadata/hasheous"
 )
 
 type LookupAttempt struct {

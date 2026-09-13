@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/multidisc"
 )
 
 func TestProductRestoreErrorPriority(t *testing.T) {

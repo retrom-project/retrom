@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/mediaasset"
+	"retrom/internal/adapter/files/mediaasset"
 )
 
 // Prepare validates the completed upload and inspects its immutable CAS bytes.

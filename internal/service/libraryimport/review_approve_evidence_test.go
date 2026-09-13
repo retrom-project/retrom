@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"retrom/internal/authn"
+	"retrom/internal/capability/security/authn"
 	"retrom/internal/service/tagging"
 )
 

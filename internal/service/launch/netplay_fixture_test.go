@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/runtimebundle"
+	"retrom/internal/capability/runtime/runtimebundle"
 )
 
 type netplayCreationProvider struct {

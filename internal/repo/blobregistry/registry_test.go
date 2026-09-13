@@ -1,0 +1,22 @@
+package blobregistry
+
+import (
+	"context"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/repo/store"
+	"retrom/internal/testkit/testassert"
+)
+
+func TestRegistryExactlyCoversBlobForeignKeys(t *testing.T) {
+	t.Parallel()
+	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	testassert.False(t, err != nil, err)
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	if err := ValidateSchema(context.Background(), database.SQL); err != nil {
+		t.Fatal(err)
+	}
+}

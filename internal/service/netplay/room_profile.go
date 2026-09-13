@@ -3,7 +3,7 @@ package netplay
 import (
 	"fmt"
 
-	"retrom/internal/netplay/profile"
+	"retrom/internal/transport/netplay/profile"
 )
 
 type FrozenRoomProfile struct {

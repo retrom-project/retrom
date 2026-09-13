@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	importpersistence "retrom/internal/persistence/serverimport"
+	importpersistence "retrom/internal/repo/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
 

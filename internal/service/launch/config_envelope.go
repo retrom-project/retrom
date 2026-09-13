@@ -3,8 +3,8 @@ package launch
 import (
 	"fmt"
 
-	"retrom/internal/runtimecatalog"
-	"retrom/internal/runtimelaunch"
+	"retrom/internal/capability/runtime/runtimecatalog"
+	"retrom/internal/capability/runtime/runtimelaunch"
 )
 
 func (service *ConfigIssuer) envelope(id string, snapshot ConfigSnapshot, ticket IsolationTicket) (Config, error) {

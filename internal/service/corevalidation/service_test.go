@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/corevalidation"
+	"retrom/internal/capability/content/corevalidation"
 )
 
 type biosMemory struct {

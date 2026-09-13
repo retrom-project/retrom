@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
 
 	"github.com/google/uuid"
 )

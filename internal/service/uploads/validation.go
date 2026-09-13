@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retrom/internal/importing"
+	"retrom/internal/capability/format/importing"
 )
 
 func validateCreateRequest(request CreateRequest) (int64, error) {

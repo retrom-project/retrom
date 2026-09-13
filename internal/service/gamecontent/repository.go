@@ -3,7 +3,7 @@ package gamecontent
 import (
 	"context"
 
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
 	validation "retrom/internal/service/corevalidation"
 )
 

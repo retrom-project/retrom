@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/emulationstationmeta"
-	"retrom/internal/mediaasset"
+	"retrom/internal/adapter/files/mediaasset"
+	"retrom/internal/capability/format/emulationstationmeta"
 )
 
 func (service *Scanner) projectAssets(

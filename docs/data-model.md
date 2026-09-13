@@ -1,6 +1,6 @@
 # Retrom 数据模型
 
-字段、CHECK、FK 与索引的事实源是 `migrations/001_identity.sql` 至 `migrations/014_metadata_media_queue.sql`；跨表与状态转换校验在 `internal/persistence/recordstore`，会话及存档联动在 `internal/persistence/sessionstore`，共享查询投影在 `internal/persistence/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK 与索引的事实源是 `migrations/001_identity.sql` 至 `migrations/014_metadata_media_queue.sql`；跨表与状态转换校验在 `internal/repo/recordstore`，会话及存档联动在 `internal/repo/sessionstore`，共享查询投影在 `internal/repo/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
@@ -36,7 +36,7 @@ RuntimeProvider
 
 `runtime_target_bindings` 把产品 `core_id` 绑定到一个稳定 Target，并通过 platform/content-kind 关系收紧适用范围。数据库不保存 adapter、引擎 core、入口或资产映射。
 
-平台、核心、内容分类和内置资源包的产品数据来自 `data/runtime-target-bindings/v1/catalog.json`，而非 migration seed。当前目录只有内容摘要；`schemaVersion` 描述序列化格式，不另设目录递增计数器。系统同步复用 `internal/runtimecatalog`，与 Provider/Target 和 binding 在同一事务发布；新增使用已有存储/交付/布局策略的产品不修改 schema。稳定定义被用户引用时不可删除，目录名称、默认核心及已安装资源的用户选择不被声明同步覆盖。
+平台、核心、内容分类和内置资源包的产品数据来自 `data/runtime-target-bindings/v1/catalog.json`，而非 migration seed。当前目录只有内容摘要；`schemaVersion` 描述序列化格式，不另设目录递增计数器。系统同步复用 `internal/capability/runtime/runtimecatalog`，与 Provider/Target 和 binding 在同一事务发布；新增使用已有存储/交付/布局策略的产品不修改 schema。稳定定义被用户引用时不可删除，目录名称、默认核心及已安装资源的用户选择不被声明同步覆盖。
 
 ## 3. Game current state
 
@@ -118,7 +118,7 @@ Netplay room、session、participant 与 event 保存当前选择和会话冻结
 
 ## 9. Blob ownership 与释放
 
-每个 CAS Blob 必须存在于 `internal/persistence/blobregistry/registry.json` 并由 payload release ownership registry 分类。流程进入终态后由持久 Job 单向释放 consumption；最后一个保护引用消失后才建立 GC candidate，并等待配置宽限期。
+每个 CAS Blob 必须存在于 `internal/repo/blobregistry/registry.json` 并由 payload release ownership registry 分类。流程进入终态后由持久 Job 单向释放 consumption；最后一个保护引用消失后才建立 GC candidate，并等待配置宽限期。
 
 Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS 替换只切换当前安装，后台分批释放旧安装与过时 Variant BIOS 边，已创建 Launch 的冻结边保留至结束或过期；Game 删除移除内容、媒体、存档和运行边。共享 Blob 始终由剩余 owner 保护。
 

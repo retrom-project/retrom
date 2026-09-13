@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/multidisc"
 )
 
 type multiDiscAttachmentSourceFixture struct {

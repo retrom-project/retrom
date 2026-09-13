@@ -8,7 +8,7 @@ import (
 	"io"
 	"strconv"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 )
 
 func (service *Service) stageUploadPart(

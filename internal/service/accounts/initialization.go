@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/authn"
-	"retrom/internal/config"
+	"retrom/internal/bootstrap/config"
+	"retrom/internal/capability/security/authn"
 )
 
 var (

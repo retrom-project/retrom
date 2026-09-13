@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/contentprofile"
+	"retrom/internal/capability/content/contentprofile"
 )
 
 func TestProjectContentIdentityIsOrderIndependentAndBindsProjection(t *testing.T) {

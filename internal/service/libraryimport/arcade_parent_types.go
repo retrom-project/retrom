@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/authn"
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/capability/security/authn"
 )
 
 const ArcadeParentAttachmentDeadline = 30 * time.Minute

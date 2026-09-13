@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/contentcapability"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/service/payloadrelease"
 )
 

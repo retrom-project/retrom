@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/metadata/hasheous"
 )
 
 var (

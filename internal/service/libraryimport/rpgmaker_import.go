@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"retrom/internal/contentprofile"
-	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/fileset"
+	"retrom/internal/capability/content/contentprofile"
+	"retrom/internal/capability/engine/rpgmaker/detector"
+	"retrom/internal/capability/engine/rpgmaker/fileset"
+	"retrom/internal/capability/format/importing"
 )
 
 type rpgProjectIndex struct {

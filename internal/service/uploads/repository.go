@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/adapter/files/blobstore"
 )
 
 type BlobWriter interface {

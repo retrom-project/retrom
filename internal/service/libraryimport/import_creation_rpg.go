@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/capability/engine/rpgmaker/detector"
 )
 
 type CreationRPGManifest struct {

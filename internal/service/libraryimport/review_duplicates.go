@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/multidisc"
 )
 
 type ContentDuplicates struct{ reader ContentDuplicateReader }

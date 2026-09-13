@@ -93,7 +93,7 @@ class MakefileDependencyTests(unittest.TestCase):
 
     def test_generated_go_api_is_ignored_and_untracked(self) -> None:
         for filename in ("models.gen.go", "server.gen.go", "spec.gen.go"):
-            generated = f"internal/httpapi/generated/{filename}"
+            generated = f"internal/transport/httpapi/generated/{filename}"
             ignored = subprocess.run(
                 ["git", "check-ignore", "--quiet", generated],
                 cwd=REPOSITORY_ROOT,

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/platformcatalog"
+	"retrom/internal/capability/runtime/platformcatalog"
 )
 
 func (service *Service) Apply(

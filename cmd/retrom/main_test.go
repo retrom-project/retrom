@@ -10,15 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/composition"
+	"retrom/internal/bootstrap/composition"
 
-	"retrom/internal/authn"
-	"retrom/internal/cleanup"
-	"retrom/internal/config"
-	"retrom/internal/processlock"
-	retromruntime "retrom/internal/runtime"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
+	retromruntime "retrom/internal/adapter/runtime/runtime"
+	"retrom/internal/bootstrap/config"
+	"retrom/internal/capability/security/authn"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/foundation/processlock"
+	"retrom/internal/repo/store"
+	"retrom/internal/testkit/testassert"
 )
 
 func accountCommandFixture(t *testing.T, mode config.Mode) (config.Maintenance, *retromruntime.Credentials) {

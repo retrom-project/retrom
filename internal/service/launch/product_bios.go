@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	"retrom/internal/corevalidation"
+	"retrom/internal/capability/content/corevalidation"
 	validation "retrom/internal/service/corevalidation"
 )
 

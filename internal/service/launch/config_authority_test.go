@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/runtimelaunch"
+	"retrom/internal/capability/runtime/runtimelaunch"
 )
 
 func assertConfigRejected(t *testing.T, configuration Config, err error, cause error) {

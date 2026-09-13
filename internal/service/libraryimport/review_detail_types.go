@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
 )

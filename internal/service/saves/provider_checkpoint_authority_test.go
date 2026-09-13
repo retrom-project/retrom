@@ -1,36 +1,11 @@
 package saves
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
+
+	"retrom/internal/testkit/architecture"
 )
 
 func TestSaveProductionCodeTreatsProviderCheckpointsAsOpaque(t *testing.T) {
-	for _, directory := range []string{".", "../../persistence/saves"} {
-		entries, err := os.ReadDir(directory)
-		if err != nil {
-			t.Fatal(err)
-		}
-		forbidden := []string{
-			"core_artifact", "runtime_family", "route_key", "adapter_abi", "save_abi",
-			"payload_kind", "native_profile", "resume_slot", "rpgmaker/checkpoint",
-		}
-		for _, entry := range entries {
-			name := entry.Name()
-			if entry.IsDir() || filepath.Ext(name) != ".go" || strings.HasSuffix(name, "_test.go") {
-				continue
-			}
-			contents, readErr := os.ReadFile(filepath.Join(directory, name))
-			if readErr != nil {
-				t.Fatal(readErr)
-			}
-			for _, token := range forbidden {
-				if strings.Contains(string(contents), token) {
-					t.Errorf("%s still contains legacy checkpoint authority %q", name, token)
-				}
-			}
-		}
-	}
+	architecture.AssertOpaqueProviderCheckpoints(t)
 }

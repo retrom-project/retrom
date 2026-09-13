@@ -19,34 +19,34 @@ import (
 
 	netplayservice "retrom/internal/service/netplay"
 
-	"retrom/internal/composition"
+	"retrom/internal/bootstrap/composition"
 
-	providerpersistence "retrom/internal/persistence/runtimeprovider"
+	providerpersistence "retrom/internal/repo/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
 
-	dependencypersistence "retrom/internal/persistence/dependencies"
+	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"golang.org/x/term"
 
-	"retrom/internal/authn"
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/config"
-	"retrom/internal/dependencies"
-	"retrom/internal/httpapi"
-	"retrom/internal/importing"
-	"retrom/internal/netplay"
-	maintenancepersistence "retrom/internal/persistence/maintenance"
-	platformpersistence "retrom/internal/persistence/platforminstance"
-	"retrom/internal/processlock"
-	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimeprovider"
-	"retrom/internal/scummvm"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/runtime/dependencies"
+	retromruntime "retrom/internal/adapter/runtime/runtime"
+	"retrom/internal/adapter/runtime/runtimeprovider"
+	"retrom/internal/bootstrap/config"
+	"retrom/internal/capability/engine/scummvm"
+	"retrom/internal/capability/format/importing"
+	"retrom/internal/capability/security/authn"
+	"retrom/internal/foundation/cleanup"
+	"retrom/internal/foundation/processlock"
+	maintenancepersistence "retrom/internal/repo/maintenance"
+	platformpersistence "retrom/internal/repo/platforminstance"
+	"retrom/internal/repo/store"
 	"retrom/internal/service/accounts"
 	"retrom/internal/service/maintenance"
 	"retrom/internal/service/platforminstance"
-	"retrom/internal/store"
+	"retrom/internal/transport/httpapi"
+	"retrom/internal/transport/netplay"
 )
 
 var (

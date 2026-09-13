@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/capability/engine/rpgmaker/detector"
 )
 
 func ReadImportTarget(ctx context.Context, reader ImportFactsReader, id string) (ImportTarget, error) {

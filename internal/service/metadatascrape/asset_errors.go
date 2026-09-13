@@ -3,7 +3,7 @@ package metadatascrape
 import (
 	"errors"
 
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/metadata/hasheous"
 )
 
 func stableAssetError(err error) string {

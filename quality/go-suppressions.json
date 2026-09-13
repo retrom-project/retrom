@@ -2,7 +2,7 @@
   "version": 1,
   "exceptions": [
     {
-      "path": "internal/rpgmaker/materializer/mkxpz.go",
+      "path": "internal/capability/engine/rpgmaker/materializer/mkxpz.go",
       "line": 70,
       "symbol": "func StoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
@@ -11,7 +11,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/rpgmaker/materializer/mkxpz.go",
+      "path": "internal/capability/engine/rpgmaker/materializer/mkxpz.go",
       "line": 71,
       "symbol": "func StoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
@@ -29,7 +29,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/httpapi/game_list_handlers.go",
+      "path": "internal/transport/httpapi/game_list_handlers.go",
       "line": 221,
       "symbol": "func (server *Server) applyGameListCursor(token string, operationID string, filterDigest string, sortCode string) (*gamelistservice.Cursor, error)",
       "linter": "nilnil",
@@ -38,7 +38,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/persistence/auditevents/audit.go",
+      "path": "internal/repo/auditevents/audit.go",
       "line": 46,
       "symbol": "func nullableJSON(value any) (any, error)",
       "linter": "nilnil",
@@ -47,7 +47,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/persistence/gamelist/repository.go",
+      "path": "internal/repo/gamelist/repository.go",
       "line": 176,
       "symbol": "func (repository *Repository) defaultDOSEntry(ctx context.Context, gameID string) (*string, error)",
       "linter": "nilnil",
@@ -56,7 +56,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/persistence/libraryimport/review_bulk_queries.go",
+      "path": "internal/repo/libraryimport/review_bulk_queries.go",
       "line": 37,
       "symbol": "func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (*string, error)",
       "linter": "nilnil",
@@ -65,7 +65,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/persistence/platforminstance/write.go",
+      "path": "internal/repo/platforminstance/write.go",
       "line": 144,
       "symbol": "func nullableJSON(value any) (any, error)",
       "linter": "nilnil",

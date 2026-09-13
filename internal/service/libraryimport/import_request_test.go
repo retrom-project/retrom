@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/contentcapability"
+	"retrom/internal/capability/content/contentcapability"
 )
 
 func TestImportRequestOwnsTagsAndPreservesProtocolShape(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/multidisc"
 )
 
 type ReviewDependencies struct{ reader ReviewDependencyReader }

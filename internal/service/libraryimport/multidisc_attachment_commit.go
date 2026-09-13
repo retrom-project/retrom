@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/corevalidation"
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/capability/content/multidisc"
 	validationservice "retrom/internal/service/corevalidation"
 
 	"github.com/google/uuid"

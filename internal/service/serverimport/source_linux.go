@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"retrom/internal/serversource"
+	"retrom/internal/adapter/files/serversource"
 )
 
 func openDirectoryNoFollow(path string) (*os.File, error) {

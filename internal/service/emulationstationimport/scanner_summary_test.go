@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/testassert"
+	"retrom/internal/testkit/testassert"
 )
 
 func TestReferencedDiscPathsExcludeUnrelatedCHDs(t *testing.T) {

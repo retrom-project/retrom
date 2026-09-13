@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/capability/content/multidisc"
 )
 
 const (

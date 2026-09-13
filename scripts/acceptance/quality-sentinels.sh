@@ -48,7 +48,7 @@ git -C "$repository_root" ls-files --cached --others --exclude-standard -z | \
 sentinel_root="$temporary_root/repository"
 ln -s "$repository_root/web/node_modules" "$sentinel_root/web/node_modules"
 
-cat >"$sentinel_root/internal/config/qa_sentinel.go" <<'EOF'
+cat >"$sentinel_root/internal/bootstrap/config/qa_sentinel.go" <<'EOF'
 package config
 
 import "os"
@@ -60,8 +60,8 @@ EOF
 expect_failure \
   go-unhandled-error \
   'errcheck|Error return value of .os\.Chdir.' \
-  bash -lc "cd '$sentinel_root' && '$repository_root/bin/golangci-lint' run ./internal/config"
-rm -f -- "$sentinel_root/internal/config/qa_sentinel.go"
+  bash -lc "cd '$sentinel_root' && '$repository_root/bin/golangci-lint' run ./internal/bootstrap/config"
+rm -f -- "$sentinel_root/internal/bootstrap/config/qa_sentinel.go"
 
 cat >"$sentinel_root/web/qa-sentinel.ts" <<'EOF'
 async function qualitySentinelPromise(): Promise<void> {
@@ -85,10 +85,10 @@ EOF
 expect_failure \
   migration-text-time \
   'qa_sentinel_times\.broken_at_ms type = TEXT' \
-  bash -lc "cd '$sentinel_root' && go test ./internal/store -run '^TestMigrationsCreateCurrentSchemaWithoutProductSeeds$' -count=1"
+  bash -lc "cd '$sentinel_root' && go test ./internal/repo/store -run '^TestMigrationsCreateCurrentSchemaWithoutProductSeeds$' -count=1"
 rm -f -- "$sentinel_root/migrations/011_qa_sentinel.sql"
 
-cat >"$sentinel_root/internal/importing/qa_sentinel_test.go" <<'EOF'
+cat >"$sentinel_root/internal/capability/format/importing/qa_sentinel_test.go" <<'EOF'
 package importing
 
 import "testing"
@@ -102,8 +102,8 @@ EOF
 expect_failure \
   path-traversal \
   'injected traversal was rejected|TestQualitySentinelTraversalCannotBeAccepted' \
-  bash -lc "cd '$sentinel_root' && go test ./internal/importing -run '^TestQualitySentinelTraversalCannotBeAccepted$' -count=1"
-rm -f -- "$sentinel_root/internal/importing/qa_sentinel_test.go"
+  bash -lc "cd '$sentinel_root' && go test ./internal/capability/format/importing -run '^TestQualitySentinelTraversalCannotBeAccepted$' -count=1"
+rm -f -- "$sentinel_root/internal/capability/format/importing/qa_sentinel_test.go"
 
 python3 - "$sentinel_root" <<'PY'
 import importlib.util

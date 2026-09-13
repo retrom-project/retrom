@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/metadata/hasheous"
 )
 
 type WorkerEvidence struct {

@@ -3,9 +3,9 @@ package firmware
 import (
 	"context"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/firmware"
-	"retrom/internal/importing"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/firmware"
+	"retrom/internal/capability/format/importing"
 )
 
 type Repository interface {

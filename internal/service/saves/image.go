@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"os"
 
-	"retrom/internal/cleanup"
+	"retrom/internal/foundation/cleanup"
 )
 
 func validateScreenshot(path string) (string, error) {

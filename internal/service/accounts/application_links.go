@@ -3,7 +3,7 @@ package accounts
 import (
 	"context"
 
-	"retrom/internal/authn"
+	"retrom/internal/capability/security/authn"
 )
 
 func (service *Service) CreateInvitation(

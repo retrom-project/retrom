@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/multidisc"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/multidisc"
 	validationservice "retrom/internal/service/corevalidation"
 )
 

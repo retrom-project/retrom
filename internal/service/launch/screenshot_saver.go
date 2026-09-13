@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"retrom/internal/mediaasset"
+	"retrom/internal/adapter/files/mediaasset"
 )
 
 type ScreenshotSaver struct {

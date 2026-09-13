@@ -1,6 +1,6 @@
 package gamecontent
 
-import "retrom/internal/multidisc"
+import "retrom/internal/capability/content/multidisc"
 
 func preparedContentIdentity(prepared PreparedReplacement) []IdentityFile {
 	if prepared.ContentKind == multidisc.ContentKind {

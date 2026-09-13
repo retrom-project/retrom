@@ -11,18 +11,18 @@ import (
 	"testing"
 	"time"
 
-	firmwarepersistence "retrom/internal/persistence/firmware"
+	firmwarepersistence "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
-	"retrom/internal/serversource"
+	"retrom/internal/adapter/files/serversource"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/legacychecksum"
-	"retrom/internal/payloadrelease"
-	retromruntime "retrom/internal/runtime"
-	"retrom/internal/store"
-	"retrom/internal/testassert"
-	"retrom/internal/testsupport"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/integration/payloadrelease"
+	retromruntime "retrom/internal/adapter/runtime/runtime"
+	"retrom/internal/foundation/legacychecksum"
+	"retrom/internal/repo/store"
+	"retrom/internal/testkit/testassert"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/dependencies"
-	"retrom/internal/runtimecatalog"
+	"retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/capability/runtime/runtimecatalog"
 )
 
 var (

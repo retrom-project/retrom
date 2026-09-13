@@ -6,9 +6,9 @@ import (
 	"io"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/hasheous"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/foundation/cleanup"
 )
 
 type CachedResponse struct {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/corevalidation"
+	"retrom/internal/capability/content/corevalidation"
 )
 
 func TestFrozenBIOSRecordsDoNotMutateTheirSource(t *testing.T) {

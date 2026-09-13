@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/firmware"
-	"retrom/internal/importing"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/content/firmware"
+	"retrom/internal/capability/format/importing"
 
 	"github.com/google/uuid"
 )

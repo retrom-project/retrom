@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/corevalidation"
+	"retrom/internal/capability/content/corevalidation"
 )
 
 var (

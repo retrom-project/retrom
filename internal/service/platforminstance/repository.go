@@ -3,7 +3,7 @@ package platforminstance
 import (
 	"context"
 
-	"retrom/internal/platformcatalog"
+	"retrom/internal/capability/runtime/platformcatalog"
 )
 
 // Repository supplies consistent read snapshots and atomic write capabilities.

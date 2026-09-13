@@ -55,7 +55,7 @@ ROM_DEFAULT_BIOS("second")
                 generate(recipe, archive)
 
     def test_generated_catalog_retains_the_exact_recipe(self):
-        root = Path(__file__).resolve().parents[1] / 'internal/firmwaremanifest'
+        root = Path(__file__).resolve().parents[1] / 'internal/capability/content/firmwaremanifest'
         self.assertEqual(json.loads((root / 'catalog.json').read_text())['source'],
                          json.loads((root / 'source.json').read_text()))
 

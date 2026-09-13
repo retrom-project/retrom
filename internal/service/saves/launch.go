@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	retromruntime "retrom/internal/runtime"
+	retromruntime "retrom/internal/adapter/runtime/runtime"
 )
 
 const maxStoredCheckpointBytes = int64(256 << 20)

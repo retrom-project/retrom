@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
-	"retrom/internal/firmware"
-	"retrom/internal/importing"
-	"retrom/internal/serversource"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/files/serversource"
+	"retrom/internal/capability/content/firmware"
+	"retrom/internal/capability/format/importing"
+	"retrom/internal/foundation/cleanup"
 )
 
 type association struct {

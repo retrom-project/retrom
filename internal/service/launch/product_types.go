@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/corevalidation"
+	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/capability/content/corevalidation"
 	validation "retrom/internal/service/corevalidation"
 )
 

@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"retrom/internal/corevalidation"
-	"retrom/internal/multidisc"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/capability/content/multidisc"
 )
 
 func productMultiDiscContent(snapshot ProductSnapshot) (ProductContent, error) {

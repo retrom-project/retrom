@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/runtimebundle"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/runtime/runtimebundle"
 )
 
 type Repository interface {

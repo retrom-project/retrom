@@ -9,7 +9,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"retrom/internal/authn"
+	"retrom/internal/capability/security/authn"
 	"retrom/internal/service/tagging"
 )
 

@@ -8,9 +8,9 @@ import (
 	"io"
 	"slices"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/materializer"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/capability/engine/rpgmaker/detector"
+	"retrom/internal/capability/engine/rpgmaker/materializer"
 )
 
 // ImportArtifactBlobs stores immutable bytes during preparation, before a writer is acquired.

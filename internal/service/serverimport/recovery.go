@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/firmware"
-	"retrom/internal/serversource"
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/files/serversource"
+	"retrom/internal/capability/content/firmware"
 )
 
 type CandidateEvidence struct {

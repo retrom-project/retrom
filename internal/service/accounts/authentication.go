@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/authn"
+	"retrom/internal/capability/security/authn"
 )
 
 var (

@@ -144,7 +144,7 @@ printf '%s\n' "$listeners" | grep -q "127.0.0.1:${web_port}"
 printf 'listeners:\n%s\n' "$listeners"
 stop_dev
 
-go test ./internal/httpapi -run '^TestWritesIgnoreBrowserOriginWithoutEnablingCORS$' -count=1
+go test ./internal/transport/httpapi -run '^TestWritesIgnoreBrowserOriginWithoutEnablingCORS$' -count=1
 if rg -n --glob '*.go' --glob '*.ts' --glob '*.tsx' --glob 'Dockerfile' \
   'ListenAndServeTLS|tls\.Config|RETROM_TLS|certificate(_file)?|private_key' \
   cmd internal web Dockerfile web/Dockerfile; then

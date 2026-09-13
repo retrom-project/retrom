@@ -4,8 +4,8 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/corevalidation"
-	"retrom/internal/importing"
+	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/capability/format/importing"
 )
 
 func reviewPreviewExternalFiles(
