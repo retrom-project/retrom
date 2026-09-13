@@ -957,6 +957,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Atomically freezes this finalization round and queues an UPLOAD_FINALIZE job. Invalid or stale upload state returns 409; persistence failures return 500 and preserve their original server-side cause. */
         post: operations["postAdminUploadComplete"];
         delete?: never;
         options?: never;
@@ -7549,6 +7550,24 @@ export interface operations {
         requestBody?: never;
         responses: {
             202: components["responses"]["JSONResponse"];
+            /** @description VERSION_CONFLICT when the upload is unavailable, consumed or its state or version changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description INTERNAL_ERROR when upload finalization persistence fails. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     getAdminImportsSummary: {

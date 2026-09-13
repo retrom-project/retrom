@@ -155,7 +155,13 @@ Idempotency-Key: <uuid>
 
 ### 4.2 分块、恢复与完成
 
-上传用例由 `internal/service/uploads` 编排，`internal/persistence/uploads` 负责 SQL、读快照和写事务。流式接收与 CAS 组装在写事务之外运行；接受 part 时在事务内重新检查会话状态，并共同提交 part、文件接收字节数和会话版本。终结结果的每次写入都校验当前 job、终结轮次与 execution number，取消或后续轮次不能被旧 worker 覆盖。读取会话、文件和 part bitmap 使用同一个读快照。
+上传用例由 `internal/service/uploads` 编排，`internal/persistence/uploads` 负责 SQL、读快照和短事务，`internal/uploadfiles` 只执行宿主分片文件的打开、暂存、发布和有界清理。流式校验与 CAS 组装在写事务外运行；完成请求原子冻结本轮未完成文件及 part 的编号、偏移、大小、SHA-256 与 storage key，绑定不可变输入。每次发布和终态写入都重验当前会话、finalizationNo、Job/execution、worker/attempt、租约与原始期限；同 Job 重试保留已完成文件的 Blob，只重新组装未完成文件。
+
+终结 execution 的原始期限为 10 分钟，最多 2 次 attempt，60 秒租约每 15 秒续租且不超过原期限。失效租约恢复保留当前 execution 与期限，原子重排队并记录 `RETRY_SCHEDULED`，1 秒后可重试。通用 Job retry 沿用 Job/finalizationNo、递增 executionNo，新 execution 重新取得期限。确认损坏或缺失的 part 必须先修复：失败事件的 `failedPart={fileId,partNo}` 只授权清除和修复精确坏 part，并同步扣减已接收字节；正确 part 保留。普通读取、权限或存储错误保留原因，不能据此删除 part。修复后再次 complete 创建新轮次。
+
+Server 启动拾取持久队列和失效租约；人工 retry 仅在幂等 receipt 成功后派发，重放不重复派发。receipt 失败不触发本次派发，已独立提交的 retry 仍可由持久队列恢复。取消每秒检查；匹配当前轮次的已取消 Job 会补齐 UploadSession 取消状态，未完成文件保持 `FAILED` / `UPLOAD_CANCELLED`。关闭先禁止新任务登记，再取消并等待已登记执行退出。失败持久化和临时文件清理使用独立、最多 5 秒的清理 context，不能借此继续业务执行。
+
+Complete 的输入、版本或当前状态冲突返回 `409 VERSION_CONFLICT`；数据库读取或写入失败返回 `500 INTERNAL_ERROR`，服务端保留原始原因。
 
 排队中的终结 Job 被通用取消入口取消后，worker 必须同步当前上传会话与未完成文件的取消状态；过期 execution 不能执行此同步。终结超时后使用最多 5 秒的独立清理 context 保存失败结果，仍执行同样的轮次、execution 和取消检查。
 

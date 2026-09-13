@@ -15,7 +15,7 @@ type Repository interface {
 	Snapshot(context.Context, string) (Session, error)
 	Target(context.Context, FileKey) (PartTarget, error)
 	Parts(context.Context, string) ([]Part, error)
-	Candidates(context.Context, string) ([]Candidate, error)
+	Recoverable(context.Context, int64) ([]string, error)
 }
 type WriteScope struct {
 	Sessions SessionRecords
@@ -23,6 +23,8 @@ type WriteScope struct {
 	Parts    PartRecords
 	Jobs     JobRecords
 	Blobs    BlobRecords
+	Finalize FinalizationRecords
+	Leases   LeaseRecords
 }
 type SessionRecords interface {
 	Create(context.Context, Registration) error
@@ -103,6 +105,8 @@ type Finalization struct {
 type Run struct {
 	UploadID, JobID             string
 	FinalizationNo, ExecutionNo int64
+	WorkerID                    string
+	Attempt, Deadline           int64
 }
 type FilePublication struct {
 	Run            Run
@@ -127,8 +131,8 @@ type JobCreation struct {
 	AtMS                              int64
 }
 type Job struct {
-	ID, State   string
-	ExecutionNo int64
+	ID, State, Kind, Scope, ScopeID, WorkerID, Input, InputDigest          string
+	ExecutionNo, Version, Attempt, MaxAttempts, Deadline, Lease, Available int64
 }
 type JobCancellation struct {
 	ID, UploadID, ExpectedState, State string
@@ -140,12 +144,54 @@ type JobFinish struct {
 	Run                  Run
 	ExpectedState, State string
 	ErrorCode            *string
+	Retryable            bool
 	AtMS                 int64
 	EventJSON            []byte
 }
 
 type JobClaim struct {
 	Run       Run
+	Version   int64
 	AtMS      int64
 	EventJSON []byte
 }
+
+type FinalizationRecords interface {
+	Manifest(context.Context, string) ([]FrozenFile, error)
+	Candidates(context.Context, string) ([]Candidate, error)
+	Invalidate(context.Context, BrokenPart, int64) error
+	Count(context.Context, string) (int, error)
+	Repair(context.Context, FileKey, int) (bool, error)
+}
+type LeaseRecords interface {
+	Refresh(context.Context, Run, int64) error
+	Requeue(context.Context, Job, int64, int64) error
+}
+type FrozenFile struct {
+	ID    string `json:"fileId"`
+	Size  int64  `json:"sizeBytes"`
+	Parts []Part `json:"parts"`
+}
+type FinalizationInput struct {
+	SchemaVersion int    `json:"schemaVersion"`
+	Kind          string `json:"kind"`
+	Scope         struct {
+		Type string `json:"type"`
+		ID   string `json:"id"`
+	} `json:"scope"`
+	ExecutionID string `json:"executionId"`
+	Inputs      struct {
+		FinalizationNo int64        `json:"finalizationNo"`
+		Files          []FrozenFile `json:"files"`
+	} `json:"inputs"`
+}
+type BrokenPart struct {
+	FileID  string `json:"fileId"`
+	Number  int    `json:"partNo"`
+	Part    Part   `json:"-"`
+	Missing bool   `json:"-"`
+	Cause   error  `json:"-"`
+}
+
+func (part *BrokenPart) Error() string { return "upload part cannot be finalized" }
+func (part *BrokenPart) Unwrap() error { return part.Cause }

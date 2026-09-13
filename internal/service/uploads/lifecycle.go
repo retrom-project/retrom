@@ -5,10 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"path/filepath"
-	"time"
 
 	"retrom/internal/cleanup"
 
@@ -26,7 +23,11 @@ func (service *Service) Complete(ctx context.Context, id string, version int64) 
 			current.State != "UPLOADING" && current.State != "CREATED" && current.State != "FAILED" {
 			return ErrInvalid
 		}
-		job, err := prepareFinalization(id, current.FinalizationNo+1, service.now().UnixMilli())
+		files, err := scope.Finalize.Manifest(ctx, id)
+		if err != nil {
+			return fmt.Errorf("freeze upload parts: %w", err)
+		}
+		job, err := prepareFinalization(id, current.FinalizationNo+1, service.now().UnixMilli(), files)
 		if err != nil {
 			return err
 		}
@@ -52,11 +53,11 @@ func (service *Service) Complete(ctx context.Context, id string, version int64) 
 	if err != nil {
 		return "", 0, fmt.Errorf("complete upload: %w", err)
 	}
-	go service.finalize(context.WithoutCancel(ctx), run)
+	service.Resume(ctx, run.JobID)
 	return run.JobID, run.FinalizationNo, nil
 }
 
-func prepareFinalization(uploadID string, number, now int64) (JobCreation, error) {
+func prepareFinalization(uploadID string, number, now int64, files []FrozenFile) (JobCreation, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return JobCreation{}, fmt.Errorf("generate finalization job ID: %w", err)
@@ -66,10 +67,12 @@ func prepareFinalization(uploadID string, number, now int64) (JobCreation, error
 		return JobCreation{}, fmt.Errorf("generate finalization execution ID: %w", err)
 	}
 	run := Run{UploadID: uploadID, JobID: id.String(), FinalizationNo: number, ExecutionNo: 1}
-	input, err := json.Marshal(map[string]any{
-		"schemaVersion": 1, "kind": "UPLOAD_FINALIZE", "scope": map[string]string{"type": "UPLOAD_SESSION", "id": uploadID},
-		"executionId": execution.String(), "inputs": map[string]int64{"finalizationNo": number},
-	})
+	envelope := FinalizationInput{SchemaVersion: 1, Kind: "UPLOAD_FINALIZE", ExecutionID: execution.String()}
+	envelope.Scope.Type = "UPLOAD_SESSION"
+	envelope.Scope.ID = uploadID
+	envelope.Inputs.FinalizationNo = number
+	envelope.Inputs.Files = files
+	input, err := json.Marshal(envelope)
 	if err != nil {
 		return JobCreation{}, fmt.Errorf("encode finalization input: %w", err)
 	}
@@ -140,7 +143,7 @@ func (service *Service) Cancel(ctx context.Context, id string, version int64) (C
 		return Canceled{}, false, fmt.Errorf("cancel upload: %w", err)
 	}
 	if !pending {
-		cleanup.RemoveAll(filepath.Join(service.dataDir, "tmp", "uploads", id))
+		cleanup.Error("remove cancelled upload parts", service.cleanupUpload(ctx, id, ""))
 	}
 	return result, pending, nil
 }
@@ -202,73 +205,6 @@ func finishUploadCancellation(ctx context.Context, scope WriteScope, run Run, ve
 	}
 	if err := scope.Files.FailPending(ctx, PendingFailure{UploadID: run.UploadID, Code: code, AtMS: now}); err != nil {
 		return fmt.Errorf("cancel unfinished upload files: %w", err)
-	}
-	return nil
-}
-
-func (service *Service) finalize(parent context.Context, run Run) {
-	ctx, cancel := context.WithTimeout(parent, 10*time.Minute)
-	defer cancel()
-	cleanup.Error("finalize upload", service.runFinalization(ctx, run))
-}
-
-func (service *Service) runFinalization(ctx context.Context, run Run) error {
-	claimed, err := service.claimFinalization(ctx, run)
-	if err != nil || !claimed {
-		return err
-	}
-	candidates, err := service.repository.Candidates(ctx, run.UploadID)
-	if err != nil {
-		return errors.Join(err, service.fail(ctx, run, errFinalizeIO))
-	}
-	for _, file := range candidates {
-		stopped, err := service.finalizeWrite(ctx, run, func(WriteScope, SessionState) error { return nil })
-		if err != nil {
-			return errors.Join(err, service.fail(ctx, run, err))
-		}
-		if stopped {
-			return nil
-		}
-		stopped, err = service.finalizeCandidate(ctx, run, file)
-		if err != nil {
-			return errors.Join(err, service.fail(ctx, run, err))
-		}
-		if stopped {
-			return nil
-		}
-	}
-	_, err = service.finalizeWrite(ctx, run, func(scope WriteScope, current SessionState) error {
-		now := service.now().UnixMilli()
-		expires := now + int64(7*24*time.Hour/time.Millisecond)
-		if err := scope.Sessions.Finish(
-			ctx,
-			SessionFinish{
-				Run:             run,
-				State:           "COMPLETE",
-				ExpectedVersion: current.Version,
-				AtMS:            now,
-				ExpiresAtMS:     &expires,
-			},
-		); err != nil {
-			return fmt.Errorf("persist upload transition: %w", err)
-		}
-		return scope.Jobs.Finish(
-			ctx,
-			JobFinish{
-				Run:           run,
-				ExpectedState: "RUNNING",
-				State:         "SUCCEEDED",
-				AtMS:          now,
-				EventJSON: jobEvent(
-					run,
-					1,
-					"",
-				),
-			},
-		)
-	})
-	if err != nil {
-		return errors.Join(err, service.fail(ctx, run, errFinalizeIO))
 	}
 	return nil
 }

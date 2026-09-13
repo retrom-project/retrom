@@ -10,12 +10,14 @@ import (
 )
 
 type (
-	Repository     struct{ database *sql.DB }
-	sessionRecords struct{ executor dbexec.Executor }
-	fileRecords    struct{ executor dbexec.Executor }
-	partRecords    struct{ executor dbexec.Executor }
-	jobRecords     struct{ executor dbexec.Executor }
-	blobRecords    struct{ executor dbexec.Executor }
+	Repository          struct{ database *sql.DB }
+	sessionRecords      struct{ executor dbexec.Executor }
+	fileRecords         struct{ executor dbexec.Executor }
+	partRecords         struct{ executor dbexec.Executor }
+	jobRecords          struct{ executor dbexec.Executor }
+	blobRecords         struct{ executor dbexec.Executor }
+	finalizationRecords struct{ executor dbexec.Executor }
+	leaseRecords        struct{ executor dbexec.Executor }
 )
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
@@ -26,6 +28,7 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(service.W
 	}
 	defer dbexec.Rollback(tx)
 	scope := service.WriteScope{
+		Finalize: finalizationRecords{tx}, Leases: leaseRecords{tx},
 		Sessions: sessionRecords{
 			tx,
 		},

@@ -70,7 +70,8 @@ UPDATE upload_files SET final_blob_id=?,state='COMPLETE',last_error_code=NULL,up
 WHERE id=? AND upload_session_id=? AND state='FINALIZING'
  AND EXISTS(SELECT 1 FROM upload_sessions session JOIN jobs job ON job.id=session.finalize_job_id
  WHERE session.id=upload_files.upload_session_id AND session.state='FINALIZING' AND session.finalization_no=?
- AND job.id=? AND job.execution_no=? AND job.state='RUNNING')
+ AND job.id=? AND job.execution_no=? AND job.state='RUNNING' AND job.worker_id=?
+ AND job.attempt_count=? AND job.leased_until_ms>? AND job.execution_deadline_at_ms>?)
 `,
 			input.BlobID,
 			input.AtMS,
@@ -79,6 +80,7 @@ WHERE id=? AND upload_session_id=? AND state='FINALIZING'
 			input.Run.FinalizationNo,
 			input.Run.JobID,
 			input.Run.ExecutionNo,
+			input.Run.WorkerID, input.Run.Attempt, input.AtMS, input.AtMS,
 		),
 	)
 }

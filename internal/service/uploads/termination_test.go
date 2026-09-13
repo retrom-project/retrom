@@ -8,20 +8,21 @@ import (
 )
 
 func TestCancelledQueuedJobFinishesMatchingUpload(t *testing.T) {
-	for _, currentExecution := range []int64{1, 2} {
+	for _, currentRound := range []int64{1, 2} {
 		repository, run := terminationFixture()
 		repository.job.State = "CANCELLED"
-		repository.job.ExecutionNo = currentExecution
-		claimed, err := New(repository, nil, t.TempDir(), time.Now).claimFinalization(t.Context(), run)
-		if err != nil || claimed {
+		repository.current.FinalizationNo = currentRound
+		claim, err := New(repository, nil, t.TempDir(), finalizationTestNow).claim(t.Context(), run.JobID)
+		claimed := claim.Acquired
+		if err != nil && currentRound == run.FinalizationNo || claimed {
 			t.Fatalf("cancelled claim: claimed=%v error=%v", claimed, err)
 		}
 		want := ""
-		if currentExecution == run.ExecutionNo {
+		if currentRound == run.FinalizationNo {
 			want = "CANCELLED"
 		}
 		if repository.sessionFinish.State != want || (repository.fileFailure.Code != "") != (want != "") {
-			t.Fatalf("execution %d: session=%+v files=%+v", currentExecution, repository.sessionFinish, repository.fileFailure)
+			t.Fatalf("execution %d: session=%+v files=%+v", currentRound, repository.sessionFinish, repository.fileFailure)
 		}
 	}
 }
@@ -65,7 +66,7 @@ func terminationFixture() (*terminationRepository, Run) {
 			ID: run.UploadID, State: "FINALIZING", Version: 1,
 			FinalizeJobID: &run.JobID, FinalizationNo: 1,
 		},
-		job: Job{ID: run.JobID, State: "RUNNING", ExecutionNo: 1},
+		job: terminationJob(run),
 	}, run
 }
 
@@ -120,4 +121,12 @@ type terminationFiles struct {
 func (records terminationFiles) FailPending(_ context.Context, failure PendingFailure) error {
 	records.repository.fileFailure = failure
 	return nil
+}
+
+func terminationJob(run Run) Job {
+	created, _ := prepareFinalization(run.UploadID, run.FinalizationNo, finalizationTestNow().UnixMilli(), nil)
+	return Job{
+		ID: run.JobID, State: "RUNNING", ExecutionNo: 1, Kind: "UPLOAD_FINALIZE", Scope: "UPLOAD_SESSION", ScopeID: run.UploadID,
+		Input: string(created.InputJSON), InputDigest: created.InputDigest,
+	}
 }

@@ -35,38 +35,6 @@ INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,crea
 	return records.event(ctx, input.Run, "QUEUED", input.EventJSON, input.AtMS)
 }
 
-func (records jobRecords) Get(ctx context.Context, id string) (service.Job, error) {
-	var result service.Job
-	if err := records.executor.QueryRowContext(ctx, `SELECT id,state,execution_no FROM jobs WHERE id=?`, id).
-		Scan(&result.ID, &result.State, &result.ExecutionNo); err != nil {
-		return service.Job{}, fmt.Errorf("uploads/read finalize job: %w", err)
-	}
-	return result, nil
-}
-
-func (records jobRecords) Claim(ctx context.Context, input service.JobClaim) (bool, error) {
-	run, now := input.Run, input.AtMS
-	result, err := records.executor.ExecContext(ctx, `
-UPDATE jobs SET state='RUNNING',attempt_count=attempt_count+1,execution_started_at_ms=?,
-version=version+1,updated_at_ms=?
-WHERE id=? AND execution_no=? AND state='QUEUED'
-`, now, now, run.JobID, run.ExecutionNo)
-	if err != nil {
-		return false, fmt.Errorf("uploads/claim finalize job: %w", err)
-	}
-	count, err := result.RowsAffected()
-	if err != nil {
-		return false, fmt.Errorf("uploads/count claimed jobs: %w", err)
-	}
-	if count != 1 {
-		return false, nil
-	}
-	if err := records.event(ctx, run, "STARTED", input.EventJSON, now); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
 func (records jobRecords) RequestCancel(ctx context.Context, input service.JobCancellation) error {
 	if err := requireChange(
 		records.executor.ExecContext(
@@ -104,16 +72,19 @@ func (records jobRecords) Finish(ctx context.Context, input service.JobFinish) e
 		records.executor.ExecContext(
 			ctx,
 			`
-UPDATE jobs SET state=?,error_code=?,error_retryable=0,finished_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state=? AND execution_no=?
+UPDATE jobs SET state=?,error_code=?,error_retryable=?,finished_at_ms=?,version=version+1,updated_at_ms=?
+WHERE id=? AND state=? AND execution_no=? AND worker_id=? AND attempt_count=?
+ AND (?!='SUCCEEDED' OR (leased_until_ms>? AND execution_deadline_at_ms>?))
 `,
 			input.State,
 			input.ErrorCode,
+			input.Retryable,
 			input.AtMS,
 			input.AtMS,
 			input.Run.JobID,
 			input.ExpectedState,
 			input.Run.ExecutionNo,
+			input.Run.WorkerID, input.Run.Attempt, input.State, input.AtMS, input.AtMS,
 		),
 	); err != nil {
 		return err

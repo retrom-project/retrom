@@ -121,8 +121,8 @@ offset_bytes
 	return parts, nil
 }
 
-func (repository *Repository) Candidates(ctx context.Context, id string) ([]service.Candidate, error) {
-	rows, err := repository.database.QueryContext(ctx, `
+func (records finalizationRecords) Candidates(ctx context.Context, id string) ([]service.Candidate, error) {
+	rows, err := records.executor.QueryContext(ctx, `
 SELECT id,declared_size_bytes FROM upload_files WHERE upload_session_id=? AND state!='COMPLETE' ORDER BY id
 `, id)
 	if err != nil {

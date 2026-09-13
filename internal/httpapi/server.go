@@ -291,10 +291,12 @@ func New(
 	server.importDiscards.Start()
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	payloadReleaseService.Start()
+	server.uploads.Start(context.Background())
 	return server
 }
 
 func (server *Server) Close() {
+	server.uploads.Close()
 	server.launcher.Close()
 	server.importDiscards.Close()
 	if server.netplay != nil {

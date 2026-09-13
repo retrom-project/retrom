@@ -9,20 +9,31 @@ import (
 	"io"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
+
+	"retrom/internal/uploadfiles"
 
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	repository Repository
-	blobs      BlobWriter
-	dataDir    string
-	now        func() time.Time
+	repository      Repository
+	blobs           BlobWriter
+	dataDir         string
+	now             func() time.Time
+	source          *uploadfiles.Store
+	mutex           sync.Mutex
+	group           sync.WaitGroup
+	closed, started bool
+	active          map[string]context.CancelCauseFunc
 }
 
 func New(repository Repository, blobs BlobWriter, dataDir string, now func() time.Time) *Service {
-	return &Service{repository: repository, blobs: blobs, dataDir: dataDir, now: now}
+	return &Service{
+		repository: repository, blobs: blobs, dataDir: dataDir, now: now,
+		source: uploadfiles.New(dataDir), active: make(map[string]context.CancelCauseFunc),
+	}
 }
 
 func (service *Service) Create(ctx context.Context, request CreateRequest) (Session, error) {
@@ -113,11 +124,7 @@ func (service *Service) PutPart(
 		return err
 	}
 	key := FileKey{UploadID: uploadID, FileID: fileID}
-	target, err := service.repository.Target(ctx, key)
-	if err != nil {
-		return fmt.Errorf("read upload part target: %w", err)
-	}
-	if err := validatePartTarget(target, span.total, service.now().UnixMilli()); err != nil {
+	if err := service.validateReceivingPart(ctx, key, span.total, partNo); err != nil {
 		return err
 	}
 	written, err := service.stageUploadPart(uploadID, fileID, partNo, span, expected, body)
@@ -136,6 +143,11 @@ func (service *Service) PutPart(
 		}
 		if err := validatePartTarget(target, span.total, now); err != nil {
 			return err
+		}
+		if target.SessionState == "FAILED" {
+			if err := repairAllowed(ctx, scope, key, partNo); err != nil {
+				return err
+			}
 		}
 		return recordPart(ctx, scope, target, part)
 	})
@@ -198,4 +210,30 @@ func recordPart(ctx context.Context, scope WriteScope, target PartTarget, part P
 		return fmt.Errorf("advance upload session: %w", err)
 	}
 	return nil
+}
+
+func repairAllowed(ctx context.Context, scope WriteScope, key FileKey, number int) error {
+	allowed, err := scope.Finalize.Repair(ctx, key, number)
+	if err != nil {
+		return fmt.Errorf("read upload repair authorization: %w", err)
+	}
+	if !allowed {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func (service *Service) validateReceivingPart(ctx context.Context, key FileKey, total int64, number int) error {
+	target, err := service.repository.Target(ctx, key)
+	if err != nil {
+		return finalizationError("read upload part target", err)
+	}
+	if err := validatePartTarget(target, total, service.now().UnixMilli()); err != nil {
+		return err
+	}
+	if target.SessionState != "FAILED" {
+		return nil
+	}
+	err = service.repository.WithWrite(ctx, func(scope WriteScope) error { return repairAllowed(ctx, scope, key, number) })
+	return finalizationError("validate repair target", err)
 }

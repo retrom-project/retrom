@@ -108,6 +108,8 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 		switch result.Kind {
 		case "VARIANT_VALIDATE":
 			go server.launcher.ResumeValidationJob(ctx, result.JobID)
+		case "UPLOAD_FINALIZE":
+			server.uploads.Resume(ctx, result.JobID)
 		case "MEDIA_FETCH":
 			server.metadata.ResumeMediaJob(ctx, result.JobID)
 		}

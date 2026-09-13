@@ -4,164 +4,213 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"time"
 
-	"retrom/internal/cleanup"
+	"github.com/google/uuid"
 )
+
+type finalizationClaim struct {
+	Run                 Run
+	Input               FinalizationInput
+	Acquired, Cancelled bool
+	Cause               error
+}
 
 func matchesRun(current SessionState, run Run) bool {
 	return current.ID == run.UploadID && current.State == "FINALIZING" && current.FinalizeJobID != nil &&
 		*current.FinalizeJobID == run.JobID && current.FinalizationNo == run.FinalizationNo
 }
 
-func (service *Service) claimFinalization(ctx context.Context, run Run) (bool, error) {
-	var claimed, cancelled bool
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		current, err := scope.Sessions.Current(ctx, run.UploadID)
+func (service *Service) claim(ctx context.Context, id string) (finalizationClaim, error) {
+	worker, err := uuid.NewV7()
+	if err != nil {
+		return finalizationClaim{}, fmt.Errorf("create upload worker ID: %w", err)
+	}
+	var claim finalizationClaim
+	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		job, err := scope.Jobs.Get(ctx, id)
 		if err != nil {
-			return fmt.Errorf("read finalize owner: %w", err)
+			return finalizationError("read upload authority", err)
 		}
-		if !matchesRun(current, run) {
+		if job.Kind != "UPLOAD_FINALIZE" || job.Scope != "UPLOAD_SESSION" {
+			return ErrExecutionLost
+		}
+		current, err := scope.Sessions.Current(ctx, job.ScopeID)
+		if err != nil {
+			return finalizationError("read upload authority", err)
+		}
+		if current.FinalizeJobID == nil || *current.FinalizeJobID != id || current.Consumed {
 			return nil
 		}
-		job, err := scope.Jobs.Get(ctx, run.JobID)
-		if err != nil {
-			return fmt.Errorf("read finalize job: %w", err)
+		claim.Run = Run{
+			UploadID: current.ID, JobID: id, FinalizationNo: current.FinalizationNo, ExecutionNo: job.ExecutionNo,
+			WorkerID: worker.String(), Attempt: job.Attempt + 1, Deadline: job.Deadline,
 		}
-		if job.ExecutionNo != run.ExecutionNo {
+		return service.claimCurrent(ctx, scope, current, job, &claim)
+	})
+	if err != nil {
+		return finalizationClaim{}, fmt.Errorf("claim upload finalization: %w", err)
+	}
+	if claim.Cancelled {
+		if err := service.cleanupUpload(ctx, claim.Run.UploadID, ""); err != nil {
+			return claim, finalizationError("remove cancelled upload", err)
+		}
+	}
+	return claim, nil
+}
+
+func (service *Service) claimCurrent(
+	ctx context.Context, scope WriteScope, current SessionState, job Job, claim *finalizationClaim,
+) error {
+	now := service.now().UnixMilli()
+	if job.State == "CANCELLED" && matchesRun(current, claim.Run) {
+		return claim.reconcile(ctx, scope, current, job, now)
+	}
+	if job.State == "RUNNING" || job.State == "CANCEL_REQUESTED" {
+		if job.Lease > now && job.Deadline > now {
 			return nil
 		}
-		if job.State == "CANCELLED" {
-			cancelled = true
-			return finishUploadCancellation(ctx, scope, run, current.Version, service.now().UnixMilli())
+		claim.Run.Attempt = job.Attempt
+		if job.State == "RUNNING" && job.Deadline > now && job.Attempt < job.MaxAttempts {
+			return finalizationError("requeue expired upload", scope.Leases.Requeue(ctx, job, now, min(now+1000, job.Deadline)))
 		}
-		if job.State != "QUEUED" {
-			return nil
-		}
-		claim := JobClaim{Run: run, AtMS: service.now().UnixMilli(), EventJSON: jobEvent(run, 1, "")}
-		claimed, err = scope.Jobs.Claim(ctx, claim)
-		if err != nil {
-			return fmt.Errorf("claim upload job: %w", err)
-		}
+	} else if job.State != "QUEUED" {
 		return nil
-	})
-	if err != nil {
-		return false, fmt.Errorf("claim upload finalization: %w", err)
 	}
-	if cancelled {
-		cleanup.RemoveAll(filepath.Join(service.dataDir, "tmp", "uploads", run.UploadID))
+	switch current.State {
+	case "FINALIZING", "FAILED":
+	default:
+		return nil
 	}
-	return claimed, nil
+	if err := claim.prepare(ctx, scope, current, job, now); err != nil {
+		return err
+	}
+	if claim.Cause == nil && job.Available > now {
+		return nil
+	}
+	return claim.acquire(ctx, scope, current, job, now)
 }
 
-func (service *Service) finalizeWrite(
-	ctx context.Context,
-	run Run,
-	work func(WriteScope, SessionState) error,
-) (bool, error) {
-	stopped, cancelled := false, false
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		current, err := scope.Sessions.Current(ctx, run.UploadID)
-		if err != nil {
-			return fmt.Errorf("read finalization owner: %w", err)
-		}
-		if !matchesRun(current, run) {
-			stopped = true
-			return nil
-		}
-		job, err := scope.Jobs.Get(ctx, run.JobID)
-		if err != nil {
-			return fmt.Errorf("read finalization execution: %w", err)
-		}
-		if job.ExecutionNo != run.ExecutionNo {
-			stopped = true
-			return nil
-		}
-		if job.State == "CANCEL_REQUESTED" {
-			now := service.now().UnixMilli()
-			if err := finishUploadCancellation(ctx, scope, run, current.Version, now); err != nil {
-				return err
-			}
-			if err := scope.Jobs.Finish(
-				ctx,
-				JobFinish{
-					Run:           run,
-					ExpectedState: "CANCEL_REQUESTED",
-					State:         "CANCELLED",
-					AtMS:          now,
-					EventJSON: jobEvent(
-						run,
-						1,
-						"",
-					),
-				},
-			); err != nil {
-				return fmt.Errorf("persist upload transition: %w", err)
-			}
-			stopped, cancelled = true, true
-			return nil
-		}
-		if job.State != "RUNNING" {
-			stopped = true
-			return nil
-		}
-		return work(scope, current)
-	})
-	if err != nil {
-		return false, fmt.Errorf("write upload finalization: %w", err)
+func (claim *finalizationClaim) prepare(
+	ctx context.Context, scope WriteScope, current SessionState, job Job, now int64,
+) error {
+	claim.Input, claim.Cause = decodeFinalization(job)
+	if claim.Cause == nil && claim.Input.Inputs.FinalizationNo != current.FinalizationNo {
+		claim.Cause = ErrInputInvalid
 	}
-	if cancelled {
-		cleanup.RemoveAll(filepath.Join(service.dataDir, "tmp", "uploads", run.UploadID))
+	if claim.Cause == nil {
+		files, err := scope.Finalize.Manifest(ctx, current.ID)
+		if err != nil {
+			return finalizationError("read frozen upload files", err)
+		}
+		claim.Cause = validateFinalizationFiles(claim.Input, files)
 	}
-	return stopped, nil
+	switch {
+	case job.State == "CANCEL_REQUESTED":
+		claim.Cause = context.Canceled
+	case job.Deadline > 0 && job.Deadline <= now:
+		claim.Cause = context.DeadlineExceeded
+	case job.Attempt >= job.MaxAttempts:
+		claim.Cause = ErrAttemptsExhausted
+	}
+	if claim.Cause != nil {
+		claim.Run.Attempt = job.Attempt
+	}
+	if claim.Run.Deadline == 0 {
+		claim.Run.Deadline = now + finalizationTimeout.Milliseconds()
+	}
+	return nil
 }
 
-func (service *Service) fail(ctx context.Context, run Run, cause error) error {
-	if ctx.Err() != nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
+func (claim *finalizationClaim) acquire(
+	ctx context.Context, scope WriteScope, current SessionState, job Job, now int64,
+) error {
+	if current.State == "FAILED" {
+		progress := SessionProgress{ID: current.ID, State: "FINALIZING", ExpectedVersion: current.Version, AtMS: now}
+		if err := scope.Sessions.Advance(ctx, progress); err != nil {
+			return finalizationError("resume upload session", err)
+		}
+		if err := scope.Files.MarkFinalizing(ctx, current.ID, now); err != nil {
+			return finalizationError("resume upload files", err)
+		}
 	}
-	code := "UPLOAD_FINALIZE_IO"
-	if errors.Is(cause, errPartMissing) {
-		code = "UPLOAD_PART_MISSING"
+	input := JobClaim{Run: claim.Run, Version: job.Version, AtMS: now, EventJSON: finalizationEvent(claim.Run, "", nil)}
+	claimed, err := scope.Jobs.Claim(ctx, input)
+	claim.Acquired = claimed
+	return finalizationError("claim finalize job", err)
+}
+
+func (service *Service) Run(parent context.Context, id string) error {
+	claim, err := service.claim(parent, id)
+	if err != nil || !claim.Acquired {
+		return err
 	}
-	if errors.Is(cause, errPartCorrupt) {
-		code = "UPLOAD_PART_CORRUPT"
+	if claim.Cause != nil {
+		return errors.Join(claim.Cause, service.fail(parent, claim.Run, claim.Cause))
 	}
-	_, err := service.finalizeWrite(ctx, run, func(scope WriteScope, current SessionState) error {
+	remaining := time.Duration(claim.Run.Deadline-service.now().UnixMilli()) * time.Millisecond
+	ctx, timeout := context.WithTimeout(parent, remaining)
+	defer timeout()
+	ctx, cancel := context.WithCancelCause(ctx)
+	stopped := make(chan struct{})
+	go service.monitor(ctx, cancel, claim.Run, stopped)
+	defer func() { cancel(nil); <-stopped }()
+	err = service.finalizeFiles(ctx, claim)
+	cause := errors.Join(err, context.Cause(ctx))
+	if cause != nil {
+		return errors.Join(cause, service.fail(ctx, claim.Run, cause))
+	}
+	return nil
+}
+
+func (service *Service) monitor(ctx context.Context, cancel context.CancelCauseFunc, run Run, stopped chan<- struct{}) {
+	defer close(stopped)
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	last := service.now().UnixMilli()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 		now := service.now().UnixMilli()
-		if err := scope.Sessions.Finish(
-			ctx,
-			SessionFinish{
-				Run:             run,
-				State:           "FAILED",
-				ExpectedVersion: current.Version,
-				AtMS:            now,
-				ErrorCode:       &code,
-			},
-		); err != nil {
-			return fmt.Errorf("persist upload transition: %w", err)
+		err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+			job, err := scope.Jobs.Get(ctx, run.JobID)
+			if err != nil {
+				return finalizationError("observe upload job", err)
+			}
+			if job.State == "CANCEL_REQUESTED" && executionOwned(job, run) {
+				return context.Canceled
+			}
+			if err := executionActive(job, run, now); err != nil {
+				return finalizationError("observe upload job", err)
+			}
+			if now-last >= 15000 {
+				return scope.Leases.Refresh(ctx, run, now)
+			}
+			return nil
+		})
+		if err != nil {
+			cancel(fmt.Errorf("observe upload authority: %w", err))
+			return
 		}
-		if err := scope.Files.FailPending(ctx, PendingFailure{UploadID: run.UploadID, Code: code, AtMS: now}); err != nil {
-			return fmt.Errorf("persist upload transition: %w", err)
+		if now-last >= 15000 {
+			last = now
 		}
-		return scope.Jobs.Finish(
-			ctx,
-			JobFinish{
-				Run:           run,
-				ExpectedState: "RUNNING",
-				State:         "FAILED",
-				ErrorCode:     &code,
-				AtMS:          now,
-				EventJSON: jobEvent(
-					run,
-					1,
-					code,
-				),
-			},
-		)
-	})
-	return err
+	}
+}
+
+func (claim *finalizationClaim) reconcile(
+	ctx context.Context, scope WriteScope, current SessionState, job Job, now int64,
+) error {
+	input, err := decodeFinalization(job)
+	if err != nil {
+		return err
+	}
+	if input.Inputs.FinalizationNo != current.FinalizationNo {
+		return ErrExecutionLost
+	}
+	claim.Cancelled = true
+	return finishUploadCancellation(ctx, scope, claim.Run, current.Version, now)
 }

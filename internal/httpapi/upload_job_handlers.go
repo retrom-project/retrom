@@ -84,6 +84,10 @@ func (server *Server) completeUpload(writer http.ResponseWriter, request *http.R
 	}
 	jobID, finalization, err := server.uploads.Complete(request.Context(), request.PathValue("uploadId"), version)
 	if err != nil {
+		if !errors.Is(err, uploads.ErrInvalid) && !errors.Is(err, uploads.ErrNotFound) {
+			server.databaseError(writer, request, err)
+			return
+		}
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "上传状态或版本已经变化", map[string]any{})
 		return
 	}

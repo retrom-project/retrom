@@ -37,19 +37,25 @@ func TestStaleFinalizationCannotWriteNewRound(t *testing.T) {
 }
 
 func TestFinalizeClaimFailurePreservesCause(t *testing.T) {
-	jobID := "job"
 	failure := errors.New("storage unavailable")
-	repository := &workerRepository{
-		current: SessionState{ID: "upload", State: "FINALIZING", FinalizationNo: 1, FinalizeJobID: &jobID},
-		job:     Job{ID: jobID, State: "QUEUED", ExecutionNo: 1}, claimError: failure,
+	created, err := prepareFinalization("upload", 1, finalizationTestNow().UnixMilli(), nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	err := New(repository, nil, "", time.Now).runFinalization(t.Context(), Run{
-		UploadID: "upload", JobID: jobID, FinalizationNo: 1, ExecutionNo: 1,
-	})
+	repository := &workerRepository{
+		current: SessionState{ID: "upload", State: "FINALIZING", FinalizationNo: 1, FinalizeJobID: &created.Run.JobID},
+		job: Job{
+			ID: created.Run.JobID, State: "QUEUED", ExecutionNo: 1, Kind: "UPLOAD_FINALIZE", Scope: "UPLOAD_SESSION", ScopeID: "upload",
+			Input: string(created.InputJSON), InputDigest: created.InputDigest, MaxAttempts: 2,
+		}, claimError: failure,
+	}
+	err = New(repository, nil, "", finalizationTestNow).Run(t.Context(), created.Run.JobID)
 	if !errors.Is(err, failure) {
 		t.Fatalf("claim failure lost or finalizer continued: %v", err)
 	}
 }
+
+func finalizationTestNow() time.Time { return time.Date(2028, 3, 4, 5, 6, 7, 0, time.UTC) }
 
 func TestPartReaderChecksActualBytesAndCancellation(t *testing.T) {
 	sum := sha256.Sum256([]byte("bytes"))
@@ -79,7 +85,7 @@ type workerRepository struct {
 }
 
 func (repository *workerRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
-	return work(WriteScope{Sessions: workerSessions{current: repository.current}, Jobs: workerJobs{repository: repository}})
+	return work(WriteScope{Sessions: workerSessions{current: repository.current}, Jobs: workerJobs{repository: repository}, Finalize: workerFinalize{}})
 }
 
 type workerSessions struct {
@@ -117,3 +123,7 @@ func TestPartReceivePreservesReadFailure(t *testing.T) {
 type failedPartBody struct{ failure error }
 
 func (body failedPartBody) Read([]byte) (int, error) { return 0, body.failure }
+
+type workerFinalize struct{ FinalizationRecords }
+
+func (workerFinalize) Manifest(context.Context, string) ([]FrozenFile, error) { return nil, nil }
