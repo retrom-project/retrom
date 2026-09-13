@@ -363,6 +363,12 @@ data/
 
 批次丢弃只解除指定导入批次的流程引用，按[导入与审核](./import-and-review.md)收口正在执行和未发布的条目，再投递既有 PAYLOAD_RELEASE。内部上传尚无 ImportJob/consumer 的孤立信封可在该批次停止后删除，CAS bytes 仍由来源引用保护到 release。发布 Game、其他批次及活跃 Launch 的共享引用继续参与保护检查；服务器外部来源文件不删除。完成丢弃不等于磁盘立即腾空，无引用 Blob 沿用默认 7 天 GC 宽限；release 失败仍通过任务中心重试。验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
 
+`PAYLOAD_RELEASE` 与 `BLOB_GC` 的领取、执行监测、恢复及结果策略由 `internal/service/payloadrelease.Worker` 负责，Repository 在短事务中保存任务、事件、审计及必要的 owner 失败状态。每次领取使用独立 worker 身份、60 秒租约和 15 秒续期，自动重试与过期恢复保留最初的 30 分钟 execution 期限；恢复不接管未过期租约，每轮最多处理 100 条。达到最大 attempt 或原期限时失败收口；损坏的输入在领取后不可重试地失败，不能永远堵在队首。手动重试创建新 execution 并清空旧执行预算，包括立即 GC 入口。
+
+每个释放事务在开始及提交前校验最初的 execution、worker、输入快照、租约和期限；结果收口也比较相同身份与当前版本。被替换或过期的 worker 不得释放引用、改写新执行或追加终态证据。任务、事件或审计写入失败，包括受影响记录数无法确认，必须回滚本次事务；已经释放的 owner 不因后续恢复错误退回未释放状态。
+
+worker 启动幂等，队列与恢复维护独立运行；关闭会取消并等待活动执行、监测和维护退出。调用方较短的 deadline 或进程关闭不改变原 execution 期限，清理使用独立有界上下文，在仍持有权限时保留可恢复任务。
+
 ## 8. 备份与恢复
 
 离线维护由 `internal/service/maintenance` 编排，数据库连接、检查点、lineage 和引用清单查询归 `internal/persistence/maintenance`。Service 验证完整文件清单、摘要与依赖配置后，才通过一个恢复事务撤销访问、停止外部来源任务与快速审批并写入审计；时刻由同一可注入时钟给出。数据库取消保留原始原因，清单只接受一个完整 JSON 值，尾随第二个值或垃圾内容必须拒绝。

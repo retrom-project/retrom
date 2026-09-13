@@ -166,9 +166,10 @@ SELECT job_id,?,input_json,input_digest,? FROM job_input_snapshots WHERE job_id=
 		return fmt.Errorf("payloadrelease/retry immediate GC input: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
-UPDATE jobs SET state='QUEUED',execution_no=?,attempt_count=0,available_at_ms=?,finished_at_ms=NULL,
+UPDATE jobs SET state='QUEUED',execution_no=?,payload_json=?,attempt_count=0,available_at_ms=?,finished_at_ms=NULL,
+execution_started_at_ms=NULL,execution_deadline_at_ms=NULL,worker_id=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL,
 error_code=NULL,error_retryable=NULL,version=version+1,updated_at_ms=? WHERE id=? AND state='FAILED'
-`, nextExecution, now, now, candidate.jobID); err != nil {
+`, nextExecution, fmt.Sprintf(`{"inputExecutionNo":%d}`, nextExecution), now, now, candidate.jobID); err != nil {
 		return fmt.Errorf("payloadrelease/retry immediate GC job: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -383,6 +384,9 @@ func (service *Service) executeBlobGC(ctx context.Context, job claimedJob) error
 		return fmt.Errorf("payloadrelease/GC transaction: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
+	if err := service.fenceWork(ctx, transaction, job); err != nil {
+		return err
+	}
 	protected, err := blobregistry.ProtectiveSet(ctx, transaction)
 	if err != nil {
 		return fmt.Errorf("payloadrelease/GC protection: %w", err)
@@ -391,7 +395,7 @@ func (service *Service) executeBlobGC(ctx context.Context, job claimedJob) error
 		if _, err := transaction.ExecContext(ctx, `DELETE FROM blob_gc_candidates WHERE blob_id=?`, job.ScopeID); err != nil {
 			return fmt.Errorf("payloadrelease/GC cancel candidate: %w", err)
 		}
-		if err := transaction.Commit(); err != nil {
+		if err := service.commitWork(ctx, transaction, job); err != nil {
 			return fmt.Errorf("payloadrelease/GC cancel commit: %w", err)
 		}
 		return nil
@@ -407,7 +411,7 @@ func (service *Service) executeBlobGC(ctx context.Context, job claimedJob) error
 	if _, err := transaction.ExecContext(ctx, `DELETE FROM blobs WHERE id=?`, job.ScopeID); err != nil {
 		return fmt.Errorf("payloadrelease/GC blob: %w", err)
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := service.commitWork(ctx, transaction, job); err != nil {
 		return fmt.Errorf("payloadrelease/GC commit: %w", err)
 	}
 	path := service.blobs.Path(job.Input.Inputs.SHA256)

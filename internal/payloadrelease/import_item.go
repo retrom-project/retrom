@@ -19,6 +19,9 @@ func (service *Service) releaseImportItem(ctx context.Context, job claimedJob) e
 		return fmt.Errorf("payloadrelease/import item transaction: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
+	if err := service.fenceWork(ctx, transaction, job); err != nil {
+		return err
+	}
 	var state, payloadState string
 	var version int64
 	var releaseJob sql.NullString
@@ -56,7 +59,7 @@ SELECT state,version,payload_state,payload_release_job_id FROM import_items WHER
 	); err != nil {
 		return err
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := service.commitWork(ctx, transaction, job); err != nil {
 		return fmt.Errorf("payloadrelease/import item commit: %w", err)
 	}
 	return nil

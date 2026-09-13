@@ -60,6 +60,9 @@ func (service *Service) releaseSourceImportItem(
 		return fmt.Errorf("payloadrelease/%s transaction: %w", spec.label, err)
 	}
 	defer dbexec.Rollback(transaction)
+	if err := service.fenceWork(ctx, transaction, job); err != nil {
+		return err
+	}
 	var state, payloadState string
 	var version int64
 	var retryable bool
@@ -91,7 +94,7 @@ FROM %s WHERE id=?
 	); err != nil {
 		return err
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := service.commitWork(ctx, transaction, job); err != nil {
 		return fmt.Errorf("payloadrelease/%s commit: %w", spec.label, err)
 	}
 	return nil

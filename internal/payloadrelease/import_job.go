@@ -18,6 +18,9 @@ func (service *Service) releaseImportJob(ctx context.Context, job claimedJob) er
 		return fmt.Errorf("payloadrelease/import job transaction: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
+	if err := service.fenceWork(ctx, transaction, job); err != nil {
+		return err
+	}
 	complete, err := ensureImportJobRelease(ctx, transaction, job)
 	if err != nil || complete {
 		return err
@@ -28,7 +31,7 @@ func (service *Service) releaseImportJob(ctx context.Context, job claimedJob) er
 	if err := service.releaseImportAggregate(ctx, transaction, job.ScopeID); err != nil {
 		return err
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := service.commitWork(ctx, transaction, job); err != nil {
 		return fmt.Errorf("payloadrelease/import job commit: %w", err)
 	}
 	return nil

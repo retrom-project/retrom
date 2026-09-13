@@ -61,6 +61,7 @@ VALUES('restart-consumption','restart-upload','restart-file','GAME_ASSET','resta
 	testassert.False(t, err != nil, err)
 	testassert.True(t, found)
 	testassert.Falsef(t, claimed.ID != jobID, "claimed job = %s, want %s", claimed.ID, jobID)
+	now = now.Add(time.Minute + time.Millisecond)
 	testassert.False(t, service.recoverInterruptedJobs(ctx) != nil)
 
 	didWork, err := service.RunOnce(ctx)

@@ -23,6 +23,9 @@ func (service *Service) releaseGame(ctx context.Context, job claimedJob) error {
 		return fmt.Errorf("payloadrelease/game transaction: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
+	if err := service.fenceWork(ctx, transaction, job); err != nil {
+		return err
+	}
 	complete, err := ensureGameRelease(ctx, transaction, job, service.now().UnixMilli())
 	if err != nil || complete {
 		return err
@@ -30,7 +33,7 @@ func (service *Service) releaseGame(ctx context.Context, job claimedJob) error {
 	if err := service.releaseGamePayload(ctx, transaction, job.ScopeID); err != nil {
 		return err
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := service.commitWork(ctx, transaction, job); err != nil {
 		return fmt.Errorf("payloadrelease/game commit: %w", err)
 	}
 	return nil

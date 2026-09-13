@@ -3,18 +3,16 @@ package payloadrelease
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/cleanup"
+	repository "retrom/internal/persistence/payloadrelease"
+	application "retrom/internal/service/payloadrelease"
 
 	"retrom/internal/blobstore"
 )
-
-const executionTimeout = 30 * time.Minute
 
 var errGCRetentionInvalid = errors.New("GC_RETENTION_INVALID")
 
@@ -24,10 +22,7 @@ type Service struct {
 	now       func() time.Time
 	waitFor   func(context.Context, time.Duration) error
 	retention time.Duration
-	stop      chan struct{}
-	wake      chan struct{}
-	wait      sync.WaitGroup
-	closeOnce sync.Once
+	worker    *application.Worker
 }
 
 type claimedJob struct {
@@ -35,6 +30,7 @@ type claimedJob struct {
 	ScopeType   ScopeType
 	Attempt     int64
 	Input       scheduleInput
+	Work        application.Work
 }
 
 func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retention time.Duration) (*Service, error) {
@@ -47,10 +43,12 @@ func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retenti
 	if err := validateLifecycleState(context.Background(), database); err != nil {
 		return nil, err
 	}
-	return &Service{
-		database: database, blobs: blobs, now: now, waitFor: waitForContext, retention: retention,
-		stop: make(chan struct{}), wake: make(chan struct{}, 1),
-	}, nil
+	service := &Service{database: database, blobs: blobs, now: now, waitFor: waitForContext, retention: retention}
+	service.worker = application.NewWorker(
+		repository.NewWorker(database), releaseExecutor{service}, application.WorkerOptions{
+			Now: now, Maintain: service.ReconcileGC, Report: func(err error) { cleanup.Error("payload worker", err) },
+		})
+	return service, nil
 }
 
 func waitForContext(ctx context.Context, duration time.Duration) error {
@@ -64,38 +62,15 @@ func waitForContext(ctx context.Context, duration time.Duration) error {
 	}
 }
 
-func (service *Service) Start() {
-	_ = service.recoverInterruptedJobs(context.Background())
-	_ = service.ReconcileGC(context.Background())
-	service.wait.Add(1)
-	go service.loop()
-	service.Signal()
-}
-
+func (service *Service) Start() { service.worker.Start() }
 func (service *Service) recoverInterruptedJobs(ctx context.Context) error {
-	now := service.now().UnixMilli()
-	_, err := service.database.ExecContext(ctx, `
-UPDATE jobs SET state='QUEUED',worker_id=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL,
-execution_started_at_ms=NULL,execution_deadline_at_ms=NULL,available_at_ms=?,version=version+1,updated_at_ms=?
-WHERE kind IN ('PAYLOAD_RELEASE','BLOB_GC') AND state='RUNNING'
-	`, now, now)
-	if err != nil {
-		return fmt.Errorf("payloadrelease/recover interrupted: %w", err)
+	if err := service.worker.Recover(ctx); err != nil {
+		return fmt.Errorf("recover release worker: %w", err)
 	}
 	return nil
 }
-
-func (service *Service) Close() {
-	service.closeOnce.Do(func() { close(service.stop) })
-	service.wait.Wait()
-}
-
-func (service *Service) Signal() {
-	select {
-	case service.wake <- struct{}{}:
-	default:
-	}
-}
+func (service *Service) Close()  { service.worker.Close() }
+func (service *Service) Signal() { service.worker.Signal() }
 
 func (service *Service) ReconcileGC(ctx context.Context) error {
 	if err := service.releaseSupersededBIOS(ctx); err != nil {
@@ -113,91 +88,25 @@ func (service *Service) ReconcileGC(ctx context.Context) error {
 	return service.stageAllUnreferenced(ctx)
 }
 
-func (service *Service) loop() {
-	defer service.wait.Done()
-	poll := time.NewTicker(250 * time.Millisecond)
-	maintenance := time.NewTicker(time.Hour)
-	defer poll.Stop()
-	defer maintenance.Stop()
-	for {
-		select {
-		case <-service.stop:
-			return
-		case <-service.wake:
-		case <-poll.C:
-		case <-maintenance.C:
-			_ = service.ReconcileGC(context.Background())
-		}
-		for {
-			didWork, _ := service.RunOnce(context.Background())
-			if !didWork {
-				break
-			}
-		}
-	}
-}
-
-// RunOnce is deterministic for integration tests and processes at most one Job.
 func (service *Service) RunOnce(ctx context.Context) (bool, error) {
-	job, found, err := service.claim(ctx)
-	if err != nil || !found {
-		return found, err
+	did, err := service.worker.RunOnce(ctx)
+	if err != nil {
+		return did, fmt.Errorf("run release worker: %w", err)
 	}
-	executionContext, cancel := context.WithTimeout(ctx, executionTimeout)
-	err = service.execute(executionContext, job)
-	cancel()
-	if finishErr := service.finish(ctx, job, err); finishErr != nil {
-		return true, finishErr
-	}
-	return true, err
+	return did, nil
 }
 
-func (service *Service) claim(ctx context.Context) (claimedJob, bool, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return claimedJob{}, false, fmt.Errorf("payloadrelease/claim: %w", err)
+type releaseExecutor struct{ service *Service }
+
+func (adapter releaseExecutor) Execute(ctx context.Context, unit application.Execution) error {
+	return adapter.service.execute(ctx, claimedWork(unit))
+}
+
+func claimedWork(unit application.Execution) claimedJob {
+	return claimedJob{
+		ID: unit.Work.ID, ScopeID: unit.Work.Scope.ID, ScopeType: unit.Work.Scope.Type,
+		Attempt: unit.Work.Attempt, Input: unit.Input, Work: unit.Work,
 	}
-	defer dbexec.Rollback(transaction)
-	var job claimedJob
-	var inputJSON string
-	now := service.now().UnixMilli()
-	err = transaction.QueryRowContext(ctx, `
-SELECT job.id,job.scope_type,job.scope_id,job.attempt_count,input.input_json
-FROM jobs job JOIN job_input_snapshots input ON input.job_id=job.id AND input.execution_no=job.execution_no
-WHERE job.kind IN ('PAYLOAD_RELEASE','BLOB_GC') AND job.state='QUEUED' AND job.available_at_ms<=?
-ORDER BY job.available_at_ms,job.created_at_ms,job.id LIMIT 1
-`, now).Scan(&job.ID, &job.ScopeType, &job.ScopeID, &job.Attempt, &inputJSON)
-	if errors.Is(err, sql.ErrNoRows) {
-		return claimedJob{}, false, nil
-	}
-	if err != nil {
-		return claimedJob{}, false, fmt.Errorf("payloadrelease/claim query: %w", err)
-	}
-	if err := json.Unmarshal([]byte(inputJSON), &job.Input); err != nil {
-		return claimedJob{}, false, fmt.Errorf("payloadrelease/claim input: %w", err)
-	}
-	job.Attempt++
-	result, err := transaction.ExecContext(ctx, `
-UPDATE jobs SET state='RUNNING',attempt_count=?,worker_id='payload-release',execution_started_at_ms=?,
-execution_deadline_at_ms=?,leased_until_ms=?,heartbeat_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='QUEUED'
-`, job.Attempt, now, now+executionTimeout.Milliseconds(), now+executionTimeout.Milliseconds(), now, now, job.ID)
-	if err != nil {
-		return claimedJob{}, false, fmt.Errorf("payloadrelease/claim update: %w", err)
-	}
-	if rows, _ := result.RowsAffected(); rows != 1 {
-		return claimedJob{}, false, nil
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,?,?,'STARTED',json_object('schemaVersion',1,'executionNo',1,'attempt',?),?)
-`, job.ID, job.ScopeType, job.ScopeID, job.Attempt, now); err != nil {
-		return claimedJob{}, false, fmt.Errorf("payloadrelease/claim event: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return claimedJob{}, false, fmt.Errorf("payloadrelease/claim commit: %w", err)
-	}
-	return job, true, nil
 }
 
 func (service *Service) execute(ctx context.Context, job claimedJob) error {

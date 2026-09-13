@@ -77,6 +77,9 @@ func (service *Service) releaseConsumption(ctx context.Context, job claimedJob) 
 		return fmt.Errorf("payloadrelease/consumption transaction: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
+	if err := service.fenceWork(ctx, transaction, job); err != nil {
+		return err
+	}
 	var version int64
 	var released sql.NullInt64
 	var sessionID string
@@ -104,7 +107,7 @@ UPDATE upload_consumptions SET released_at_ms=?,release_reason=?,version=version
 	if err := service.stageCandidates(ctx, transaction, blobs); err != nil {
 		return err
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := service.commitWork(ctx, transaction, job); err != nil {
 		return fmt.Errorf("payloadrelease/consumption commit: %w", err)
 	}
 	return nil
