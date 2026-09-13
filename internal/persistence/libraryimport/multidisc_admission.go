@@ -22,7 +22,10 @@ func BindMultiDiscAdmission(executor dbexec.Executor) application.MultiDiscAttac
 	return multidiscAdmissionRecords{executor}
 }
 
-func (repository *MultiDiscAttachments) WithAttachmentAdmission(ctx context.Context, run func(application.MultiDiscAttachmentScope) error) error {
+func (repository *MultiDiscAttachments) WithAttachmentAdmission(
+	ctx context.Context,
+	run func(application.MultiDiscAttachmentScope) error,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin multi-disc attachment admission: %w", err)

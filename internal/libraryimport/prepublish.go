@@ -25,14 +25,6 @@ func nullStringPointer(value sql.NullString) *string {
 	return &valueCopy
 }
 
-func stringPointer(value string) *string {
-	if value == "" {
-		return nil
-	}
-	valueCopy := value
-	return &valueCopy
-}
-
 func preparedGroupContentKind(group preparedGroup) string {
 	return application.PreparedGroupContentKind(group)
 }

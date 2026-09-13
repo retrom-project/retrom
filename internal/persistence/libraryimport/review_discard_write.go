@@ -24,7 +24,7 @@ func requireDiscardMutation(result sql.Result, err error, action string) error {
 }
 
 func (records reviewDiscardRecords) DiscardItem(ctx context.Context, change application.ReviewDiscardChange) error {
-	transaction := records.transaction
+	transaction := records.executor
 	itemID, importID, now := change.ItemID, change.ImportID, change.NowMS
 	itemResult, itemErr := recordstore.UpdateImportItems(ctx, transaction, recordstore.Update{
 		Set: `

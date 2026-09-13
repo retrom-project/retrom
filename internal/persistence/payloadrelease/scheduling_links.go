@@ -15,21 +15,26 @@ func BindReleases(executor dbexec.Executor) application.ReleaseScope {
 	return application.ReleaseScope{Scheduling: BindScheduling(executor), Links: sourceReleaseReader{executor}}
 }
 
-func (reader sourceReleaseReader) RetainedSources(ctx context.Context, batch application.SourceBatch, after string, limit int) ([]string, error) {
+func (reader sourceReleaseReader) RetainedSources(
+	ctx context.Context, batch application.SourceBatch, after string, limit int,
+) ([]string, error) {
 	table := ""
 	switch batch.Type {
 	case application.ScopePegasusImportItem:
 		table = "pegasus_import_items"
 	case application.ScopeEmulationStationImportItem:
 		table = "emulationstation_import_items"
-	default:
+	case application.ScopeImportItem, application.ScopeImportJob,
+		application.ScopeUploadConsumption, application.ScopeGame, application.ScopeBlob:
 		return nil, application.ErrScopeInvalid
 	}
 	return CollectScopeIDs(ctx, reader.executor, `SELECT id FROM `+table+`
 WHERE import_id=? AND payload_state='RETAINED' AND id>? ORDER BY id LIMIT ?`, batch.ImportID, after, limit)
 }
 
-func (reader sourceReleaseReader) BoundSources(ctx context.Context, id string, after application.Scope, limit int) ([]application.Scope, error) {
+func (reader sourceReleaseReader) BoundSources(
+	ctx context.Context, id string, after application.Scope, limit int,
+) ([]application.Scope, error) {
 	rows, err := reader.executor.QueryContext(ctx, `WITH sources AS (
 SELECT 'PEGASUS_IMPORT_ITEM' AS kind,id FROM pegasus_import_items WHERE library_import_item_id=?
 UNION ALL SELECT 'EMULATIONSTATION_IMPORT_ITEM',id FROM emulationstation_import_items WHERE library_import_item_id=?

@@ -2,13 +2,10 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
-	"retrom/internal/dbexec"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 
@@ -143,17 +140,12 @@ func (service *Service) validateServerFiles(
 		if _, exists := seen[folded]; exists {
 			return nil, nil, 0, ErrInvalid
 		}
-		var size int64
-		err := service.database.QueryRowContext(
-			ctx,
-			`SELECT size_bytes FROM blobs WHERE id=?`,
-			file.BlobID,
-		).Scan(&size)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil, 0, ErrInvalid
-		}
+		size, found, err := librarypersistence.NewServerSourceUploads(service.database).BlobSize(ctx, file.BlobID)
 		if err != nil {
-			return nil, nil, 0, fmt.Errorf("read server source blob: %w", err)
+			return nil, nil, 0, fmt.Errorf("read reusable upload blob: %w", err)
+		}
+		if !found {
+			return nil, nil, 0, ErrInvalid
 		}
 		if size != file.SizeBytes {
 			return nil, nil, 0, ErrInvalid
@@ -172,26 +164,13 @@ func (service *Service) insertServerUpload(
 	uploadID, sourceType string,
 	files []reusableUploadFile,
 	digest string,
-	now, totalBytes int64,
+	now, _ int64,
 	ownerKind, ownerItemID string,
 ) error {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("libraryimport/server source: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	if err := insertClonedUpload(ctx, transaction, uploadID, sourceType, files, digest, now, totalBytes); err != nil {
-		return err
-	}
-	if ownerKind != "" {
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO server_import_upload_owners(upload_session_id,kind,source_item_id)
-VALUES(?,?,?)`, uploadID, ownerKind, ownerItemID); err != nil {
-			return fmt.Errorf("libraryimport/server source owner: %w", err)
-		}
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("libraryimport/server source: %w", err)
+	if err := librarypersistence.NewServerSourceUploads(service.database).Insert(
+		ctx, uploadID, sourceType, files, digest, now, ownerKind, ownerItemID,
+	); err != nil {
+		return fmt.Errorf("insert reusable server upload: %w", err)
 	}
 	return nil
 }

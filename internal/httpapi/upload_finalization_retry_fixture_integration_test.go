@@ -13,6 +13,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/libraryimport"
 	jobpersistence "retrom/internal/persistence/jobs"
@@ -20,11 +26,6 @@ import (
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"testing"
-	"time"
 )
 
 type uploadRetryFixture struct {
@@ -42,6 +43,7 @@ func (source *retryUploadBlobs) Put(reader io.Reader) (blobstore.Metadata, error
 	}
 	return source.blobs.Put(reader)
 }
+
 func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	t.Helper()
 	now := func() time.Time { return time.Date(2028, 3, 4, 5, 6, 7, 0, time.UTC) }
@@ -61,8 +63,10 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	}
 	uploader := uploads.New(uploadpersistence.New(database.SQL), &retryUploadBlobs{blobs: blobs}, root, now)
 	t.Cleanup(uploader.Close)
-	server := &Server{database: database.SQL, now: now, uploads: uploader, jobService: jobs.New(jobpersistence.New(database.SQL), now),
-		importer: libraryimport.New(database.SQL, now)}
+	server := &Server{
+		database: database.SQL, now: now, uploads: uploader, jobService: jobs.New(jobpersistence.New(database.SQL), now),
+		importer: libraryimport.New(database.SQL, now),
+	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	session, err := uploader.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{
 		{ClientFileID: "fixture", RelativePath: "fixture.bin", SizeBytes: 5},
@@ -93,6 +97,7 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	}
 	return fixture
 }
+
 func (fixture uploadRetryFixture) request(ctx context.Context, writer http.ResponseWriter) {
 	ctx = context.WithValue(ctx, operationIDContextKey, "postAdminJobRetry")
 	request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/admin/jobs/"+fixture.jobID+"/retry", strings.NewReader(`{}`))

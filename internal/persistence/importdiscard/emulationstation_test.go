@@ -35,7 +35,7 @@ func (f *fixture) emulationStationSource(t *testing.T, file libraryimport.Server
 	)
 	service.Start()
 	t.Cleanup(service.Close)
-	f.service = composition.NewImportDiscard(f.db, f.importer, nil, service, f.now)
+	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, service, f.now)
 	created, err := service.Create(f.ctx, emulationstationimport.CreateRequest{RootID: "games"}, adminID)
 	if err != nil {
 		t.Fatal(err)

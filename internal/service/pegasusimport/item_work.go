@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	payload "retrom/internal/service/payloadrelease"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
 )
 
 type (
@@ -175,8 +176,14 @@ func (service *ItemWork) Finish(
 		if err := scope.Write.Finish(ctx, ItemFinish{Before: before, Outcome: outcome, NowMS: now}); err != nil {
 			return fmt.Errorf("save Pegasus item outcome: %w", err)
 		}
-		_, err = payload.NewScheduler(nil).TerminalSource(ctx, scope.Payload.Scheduling, payload.Scope{Type: payload.ScopePegasusImportItem, ID: itemID}, now)
-		return err
+		_, err = payload.NewScheduler(nil).TerminalSource(
+			ctx, scope.Payload.Scheduling,
+			payload.Scope{Type: payload.ScopePegasusImportItem, ID: itemID}, now,
+		)
+		if err != nil {
+			return fmt.Errorf("schedule Pegasus item payloads: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("finish Pegasus item: %w", err)

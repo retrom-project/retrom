@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"errors"
 
 	application "retrom/internal/service/libraryimport"
 )
@@ -31,7 +30,7 @@ func (service *Service) prepareDOSFiles(
 var (
 	ErrInvalid                        = application.ErrInvalid
 	ErrVersionConflict                = application.ErrVersionConflict
-	ErrReimportRequiredPlatformChange = errors.New("REIMPORT_REQUIRED_FOR_PLATFORM_CHANGE")
+	ErrReimportRequiredPlatformChange = application.ErrReimportRequiredPlatformChange
 	ErrMultiDiscModeUnavailable       = application.ErrMultiDiscModeUnavailable
 	ErrMultiDiscPlaylistMissing       = application.ErrMultiDiscPlaylistMissing
 )

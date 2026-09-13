@@ -18,6 +18,13 @@ func WithJobCancellation(service *jobs.Service, database *sql.DB, now func() tim
 	}})
 }
 
+// NewImportBatchCancellations composes the aggregate cancellation use case
+// with the persistence adapter. The legacy libraryimport facade uses this
+// constructor while callers migrate to the application port.
+func NewImportBatchCancellations(database *sql.DB, now func() time.Time) *application.ImportBatchCancellations {
+	return application.NewImportBatchCancellations(repository.NewImportBatchCancellations(database), now)
+}
+
 type importCancellation struct{ executions *application.ImportExecutions }
 
 func (handler importCancellation) CancelJob(
@@ -30,10 +37,8 @@ func (handler importCancellation) CancelJob(
 	result, err := handler.executions.CancelJob(
 		ctx,
 		application.ImportJobCancellation{
-			JobID:           request.JobID,
-			ImportID:        request.ScopeID,
-			ExpectedVersion: request.ExpectedVersion,
-			Reason:          request.Reason,
+			JobID: request.JobID, ImportID: request.ScopeID,
+			ExpectedVersion: request.ExpectedVersion, Reason: request.Reason,
 		},
 	)
 	if err != nil {
@@ -43,10 +48,7 @@ func (handler importCancellation) CancelJob(
 		return jobs.Result{}, false, fmt.Errorf("cancel ordinary import job: %w", err)
 	}
 	return jobs.Result{
-		Kind:        "IMPORT_GROUP",
-		JobID:       result.JobID,
-		State:       result.State,
-		ExecutionNo: result.ExecutionNo,
-		Version:     result.Version,
+		Kind: "IMPORT_GROUP", JobID: result.JobID, State: result.State,
+		ExecutionNo: result.ExecutionNo, Version: result.Version,
 	}, result.Pending, nil
 }

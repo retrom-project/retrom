@@ -96,6 +96,7 @@ type (
 		Consumed          bool
 	}
 )
+
 type (
 	MultiDiscAttachmentActivity struct{ Active, Retryable int64 }
 	MultiDiscAttachmentWrite    struct {
@@ -105,6 +106,7 @@ type (
 		AuditJSON                                         string
 	}
 )
+
 type MultiDiscAttachmentReader interface {
 	Admission(context.Context, string) (MultiDiscAttachmentAdmission, bool, error)
 	Head(context.Context, string) (MultiDiscAttachmentHead, bool, error)

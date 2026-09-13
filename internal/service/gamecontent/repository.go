@@ -15,14 +15,33 @@ type ReadScope struct {
 	Content Reader
 	Inputs  InputReader
 	BIOS    validation.Repository
+	Admin   AdminGameReader
 }
 type WriteScope struct {
 	ReadScope
-	Replays       ReplayRecords
-	Jobs          JobWriter
-	Leases        LeaseRecords
-	ContentWriter ContentWriter
-	Retirements   RetirementScope
+	Replays            ReplayRecords
+	Jobs               JobWriter
+	Leases             LeaseRecords
+	ContentWriter      ContentWriter
+	Retirements        RetirementScope
+	AdminWriter        AdminGameWriter
+	GameDeletionReader DeleteGameReader
+	GameDeletionWriter DeleteGameWriter
+}
+
+// AdminGameReader provides the complete detail projection used by the
+// administrative game endpoint. The projection is read in one persistence
+// snapshot so the game, files, assets, and variants agree with one another.
+type AdminGameReader interface {
+	AdminGame(context.Context, string) (AdminGameDetail, error)
+}
+
+// AdminGameWriter owns the transaction-bound state transition for an
+// administrative metadata patch. SQL and audit persistence stay behind this
+// port while the service applies the patch to the current snapshot.
+type AdminGameWriter interface {
+	LoadPatchState(context.Context, string) (AdminGamePatchState, error)
+	UpdatePatch(context.Context, AdminGamePatchUpdate) (bool, error)
 }
 type Reader interface {
 	Binding(context.Context, string) (Binding, error)

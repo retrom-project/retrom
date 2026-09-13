@@ -23,6 +23,10 @@ func New(database *sql.DB) *Repository { return &Repository{database: database} 
 // Bind returns business capabilities bound to a caller-owned transaction. It never commits it.
 func Bind(transaction *sql.Tx) tagging.WriteScope { return writeScope(transaction) }
 
+// BindExecutor returns business capabilities bound to a caller-owned
+// transaction or connection. It never commits it.
+func BindExecutor(executor dbexec.Executor) tagging.WriteScope { return writeScope(executor) }
+
 func writeScope(database dbexec.Executor) tagging.WriteScope {
 	records := tagRecords{database}
 	return tagging.WriteScope{

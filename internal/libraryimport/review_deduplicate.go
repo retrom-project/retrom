@@ -2,18 +2,14 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"fmt"
-	"strings"
 
-	"retrom/internal/dbexec"
-	librarypersistence "retrom/internal/persistence/libraryimport"
+	librarycomposition "retrom/internal/composition/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 )
-
-const reviewDeduplicatePageSize = 50
 
 type ReviewDeduplicateRequest struct {
 	Scope         ReviewBulkScope `json:"scope"`
@@ -59,59 +55,27 @@ func (service *Service) DeduplicateReviews(
 	if err != nil {
 		return result, err
 	}
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return result, fmt.Errorf("libraryimport/deduplicate: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	through := sql.NullString{String: request.ThroughItemID, Valid: request.ThroughItemID != ""}
-	if !through.Valid {
-		if err := transaction.QueryRowContext(ctx,
-			`SELECT max(id) FROM import_items WHERE state='REVIEW_PENDING'`,
-		).Scan(&through); err != nil {
-			return result, fmt.Errorf("libraryimport/deduplicate upper bound: %w", err)
-		}
-	}
-	if !through.Valid {
-		return result, nil
-	}
-	result.ThroughItemID = &through.String
-	query, arguments := reviewBulkCandidatesQuery(request.Scope)
-	query = strings.TrimSuffix(query, " ORDER BY item.id") + " AND item.id>? AND item.id<=? ORDER BY item.id LIMIT ?"
-	arguments = append(arguments, request.AfterItemID, through.String, reviewDeduplicatePageSize+1)
-	candidates, err := scanReviewBulkCandidateQuery(ctx, transaction, query, arguments)
-	if err != nil {
-		return ReviewDeduplicateResult{}, err
-	}
-	if len(candidates) > reviewDeduplicatePageSize {
-		candidates = candidates[:reviewDeduplicatePageSize]
-		result.NextAfterItemID = &candidates[len(candidates)-1].itemID
-	}
-	for _, candidate := range candidates {
-		result.ScannedCount++
-		if candidate.attachmentActive {
-			result.AttachmentActiveCount++
-			continue
-		}
-		duplicates, err := findDuplicateGames(ctx, transaction, candidate.itemID, candidate.platformID)
-		if err != nil {
-			return ReviewDeduplicateResult{}, err
-		}
-		if len(duplicates) == 0 {
-			continue
-		}
-		if _, err := service.reviewDiscards().DiscardInScope(
-			ctx, librarypersistence.BindReviewDiscard(transaction), libraryservice.ReviewDiscardRequest{
-				ItemID: candidate.itemID, ExpectedVersion: candidate.reviewVersion,
-				Reason: "快速去重：游戏内容已发布", Mode: libraryservice.ReviewDiscardSingle,
+	value, err := librarycomposition.NewReviewDeduplicator(service.database, service.now).Deduplicate(
+		ctx, libraryservice.ReviewDeduplicateRequest{
+			Scope: libraryservice.ReviewBulkScope{
+				Q: request.Scope.Q, TagID: request.Scope.TagID, ImportJobID: request.Scope.ImportJobID,
+				PegasusImportID:          request.Scope.PegasusImportID,
+				EmulationStationImportID: request.Scope.EmulationStationImportID,
+				PlatformInstanceID:       request.Scope.PlatformInstanceID,
+				BlockerCode:              request.Scope.BlockerCode,
 			},
-		); err != nil {
-			return ReviewDeduplicateResult{}, fmt.Errorf("libraryimport/deduplicate discard: %w", err)
+			AfterItemID: request.AfterItemID, ThroughItemID: request.ThroughItemID,
+		},
+	)
+	if err != nil {
+		if errors.Is(err, libraryservice.ErrReviewBulkQuery) {
+			return ReviewDeduplicateResult{}, ErrReviewBulkInvalidScope
 		}
-		result.DiscardedCount++
+		return ReviewDeduplicateResult{}, fmt.Errorf("libraryimport/deduplicate: %w", err)
 	}
-	if err := transaction.Commit(); err != nil {
-		return ReviewDeduplicateResult{}, fmt.Errorf("libraryimport/deduplicate commit: %w", err)
-	}
-	return result, nil
+	return ReviewDeduplicateResult{
+		ScannedCount: value.ScannedCount, DiscardedCount: value.DiscardedCount,
+		AttachmentActiveCount: value.AttachmentActiveCount, NextAfterItemID: value.NextAfterItemID,
+		ThroughItemID: value.ThroughItemID,
+	}, nil
 }

@@ -8,14 +8,6 @@ CREATE TABLE metadata_media_runs (
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms)
 );
 
-ALTER TABLE scrape_candidate_assets ADD COLUMN media_fetch_job_id TEXT REFERENCES jobs(id);
-ALTER TABLE scrape_candidate_assets ADD COLUMN media_fetch_order INTEGER
-  CHECK(media_fetch_order IS NULL OR media_fetch_order>=0);
-ALTER TABLE scrape_candidate_assets ADD COLUMN media_charged_bytes INTEGER NOT NULL DEFAULT 0
-  CHECK(media_charged_bytes BETWEEN 0 AND 104857600);
-ALTER TABLE scrape_candidate_assets ADD COLUMN media_reserved_bytes INTEGER NOT NULL DEFAULT 0
-  CHECK(media_reserved_bytes BETWEEN 0 AND 10485761 AND media_reserved_bytes<=media_charged_bytes);
-
 CREATE UNIQUE INDEX scrape_candidate_assets_media_job ON scrape_candidate_assets(media_fetch_job_id)
   WHERE media_fetch_job_id IS NOT NULL;
 CREATE INDEX scrape_candidate_assets_media_order ON scrape_candidate_assets(scrape_candidate_id,media_fetch_order);

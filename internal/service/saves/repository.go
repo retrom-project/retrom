@@ -2,6 +2,7 @@ package saves
 
 import (
 	"context"
+	"errors"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/runtimebundle"
@@ -11,6 +12,53 @@ type Repository interface {
 	LoadLaunch(context.Context, string) (Launch, error)
 	Restore(context.Context, string) (Restore, error)
 	WithWrite(context.Context, func(WriteScope) error) error
+}
+
+// ListRepository owns the administrator-facing save list projection. It is
+// kept separate from the checkpoint write boundary so existing launch/save
+// implementations can opt into the read path independently.
+type ListRepository interface {
+	List(context.Context, ListQuery) ([]ListItem, error)
+}
+
+// StateMutationRepository owns optimistic-concurrency mutations for saved
+// checkpoints exposed by the HTTP API.
+type StateMutationRepository interface {
+	Rename(context.Context, RenameRequest) error
+	Delete(context.Context, DeleteRequest) error
+}
+
+var (
+	ErrRepositoryUnavailable = errors.New("SAVE_REPOSITORY_UNAVAILABLE")
+	ErrNotFound              = errors.New("SAVE_STATE_NOT_FOUND")
+	ErrVersionConflict       = errors.New("SAVE_VERSION_CONFLICT")
+)
+
+type ListQuery struct {
+	ProfileID, Query, GameID, PlatformID, PlatformInstanceID, CoreID string
+	Availability                                                     string
+	CursorCreatedAtMS                                                *int64
+	CursorID                                                         string
+	Limit                                                            int
+}
+
+type ListItem struct {
+	ID, GameID, GameTitle, Name, CoreID, CoreName, GameStatus string
+	PlatformID, PlatformName, InstanceID, InstanceName        string
+	CompatibilityStatus                                       string
+	Version, CreatedAtMS, ActiveDurationMS, SizeBytes         int64
+	HasScreenshot                                             bool
+	DiscIndex, LastSyncedAtMS                                 *int64
+}
+
+type RenameRequest struct {
+	SaveStateID, ProfileID, Name string
+	ExpectedVersion, UpdatedAtMS int64
+}
+
+type DeleteRequest struct {
+	SaveStateID, ProfileID       string
+	ExpectedVersion, UpdatedAtMS int64
 }
 type WriteScope struct {
 	Launches    LaunchReader

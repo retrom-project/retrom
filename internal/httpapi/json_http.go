@@ -3,7 +3,6 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,10 +15,6 @@ import (
 	"unicode/utf8"
 
 	"retrom/internal/service/mediaaccess"
-
-	"retrom/internal/dbexec"
-
-	"retrom/internal/cleanup"
 )
 
 func decodeJSON(writer http.ResponseWriter, request *http.Request, target any, limit int64) error {
@@ -143,29 +138,19 @@ func (parser lexicalJSONParser) consumeClosing(opening json.Delim) error {
 	return nil
 }
 
-func nullableString(value sql.NullString) any {
-	if value.Valid {
-		return value.String
-	}
-	return nil
-}
-
-func gameCoverURL(assetID sql.NullString) any {
-	if assetID.Valid {
-		return "/content/assets/" + assetID.String
-	}
-	return nil
-}
-
 func saveStateScreenshotURL(saveStateID string) string {
 	return "/content/save-states/" + saveStateID + "/screenshot"
 }
 
 func (server *Server) reviewCandidateAsset(writer http.ResponseWriter, request *http.Request) {
-	asset, err := server.mediaAccess.Review(request.Context(), request.PathValue("assetId"), request.URL.Query().Get("kind"))
+	asset, err := server.mediaAccess.Review(
+		request.Context(), request.PathValue("assetId"), request.URL.Query().Get("kind"),
+	)
 	switch {
 	case errors.Is(err, mediaaccess.ErrKind):
-		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "审核来源媒体类型无效", map[string]any{})
+		writeError(
+			writer, request, http.StatusBadRequest, "INVALID_QUERY", "审核来源媒体类型无效", map[string]any{},
+		)
 		return
 	case errors.Is(err, mediaaccess.ErrNotFound):
 		writeError(writer, request, http.StatusNotFound, "REVIEW_ASSET_NOT_FOUND", "候选媒体不存在", map[string]any{})
@@ -179,135 +164,38 @@ func (server *Server) reviewCandidateAsset(writer http.ResponseWriter, request *
 
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) diagnostics(writer http.ResponseWriter, request *http.Request) {
-	transaction, err := server.database.BeginTx(request.Context(), &sql.TxOptions{ReadOnly: true})
+	report, err := server.diagnosticsService.Report(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer dbexec.Rollback(transaction)
-	var schemaVersion int64
-	if err := transaction.QueryRowContext(request.Context(), `
-SELECT COALESCE(MAX(version),
-0)
-FROM schema_migrations
-`).Scan(&schemaVersion); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	var publishedGames, deletedGames, activeSaves, deletedSaves, blobCount int64
-	var queuedJobs, runningJobs, cancelRequestedJobs, succeededJobs, failedJobs, cancelledJobs int64
-	var pendingDATs, parsingDATs, readyDATs, failedDATs, cancelledDATs int64
-	err = transaction.QueryRowContext(request.Context(), `
-SELECT
-(SELECT count(*)
-FROM games
-WHERE status='PUBLISHED'),
-(SELECT count(*)
-FROM games
-WHERE status='DELETED'),
-(SELECT count(*)
-FROM save_states
-WHERE deleted_at_ms IS NULL),
-(SELECT count(*)
-FROM save_states
-WHERE deleted_at_ms IS NOT NULL),
-(SELECT count(*)
-FROM blobs),
-(SELECT count(*)
-FROM jobs
-WHERE state='QUEUED'),
-(SELECT count(*)
-FROM jobs
-WHERE state='RUNNING'),
-(SELECT count(*)
-FROM jobs
-WHERE state='CANCEL_REQUESTED'),
-(SELECT count(*)
-FROM jobs
-WHERE state='SUCCEEDED'),
-(SELECT count(*)
-FROM jobs
-WHERE state='FAILED'),
-(SELECT count(*)
-FROM jobs
-WHERE state='CANCELLED'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='PENDING'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='PARSING'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='READY'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='FAILED'),
-(SELECT count(*)
-FROM dat_versions
-WHERE parse_status='CANCELLED')
-`).Scan(
-		&publishedGames, &deletedGames, &activeSaves, &deletedSaves, &blobCount,
-		&queuedJobs, &runningJobs, &cancelRequestedJobs, &succeededJobs, &failedJobs, &cancelledJobs,
-		&pendingDATs, &parsingDATs, &readyDATs, &failedDATs, &cancelledDATs,
-	)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	providerRows, err := transaction.QueryContext(request.Context(), `
-SELECT provider_id,provider_version,bundle_sha256,source
-FROM runtime_providers ORDER BY provider_id
-`)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer func() { cleanup.Error("close provider rows", providerRows.Close()) }()
-	runtimeProviders := make([]map[string]any, 0, 2)
-	for providerRows.Next() {
-		var providerID, providerVersion, bundleSHA256, source string
-		if err := providerRows.Scan(&providerID, &providerVersion, &bundleSHA256, &source); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
+	runtimeProviders := make([]map[string]any, 0, len(report.RuntimeProviders))
+	for _, provider := range report.RuntimeProviders {
 		runtimeProviders = append(runtimeProviders, map[string]any{
-			"providerId": providerID, "providerVersion": providerVersion,
-			"bundleSha256": bundleSHA256, "source": source,
+			"providerId": provider.ProviderID, "providerVersion": provider.ProviderVersion,
+			"bundleSha256": provider.BundleSHA256, "source": provider.Source,
 		})
 	}
-	providerErr := providerRows.Err()
-	if providerErr != nil {
-		server.databaseError(writer, request, providerErr)
-		return
-	}
-	if err := transaction.Commit(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
+	counts := report.Counts
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.Header().Set("Content-Disposition", `attachment; filename="retrom-diagnostics.json"`)
 	writeJSON(writer, http.StatusOK, map[string]any{
-		"schemaVersion": 2, "generatedAtMs": server.now().UnixMilli(), "databaseSchemaVersion": schemaVersion,
-		"runtimeProviders": runtimeProviders,
+		"schemaVersion": 2, "generatedAtMs": server.now().UnixMilli(),
+		"databaseSchemaVersion": report.DatabaseSchemaVersion,
+		"runtimeProviders":      runtimeProviders,
 		"counts": map[string]any{
-			"games":      map[string]any{"published": publishedGames, "deleted": deletedGames},
-			"saveStates": map[string]any{"active": activeSaves, "deleted": deletedSaves},
-			"blobs":      blobCount,
+			"games":      map[string]any{"published": counts.PublishedGames, "deleted": counts.DeletedGames},
+			"saveStates": map[string]any{"active": counts.ActiveSaves, "deleted": counts.DeletedSaves},
+			"blobs":      counts.Blobs,
 			"jobs": map[string]any{
-				"queued":          queuedJobs,
-				"running":         runningJobs,
-				"cancelRequested": cancelRequestedJobs,
-				"succeeded":       succeededJobs,
-				"failed":          failedJobs,
-				"cancelled":       cancelledJobs,
+				"queued": counts.QueuedJobs, "running": counts.RunningJobs,
+				"cancelRequested": counts.CancelRequestedJobs, "succeeded": counts.SucceededJobs,
+				"failed": counts.FailedJobs, "cancelled": counts.CancelledJobs,
 			},
 			"datVersions": map[string]any{
-				"pending":   pendingDATs,
-				"parsing":   parsingDATs,
-				"ready":     readyDATs,
-				"failed":    failedDATs,
-				"cancelled": cancelledDATs,
+				"pending": counts.PendingDATs, "parsing": counts.ParsingDATs,
+				"ready": counts.ReadyDATs, "failed": counts.FailedDATs,
+				"cancelled": counts.CancelledDATs,
 			},
 		},
 	})
@@ -329,7 +217,9 @@ func (server *Server) databaseError(writer http.ResponseWriter, request *http.Re
 		"error",
 		err,
 	)
-	writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "数据库操作失败", map[string]any{})
+	writeError(
+		writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "数据库操作失败", map[string]any{},
+	)
 }
 
 func writeJSON(writer http.ResponseWriter, status int, value any) {

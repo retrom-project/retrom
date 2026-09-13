@@ -27,6 +27,114 @@
       "reason": "io.Reader must return the underlying io.EOF sentinel unchanged to satisfy io.Copy.",
       "invariant": "The reader must return the underlying io.EOF sentinel unchanged so io.Copy termination semantics remain intact.",
       "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/httpapi/game_list_handlers.go",
+      "line": 221,
+      "symbol": "func (server *Server) applyGameListCursor(token string, operationID string, filterDigest string, sortCode string) (*gamelistservice.Cursor, error)",
+      "linter": "nilnil",
+      "reason": "An absent pagination cursor is the documented representation of an unbounded first page.",
+      "invariant": "Empty cursor input must produce a nil cursor without an error so the first page query remains unbounded.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/persistence/auditevents/audit.go",
+      "line": 46,
+      "symbol": "func nullableJSON(value any) (any, error)",
+      "linter": "nilnil",
+      "reason": "Audit JSON projections use a nil value to persist SQL NULL for absent optional data.",
+      "invariant": "Nil audit payloads must remain SQL NULL while non-nil values continue through JSON encoding.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/persistence/gamelist/repository.go",
+      "line": 176,
+      "symbol": "func (repository *Repository) defaultDOSEntry(ctx context.Context, gameID string) (*string, error)",
+      "linter": "nilnil",
+      "reason": "Games without a DOS default entry are represented by a nil optional projection.",
+      "invariant": "Missing DOS defaults must remain distinguishable from query failures and map to a nil pointer.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/persistence/libraryimport/review_bulk_queries.go",
+      "line": 37,
+      "symbol": "func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (*string, error)",
+      "linter": "nilnil",
+      "reason": "An empty review queue has no upper-bound cursor and is represented by a nil value.",
+      "invariant": "No pending review item must return a nil upper bound without an error.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/persistence/platforminstance/write.go",
+      "line": 144,
+      "symbol": "func nullableJSON(value any) (any, error)",
+      "linter": "nilnil",
+      "reason": "Platform audit JSON projections use a nil value to persist SQL NULL for absent optional data.",
+      "invariant": "Nil audit payloads must remain SQL NULL while non-nil values continue through JSON encoding.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/service/gameassets/repository.go",
+      "line": 14,
+      "symbol": "type WriteScope interface",
+      "linter": "interfacebloat",
+      "reason": "Asset replacement operations share one transaction-scoped port to preserve atomic ordering.",
+      "invariant": "All slot replacement, upload consumption, versioning, staging, and release scheduling writes commit together.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/service/gamemove/repository.go",
+      "line": 12,
+      "symbol": "type Repository interface",
+      "linter": "interfacebloat",
+      "reason": "The game move command needs one read and atomic write boundary for impact validation and mutation.",
+      "invariant": "Move reads and the audit-backed update must use the same repository contract.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/service/home/repository.go",
+      "line": 9,
+      "symbol": "type Repository interface",
+      "linter": "interfacebloat",
+      "reason": "Dashboard sections are one read-only projection assembled from a consistent application boundary.",
+      "invariant": "Summary, recents, featured data, and platform facets remain available through one dashboard query port.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/service/libraryimport/import_reads_types.go",
+      "line": 181,
+      "symbol": "type ImportReadRepository interface",
+      "linter": "interfacebloat",
+      "reason": "Administrator import and review screens consume a cohesive set of read projections.",
+      "invariant": "Overview, list, detail, multidisc, and history reads remain independent of the storage engine.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/service/libraryimport/review_validation_types.go",
+      "line": 76,
+      "symbol": "type ReviewValidationRefreshRepository interface",
+      "linter": "interfacebloat",
+      "reason": "Validation refresh requires one transaction-bound port spanning evidence reads and candidate writes.",
+      "invariant": "Validation selection, copied files, and metadata refresh must observe and update one atomic scope.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/service/platforminstance/repository.go",
+      "line": 15,
+      "symbol": "type Reader interface",
+      "linter": "interfacebloat",
+      "reason": "Platform lifecycle and impact use cases share one consistent read snapshot.",
+      "invariant": "Directory, catalog, core, and impact reads must be resolved through the same application read port.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/service/platforminstance/repository.go",
+      "line": 31,
+      "symbol": "type DirectoryWrites interface",
+      "linter": "interfacebloat",
+      "reason": "Directory mutations and their audit records share one atomic write scope.",
+      "invariant": "Directory lifecycle changes and audit records must commit together.",
+      "reviewAfter": "2027-08-22"
     }
   ]
 }

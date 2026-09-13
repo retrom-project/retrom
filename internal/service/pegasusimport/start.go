@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
-	payload "retrom/internal/service/payloadrelease"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
 
 	"github.com/google/uuid"
 )

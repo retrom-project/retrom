@@ -4,11 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"retrom/internal/dbexec"
 	"retrom/internal/service/metadatascrape"
 )
-
-type rowScanner = dbexec.Scanner
 
 func (server *Server) reviewCandidateAssets(
 	request *http.Request,

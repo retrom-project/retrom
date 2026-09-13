@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -11,25 +10,13 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"retrom/internal/persistence/contentquery"
-
-	"retrom/internal/dbexec"
-
-	"retrom/internal/persistence/recordstore"
-
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
-	"retrom/internal/contentprofile"
 	"retrom/internal/service/platforminstance"
 
 	"github.com/google/uuid"
 )
 
-var (
-	errPlatformInstanceOrderInvalid = errors.New("invalid platform instance order")
-	errPlatformInstanceOrderVersion = errors.New("platform instance order version conflict")
-)
+var errPlatformInstanceOrderInvalid = errors.New("invalid platform instance order")
 
 type createPlatformInstanceRequest struct {
 	PlatformID    string `json:"platformId"`
@@ -46,55 +33,10 @@ type patchPlatformInstanceRequest struct {
 	Enabled     *bool   `json:"enabled,omitempty"`
 }
 
-type patchPlatformInstanceValues struct {
-	name, description string
-	sortOrder         int64
-	enabled           bool
-	version           int64
-}
-
 func validPatchPlatformInstance(body patchPlatformInstanceRequest) bool {
 	hasChange := body.Name != nil || body.Description != nil || body.SortOrder != nil || body.Enabled != nil
 	return hasChange && (body.Name == nil || validText(*body.Name, 1, 200, false)) &&
 		(body.Description == nil || validText(*body.Description, 0, 10_000, true))
-}
-
-func patchPlatformValues(current map[string]any) (patchPlatformInstanceValues, bool) {
-	values := patchPlatformInstanceValues{}
-	var ok bool
-	values.version, ok = current["version"].(int64)
-	if !ok {
-		return patchPlatformInstanceValues{}, false
-	}
-	values.name, ok = current["name"].(string)
-	if !ok {
-		return patchPlatformInstanceValues{}, false
-	}
-	values.description, ok = current["description"].(string)
-	if !ok {
-		return patchPlatformInstanceValues{}, false
-	}
-	values.sortOrder, ok = current["sortOrder"].(int64)
-	if !ok {
-		return patchPlatformInstanceValues{}, false
-	}
-	values.enabled, ok = current["enabled"].(bool)
-	return values, ok
-}
-
-func (values *patchPlatformInstanceValues) apply(body patchPlatformInstanceRequest) {
-	if body.Name != nil {
-		values.name = *body.Name
-	}
-	if body.Description != nil {
-		values.description = *body.Description
-	}
-	if body.SortOrder != nil {
-		values.sortOrder = *body.SortOrder
-	}
-	if body.Enabled != nil {
-		values.enabled = *body.Enabled
-	}
 }
 
 type reorderPlatformInstanceItem struct {
@@ -104,11 +46,6 @@ type reorderPlatformInstanceItem struct {
 
 type reorderPlatformInstancesRequest struct {
 	Items []reorderPlatformInstanceItem `json:"items"`
-}
-
-type platformInstanceOrderState struct {
-	Version   int64
-	SortOrder int64
 }
 
 func validText(value string, minimum, maximum int, allowNewline bool) bool {
@@ -242,72 +179,6 @@ func (server *Server) applyPlatformInstanceRecommendations(writer http.ResponseW
 	_, _ = writer.Write(response.Body)
 }
 
-func insertAudit(
-	request *http.Request,
-	transaction *sql.Tx,
-	action, resourceType, resourceID string,
-	before, after any,
-	now int64,
-) error {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return fmt.Errorf("httpapi/platform_handlers: %w", err)
-	}
-	var beforeJSON, afterJSON any
-	if before != nil {
-		value, _ := json.Marshal(before)
-		beforeJSON = string(value)
-	}
-	if after != nil {
-		value, _ := json.Marshal(after)
-		afterJSON = string(value)
-	}
-	actor := authn.ActorFromContext(request.Context(), "release-setup")
-	_, err = transaction.ExecContext(
-		request.Context(),
-		`
-INSERT INTO audit_events(id,
-actor_kind,
-actor_user_id,
-actor_label,
-action,
-resource_type,
-resource_id,
-before_json,
-after_json,
-diff_json,
-request_id,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-'{}',
-?,
-?)
-`,
-		id.String(),
-		actor.Kind,
-		actor.UserID,
-		actor.Label,
-		action,
-		resourceType,
-		resourceID,
-		beforeJSON,
-		afterJSON,
-		request.Context().Value(requestIDKey),
-		now,
-	)
-	if err != nil {
-		return fmt.Errorf("insert platform audit event: %w", err)
-	}
-	return nil
-}
-
 func (server *Server) platformInstance(writer http.ResponseWriter, request *http.Request) {
 	item, err := server.readPlatformInstance(request, request.PathValue("platformInstanceId"))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -328,155 +199,21 @@ func (server *Server) platformInstance(writer http.ResponseWriter, request *http
 }
 
 func (server *Server) readPlatformInstance(request *http.Request, id string) (map[string]any, error) {
-	var platformID, platformName, defaultCoreID, defaultCoreName, name, slug, description string
-	var contentPolicy contentcapability.Policy
-	var sortOrder, enabled, version, createdAtMS, updatedAtMS, gameCount int64
-	err := server.database.QueryRowContext(request.Context(), `
-SELECT pi.platform_id,
-p.name,
-pi.default_core_id,
-c.name,
-pi.name,
-pi.slug,
-pi.description,
-pi.sort_order,
-pi.enabled,
-pi.version,
-pi.created_at_ms,
-pi.updated_at_ms,
-(SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
-,
-COALESCE((SELECT `+contentquery.BindingPolicySQL+`
- FROM runtime_target_bindings binding
- JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
-  AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
- WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED'
- LIMIT 1),NULL)
-FROM platform_instances pi
-JOIN platforms p ON p.id=pi.platform_id
-JOIN cores c ON c.id=pi.default_core_id
-WHERE pi.id=?
-AND pi.deleted_at_ms IS NULL
-`, id).
-		Scan(
-			&platformID,
-			&platformName,
-			&defaultCoreID,
-			&defaultCoreName,
-			&name,
-			&slug,
-			&description,
-			&sortOrder,
-			&enabled,
-			&version,
-			&createdAtMS,
-			&updatedAtMS,
-			&gameCount,
-			contentquery.ScanPolicy(&contentPolicy),
-		)
+	instance, err := server.platformDirectories.Read(request.Context(), id, server.config.MultiDiscImportEnabled)
+	if errors.Is(err, platforminstance.ErrNotFound) {
+		return nil, sql.ErrNoRows
+	}
 	if err != nil {
-		return nil, fmt.Errorf("httpapi/platform_handlers: %w", err)
+		return nil, fmt.Errorf("read platform instance: %w", err)
 	}
 	return map[string]any{
-		"id":                  id,
-		"platformId":          platformID,
-		"platformName":        platformName,
-		"defaultCoreId":       defaultCoreID,
-		"defaultCoreName":     defaultCoreName,
-		"name":                name,
-		"slug":                slug,
-		"description":         description,
-		"sortOrder":           sortOrder,
-		"enabled":             enabled == 1,
-		"version":             version,
-		"createdAtMs":         createdAtMS,
-		"updatedAtMs":         updatedAtMS,
-		"gameCount":           gameCount,
-		"supportedExtensions": contentprofile.SupportedExtensions(platformID),
-		"importCapabilities": contentcapability.Resolve(
-			platformID, enabled == 1, server.config.MultiDiscImportEnabled, contentPolicy,
-		),
+		"id": instance.ID, "platformId": instance.PlatformID, "platformName": instance.PlatformName,
+		"defaultCoreId": instance.DefaultCoreID, "defaultCoreName": instance.DefaultCoreName,
+		"name": instance.Name, "slug": instance.Slug, "description": instance.Description,
+		"sortOrder": instance.SortOrder, "enabled": instance.Enabled, "version": instance.Version,
+		"createdAtMs": instance.CreatedAtMS, "updatedAtMs": instance.UpdatedAtMS, "gameCount": instance.GameCount,
+		"supportedExtensions": instance.SupportedExtensions, "importCapabilities": instance.ImportCapabilities,
 	}, nil
-}
-
-func readPlatformInstanceOrder(
-	ctx context.Context,
-	transaction *sql.Tx,
-	capacity int,
-) (map[string]platformInstanceOrderState, error) {
-	rows, err := transaction.QueryContext(ctx, `
-SELECT id,version,sort_order
-FROM platform_instances
-WHERE deleted_at_ms IS NULL
-ORDER BY sort_order,id
-`)
-	if err != nil {
-		return nil, fmt.Errorf("httpapi/platform order query: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	current := make(map[string]platformInstanceOrderState, capacity)
-	for rows.Next() {
-		var id string
-		var state platformInstanceOrderState
-		if err := rows.Scan(&id, &state.Version, &state.SortOrder); err != nil {
-			return nil, fmt.Errorf("httpapi/platform order scan: %w", err)
-		}
-		current[id] = state
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("httpapi/platform order rows: %w", err)
-	}
-	return current, nil
-}
-
-func applyPlatformInstanceOrder(
-	request *http.Request,
-	transaction *sql.Tx,
-	items []reorderPlatformInstanceItem,
-	current map[string]platformInstanceOrderState,
-	now int64,
-) ([]map[string]any, error) {
-	resultItems := make([]map[string]any, 0, len(items))
-	for index, item := range items {
-		sortOrder := int64(index+1) * 100
-		result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
-			Set: `sort_order=?,version=version+1,updated_at_ms=?`,
-			Scope: recordstore.Scope{
-				Where: `id=? AND version=? AND deleted_at_ms IS NULL`,
-				Args:  []any{item.ID, item.Version},
-			},
-			Values: []any{sortOrder, now},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("httpapi/platform order update: %w", err)
-		}
-		changed, err := result.RowsAffected()
-		if err != nil {
-			return nil, fmt.Errorf("httpapi/platform order affected rows: %w", err)
-		}
-		if changed != 1 {
-			return nil, errPlatformInstanceOrderVersion
-		}
-		previous := current[item.ID]
-		before := map[string]any{"version": previous.Version, "sortOrder": previous.SortOrder}
-		after := map[string]any{"version": item.Version + 1, "sortOrder": sortOrder}
-		if err := insertAudit(
-			request,
-			transaction,
-			"PLATFORM_INSTANCE_REORDERED",
-			"PLATFORM_INSTANCE",
-			item.ID,
-			before,
-			after,
-			now,
-		); err != nil {
-			return nil, fmt.Errorf("httpapi/platform order audit: %w", err)
-		}
-		resultItems = append(resultItems, map[string]any{
-			"id": item.ID, "sortOrder": sortOrder, "version": item.Version + 1, "updatedAtMs": now,
-		})
-	}
-	return resultItems, nil
 }
 
 func requestedPlatformInstanceOrder(items []reorderPlatformInstanceItem) (map[string]int64, error) {
@@ -499,36 +236,26 @@ func (server *Server) reorderPlatformInstances(writer http.ResponseWriter, reque
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "目录排序数据无效", map[string]any{})
 		return
 	}
-	requested, err := requestedPlatformInstanceOrder(body.Items)
+	_, err := requestedPlatformInstanceOrder(body.Items)
 	if err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "目录排序数据无效", map[string]any{})
 		return
 	}
-	transaction, err := server.database.BeginTx(request.Context(), nil)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
+	actor := authn.ActorFromContext(request.Context(), "release-setup")
+	requestID, _ := request.Context().Value(requestIDKey).(string)
+	items := make([]platforminstance.PlatformInstanceOrderItem, 0, len(body.Items))
+	for _, item := range body.Items {
+		items = append(items, platforminstance.PlatformInstanceOrderItem{ID: item.ID, Version: item.Version})
 	}
-	defer dbexec.Rollback(transaction)
-	current, err := readPlatformInstanceOrder(request.Context(), transaction, len(body.Items))
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if len(current) != len(requested) {
+	result, err := server.platformDirectories.Reorder(request.Context(), platforminstance.AuditActor{
+		Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label,
+		RequestID: requestID,
+	}, items)
+	if errors.Is(err, platforminstance.ErrOrderStale) {
 		writeError(writer, request, http.StatusConflict, "PLATFORM_INSTANCE_ORDER_STALE", "目录列表已变化，请刷新后重试", map[string]any{})
 		return
 	}
-	for id, version := range requested {
-		entry, exists := current[id]
-		if !exists || entry.Version != version {
-			writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "目录已被修改，请刷新后重试", map[string]any{})
-			return
-		}
-	}
-	now := server.now().UnixMilli()
-	resultItems, err := applyPlatformInstanceOrder(request, transaction, body.Items, current, now)
-	if errors.Is(err, errPlatformInstanceOrderVersion) {
+	if errors.Is(err, platforminstance.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "目录已被修改，请刷新后重试", map[string]any{})
 		return
 	}
@@ -536,9 +263,11 @@ func (server *Server) reorderPlatformInstances(writer http.ResponseWriter, reque
 		server.databaseError(writer, request, err)
 		return
 	}
-	if err := transaction.Commit(); err != nil {
-		server.databaseError(writer, request, err)
-		return
+	resultItems := make([]map[string]any, 0, len(result))
+	for _, item := range result {
+		resultItems = append(resultItems, map[string]any{
+			"id": item.ID, "sortOrder": item.SortOrder, "version": item.Version, "updatedAtMs": item.UpdatedAtMS,
+		})
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{"items": resultItems})
 }
@@ -562,84 +291,31 @@ func (server *Server) patchPlatformInstance(writer http.ResponseWriter, request 
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "平台目录字段无效", map[string]any{})
 		return
 	}
-	current, err := server.readPlatformInstance(request, request.PathValue("platformInstanceId"))
-	if err != nil {
+	actor := authn.ActorFromContext(request.Context(), "release-setup")
+	requestID, _ := request.Context().Value(requestIDKey).(string)
+	result, err := server.platformDirectories.Patch(request.Context(), platforminstance.PlatformInstancePatch{
+		ID: request.PathValue("platformInstanceId"), ExpectedVersion: expected,
+		Name: body.Name, Description: body.Description, SortOrder: body.SortOrder, Enabled: body.Enabled,
+		Actor: platforminstance.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
+	})
+	if errors.Is(err, platforminstance.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "PLATFORM_INSTANCE_NOT_FOUND", "平台目录不存在", map[string]any{})
 		return
 	}
-	values, ok := patchPlatformValues(current)
-	if !ok {
-		writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "平台目录投影无效", map[string]any{})
-		return
-	}
-	if values.version != expected {
+	if errors.Is(err, platforminstance.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "平台目录已被修改", map[string]any{})
 		return
 	}
-	values.apply(body)
-	now := server.now().UnixMilli()
-	transaction, err := server.database.BeginTx(request.Context(), nil)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer dbexec.Rollback(transaction)
-	result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
-		Set: `
-name=?,
-description=?,
-sort_order=?,
-enabled=?,
-version=version+1,
-updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-id=?
-AND version=?
-AND deleted_at_ms IS NULL
-`,
-			Args: []any{request.PathValue("platformInstanceId"), expected},
-		},
-		Values: []any{values.name, values.description, values.sortOrder, values.enabled, now},
+	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"id": result.ID, "name": result.Name, "description": result.Description,
+		"sortOrder": result.SortOrder, "enabled": result.Enabled, "version": result.Version,
+		"updatedAtMs": result.UpdatedAtMS,
 	})
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	changed, _ := result.RowsAffected()
-	if changed != 1 {
-		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "平台目录已被修改", map[string]any{})
-		return
-	}
-	after := map[string]any{
-		"name":        values.name,
-		"description": values.description,
-		"sortOrder":   values.sortOrder,
-		"enabled":     values.enabled,
-		"version":     expected + 1,
-	}
-	if err := insertAudit(
-		request,
-		transaction,
-		"PLATFORM_INSTANCE_UPDATED",
-		"PLATFORM_INSTANCE",
-		request.PathValue("platformInstanceId"),
-		current,
-		after,
-		now,
-	); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if err := transaction.Commit(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
-	after["id"] = request.PathValue("platformInstanceId")
-	after["updatedAtMs"] = now
-	writeJSON(writer, http.StatusOK, after)
 }
 
 // Reference checks, optimistic locking, deletion, and audit write share one transaction.
@@ -656,77 +332,25 @@ func (server *Server) deletePlatformInstance(writer http.ResponseWriter, request
 		)
 		return
 	}
-	current, err := server.readPlatformInstance(request, request.PathValue("platformInstanceId"))
-	if err != nil {
+	actor := authn.ActorFromContext(request.Context(), "release-setup")
+	requestID, _ := request.Context().Value(requestIDKey).(string)
+	err = server.platformDirectories.Delete(request.Context(), platforminstance.PlatformInstanceDelete{
+		ID: request.PathValue("platformInstanceId"), ExpectedVersion: expected,
+		Actor: platforminstance.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
+	})
+	if errors.Is(err, platforminstance.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "PLATFORM_INSTANCE_NOT_FOUND", "平台目录不存在", map[string]any{})
 		return
 	}
-	currentVersion, ok := current["version"].(int64)
-	if !ok {
-		writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "平台目录投影无效", map[string]any{})
-		return
-	}
-	if currentVersion != expected {
+	if errors.Is(err, platforminstance.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "平台目录已被修改", map[string]any{})
 		return
 	}
-	var count int
-	if err := server.database.QueryRowContext(request.Context(), `
-SELECT count(*)
-FROM games
-WHERE platform_instance_id=?
-`, request.PathValue("platformInstanceId")).Scan(&count); err != nil ||
-		count != 0 {
+	if errors.Is(err, platforminstance.ErrNotEmpty) {
 		writeError(writer, request, http.StatusConflict, "PLATFORM_INSTANCE_NOT_EMPTY", "非空目录不能删除", map[string]any{})
 		return
 	}
-	now := server.now().UnixMilli()
-	transaction, err := server.database.BeginTx(request.Context(), nil)
 	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer dbexec.Rollback(transaction)
-	result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
-		Set: `
-enabled=0,
-deleted_at_ms=?,
-version=version+1,
-updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-id=?
-AND version=?
-AND deleted_at_ms IS NULL
-`,
-			Args: []any{request.PathValue("platformInstanceId"), expected},
-		},
-		Values: []any{now, now},
-	})
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	changed, _ := result.RowsAffected()
-	if changed != 1 {
-		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "平台目录已被修改", map[string]any{})
-		return
-	}
-	if err := insertAudit(
-		request,
-		transaction,
-		"PLATFORM_INSTANCE_DELETED",
-		"PLATFORM_INSTANCE",
-		request.PathValue("platformInstanceId"),
-		current,
-		map[string]any{"deletedAtMs": now, "version": expected + 1},
-		now,
-	); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if err := transaction.Commit(); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}

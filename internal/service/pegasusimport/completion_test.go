@@ -3,9 +3,10 @@ package pegasusimport
 import (
 	"context"
 	"errors"
-	payload "retrom/internal/service/payloadrelease"
 	"testing"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
 )
 
 type completionFake struct {

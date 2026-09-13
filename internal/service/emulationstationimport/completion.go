@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	payload "retrom/internal/service/payloadrelease"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
 )
 
 type CompletionCounts struct {

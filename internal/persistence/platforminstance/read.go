@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/dbexec"
+	"retrom/internal/persistence/contentquery"
 	"retrom/internal/service/platforminstance"
 
 	"retrom/internal/platformcatalog"
@@ -47,7 +49,7 @@ AND (
 
 func (reader records) Directories(ctx context.Context) ([]platforminstance.Directory, error) {
 	rows, err := reader.database.QueryContext(ctx, `
-SELECT id,platform_id,default_core_id,name,description,sort_order,enabled,catalog_template_key,deleted_at_ms
+SELECT id,platform_id,default_core_id,name,description,sort_order,enabled,version,catalog_template_key,deleted_at_ms
 FROM platform_instances
 ORDER BY sort_order,id
 `)
@@ -62,7 +64,7 @@ ORDER BY sort_order,id
 		var key sql.NullString
 		var deleted sql.NullInt64
 		if err := rows.Scan(&row.ID, &row.PlatformID, &row.CoreID, &row.Name, &row.Description,
-			&row.SortOrder, &enabled, &key, &deleted); err != nil {
+			&row.SortOrder, &enabled, &row.Version, &key, &deleted); err != nil {
 			return nil, fmt.Errorf("platforminstance: scan directory: %w", err)
 		}
 		row.Enabled = enabled == 1
@@ -81,10 +83,17 @@ ORDER BY sort_order,id
 func (reader records) Instance(ctx context.Context, id string) (platforminstance.Instance, error) {
 	var instance platforminstance.Instance
 	var enabled int
+	contentPolicy := instance.ContentPolicy
 	err := reader.database.QueryRowContext(ctx, `
 SELECT pi.id,pi.platform_id,p.name,pi.default_core_id,c.name,pi.name,pi.slug,pi.description,
 pi.sort_order,pi.enabled,pi.version,pi.created_at_ms,pi.updated_at_ms,
-(SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
+(SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id),
+COALESCE((SELECT `+contentquery.BindingPolicySQL+`
+ FROM runtime_target_bindings binding
+ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+  AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
+ WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED'
+ LIMIT 1),NULL)
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores c ON c.id=pi.default_core_id
@@ -93,13 +102,107 @@ WHERE pi.id=? AND pi.deleted_at_ms IS NULL
 		&instance.ID, &instance.PlatformID, &instance.PlatformName, &instance.DefaultCoreID,
 		&instance.DefaultCoreName, &instance.Name, &instance.Slug, &instance.Description,
 		&instance.SortOrder, &enabled, &instance.Version, &instance.CreatedAtMS, &instance.UpdatedAtMS,
-		&instance.GameCount,
+		&instance.GameCount, contentquery.ScanPolicy(&contentPolicy),
 	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return platforminstance.Instance{}, fmt.Errorf("%w: %w", platforminstance.ErrNotFound, err)
+		}
 		return platforminstance.Instance{}, fmt.Errorf("platforminstance: read created directory: %w", err)
 	}
 	instance.Enabled = enabled == 1
+	instance.ContentPolicy = contentPolicy
 	return instance, nil
+}
+
+func (reader records) CoreImpact(
+	ctx context.Context, instanceID, coreID string, expected int64,
+) (platforminstance.CoreImpactFacts, error) {
+	var facts platforminstance.CoreImpactFacts
+	var enabled int
+	err := reader.database.QueryRowContext(ctx, `
+SELECT platform_id,version,enabled
+FROM platform_instances
+WHERE id=? AND deleted_at_ms IS NULL
+`, instanceID).Scan(&facts.PlatformID, &facts.PlatformInstanceVersion, &enabled)
+	if errors.Is(err, sql.ErrNoRows) {
+		return platforminstance.CoreImpactFacts{}, fmt.Errorf(
+			"%w: platform instance changed", platforminstance.ErrImpactStale,
+		)
+	}
+	if err != nil {
+		return platforminstance.CoreImpactFacts{}, fmt.Errorf("platforminstance: read impact instance: %w", err)
+	}
+	if facts.PlatformInstanceVersion != expected {
+		return platforminstance.CoreImpactFacts{}, fmt.Errorf(
+			"%w: platform instance changed", platforminstance.ErrImpactStale,
+		)
+	}
+	if enabled != 1 {
+		return platforminstance.CoreImpactFacts{}, fmt.Errorf(
+			"%w: platform instance disabled", platforminstance.ErrInvalidCore,
+		)
+	}
+	var allowed int
+	if err := reader.database.QueryRowContext(ctx, `
+SELECT count(*)
+FROM platform_cores
+WHERE platform_id=? AND core_id=? AND enabled=1
+`, facts.PlatformID, coreID).Scan(&allowed); err != nil {
+		return platforminstance.CoreImpactFacts{}, fmt.Errorf("platforminstance: validate impact core: %w", err)
+	}
+	if allowed != 1 {
+		return platforminstance.CoreImpactFacts{}, fmt.Errorf(
+			"%w: core is not enabled for platform", platforminstance.ErrInvalidCore,
+		)
+	}
+	var datVersionID sql.NullString
+	if err := reader.database.QueryRowContext(ctx, `
+SELECT binding.provider_id,binding.target_id,provider.bundle_sha256,
+(SELECT id
+ FROM dat_versions
+ WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1)
+FROM runtime_target_bindings binding
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=? AND binding_platform.core_id=?
+JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
+JOIN runtime_providers provider ON provider.provider_id=target.provider_id
+WHERE binding.core_id=? AND binding.launch_policy<>'DISABLED'
+	`, facts.PlatformID, coreID, coreID).Scan(
+		&facts.ProviderID, &facts.TargetID, &facts.BundleSHA256, &datVersionID,
+	); err != nil {
+		return platforminstance.CoreImpactFacts{}, fmt.Errorf(
+			"%w: runtime target binding unavailable", platforminstance.ErrInvalidCore,
+		)
+	}
+	facts.DATVersionID = dbexec.StringPointer(datVersionID)
+	rows, err := reader.database.QueryContext(ctx, `
+SELECT g.id,g.version,variant.id,variant.status,variant.compatibility_code
+FROM games g
+LEFT JOIN game_variants variant ON variant.game_id=g.id AND variant.core_id=?
+WHERE g.platform_instance_id=? AND g.status='PUBLISHED'
+ORDER BY g.id
+`, coreID, instanceID)
+	if err != nil {
+		return platforminstance.CoreImpactFacts{}, fmt.Errorf("platforminstance: query impact games: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	facts.Games = make([]platforminstance.CoreImpactGame, 0)
+	for rows.Next() {
+		var game platforminstance.CoreImpactGame
+		var variantID, status, compatibilityCode sql.NullString
+		if err := rows.Scan(&game.GameID, &game.GameVersion, &variantID, &status, &compatibilityCode); err != nil {
+			return platforminstance.CoreImpactFacts{}, fmt.Errorf("platforminstance: scan impact game: %w", err)
+		}
+		game.VariantID = dbexec.StringPointer(variantID)
+		game.VariantStatus = dbexec.StringPointer(status)
+		game.TargetCompatibilityCode = dbexec.StringPointer(compatibilityCode)
+		facts.Games = append(facts.Games, game)
+	}
+	if err := rows.Err(); err != nil {
+		return platforminstance.CoreImpactFacts{}, fmt.Errorf("platforminstance: iterate impact games: %w", err)
+	}
+	return facts, nil
 }
 
 func (reader records) UsedSlugs(ctx context.Context, platformID, base string) ([]string, error) {

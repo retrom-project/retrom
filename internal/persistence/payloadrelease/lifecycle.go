@@ -5,13 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobregistry"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type Lifecycle struct{ database *sql.DB }
-type lifecycleReader struct{ executor dbexec.Executor }
+type (
+	Lifecycle       struct{ database *sql.DB }
+	lifecycleReader struct{ executor dbexec.Executor }
+)
 
 func NewLifecycle(database *sql.DB) *Lifecycle { return &Lifecycle{database: database} }
 
@@ -49,12 +52,14 @@ func LoadLifecycleBlobEdges() ([]application.BlobEdge, error) {
 	return result, nil
 }
 
-func (reader lifecycleReader) Owners(ctx context.Context, cursor application.Scope, limit int) ([]application.LifecycleOwner, error) {
+func (reader lifecycleReader) Owners(
+	ctx context.Context, cursor application.Scope, limit int,
+) ([]application.LifecycleOwner, error) {
 	rows, err := reader.executor.QueryContext(ctx, lifecycleOwnersQuery, cursor.Type, cursor.Type, cursor.ID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("read lifecycle owner snapshot: %w", err)
 	}
-	defer rows.Close()
+	defer func() { cleanup.Error("close lifecycle owners", rows.Close()) }()
 	result := make([]application.LifecycleOwner, 0)
 	for rows.Next() {
 		var owner application.LifecycleOwner
@@ -68,9 +73,6 @@ func (reader lifecycleReader) Owners(ctx context.Context, cursor application.Sco
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate lifecycle owners: %w", err)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("close lifecycle owners: %w", err)
 	}
 	return result, nil
 }

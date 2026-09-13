@@ -8,7 +8,7 @@ import (
 )
 
 func (records reviewDiscardRecords) CancelAttachments(ctx context.Context, itemID string, now int64) error {
-	transaction := records.transaction
+	transaction := records.executor
 	if _, err := transaction.ExecContext(ctx, `UPDATE jobs
 SET state=CASE WHEN state='QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,
   cancel_requested_at_ms=?,cancel_reason='review discarded',

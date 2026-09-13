@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	payload "retrom/internal/persistence/payloadrelease"
 
 	"retrom/internal/dbexec"
@@ -27,7 +28,10 @@ func (repository *ExecutionControl) WithExecution(
 	}
 	defer dbexec.Rollback(tx)
 	records := executionRecords{transaction: tx, executor: tx}
-	scope := application.ExecutionScope{Payload: payload.BindReleases(tx), Read: records, Write: records, Metadata: library.BindMetadata(tx)}
+	scope := application.ExecutionScope{
+		Payload: payload.BindReleases(tx), Read: records, Write: records,
+		Metadata: library.BindMetadata(tx),
+	}
 	if err := run(scope); err != nil {
 		return err
 	}

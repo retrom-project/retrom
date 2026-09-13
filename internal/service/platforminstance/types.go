@@ -2,6 +2,8 @@ package platforminstance
 
 import (
 	"errors"
+
+	"retrom/internal/contentcapability"
 )
 
 const applyOperationID = "postAdminPlatformInstanceRecommendationsApply"
@@ -12,6 +14,13 @@ var (
 	ErrIdempotencyReused  = errors.New("IDEMPOTENCY_KEY_REUSED")
 	ErrInvalid            = errors.New("INVALID_REQUEST")
 	ErrSlugExhausted      = errors.New("platform slug space exhausted")
+	ErrNotFound           = errors.New("platform instance not found")
+	ErrVersionConflict    = errors.New("platform instance version conflict")
+	ErrOrderStale         = errors.New("platform instance order stale")
+	ErrNotEmpty           = errors.New("platform instance is not empty")
+	ErrImpactStale        = errors.New("platform impact is stale")
+	ErrInvalidCore        = errors.New("platform core is invalid")
+	ErrDefaultCoreBlocked = errors.New("platform default core is blocked")
 )
 
 type State string
@@ -57,21 +66,23 @@ type Recommendations struct {
 }
 
 type Instance struct {
-	ID                  string   `json:"id"`
-	PlatformID          string   `json:"platformId"`
-	PlatformName        string   `json:"platformName"`
-	DefaultCoreID       string   `json:"defaultCoreId"`
-	DefaultCoreName     string   `json:"defaultCoreName"`
-	Name                string   `json:"name"`
-	Slug                string   `json:"slug"`
-	Description         string   `json:"description"`
-	SortOrder           int64    `json:"sortOrder"`
-	Enabled             bool     `json:"enabled"`
-	GameCount           int64    `json:"gameCount"`
-	SupportedExtensions []string `json:"supportedExtensions"`
-	Version             int64    `json:"version"`
-	CreatedAtMS         int64    `json:"createdAtMs"`
-	UpdatedAtMS         int64    `json:"updatedAtMs"`
+	ID                  string                               `json:"id"`
+	PlatformID          string                               `json:"platformId"`
+	PlatformName        string                               `json:"platformName"`
+	DefaultCoreID       string                               `json:"defaultCoreId"`
+	DefaultCoreName     string                               `json:"defaultCoreName"`
+	Name                string                               `json:"name"`
+	Slug                string                               `json:"slug"`
+	Description         string                               `json:"description"`
+	SortOrder           int64                                `json:"sortOrder"`
+	Enabled             bool                                 `json:"enabled"`
+	GameCount           int64                                `json:"gameCount"`
+	SupportedExtensions []string                             `json:"supportedExtensions"`
+	Version             int64                                `json:"version"`
+	CreatedAtMS         int64                                `json:"createdAtMs"`
+	UpdatedAtMS         int64                                `json:"updatedAtMs"`
+	ContentPolicy       contentcapability.Policy             `json:"-"`
+	ImportCapabilities  contentcapability.ImportCapabilities `json:"-"`
 }
 
 type ApplySummary struct {

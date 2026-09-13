@@ -22,12 +22,14 @@ func (memory *releaseGraphMemory) BeginRelease(ctx context.Context, change Owner
 	memory.owners[owner.Scope] = owner
 	return nil
 }
+
 func (memory *releaseGraphMemory) BoundSources(_ context.Context, _ string, after Scope, _ int) ([]Scope, error) {
 	if after.ID != "" {
 		return nil, nil
 	}
 	return memory.links, memory.linkErr
 }
+
 func (memory *releaseGraphMemory) RetainedSources(_ context.Context, batch SourceBatch, after string, _ int) ([]string, error) {
 	if after != "" {
 		return nil, nil

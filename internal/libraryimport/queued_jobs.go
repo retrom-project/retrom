@@ -3,7 +3,8 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/cleanup"
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type queuedJobRun struct {
@@ -12,24 +13,15 @@ type queuedJobRun struct {
 }
 
 func (service *Service) queuedJobRuns(ctx context.Context, kind string) []queuedJobRun {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT id,available_at_ms FROM jobs
-WHERE kind=? AND state='QUEUED'
-ORDER BY available_at_ms,id
-`, kind)
+	jobs, err := librarypersistence.NewQueuedJobs(service.database).Queued(ctx, kind)
 	if err != nil {
 		return nil
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	queued := make([]queuedJobRun, 0)
-	for rows.Next() {
-		var job queuedJobRun
-		if rows.Scan(&job.id, &job.availableAt) == nil {
-			queued = append(queued, job)
-		}
-	}
-	if rows.Err() != nil {
-		return nil
+	queued := make([]queuedJobRun, 0, len(jobs))
+	for _, job := range jobs {
+		queued = append(queued, queuedJobRun{id: job.ID, availableAt: job.AvailableAtMS})
 	}
 	return queued
 }
+
+var _ libraryservice.QueuedJobReader = (*librarypersistence.QueuedJobs)(nil)

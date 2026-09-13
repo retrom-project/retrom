@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/payloadfiles"
 	repository "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 
@@ -55,7 +56,9 @@ func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retenti
 		repository.NewWorker(database), releaseExecutor{service}, application.WorkerOptions{
 			Now: now, Maintain: service.ReconcileGC, Report: func(err error) { cleanup.Error("payload worker", err) },
 		})
-	service.garbage = application.NewGarbageCollector(repository.NewGarbage(database), service.worker, &garbageFiles{blobs})
+	service.garbage = application.NewGarbageCollector(
+		repository.NewGarbage(database), service.worker, payloadfiles.New(blobs),
+	)
 	service.effects = application.NewReleaseEffects(
 		repository.NewReleaseEffects(database), service.worker, gc, releaseEffectWaiter{service}, now,
 	)

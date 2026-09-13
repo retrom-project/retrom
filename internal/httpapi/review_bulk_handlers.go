@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"retrom/internal/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 func parseReviewBulkScope(request *http.Request) (libraryimport.ReviewBulkScope, error) {
@@ -61,6 +62,11 @@ func writeReviewBulkError(writer http.ResponseWriter, request *http.Request, err
 			writer, request, http.StatusConflict, "REVIEW_BULK_VERSION_CONFLICT",
 			"快速审批状态已经变化", map[string]any{},
 		)
+	case errors.Is(err, libraryservice.ErrReviewBulkQuery):
+		writeError(
+			writer, request, http.StatusConflict, "REVIEW_BULK_VERSION_CONFLICT",
+			"快速审批状态已经变化", map[string]any{},
+		)
 	case errors.Is(err, sql.ErrNoRows):
 		serverNotFound(writer, request)
 	default:
@@ -106,7 +112,17 @@ func (server *Server) createReviewBulk(writer http.ResponseWriter, request *http
 }
 
 func (server *Server) reviewBulk(writer http.ResponseWriter, request *http.Request) {
-	summary, err := server.importer.GetReviewBulk(request.Context(), request.PathValue("bulkApprovalId"))
+	if server.reviewBulkQueries == nil {
+		summary, err := server.importer.GetReviewBulk(request.Context(), request.PathValue("bulkApprovalId"))
+		if err != nil {
+			writeReviewBulkError(writer, request, err)
+			return
+		}
+		writer.Header().Set("ETag", `"v`+strconv.FormatInt(summary.Version, 10)+`"`)
+		writeJSON(writer, http.StatusOK, summary)
+		return
+	}
+	summary, err := server.reviewBulkQueries.Summary(request.Context(), request.PathValue("bulkApprovalId"))
 	if err != nil {
 		writeReviewBulkError(writer, request, err)
 		return
@@ -136,7 +152,18 @@ func (server *Server) reviewBulkItems(writer http.ResponseWriter, request *http.
 		}
 		limit = parsed
 	}
-	page, err := server.importer.ListReviewBulkItems(
+	if server.reviewBulkQueries == nil {
+		page, err := server.importer.ListReviewBulkItems(
+			request.Context(), request.PathValue("bulkApprovalId"), values.Get("outcome"), values.Get("cursor"), limit,
+		)
+		if err != nil {
+			writeReviewBulkError(writer, request, err)
+			return
+		}
+		writeJSON(writer, http.StatusOK, page)
+		return
+	}
+	page, err := server.reviewBulkQueries.Items(
 		request.Context(), request.PathValue("bulkApprovalId"), values.Get("outcome"), values.Get("cursor"), limit,
 	)
 	if err != nil {

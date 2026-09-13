@@ -3,8 +3,9 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
-	payload "retrom/internal/service/payloadrelease"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
 )
 
 type (
@@ -68,7 +69,7 @@ func (service *Completion) Finish(ctx context.Context, identity ExecutionIdentit
 			change.ImportState = "PARTIAL_FAILURE"
 		}
 		if err := records.Complete(ctx, change); err != nil {
-			return err
+			return fmt.Errorf("complete Pegasus import records: %w", err)
 		}
 		return scheduleTerminalPayloads(ctx, records.Payload(), before.ImportID, change.NowMS)
 	})

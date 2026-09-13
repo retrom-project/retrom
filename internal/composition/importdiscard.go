@@ -8,23 +8,21 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/libraryimport"
 	discardpersistence "retrom/internal/persistence/importdiscard"
 	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/importdiscard"
+	"retrom/internal/service/libraryimport"
 	"retrom/internal/service/pegasusimport"
 )
 
-func NewImportDiscard(database *sql.DB, importer *libraryimport.Service, pegasus *pegasusimport.Service,
+func NewImportDiscard(database *sql.DB, importer importdiscard.ImportWorkflow, pegasus *pegasusimport.Service,
 	emulationstation *emulationstationimport.Service, now func() time.Time,
 ) *importdiscard.Service {
 	return importdiscard.New(
 		discardpersistence.New(
 			database,
 		),
-		discardImports{
-			importer,
-		},
+		discardImports{workflow: importer},
 		discardSources{
 			pegasus,
 			emulationstation,
@@ -33,15 +31,39 @@ func NewImportDiscard(database *sql.DB, importer *libraryimport.Service, pegasus
 	)
 }
 
-type discardImports struct{ *libraryimport.Service }
+type discardImports struct{ workflow importdiscard.ImportWorkflow }
 
 func (imports discardImports) CancelForDiscard(ctx context.Context, id string, version int64) error {
-	_, _, err := imports.Service.CancelForDiscard(ctx, id, version)
+	if imports.workflow == nil {
+		return importdiscard.ErrNotCancellable
+	}
+	err := imports.workflow.CancelForDiscard(ctx, id, version)
 	if errors.Is(err, libraryimport.ErrInvalid) {
 		return importdiscard.ErrNotCancellable
 	}
 	if err != nil {
 		return fmt.Errorf("cancel library import for discard: %w", err)
+	}
+	return nil
+}
+
+func (imports discardImports) DiscardBatchReviews(ctx context.Context, id string) (bool, error) {
+	if imports.workflow == nil {
+		return false, importdiscard.ErrNotCancellable
+	}
+	discarded, err := imports.workflow.DiscardBatchReviews(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("discard library import reviews: %w", err)
+	}
+	return discarded, nil
+}
+
+func (imports discardImports) ReleaseDiscardedBatch(ctx context.Context, id string) error {
+	if imports.workflow == nil {
+		return importdiscard.ErrNotCancellable
+	}
+	if err := imports.workflow.ReleaseDiscardedBatch(ctx, id); err != nil {
+		return fmt.Errorf("release discarded library import: %w", err)
 	}
 	return nil
 }

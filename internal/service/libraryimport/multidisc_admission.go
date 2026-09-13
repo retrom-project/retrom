@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math"
 	"time"
 
@@ -19,16 +20,24 @@ type MultiDiscAttachments struct {
 	newID      func() (string, error)
 }
 
-func NewMultiDiscAttachments(repository MultiDiscAttachmentRepository, options MultiDiscAttachmentOptions) *MultiDiscAttachments {
+func NewMultiDiscAttachments(
+	repository MultiDiscAttachmentRepository, options MultiDiscAttachmentOptions,
+) *MultiDiscAttachments {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
 	return &MultiDiscAttachments{repository: repository, options: options, newID: newImportAdmissionID}
 }
 
-func (service *MultiDiscAttachments) Create(ctx context.Context, itemID string, version int64, request MultiDiscAttachmentRequest) (MultiDiscAttachmentCreated, error) {
+func (service *MultiDiscAttachments) Create(
+	ctx context.Context,
+	itemID string,
+	version int64,
+	request MultiDiscAttachmentRequest,
+) (MultiDiscAttachmentCreated, error) {
 	principal, authenticated := authn.PrincipalFromContext(ctx)
-	if version < 1 || version == math.MaxInt64 || itemID == "" || request.UploadID == "" || !service.options.StorageAvailable || !authenticated || principal.UserID == "" {
+	if version < 1 || version == math.MaxInt64 || itemID == "" || request.UploadID == "" ||
+		!service.options.StorageAvailable || !authenticated || principal.UserID == "" {
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorInvalid, ErrInvalid)
 	}
 	write := MultiDiscAttachmentWrite{RequestVersion: version}
@@ -58,7 +67,10 @@ func (service *MultiDiscAttachments) Create(ctx context.Context, itemID string, 
 	if err != nil {
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(multiDiscAdmissionErrorCode(err), err)
 	}
-	return MultiDiscAttachmentCreated{AttachmentID: write.Input.AttachmentID, JobID: write.JobID, State: "QUEUED", ReviewVersion: version + 1}, nil
+	return MultiDiscAttachmentCreated{
+		AttachmentID: write.Input.AttachmentID, JobID: write.JobID,
+		State: "QUEUED", ReviewVersion: version + 1,
+	}, nil
 }
 
 func multiDiscAdmissionErrorCode(err error) string {
@@ -68,10 +80,16 @@ func multiDiscAdmissionErrorCode(err error) string {
 	return MultiDiscAttachmentErrorUnavailable
 }
 
-func prepareMultiDiscInput(ctx context.Context, read MultiDiscAttachmentReader, itemID string, version int64, uploadID, userID string) (MultiDiscAttachmentInput, error) {
+func prepareMultiDiscInput(
+	ctx context.Context,
+	read MultiDiscAttachmentReader,
+	itemID string,
+	version int64,
+	uploadID, userID string,
+) (MultiDiscAttachmentInput, error) {
 	admission, found, err := read.Admission(ctx, itemID)
 	if err != nil {
-		return MultiDiscAttachmentInput{}, err
+		return MultiDiscAttachmentInput{}, fmt.Errorf("read multi-disc admission: %w", err)
 	}
 	if !found {
 		return MultiDiscAttachmentInput{}, classifyMissingMultiDiscInput(ctx, read, itemID)
@@ -85,7 +103,7 @@ func prepareMultiDiscInput(ctx context.Context, read MultiDiscAttachmentReader, 
 	}
 	entries, err := read.Entries(ctx, admission.SnapshotID)
 	if err != nil {
-		return MultiDiscAttachmentInput{}, err
+		return MultiDiscAttachmentInput{}, fmt.Errorf("read multi-disc source entries: %w", err)
 	}
 	if !hasMissingDiscs(entries) {
 		return MultiDiscAttachmentInput{}, multiDiscAttachmentError(MultiDiscAttachmentErrorContentInvalid, ErrInvalid)
@@ -101,7 +119,8 @@ func prepareMultiDiscInput(ctx context.Context, read MultiDiscAttachmentReader, 
 		SchemaVersion: 1, ImportItemID: itemID, ReviewDraftID: admission.DraftID, RequestedByUserID: userID,
 		BaseSourceSnapshotID: admission.SnapshotID, BaseValidationID: admission.ValidationID, UploadSessionID: uploadID,
 		ExpectedSetDigest: digest, TargetPlatformID: admission.PlatformID, PlatformInstanceID: admission.PlatformInstanceID,
-		PlatformVersion: admission.PlatformVersion, CoreID: admission.CoreID, ProviderID: admission.ProviderID, TargetID: admission.TargetID,
+		PlatformVersion: admission.PlatformVersion,
+		CoreID:          admission.CoreID, ProviderID: admission.ProviderID, TargetID: admission.TargetID,
 		ContentPolicyDigest: admission.Policy.DigestFor("MULTI_DISC"), MaxDiscs: capabilities.MultiDisc.MaxDiscs,
 		MaxTotalBytes: capabilities.MultiDisc.MaxTotalBytes,
 	}, nil
@@ -113,15 +132,21 @@ func encodeMultiDiscAdmission(write *MultiDiscAttachmentWrite) error {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorUnavailable, err)
 	}
 	digest := sha256.Sum256(encoded)
-	dedupe := sha256.Sum256([]byte(write.Input.ImportItemID + "\x00" + write.Input.BaseSourceSnapshotID + "\x00" + write.Input.ExpectedSetDigest + "\x00" + write.Input.UploadSessionID))
-	write.InputJSON, write.InputDigest, write.DedupeKey = string(encoded), hex.EncodeToString(digest[:]), hex.EncodeToString(dedupe[:])
+	dedupeInput := write.Input.ImportItemID + "\x00" + write.Input.BaseSourceSnapshotID +
+		"\x00" + write.Input.ExpectedSetDigest + "\x00" + write.Input.UploadSessionID
+	dedupe := sha256.Sum256([]byte(dedupeInput))
+	write.InputJSON, write.InputDigest, write.DedupeKey = string(encoded),
+		hex.EncodeToString(digest[:]), hex.EncodeToString(dedupe[:])
 	write.AuditJSON = `{"schemaVersion":2,"attachmentKind":"MULTI_DISC","state":"QUEUED"}`
 	return nil
 }
 
-func persistMultiDiscAdmission(ctx context.Context, scope MultiDiscAttachmentScope, write MultiDiscAttachmentWrite) error {
+func persistMultiDiscAdmission(
+	ctx context.Context, scope MultiDiscAttachmentScope, write MultiDiscAttachmentWrite,
+) error {
 	for _, save := range []func(context.Context, MultiDiscAttachmentWrite) error{
-		scope.Queue.Job, scope.Queue.Input, scope.Review.Attachment, scope.Queue.Event, scope.Review.Draft, scope.Review.Audit,
+		scope.Queue.Job, scope.Queue.Input, scope.Review.Attachment,
+		scope.Queue.Event, scope.Review.Draft, scope.Review.Audit,
 	} {
 		if err := save(ctx, write); err != nil {
 			return err

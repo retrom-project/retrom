@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/importdiscard"
+	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 func (writes writes) Complete(ctx context.Context, key importdiscard.Key, now int64) error {
@@ -37,7 +38,7 @@ import_id=? AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_D
 	}); err != nil {
 		return fmt.Errorf("importdiscard/discard source items: %w", err)
 	}
-	ids, err := payloadrelease.CollectScopeIDs(ctx, tx, `
+	ids, err := payloadpersistence.CollectScopeIDs(ctx, tx, `
 SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, id)
 	if err != nil {
 		return fmt.Errorf("importdiscard/list source releases: %w", err)
@@ -63,9 +64,19 @@ SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, i
 func scheduleSourceRelease(ctx context.Context, tx *sql.Tx, kind, id string, now int64) error {
 	var err error
 	if kind == "PEGASUS" {
-		_, err = payloadrelease.ScheduleTerminalPegasusItem(ctx, tx, id, now)
+		_, err = payloadservice.NewScheduler(nil).TerminalSource(
+			ctx,
+			payloadpersistence.BindScheduling(tx),
+			payloadservice.Scope{Type: payloadservice.ScopePegasusImportItem, ID: id},
+			now,
+		)
 	} else {
-		_, err = payloadrelease.ScheduleTerminalEmulationStationItem(ctx, tx, id, now)
+		_, err = payloadservice.NewScheduler(nil).TerminalSource(
+			ctx,
+			payloadpersistence.BindScheduling(tx),
+			payloadservice.Scope{Type: payloadservice.ScopeEmulationStationImportItem, ID: id},
+			now,
+		)
 	}
 	if err != nil {
 		return fmt.Errorf("importdiscard/schedule source release: %w", err)

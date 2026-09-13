@@ -16,7 +16,7 @@ import (
 
 type (
 	ReviewDiscards       struct{ database *sql.DB }
-	reviewDiscardRecords struct{ transaction *sql.Tx }
+	reviewDiscardRecords struct{ executor dbexec.Executor }
 )
 
 func NewReviewDiscards(database *sql.DB) *ReviewDiscards { return &ReviewDiscards{database: database} }
@@ -38,12 +38,12 @@ func (repository *ReviewDiscards) WithDiscard(
 	return nil
 }
 
-// BindReviewDiscard joins an existing real transaction without committing it.
-func BindReviewDiscard(transaction *sql.Tx) application.ReviewDiscardScope {
-	records := reviewDiscardRecords{transaction: transaction}
+// BindReviewDiscard joins an existing transaction without committing it.
+func BindReviewDiscard(executor dbexec.Executor) application.ReviewDiscardScope {
+	records := reviewDiscardRecords{executor: executor}
 	return application.ReviewDiscardScope{
-		Payload: payloadpersistence.BindReleases(transaction),
-		Reader:  records, Writer: records, Tags: tagpersistence.Bind(transaction).Relations,
+		Payload: payloadpersistence.BindReleases(executor),
+		Reader:  records, Writer: records, Tags: tagpersistence.BindExecutor(executor).Relations,
 	}
 }
 
@@ -51,7 +51,7 @@ func (records reviewDiscardRecords) Snapshot(
 	ctx context.Context, itemID string,
 ) (application.ReviewDiscardSnapshot, bool, error) {
 	var result application.ReviewDiscardSnapshot
-	err := records.transaction.QueryRowContext(ctx, `
+	err := records.executor.QueryRowContext(ctx, `
 SELECT d.id,i.import_job_id,d.metadata_json,d.version,i.state,i.review_handoff_kind,
 d.selected_validation_id,v.dat_version_id,d.selected_candidate_id,
 (d.cover_candidate_asset_id IS NOT NULL OR d.cover_uploaded_asset_id IS NOT NULL),
@@ -92,7 +92,7 @@ func (records reviewDiscardRecords) RecordEvent(ctx context.Context, event appli
 	if event.Reason != "" {
 		reason = &event.Reason
 	}
-	_, err := recordstore.CreateReviewEvents(ctx, records.transaction, `
+	_, err := recordstore.CreateReviewEvents(ctx, records.executor, `
 INSERT INTO review_events(
  id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
  after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,reason,created_at_ms
@@ -110,5 +110,5 @@ INSERT INTO review_events(
 func (records reviewDiscardRecords) TransitionOwner(
 	ctx context.Context, change application.ReviewOwnerTransition,
 ) error {
-	return TransitionReviewOwners(ctx, records.transaction, change)
+	return TransitionReviewOwners(ctx, records.executor, change)
 }

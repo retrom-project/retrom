@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/service/importdiscard"
 )
 
@@ -17,7 +17,7 @@ func (writes writes) Unlinked(ctx context.Context, key importdiscard.Key) ([]str
 	}
 	items := table[:len(table)-1] + "_items"
 	id := key.ID
-	ids, err := payloadrelease.CollectScopeIDs(ctx, writes.transaction, `
+	ids, err := payloadpersistence.CollectScopeIDs(ctx, writes.transaction, `
 SELECT id FROM `+items+` WHERE import_id=? AND library_import_job_id IS NULL
  AND NOT EXISTS(SELECT 1 FROM server_import_upload_owners WHERE source_item_id=`+items+`.id)`, id)
 	if err != nil {

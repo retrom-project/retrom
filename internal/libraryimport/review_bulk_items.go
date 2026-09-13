@@ -2,100 +2,43 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"strconv"
 
-	"retrom/internal/cleanup"
-
-	"github.com/google/uuid"
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
-func reviewBulkItemQuery(
-	bulkID, outcome, cursor string,
-	limit int,
-) (string, []any, error) {
-	if _, err := uuid.Parse(bulkID); err != nil || limit < 1 || limit > 50 {
-		return "", nil, ErrReviewBulkConflict
-	}
-	if outcome != "" {
-		if _, valid := reviewBulkItemOutcomes[outcome]; !valid {
-			return "", nil, ErrReviewBulkConflict
-		}
-	}
-	ordinal := -1
-	if cursor != "" {
-		parsed, err := strconv.Atoi(cursor)
-		if err != nil || parsed < 0 {
-			return "", nil, ErrReviewBulkConflict
-		}
-		ordinal = parsed
-	}
-	query := `SELECT import_item_id,title_snapshot,target_platform_name_snapshot,state,game_id,
-review_event_id,outcome_code,outcome_details_json,completed_at_ms,ordinal
-FROM review_bulk_approval_items WHERE bulk_approval_id=? AND ordinal>?`
-	arguments := []any{bulkID, ordinal}
-	if outcome != "" {
-		query += " AND state=?"
-		arguments = append(arguments, outcome)
-	}
-	query += " ORDER BY ordinal LIMIT ?"
-	return query, append(arguments, limit+1), nil
-}
-
-type projectedReviewBulkItem struct {
-	item    ReviewBulkItemResult
-	ordinal int
-}
-
-func scanReviewBulkItems(rows *sql.Rows, limit int) (ReviewBulkItemPage, error) {
-	projectedItems := make([]projectedReviewBulkItem, 0, limit+1)
-	for rows.Next() {
-		var value projectedReviewBulkItem
-		var gameID, eventID, code, details sql.NullString
-		var completed sql.NullInt64
-		if err := rows.Scan(&value.item.ImportItemID, &value.item.Title, &value.item.PlatformName,
-			&value.item.State, &gameID, &eventID, &code, &details, &completed, &value.ordinal); err != nil {
-			return ReviewBulkItemPage{}, fmt.Errorf("libraryimport/review bulk items: %w", err)
-		}
-		value.item.GameID = nullableStringPointer(gameID)
-		value.item.ReviewEventID = nullableStringPointer(eventID)
-		value.item.OutcomeCode = nullableStringPointer(code)
-		value.item.CompletedAtMS = nullableInt64Pointer(completed)
-		if details.Valid {
-			_ = json.Unmarshal([]byte(details.String), &value.item.OutcomeDetails)
-		}
-		projectedItems = append(projectedItems, value)
-	}
-	if err := rows.Err(); err != nil {
-		return ReviewBulkItemPage{}, fmt.Errorf("libraryimport/review bulk item rows: %w", err)
-	}
-	page := ReviewBulkItemPage{Items: make([]ReviewBulkItemResult, 0, min(limit, len(projectedItems)))}
-	for index, value := range projectedItems {
-		if index == limit {
-			next := strconv.Itoa(projectedItems[index-1].ordinal)
-			page.NextCursor = &next
-			break
-		}
-		page.Items = append(page.Items, value.item)
-	}
-	return page, nil
-}
-
+// ListReviewBulkItems is retained as a compatibility facade while the typed
+// query and row mapping live in the service/persistence layers.
 func (service *Service) ListReviewBulkItems(
 	ctx context.Context,
 	bulkID, outcome, cursor string,
 	limit int,
 ) (ReviewBulkItemPage, error) {
-	query, arguments, err := reviewBulkItemQuery(bulkID, outcome, cursor, limit)
+	page, err := libraryservice.NewReviewBulkQueries(
+		librarypersistence.BindReviewBulkQueries(service.database),
+	).Items(ctx, bulkID, outcome, cursor, limit)
 	if err != nil {
-		return ReviewBulkItemPage{}, err
-	}
-	rows, err := service.database.QueryContext(ctx, query, arguments...)
-	if err != nil {
+		if errors.Is(err, libraryservice.ErrReviewBulkQuery) {
+			return ReviewBulkItemPage{}, ErrReviewBulkConflict
+		}
 		return ReviewBulkItemPage{}, fmt.Errorf("libraryimport/review bulk items: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	return scanReviewBulkItems(rows, limit)
+	items := make([]ReviewBulkItemResult, 0, len(page.Items))
+	for _, item := range page.Items {
+		var details any
+		if len(item.OutcomeDetails) > 0 {
+			if err := json.Unmarshal(item.OutcomeDetails, &details); err != nil {
+				return ReviewBulkItemPage{}, fmt.Errorf("libraryimport/review bulk item details: %w", err)
+			}
+		}
+		items = append(items, ReviewBulkItemResult{
+			ImportItemID: item.ImportItemID, Title: item.Title, PlatformName: item.PlatformName,
+			State: item.State, GameID: item.GameID, ReviewEventID: item.ReviewEventID,
+			OutcomeCode: item.OutcomeCode, OutcomeDetails: details, CompletedAtMS: item.CompletedAtMS,
+		})
+	}
+	return ReviewBulkItemPage{Items: items, NextCursor: page.NextCursor}, nil
 }

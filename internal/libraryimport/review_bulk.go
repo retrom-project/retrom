@@ -13,17 +13,14 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"retrom/internal/persistence/contentquery"
-
 	"retrom/internal/dbexec"
-
-	"retrom/internal/persistence/recordstore"
+	librarypersistence "retrom/internal/persistence/libraryimport"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
+	libraryservice "retrom/internal/service/libraryimport"
 )
 
 const (
@@ -172,131 +169,64 @@ func nullStringsEqual(left, right sql.NullString) bool {
 	return left.Valid == right.Valid && (!left.Valid || left.String == right.String)
 }
 
-func reviewBulkCandidatesQuery(scope ReviewBulkScope) (string, []any) {
-	query := `
-SELECT item.id,draft.version,draft.effective_source_snapshot_id,
-       json_extract(draft.metadata_json,'$.title'),instance.id,instance.name,instance.platform_id,instance.version,
-       validation.provider_id,validation.target_id,
-       CASE WHEN binding.binding_id IS NULL THEN NULL ELSE ` + contentquery.BindingPolicySQL + ` END,
-       validation.id,validation.status,
-       validation.platform_instance_version,
-       validation.dat_version_id,
-       (SELECT active.id FROM dat_versions active WHERE active.provider_id=validation.provider_id
-         AND active.target_id=validation.target_id AND active.is_active=1),
-       validation.default_dos_entry,draft.default_dos_entry,validation.dependency_snapshot_json,
-       source.content_kind,
-       EXISTS(SELECT 1 FROM review_runtime_screenshots screenshot
-         WHERE screenshot.import_item_id=item.id AND screenshot.validation_id=validation.id
-         AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
-         AND screenshot.provider_id=validation.provider_id AND screenshot.target_id=validation.target_id),
-       EXISTS(SELECT 1 FROM review_arcade_parent_attachments attachment
-         WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')) OR
-       EXISTS(SELECT 1 FROM review_multidisc_attachments attachment
-         WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')),
-       COALESCE(json_extract(emulationstation.source_flags_json,'$.hidden'),0)=1 OR
-       COALESCE(json_extract(emulationstation.source_flags_json,'$.adult'),0)=1
-FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
-JOIN import_item_source_snapshots source ON source.id=draft.effective_source_snapshot_id
-JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
-LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=draft.id
-LEFT JOIN import_item_core_validations validation ON validation.id=(
-  SELECT candidate.id FROM import_item_core_validations candidate
-  WHERE candidate.import_item_id=item.id
-  AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
-  AND candidate.target_platform_instance_id=draft.target_platform_instance_id
-  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
-)
-LEFT JOIN runtime_targets target ON target.provider_id=validation.provider_id AND target.target_id=validation.target_id
-LEFT JOIN runtime_target_bindings binding
-  ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
- AND binding.core_id=validation.core_id AND binding.launch_policy!='DISABLED'
-LEFT JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
- AND binding_platform.platform_id=instance.platform_id
-LEFT JOIN pegasus_import_items pegasus ON pegasus.library_import_item_id=item.id
-LEFT JOIN emulationstation_import_items emulationstation
- ON emulationstation.library_import_item_id=item.id
-WHERE item.state='REVIEW_PENDING'
-AND (item.review_handoff_kind='DIRECT' OR
-  emulationstation.execution_state='REVIEW_PENDING')
-AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
-AND (emulationstation.id IS NULL OR emulationstation.execution_state='REVIEW_PENDING')`
-	arguments := make([]any, 0, 8)
-	if scope.ImportJobID != "" {
-		query += " AND item.import_job_id=?"
-		arguments = append(arguments, scope.ImportJobID)
-	}
-	if scope.PegasusImportID != "" {
-		query += " AND pegasus.import_id=?"
-		arguments = append(arguments, scope.PegasusImportID)
-	}
-	if scope.EmulationStationImportID != "" {
-		query += " AND emulationstation.import_id=?"
-		arguments = append(arguments, scope.EmulationStationImportID)
-	}
-	if scope.Q != "" {
-		query += ` AND (instr(item.search_text,?)>0 OR EXISTS(
-  SELECT 1 FROM review_draft_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-  WHERE relation.review_draft_id=draft.id AND instr(tag.name_key,?)>0))`
-		arguments = append(arguments, scope.Q, scope.Q)
-	}
-	if scope.TagID != "" {
-		query += ` AND EXISTS(SELECT 1 FROM review_draft_tags relation
-  JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-  WHERE relation.review_draft_id=draft.id AND tag.id=?)`
-		arguments = append(arguments, scope.TagID)
-	}
-	if scope.PlatformInstanceID != "" {
-		query += " AND draft.target_platform_instance_id=?"
-		arguments = append(arguments, scope.PlatformInstanceID)
-	}
-	if scope.BlockerCode != "" {
-		query += " AND (validation.compatibility_code=? OR (?='NEEDS_VALIDATION' AND validation.id IS NULL))"
-		arguments = append(arguments, scope.BlockerCode, scope.BlockerCode)
-	}
-	query += " ORDER BY item.id"
-	return query, arguments
-}
-
 func scanReviewBulkCandidates(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	scope ReviewBulkScope,
 ) ([]reviewBulkCandidate, error) {
-	query, arguments := reviewBulkCandidatesQuery(scope)
-	return scanReviewBulkCandidateQuery(ctx, transaction, query, arguments)
-}
-
-func scanReviewBulkCandidateQuery(
-	ctx context.Context, transaction *sql.Tx, query string, arguments []any,
-) ([]reviewBulkCandidate, error) {
-	rows, err := transaction.QueryContext(ctx, query, arguments...)
+	rows, err := librarypersistence.BindReviewBulkQueries(transaction).Candidates(
+		ctx, libraryservice.ReviewBulkCandidateQuery{
+			Scope: libraryservice.ReviewBulkScope{
+				Q: scope.Q, TagID: scope.TagID, ImportJobID: scope.ImportJobID,
+				PegasusImportID: scope.PegasusImportID, EmulationStationImportID: scope.EmulationStationImportID,
+				PlatformInstanceID: scope.PlatformInstanceID, BlockerCode: scope.BlockerCode,
+			},
+			Limit: reviewBulkMaximumCandidates + 1,
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/review bulk candidates: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	candidates := make([]reviewBulkCandidate, 0)
-	for rows.Next() {
-		var candidate reviewBulkCandidate
-		if err := rows.Scan(
-			&candidate.itemID, &candidate.reviewVersion, &candidate.sourceSnapshotID,
-			&candidate.title, &candidate.platformInstanceID, &candidate.platformName, &candidate.platformID,
-			&candidate.platformVersion,
-			&candidate.providerID, &candidate.targetID, contentquery.ScanPolicy(&candidate.contentPolicy),
-			&candidate.validationID, &candidate.validationStatus,
-			&candidate.validationPlatformVersion,
-			&candidate.validationDAT, &candidate.currentDAT, &candidate.validationDOSEntry,
-			&candidate.draftDOSEntry, &candidate.dependencySnapshot, &candidate.contentKind,
-			&candidate.screenshotCurrent, &candidate.attachmentActive, &candidate.sourceFlagged,
-		); err != nil {
-			return nil, fmt.Errorf("libraryimport/review bulk candidates: %w", err)
+	return reviewBulkCandidatesFromApplication(rows), nil
+}
+
+func reviewBulkCandidatesFromApplication(rows []libraryservice.ReviewBulkCandidate) []reviewBulkCandidate {
+	candidates := make([]reviewBulkCandidate, 0, len(rows))
+	for _, row := range rows {
+		candidate := reviewBulkCandidate{
+			itemID: row.ItemID, reviewVersion: row.ReviewVersion, sourceSnapshotID: row.SourceSnapshotID,
+			platformInstanceID: row.PlatformInstanceID, platformName: row.PlatformName, platformID: row.PlatformID,
+			platformVersion: row.PlatformVersion, contentPolicy: row.ContentPolicy, contentKind: row.ContentKind,
+			screenshotCurrent: row.ScreenshotCurrent, attachmentActive: row.AttachmentActive,
+			sourceFlagged: row.SourceFlagged, title: row.Title,
 		}
+		candidate.providerID = reviewBulkNullableString(row.ProviderID)
+		candidate.targetID = reviewBulkNullableString(row.TargetID)
+		candidate.validationID = reviewBulkNullableString(row.ValidationID)
+		candidate.validationStatus = reviewBulkNullableString(row.ValidationStatus)
+		candidate.validationPlatformVersion = reviewBulkNullableInt(row.ValidationPlatformVersion)
+		candidate.validationDAT = reviewBulkNullableString(row.ValidationDAT)
+		candidate.currentDAT = reviewBulkNullableString(row.CurrentDAT)
+		candidate.validationDOSEntry = reviewBulkNullableString(row.ValidationDOSEntry)
+		candidate.draftDOSEntry = reviewBulkNullableString(row.DraftDOSEntry)
+		candidate.dependencySnapshot = reviewBulkNullableString(row.DependencySnapshot)
 		candidates = append(candidates, candidate)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("libraryimport/review bulk candidates: %w", err)
+	return candidates
+}
+
+func reviewBulkNullableString(value *string) sql.NullString {
+	if value == nil {
+		return sql.NullString{}
 	}
-	return candidates, nil
+	return sql.NullString{String: *value, Valid: true}
+}
+
+func reviewBulkNullableInt(value *int64) sql.NullInt64 {
+	if value == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: *value, Valid: true}
 }
 
 func preliminaryQuickApprovalReady(candidate reviewBulkCandidate) bool {
@@ -318,7 +248,7 @@ func quickApprovalValidationCurrent(candidate reviewBulkCandidate) bool {
 
 func (service *Service) classifyReviewBulkCandidates(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	matched []reviewBulkCandidate,
 ) ([]reviewBulkCandidate, ReviewBulkCounts, error) {
 	counts := ReviewBulkCounts{Matched: len(matched)}
@@ -379,63 +309,23 @@ func reviewBulkManifestDigest(candidates []reviewBulkCandidate) string {
 	return hex.EncodeToString(digest.Sum(nil))
 }
 
-func scanReviewBulkSummary(scanner interface{ Scan(...any) error }) (ReviewBulkSummary, error) {
-	var summary ReviewBulkSummary
-	var scopeJSON string
-	var startedAt, completedAt sql.NullInt64
-	var lastError sql.NullString
-	err := scanner.Scan(
-		&summary.BulkApprovalID, &summary.JobID, &summary.State, &summary.Version, &scopeJSON,
-		&summary.Counts.Matched, &summary.Counts.StrictReady, &summary.Counts.ScreenshotOnly,
-		&summary.Counts.Duplicate, &summary.Counts.AttachmentActive, &summary.Counts.SourceFlagged,
-		&summary.Counts.NotReadyOrStale,
-		&summary.Progress.Candidate, &summary.Progress.Processed, &summary.Progress.Published,
-		&summary.Progress.SkippedDuplicate, &summary.Progress.SkippedChanged,
-		&summary.Progress.SkippedNotReady, &summary.Progress.Failed, &summary.Progress.Cancelled,
-		&summary.CreatedAtMS, &startedAt, &summary.UpdatedAtMS, &completedAt, &lastError,
-	)
-	if err != nil {
-		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk summary: %w", err)
-	}
-	if err := json.Unmarshal([]byte(scopeJSON), &summary.Scope); err != nil {
-		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk scope projection: %w", err)
-	}
-	summary.StartedAtMS = nullableInt64Pointer(startedAt)
-	summary.CompletedAtMS = nullableInt64Pointer(completedAt)
-	summary.LastErrorCode = nullableStringPointer(lastError)
-	return summary, nil
-}
-
-const reviewBulkSummarySelect = `
-SELECT bulk.id,bulk.job_id,bulk.state,bulk.version,bulk.scope_json,
-       bulk.matched_count,bulk.candidate_count,bulk.screenshot_only_count,
-       bulk.duplicate_count,bulk.attachment_active_count,bulk.source_flagged_count,
-       bulk.not_ready_or_stale_count,
-       bulk.candidate_count,bulk.processed_count,bulk.published_count,
-       bulk.skipped_duplicate_count,bulk.skipped_changed_count,bulk.skipped_not_ready_count,
-       bulk.failed_count,bulk.cancelled_count,bulk.created_at_ms,bulk.started_at_ms,
-       bulk.updated_at_ms,bulk.completed_at_ms,bulk.last_error_code
-FROM review_bulk_approvals bulk`
-
 func activeReviewBulkSummary(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 ) (ReviewBulkSummary, bool, error) {
-	summary, err := scanReviewBulkSummary(transaction.QueryRowContext(
-		ctx, reviewBulkSummarySelect+" WHERE bulk.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED') LIMIT 1",
-	))
-	if errors.Is(err, sql.ErrNoRows) {
-		return ReviewBulkSummary{}, false, nil
-	}
+	summary, found, err := librarypersistence.BindReviewBulkQueries(transaction).ActiveSummary(ctx)
 	if err != nil {
 		return ReviewBulkSummary{}, false, fmt.Errorf("libraryimport/review bulk active: %w", err)
 	}
-	return summary, true, nil
+	if !found {
+		return ReviewBulkSummary{}, false, nil
+	}
+	return reviewBulkSummaryFromApplication(summary), true, nil
 }
 
 func (service *Service) reviewBulkPreviewInTransaction(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	scope ReviewBulkScope,
 ) (ReviewBulkPreview, []reviewBulkCandidate, error) {
 	normalized, err := normalizeReviewBulkScope(scope)
@@ -491,7 +381,7 @@ func validateReviewBulkCreate(
 
 func insertReviewBulkRecords(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	createdBy string,
 	preview ReviewBulkPreview,
 	candidates []reviewBulkCandidate,
@@ -509,70 +399,64 @@ func insertReviewBulkRecords(
 	}
 	dedupe := sha256.Sum256([]byte(bulkID.String()))
 	inputDigest := sha256.Sum256(payload)
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
-attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'REVIEW_BULK_APPROVAL',?,'REVIEW_BULK_APPROVE',?,1,?,1,'QUEUED',0,4,1,?,?,?)
-`, jobID.String(), bulkID.String(), hex.EncodeToString(dedupe[:]), string(payload), now, now, now); err != nil {
-		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk create job: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms) VALUES(?,1,?,?,?)
-`, jobID.String(), string(payload), hex.EncodeToString(inputDigest[:]), now); err != nil {
-		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk create input: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'REVIEW_BULK_APPROVAL',?,'QUEUED',json_object('candidateCount',?),?)
-`, jobID.String(), bulkID.String(), len(candidates), now); err != nil {
-		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk create event: %w", err)
-	}
-	if _, err := recordstore.CreateReviewBulkApprovals(ctx, transaction, `
-INSERT INTO review_bulk_approvals(id,job_id,state,scope_json,scope_digest,candidate_manifest_digest,
-matched_count,candidate_count,screenshot_only_count,duplicate_count,attachment_active_count,
-source_flagged_count,not_ready_or_stale_count,created_by_user_id,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'QUEUED',?,?,?,?,?,?,?,?,?,?,?,1,?,?)
-`,
-		bulkID.String(), jobID.String(), scopeJSON, preview.ScopeDigest, preview.CandidateManifestDigest,
-		preview.Counts.Matched, len(candidates), preview.Counts.ScreenshotOnly, preview.Counts.Duplicate,
-		preview.Counts.AttachmentActive, preview.Counts.SourceFlagged,
-		preview.Counts.NotReadyOrStale, createdBy, now, now,
-	); err != nil {
+	created, err := librarypersistence.BindReviewBulkWrites(transaction).Create(ctx, libraryservice.ReviewBulkCreation{
+		BulkApprovalID: bulkID.String(), JobID: jobID.String(), CreatedByUserID: createdBy,
+		Scope: libraryservice.ReviewBulkScope{
+			Q: preview.Scope.Q, TagID: preview.Scope.TagID, ImportJobID: preview.Scope.ImportJobID,
+			PegasusImportID: preview.Scope.PegasusImportID, EmulationStationImportID: preview.Scope.EmulationStationImportID,
+			PlatformInstanceID: preview.Scope.PlatformInstanceID, BlockerCode: preview.Scope.BlockerCode,
+		}, ScopeJSON: scopeJSON, ScopeDigest: preview.ScopeDigest,
+		CandidateManifestDigest: preview.CandidateManifestDigest, PayloadJSON: string(payload),
+		DedupeKey: hex.EncodeToString(dedupe[:]), InputDigest: hex.EncodeToString(inputDigest[:]),
+		Counts: libraryservice.ReviewBulkCounts{
+			Matched: preview.Counts.Matched, StrictReady: preview.Counts.StrictReady,
+			ScreenshotOnly: preview.Counts.ScreenshotOnly, Duplicate: preview.Counts.Duplicate,
+			AttachmentActive: preview.Counts.AttachmentActive, SourceFlagged: preview.Counts.SourceFlagged,
+			NotReadyOrStale: preview.Counts.NotReadyOrStale,
+		}, Candidates: reviewBulkCreationCandidates(candidates), NowMS: now,
+	})
+	if err != nil {
 		if strings.Contains(err.Error(), "review_bulk_approvals_one_active") {
 			return ReviewBulkSummary{}, ErrReviewBulkActive
 		}
 		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk create: %w", err)
 	}
-	for ordinal, candidate := range candidates {
-		if _, err := recordstore.CreateReviewBulkApprovalItems(ctx, transaction, `
-INSERT INTO review_bulk_approval_items(bulk_approval_id,import_item_id,ordinal,expected_review_version,
-expected_validation_id,expected_source_snapshot_id,title_snapshot,target_platform_instance_id,
-target_platform_name_snapshot,state,created_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,'PENDING',?)
-`, bulkID.String(), candidate.itemID, ordinal, candidate.reviewVersion, candidate.validationID.String,
-			candidate.sourceSnapshotID, strings.TrimSpace(candidate.title), candidate.platformInstanceID,
-			candidate.platformName, now); err != nil {
-			return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk item: %w", err)
-		}
+	return reviewBulkSummaryFromApplication(created), nil
+}
+
+func reviewBulkCreationCandidates(candidates []reviewBulkCandidate) []libraryservice.ReviewBulkCandidate {
+	result := make([]libraryservice.ReviewBulkCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		result = append(result, libraryservice.ReviewBulkCandidate{
+			ItemID: candidate.itemID, SourceSnapshotID: candidate.sourceSnapshotID,
+			PlatformInstanceID: candidate.platformInstanceID, PlatformName: candidate.platformName,
+			PlatformID: candidate.platformID, Title: strings.TrimSpace(candidate.title),
+			ContentKind: candidate.contentKind, ReviewVersion: candidate.reviewVersion,
+			PlatformVersion: candidate.platformVersion, ProviderID: nullableStringPointer(candidate.providerID),
+			TargetID: nullableStringPointer(candidate.targetID), ContentPolicy: candidate.contentPolicy,
+			ValidationID:              nullableStringPointer(candidate.validationID),
+			ValidationStatus:          nullableStringPointer(candidate.validationStatus),
+			ValidationPlatformVersion: nullableInt64Pointer(candidate.validationPlatformVersion),
+			ValidationDAT:             nullableStringPointer(candidate.validationDAT),
+			CurrentDAT:                nullableStringPointer(candidate.currentDAT),
+			ValidationDOSEntry:        nullableStringPointer(candidate.validationDOSEntry),
+			DraftDOSEntry:             nullableStringPointer(candidate.draftDOSEntry),
+			DependencySnapshot:        nullableStringPointer(candidate.dependencySnapshot),
+			ScreenshotCurrent:         candidate.screenshotCurrent, AttachmentActive: candidate.attachmentActive,
+			SourceFlagged: candidate.sourceFlagged,
+		})
 	}
-	return ReviewBulkSummary{
-		BulkApprovalID: bulkID.String(), JobID: jobID.String(), State: "QUEUED", Version: 1,
-		Scope: preview.Scope, Counts: preview.Counts,
-		Progress: ReviewBulkProgress{Candidate: len(candidates)}, CreatedAtMS: now, UpdatedAtMS: now,
-	}, nil
+	return result
 }
 
 func (service *Service) PreviewReviewBulk(ctx context.Context, scope ReviewBulkScope) (ReviewBulkPreview, error) {
-	transaction, err := service.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	var preview ReviewBulkPreview
+	err := librarypersistence.NewTransactions(service.database).Read(ctx, func(executor dbexec.Executor) error {
+		var err error
+		preview, _, err = service.reviewBulkPreviewInTransaction(ctx, executor, scope)
+		return err
+	})
 	if err != nil {
-		return ReviewBulkPreview{}, fmt.Errorf("libraryimport/review bulk preview: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	preview, _, err := service.reviewBulkPreviewInTransaction(ctx, transaction, scope)
-	if err != nil {
-		return ReviewBulkPreview{}, err
-	}
-	if err := transaction.Commit(); err != nil {
 		return ReviewBulkPreview{}, fmt.Errorf("libraryimport/review bulk preview: %w", err)
 	}
 	return preview, nil
@@ -586,30 +470,26 @@ func (service *Service) CreateReviewBulk(
 	if !authenticated || principal.UserID == "" {
 		return ReviewBulkSummary{}, ErrReviewBulkConflict
 	}
-	transaction, err := service.database.BeginTx(ctx, nil)
+	var created ReviewBulkSummary
+	err := librarypersistence.NewTransactions(service.database).Write(ctx, func(executor dbexec.Executor) error {
+		preview, candidates, err := service.reviewBulkPreviewInTransaction(ctx, executor, request.Scope)
+		if err != nil {
+			return err
+		}
+		if err := validateReviewBulkCreate(preview, candidates, request); err != nil {
+			return err
+		}
+		scopeJSON, _, err := reviewBulkScopeDigest(preview.Scope)
+		if err != nil {
+			return err
+		}
+		now := service.now().UnixMilli()
+		created, err = insertReviewBulkRecords(
+			ctx, executor, principal.UserID, preview, candidates, scopeJSON, now,
+		)
+		return err
+	})
 	if err != nil {
-		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk create: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	preview, candidates, err := service.reviewBulkPreviewInTransaction(ctx, transaction, request.Scope)
-	if err != nil {
-		return ReviewBulkSummary{}, err
-	}
-	if err := validateReviewBulkCreate(preview, candidates, request); err != nil {
-		return ReviewBulkSummary{}, err
-	}
-	scopeJSON, _, err := reviewBulkScopeDigest(preview.Scope)
-	if err != nil {
-		return ReviewBulkSummary{}, err
-	}
-	now := service.now().UnixMilli()
-	created, err := insertReviewBulkRecords(
-		ctx, transaction, principal.UserID, preview, candidates, scopeJSON, now,
-	)
-	if err != nil {
-		return ReviewBulkSummary{}, err
-	}
-	if err := transaction.Commit(); err != nil {
 		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk create: %w", err)
 	}
 	go service.runReviewBulkApproval(context.WithoutCancel(ctx), created.BulkApprovalID)
@@ -617,14 +497,40 @@ func (service *Service) CreateReviewBulk(
 }
 
 func (service *Service) GetReviewBulk(ctx context.Context, bulkID string) (ReviewBulkSummary, error) {
-	if _, err := uuid.Parse(bulkID); err != nil {
-		return ReviewBulkSummary{}, ErrReviewBulkConflict
-	}
-	summary, err := scanReviewBulkSummary(service.database.QueryRowContext(
-		ctx, reviewBulkSummarySelect+" WHERE bulk.id=?", bulkID,
-	))
+	summary, err := librarypersistence.BindReviewBulkQueries(service.database).Summary(ctx, bulkID)
 	if err != nil {
+		if errors.Is(err, libraryservice.ErrReviewBulkQuery) {
+			return ReviewBulkSummary{}, ErrReviewBulkConflict
+		}
 		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk get: %w", err)
 	}
-	return summary, nil
+	return reviewBulkSummaryFromApplication(summary), nil
+}
+
+func reviewBulkSummaryFromApplication(summary libraryservice.ReviewBulkSummary) ReviewBulkSummary {
+	return ReviewBulkSummary{
+		BulkApprovalID: summary.BulkApprovalID, JobID: summary.JobID, State: summary.State,
+		Version: summary.Version,
+		Scope: ReviewBulkScope{
+			Q: summary.Scope.Q, TagID: summary.Scope.TagID, ImportJobID: summary.Scope.ImportJobID,
+			PegasusImportID:          summary.Scope.PegasusImportID,
+			EmulationStationImportID: summary.Scope.EmulationStationImportID,
+			PlatformInstanceID:       summary.Scope.PlatformInstanceID, BlockerCode: summary.Scope.BlockerCode,
+		},
+		Counts: ReviewBulkCounts{
+			Matched: summary.Counts.Matched, StrictReady: summary.Counts.StrictReady,
+			ScreenshotOnly: summary.Counts.ScreenshotOnly, Duplicate: summary.Counts.Duplicate,
+			AttachmentActive: summary.Counts.AttachmentActive, SourceFlagged: summary.Counts.SourceFlagged,
+			NotReadyOrStale: summary.Counts.NotReadyOrStale,
+		},
+		Progress: ReviewBulkProgress{
+			Candidate: summary.Progress.Candidate, Processed: summary.Progress.Processed,
+			Published: summary.Progress.Published, SkippedDuplicate: summary.Progress.SkippedDuplicate,
+			SkippedChanged: summary.Progress.SkippedChanged, SkippedNotReady: summary.Progress.SkippedNotReady,
+			Failed: summary.Progress.Failed, Cancelled: summary.Progress.Cancelled,
+		},
+		CreatedAtMS: summary.CreatedAtMS, StartedAtMS: summary.StartedAtMS,
+		UpdatedAtMS: summary.UpdatedAtMS, CompletedAtMS: summary.CompletedAtMS,
+		LastErrorCode: summary.LastErrorCode,
+	}
 }

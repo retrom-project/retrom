@@ -81,6 +81,25 @@ type ImportJobCancellation struct {
 	ExpectedVersion int64
 	Reason          string
 }
+
+type ImportBatchCancellationRequest struct {
+	ImportID        string
+	ExpectedVersion int64
+	Reason          string
+	PreserveReviews bool
+}
+
+type ImportBatchCancellationResult struct {
+	ImportID   string
+	GroupJobID string
+	State      string
+	Version    int64
+	Pending    bool
+}
+
+type ImportBatchCancellationRepository interface {
+	Cancel(context.Context, ImportBatchCancellationRequest, int64) (ImportBatchCancellationResult, error)
+}
 type ImportCancellationResult struct {
 	JobID, State         string
 	ExecutionNo, Version int64

@@ -30,20 +30,6 @@ func prepareStaticBIOSDependencies(
 	return nil
 }
 
-func nullable(value sql.NullString) any {
-	if value.Valid {
-		return value.String
-	}
-	return nil
-}
-
-func nullableInt(value sql.NullInt64) any {
-	if value.Valid {
-		return value.Int64
-	}
-	return nil
-}
-
 type (
 	Approved         = application.ReviewApproved
 	ApprovalDecision = application.ReviewApprovalDecision
@@ -51,7 +37,7 @@ type (
 )
 
 func (service *Service) validateCurrentApprovalDependencySnapshot(
-	ctx context.Context, transaction *sql.Tx, sourceSnapshotID, validationID, platformID, providerID,
+	ctx context.Context, transaction dbexec.Executor, sourceSnapshotID, validationID, platformID, providerID,
 	targetID string,
 	policy contentcapability.Policy, contentKind, frozenJSON string,
 ) error {

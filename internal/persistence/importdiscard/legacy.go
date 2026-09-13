@@ -6,12 +6,12 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/service/importdiscard"
 )
 
 func (writes writes) LegacyCandidates(ctx context.Context, itemID string) ([]importdiscard.Envelope, error) {
-	ids, err := payloadrelease.CollectScopeIDs(ctx, writes.transaction, `SELECT job.id FROM import_jobs job
+	ids, err := payloadpersistence.CollectScopeIDs(ctx, writes.transaction, `SELECT job.id FROM import_jobs job
 JOIN upload_sessions upload ON upload.id=job.upload_session_id
 JOIN pegasus_import_items item ON item.id=?
 JOIN pegasus_import_collections collection ON collection.id=item.collection_id

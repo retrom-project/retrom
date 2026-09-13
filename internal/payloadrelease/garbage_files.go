@@ -1,30 +1,12 @@
 package payloadrelease
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"os"
-
 	"retrom/internal/blobstore"
-	application "retrom/internal/service/payloadrelease"
+	"retrom/internal/payloadfiles"
 )
 
-type Sources struct{ blobs *blobstore.Store }
+// Sources is retained as a compatibility name for callers of the legacy
+// payload package. The implementation lives in the storage adapter package.
+type Sources = payloadfiles.Store
 
-func (files *Sources) Delete(ctx context.Context, digest string) error {
-	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("stop garbage file removal: %w", err)
-	}
-	if files.blobs == nil {
-		return application.ErrInputInvalid
-	}
-	if err := os.Remove(files.blobs.Path(digest)); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove garbage file: %w", err)
-	}
-	return nil
-}
-
-func NewSources(blobs *blobstore.Store) *Sources { return &Sources{blobs: blobs} }
-
-type garbageFiles = Sources
+func NewSources(blobs *blobstore.Store) *Sources { return payloadfiles.New(blobs) }

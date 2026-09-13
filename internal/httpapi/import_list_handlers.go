@@ -1,8 +1,6 @@
 package httpapi
 
 import (
-	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,7 +9,7 @@ import (
 	"strings"
 
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
+	librarycomposition "retrom/internal/composition/libraryimport"
 	"retrom/internal/cursor"
 	"retrom/internal/importing"
 	"retrom/internal/libraryimport"
@@ -21,100 +19,20 @@ import (
 	"retrom/internal/service/tagging"
 )
 
-type importOverviewSummary struct {
-	Running                int64 `json:"running"`
-	ReviewPending          int64 `json:"reviewPending"`
-	PublishedItems         int64 `json:"publishedItems"`
-	Completed              int64 `json:"completed"`
-	Failed                 int64 `json:"failed"`
-	OrdinaryFailed         int64 `json:"ordinaryFailed"`
-	PegasusFailed          int64 `json:"pegasusFailed"`
-	EmulationStationFailed int64 `json:"emulationStationFailed"`
-	ProcessingItems        int64 `json:"processingItems"`
-	IssueItems             int64 `json:"issueItems"`
+type importListItem = libraryservice.ImportListItem
+
+func (server *Server) importReads() *libraryservice.ImportReads {
+	return librarycomposition.NewImportReads(server.database)
 }
 
 func (server *Server) importSummary(writer http.ResponseWriter, request *http.Request) {
-	var summary importOverviewSummary
-	err := server.database.QueryRowContext(request.Context(), importOverviewSummarySQL).Scan(
-		&summary.Running,
-		&summary.ReviewPending,
-		&summary.PublishedItems,
-		&summary.Completed,
-		&summary.Failed,
-		&summary.OrdinaryFailed,
-		&summary.PegasusFailed,
-		&summary.EmulationStationFailed,
-		&summary.ProcessingItems,
-		&summary.IssueItems,
-	)
+	summary, err := server.importReads().Summary(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
 	writeJSON(writer, http.StatusOK, summary)
 }
-
-const userVisibleImportJobPredicate = `i.id NOT IN (
- SELECT pegasus_item.library_import_job_id FROM pegasus_import_items pegasus_item
- WHERE pegasus_item.library_import_job_id IS NOT NULL
- UNION ALL
- SELECT source_item.library_import_job_id FROM emulationstation_import_items source_item
- WHERE source_item.library_import_job_id IS NOT NULL
- UNION ALL
- SELECT job.id FROM import_jobs job
- JOIN server_import_upload_owners owner ON owner.upload_session_id=job.upload_session_id
-)`
-
-const importOverviewSummarySQL = `
-WITH ordinary AS (
- SELECT i.state,i.total_item_count,i.failed_item_count,i.rejected_file_count,i.resolved_rejected_file_count
- FROM import_jobs i
- WHERE ` + userVisibleImportJobPredicate + `
-)
-SELECT
- (SELECT count(*) FROM ordinary WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))+
- (SELECT count(*) FROM pegasus_imports
-  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED'))+
- (SELECT count(*) FROM emulationstation_imports
-  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),
- (SELECT count(*)
-  FROM import_items item
-  WHERE item.state='REVIEW_PENDING'
-  AND (
-   item.review_handoff_kind='DIRECT'
-   OR EXISTS (
-    SELECT 1
-    FROM emulationstation_import_items source
-    WHERE source.library_import_item_id=item.id
-    AND source.execution_state='REVIEW_PENDING'
-   )
-  )),
- (SELECT count(*) FROM import_items WHERE state='PUBLISHED'),
- (SELECT count(*) FROM ordinary WHERE state='COMPLETED')+
- (SELECT count(*) FROM pegasus_imports WHERE state='COMPLETED')+
- (SELECT count(*) FROM emulationstation_imports WHERE state='COMPLETED'),
- (SELECT count(*) FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED'))+
- (SELECT count(*) FROM pegasus_imports WHERE state IN ('PARTIAL_FAILURE','FAILED'))+
- (SELECT count(*) FROM emulationstation_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
- (SELECT count(*) FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED')),
- (SELECT count(*) FROM pegasus_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
-	(SELECT count(*) FROM emulationstation_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
- COALESCE((SELECT sum(total_item_count) FROM ordinary
-  WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),0)+
- COALESCE((SELECT sum(game_count) FROM pegasus_imports
-  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),0)+
- COALESCE((SELECT sum(game_count) FROM emulationstation_imports
-  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),0),
- COALESCE((SELECT sum(failed_item_count+CASE
-   WHEN rejected_file_count>resolved_rejected_file_count
-   THEN rejected_file_count-resolved_rejected_file_count ELSE 0 END)
-  FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)+
- COALESCE((SELECT sum(blocked_item_count+failed_item_count) FROM pegasus_imports
-  WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)+
- COALESCE((SELECT sum(blocked_item_count+failed_item_count) FROM emulationstation_imports
-  WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)
-`
 
 type importListFilters struct {
 	queryText   string
@@ -181,7 +99,7 @@ func validImportListState(state string) bool {
 	}
 }
 
-func (server *Server) importListArguments(filters importListFilters) ([]any, error) {
+func (server *Server) importListQuery(filters importListFilters) (libraryservice.ImportListQuery, error) {
 	cursorID := ""
 	cursorValue := int64(0)
 	if filters.cursorToken != "" {
@@ -189,122 +107,19 @@ func (server *Server) importListArguments(filters importListFilters) ([]any, err
 			filters.cursorToken, "getAdminImports", filters.digest, filters.sortCode,
 		)
 		if err != nil || len(payload.SortValues) != 1 {
-			return nil, errInvalidCursorPayload
+			return libraryservice.ImportListQuery{}, errInvalidCursorPayload
 		}
 		parsed, err := strconv.ParseInt(payload.SortValues[0], 10, 64)
 		if err != nil {
-			return nil, errInvalidCursorPayload
+			return libraryservice.ImportListQuery{}, errInvalidCursorPayload
 		}
 		cursorID, cursorValue = payload.ID, parsed
 	}
-	return []any{
-		filters.queryText, filters.queryText, filters.queryText,
-		filters.state, filters.state,
-		filters.platformID, filters.platformID,
-		cursorID,
-		filters.sortCode, cursorValue, cursorValue, cursorID,
-		filters.sortCode, cursorValue, cursorValue, cursorID,
-		filters.sortCode,
-		filters.limit + 1,
+	return libraryservice.ImportListQuery{
+		QueryText: filters.queryText, State: filters.state, PlatformID: filters.platformID,
+		SortCode: filters.sortCode, CursorID: cursorID, CursorValue: cursorValue,
+		Limit: filters.limit + 1,
 	}, nil
-}
-
-const importListSQL = `
-SELECT i.id,
-i.state,
-pi.name,
-i.metadata_provider,
-coalesce(json_extract(i.config_snapshot_json,'$.contentMode'),'STANDARD'),
-i.total_item_count,
-i.review_pending_item_count,
-i.failed_item_count,
-i.rejected_file_count,
-i.resolved_rejected_file_count,
-i.already_imported_item_count,
-i.already_imported_file_count,
-i.last_error_code,
-i.version,
-i.created_at_ms,
-i.updated_at_ms
-FROM import_jobs i
-JOIN platform_instances pi ON pi.id=i.target_platform_instance_id
-WHERE ` + userVisibleImportJobPredicate + `
-AND (?='' OR instr(lower(i.id),lower(?))>0 OR instr(lower(pi.name),lower(?))>0)
-AND (?='' OR i.state=?)
-AND (?='' OR i.target_platform_instance_id=?)
-AND (?='' OR
-(?='UPDATED_DESC' AND (i.updated_at_ms<? OR (i.updated_at_ms=? AND i.id<?))) OR
-(?='CREATED_DESC' AND (i.created_at_ms<? OR (i.created_at_ms=? AND i.id<?))))
-ORDER BY CASE ? WHEN 'UPDATED_DESC' THEN i.updated_at_ms WHEN 'CREATED_DESC' THEN i.created_at_ms END DESC,
-i.id DESC
-LIMIT ?
-`
-
-type importListItem struct {
-	ID                          string  `json:"id"`
-	State                       string  `json:"state"`
-	PlatformInstanceName        string  `json:"platformInstanceName"`
-	MetadataProvider            string  `json:"metadataProvider"`
-	ContentMode                 string  `json:"contentMode"`
-	TotalItemCount              int64   `json:"totalItemCount"`
-	ReviewPendingItemCount      int64   `json:"reviewPendingItemCount"`
-	FailedItemCount             int64   `json:"failedItemCount"`
-	RejectedFileCount           int64   `json:"rejectedFileCount"`
-	UnresolvedRejectedFileCount int64   `json:"unresolvedRejectedFileCount"`
-	AlreadyImportedItemCount    int64   `json:"alreadyImportedItemCount"`
-	AlreadyImportedFileCount    int64   `json:"alreadyImportedFileCount"`
-	LastErrorCode               *string `json:"lastErrorCode"`
-	Version                     int64   `json:"version"`
-	CreatedAtMS                 int64   `json:"createdAtMs"`
-	UpdatedAtMS                 int64   `json:"updatedAtMs"`
-}
-
-func queryImportList(
-	ctx context.Context,
-	database *sql.DB,
-	arguments []any,
-	capacity int,
-) ([]importListItem, error) {
-	rows, err := database.QueryContext(ctx, importListSQL, arguments...)
-	if err != nil {
-		return nil, fmt.Errorf("httpapi: query imports: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]importListItem, 0, capacity)
-	for rows.Next() {
-		var item importListItem
-		var resolvedRejected int64
-		var lastErrorCode sql.NullString
-		if err := rows.Scan(
-			&item.ID,
-			&item.State,
-			&item.PlatformInstanceName,
-			&item.MetadataProvider,
-			&item.ContentMode,
-			&item.TotalItemCount,
-			&item.ReviewPendingItemCount,
-			&item.FailedItemCount,
-			&item.RejectedFileCount,
-			&resolvedRejected,
-			&item.AlreadyImportedItemCount,
-			&item.AlreadyImportedFileCount,
-			&lastErrorCode,
-			&item.Version,
-			&item.CreatedAtMS,
-			&item.UpdatedAtMS,
-		); err != nil {
-			return nil, fmt.Errorf("httpapi: scan import: %w", err)
-		}
-		item.UnresolvedRejectedFileCount = item.RejectedFileCount - resolvedRejected
-		if lastErrorCode.Valid {
-			item.LastErrorCode = &lastErrorCode.String
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("httpapi: scan imports: %w", err)
-	}
-	return items, nil
 }
 
 func (server *Server) encodeImportListCursor(
@@ -340,12 +155,12 @@ func (server *Server) imports(writer http.ResponseWriter, request *http.Request)
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "导入任务筛选无效", map[string]any{})
 		return
 	}
-	arguments, err := server.importListArguments(filters)
+	query, err := server.importListQuery(filters)
 	if err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 		return
 	}
-	items, err := queryImportList(request.Context(), server.database, arguments, filters.limit+1)
+	items, err := server.importReads().List(request.Context(), query)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return

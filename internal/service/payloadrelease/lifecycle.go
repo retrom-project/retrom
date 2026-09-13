@@ -83,7 +83,8 @@ func validateLifecycleOwner(facts LifecycleOwner) error {
 		return fmt.Errorf("%w: invalid release job for %s", ErrLifecycleInvariant, owner.Scope.Type)
 	}
 	expected := owner.Scope
-	if (owner.Scope.Type == ScopePegasusImportItem || owner.Scope.Type == ScopeEmulationStationImportItem) && owner.PublicID != "" {
+	if (owner.Scope.Type == ScopePegasusImportItem ||
+		owner.Scope.Type == ScopeEmulationStationImportItem) && owner.PublicID != "" {
 		expected = Scope{Type: ScopeImportItem, ID: owner.PublicID}
 		if facts.PublicReleaseJobID != owner.ReleaseJobID {
 			return fmt.Errorf("%w: unrelated public release", ErrLifecycleInvariant)

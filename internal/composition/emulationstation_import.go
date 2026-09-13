@@ -7,7 +7,6 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/emulationstationimport"
-	"retrom/internal/libraryimport"
 	"retrom/internal/persistence/dberrors"
 	repository "retrom/internal/persistence/emulationstationimport"
 	tagrepository "retrom/internal/persistence/tagging"
@@ -18,7 +17,7 @@ import (
 	"retrom/internal/service/tagging"
 )
 
-func NewEmulationStationImport(database *sql.DB, blobs *blobstore.Store, importer *libraryimport.Service,
+func NewEmulationStationImport(database *sql.DB, blobs *blobstore.Store, importer application.ReviewSourceCreator,
 	credentials *retromruntime.Credentials, roots []serversource.Root, now func() time.Time,
 ) *application.Service {
 	control := application.NewExecutionControl(repository.NewExecutionControl(database), now)

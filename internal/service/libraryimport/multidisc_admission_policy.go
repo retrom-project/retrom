@@ -2,6 +2,7 @@ package libraryimport
 
 import (
 	"context"
+	"fmt"
 
 	"retrom/internal/multidisc"
 )
@@ -9,7 +10,7 @@ import (
 func classifyMissingMultiDiscInput(ctx context.Context, read MultiDiscAttachmentReader, itemID string) error {
 	head, found, err := read.Head(ctx, itemID)
 	if err != nil {
-		return err
+		return fmt.Errorf("read multi-disc item head: %w", err)
 	}
 	code := MultiDiscAttachmentErrorInputStale
 	switch {
@@ -31,7 +32,8 @@ func validateMultiDiscAdmission(value MultiDiscAttachmentAdmission, version int6
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorVersion, ErrInvalid)
 	}
 	current := value.ValidationStatus == "BLOCKED" && value.CompatibilityCode == "MULTI_DISC_FILE_MISSING" &&
-		value.ValidationCoreID == value.CoreID && value.ValidationProviderID == value.ProviderID && value.ValidationTargetID == value.TargetID
+		value.ValidationCoreID == value.CoreID && value.ValidationProviderID == value.ProviderID &&
+		value.ValidationTargetID == value.TargetID
 	if !current {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorInputStale, ErrInvalid)
 	}
@@ -50,14 +52,14 @@ func hasMissingDiscs(entries []multidisc.Entry) bool {
 func validateMultiDiscUpload(ctx context.Context, read MultiDiscAttachmentReader, itemID, uploadID string) error {
 	upload, found, err := read.Upload(ctx, uploadID)
 	if err != nil {
-		return err
+		return fmt.Errorf("read multi-disc upload: %w", err)
 	}
 	if !found || upload.State != "COMPLETE" || upload.SourceType != "FILES" || upload.Consumed {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorInvalid, ErrInvalid)
 	}
 	activity, err := read.Activity(ctx, itemID)
 	if err != nil {
-		return err
+		return fmt.Errorf("read multi-disc attachment activity: %w", err)
 	}
 	if activity.Active != 0 {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorInProgress, ErrInvalid)

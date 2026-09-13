@@ -5,8 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	payload "retrom/internal/service/payloadrelease"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
 
 	"github.com/google/uuid"
 )

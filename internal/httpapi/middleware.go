@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -380,71 +379,5 @@ func (server *Server) healthReady(writer http.ResponseWriter, request *http.Requ
 }
 
 func (server *Server) readinessReason(ctx context.Context) string {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	database := server.readinessDatabase
-	if database == nil {
-		database = server.database
-	}
-	if err := database.PingContext(ctx); err != nil {
-		return "DATABASE_UNAVAILABLE"
-	}
-	var missing int64
-	err := database.QueryRowContext(ctx, `
-SELECT count(*)
-FROM runtime_target_bindings binding
-WHERE binding.launch_policy<>'DISABLED'
-AND binding.core_id IN ('fbneo',
-'mame2003',
-'mame2003_plus')
-AND NOT EXISTS(SELECT 1
-FROM dat_versions d
-WHERE d.provider_id=binding.provider_id AND d.target_id=binding.target_id
-AND d.is_active=1
-AND d.parse_status='READY')
-`).
-		Scan(&missing)
-	if err != nil {
-		return "DATABASE_UNAVAILABLE"
-	}
-	if missing == 0 {
-		return ""
-	}
-	var failed int64
-	err = database.QueryRowContext(ctx, `
-SELECT count(*)
-FROM runtime_target_bindings binding
-WHERE binding.launch_policy<>'DISABLED'
-AND binding.core_id IN ('fbneo',
-'mame2003',
-'mame2003_plus')
-AND NOT EXISTS(SELECT 1
-FROM dat_versions active
-WHERE active.provider_id=binding.provider_id AND active.target_id=binding.target_id
-AND active.is_active=1
-AND active.parse_status='READY')
-AND EXISTS(SELECT 1
-FROM dat_versions failed
-WHERE failed.provider_id=binding.provider_id AND failed.target_id=binding.target_id
-AND failed.parse_status='FAILED')
-`).
-		Scan(&failed)
-	if err != nil {
-		return "DATABASE_UNAVAILABLE"
-	}
-	if failed > 0 {
-		return "DEPENDENCY_DAT_PARSE_FAILED"
-	}
-	return "DEPENDENCY_INDEXING"
-}
-
-func queryWithConditions(prefix string, conditions []string, suffix string) string {
-	if len(conditions) == 0 {
-		return prefix + suffix
-	}
-	// Every condition is selected from handler-owned literals; all request values remain bound arguments.
-	return prefix + " WHERE " + strings.Join(
-		conditions,
-		" AND ",
-	) + suffix
+	return server.readinessService.Reason(ctx)
 }

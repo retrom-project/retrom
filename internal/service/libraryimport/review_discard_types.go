@@ -75,6 +75,16 @@ type ReviewOwnerTransition struct {
 type ReviewDiscardRepository interface {
 	WithDiscard(context.Context, func(ReviewDiscardScope) error) error
 }
+
+type ReviewBatchItem struct {
+	ItemID  string
+	Version int64
+}
+
+type ReviewBatchDiscardRepository interface {
+	Pending(context.Context, string, int) ([]ReviewBatchItem, error)
+	Release(context.Context, string, int64) error
+}
 type ReviewDiscardScope struct {
 	Payload payloadrelease.ReleaseScope
 	Reader  ReviewDiscardReader

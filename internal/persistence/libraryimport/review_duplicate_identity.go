@@ -2,6 +2,7 @@ package libraryimport
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"retrom/internal/cleanup"
@@ -80,16 +81,22 @@ LEFT JOIN blobs blob ON blob.id=entry.blob_id WHERE entry.source_snapshot_id=? O
 		return nil, fmt.Errorf("query ordered content identity: %w", err)
 	}
 	defer func() { cleanup.Error("close ordered identity", rows.Close()) }()
-	result := make([]application.ContentIdentityDisc, 0)
-	for rows.Next() {
-		var disc application.ContentIdentityDisc
-		if err := rows.Scan(&disc.State, &disc.SHA256); err != nil {
-			return nil, fmt.Errorf("scan ordered content identity: %w", err)
-		}
-		result = append(result, disc)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate ordered content identity: %w", err)
+	result, err := collectRows(
+		rows,
+		scanContentIdentityDisc,
+		"scan ordered content identity",
+		"iterate ordered content identity",
+	)
+	if err != nil {
+		return nil, err
 	}
 	return result, nil
+}
+
+func scanContentIdentityDisc(rows *sql.Rows) (application.ContentIdentityDisc, error) {
+	var disc application.ContentIdentityDisc
+	if err := rows.Scan(&disc.State, &disc.SHA256); err != nil {
+		return application.ContentIdentityDisc{}, fmt.Errorf("scan content identity row: %w", err)
+	}
+	return disc, nil
 }

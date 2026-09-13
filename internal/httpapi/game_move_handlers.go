@@ -4,39 +4,18 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
-	validationpersistence "retrom/internal/persistence/corevalidation"
-	validationservice "retrom/internal/service/corevalidation"
-
-	"retrom/internal/dbexec"
-
-	"retrom/internal/persistence/recordstore"
-
-	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
+	"retrom/internal/authn"
+	"retrom/internal/composition"
+	gamemove "retrom/internal/service/gamemove"
 )
 
-type gameMoveImpact struct {
-	Action                   string   `json:"action"`
-	GameID                   string   `json:"gameId"`
-	GameVersion              int64    `json:"gameVersion"`
-	SourcePlatformInstanceID string   `json:"sourcePlatformInstanceId"`
-	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`
-	TargetPlatformVersion    int64    `json:"targetPlatformInstanceVersion"`
-	TargetCoreID             string   `json:"targetCoreId"`
-	TargetProviderID         string   `json:"targetProviderId"`
-	TargetID                 string   `json:"targetId"`
-	TargetDATVersionID       any      `json:"targetDatVersionId"`
-	ValidationInputDigest    string   `json:"validationInputDigest"`
-	VariantStatus            string   `json:"variantStatus"`
-	BlockerCodes             []string `json:"blockerCodes"`
-}
+type gameMoveImpact = gamemove.Impact
 
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) calculateMoveImpact(
@@ -44,119 +23,15 @@ func (server *Server) calculateMoveImpact(
 	targetID string,
 	expected int64,
 ) (gameMoveImpact, error) {
-	var sourceID, sourcePlatform, contentLogicalName, targetPlatform, targetCore string
-	var providerID, runtimeTargetID string
-	var version, targetVersion int64
-	var datID sql.NullString
-	if err := server.database.QueryRowContext(request.Context(), `
-SELECT g.platform_instance_id,
-src.platform_id,
-COALESCE(content.logical_name,''),
-g.version,
-target.platform_id,
-target.default_core_id,
-target.version,binding.provider_id,binding.target_id,
-(SELECT id
-FROM dat_versions
-WHERE provider_id=binding.provider_id AND target_id=binding.target_id
-AND is_active=1)
-FROM games g
-JOIN platform_instances src ON src.id=g.platform_instance_id
-LEFT JOIN game_files content ON content.game_id=g.id
-AND content.role='CONTENT'
-JOIN platform_instances target ON target.id=?
-AND target.enabled=1
-AND target.deleted_at_ms IS NULL
-JOIN runtime_target_bindings binding ON binding.core_id=target.default_core_id
-JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
- AND binding_platform.platform_id=target.platform_id AND binding_platform.core_id=target.default_core_id
-JOIN runtime_targets runtime_target ON runtime_target.provider_id=binding.provider_id
- AND runtime_target.target_id=binding.target_id
-WHERE g.id=?
-AND g.status='PUBLISHED'
-`, targetID, request.PathValue("gameId")).Scan(
-		&sourceID,
-		&sourcePlatform,
-		&contentLogicalName,
-		&version,
-		&targetPlatform,
-		&targetCore,
-		&targetVersion,
-		&providerID,
-		&runtimeTargetID,
-		&datID,
-	); err != nil {
-		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
-	}
-	if version != expected || sourceID == targetID || sourcePlatform != targetPlatform {
-		return gameMoveImpact{}, errStaleImpact
-	}
-	status, code := "NEEDS_VALIDATION", "VARIANT_VALIDATION_REQUIRED"
-	biosSnapshot, _, _, err := validationservice.New(
-		validationpersistence.New(
-			server.database,
-		),
-	).ResolveBIOS(
-		request.Context(),
-
-		providerID,
-
-		runtimeTargetID,
-
-		contentLogicalName,
-	)
-	if err != nil {
-		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
-	}
-	inputDigest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, runtimeTargetID, request.PathValue("gameId"), dbexec.StringPointer(datID), biosSnapshot,
-	)
-	if err != nil {
-		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
-	}
-	var storedStatus, storedCode string
-	err = server.database.QueryRowContext(request.Context(), `
-SELECT r.status,
-r.compatibility_code
-FROM game_variants r
-WHERE r.game_id=?
-AND r.core_id=?
-AND r.provider_id=?
-AND r.target_id=?
-AND r.dat_version_id IS ?
-`, request.PathValue("gameId"), targetCore, providerID, runtimeTargetID, nullableString(datID)).
-		Scan(&storedStatus, &storedCode)
-	switch {
-	case err == nil:
-		if storedStatus == "BLOCKED" && storedCode == "VALIDATION_PENDING" {
-			status, code = "NEEDS_VALIDATION", "VARIANT_VALIDATION_REQUIRED"
-		} else {
-			status, code = storedStatus, storedCode
-		}
-	case errors.Is(err, sql.ErrNoRows):
-		// A missing current binding must be validated before the move can be committed.
-	default:
-		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
-	}
-	blockers := []string{}
-	if status != "READY" {
-		blockers = append(blockers, code)
-	}
-	return gameMoveImpact{
-		Action:                   "MOVE_GAME",
+	impact, err := composition.NewGameMove(server.database).Preview(request.Context(), gamemove.PreviewRequest{
 		GameID:                   request.PathValue("gameId"),
-		GameVersion:              version,
-		SourcePlatformInstanceID: sourceID,
 		TargetPlatformInstanceID: targetID,
-		TargetPlatformVersion:    targetVersion,
-		TargetCoreID:             targetCore,
-		TargetProviderID:         providerID,
-		TargetID:                 runtimeTargetID,
-		TargetDATVersionID:       nullableString(datID),
-		ValidationInputDigest:    inputDigest,
-		VariantStatus:            status,
-		BlockerCodes:             blockers,
-	}, nil
+		ExpectedVersion:          expected,
+	})
+	if err != nil {
+		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
+	}
+	return impact, nil
 }
 
 func moveDigest(impact gameMoveImpact) string {
@@ -250,12 +125,7 @@ func (server *Server) resumeMoveValidationAfterIdempotency(ctx context.Context, 
 		// very small validation can become READY.
 		server.waitForQueuedIdempotentRequests()
 		server.idempotency.Lock()
-		var state string
-		err := server.database.QueryRowContext(ctx, `
-SELECT state
-FROM jobs
-WHERE id=?
-`, jobID).Scan(&state)
+		state, err := composition.NewGameMove(server.database).QueuedJobState(ctx, jobID)
 		server.idempotency.Unlock()
 		if err == nil && state == "QUEUED" {
 			server.launcher.ResumeValidationJob(ctx, jobID)
@@ -306,67 +176,40 @@ func (server *Server) moveGame(writer http.ResponseWriter, request *http.Request
 		)
 		return
 	}
-	transaction, err := server.database.BeginTx(request.Context(), nil)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer dbexec.Rollback(transaction)
 	now := server.now().UnixMilli()
-	result, err := recordstore.UpdateGames(request.Context(), transaction, recordstore.Update{
-		Set: `
-platform_instance_id=?,
-version=version+1,
-updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-id=?
-AND version=?
-`,
-			Args: []any{request.PathValue("gameId"), expected},
+	actor := authn.ActorFromContext(request.Context(), "release-setup")
+	requestID, _ := request.Context().Value(requestIDKey).(string)
+	result, err := composition.NewGameMove(server.database).Move(request.Context(), gamemove.MoveRequest{
+		GameID:                   request.PathValue("gameId"),
+		TargetPlatformInstanceID: body.TargetPlatformInstanceID,
+		ExpectedVersion:          expected,
+		NowMS:                    now,
+		Impact:                   impact,
+		Actor: gamemove.AuditActor{
+			Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
 		},
-		Values: []any{body.TargetPlatformInstanceID, now},
 	})
 	if err != nil {
+		if errors.Is(err, gamemove.ErrVersionConflict) {
+			writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
+			return
+		}
 		server.databaseError(writer, request, err)
 		return
 	}
-	changed, _ := result.RowsAffected()
-	if changed != 1 {
+	if result.Version != expected+1 {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	if err := insertAudit(
-		request,
-		transaction,
-		"GAME_MOVED",
-		"GAME",
-		request.PathValue("gameId"),
-		map[string]any{"platformInstanceId": impact.SourcePlatformInstanceID},
-		map[string]any{
-			"platformInstanceId": body.TargetPlatformInstanceID,
-			"targetCoreId":       impact.TargetCoreID,
-			"variantStatus":      impact.VariantStatus,
-		},
-		now,
-	); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if err := transaction.Commit(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
+	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writeJSON(
 		writer,
 		http.StatusOK,
 		map[string]any{
-			"gameId":             request.PathValue("gameId"),
-			"platformInstanceId": body.TargetPlatformInstanceID,
-			"version":            expected + 1,
-			"updatedAtMs":        now,
+			"gameId":             result.GameID,
+			"platformInstanceId": result.PlatformInstanceID,
+			"version":            result.Version,
+			"updatedAtMs":        result.UpdatedAtMS,
 		},
 	)
 }
@@ -416,19 +259,14 @@ func (server *Server) scrapeGame(writer http.ResponseWriter, request *http.Reque
 
 // Cursor validation and the candidate/evidence projection form one stable response contract.
 func (server *Server) gameScrapeCandidates(writer http.ResponseWriter, request *http.Request) {
-	var runID string
-	err := server.database.QueryRowContext(request.Context(), `
-SELECT r.id
-FROM metadata_scrape_runs r
-JOIN games g ON g.id=r.game_id AND g.status='PUBLISHED'
-WHERE r.game_id=?
-AND r.provider='HASHEOUS'
-AND r.state='COMPLETED'
-ORDER BY r.created_at_ms DESC,
-r.id DESC LIMIT 1
-`, request.PathValue("gameId")).
-		Scan(&runID)
-	if errors.Is(err, sql.ErrNoRows) {
+	result, err := composition.NewGameMove(server.database).ScrapeCandidates(
+		request.Context(), request.PathValue("gameId"),
+	)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if result.RunID == nil {
 		writeJSON(
 			writer,
 			http.StatusOK,
@@ -438,67 +276,12 @@ r.id DESC LIMIT 1
 		)
 		return
 	}
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	rows, err := server.database.QueryContext(
-		request.Context(),
-		`
-SELECT id,
-provider_game_id,
-normalized_metadata_json,
-evidence_json,
-created_at_ms,
-(SELECT count(*)
-FROM scrape_candidate_hits h
-WHERE h.scrape_candidate_id=c.id)
-FROM scrape_candidates c
-WHERE scrape_run_id=?
-ORDER BY created_at_ms,
-id
-`,
-		runID,
-	)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	type candidateRecord struct {
-		id, providerID, metadataJSON, evidenceJSON string
-		createdAt, hitCount                        int64
-	}
-	records := make([]candidateRecord, 0)
-	for rows.Next() {
-		var record candidateRecord
-		if err := rows.Scan(
-			&record.id,
-			&record.providerID,
-			&record.metadataJSON,
-			&record.evidenceJSON,
-			&record.createdAt,
-			&record.hitCount,
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		records = append(records, record)
-	}
-	if err := rows.Err(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if err := rows.Close(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	items := make([]map[string]any, 0, len(records))
-	for _, record := range records {
+	items := make([]map[string]any, 0, len(result.Items))
+	for _, record := range result.Items {
 		var metadata, evidence map[string]any
-		_ = json.Unmarshal([]byte(record.metadataJSON), &metadata)
-		_ = json.Unmarshal([]byte(record.evidenceJSON), &evidence)
-		assets, assetErr := server.reviewCandidateAssets(request, record.id)
+		_ = json.Unmarshal([]byte(record.MetadataJSON), &metadata)
+		_ = json.Unmarshal([]byte(record.EvidenceJSON), &evidence)
+		assets, assetErr := server.reviewCandidateAssets(request, record.ID)
 		if assetErr != nil {
 			server.databaseError(writer, request, assetErr)
 			return
@@ -506,13 +289,13 @@ id
 		items = append(
 			items,
 			map[string]any{
-				"candidateId":    record.id,
-				"providerGameId": record.providerID,
+				"candidateId":    record.ID,
+				"providerGameId": record.ProviderGameID,
 				"metadata":       metadata,
 				"evidence":       evidence,
 				"assets":         assets,
-				"hitCount":       record.hitCount,
-				"createdAtMs":    record.createdAt,
+				"hitCount":       record.HitCount,
+				"createdAtMs":    record.CreatedAtMS,
 			},
 		)
 	}
@@ -520,7 +303,7 @@ id
 		writer,
 		http.StatusOK,
 		map[string]any{
-			"gameId": request.PathValue("gameId"), "scrapeRunId": runID, "items": items,
+			"gameId": request.PathValue("gameId"), "scrapeRunId": *result.RunID, "items": items,
 		},
 	)
 }

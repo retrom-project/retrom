@@ -18,9 +18,11 @@ func (memory *payloadLinksMemory) RetainedSources(context.Context, payload.Sourc
 	memory.calls++
 	return nil, memory.cause
 }
+
 func (*payloadLinksMemory) BoundSources(context.Context, string, payload.Scope, int) ([]payload.Scope, error) {
 	return nil, nil
 }
+
 func emptyPayloadScope() payload.ReleaseScope {
 	return payload.ReleaseScope{Links: &payloadLinksMemory{}}
 }
@@ -38,6 +40,7 @@ func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run fun
 	memory.committed = true
 	return nil
 }
+
 func TestCompletionRollsBackWhenPayloadLinksCannotBeRead(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("payload links read unavailable")

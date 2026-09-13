@@ -1,53 +1,58 @@
 package libraryimport
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 
+	"retrom/internal/dbexec"
 	"retrom/internal/scummvm"
 )
 
-func (run *draftPatchRun) applyScummVMSelection() error {
-	if run.patch.ScummVMCandidateID == nil {
-		return nil
-	}
+func (service *Service) selectScummVMCandidate(
+	ctx context.Context,
+	transaction dbexec.Executor,
+	itemID, targetID string,
+	dosEntry sql.NullString,
+	candidateID string,
+) (string, error) {
 	state := draftValidationRefresh{
-		service: run.service, ctx: run.ctx, transaction: run.transaction,
-		itemID: run.itemID, targetID: run.targetID, dosEntry: run.dosEntry,
+		service: service, ctx: ctx, transaction: transaction,
+		itemID: itemID, targetID: targetID, dosEntry: dosEntry,
 	}
 	if err := state.loadInputs(); err != nil {
-		return err
+		return "", err
 	}
 	if state.contentKind != scummvm.ContentKind || state.providerID != "retrom-runtime" ||
 		state.runtimeTargetID != "scummvm" {
-		return ErrInvalid
+		return "", ErrInvalid
 	}
 	_, current, err := state.loadExactValidation()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if !current || state.sourceID == "" {
-		return ErrInvalid
+		return "", ErrInvalid
 	}
 	snapshot, err := scummvm.ParseSnapshot(state.dependencySnapshot)
 	if err != nil || snapshot.Detection.SourceDigest != state.effectiveManifestDigest {
-		return ErrInvalid
+		return "", ErrInvalid
 	}
-	selected, err := snapshot.Select(*run.patch.ScummVMCandidateID)
+	selected, err := snapshot.Select(candidateID)
 	if err != nil {
-		return ErrInvalid
+		return "", ErrInvalid
 	}
 	if selected.SelectedCandidateID == snapshot.SelectedCandidateID {
-		run.validationID = state.sourceID
-		return nil
+		return state.sourceID, nil
 	}
 	encoded, err := json.Marshal(selected)
 	if err != nil {
-		return ErrInvalid
+		return "", ErrInvalid
 	}
 	state.dependencySnapshot = string(encoded)
 	state.sourceStatus, state.compatibilityCode = selected.Status()
-	run.validationID, err = state.insertValidation()
-	return err
+	validationID, err := state.insertValidation()
+	return validationID, err
 }
 
 func (state *draftValidationRefresh) resolveScummVMSelection() (draftDependencyState, error) {

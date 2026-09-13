@@ -4,43 +4,23 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
-	"retrom/internal/dbexec"
-
-	"retrom/internal/persistence/recordstore"
-
 	"retrom/internal/authn"
-	"retrom/internal/cleanup"
 	"retrom/internal/cursor"
+	"retrom/internal/service/platforminstance"
 )
 
-type coreImpactGame struct {
-	GameID                  string `json:"gameId"`
-	GameVersion             int64  `json:"gameVersion"`
-	VariantID               any    `json:"variantId"`
-	VariantStatus           any    `json:"variantStatus"`
-	TargetCompatibilityCode any    `json:"targetCompatibilityCode"`
-}
-
-type coreImpact struct {
-	Action                  string           `json:"action"`
-	PlatformInstanceID      string           `json:"platformInstanceId"`
-	PlatformInstanceVersion int64            `json:"platformInstanceVersion"`
-	CoreID                  string           `json:"coreId"`
-	ProviderID              string           `json:"providerId"`
-	TargetID                string           `json:"targetId"`
-	BundleSHA256            string           `json:"bundleSha256"`
-	DATVersionID            any              `json:"datVersionId"`
-	Games                   []coreImpactGame `json:"games"`
-}
+type coreImpact = platforminstance.CoreImpact
 
 func impactDigest(value any) string {
+	if impact, ok := value.(coreImpact); ok {
+		return platforminstance.ImpactDigest(impact)
+	}
 	encoded, _ := json.Marshal(value)
 	digest := sha256.Sum256(encoded)
 	return base64.RawURLEncoding.EncodeToString(digest[:])
@@ -52,120 +32,23 @@ func (server *Server) calculateCoreImpact(
 	instanceID, coreID string,
 	expected int64,
 ) (coreImpact, map[string]int64, []map[string]any, error) {
-	var platformID string
-	var version int64
-	err := server.database.QueryRowContext(request.Context(), `
-SELECT platform_id,
-version
-FROM platform_instances
-WHERE id=?
-AND deleted_at_ms IS NULL
-`, instanceID).
-		Scan(&platformID, &version)
-	if err != nil || version != expected {
+	result, err := server.platformDirectories.CoreImpact(request.Context(), instanceID, coreID, expected)
+	if errors.Is(err, platforminstance.ErrImpactStale) {
 		return coreImpact{}, nil, nil, errStaleImpact
 	}
-	var allowed int
-	if err := server.database.QueryRowContext(request.Context(), `
-SELECT count(*)
-FROM platform_cores
-WHERE platform_id=?
-AND core_id=?
-AND enabled=1
-`, platformID, coreID).Scan(&allowed); err != nil ||
-		allowed != 1 {
+	if errors.Is(err, platforminstance.ErrInvalidCore) {
 		return coreImpact{}, nil, nil, errInvalidCore
 	}
-	var providerID, targetID, bundleSHA256 string
-	var datVersionID sql.NullString
-	if err := server.database.QueryRowContext(request.Context(), `
-SELECT binding.provider_id,binding.target_id,provider.bundle_sha256,
-(SELECT id
-FROM dat_versions
-WHERE provider_id=binding.provider_id AND target_id=binding.target_id
-AND is_active=1)
-FROM runtime_target_bindings binding
-JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
- AND binding_platform.platform_id=? AND binding_platform.core_id=?
-JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
-JOIN runtime_providers provider ON provider.provider_id=target.provider_id
-WHERE binding.core_id=? AND binding.launch_policy<>'DISABLED'
-`, platformID, coreID, coreID).Scan(
-		&providerID, &targetID, &bundleSHA256, &datVersionID,
-	); err != nil {
-		return coreImpact{}, nil, nil, errInvalidCore
-	}
-	rows, err := server.database.QueryContext(
-		request.Context(),
-		`
-SELECT g.id,
-g.version,
-variant.id,
-variant.status,
-variant.compatibility_code
-FROM games g
-LEFT JOIN game_variants variant ON variant.game_id=g.id AND variant.core_id=?
-WHERE g.platform_instance_id=?
-AND g.status='PUBLISHED'
-ORDER BY g.id
-`,
-		coreID,
-		instanceID,
-	)
 	if err != nil {
-		return coreImpact{}, nil, nil, fmt.Errorf("httpapi/platform_handlers: %w", err)
+		return coreImpact{}, nil, nil, fmt.Errorf("httpapi/platform core impact: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	counts := map[string]int64{"ready": 0, "needsValidation": 0, "blocked": 0}
-	items := make([]map[string]any, 0)
-	games := make([]coreImpactGame, 0)
-	for rows.Next() {
-		var game coreImpactGame
-		var variantID, status, code sql.NullString
-		if err := rows.Scan(
-			&game.GameID,
-			&game.GameVersion,
-			&variantID,
-			&status,
-			&code,
-		); err != nil {
-			return coreImpact{}, nil, nil, fmt.Errorf("httpapi/platform_handlers: %w", err)
-		}
-		game.VariantID = nullableString(variantID)
-		game.VariantStatus = nullableString(status)
-		game.TargetCompatibilityCode = nullableString(code)
-		projected := "NEEDS_VALIDATION"
-		switch {
-		case status.Valid && status.String == "READY":
-			projected = "READY"
-			counts["ready"]++
-		case status.Valid:
-			projected = "BLOCKED"
-			counts["blocked"]++
-		default:
-			counts["needsValidation"]++
-		}
-		games = append(games, game)
-		items = append(
-			items,
-			map[string]any{"gameId": game.GameID, "status": projected, "blockerCode": nullableString(code)},
-		)
+	items := make([]map[string]any, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, map[string]any{
+			"gameId": item.GameID, "status": item.Status, "blockerCode": item.BlockerCode,
+		})
 	}
-	impact := coreImpact{
-		Action:                  "CHANGE_DEFAULT_CORE",
-		PlatformInstanceID:      instanceID,
-		PlatformInstanceVersion: version,
-		CoreID:                  coreID,
-		ProviderID:              providerID,
-		TargetID:                targetID,
-		BundleSHA256:            bundleSHA256,
-		DATVersionID:            nullableString(datVersionID),
-		Games:                   games,
-	}
-	if err := rows.Err(); err != nil {
-		return coreImpact{}, nil, nil, fmt.Errorf("scan platform core impact: %w", err)
-	}
-	return impact, counts, items, nil
+	return result.Impact, result.Counts, items, nil
 }
 
 func (server *Server) previewDefaultCore(writer http.ResponseWriter, request *http.Request) {
@@ -349,63 +232,45 @@ func (server *Server) changeDefaultCore(writer http.ResponseWriter, request *htt
 		)
 		return
 	}
-	now := server.now().UnixMilli()
-	transaction, err := server.database.BeginTx(request.Context(), nil)
-	if err != nil {
-		server.databaseError(writer, request, err)
+	actor := authn.ActorFromContext(request.Context(), "release-setup")
+	requestID, _ := request.Context().Value(requestIDKey).(string)
+	change, err := server.platformDirectories.ChangeDefaultCore(
+		request.Context(), request.PathValue("platformInstanceId"), body.CoreID, expected,
+		body.ImpactDigest, body.ConfirmBlocked,
+		platforminstance.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
+	)
+	if errors.Is(err, platforminstance.ErrImpactStale) {
+		writeError(writer, request, http.StatusConflict, "IMPACT_PREVIEW_STALE", "目录或影响输入已变化", map[string]any{})
 		return
 	}
-	defer dbexec.Rollback(transaction)
-	result, err := recordstore.UpdatePlatformInstances(request.Context(), transaction, recordstore.Update{
-		Set: `
-default_core_id=?,
-version=version+1,
-updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-id=?
-AND version=?
-`,
-			Args: []any{request.PathValue("platformInstanceId"), expected},
-		},
-		Values: []any{body.CoreID, now},
-	})
-	if err != nil {
-		server.databaseError(writer, request, err)
+	if errors.Is(err, platforminstance.ErrDefaultCoreBlocked) {
+		writeError(
+			writer,
+			request,
+			http.StatusUnprocessableEntity,
+			"DEFAULT_CORE_BLOCKED",
+			"部分游戏无法使用目标核心",
+			map[string]any{"blockedCount": counts["blocked"]},
+		)
 		return
 	}
-	changed, _ := result.RowsAffected()
-	if changed != 1 {
+	if errors.Is(err, platforminstance.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "平台目录已被修改", map[string]any{})
 		return
 	}
-	if err := insertAudit(
-		request,
-		transaction,
-		"PLATFORM_DEFAULT_CORE_CHANGED",
-		"PLATFORM_INSTANCE",
-		request.PathValue("platformInstanceId"),
-		map[string]any{"version": expected},
-		map[string]any{"defaultCoreId": body.CoreID, "version": expected + 1, "impactDigest": body.ImpactDigest},
-		now,
-	); err != nil {
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	if err := transaction.Commit(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
+	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, change.Version))
 	writeJSON(
 		writer,
 		http.StatusOK,
 		map[string]any{
 			"id":            request.PathValue("platformInstanceId"),
 			"defaultCoreId": body.CoreID,
-			"version":       expected + 1,
-			"updatedAtMs":   now,
+			"version":       change.Version,
+			"updatedAtMs":   change.UpdatedAtMS,
 		},
 	)
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/libraryimport"
 	"retrom/internal/pegasusimport"
 	"retrom/internal/persistence/dberrors"
 	repository "retrom/internal/persistence/pegasusimport"
@@ -18,7 +17,7 @@ import (
 	"retrom/internal/service/tagging"
 )
 
-func NewPegasusImport(database *sql.DB, blobs *blobstore.Store, importer *libraryimport.Service,
+func NewPegasusImport(database *sql.DB, blobs *blobstore.Store, importer application.ReviewSourceCreator,
 	credentials *retromruntime.Credentials, roots []serversource.Root, now func() time.Time,
 ) *application.Service {
 	source := pegasusimport.NewSources(blobs, credentials, roots)

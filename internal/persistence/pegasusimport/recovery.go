@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	payload "retrom/internal/persistence/payloadrelease"
 
 	"retrom/internal/cleanup"
@@ -23,7 +24,10 @@ func (repository *Recovery) WithRecovery(ctx context.Context, work func(applicat
 	}
 	defer dbexec.Rollback(tx)
 	if err := work(
-		application.RecoveryScope{Payload: payload.BindReleases(tx), Records: recoveryRecords{tx}, Metadata: library.BindMetadata(tx)},
+		application.RecoveryScope{
+			Payload: payload.BindReleases(tx), Records: recoveryRecords{tx},
+			Metadata: library.BindMetadata(tx),
+		},
 	); err != nil {
 		return err
 	}

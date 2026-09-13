@@ -25,7 +25,13 @@ func New(database *sql.DB) *Repository {
 }
 
 func readScope(executor dbexec.Executor) gamecontent.ReadScope {
-	return gamecontent.ReadScope{Content: records{executor}, Inputs: records{executor}, BIOS: validation.New(executor)}
+	bound := records{executor}
+	return gamecontent.ReadScope{
+		Content: bound,
+		Inputs:  bound,
+		BIOS:    validation.New(executor),
+		Admin:   bound,
+	}
 }
 
 func (repository *Repository) WithRead(ctx context.Context, work func(gamecontent.ReadScope) error) error {
@@ -55,11 +61,14 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(gameconte
 			ReadScope: readScope(
 				tx,
 			),
-			Replays:       bound,
-			Jobs:          bound,
-			Leases:        bound,
-			ContentWriter: bound,
-			Retirements:   BindRetirement(tx),
+			Replays:            bound,
+			Jobs:               bound,
+			Leases:             bound,
+			ContentWriter:      bound,
+			Retirements:        BindRetirement(tx),
+			AdminWriter:        bound,
+			GameDeletionReader: bound,
+			GameDeletionWriter: bound,
 		},
 	); err != nil {
 		return err

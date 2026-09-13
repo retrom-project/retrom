@@ -1,9 +1,6 @@
 package libraryimport
 
-import (
-	"retrom/internal/dbexec"
-	application "retrom/internal/service/libraryimport"
-)
+import application "retrom/internal/service/libraryimport"
 
 const maxArcadeDependencyNodes = application.MaxArcadeDependencyNodes
 
@@ -11,7 +8,6 @@ type (
 	arcadeMachineRelation  struct{ cloneOf, romOf string }
 	arcadeClosureNode      = application.ArcadeClosureNode
 	arcadeRelationResolver func(string) (arcadeMachineRelation, bool)
-	arcadeRelationQueryer  = dbexec.Executor
 )
 
 func arcadeDependencyClosureV2(

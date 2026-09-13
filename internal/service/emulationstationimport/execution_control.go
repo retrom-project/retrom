@@ -3,8 +3,9 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
-	payload "retrom/internal/service/payloadrelease"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
 
 	library "retrom/internal/service/libraryimport"
 )
@@ -70,61 +71,88 @@ func (service *ExecutionControl) Observe(ctx context.Context, unit Execution) (L
 }
 
 func (service *ExecutionControl) CloseCancelled(ctx context.Context, unit Execution) (bool, error) {
-	closed := false
-	for !closed {
-		more := false
-		err := service.repository.WithExecution(ctx, func(scope ExecutionScope) error {
-			before, err := currentExecution(ctx, scope.Read, unit)
-			if err != nil {
-				return err
-			}
-			now := service.now().UnixMilli()
-			state := ExecutionState(before, unit, now)
-			if state == LeaseActive {
-				return nil
-			}
-			if state != LeaseCancelled || before.LeaseUntilMS <= now || before.DeadlineAtMS <= now {
-				return ErrVersionConflict
-			}
-			before, more, err = completeExecutionReviews(
-				ctx,
-				ExecutionReviewScope{Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata},
-				before,
-				service.now,
-			)
-			if err != nil {
-				return err
-			}
-			if more {
-				return nil
-			}
-			change := ExecutionFinish{
-				Before:      before,
-				NowMS:       service.now().UnixMilli(),
-				JobState:    "CANCELLED",
-				ImportState: "CANCELLED",
-				ItemState:   "CANCELLED",
-			}
-			planExecutionProjection(&change)
-			if err := scope.Write.Finish(ctx, change); err != nil {
-				return fmt.Errorf("persist EmulationStation cancellation acknowledgement: %w", err)
-			}
-			if change.SchedulePayload {
-				if err := scheduleTerminalPayloads(ctx, scope.Payload, change.Before.ImportID, change.NowMS); err != nil {
-					return err
-				}
-			}
-			closed = true
-			return nil
-		})
+	for {
+		closed, more, err := service.closeCancelledAttempt(ctx, unit)
 		if err != nil {
 			return false, fmt.Errorf("acknowledge EmulationStation cancellation: %w", err)
 		}
-		if !more {
+		if closed || !more {
 			return closed, nil
 		}
 	}
-	return closed, nil
+}
+
+func (service *ExecutionControl) closeCancelledAttempt(
+	ctx context.Context, unit Execution,
+) (bool, bool, error) {
+	closed, more := false, false
+	err := service.repository.WithExecution(ctx, func(scope ExecutionScope) error {
+		return service.closeCancelledScope(ctx, scope, unit, &closed, &more)
+	})
+	if err != nil {
+		return false, false, fmt.Errorf("run cancellation acknowledgement scope: %w", err)
+	}
+	return closed, more, nil
+}
+
+func (service *ExecutionControl) closeCancelledScope(
+	ctx context.Context,
+	scope ExecutionScope,
+	unit Execution,
+	closed, more *bool,
+) error {
+	before, err := currentExecution(ctx, scope.Read, unit)
+	if err != nil {
+		return err
+	}
+	now := service.now().UnixMilli()
+	state := ExecutionState(before, unit, now)
+	if state == LeaseActive {
+		return nil
+	}
+	if state != LeaseCancelled || before.LeaseUntilMS <= now || before.DeadlineAtMS <= now {
+		return ErrVersionConflict
+	}
+	return service.finishCancelledScope(ctx, scope, before, closed, more)
+}
+
+func (service *ExecutionControl) finishCancelledScope(
+	ctx context.Context,
+	scope ExecutionScope,
+	before LeaseSnapshot,
+	closed, more *bool,
+) error {
+	var err error
+	before, *more, err = completeExecutionReviews(
+		ctx,
+		ExecutionReviewScope{Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata},
+		before,
+		service.now,
+	)
+	if err != nil {
+		return err
+	}
+	if *more {
+		return nil
+	}
+	change := ExecutionFinish{
+		Before:      before,
+		NowMS:       service.now().UnixMilli(),
+		JobState:    "CANCELLED",
+		ImportState: "CANCELLED",
+		ItemState:   "CANCELLED",
+	}
+	planExecutionProjection(&change)
+	if err := scope.Write.Finish(ctx, change); err != nil {
+		return fmt.Errorf("persist EmulationStation cancellation acknowledgement: %w", err)
+	}
+	if change.SchedulePayload {
+		if err := scheduleTerminalPayloads(ctx, scope.Payload, change.Before.ImportID, change.NowMS); err != nil {
+			return err
+		}
+	}
+	*closed = true
+	return nil
 }
 
 func currentExecution(ctx context.Context, reader ExecutionSnapshotReader, unit Execution) (LeaseSnapshot, error) {

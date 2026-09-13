@@ -2,9 +2,10 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
+	"retrom/internal/dbexec"
+	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -22,7 +23,7 @@ func resolveRPGDependencies(profile rpgReviewBinding) (draftDependencyState, str
 	return state, resolved.Digest
 }
 
-func loadReviewRPGDependencies(ctx context.Context, transaction *sql.Tx, draftID string) (
+func loadReviewRPGDependencies(ctx context.Context, transaction dbexec.Executor, draftID string) (
 	rpgReviewBinding, string, draftDependencyState, error,
 ) {
 	profile, err := loadRPGReviewBinding(ctx, transaction, draftID)
@@ -34,18 +35,13 @@ func loadReviewRPGDependencies(ctx context.Context, transaction *sql.Tx, draftID
 }
 
 func (state *draftValidationRefresh) resolveRPGDependencies() (draftDependencyState, error) {
-	var draftID string
-	if err := state.transaction.QueryRowContext(state.ctx,
-		"SELECT id FROM review_drafts WHERE import_item_id=?", state.itemID).Scan(&draftID); err != nil {
-		return draftDependencyState{}, ErrInvalid
-	}
-	_, digest, result, err := loadReviewRPGDependencies(state.ctx, state.transaction, draftID)
+	_, digest, result, err := loadReviewRPGDependencies(state.ctx, state.transaction, state.draftID)
 	if err != nil {
 		return draftDependencyState{}, err
 	}
-	if _, err := state.transaction.ExecContext(state.ctx, `
-UPDATE rpgmaker_review_profiles SET dependency_snapshot_sha256=?,updated_at_ms=? WHERE review_draft_id=?
-`, digest, state.service.now().UnixMilli(), draftID); err != nil {
+	if err := repository.BindReviewValidation(state.transaction).UpdateRPGDependencyDigest(
+		state.ctx, state.draftID, digest, state.service.now().UnixMilli(),
+	); err != nil {
 		return draftDependencyState{}, fmt.Errorf("libraryimport/RPG dependency digest: %w", err)
 	}
 	return result, nil

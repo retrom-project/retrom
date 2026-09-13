@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"retrom/internal/dbexec"
@@ -16,14 +15,6 @@ type DuplicateGame = application.DuplicateGame
 
 type DuplicateConflict = application.DuplicateConflict
 
-func importItemContentIdentity(ctx context.Context, executor dbexec.Executor, itemID string) (string, error) {
-	digest, err := application.NewContentDuplicates(repository.BindContentDuplicates(executor)).Identity(ctx, itemID)
-	if err != nil {
-		return "", fmt.Errorf("read content identity: %w", err)
-	}
-	return digest, nil
-}
-
 func findDuplicateGames(
 	ctx context.Context,
 	executor dbexec.Executor,
@@ -35,14 +26,6 @@ func findDuplicateGames(
 		return nil, fmt.Errorf("read duplicate games: %w", err)
 	}
 	return games, nil
-}
-
-func claimContentIdentity(ctx context.Context, transaction *sql.Tx, platformID, digest string, now int64) error {
-	writer := repository.BindReviewApproval(transaction).Decisions
-	if err := writer.ClaimIdentity(ctx, platformID, digest, now); err != nil {
-		return fmt.Errorf("claim content identity: %w", err)
-	}
-	return nil
 }
 
 func (service *Service) DuplicateGames(

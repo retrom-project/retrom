@@ -2,8 +2,9 @@ package emulationstationimport
 
 import (
 	"context"
-	payload "retrom/internal/service/payloadrelease"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
 )
 
 type ExecutionItem struct {

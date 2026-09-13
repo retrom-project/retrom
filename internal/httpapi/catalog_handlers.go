@@ -1,297 +1,92 @@
 package httpapi
 
 import (
-	"database/sql"
-	"fmt"
 	"net/http"
 	"net/url"
 
-	"retrom/internal/persistence/contentquery"
-
-	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
-	"retrom/internal/contentprofile"
+	catalogservice "retrom/internal/service/catalog"
 )
 
 func (server *Server) platforms(writer http.ResponseWriter, request *http.Request) {
-	rows, err := server.database.QueryContext(
-		request.Context(),
-		`
-SELECT p.id,
-p.name,
-p.sort_order,
-p.enabled,
-pc.core_id,
-c.name,
-pc.enabled,
-binding.provider_id,
-binding.target_id
-FROM platforms p
-LEFT JOIN platform_cores pc ON pc.platform_id=p.id
-LEFT JOIN cores c ON c.id=pc.core_id
-LEFT JOIN runtime_binding_platforms binding_platform
- ON binding_platform.platform_id=p.id AND binding_platform.core_id=pc.core_id
-LEFT JOIN runtime_target_bindings binding ON binding.binding_id=binding_platform.binding_id
- AND binding.launch_policy!='DISABLED'
-LEFT JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
-ORDER BY p.sort_order,
-pc.core_id
-`,
-	)
+	platforms, err := server.catalogService.Platforms(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0)
-	byID := make(map[string]map[string]any)
-	coresByPlatformID := make(map[string]map[string]map[string]any)
-	for rows.Next() {
-		var id, name string
-		var sortOrder, enabled int
-		var coreID, coreName, providerID, targetID sql.NullString
-		var coreEnabled sql.NullInt64
-		if err := rows.Scan(
-			&id, &name, &sortOrder, &enabled, &coreID, &coreName, &coreEnabled,
-			&providerID, &targetID,
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
+	items := make([]map[string]any, 0, len(platforms))
+	for _, platform := range platforms {
+		cores := make([]map[string]any, 0, len(platform.Cores))
+		for _, core := range platform.Cores {
+			cores = append(cores, map[string]any{
+				"id": core.ID, "name": core.Name, "enabled": core.Enabled,
+				"netplaySupported": core.NetplaySupported,
+			})
 		}
-		item := byID[id]
-		if item == nil {
-			item = map[string]any{
-				"id":        id,
-				"name":      name,
-				"sortOrder": sortOrder,
-				"enabled":   enabled == 1,
-				"cores":     []map[string]any{},
-			}
-			byID[id] = item
-			coresByPlatformID[id] = make(map[string]map[string]any)
-			items = append(items, item)
-		}
-		if !coreID.Valid {
-			continue
-		}
-		cores, ok := item["cores"].([]map[string]any)
-		if !ok {
-			writeError(
-				writer,
-				request,
-				http.StatusInternalServerError,
-				"INTERNAL_ERROR",
-				"平台核心投影无效",
-				map[string]any{},
-			)
-			return
-		}
-		netplaySupported := providerID.Valid && targetID.Valid &&
-			server.netplay.SupportsPlatformTarget(
-				id, coreID.String, providerID.String, targetID.String,
-			)
-		if core := coresByPlatformID[id][coreID.String]; core != nil {
-			if netplaySupported {
-				core["netplaySupported"] = true
-			}
-			continue
-		}
-		core := map[string]any{
-			"id": coreID.String, "name": coreName.String, "enabled": coreEnabled.Int64 == 1,
-			"netplaySupported": netplaySupported,
-		}
-		coresByPlatformID[id][coreID.String] = core
-		item["cores"] = append(cores, core)
-	}
-	if err := rows.Err(); err != nil {
-		server.databaseError(writer, request, err)
-		return
+		items = append(items, map[string]any{
+			"id": platform.ID, "name": platform.Name, "sortOrder": platform.SortOrder,
+			"enabled": platform.Enabled, "cores": cores,
+		})
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
 }
 
 func (server *Server) runtimeTargets(writer http.ResponseWriter, request *http.Request) {
-	rows, err := server.database.QueryContext(
-		request.Context(),
-		`
-SELECT provider.provider_id,
-provider.provider_version,
-provider.provider_api_version,
-provider.bundle_sha256,
-target.target_id,
-target.display_name,
-binding.core_id,
-c.name,
-binding.launch_policy
-FROM runtime_providers provider
-JOIN runtime_targets target ON target.provider_id=provider.provider_id
-JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
-JOIN cores c ON c.id=binding.core_id
-ORDER BY provider.provider_id,target.target_id
-`,
-	)
+	targets, err := server.catalogService.RuntimeTargets(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0)
-	for rows.Next() {
-		var providerID, providerVersion, bundleSHA256, targetID, displayName string
-		var coreID, coreName, launchPolicy string
-		var providerAPIVersion int
-		if err := rows.Scan(
-			&providerID, &providerVersion, &providerAPIVersion, &bundleSHA256,
-			&targetID, &displayName, &coreID, &coreName, &launchPolicy,
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		items = append(
-			items,
-			map[string]any{
-				"providerId": providerID, "providerVersion": providerVersion,
-				"providerApiVersion": providerAPIVersion, "bundleSha256": bundleSHA256,
-				"targetId": targetID, "displayName": displayName,
-				"coreId": coreID, "coreName": coreName, "launchPolicy": launchPolicy,
-			},
-		)
-	}
-	if err := rows.Err(); err != nil {
-		server.databaseError(writer, request, err)
-		return
+	items := make([]map[string]any, 0, len(targets))
+	for _, target := range targets {
+		items = append(items, map[string]any{
+			"providerId": target.ProviderID, "providerVersion": target.ProviderVersion,
+			"providerApiVersion": target.ProviderAPIVersion, "bundleSha256": target.BundleSHA256,
+			"targetId": target.TargetID, "displayName": target.DisplayName,
+			"coreId": target.CoreID, "coreName": target.CoreName, "launchPolicy": target.LaunchPolicy,
+		})
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
 }
 
-func platformInstanceFilters(values url.Values) ([]string, []any, bool) {
-	conditions := []string{"pi.deleted_at_ms IS NULL"}
-	arguments := make([]any, 0, 2)
+func platformInstanceFilters(values url.Values) (catalogservice.PlatformInstanceQuery, bool) {
+	query := catalogservice.PlatformInstanceQuery{}
 	if value := values.Get("platformId"); value != "" {
-		conditions = append(conditions, "pi.platform_id=?")
-		arguments = append(arguments, value)
+		query.PlatformID = &value
 	}
 	if value := values.Get("enabled"); value != "" {
 		if value != "true" && value != "false" {
-			return nil, nil, false
+			return catalogservice.PlatformInstanceQuery{}, false
 		}
-		conditions = append(conditions, "pi.enabled=?")
-		arguments = append(arguments, map[string]int{"true": 1, "false": 0}[value])
+		enabled := value == "true"
+		query.Enabled = &enabled
 	}
-	return conditions, arguments, true
+	return query, true
 }
 
 func (server *Server) platformInstances(writer http.ResponseWriter, request *http.Request) {
-	values := request.URL.Query()
-	conditions, arguments, ok := platformInstanceFilters(values)
+	query, ok := platformInstanceFilters(request.URL.Query())
 	if !ok {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "目录启用状态无效", map[string]any{})
 		return
 	}
-	query := queryWithConditions(
-		`
-SELECT pi.id,
-pi.platform_id,
-p.name,
-pi.default_core_id,
-c.name,
-pi.name,
-pi.slug,
-pi.description,
-pi.sort_order,
-pi.enabled,
-pi.version,
-pi.updated_at_ms,
-(SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
-,
-COALESCE((SELECT `+contentquery.BindingPolicySQL+`
- FROM runtime_target_bindings binding
- JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
-  AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
- WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED'
- LIMIT 1),NULL)
-FROM platform_instances pi
-JOIN platforms p ON p.id=pi.platform_id
-JOIN cores c ON c.id=pi.default_core_id
-`,
-		conditions,
-		` ORDER BY pi.sort_order,pi.id LIMIT 100`,
+	instances, err := server.catalogService.PlatformInstances(
+		request.Context(), query, server.config.MultiDiscImportEnabled,
 	)
-	rows, err := server.database.QueryContext(request.Context(), query, arguments...)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0)
-	for rows.Next() {
-		var id, platformID, platformName, coreID, coreName, name, slug, description string
-		var contentPolicy contentcapability.Policy
-		var sortOrder, enabled int
-		var version, updatedAtMS, gameCount int64
-		if err := rows.Scan(
-			&id,
-			&platformID,
-			&platformName,
-			&coreID,
-			&coreName,
-			&name,
-			&slug,
-			&description,
-			&sortOrder,
-			&enabled,
-			&version,
-			&updatedAtMS,
-			&gameCount,
-			contentquery.ScanPolicy(&contentPolicy),
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
+	items := make([]map[string]any, 0, len(instances))
+	for _, instance := range instances {
 		items = append(items, map[string]any{
-			"id": id, "platformId": platformID, "platformName": platformName, "defaultCoreId": coreID,
-			"defaultCoreName": coreName, "name": name, "slug": slug, "description": description,
-			"sortOrder": sortOrder, "enabled": enabled == 1, "version": version, "updatedAtMs": updatedAtMS,
-			"gameCount": gameCount, "supportedExtensions": contentprofile.SupportedExtensions(platformID),
-			"importCapabilities": contentcapability.Resolve(
-				platformID, enabled == 1, server.config.MultiDiscImportEnabled, contentPolicy,
-			),
+			"id": instance.ID, "platformId": instance.PlatformID, "platformName": instance.PlatformName,
+			"defaultCoreId": instance.DefaultCoreID, "defaultCoreName": instance.DefaultCoreName,
+			"name": instance.Name, "slug": instance.Slug, "description": instance.Description,
+			"sortOrder": instance.SortOrder, "enabled": instance.Enabled,
+			"version": instance.Version, "updatedAtMs": instance.UpdatedAtMS,
+			"gameCount": instance.GameCount, "supportedExtensions": instance.SupportedExtensions,
+			"importCapabilities": instance.ImportCapabilities,
 		})
 	}
-	if err := rows.Err(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
-}
-
-func nullableInteger(value sql.NullInt64) any {
-	if value.Valid {
-		return value.Int64
-	}
-	return nil
-}
-
-func discLabel(value sql.NullInt64) any {
-	if value.Valid {
-		return fmt.Sprintf("光盘 %d", value.Int64+1)
-	}
-	return nil
-}
-
-func nullableBIOSInstallation(
-	id, md5Value, sha1Value, sha256Value sql.NullString,
-	validatedVersion, installedAt sql.NullInt64,
-) any {
-	if !id.Valid {
-		return nil
-	}
-	return map[string]any{
-		"id":                          id.String,
-		"md5":                         md5Value.String,
-		"sha1":                        sha1Value.String,
-		"sha256":                      sha256Value.String,
-		"validatedRequirementVersion": validatedVersion.Int64,
-		"createdAtMs":                 installedAt.Int64,
-	}
 }

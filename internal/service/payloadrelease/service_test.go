@@ -21,6 +21,7 @@ func (fixture *initializationFixture) WithLifecycle(ctx context.Context, run fun
 	}
 	return fixture.commitErr
 }
+
 func (*initializationFixture) BlobEdges(context.Context) ([]BlobEdge, error) {
 	edges := OwnershipRegistry()
 	result := make([]BlobEdge, 0, len(edges))
@@ -29,6 +30,7 @@ func (*initializationFixture) BlobEdges(context.Context) ([]BlobEdge, error) {
 	}
 	return result, nil
 }
+
 func (fixture *initializationFixture) Owners(context.Context, Scope, int) ([]LifecycleOwner, error) {
 	fixture.pages++
 	return nil, fixture.readErr

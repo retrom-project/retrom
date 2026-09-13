@@ -15,6 +15,7 @@ import (
 
 	"retrom/internal/composition"
 	librarycomposition "retrom/internal/composition/libraryimport"
+	payloadcomposition "retrom/internal/composition/payloadrelease"
 
 	firmwarepersistence "retrom/internal/persistence/firmware"
 	firmwareservice "retrom/internal/service/firmware"
@@ -41,8 +42,8 @@ import (
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/netplay"
-	"retrom/internal/payloadrelease"
 	favoritepersistence "retrom/internal/persistence/favorites"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
 	mediapersistence "retrom/internal/persistence/mediaaccess"
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	retromruntime "retrom/internal/runtime"
@@ -50,9 +51,17 @@ import (
 	"retrom/internal/scummvm"
 	"retrom/internal/serversource"
 	"retrom/internal/service/accounts"
+	biosservice "retrom/internal/service/bios"
+	catalogservice "retrom/internal/service/catalog"
+	diagnosticsservice "retrom/internal/service/diagnostics"
 	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/favorites"
+	gameassetsservice "retrom/internal/service/gameassets"
 	"retrom/internal/service/gamecontent"
+	gamelistservice "retrom/internal/service/gamelist"
+	gamemetadataservice "retrom/internal/service/gamemetadata"
+	homeservice "retrom/internal/service/home"
+	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/service/immersive"
 	"retrom/internal/service/importdiscard"
 	"retrom/internal/service/isolation"
@@ -63,6 +72,7 @@ import (
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/pegasusimport"
 	"retrom/internal/service/platforminstance"
+	readinessservice "retrom/internal/service/readiness"
 	"retrom/internal/service/saves"
 	"retrom/internal/service/serverimport"
 	"retrom/internal/service/storageanalysis"
@@ -87,11 +97,9 @@ var (
 	errStaleImpact          = errors.New("stale")
 	errInvalidCore          = errors.New("invalid core")
 	errCandidateMetadata    = errors.New("candidate metadata invalid")
-	errCandidateAssetKind   = errors.New("candidate asset kind mismatch")
 	errInvalidCursorPayload = errors.New("invalid cursor payload")
 	errInvalidGameTagFilter = errors.New("invalid game tag filter")
 	errTagProjectionType    = errors.New("invalid tag projection identifier type")
-	errGamePagination       = errors.New("game pagination projection invalid")
 )
 
 type contextKey string
@@ -102,6 +110,7 @@ type Server struct {
 	config                  config.Config
 	database                *sql.DB
 	readinessDatabase       *sql.DB
+	readinessService        *readinessservice.Service
 	startupReadinessMu      sync.Mutex
 	startupReady            atomic.Bool
 	dependencies            *dependencies.Set
@@ -116,9 +125,15 @@ type Server struct {
 	jobService              *jobs.Service
 	immersive               *immersive.Service
 	firmware                *firmwareservice.Service
+	biosService             *biosservice.Service
+	catalogService          *catalogservice.Service
 	mediaAccess             *mediaaccess.Service
 	metadata                *metadatascrape.Service
 	gameContent             *gamecontent.Service
+	gameListService         *gamelistservice.Service
+	homeService             *homeservice.Service
+	gameAssets              *gameassetsservice.Service
+	gameMetadata            *gamemetadataservice.Service
 	saveService             *saves.Service
 	rpgIsolation            *isolation.Service
 	favoriteService         *favorites.Service
@@ -128,12 +143,13 @@ type Server struct {
 	reviewCoverUploads      *libraryservice.ReviewCoverUploads
 	reviewDiscards          *libraryservice.ReviewDiscards
 	reviewApprovals         *libraryservice.ReviewApprovals
+	reviewBulkQueries       *libraryservice.ReviewBulkQueries
 	importAdmissions        *libraryservice.ImportAdmissions
 	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
 	emulationStationImports *emulationstationimport.Service
-	payloadReleases         *payloadrelease.Service
+	payloadReleases         *payloadcomposition.Service
 	platformDirectories     *platforminstance.Service
 	storageAnalysis         *storageanalysis.Service
 	now                     func() time.Time
@@ -145,6 +161,8 @@ type Server struct {
 	authenticator           Authenticator
 	accounts                *accounts.Service
 	netplay                 *netplayservice.Service
+	diagnosticsService      *diagnosticsservice.Service
+	idempotencyService      *idempotencyservice.Service
 	netplayHub              *netplay.Hub
 	netplayObserversMu      sync.Mutex
 	netplayObservers        map[string]int
@@ -168,6 +186,9 @@ func (server *Server) WithRuntimeProvider(
 
 func (server *Server) WithNetplay(service *netplayservice.Service) *Server {
 	server.netplay = service
+	if server.catalogService != nil {
+		server.catalogService.WithNetplay(service)
+	}
 	server.netplayHub = netplay.NewHub(
 		netplay.HubServices{Sessions: service, Peers: service, Termination: service},
 		netplay.HubOptions{ReconnectLease: server.config.NetplayReconnectLease, Now: server.now},
@@ -179,9 +200,17 @@ func (server *Server) WithNetplay(service *netplayservice.Service) *Server {
 func (server *Server) WithReadinessDatabase(database *sql.DB) *Server {
 	if database != nil {
 		server.readinessDatabase = database
+		server.readinessService = composition.NewReadiness(database)
 		server.storageAnalysis = storageanalysis.New(storagepersistence.New(database), server.now)
 	}
 	return server
+}
+
+func (server *Server) idempotencyRecords() *idempotencyservice.Service {
+	if server.idempotencyService != nil {
+		return server.idempotencyService
+	}
+	return idempotencyservice.New(idempotencypersistence.New(server.database))
 }
 
 type Authenticator interface {
@@ -199,7 +228,7 @@ func New(
 	now func() time.Time,
 	scummVMDetector ...*scummvm.Detector,
 ) *Server {
-	payloadReleaseService, err := payloadrelease.New(database, blobs, now, 7*24*time.Hour)
+	payloadReleaseService, err := payloadcomposition.New(context.Background(), database, blobs, now, 7*24*time.Hour)
 	if err != nil {
 		panic(err)
 	}
@@ -237,10 +266,12 @@ func New(
 		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
 	)
 	emulationStationImportService.Start()
+	tagService := tagging.New(tagpersistence.New(database), now)
 	server := &Server{
 		config:                  config,
 		database:                database,
 		readinessDatabase:       database,
+		readinessService:        composition.NewReadiness(database),
 		dependencies:            dependencySet,
 		blobs:                   blobs,
 		credentials:             credentials,
@@ -254,29 +285,38 @@ func New(
 		jobService:              jobs.New(jobpersistence.New(database), now),
 		immersive:               immersive.New(immersivepersistence.New(database)),
 		firmware:                firmwareService,
+		biosService:             composition.NewBIOS(database),
+		catalogService:          composition.NewCatalog(database, nil),
 		serverImports:           serverImportService,
 		pegasusImports:          pegasusImportService,
 		emulationStationImports: emulationStationImportService,
 		payloadReleases:         payloadReleaseService,
+		diagnosticsService:      composition.NewDiagnostics(database),
 		platformDirectories:     platforminstance.New(platformpersistence.New(database), now),
 		metadata:                scraper,
 		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithBlobStore(blobs).
 			WithPayloadRelease(payloadReleaseService).WithGCStager(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
-		saveService:      saves.New(savepersistence.New(database), blobs, now),
-		rpgIsolation:     isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
-		favoriteService:  favorites.New(favoritepersistence.New(database), now),
-		tagService:       tagging.New(tagpersistence.New(database), now),
-		now:              now,
-		sseHeartbeat:     15 * time.Second,
-		netplayObservers: make(map[string]int),
-		runtimeProvider:  http.NotFoundHandler(),
+		gameListService:    composition.NewGameList(database),
+		homeService:        composition.NewHome(database, tagService),
+		gameAssets:         composition.NewGameAssets(database, blobs, now, payloadReleaseService),
+		gameMetadata:       composition.NewGameMetadata(database, payloadReleaseService, now),
+		saveService:        saves.New(savepersistence.New(database), blobs, now),
+		rpgIsolation:       isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
+		favoriteService:    favorites.New(favoritepersistence.New(database), now),
+		tagService:         tagService,
+		now:                now,
+		sseHeartbeat:       15 * time.Second,
+		netplayObservers:   make(map[string]int),
+		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database)),
+		runtimeProvider:    http.NotFoundHandler(),
 	}
 	server.reviewQueue = composition.NewLibraryReviewQueue(database, server.tagService)
 	server.reviewDetails = composition.NewLibraryReviewDetails(database)
 	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
 	server.reviewDiscards = composition.NewLibraryReviewDiscards(database, now)
 	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now)
+	server.reviewBulkQueries = librarycomposition.NewReviewBulkQueries(database)
 	server.importAdmissions = composition.NewLibraryImportAdmissions(
 		database, importer, libraryservice.ImportAdmissionOptions{
 			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
@@ -289,7 +329,7 @@ func New(
 	server.metadataEvidence = composition.NewMetadataEvidenceQueries(database)
 	server.importDiscards = composition.NewImportDiscard(
 		database,
-		importer,
+		libraryimport.NewDiscardWorkflow(importer),
 		pegasusImportService,
 		emulationStationImportService,
 		now,
