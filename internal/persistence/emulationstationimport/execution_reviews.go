@@ -14,14 +14,7 @@ func (records executionRecords) Reviews(
 	id string,
 	limit int,
 ) ([]application.ExecutionReview, error) {
-	rows, err := records.executor.QueryContext(ctx, `SELECT source.id,source.execution_state,source.version,
-COALESCE(source.library_import_job_id,''),COALESCE(source.library_import_item_id,''),
-source.metadata_json,source.warnings_json,source.retryable,item.import_job_id,item.id,
-(SELECT count(*) FROM import_items sibling WHERE sibling.import_job_id=item.import_job_id)
-FROM emulationstation_import_items source
-JOIN server_import_upload_owners owner ON owner.kind='EMULATIONSTATION' AND owner.source_item_id=source.id
-JOIN import_jobs ordinary ON ordinary.upload_session_id=owner.upload_session_id
-JOIN import_items item ON item.import_job_id=ordinary.id
+	rows, err := records.executor.QueryContext(ctx, executionReviewSQL+`
 WHERE source.import_id=? AND (source.execution_state IN ('PENDING','COPYING','VALIDATING')
 OR source.retryable=1 AND source.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED'))
 AND item.state='REVIEW_PENDING' AND item.review_handoff_kind='EMULATIONSTATION'
@@ -32,27 +25,9 @@ ORDER BY source.id,item.id LIMIT ?`, id, limit)
 	defer func() { cleanup.Error("close interrupted EmulationStation reviews", rows.Close()) }()
 	result := []application.ExecutionReview{}
 	for rows.Next() {
-		var value application.ExecutionReview
-		var count int
-		if err := rows.Scan(
-			&value.ItemID,
-			&value.State,
-			&value.Version,
-			&value.LibraryJobID,
-			&value.LibraryItemID,
-
-			&value.MetadataJSON,
-			&value.WarningsJSON,
-			&value.Retryable,
-			&value.ReservedJobID,
-			&value.ReservedItemID,
-			&count,
-		); err != nil {
+		value, err := scanExecutionReview(rows)
+		if err != nil {
 			return nil, fmt.Errorf("read interrupted EmulationStation review: %w", err)
-		}
-		if count != 1 || value.LibraryJobID != "" &&
-			(value.LibraryJobID != value.ReservedJobID || value.LibraryItemID != value.ReservedItemID) {
-			return nil, application.ErrInvalid
 		}
 		result = append(result, value)
 	}

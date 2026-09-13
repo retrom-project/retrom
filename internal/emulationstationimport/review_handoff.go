@@ -2,15 +2,13 @@ package emulationstationimport
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 
-	"retrom/internal/dbexec"
-
-	"retrom/internal/persistence/recordstore"
+	persistence "retrom/internal/persistence/emulationstationimport"
+	library "retrom/internal/service/libraryimport"
 
 	"retrom/internal/persistence/dberrors"
 
@@ -132,147 +130,17 @@ func (service *Service) prepareLibraryReview(
 			),
 		)
 	}
-	_, metadataWarnings, err := service.importer.SeedServerReviewMetadataAtYear(
-		ctx, imported.ItemID, metadata, unit.ReleaseYearMax,
-	)
-	if err != nil {
-		return service.closeItemWithFailure(
-			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
-			withLibraryImportIdentity(
-				service.itemFailure("METADATA", "SEED_SERVER_REVIEW", err, firstSourcePath(item)),
-				importJobID,
-				imported.ItemID,
-			),
-		)
-	}
-	return service.finalizeReviewHandoff(ctx, unit, item, importJobID, imported.ItemID, metadataWarnings)
-}
-
-func (service *Service) finalizeReviewHandoff(
-	ctx context.Context,
-	unit work,
-	item executionItem,
-	importJobID, importItemID string,
-	metadataWarnings []libraryimport.ServerMetadataWarning,
-) error {
-	now := service.now().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return service.closeItemWithFailure(
-			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "START_REVIEW_HANDOFF_TRANSACTION", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
-	}
-	defer dbexec.Rollback(transaction)
-	if err := appendServerMetadataWarnings(ctx, transaction, item.ID, metadataWarnings, now); err != nil {
-		dbexec.Rollback(transaction)
-		return service.closeItemWithFailure(
-			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "APPEND_METADATA_WARNINGS", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
-	}
-	result, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
-		Set: `
-execution_state='REVIEW_PENDING',error_code=NULL,retryable=0,
-completed_at_ms=?,updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `id=? AND execution_state='VALIDATING'`,
-			Args:  []any{item.ID},
-		},
-		Values: []any{now, now},
-	})
-	if err != nil || rowsAffected(result) != 1 {
-		dbexec.Rollback(transaction)
-		return service.closeItemWithFailure(
-			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "MARK_REVIEW_PENDING", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
-	}
-	if err := service.refreshCountsAndEvent(ctx, transaction, unit, item.ID, "REVIEW_PENDING", now); err != nil {
-		dbexec.Rollback(transaction)
-		return service.closeItemWithFailure(
-			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "REFRESH_IMPORT_COUNTS", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
-	}
-	if err := transaction.Commit(); err != nil {
-		return service.closeItemWithFailure(
-			ctx, unit, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true,
-			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "COMMIT_REVIEW_HANDOFF_TRANSACTION", err, firstSourcePath(item)),
-				importJobID,
-				importItemID,
-			),
-		)
-	}
-	return nil
-}
-
-func appendServerMetadataWarnings(
-	ctx context.Context,
-	transaction *sql.Tx,
-	itemID string,
-	additions []libraryimport.ServerMetadataWarning,
-	now int64,
-) error {
-	if len(additions) == 0 {
-		return nil
-	}
-	var encoded string
-	if err := transaction.QueryRowContext(
-		ctx, `SELECT warnings_json FROM emulationstation_import_items WHERE id=?`, itemID,
-	).Scan(&encoded); err != nil {
-		return fmt.Errorf("read metadata warnings: %w", err)
-	}
-	warnings := make([]map[string]any, 0, len(additions))
-	if err := json.Unmarshal([]byte(encoded), &warnings); err != nil {
-		return fmt.Errorf("decode metadata warnings: %w", err)
-	}
-	for _, addition := range additions {
-		duplicate := false
-		for _, existing := range warnings {
-			if existing["code"] == addition.Code && existing["field"] == addition.Field {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			warnings = append(warnings, map[string]any{"code": addition.Code, "field": addition.Field})
-		}
-	}
-	warnings = boundedWarnings(warnings)
-	updated, err := json.Marshal(warnings)
-	if err != nil {
-		return fmt.Errorf("encode metadata warnings: %w", err)
-	}
-	if _, err := recordstore.UpdateEmulationstationImportItems(ctx, transaction, recordstore.Update{
-		Set: `warnings_json=?,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{itemID},
-		},
-		Values: []any{string(updated), now},
+	if err := service.reviewHandoff().Complete(ctx, application.ReviewHandoffRequest{
+		Execution: unit, ItemID: item.ID, LibraryJobID: importJobID, LibraryItemID: imported.ItemID,
 	}); err != nil {
-		return fmt.Errorf("update metadata warnings: %w", err)
+		return fmt.Errorf("prepare EmulationStation library review: %w", err)
 	}
 	return nil
+}
+
+func (service *Service) reviewHandoff() *application.ReviewHandoff {
+	return application.NewReviewHandoff(persistence.NewReviewHandoff(service.database),
+		library.NewMetadataSeeder(nil, service.now), service.now)
 }
 
 func firstSourcePath(item executionItem) string {
