@@ -41,7 +41,9 @@ func (service *Service) RunOnce(ctx context.Context) (Result, error) {
 	if err := service.release.ReconcileGC(ctx); err != nil {
 		return Result{}, fmt.Errorf("blobgc/reconcile: %w", err)
 	}
-	_, _ = service.release.RunOnce(ctx)
+	if _, err := service.release.RunOnce(ctx); err != nil {
+		return Result{}, fmt.Errorf("blobgc/run release: %w", err)
+	}
 	afterBlobs, afterCandidates, err := service.repository.Counts(ctx)
 	if err != nil {
 		return Result{}, fmt.Errorf("blobgc/count after release: %w", err)

@@ -20,6 +20,7 @@ func (*gcRepository) Protected(context.Context) (int, error) { return 3, nil }
 type gcRelease struct {
 	reconciled, ran bool
 	failure         error
+	runFailure      error
 }
 
 func (release *gcRelease) ReconcileGC(context.Context) error {
@@ -29,7 +30,7 @@ func (release *gcRelease) ReconcileGC(context.Context) error {
 
 func (release *gcRelease) RunOnce(context.Context) (bool, error) {
 	release.ran = true
-	return true, nil
+	return true, release.runFailure
 }
 
 func TestGCReportsOnlyPositiveChanges(t *testing.T) {
@@ -48,5 +49,15 @@ func TestGCStopsWhenProtectionReconciliationFails(t *testing.T) {
 	_, err := New(repository, release).RunOnce(t.Context())
 	if !errors.Is(err, failure) || release.ran || repository.reads != 1 {
 		t.Fatalf("error=%v ran=%v reads=%d", err, release.ran, repository.reads)
+	}
+}
+
+func TestGCDoesNotPublishCleanupCountsAfterWorkerFailure(t *testing.T) {
+	t.Parallel()
+	cause := errors.New("GC worker storage unavailable")
+	repository, release := &gcRepository{}, &gcRelease{runFailure: cause}
+	result, err := New(repository, release).RunOnce(t.Context())
+	if !errors.Is(err, cause) || result != (Result{}) || !release.ran || repository.reads != 1 {
+		t.Fatalf("worker failure reported successful cleanup: result=%+v error=%v reads=%d", result, err, repository.reads)
 	}
 }

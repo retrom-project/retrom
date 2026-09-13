@@ -37,11 +37,7 @@ const (
 
 var ErrScopeInvalid = application.ErrScopeInvalid
 
-type (
-	scheduleInput = application.Input
-	scheduleScope = application.Scope
-	scopeInputs   = application.ScopeInputs
-)
+type scheduleInput = application.Input
 
 func Schedule(ctx context.Context, transaction *sql.Tx, scopeType ScopeType, scopeID string,
 	scopeVersion int64, reason Reason, now int64,

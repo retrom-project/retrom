@@ -3,6 +3,7 @@ package payloadrelease
 import (
 	"bytes"
 	"database/sql"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -92,5 +93,22 @@ func assertNewManualGCBudget(t *testing.T, database *sql.DB, id string) {
 		execution != 2 || inputExecution != 2 {
 		t.Fatalf("manual retry retained expired budget or old receipt: %+v execution=%d input=%d error=%v",
 			authority, execution, inputExecution, err)
+	}
+	var original, current string
+	err = database.QueryRowContext(t.Context(), `SELECT old.input_json,current.input_json
+ FROM job_input_snapshots old JOIN job_input_snapshots current ON current.job_id=old.job_id
+ WHERE old.job_id=? AND old.execution_no=1 AND current.execution_no=2`, id).Scan(&original, &current)
+	var before, after scheduleInput
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(original), &before); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(current), &after); err != nil {
+		t.Fatal(err)
+	}
+	if before.ExecutionID == after.ExecutionID || after.ExecutionID == "" || before.Inputs != after.Inputs {
+		t.Fatalf("manual retry must renew execution identity and preserve GC input: before=%+v after=%+v", before, after)
 	}
 }

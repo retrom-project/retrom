@@ -3,7 +3,6 @@ package payloadrelease
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -14,15 +13,13 @@ import (
 	"retrom/internal/blobstore"
 )
 
-var errGCRetentionInvalid = errors.New("GC_RETENTION_INVALID")
-
 type Service struct {
-	database  *sql.DB
-	blobs     *blobstore.Store
-	now       func() time.Time
-	waitFor   func(context.Context, time.Duration) error
-	retention time.Duration
-	worker    *application.Worker
+	database *sql.DB
+	blobs    *blobstore.Store
+	now      func() time.Time
+	waitFor  func(context.Context, time.Duration) error
+	worker   *application.Worker
+	gc       *application.GCScheduler
 }
 
 type claimedJob struct {
@@ -34,16 +31,20 @@ type claimedJob struct {
 }
 
 func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retention time.Duration) (*Service, error) {
-	if retention < 24*time.Hour || retention > 30*24*time.Hour {
-		return nil, errGCRetentionInvalid
+	service := &Service{database: database, blobs: blobs, now: now, waitFor: waitForContext}
+	gc, err := application.NewGCScheduler(repository.NewGC(database), application.GCOptions{
+		Now: now, Retention: retention, Wake: service.Signal,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initialize GC scheduling: %w", err)
 	}
+	service.gc = gc
 	if err := ValidateOwnershipRegistry(); err != nil {
 		return nil, err
 	}
 	if err := validateLifecycleState(context.Background(), database); err != nil {
 		return nil, err
 	}
-	service := &Service{database: database, blobs: blobs, now: now, waitFor: waitForContext, retention: retention}
 	service.worker = application.NewWorker(
 		repository.NewWorker(database), releaseExecutor{service}, application.WorkerOptions{
 			Now: now, Maintain: service.ReconcileGC, Report: func(err error) { cleanup.Error("payload worker", err) },

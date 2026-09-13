@@ -36,10 +36,14 @@ func BindWorker(executor dbexec.Executor) application.WorkerScope {
 	return application.WorkerScope{Read: records, Write: records, Owners: BindScheduling(executor)}
 }
 
-const workSQL = `SELECT job.id,job.kind,job.scope_type,job.scope_id,job.state,COALESCE(job.worker_id,''),
- job.execution_no,job.attempt_count,job.max_attempts,job.version,job.available_at_ms,
+const workColumns = `COALESCE(job.id,''),COALESCE(job.kind,''),COALESCE(job.scope_type,''),
+ COALESCE(job.scope_id,''),COALESCE(job.state,''),COALESCE(job.worker_id,''),
+ COALESCE(job.execution_no,0),COALESCE(job.attempt_count,0),COALESCE(job.max_attempts,0),
+ COALESCE(job.version,0),COALESCE(job.available_at_ms,0),
  job.execution_started_at_ms,job.execution_deadline_at_ms,job.leased_until_ms,job.heartbeat_at_ms,
- COALESCE(input.input_json,''),COALESCE(input.input_digest,''),input.job_id IS NOT NULL
+ COALESCE(input.input_json,''),COALESCE(input.input_digest,''),input.job_id IS NOT NULL`
+
+const workSQL = `SELECT ` + workColumns + `
  FROM jobs job LEFT JOIN job_input_snapshots input ON input.job_id=job.id AND input.execution_no=job.execution_no `
 
 func (records workerRecords) Next(ctx context.Context, now int64) (application.Work, bool, error) {
