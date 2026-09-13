@@ -18,63 +18,6 @@ import (
 	"retrom/internal/serversource"
 )
 
-func (service *Service) executionSourceFiles(
-	ctx context.Context,
-	unit work,
-	root Root,
-	item executionItem,
-) ([]libraryimport.ServerSourceFile, error) {
-	files := make([]libraryimport.ServerSourceFile, 0, len(item.Files))
-	for _, file := range item.Files {
-		files = append(
-			files,
-			libraryimport.ServerSourceFile{RelativePath: file.Path, BlobID: file.BlobID, SizeBytes: file.Size},
-		)
-	}
-	arcadeArchive := item.TargetPlatformKind == "arcade" && len(item.Files) == 1 &&
-		strings.EqualFold(path.Ext(item.Files[0].Path), ".zip")
-	if !arcadeArchive {
-		return files, nil
-	}
-	companions, err := service.arcadeCompanions(ctx, unit, root, item)
-	if err != nil {
-		return nil, err
-	}
-	return append(files, companions...), nil
-}
-
-func selectServerImportItem(
-	items []libraryimport.ServerImportItem,
-	source []executionFile,
-) (libraryimport.ServerImportItem, bool) {
-	if len(source) == 0 {
-		return libraryimport.ServerImportItem{}, false
-	}
-	wanted := make(map[string]struct{}, len(source))
-	for _, file := range source {
-		wanted[file.Path] = struct{}{}
-	}
-	var selected libraryimport.ServerImportItem
-	found := false
-	for _, item := range items {
-		matches := false
-		for _, relativePath := range item.SourceRelativePaths {
-			if _, exists := wanted[relativePath]; exists {
-				matches = true
-				break
-			}
-		}
-		if !matches {
-			continue
-		}
-		if found {
-			return libraryimport.ServerImportItem{}, false
-		}
-		selected, found = item, true
-	}
-	return selected, found
-}
-
 func (service *Service) arcadeCompanions(
 	ctx context.Context,
 	unit work,

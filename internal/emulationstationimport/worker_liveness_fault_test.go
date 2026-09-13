@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"retrom/internal/libraryimport"
 	"retrom/internal/testsupport"
 )
 
@@ -32,6 +33,9 @@ WHERE import_id=? ORDER BY gamelist_relative_path,game_ordinal,id LIMIT 1`, impo
 	fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 		BeforeExec: fault.beforeExec,
 	})
+	fixture.service.importer = libraryimport.New(fixture.service.database, fixture.service.now).WithBlobStore(
+		fixture.service.blobs,
+	)
 	return fault
 }
 
@@ -61,8 +65,10 @@ func (fault *workingStateFault) beforeExec(ctx context.Context, query string, ar
 func workingExitKind(query string, args []driver.NamedValue, itemID string) string {
 	query = strings.Join(strings.Fields(query), " ")
 	switch query {
-	case "UPDATE emulationstation_import_items SET execution_state='VALIDATING',library_import_job_id=?,library_import_item_id=?,updated_at_ms=? WHERE id=? AND execution_state='COPYING'":
-		if len(args) == 4 && args[3].Value == itemID && args[0].Value != nil && args[1].Value != nil {
+	case "UPDATE emulationstation_import_items SET execution_state='VALIDATING',library_import_job_id=?,library_import_item_id=?, version=version+1,updated_at_ms=? WHERE id=? AND import_id=? AND version=? AND execution_state='COPYING' AND library_import_job_id IS NULL AND library_import_item_id IS NULL AND EXISTS(SELECT 1 FROM server_import_upload_owners owner JOIN import_jobs imported ON imported.upload_session_id=owner.upload_session_id JOIN import_items item ON item.import_job_id=imported.id WHERE owner.kind='EMULATIONSTATION' AND owner.source_item_id=emulationstation_import_items.id AND owner.upload_session_id=? AND imported.id=? AND item.id=? AND item.review_handoff_kind='EMULATIONSTATION')":
+		if len(
+			args,
+		) == 9 && args[3].Value == itemID && args[0].Value == args[7].Value && args[1].Value == args[8].Value && args[0].Value != nil && args[1].Value != nil {
 			return "attachment"
 		}
 	case "UPDATE emulationstation_import_items SET execution_state=?,error_code=?,retryable=?,error_details_json=?,existing_game_id=COALESCE(?,existing_game_id), existing_matches_json=COALESCE(?,existing_matches_json),completed_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND import_id=? AND version=? AND execution_state=? AND metadata_json=? AND content_kind=? AND library_import_job_id IS ? AND library_import_item_id IS ? AND execution_state IN ('COPYING','VALIDATING')":

@@ -2,9 +2,7 @@ package emulationstationimport
 
 import (
 	"context"
-	"fmt"
 
-	"retrom/internal/libraryimport"
 	"retrom/internal/persistence/dberrors"
 	persistence "retrom/internal/persistence/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
@@ -19,7 +17,7 @@ func (service *Service) importExecutor() *application.ImportExecutor {
 			Items:       service.itemWork(),
 			Materials:   service.materialization(),
 			Sources:     adapter,
-			Reviews:     adapter,
+			Reviews:     service.reviewPreparer(),
 			Control:     service.executionControl(),
 			Completion:  application.NewCompletion(persistence.NewCompletion(service.database), service.now),
 			Diagnostics: adapter,
@@ -65,37 +63,6 @@ func (adapter importExecutorAdapter) CopyAsset(
 		return application.VerifiedBlob{}, false, err
 	}
 	return verifiedBlob(metadata), valid, nil
-}
-
-func (adapter importExecutorAdapter) Resume(ctx context.Context, unit work, item executionItem) (bool, error) {
-	if item.LibraryImportJobID == "" && item.LibraryImportItemID == "" {
-		return false, nil
-	}
-	if err := adapter.service.itemWork().Resume(
-		ctx,
-		unit,
-		item.ID,
-		item.LibraryImportJobID,
-		item.LibraryImportItemID,
-	); err != nil {
-		return false, fmt.Errorf("resume EmulationStation item ownership: %w", err)
-	}
-	err := adapter.service.prepareLibraryReview(
-		ctx,
-		unit,
-		item,
-		item.LibraryImportJobID,
-		libraryimport.ServerImportItem{ItemID: item.LibraryImportItemID},
-	)
-	return true, err
-}
-
-func (adapter importExecutorAdapter) Create(ctx context.Context, unit work, item executionItem) error {
-	root, err := adapter.root(unit)
-	if err != nil {
-		return err
-	}
-	return adapter.service.prepareReviewItem(ctx, unit, root, item)
 }
 
 func (adapter importExecutorAdapter) Sanitize(err error) string {

@@ -196,7 +196,7 @@ WHERE import_id=?
 		func() bool { return itemState != "REVIEW_PENDING" },
 		func() bool { return handoffKind != "EMULATIONSTATION" },
 		func() bool { return sourceState != "COMMIT_FAILED" },
-		func() bool { return sourceItemID != nil },
+		func() bool { return sourceItemID == nil || *sourceItemID != itemID },
 		func() bool { return importJobs != 1 },
 	), "blocked handoff = item:%s/%s source:%s/%v imports:%d",
 		itemState, handoffKind, sourceState, sourceItemID, importJobs)
