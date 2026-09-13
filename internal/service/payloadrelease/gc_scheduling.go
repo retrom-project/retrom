@@ -101,7 +101,8 @@ func (service *GCScheduler) prepareJob(blob GCBlob, now int64) (ScheduledJob, er
 	if err != nil {
 		return ScheduledJob{}, err
 	}
-	dedupe := sha256.Sum256([]byte(fmt.Sprintf("retrom-job-dedupe-v1\x00BLOB_GC\x00%s\x00%d", blob.ID, now)))
+	// Candidate ownership provides idempotency; distinct lifetimes can start in the same millisecond.
+	dedupe := sha256.Sum256([]byte("retrom-job-dedupe-v1\x00BLOB_GC\x00" + blob.ID + "\x00" + id))
 	return ScheduledJob{
 		ID: id, Scope: Scope{Type: ScopeBlob, ID: blob.ID}, NowMS: now,
 		DedupeKey: hex.EncodeToString(dedupe[:]), InputJSON: encoded, InputDigest: digest,

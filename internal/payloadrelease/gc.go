@@ -3,12 +3,8 @@ package payloadrelease
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"os"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobregistry"
 	repository "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 )
@@ -43,47 +39,8 @@ func (service *Service) StageCandidates(ctx context.Context, tx *sql.Tx, ids []s
 }
 
 func (service *Service) executeBlobGC(ctx context.Context, job claimedJob) error {
-	if job.ScopeType != ScopeBlob || len(job.Input.Inputs.SHA256) != 64 {
-		return releaseFailure("BLOB_GC_INPUT_INVALID")
-	}
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("payloadrelease/GC transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	if err := service.fenceWork(ctx, transaction, job); err != nil {
-		return err
-	}
-	protected, err := blobregistry.ProtectiveSet(ctx, transaction)
-	if err != nil {
-		return fmt.Errorf("payloadrelease/GC protection: %w", err)
-	}
-	if _, keep := protected[job.ScopeID]; keep {
-		if _, err := transaction.ExecContext(ctx, `DELETE FROM blob_gc_candidates WHERE blob_id=?`, job.ScopeID); err != nil {
-			return fmt.Errorf("payloadrelease/GC cancel candidate: %w", err)
-		}
-		if err := service.commitWork(ctx, transaction, job); err != nil {
-			return fmt.Errorf("payloadrelease/GC cancel commit: %w", err)
-		}
-		return nil
-	}
-	if _, err := transaction.ExecContext(
-		ctx, `DELETE FROM archive_entries WHERE archive_blob_id=?`, job.ScopeID,
-	); err != nil {
-		return fmt.Errorf("payloadrelease/GC archive: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `DELETE FROM blob_gc_candidates WHERE blob_id=?`, job.ScopeID); err != nil {
-		return fmt.Errorf("payloadrelease/GC candidate: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `DELETE FROM blobs WHERE id=?`, job.ScopeID); err != nil {
-		return fmt.Errorf("payloadrelease/GC blob: %w", err)
-	}
-	if err := service.commitWork(ctx, transaction, job); err != nil {
-		return fmt.Errorf("payloadrelease/GC commit: %w", err)
-	}
-	path := service.blobs.Path(job.Input.Inputs.SHA256)
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return releaseFailure("BLOB_GC_PHYSICAL_DELETE_FAILED")
+	if err := service.garbage.Execute(ctx, application.Execution{Work: job.Work, Input: job.Input}); err != nil {
+		return fmt.Errorf("execute garbage collection: %w", err)
 	}
 	return nil
 }
