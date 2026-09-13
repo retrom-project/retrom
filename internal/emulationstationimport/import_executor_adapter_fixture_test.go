@@ -25,28 +25,12 @@ func (service *Service) importExecutor() *application.ImportExecutor {
 	)
 }
 
-func (adapter importExecutorAdapter) root(unit work) (Root, error) {
-	root, found := adapter.service.roots[unit.RootID]
-	if !found || root.digest != unit.RootDigest {
-		return Root{}, ErrSourceChanged
-	}
-	return root, nil
-}
-
 func (adapter importExecutorAdapter) CopyFile(
 	ctx context.Context,
 	unit work,
 	file executionFile,
 ) (application.VerifiedBlob, error) {
-	root, err := adapter.root(unit)
-	if err != nil {
-		return application.VerifiedBlob{}, err
-	}
-	metadata, err := adapter.service.copySource(ctx, root, unit, unit.RelativePath, file.Path, file.Size, file.Facts)
-	if err != nil {
-		return application.VerifiedBlob{}, err
-	}
-	return verifiedBlob(metadata), nil
+	return adapter.service.sources().CopyFile(ctx, unit, file)
 }
 
 func (adapter importExecutorAdapter) CopyAsset(
@@ -54,15 +38,7 @@ func (adapter importExecutorAdapter) CopyAsset(
 	unit work,
 	asset executionAsset,
 ) (application.VerifiedBlob, bool, error) {
-	root, err := adapter.root(unit)
-	if err != nil {
-		return application.VerifiedBlob{}, false, err
-	}
-	metadata, valid, err := adapter.service.copyAsset(ctx, root, unit, unit.RelativePath, asset)
-	if err != nil {
-		return application.VerifiedBlob{}, false, err
-	}
-	return verifiedBlob(metadata), valid, nil
+	return adapter.service.sources().CopyAsset(ctx, unit, asset)
 }
 
 func (adapter importExecutorAdapter) Sanitize(err error) string {

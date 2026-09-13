@@ -7,21 +7,9 @@ import (
 	application "retrom/internal/service/emulationstationimport"
 )
 
-func (service *Service) checkSourceExecution(ctx context.Context, unit work) error {
-	state, err := service.executionControl().Observe(ctx, unit)
-	if err != nil {
-		return fmt.Errorf("observe EmulationStation source execution: %w: %w", application.ErrExecutionObservation, err)
+func (source *Sources) checkSourceExecution(ctx context.Context, unit application.Execution) error {
+	if err := source.guard.Check(ctx, unit); err != nil {
+		return fmt.Errorf("check EmulationStation source: %w", err)
 	}
-	switch state {
-	case application.LeaseActive:
-		return nil
-	case application.LeaseCancelled:
-		return errImportCancelled
-	case application.LeaseLost:
-		return application.ErrVersionConflict
-	case application.LeaseDeadline:
-		return application.ErrExpired
-	default:
-		return application.ErrVersionConflict
-	}
+	return nil
 }

@@ -14,7 +14,7 @@ func (service *Service) StartImport(ctx context.Context, id string, version int6
 	if principal, ok := authn.PrincipalFromContext(ctx); ok {
 		actorID = principal.UserID
 	}
-	sources := frozenSources{creationSourceSelector{roots: service.roots}}
+	sources := service.sources()
 	result, queued, err := application.NewStarter(repository.NewStarter(service.database), sources, service.now).
 		Start(ctx, id, version, actorID)
 	if err != nil {

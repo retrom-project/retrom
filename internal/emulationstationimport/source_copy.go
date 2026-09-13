@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"io"
 
+	application "retrom/internal/service/emulationstationimport"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/mediaasset"
 	"retrom/internal/serversource"
 )
 
-func (service *Service) copySource(
+func (service *Sources) copySource(
 	ctx context.Context,
 	root Root,
-	unit work,
+	unit application.Execution,
 	selectedPath, relativePath string,
 	size int64,
 	facts string,
@@ -26,13 +28,17 @@ func (service *Service) copySource(
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(root.path, selectedPath, relativePath)
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("open frozen EmulationStation source: %w: %w", ErrSourceChanged, err)
+		return blobstore.Metadata{}, fmt.Errorf(
+			"open frozen EmulationStation source: %w: %w",
+			application.ErrSourceChanged,
+			err,
+		)
 	}
 	if before.Size() != size || serversource.FactsDigest(before) != facts {
 		if handle != nil {
 			cleanup.Error("close", handle.Close())
 		}
-		return blobstore.Metadata{}, ErrSourceChanged
+		return blobstore.Metadata{}, application.ErrSourceChanged
 	}
 	metadata, putErr := service.blobs.Put(&contextReader{
 		ctx:    ctx,
@@ -45,21 +51,25 @@ func (service *Service) copySource(
 		return blobstore.Metadata{}, fmt.Errorf("emulationstationimport/copy source to CAS: %w", putErr)
 	}
 	if statErr != nil {
-		return blobstore.Metadata{}, fmt.Errorf("stat frozen EmulationStation source: %w: %w", ErrSourceChanged, statErr)
+		return blobstore.Metadata{}, fmt.Errorf(
+			"stat frozen EmulationStation source: %w: %w",
+			application.ErrSourceChanged,
+			statErr,
+		)
 	}
 	if metadata.Size != size || !serversource.SameFileFacts(before, after) ||
 		serversource.FactsDigest(after) != facts {
-		return blobstore.Metadata{}, ErrSourceChanged
+		return blobstore.Metadata{}, application.ErrSourceChanged
 	}
 	return metadata, nil
 }
 
-func (service *Service) copyAsset(
+func (service *Sources) copyAsset(
 	ctx context.Context,
 	root Root,
-	unit work,
+	unit application.Execution,
 	selectedPath string,
-	asset executionAsset,
+	asset application.ExecutionAsset,
 ) (blobstore.Metadata, bool, error) {
 	release, err := serversource.AcquireReader(ctx)
 	if err != nil {
@@ -68,13 +78,17 @@ func (service *Service) copyAsset(
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(root.path, selectedPath, asset.Path)
 	if err != nil {
-		return blobstore.Metadata{}, false, fmt.Errorf("open frozen EmulationStation asset: %w: %w", ErrSourceChanged, err)
+		return blobstore.Metadata{}, false, fmt.Errorf(
+			"open frozen EmulationStation asset: %w: %w",
+			application.ErrSourceChanged,
+			err,
+		)
 	}
 	if before.Size() != asset.Size || serversource.FactsDigest(before) != asset.Facts {
 		if handle != nil {
 			cleanup.Error("close", handle.Close())
 		}
-		return blobstore.Metadata{}, false, ErrSourceChanged
+		return blobstore.Metadata{}, false, application.ErrSourceChanged
 	}
 	valid := copiedAssetValid(handle, asset)
 	if !valid {
@@ -98,18 +112,18 @@ func (service *Service) copyAsset(
 	if statErr != nil {
 		return blobstore.Metadata{}, false, fmt.Errorf(
 			"stat frozen EmulationStation asset: %w: %w",
-			ErrSourceChanged,
+			application.ErrSourceChanged,
 			statErr,
 		)
 	}
 	if metadata.Size != asset.Size || !serversource.SameFileFacts(before, after) ||
 		serversource.FactsDigest(after) != asset.Facts {
-		return blobstore.Metadata{}, false, ErrSourceChanged
+		return blobstore.Metadata{}, false, application.ErrSourceChanged
 	}
 	return metadata, true, nil
 }
 
-func copiedAssetValid(handle io.ReadSeeker, asset executionAsset) bool {
+func copiedAssetValid(handle io.ReadSeeker, asset application.ExecutionAsset) bool {
 	if asset.Kind == "COVER" {
 		image, err := mediaasset.InspectImage(handle, asset.Size)
 		return err == nil && image.MediaType == asset.MediaType &&

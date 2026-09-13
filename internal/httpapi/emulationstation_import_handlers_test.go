@@ -13,8 +13,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/emulationstationimport"
+	"retrom/internal/composition"
 	"retrom/internal/serversource"
+	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/testassert"
 )
 
@@ -31,7 +32,7 @@ func TestEmulationStationImportHTTPScanMappingSourceDriftAndDelete(t *testing.T)
 	if err := os.WriteFile(filepath.Join(library, "fixture.nes"), []byte("fixture-rom"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	server.emulationStationImports = emulationstationimport.New(
+	server.emulationStationImports = composition.NewEmulationStationImport(
 		server.database,
 		server.blobs,
 		server.importer,

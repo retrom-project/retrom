@@ -12,14 +12,12 @@ import (
 	application "retrom/internal/service/emulationstationimport"
 )
 
-type frozenSources struct{ creationSourceSelector }
-
-func (source frozenSources) VerifyGamelists(
+func (source *Sources) VerifyGamelists(
 	ctx context.Context, rootID, path string, evidence []application.GamelistEvidence,
 ) error {
 	root, ok := source.roots[rootID]
 	if !ok {
-		return ErrSourceChanged
+		return application.ErrSourceChanged
 	}
 	for _, value := range evidence {
 		if err := verifyStartGamelist(ctx, root, path, value); err != nil {
@@ -37,34 +35,34 @@ func verifyStartGamelist(ctx context.Context, root Root, path string, expected a
 	defer release()
 	file, before, err := serversource.OpenRelativeFile(root.path, path, expected.RelativePath)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrSourceChanged, err)
+		return fmt.Errorf("%w: %w", application.ErrSourceChanged, err)
 	}
 	defer func() { cleanup.Error("close EmulationStation start source", file.Close()) }()
 	if before.Size() != expected.SizeBytes || serversource.FactsDigest(before) != expected.FactsDigest {
-		return ErrSourceChanged
+		return application.ErrSourceChanged
 	}
 	if expected.ContentDigest == nil {
 		return nil
 	}
 	if expected.SizeBytes < 0 || expected.SizeBytes > application.MaxSnapshotGamelistBytes {
-		return ErrSourceChanged
+		return application.ErrSourceChanged
 	}
 	digest := sha256.New()
 	reader := &contextReader{ctx: ctx, reader: io.LimitReader(file, expected.SizeBytes+1)}
 	count, err := io.Copy(digest, reader)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrSourceChanged, err)
+		return fmt.Errorf("%w: %w", application.ErrSourceChanged, err)
 	}
 	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("%w: %w", ErrSourceChanged, err)
+		return fmt.Errorf("%w: %w", application.ErrSourceChanged, err)
 	}
 	after, err := file.Stat()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrSourceChanged, err)
+		return fmt.Errorf("%w: %w", application.ErrSourceChanged, err)
 	}
 	if count != expected.SizeBytes || !serversource.SameFileFacts(before, after) ||
 		hex.EncodeToString(digest.Sum(nil)) != *expected.ContentDigest {
-		return ErrSourceChanged
+		return application.ErrSourceChanged
 	}
 	return nil
 }

@@ -11,7 +11,7 @@ import (
 func (service *Service) workflowControl() *application.WorkflowControl {
 	return application.NewWorkflowControl(
 		repository.NewWorkflowControl(service.database),
-		frozenSources{creationSourceSelector{roots: service.roots}},
+		service.sources(),
 		service.now,
 	)
 }

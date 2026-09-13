@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/fs"
 
+	application "retrom/internal/service/emulationstationimport"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/serversource"
 )
@@ -15,7 +17,7 @@ func readFrozenFile(
 	ctx context.Context,
 	root Root,
 	selectedPath string,
-	entry discoveredFile,
+	entry application.DiscoveredFile,
 	maximum int64,
 ) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
@@ -34,7 +36,7 @@ func readFrozenFile(
 		if handle != nil {
 			cleanup.Error("close", handle.Close())
 		}
-		return nil, ErrSourceChanged
+		return nil, application.ErrSourceChanged
 	}
 	contents, readErr := io.ReadAll(io.LimitReader(&contextReader{ctx: ctx, reader: handle}, maximum+1))
 	after, statErr := handle.Stat()
@@ -55,7 +57,7 @@ func readFrozenFile(
 	}
 	if int64(len(contents)) != entry.Size ||
 		!serversource.SameFileFacts(before, after) || len(contents) > int(maximum) {
-		return nil, ErrSourceChanged
+		return nil, application.ErrSourceChanged
 	}
 	return contents, nil
 }
@@ -66,7 +68,7 @@ func classifyFrozenOpenError(err error) error {
 	}
 	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, serversource.ErrPathInvalid) ||
 		errors.Is(err, serversource.ErrSourceChanged) {
-		return fmt.Errorf("open changed EmulationStation frozen source: %w: %w", ErrSourceChanged, err)
+		return fmt.Errorf("open changed EmulationStation frozen source: %w: %w", application.ErrSourceChanged, err)
 	}
 	return fmt.Errorf("emulationstationimport/open frozen source: %w: %w", serversource.ErrRootUnavailable, err)
 }

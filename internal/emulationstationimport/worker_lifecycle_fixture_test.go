@@ -72,18 +72,11 @@ func (adapter workerAdapter) Execute(ctx context.Context, unit application.Execu
 }
 
 func (adapter workerAdapter) CheckRoot(unit application.Execution) error {
-	root, found := adapter.service.roots[unit.RootID]
-	if !found || root.digest != unit.RootDigest {
-		return application.ErrExecutionRootChanged
-	}
-	return nil
+	return adapter.service.sources().CheckRoot(unit)
 }
 
 func (adapter workerAdapter) ForScan(unit application.Execution) (application.ScannerSource, error) {
-	if err := adapter.CheckRoot(unit); err != nil {
-		return nil, err
-	}
-	return scannerSource{root: adapter.service.roots[unit.RootID], selectedPath: unit.RelativePath}, nil
+	return adapter.service.sources().ForScan(unit)
 }
 
 func (service *Service) scanExecutor() *application.ScanExecutor {

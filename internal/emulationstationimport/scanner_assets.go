@@ -29,11 +29,11 @@ func (source scannerSource) Asset(
 	handle, before, err := serversource.OpenRelativeFile(source.root.path, source.selectedPath, file.Path)
 	if err != nil {
 		return application.ScanAssetInspection{}, fmt.Errorf(
-			"open EmulationStation scan media: %w: %w", ErrSourceChanged, err)
+			"open EmulationStation scan media: %w: %w", application.ErrSourceChanged, err)
 	}
 	defer func() { cleanup.Error("close", handle.Close()) }()
 	if before.Size() != file.Size || serversource.FactsDigest(before) != file.Facts {
-		return application.ScanAssetInspection{}, ErrSourceChanged
+		return application.ScanAssetInspection{}, application.ErrSourceChanged
 	}
 	result, inspectErr := inspectScanAsset(ctx, handle, file.Size, kind)
 	after, statErr := handle.Stat()

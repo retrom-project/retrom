@@ -13,9 +13,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/emulationstationimport"
+	"retrom/internal/composition"
 	"retrom/internal/libraryimport"
 	"retrom/internal/serversource"
+	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -55,7 +56,7 @@ func startReservedReviewHandoffFixture(
 	}
 	fault.database = server.database
 	faultPool := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{BeforeExec: fault.beforeExec})
-	server.emulationStationImports = emulationstationimport.New(
+	server.emulationStationImports = composition.NewEmulationStationImport(
 		faultPool,
 		server.blobs,
 		server.importer,

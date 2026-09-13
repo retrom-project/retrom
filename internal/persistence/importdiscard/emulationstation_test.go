@@ -9,10 +9,10 @@ import (
 
 	"retrom/internal/composition"
 
-	"retrom/internal/emulationstationimport"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
+	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/testsupport"
 )
 
@@ -30,7 +30,9 @@ func (f *fixture) emulationStationSource(t *testing.T, file libraryimport.Server
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := emulationstationimport.New(f.db, f.blobs, f.importer, credentials, []serversource.Root{{ID: "games", Label: "Games", Path: dir}}, f.now)
+	service := composition.NewEmulationStationImport(
+		f.db, f.blobs, f.importer, credentials, []serversource.Root{{ID: "games", Label: "Games", Path: dir}}, f.now,
+	)
 	service.Start()
 	t.Cleanup(service.Close)
 	f.service = composition.NewImportDiscard(f.db, f.importer, nil, service, f.now)

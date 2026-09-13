@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
 	persistence "retrom/internal/persistence/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
@@ -15,16 +14,6 @@ func (service *Service) itemWork() *application.ItemWork {
 
 func (service *Service) materialization() *application.Materialization {
 	return application.NewMaterialization(persistence.NewMaterialization(service.database), service.now)
-}
-
-func verifiedBlob(metadata blobstore.Metadata) application.VerifiedBlob {
-	return application.VerifiedBlob{
-		SHA256: metadata.SHA256,
-		MD5:    metadata.MD5,
-		SHA1:   metadata.SHA1,
-		CRC32:  metadata.CRC32,
-		Size:   metadata.Size,
-	}
 }
 
 func (service *Service) finishItemOutcome(

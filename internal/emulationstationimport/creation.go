@@ -4,28 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	persistence "retrom/internal/persistence/emulationstationimport"
 	"retrom/internal/serversource"
 	application "retrom/internal/service/emulationstationimport"
 )
 
-func (service *Service) Create(ctx context.Context, request CreateRequest, userID string) (Summary, error) {
-	creator := application.NewCreation(
-		persistence.NewCreation(service.database),
-		creationSourceSelector{roots: service.roots},
-		service.now,
-	)
-	value, err := creator.Create(ctx, request, userID)
-	if err != nil {
-		return Summary{}, fmt.Errorf("create EmulationStation scan plan: %w", err)
-	}
-	service.signal()
-	return value, nil
-}
-
-type creationSourceSelector struct{ roots map[string]Root }
-
-func (selector creationSourceSelector) Select(
+func (source *Sources) Select(
 	ctx context.Context,
 	rootID, relativePath string,
 ) (application.SelectedRoot, error) {
@@ -35,7 +18,7 @@ func (selector creationSourceSelector) Select(
 	if err := serversource.ValidateRootID(rootID); err != nil {
 		return application.SelectedRoot{}, fmt.Errorf("validate EmulationStation root: %w", err)
 	}
-	root, ok := selector.roots[rootID]
+	root, ok := source.roots[rootID]
 	if !ok {
 		return application.SelectedRoot{}, serversource.ErrRootNotFound
 	}

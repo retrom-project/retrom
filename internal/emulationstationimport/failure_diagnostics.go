@@ -6,13 +6,10 @@ import (
 	"errors"
 	"os"
 
-	"retrom/internal/libraryimport"
-	"retrom/internal/persistence/dberrors"
+	libraryimport "retrom/internal/service/libraryimport"
 )
 
-func sqliteFailureCause(err error) string { return dberrors.Classify(err) }
-
-func (service *Service) sanitizeTechnicalDetail(err error) string {
+func (source *Sources) Sanitize(err error) string {
 	switch {
 	case err == nil:
 		return ""
@@ -25,7 +22,7 @@ func (service *Service) sanitizeTechnicalDetail(err error) string {
 	case errors.Is(err, libraryimport.ErrInvalid):
 		return "library import rejected the assembled source"
 	}
-	if cause := sqliteFailureCause(err); cause != "" {
+	if cause := source.DatabaseCause(err); cause != "" {
 		return "database operation failed: " + cause
 	}
 	var pathError *os.PathError

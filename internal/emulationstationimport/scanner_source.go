@@ -34,7 +34,7 @@ func (source scannerSource) Discover(ctx context.Context, visit func(application
 		return visit(entry)
 	})
 	if errors.Is(err, serversource.ErrScanLimit) {
-		return fmt.Errorf("EmulationStation discovery limit: %w: %w", ErrScanLimit, err)
+		return fmt.Errorf("EmulationStation discovery limit: %w: %w", application.ErrScanLimit, err)
 	}
 	if err != nil {
 		return fmt.Errorf("walk EmulationStation source: %w", err)
@@ -81,20 +81,24 @@ func (source scannerSource) Disc(ctx context.Context, file application.Discovere
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(source.root.path, source.selectedPath, file.Path)
 	if err != nil {
-		return nil, fmt.Errorf("open EmulationStation disc: %w: %w", ErrSourceChanged, err)
+		return nil, fmt.Errorf("open EmulationStation disc: %w: %w", application.ErrSourceChanged, err)
 	}
 	defer func() { cleanup.Error("close", handle.Close()) }()
 	if before.Size() != file.Size || serversource.FactsDigest(before) != file.Facts {
-		return nil, ErrSourceChanged
+		return nil, application.ErrSourceChanged
 	}
 	header := make([]byte, 8)
 	_, readErr := io.ReadFull(&contextReader{ctx: ctx, reader: handle}, header)
 	after, statErr := handle.Stat()
 	if readErr != nil || statErr != nil {
-		return nil, fmt.Errorf("read EmulationStation disc header: %w: %w", ErrSourceChanged, errors.Join(readErr, statErr))
+		return nil, fmt.Errorf(
+			"read EmulationStation disc header: %w: %w",
+			application.ErrSourceChanged,
+			errors.Join(readErr, statErr),
+		)
 	}
 	if !serversource.SameFileFacts(before, after) {
-		return nil, ErrSourceChanged
+		return nil, application.ErrSourceChanged
 	}
 	return header, nil
 }

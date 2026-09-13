@@ -36,7 +36,6 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
-	"retrom/internal/emulationstationimport"
 	"retrom/internal/hasheous"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -50,6 +49,7 @@ import (
 	"retrom/internal/scummvm"
 	"retrom/internal/serversource"
 	"retrom/internal/service/accounts"
+	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/favorites"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/service/immersive"
@@ -231,7 +231,7 @@ func New(
 		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
 	)
 	pegasusImportService.Start()
-	emulationStationImportService := emulationstationimport.New(
+	emulationStationImportService := composition.NewEmulationStationImport(
 		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
 	)
 	emulationStationImportService.Start()

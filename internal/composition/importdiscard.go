@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/emulationstationimport"
 	"retrom/internal/libraryimport"
 	discardpersistence "retrom/internal/persistence/importdiscard"
+	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/importdiscard"
 	"retrom/internal/service/pegasusimport"
 )
