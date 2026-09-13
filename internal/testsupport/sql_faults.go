@@ -14,6 +14,7 @@ import (
 // A hook must match the intended statement and bound arguments, never all writes.
 type SQLFaultHooks struct {
 	BeforeQuery func(context.Context, string, []driver.NamedValue) error
+	AfterQuery  func(context.Context, string, []driver.NamedValue, driver.Rows) (driver.Rows, error)
 	BeforeExec  func(context.Context, string, []driver.NamedValue) error
 	AfterExec   func(context.Context, string, []driver.NamedValue, driver.Result) (driver.Result, error)
 }
@@ -121,6 +122,13 @@ func (connection sqlFaultConnection) QueryContext(
 	rows, err := reader.QueryContext(ctx, query, args)
 	if err != nil {
 		return nil, fmt.Errorf("query fault-injected statement: %w", err)
+	}
+	if connection.hooks.AfterQuery != nil {
+		projected, err := connection.hooks.AfterQuery(ctx, query, args, rows)
+		if err != nil {
+			return nil, fmt.Errorf("intercept query rows: %w", errors.Join(err, rows.Close()))
+		}
+		return projected, nil
 	}
 	return rows, nil
 }

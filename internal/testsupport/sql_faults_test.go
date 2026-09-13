@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -107,3 +108,40 @@ func TestSQLFaultQueryHookPreservesCauseAndBoundArguments(t *testing.T) {
 		t.Fatalf("unrelated query=%s %v", value, err)
 	}
 }
+
+func TestSQLFaultAfterQueryClosesOriginalRowsAndPreservesBothCauses(t *testing.T) {
+	t.Parallel()
+	cause, closeCause := errors.New("query interception failed"), errors.New("rows close failed")
+	original := &faultQueryRows{closeCause: closeCause}
+	hits := 0
+	connection := sqlFaultConnection{Conn: faultQueryConnection{rows: original}, hooks: SQLFaultHooks{
+		AfterQuery: func(_ context.Context, query string, args []driver.NamedValue, rows driver.Rows) (driver.Rows, error) {
+			if query == "SELECT ?" && len(args) == 1 && args[0].Value == "bound" && rows == original {
+				hits++
+			}
+			return nil, cause
+		},
+	}}
+	rows, err := connection.QueryContext(t.Context(), "SELECT ?", []driver.NamedValue{{Ordinal: 1, Value: "bound"}})
+	if rows != nil || !errors.Is(err, cause) || !errors.Is(err, closeCause) || original.closed != 1 || hits != 1 {
+		t.Fatalf("rows=%v closes=%d hits=%d err=%v", rows, original.closed, hits, err)
+	}
+}
+
+type faultQueryConnection struct {
+	driver.Conn
+	rows driver.Rows
+}
+
+func (connection faultQueryConnection) QueryContext(context.Context, string, []driver.NamedValue) (driver.Rows, error) {
+	return connection.rows, nil
+}
+
+type faultQueryRows struct {
+	closeCause error
+	closed     int
+}
+
+func (*faultQueryRows) Columns() []string         { return []string{"value"} }
+func (*faultQueryRows) Next([]driver.Value) error { return io.EOF }
+func (rows *faultQueryRows) Close() error         { rows.closed++; return rows.closeCause }
