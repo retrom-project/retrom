@@ -9,25 +9,6 @@ import (
 	application "retrom/internal/service/launch"
 )
 
-type (
-	Config                       = application.Config
-	MultiDiscTelemetryDimensions = application.MultiDiscTelemetryDimensions
-	BundleFile                   = application.BundleFile
-)
-
-type DiscSet struct {
-	ContentKind      string
-	Count            int
-	InitialDiscIndex int
-	Entries          []DiscEntry
-}
-
-type DiscEntry struct {
-	Index       int
-	Label       string
-	VirtualPath string
-}
-
 func (service *Service) Config(ctx context.Context, id, capability string) (Config, error) {
 	configuration, err := service.configIssuer().Issue(ctx, application.SessionRef{ID: id}, capability)
 	if err != nil {

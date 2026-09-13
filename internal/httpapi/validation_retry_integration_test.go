@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -54,7 +55,7 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 	}
 	server := &Server{
 		database: database.SQL, now: now, jobService: jobs.New(jobpersistence.New(database.SQL), now),
-		importer: libraryimport.New(database.SQL, now), launcher: launch.New(database.SQL, catalog, nil, now),
+		importer: libraryimport.New(database.SQL, now), launcher: launchcomposition.New(database.SQL, launch.NewSources(nil, nil), "", now),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	fixture := validationRetryFixture{server: server, now: now}

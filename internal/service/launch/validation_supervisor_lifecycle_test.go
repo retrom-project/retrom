@@ -16,7 +16,7 @@ func TestValidationLifecycleCloseCancelsAndJoinsBeforeRejectingRegistration(t *t
 	joined := make(chan struct{})
 	go func() { runs.Close(); close(joined) }()
 	<-ctx.Done()
-	if !errors.Is(context.Cause(ctx), errValidationWorkerClosed) {
+	if !errors.Is(context.Cause(ctx), ErrValidationWorkerClosed) {
 		t.Fatalf("close cause: %v", context.Cause(ctx))
 	}
 	select {
@@ -30,7 +30,7 @@ func TestValidationLifecycleCloseCancelsAndJoinsBeforeRejectingRegistration(t *t
 	if _, accepted := runs.register(nextCancel); accepted {
 		t.Fatal("registration after Close")
 	}
-	if !errors.Is(context.Cause(next), errValidationWorkerClosed) {
+	if !errors.Is(context.Cause(next), ErrValidationWorkerClosed) {
 		t.Fatal("rejected run lacks close cause")
 	}
 	runs.Close()

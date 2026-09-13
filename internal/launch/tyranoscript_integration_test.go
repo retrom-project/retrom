@@ -36,9 +36,10 @@ import (
 )
 
 func TestTyranoScriptReviewPreviewPublishesProductLaunch(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
+	now := func() time.Time { return time.UnixMilli(1_786_000_000_000) }
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,14 +58,14 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	itemID, importService := createTyranoScriptReviewItem(t, ctx, database.SQL, blobs, dataDir)
+	itemID, importService := createTyranoScriptReviewItem(t, ctx, database.SQL, blobs, dataDir, now)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	if err != nil {
 		t.Fatal(err)
@@ -73,7 +74,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	assertPreviewCreationRollback(t, service, ReviewPreviewRequest{ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "isolated-rollback"})
@@ -105,7 +106,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 		t.Fatalf("TyranoScript preview content identity=%q, %v", identity, err)
 	}
 	isolationService := isolation.New(
-		isolationpersistence.New(database.SQL), "https://{launchId}.rpg-runtime.example", time.Now,
+		isolationpersistence.New(database.SQL), "https://{launchId}.rpg-runtime.example", now,
 	)
 	previewCredential, previewAccess, err := isolationService.ConsumeTicket(
 		ctx, preview.PreviewID, previewOrigin, previewTicket,
@@ -132,6 +133,7 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 			t.Fatalf("preview content %q=%#v, %v", logicalName, content, contentErr)
 		}
 	}
+	assertTyranoContentReadCauses(t, service, preview.PreviewID, true)
 	canvas := image.NewRGBA(image.Rect(0, 0, 2, 2))
 	canvas.Set(0, 0, color.RGBA{R: 220, G: 70, B: 40, A: 255})
 	var screenshot bytes.Buffer
@@ -183,13 +185,14 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 	if err != nil || content.Format != tyranoScriptProjectFormat {
 		t.Fatalf("product content=%#v, %v", content, err)
 	}
-	assertTyranoScriptPreviewIsolationCleanup(t, database.SQL, preview.PreviewID)
+	assertTyranoContentReadCauses(t, service, created.LaunchID, false)
+	assertTyranoScriptPreviewIsolationCleanup(t, database.SQL, preview.PreviewID, now)
 }
 
-func assertTyranoScriptPreviewIsolationCleanup(t *testing.T, database *sql.DB, previewID string) {
+func assertTyranoScriptPreviewIsolationCleanup(t *testing.T, database *sql.DB, previewID string, clock func() time.Time) {
 	t.Helper()
 	ctx := t.Context()
-	now := time.Now().UnixMilli()
+	now := clock().UnixMilli()
 	statements := []struct {
 		query string
 		args  []any
@@ -230,10 +233,11 @@ func createTyranoScriptReviewItem(
 	database *sql.DB,
 	blobs *blobstore.Store,
 	dataDir string,
+	now func() time.Time,
 ) (string, *libraryimport.Service) {
 	t.Helper()
 	archive := tyranoScriptReviewArchive(t)
-	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
@@ -259,7 +263,7 @@ func createTyranoScriptReviewItem(
 		t.Fatal(err)
 	}
 	waitForONSReviewJob(t, ctx, database, jobID)
-	importService := libraryimport.New(database, time.Now).WithBlobStore(blobs)
+	importService := libraryimport.New(database, now).WithBlobStore(blobs)
 	created, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database, "tyranoscript/tyranoscript",

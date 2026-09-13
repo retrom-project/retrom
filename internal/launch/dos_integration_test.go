@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	persistence "retrom/internal/persistence/launch"
+	application "retrom/internal/service/launch"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -221,20 +224,15 @@ WHERE variant.game_id=?
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	invalidJobID, _, err := service.queueValidationJob(
-		ctx,
-		transaction,
-		variantID,
-		"missing-game",
-		gameVersion,
-		strings.Repeat("a", 64),
-		providerID,
-		targetID,
-		contentcapability.NewPolicy("SINGLE_FILE"),
-		sql.NullString{},
-		strings.Repeat("0", 64),
-		strings.Repeat("0", 64),
-	)
+	inputs := application.ValidationInputs{
+		GameVariantID: variantID, GameID: "missing-game", GameVersion: gameVersion,
+		SourceManifestDigest: strings.Repeat("a", 64), ProviderID: providerID, TargetID: targetID,
+		ContentPolicy:         contentcapability.NewPolicy("SINGLE_FILE"),
+		ValidationInputDigest: strings.Repeat("0", 64), BIOSDependencyDigest: strings.Repeat("0", 64),
+	}
+	invalid, err := application.NewValidationScheduler(persistence.NewValidationJobs(transaction),
+		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+	invalidJobID := invalid.JobID
 	if err != nil {
 		_ = transaction.Rollback()
 		t.Fatal(err)
@@ -252,20 +250,9 @@ WHERE variant.game_id=?
 	retryTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer dbexec.Rollback(retryTx)
-	retriedJobID, queued, err := service.queueValidationJob(
-		ctx,
-		retryTx,
-		variantID,
-		"missing-game",
-		gameVersion,
-		strings.Repeat("a", 64),
-		providerID,
-		targetID,
-		contentcapability.NewPolicy("SINGLE_FILE"),
-		sql.NullString{},
-		strings.Repeat("0", 64),
-		strings.Repeat("0", 64),
-	)
+	retried, err := application.NewValidationScheduler(persistence.NewValidationJobs(retryTx),
+		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+	retriedJobID, queued := retried.JobID, retried.Queued
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !queued }, func() bool { return retriedJobID != invalidJobID }), "automatic validation retry = %s/%t, error=%v", retriedJobID, queued, err)
 	if err := retryTx.Commit(); err != nil {
 		t.Fatal(err)

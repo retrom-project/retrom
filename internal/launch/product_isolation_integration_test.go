@@ -38,8 +38,9 @@ func TestProductIsolationCreationRollsBackTicketFilesAndReceipt(t *testing.T) {
 func productIsolationFixture(t *testing.T) (*Service, application.ProductCreateCommand) {
 	t.Helper()
 	ctx := t.Context()
+	now := func() time.Time { return time.UnixMilli(1_786_000_000_000) }
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,14 +57,14 @@ VALUES(?,'tyrano-profile','tyrano-admin','Tyrano Admin','ADMIN','ENABLED',0,0)`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	itemID, importer := createTyranoScriptReviewItem(t, ctx, database.SQL, blobs, dataDir)
+	itemID, importer := createTyranoScriptReviewItem(t, ctx, database.SQL, blobs, dataDir, now)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +73,7 @@ VALUES(?,'tyrano-profile','tyrano-admin','Tyrano Admin','ADMIN','ENABLED',0,0)`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
 	approveProductIsolationPreview(t, service, itemID, actorID)

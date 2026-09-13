@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-var errValidationWorkerClosed = errors.New("validation worker closed")
+var ErrValidationWorkerClosed = errors.New("validation worker closed")
 
 type (
 	validationWorkerRun  struct{ cancel context.CancelCauseFunc }
@@ -26,7 +26,7 @@ func (runs *validationWorkerRuns) register(cancel context.CancelCauseFunc) (func
 	runs.mutex.Lock()
 	defer runs.mutex.Unlock()
 	if runs.closed {
-		cancel(errValidationWorkerClosed)
+		cancel(ErrValidationWorkerClosed)
 		return func() {}, false
 	}
 	run := &validationWorkerRun{cancel: cancel}
@@ -49,11 +49,7 @@ func (runs *validationWorkerRuns) Close() {
 	}
 	runs.mutex.Unlock()
 	for _, run := range pending {
-		run.cancel(errValidationWorkerClosed)
+		run.cancel(ErrValidationWorkerClosed)
 	}
 	runs.wait.Wait()
 }
-
-// Close prevents new validation attempts, cancels active attempts and joins their
-// bounded cleanup and heartbeat monitors before the database can be closed.
-func (service *Service) Close() { service.validationRuns.Close() }

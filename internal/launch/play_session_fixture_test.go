@@ -2,7 +2,6 @@ package launch
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	persistence "retrom/internal/persistence/launch"
@@ -25,12 +24,4 @@ func (service *Service) RecordPlay(
 		return PlayResult{}, fmt.Errorf("launch play: %w", err)
 	}
 	return result, nil
-}
-
-func MarshalConfig(config Config) ([]byte, error) {
-	contents, err := json.Marshal(config)
-	if err != nil {
-		return nil, fmt.Errorf("marshal launch config: %w", err)
-	}
-	return contents, nil
 }

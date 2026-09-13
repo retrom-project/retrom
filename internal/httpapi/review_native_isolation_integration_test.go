@@ -110,7 +110,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 	t.Helper()
 	server := newTestServer(t)
 	const template = "http://{launchId}.rpg.localhost:3000"
-	server.launcher.WithRPGRuntimeOriginTemplate(template)
+	server.launchSources.WithRPGRuntimeOriginTemplate(template)
 	server.rpgIsolation = isolation.New(isolationpersistence.New(server.database), template, time.Now)
 	active, manifests, err := testsupport.RuntimeProviderInputs(t.Context(), server.database)
 	if err != nil {

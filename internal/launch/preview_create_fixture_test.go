@@ -5,10 +5,7 @@ import (
 	"fmt"
 
 	persistence "retrom/internal/persistence/launch"
-	retromruntime "retrom/internal/runtime"
 	application "retrom/internal/service/launch"
-
-	"github.com/google/uuid"
 )
 
 func (service *Service) CreateReviewPreview(
@@ -37,11 +34,5 @@ func (service *Service) previewCreator(repository application.PreviewCreationRep
 }
 
 func (service *Service) signPreviewCapability(id string) (string, []byte, error) {
-	parsed, err := uuid.Parse(id)
-	if err != nil {
-		return "", nil, fmt.Errorf("parse preview identity: %w", err)
-	}
-	capability := service.credentials.Capability(parsed)
-	hash := retromruntime.HashCapability(capability)
-	return retromruntime.EncodeCapability(capability), hash[:], nil
+	return service.sources().SignCapability(id)
 }

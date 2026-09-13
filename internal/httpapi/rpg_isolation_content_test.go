@@ -18,6 +18,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/config"
 	"retrom/internal/launch"
 	"retrom/internal/service/isolation"
@@ -167,7 +168,7 @@ UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 	now := func() time.Time { return time.UnixMilli(*nowMS) }
 	server := &Server{
 		database: database, rpgIsolation: isolationService,
-		launcher: launch.New(database, nil, nil, now), now: now,
+		launcher: launchcomposition.New(database, launch.NewSources(nil, nil), "", now), now: now,
 	}
 	request := httptest.NewRequestWithContext(
 		t.Context(), http.MethodHead,

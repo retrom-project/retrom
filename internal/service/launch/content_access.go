@@ -136,3 +136,18 @@ func (service *ContentAccess) External(
 	}
 	return record.Content, nil
 }
+
+func (service *ContentAccess) TyranoScriptProjectContentAuthorized(
+	ctx context.Context,
+	id, logicalName string,
+	preview bool,
+) (ContentView, error) {
+	content, err := service.ContentAuthorized(ctx, id, logicalName, preview)
+	if err != nil {
+		return ContentView{}, err
+	}
+	if content.Format != "TYRANOSCRIPT_PROJECT" {
+		return ContentView{}, ErrCredential
+	}
+	return content, nil
+}

@@ -7,11 +7,6 @@ import (
 	application "retrom/internal/service/launch"
 )
 
-type (
-	ContentView  = application.ContentView
-	ExternalView = application.ExternalView
-)
-
 func (service *Service) ContentBlob(ctx context.Context, launchID, capability, logicalName string) (string, error) {
 	content, err := service.Content(ctx, launchID, capability, logicalName)
 	return content.Digest, err
@@ -61,9 +56,3 @@ func (service *Service) ExternalBlob(ctx context.Context, launchID, capability, 
 	view, err := service.External(ctx, launchID, capability, logicalName)
 	return view.Digest, err
 }
-
-type (
-	Interval   = application.Interval
-	PlayEvent  = application.PlayEvent
-	PlayResult = application.PlayResult
-)

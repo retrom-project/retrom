@@ -32,6 +32,7 @@ import (
 	tagpersistence "retrom/internal/persistence/tagging"
 
 	"retrom/internal/blobstore"
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/config"
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
@@ -55,6 +56,7 @@ import (
 	"retrom/internal/service/importdiscard"
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/jobs"
+	launchservice "retrom/internal/service/launch"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/pegasusimport"
@@ -107,7 +109,8 @@ type Server struct {
 	uploads                 *uploads.Service
 	importer                *libraryimport.Service
 	importDiscards          *importdiscard.Service
-	launcher                *launch.Service
+	launcher                *launchservice.Service
+	launchSources           *launch.Sources
 	jobService              *jobs.Service
 	immersive               *immersive.Service
 	firmware                *firmwareservice.Service
@@ -157,7 +160,7 @@ func (server *Server) WithRuntimeProvider(
 	builder *runtimelaunch.Builder,
 	handler http.Handler,
 ) *Server {
-	server.launcher.WithRuntimeProvider(catalog, builder)
+	server.launchSources.WithRuntimeProvider(builder)
 	return server.WithRuntimeProviderHandler(handler)
 }
 
@@ -199,9 +202,8 @@ func New(
 		panic(err)
 	}
 	scraper := composition.NewMetadata(database, blobs, hasheous.New(nil, nil, now), now)
-	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs).
-		WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate).
-		WithPublicOrigin(config.PublicOrigin.String())
+	launchSources := launch.NewSources(blobs, credentials).WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate)
+	launcher := launchcomposition.New(database, launchSources, config.PublicOrigin.String(), now)
 	launcher.ResumeQueuedValidationJobs()
 	importer := libraryimport.New(database, now, scraper).
 		WithBlobStore(blobs).
@@ -245,6 +247,7 @@ func New(
 		uploads:                 uploads.New(uploadpersistence.New(database), blobs, config.DataDir, now),
 		importer:                importer,
 		launcher:                launcher,
+		launchSources:           launchSources,
 		jobService:              jobs.New(jobpersistence.New(database), now),
 		immersive:               immersive.New(immersivepersistence.New(database)),
 		firmware:                firmwareService,

@@ -9,10 +9,6 @@ import (
 	application "retrom/internal/service/launch"
 )
 
-type ProjectIndexView = application.ProjectIndexView
-
-var ErrProjectIndexUnavailable = application.ErrProjectIndexUnavailable
-
 func (service *Service) projectIndexes() *application.ProjectIndexes {
 	return application.NewProjectIndexes(
 		persistence.NewProjectIndexes(service.database),

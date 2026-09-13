@@ -41,9 +41,7 @@ func (service *Service) productCreator(repository application.ProductCreationRep
 		productBlobVerifier{blobs: service.blobs},
 		application.ProductEnvironment{
 			Now: service.now, SignCapability: service.signPreviewCapability,
-			ResumeValidation: func(ctx context.Context, id string) {
-				go service.ResumeValidationJob(ctx, id)
-			},
+			ResumeValidation: service.validationRuns.Dispatch,
 			SignIsolation: func(id string) (application.IsolationTicket, error) {
 				origin, ticket, hash, err := service.isolatedRuntimeTicket(id)
 				if err != nil {

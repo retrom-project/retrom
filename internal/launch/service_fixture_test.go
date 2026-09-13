@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/cleanup"
+
 	application "retrom/internal/service/launch"
 
 	"retrom/internal/blobstore"
@@ -15,25 +17,8 @@ import (
 	"retrom/internal/runtimelaunch"
 )
 
-var (
-	ErrBlocked          = application.ErrBlocked
-	ErrCredential       = application.ErrCredential
-	ErrDOSEntryMissing  = application.ErrDOSEntryMissing
-	ErrDOSEntryUnsafe   = application.ErrDOSEntryUnsafe
-	ErrSaveIncompatible = application.ErrSaveIncompatible
-)
-
-type Capabilities = application.Capabilities
-
-type CreateRequest = application.CreateRequest
-
-type (
-	Created              = application.Created
-	NetplayCreateRequest = application.NetplayCreateRequest
-)
-
 type Service struct {
-	validationRuns           *validationWorkerRuns
+	validationRuns           *application.ValidationSupervisor
 	database                 *sql.DB
 	dependencies             *dependencies.Set
 	credentials              *retromruntime.Credentials
@@ -60,13 +45,14 @@ func New(
 	credentials *retromruntime.Credentials,
 	now func() time.Time,
 ) *Service {
-	return &Service{
-		database:       database,
-		dependencies:   dependencySet,
-		credentials:    credentials,
-		now:            now,
-		validationRuns: newValidationWorkerRuns(),
+	service := &Service{
+		database:     database,
+		dependencies: dependencySet,
+		credentials:  credentials,
+		now:          now,
 	}
+	service.validationRuns = application.NewValidationSupervisor(testValidationRunner{service}, func(err error) { cleanup.Error("variant validation", err) })
+	return service
 }
 
 func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
@@ -90,4 +76,8 @@ func (service *Service) SaveAccess(ctx context.Context, launchID, capability str
 		return result, fmt.Errorf("launch resource query: %w", err)
 	}
 	return result, nil
+}
+
+func (service *Service) sources() *Sources {
+	return NewSources(service.blobs, service.credentials).WithRuntimeProvider(service.runtimeBuilder).WithRPGRuntimeOriginTemplate(service.rpgRuntimeOriginTemplate)
 }

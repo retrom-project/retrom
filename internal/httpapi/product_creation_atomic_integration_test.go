@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"retrom/internal/authn"
+	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/launch"
 	"retrom/internal/testsupport"
 )
@@ -131,7 +132,7 @@ func TestProductCreateHTTPConcurrentServersShareOneReceipt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	launcher := launch.New(server.database, server.dependencies, server.credentials, clock).WithBlobStore(server.blobs).WithRuntimeProvider(server.dependencies.RuntimeCatalog, builder)
+	launcher := launchcomposition.New(server.database, launch.NewSources(server.blobs, server.credentials).WithRuntimeProvider(builder), "", clock)
 	servers := []*Server{
 		{database: server.database, credentials: server.credentials, config: server.config, launcher: launcher, now: func() time.Time { return now }},
 		{database: server.database, credentials: server.credentials, config: server.config, launcher: launcher, now: func() time.Time { return now }},

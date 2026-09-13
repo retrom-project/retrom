@@ -7,9 +7,6 @@ import (
 	application "retrom/internal/service/launch"
 )
 
-// ProviderAsset identifies one immutable asset declared by the active Target.
-type ProviderAsset = application.ProviderAsset
-
 func (service *Service) ProviderAssetAuthorized(
 	ctx context.Context,
 	sessionID string,

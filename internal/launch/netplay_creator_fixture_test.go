@@ -8,7 +8,6 @@ import (
 	application "retrom/internal/service/launch"
 )
 
-// CreateNetplay creates the participant-owned launch from the locked session.
 func (service *Service) CreateNetplay(ctx context.Context, request NetplayCreateRequest) (Created, error) {
 	result, err := service.netplayCreator(persistence.NewNetplayCreation(service.database)).CreateNetplay(ctx, request)
 	if err != nil {

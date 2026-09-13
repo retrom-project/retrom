@@ -62,8 +62,8 @@ internal/service/datindex/ DAT BIOS 需求身份、摘要与同步编排
 internal/persistence/datindex/ DAT 索引与需求记录写入
 internal/runtimebundle/   Bundle 与 Launch Envelope V1 的闭合解析/语义校验
 internal/runtimelaunch/   Provider-neutral Launch Envelope 投影
-internal/launch/          启动预检、LaunchSession/capability 与产品编排
-internal/service/launch/ 内容授权、Preview/Product 创建、审核截图、资源选择与游玩策略
+internal/launch/          Provider、凭据/隔离签名、内容与截图文件适配器
+internal/service/launch/ 启动应用入口、内容授权、Preview/Product/Netplay、截图、游玩与校验 worker 生命周期
 internal/persistence/launch/ 授权与内容快照、会话/响应收据/截图/游玩事务与校验任务调度
 internal/rpgmaker/        RPG 项目识别、Target binding、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
 internal/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢复协议
@@ -147,6 +147,8 @@ BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后�
 Pegasus 与 EmulationStation 的通用 Job 取消由领域 Service 接管：通用资格读取事务结束后，携带原始 Job 版本、kind、scope 与操作者进入领域事务，重新校验当前关联并原子取消；不得只更新 Job 而遗漏来源计划，也不得用刷新后的版本替换客户端 ETag。返回值取自提交前同一快照，提交失败不返回成功或发送唤醒。
 
 Pegasus 的 HTTP 与批次处置直接调用应用 Service；`composition.NewPegasusImport` 在启动时一次性组装查询、命令、Repository、来源适配器与 worker。HTTP 显式传入操作者，Service 决定提交后的唤醒；扫描与导入共用 worker 的维护、取消和关闭流程，每次执行只绑定冻结来源，不重新构造数据库依赖。旧 `internal/pegasusimport` 包只保留文件/CAS 适配器，架构测试禁止它导入数据库实现，也禁止 HTTP 重新依赖该包。
+
+Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `internal/composition/launch` 一次组装用例、Repository 和来源适配器。Product 提交后的异步校验、显式重试与启动恢复共用一个 `ValidationSupervisor`；调度前登记执行，关闭时取消并等待所有执行和清理结束。请求结束可与已提交的后台工作分离，但后台工作仍受进程关闭控制。根 Launch 包只保留文件/Provider/签名适配与类型兼容，不读写数据库。
 
 沉浸式查询的 `ReadScope` 在同一快照内提供平台、资料库和存档查询能力，Service 负责入口组装、收藏夹选择、分页与游标及存档附加。容量分析 Repository 一次返回完整的 Blob、保护集合、用途和引用快照，Service 完成 archive 用途传播、分类优先级、去重口径及受检整数汇总；聚合不再占用数据库事务。
 

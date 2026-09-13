@@ -176,3 +176,29 @@ func TestIsolatedAndPreviewAccessKeepDistinctAuthority(t *testing.T) {
 		t.Fatalf("expired isolated content=%v", err)
 	}
 }
+
+func TestTyranoContentKeepsCausesAndRejectsOtherFormats(t *testing.T) {
+	for _, preview := range []bool{false, true} {
+		reader := validContentStub()
+		service := NewContentAccess(reader, queryClock, matchTestCapability)
+		for _, cause := range []error{context.Canceled, errors.New("read failure")} {
+			reader.failure = cause
+			if _, err := service.TyranoScriptProjectContentAuthorized(t.Context(), "id", "index.html", preview); !errors.Is(err, cause) {
+				t.Fatalf("preview=%t cause lost: %v", preview, err)
+			}
+		}
+		reader.failure = nil
+		if _, err := service.TyranoScriptProjectContentAuthorized(t.Context(), "id", "index.html", preview); !errors.Is(err, ErrCredential) {
+			t.Fatalf("wrong format preview=%t: %v", preview, err)
+		}
+		reader.record.Content.Format = "TYRANOSCRIPT_PROJECT"
+		if _, err := service.TyranoScriptProjectContentAuthorized(t.Context(), "id", "index.html", preview); err != nil {
+			t.Fatalf("valid format preview=%t: %v", preview, err)
+		}
+		for _, folded := range reader.calls {
+			if folded {
+				t.Fatal("Tyrano content must preserve exact path matching")
+			}
+		}
+	}
+}

@@ -10,17 +10,6 @@ import (
 	application "retrom/internal/service/launch"
 )
 
-var (
-	ErrReviewPreviewUnavailable = application.ErrReviewPreviewUnavailable
-	ErrReviewScreenshotInvalid  = application.ErrReviewScreenshotInvalid
-)
-
-type (
-	ReviewPreviewRequest = application.ReviewPreviewRequest
-	ReviewPreviewCreated = application.ReviewPreviewCreated
-	ReviewScreenshot     = application.ReviewScreenshot
-)
-
 func (service *Service) ReviewPreviewConfig(ctx context.Context, id, capability string) (Config, error) {
 	configuration, err := service.configIssuer().Issue(ctx, application.SessionRef{ID: id, Preview: true}, capability)
 	if err != nil {
