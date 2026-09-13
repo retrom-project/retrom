@@ -22,6 +22,7 @@ type Service struct {
 	gc          *application.GCScheduler
 	garbage     *application.GarbageCollector
 	expirations *application.Expirations
+	retirements *application.Retirements
 }
 
 type claimedJob struct {
@@ -42,6 +43,7 @@ func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retenti
 	}
 	service.gc = gc
 	service.expirations = application.NewExpirations(repository.NewExpiration(database), gc, now)
+	service.retirements = application.NewRetirements(repository.NewRetirement(database), now)
 	if err := ValidateOwnershipRegistry(); err != nil {
 		return nil, err
 	}

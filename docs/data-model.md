@@ -128,6 +128,8 @@ Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS
 
 `launch_payload_retirements` 是 Launch 的回收排期，包含 `launch_session_id`、`due_at_ms`、`released_at_ms`。`sessionstore.CreateLaunch` 创建排期，`sessionstore.ChangeLaunch` 在状态/心跳更新的同一事务维护截止时间：CREATED 取 bootstrap/hard 最早值，ACTIVE 取 idle/hard 最早值，终态取 finished 时间；已释放行不重新入队。后台按未释放截止时间的部分索引逐会话处理，每个短事务分别最多释放 200 条内容文件和 200 条外部文件引用。超时会话标为 EXPIRED，并按 Launch ID 结束对应 Play；大项目跨批次继续，全部文件引用释放后才记录释放时间。存档和会话来源记录保留，物理文件仍受其他 owner 与 GC 宽限期保护。普通启动与每小时 GC 对账重试未完成工作；单次替换无需等待对账，服务重启可续做。
 
+两类延迟释放由 `service/payloadrelease.Retirements` 决定到期、共享 BIOS 保护、会话终止和分批完成；Repository 读取安装、会话、Play 与精确文件键，并在写入前重验原版本、Blob、共享活动安装和实际期限。重新启用的 BIOS、续期会话或变化的文件不能按旧快照释放。每次更新、删除和完成排期都确认受影响行数；任一步失败回滚该批次，不能提前记录释放成功。
+
 ## 10. 数据库不变量
 
 `recordstore`、`sessionstore` 与声明式数据库约束共同保证：
