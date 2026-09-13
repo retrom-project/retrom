@@ -2,11 +2,11 @@ package metadatascrape
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/service/metadatascrape"
@@ -15,7 +15,7 @@ import (
 
 func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 	root := t.TempDir()
-	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(root, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(root, "retrom.db"), recoveryNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,10 +36,12 @@ func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = NewAssets(database.SQL).Publish(t.Context(), metadatascrape.AssetPublication{
-		ID: "deleted", Blob: metadata, MediaType: "image/png", Width: 1, Height: 1, Now: 100,
+	err = NewMedia(database.SQL).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
+		return scope.Assets.Publish(context.Background(), metadatascrape.AssetPublication{
+			ID: "deleted", Blob: metadata, MediaType: "image/png", Width: 1, Height: 1, Now: recoveryNow().UnixMilli(),
+		}, 1)
 	})
-	if !errors.Is(err, metadatascrape.ErrGameDeleted) {
+	if !errors.Is(err, metadatascrape.ErrExecutionLost) {
 		t.Fatalf("publication conflict: %v", err)
 	}
 	if stats := database.SQL.Stats(); stats.InUse != 0 {

@@ -35,7 +35,10 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
-	testassert.Falsef(t, len(tables) != 127, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 128, "fresh schema table count = %d", len(tables))
+	assertColumns(t, database.SQL, "metadata_media_runs", "scrape_run_id", "order_frozen_at_ms", "charged_bytes", "version")
+	assertColumns(t, database.SQL, "scrape_candidate_assets", "media_fetch_job_id", "media_fetch_order",
+		"media_charged_bytes", "media_reserved_bytes")
 	assertColumns(t, database.SQL, "review_preview_sessions",
 		"import_item_id", "source_snapshot_id", "validation_id", "credential_sha256",
 		"bootstrap_expires_at_ms", "hard_expires_at_ms", "checkpoint_payload_blob_id", "checkpoint_format",
@@ -227,7 +230,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 13, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 14, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {

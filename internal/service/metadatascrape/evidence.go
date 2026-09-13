@@ -28,23 +28,18 @@ type EvidenceLookup interface {
 type EvidenceResults interface {
 	Record(context.Context, LookupAttempt) (bool, error)
 }
-type PendingAssets interface {
-	Run(context.Context, string) error
-}
 type EvidenceProcessor struct {
 	evidence EvidenceReader
 	lookup   EvidenceLookup
 	results  EvidenceResults
-	assets   PendingAssets
 }
 
 func NewProcessor(
 	evidence EvidenceReader,
 	lookup EvidenceLookup,
 	results EvidenceResults,
-	assets PendingAssets,
 ) *EvidenceProcessor {
-	return &EvidenceProcessor{evidence: evidence, lookup: lookup, results: results, assets: assets}
+	return &EvidenceProcessor{evidence: evidence, lookup: lookup, results: results}
 }
 
 func (processor *EvidenceProcessor) Process(
@@ -65,9 +60,6 @@ func (processor *EvidenceProcessor) Process(
 	count, code, err := processor.processScrapeEvidence(ctx, claim, evidence, payload.BypassCache)
 	if err != nil {
 		return count, code, err
-	}
-	if err := processor.assets.Run(ctx, claim.RunID); err != nil {
-		return 0, "METADATA_ASSET_PERSIST_FAILED", fmt.Errorf("metadata_asset_persist_failed: %w", err)
 	}
 	return count, "", nil
 }

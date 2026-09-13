@@ -19,16 +19,5 @@ func (repository *WorkerRepository) Recoverable(ctx context.Context, now int64) 
 		return nil, fmt.Errorf("query recoverable metadata executions: %w", err)
 	}
 	defer func() { cleanup.Error("close recoverable metadata executions", rows.Close()) }()
-	ids := make([]string, 0)
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("scan recoverable metadata execution: %w", err)
-		}
-		ids = append(ids, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate recoverable metadata executions: %w", err)
-	}
-	return ids, nil
+	return readRecoveryIDs(rows)
 }

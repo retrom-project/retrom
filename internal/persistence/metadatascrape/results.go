@@ -25,7 +25,7 @@ func (repository *ResultRepository) WithWrite(ctx context.Context, work func(met
 	}
 	defer dbexec.Rollback(transaction)
 	records := resultRecords{transaction}
-	if err := work(metadatascrape.ResultScope{Read: records, Write: records}); err != nil {
+	if err := work(metadatascrape.ResultScope{Read: records, Write: records, Media: records}); err != nil {
 		return err
 	}
 	if err := transaction.Commit(); err != nil {

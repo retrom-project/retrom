@@ -37,7 +37,10 @@ func (handler emulationStationCancellation) CancelJob(
 	if err != nil {
 		return jobs.Result{}, false, emulationStationCancellationError(err)
 	}
-	return jobs.Result(result), pending, nil
+	return jobs.Result{
+		Kind: command.Kind, JobID: result.JobID, State: result.State,
+		ExecutionNo: result.ExecutionNo, Version: result.Version,
+	}, pending, nil
 }
 
 func emulationStationCancellationError(err error) error {

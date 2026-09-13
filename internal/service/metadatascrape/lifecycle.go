@@ -8,10 +8,12 @@ import (
 	"retrom/internal/cleanup"
 )
 
-func (service *Service) register(parent context.Context, id string, execution bool) (context.Context, func(), error) {
+func (service *executionSupervisor) register(
+	parent context.Context, id string, execution bool,
+) (context.Context, func(), error) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if service.closed || service.runner == nil {
+	if service.closed || service.stopping.Load() || service.runner == nil {
 		return nil, nil, ErrWorkerClosed
 	}
 	if service.active[id] != nil || execution && service.executing >= 2 {
@@ -35,7 +37,7 @@ func (service *Service) register(parent context.Context, id string, execution bo
 	}, nil
 }
 
-func (service *Service) Dispatch(parent context.Context, id string) bool {
+func (service *executionSupervisor) Dispatch(parent context.Context, id string) bool {
 	ctx, finish, err := service.register(context.WithoutCancel(parent), id, true)
 	service.Start(parent)
 	if err != nil {
@@ -45,7 +47,7 @@ func (service *Service) Dispatch(parent context.Context, id string) bool {
 	return true
 }
 
-func (service *Service) Recover(parent context.Context) error {
+func (service *executionSupervisor) Recover(parent context.Context) error {
 	ctx, finish, err := service.register(parent, "metadata-discovery", false)
 	if err != nil {
 		return err
@@ -54,7 +56,7 @@ func (service *Service) Recover(parent context.Context) error {
 	return service.recover(ctx)
 }
 
-func (service *Service) recover(ctx context.Context) error {
+func (service *executionSupervisor) recover(ctx context.Context) error {
 	ids, err := service.runner.Recover(ctx)
 	if err != nil {
 		return fmt.Errorf("read metadata dispatch queue: %w", err)
@@ -65,7 +67,7 @@ func (service *Service) recover(ctx context.Context) error {
 	return nil
 }
 
-func (service *Service) Start(parent context.Context) {
+func (service *executionSupervisor) Start(parent context.Context) {
 	service.mutex.Lock()
 	if service.started || service.closed || service.runner == nil {
 		service.mutex.Unlock()
@@ -92,12 +94,11 @@ func (service *Service) Start(parent context.Context) {
 	}()
 }
 
-func (service *Service) Close() {
+func (service *executionSupervisor) stop() {
 	service.mutex.Lock()
 	service.closed = true
 	for _, cancel := range service.active {
 		cancel(ErrWorkerClosed)
 	}
 	service.mutex.Unlock()
-	service.group.Wait()
 }

@@ -236,7 +236,11 @@ ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.
 
 缓存命中、绕过缓存和无效缓存回源由 `internal/service/metadatascrape` 决策，缓存查询留在 Repository。响应缓存到期时间从本次持久化的抓取时刻计算，避免重复读取时钟造成记录不一致；数据库查询失败必须保留原因，不能当作缓存未命中继续请求上游。
 
-元数据素材下载由 `internal/service/metadatascrape` 管理每次抓取的容量预算、下载失败分类与 CAS 文件准备；`internal/persistence/metadatascrape` 查询待处理素材，并在短事务内登记 Blob、重新检查素材和游戏可写状态、更新引用。素材发布冲突必须回滚 Blob 登记并释放数据库连接，不能保留未结束事务。
+每个新下载的 Asset 与独立 `MEDIA_FETCH` Job、不可变输入和 QUEUED 事件在候选结果的同一事务创建。Job scope 与 Run 的实际 GAME/IMPORT_ITEM owner 一致，输入冻结 Asset、Run、Response 与来源摘要。Metadata 完成后仍可继续下载；只有 READY 资源可被显式采用，媒体完成不会覆盖已有审核草稿。
+
+`internal/service/metadatascrape.MediaWorker` 管理媒体领取、排序、预算、下载与失败决策；Repository 保存执行和资产状态，Hasheous 适配器执行受限网络读取。网络读取和 CAS 准备在写事务外完成，最终事务重新检查原 execution/attempt/worker、期限、来源与当前 owner，一起登记 Blob/引用、READY 状态和 Job 完成事件；失败全部回滚。Game 已删除、Item 已终态或 payload 已释放时，不得重新添回媒体引用。网络、解码、CAS 与存储错误保留原始原因。
+
+META 与 MEDIA 分别使用最多两个执行名额；媒体名额还由数据库核对未到期的 RUNNING/CANCEL_REQUESTED 租约，同一 Run 同时只进行一次读取。持久队列恢复沿用原 execution、冻结输入、attempt 与最初 30 分钟媒体期限，每个媒体 execution 最多 4 次 attempt，租约 60 秒、每 15 秒续租。较短的请求 deadline 或进程关闭不能被记为媒体 execution 超时。关闭先停止两个执行组的新登记并取消全部活动工作，再等待读取、监测和收口退出。
 
 ~~~go
 type ContentHashes struct {
@@ -269,7 +273,7 @@ type MetadataProvider interface {
 - 保存独立 scrape run、provider ID、每次原始 response Blob、`fetched_at_ms`、缓存状态、候选聚合命中和采用关系；Arcade 多 entry 命中同一 provider game ID 时保留全部 hit。所有查询收集完成后才按 `(query_order, attempt_no, response.id)` 决定 primary，候选文本和媒体只从该 primary response 归一化；不能由最先返回的并发请求抢占 primary。
 - 每个 evidence 的网络重试或缓存复用都创建 MetadataScrapeQueryAttempt；MISS/timeout/429 因没有候选也不能丢失 run→response 关联。请求 body 只含非空 hash，值规范为 lowercase hex（CRC32 恰 8 位，MD5/SHA-1/SHA-256 长度分别 32/40/64）。`request_digest` 固定为 lowercase SHA-256(RFC 8785 canonical `{"provider":"HASHEOUS","endpointContract":"BY_HASH_V1","body":<实际上游 JSON>}`)，因此 cache key 不受 Go map 顺序影响。
 - 只接受 lookup attributes 返回的同一 `hasheous.org` `/api/v1/images/<opaque-id>` 图片；每个引用先建立带稳定 ID 的 ScrapeCandidateAsset，再由后端按 HTTP 契约执行 DNS/redirect SSRF 校验、10 MiB/40 MP/图片格式限制后写入 CAS。响应声明必须是受支持的图片类型，实际格式以魔数与完整解码结果为准；上游把 JPEG 错标成 PNG 等受支持图片子类型时允许按真实格式保存，声明为 HTML/SVG/其他非图片或内容无法解码时仍拒绝。单个媒体失败只把该 asset 标为 FAILED，不阻断候选文本或人工审核；只有 READY asset 可被草稿选择和发布。
-- run 内按“命中数降序、primary query_order 升序、provider game ID UTF-8 byte 升序”，再按 asset kind/ordinal/ID 排序抓取媒体；所有 candidate asset 的实际响应 bytes 合计上限 100 MiB，触顶后的剩余项标为 `ASSET_RUN_BUDGET_EXCEEDED`。这一上限只控制不可信媒体，不截断已保存的文本候选/raw response。
+- Run 结束后按“命中数降序、primary query_order 升序、provider game ID UTF-8 byte 升序”，再按 asset kind/ordinal/ID 冻结媒体顺序。每个 Run 持久预算为 100 MiB，包含成功、失败和重试实际读到的响应 bytes。读取前原子预留本次上限，已知读取量收口后退还未使用部分；读取完成前崩溃时无法证明未使用的预留保留收费，重启或人工重试不能重置预算。人工重试沿用同一 Asset、顺序与 Run 预算，并等待该 Run 已运行的其他位置结束。预算耗尽后的剩余项不再请求网络，标为 `ASSET_RUN_BUDGET_EXCEEDED`；文本候选与 raw response 不受媒体预算截断。单资源最多读取 10 MiB 加一个超限探测字节，该字节也计入预算。
 - 使用查询缓存、并发限制、超时和指数退避。
 - 重新刮削针对创建时的 Game current GameFiles 建立带精确 content FK 的 MetadataScrapeRun、evidence、候选与媒体，不直接覆盖已发布元信息；“最新批次”只在仍等于 Game current content 的 COMPLETED run 中按 `created_at_ms,id` 稳定排序确定，只有显式 apply 才生成 Game 当前元信息字段。
 

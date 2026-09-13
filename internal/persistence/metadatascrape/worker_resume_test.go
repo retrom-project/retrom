@@ -70,10 +70,6 @@ func (lookup *resumeLookup) Lookup(context.Context, hasheous.ContentHashes, bool
 	return metadatascrape.ResolvedLookup{Result: hasheous.LookupResult{Outcome: hasheous.OutcomeMiss, RequestDigest: strings.Repeat("d", 64)}}, nil
 }
 
-type noPendingAssets struct{}
-
-func (noPendingAssets) Run(context.Context, string) error { return nil }
-
 func TestMetadataResumeSkipsTerminalEvidenceWithoutDuplicatingAttempt(t *testing.T) {
 	database := recoveryDatabase(t)
 	now := recoveryTime.UnixMilli()
@@ -86,7 +82,7 @@ func TestMetadataResumeSkipsTerminalEvidenceWithoutDuplicatingAttempt(t *testing
 	lookup := &resumeLookup{}
 	repository := NewWorker(database)
 	recorder := metadatascrape.NewRecorder(NewRecorder(database), nil, recoveryNow)
-	processor := metadatascrape.NewProcessor(repository, lookup, recorder, noPendingAssets{})
+	processor := metadatascrape.NewProcessor(repository, lookup, recorder)
 	if err := metadatascrape.NewWorker(repository, processor, recoveryNow).Run(t.Context(), "run"); err != nil {
 		t.Fatalf("terminal evidence was replayed: %v", err)
 	}
@@ -113,7 +109,7 @@ func TestMetadataResumedCacheHitKeepsNextAttemptNumber(t *testing.T) {
 	recoveryExec(t, database, `INSERT INTO metadata_scrape_query_attempts(id,scrape_run_id,content_hash_evidence_id,
  provider_response_id,attempt_no,source,created_at_ms) VALUES('attempt','run','evidence','response',1,'NETWORK',?)`, now)
 	repository := NewWorker(database)
-	processor := metadatascrape.NewProcessor(repository, resumeCachedLookup{}, metadatascrape.NewRecorder(NewRecorder(database), nil, recoveryNow), noPendingAssets{})
+	processor := metadatascrape.NewProcessor(repository, resumeCachedLookup{}, metadatascrape.NewRecorder(NewRecorder(database), nil, recoveryNow))
 	if err := metadatascrape.NewWorker(repository, processor, recoveryNow).Run(t.Context(), "run"); err != nil {
 		t.Fatal(err)
 	}

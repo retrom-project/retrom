@@ -65,6 +65,11 @@ func recordCandidate(
 			},
 		)
 	}
+	for i := range assets {
+		if err := enqueueCandidateMedia(ctx, scope, attempt.Claim.RunID, &assets[i]); err != nil {
+			return false, err
+		}
+	}
 	if err := scope.Write.Assets(ctx, assets); err != nil {
 		return false, fmt.Errorf("record candidate assets: %w", err)
 	}

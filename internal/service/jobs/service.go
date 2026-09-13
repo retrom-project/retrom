@@ -15,6 +15,7 @@ var (
 )
 
 type Result struct {
+	Kind        string `json:"-"`
 	JobID       string `json:"jobId"`
 	State       string `json:"state"`
 	ExecutionNo int64  `json:"executionNo"`

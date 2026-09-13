@@ -1,10 +1,10 @@
 # Retrom 数据模型
 
-字段、CHECK、FK 与索引的事实源是 `migrations/001_identity.sql` 至 `migrations/013_bios_session_retirement.sql`；跨表与状态转换校验在 `internal/persistence/recordstore`，会话及存档联动在 `internal/persistence/sessionstore`，共享查询投影在 `internal/persistence/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK 与索引的事实源是 `migrations/001_identity.sql` 至 `migrations/014_metadata_media_queue.sql`；跨表与状态转换校验在 `internal/persistence/recordstore`，会话及存档联动在 `internal/persistence/sessionstore`，共享查询投影在 `internal/persistence/storequery`。本文描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
-- 001–013 组成新的未发布建库基线，只创建表、声明式约束、索引与空实例状态，不创建 trigger/view 或回填历史数据。此次基线与旧开发库不兼容，旧库必须停机归档并重建；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
+- 001–014 组成新的未发布建库基线，只创建表、声明式约束、索引与空实例状态，不创建 trigger/view 或回填历史数据。此次基线与旧开发库不兼容，旧库必须停机归档并重建；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
@@ -73,6 +73,8 @@ Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录
 RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、Provider/Target 和依赖摘要，不保存运行 gate、位置证明或独立验证决定。所有审核通过 `review_preview_sessions` 试运行，来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核所选校验的产物或已选运行资源包，不能借试运行读取其他来源的 Blob。
 
 审核临时 checkpoint 使用会话级存储，一份 preview 保留当前临时 payload，格式及 Blob 关系明确。恢复 preview 冻结自己的恢复输入，不跟随原 preview 后续覆盖。已关闭会话的临时 checkpoint 可在审核未结束且未到期时用于恢复；过期或审核 payload 释放时清理。临时存档不是审批/升级门槛，不引入原会话、恢复会话或人工确认的附加状态机。
+
+`metadata_media_runs` 每个 ScrapeRun 一行，保存媒体顺序冻结时刻、累计收费 bytes、版本与时刻，不复制 Job 状态，也不增加 Blob owner。`scrape_candidate_assets.media_fetch_job_id` 唯一关联下载 Job，`media_fetch_order` 保存冻结顺序，`media_charged_bytes/media_reserved_bytes` 保存资源累计收费和当前预留。可空 Job/顺序字段用于未冻结或手工证据状态，所有新下载必须原子绑定 Job 与输入。备份恢复保留排序、预算与 Job 原始 execution 期限；payload 释放删除资产引用后，预算记录不阻碍实际释放。预算与恢复策略见[导入与刮削](./import-and-review.md#7-hasheous-适配器)。
 
 ### ScummVM 检测与选择
 

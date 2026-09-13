@@ -5,14 +5,13 @@ package metadatascrape_test
 import (
 	"database/sql"
 	"testing"
-	"time"
 
 	"retrom/internal/service/metadatascrape"
 )
 
 func assertForeignMetadataExecutionIsUntouched(t *testing.T, database *sql.DB, scraper *metadatascrape.Service, runID, jobID string) {
 	t.Helper()
-	now := time.Now().UnixMilli()
+	now := mediaFixtureNow().UnixMilli()
 	if _, err := database.ExecContext(t.Context(), `UPDATE jobs SET state='RUNNING',worker_id='another-worker',
  execution_started_at_ms=?,execution_deadline_at_ms=?,leased_until_ms=?,heartbeat_at_ms=? WHERE id=?`, now, now+3600000, now+60000, now, jobID); err != nil {
 		t.Fatal(err)

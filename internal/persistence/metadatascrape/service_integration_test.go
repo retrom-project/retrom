@@ -61,19 +61,19 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), mediaFixtureNow)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, mediaFixtureNow()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, mediaFixtureNow)
 	contents := []byte("deterministic metadata fixture")
 	legacyMD5, legacySHA1 := legacychecksum.Sum(contents)
 	upload, err := uploadService.Create(
@@ -128,9 +128,9 @@ WHERE id=?
 	resolver := resolverFunc(func(context.Context, string) ([]net.IPAddr, error) {
 		return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
 	})
-	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
+	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, mediaFixtureNow), mediaFixtureNow)
 	t.Cleanup(scraper.Close)
-	importer := libraryimport.New(database.SQL, time.Now, scraper).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithBlobStore(blobs)
 	created, err := importer.Create(
 		ctx,
 		libraryimport.CreateRequest{
@@ -200,6 +200,7 @@ WHERE r.job_id=?
 		rawSHA256 != fmt.Sprintf("%x", sha256.Sum256(contents)) {
 		t.Fatalf("raw evidence = %s %s %s %s %s, error=%v", rawProfile, rawCRC32, rawMD5, rawSHA1, rawSHA256, err)
 	}
+	waitMetadataMedia(t, database.SQL, scrapeJobID)
 	var candidates, attempts, readyAssets, rawResponses int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT (SELECT count(*)
@@ -253,7 +254,7 @@ j.state,
 j.running_item_count,
 j.review_pending_item_count,
 d.selected_candidate_id,
-d.cover_candidate_asset_id,
+COALESCE(d.cover_candidate_asset_id,''),
 d.metadata_json
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
@@ -269,7 +270,7 @@ WHERE i.id=?
 		&metadataJSON,
 	); err != nil || finalItemState != "REVIEW_PENDING" || finalJobState != "REVIEW_PENDING" ||
 		finalRunning != 0 || finalReviewPending != 1 || selectedCandidateID != candidateID ||
-		selectedCoverID != candidateAssetID || !strings.Contains(metadataJSON, `"title":"Metadata Result"`) ||
+		selectedCoverID != "" || !strings.Contains(metadataJSON, `"title":"Metadata Result"`) ||
 		!strings.Contains(metadataJSON, `"description":"safe"`) || !strings.Contains(metadataJSON, `"releaseYear":2002`) {
 		t.Fatalf(
 			"completed initial review = item=%s job=%s running=%d review=%d candidate=%s cover=%s metadata=%s, error=%v",
@@ -283,6 +284,7 @@ WHERE i.id=?
 			err,
 		)
 	}
+	draftVersion := selectReadyReviewMedia(t, database.SQL, importer, firstItemID, created.ImportJobID, candidateAssetID)
 	archiveContents := makeDeterministicZIP(t, map[string][]byte{"folder/Metadata-copy.gba": contents})
 	secondUpload, err := uploadService.Create(
 		ctx,
@@ -361,7 +363,7 @@ WHERE provider='HASHEOUS')
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return lookupCount.Load() != 2 }, func() bool { return networkAttempts != 2 }, func() bool { return cacheAttempts != 1 }, func() bool { return providerResponses != 2 }), "cache reuse lookup/network/cache/responses = %d/%d/%d/%d", lookupCount.Load(), networkAttempts, cacheAttempts, providerResponses)
 	reason := "已核对 Hasheous 候选与封面"
-	approved, err := importer.ApproveWithReason(ctx, firstItemID, 1, &reason)
+	approved, err := importer.ApproveWithReason(ctx, firstItemID, draftVersion, &reason)
 	testassert.False(t, err != nil, err)
 	var publishedAssets int
 	var providerEvidence, storedReason string
@@ -518,14 +520,14 @@ func TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), mediaFixtureNow)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, mediaFixtureNow()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
@@ -542,7 +544,7 @@ WHERE provider_id=? AND target_id=?
 		t.Fatal(err)
 	}
 	datID := "01980000-0000-7000-8000-000000000231"
-	now := time.Now().UnixMilli()
+	now := mediaFixtureNow().UnixMilli()
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_versions(id,
 core_id,
@@ -643,7 +645,7 @@ status) VALUES(?,
 			t.Fatal(err)
 		}
 	}
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, mediaFixtureNow)
 	upload, err := uploadService.Create(
 		ctx,
 		uploads.CreateRequest{
@@ -699,9 +701,9 @@ WHERE id=?
 	resolver := resolverFunc(func(context.Context, string) ([]net.IPAddr, error) {
 		return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
 	})
-	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
+	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver, mediaFixtureNow), mediaFixtureNow)
 	t.Cleanup(scraper.Close)
-	importer := libraryimport.New(database.SQL, time.Now, scraper).WithBlobStore(blobs)
+	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithBlobStore(blobs)
 	created, err := importer.Create(
 		ctx,
 		libraryimport.CreateRequest{
@@ -748,6 +750,7 @@ WHERE scrape_run_id=?
 			t.Fatalf("arcade lookup body = %s, error=%v", body, err)
 		}
 	}
+	waitMetadataMedia(t, database.SQL, scheduled.JobID)
 	var candidateCount, hitCount, readyAssetCount int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT (SELECT count(*) FROM scrape_candidates WHERE scrape_run_id=?),

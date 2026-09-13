@@ -16,7 +16,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -106,10 +105,11 @@ type LookupResult struct {
 }
 
 type AssetData struct {
-	Bytes     []byte
-	MediaType string
-	Width     int
-	Height    int
+	ReceivedBytes int64
+	Bytes         []byte
+	MediaType     string
+	Width         int
+	Height        int
 }
 
 type Resolver interface {
@@ -605,81 +605,6 @@ func parseRetryAfter(value string, now time.Time) time.Duration {
 		return min(deadline.Sub(now), 15*time.Minute)
 	}
 	return 0
-}
-
-func (provider *Provider) FetchAsset(ctx context.Context, asset AssetRef) (AssetData, error) {
-	if !validOpaqueID(asset.ProviderAssetID) || asset.Path != "/api/v1/images/"+asset.ProviderAssetID {
-		return AssetData{}, ErrAssetURLInvalid
-	}
-	current := &url.URL{Scheme: "https", Host: "hasheous.org", Path: asset.Path}
-	deadlineContext, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	for redirect := 0; redirect <= 3; redirect++ {
-		if err := provider.validateAssetURL(deadlineContext, current); err != nil {
-			return AssetData{}, err
-		}
-		request, err := http.NewRequestWithContext(deadlineContext, http.MethodGet, current.String(), nil)
-		if err != nil {
-			return AssetData{}, ErrAssetURLInvalid
-		}
-		response, err := provider.client.Do(request)
-		if err != nil {
-			return AssetData{}, ErrAssetNetwork
-		}
-		if response.StatusCode >= 300 && response.StatusCode <= 399 {
-			location := response.Header.Get("Location")
-			cleanup.Error("close", response.Body.Close())
-			if redirect == 3 {
-				return AssetData{}, ErrAssetRedirectLimit
-			}
-			next, resolveErr := current.Parse(location)
-			if resolveErr != nil {
-				return AssetData{}, ErrAssetURLInvalid
-			}
-			current = next
-			continue
-		}
-		if response.StatusCode != http.StatusOK {
-			cleanup.Error("close", response.Body.Close())
-			return AssetData{}, ErrAssetHTTPStatus
-		}
-		contents, readErr := readBounded(response.Body, maximumAsset)
-		cleanup.Error("close", response.Body.Close())
-		if readErr != nil {
-			if errors.Is(readErr, errTooLarge) {
-				return AssetData{}, ErrAssetTooLarge
-			}
-			return AssetData{}, ErrAssetNetwork
-		}
-		return validateImage(contents, response.Header.Get("Content-Type"))
-	}
-	return AssetData{}, ErrAssetRedirectLimit
-}
-
-func (provider *Provider) validateAssetURL(ctx context.Context, target *url.URL) error {
-	if target.Scheme != "https" || target.Hostname() != "hasheous.org" ||
-		(target.Port() != "" && target.Port() != "443") ||
-		target.RawQuery != "" ||
-		target.Fragment != "" {
-		return ErrAssetURLRejected
-	}
-	addresses, err := provider.resolver.LookupIPAddr(ctx, target.Hostname())
-	if err != nil || len(addresses) == 0 {
-		return ErrAssetDNSFailed
-	}
-	for _, address := range addresses {
-		if unsafeIP(address.IP) {
-			return ErrAssetIPRejected
-		}
-	}
-	return nil
-}
-
-func unsafeIP(ip net.IP) bool {
-	return ip == nil || !ip.IsGlobalUnicast() || ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() ||
-		ip.IsMulticast() ||
-		ip.IsUnspecified()
 }
 
 func validateImage(contents []byte, headerType string) (AssetData, error) {

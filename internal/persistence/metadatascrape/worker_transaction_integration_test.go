@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
-	"time"
 
 	workerpersistence "retrom/internal/persistence/metadatascrape"
 	workerservice "retrom/internal/service/metadatascrape"
@@ -16,7 +15,7 @@ import (
 func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, runID, jobID, itemID string) {
 	t.Helper()
 	before := readInitialProgress(t, database, itemID)
-	claim := workerservice.WorkerClaim{RunID: runID, JobID: jobID, WorkerID: "transaction-test", ExecutionNo: 1, Now: time.Now().UnixMilli()}
+	claim := workerservice.WorkerClaim{RunID: runID, JobID: jobID, WorkerID: "transaction-test", ExecutionNo: 1, Now: mediaFixtureNow().UnixMilli()}
 	claim.Deadline = claim.Now + 3600000
 	repository := workerpersistence.NewWorker(database)
 	snapshot, readErr := repository.Run(t.Context(), runID)

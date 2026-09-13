@@ -104,5 +104,12 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 	server.importer.ResumeImportGroupJobs(request.Context())
 	writeJSON(writer, http.StatusAccepted, result)
 	ctx := context.WithoutCancel(request.Context())
-	afterIdempotencyCommit(writer, func() { go server.launcher.ResumeValidationJob(ctx, result.JobID) })
+	afterIdempotencyCommit(writer, func() {
+		switch result.Kind {
+		case "VARIANT_VALIDATE":
+			go server.launcher.ResumeValidationJob(ctx, result.JobID)
+		case "MEDIA_FETCH":
+			server.metadata.ResumeMediaJob(ctx, result.JobID)
+		}
+	})
 }

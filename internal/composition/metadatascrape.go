@@ -19,10 +19,10 @@ func NewMetadata(
 	repository := metadatapersistence.NewWorker(database)
 	lookup := metadatascrape.NewLookup(metadatapersistence.NewCache(database), blobs, provider, now)
 	recorder := metadatascrape.NewRecorder(metadatapersistence.NewRecorder(database), blobs, now)
-	assets := metadatascrape.NewAssets(metadatapersistence.NewAssets(database), provider, blobs, now)
-	processor := metadatascrape.NewProcessor(repository, lookup, recorder, assets)
+	media := metadatascrape.NewMediaWorker(metadatapersistence.NewMedia(database), provider, blobs, now)
+	processor := metadatascrape.NewProcessor(repository, lookup, recorder)
 	worker := metadatascrape.NewWorker(repository, processor, now)
-	return metadatascrape.New(metadatapersistence.NewScheduler(database), worker, now)
+	return metadatascrape.NewWithMedia(metadatapersistence.NewScheduler(database), worker, media, now)
 }
 
 func NewMetadataEvidenceQueries(database *sql.DB) *metadatascrape.EvidenceQueries {

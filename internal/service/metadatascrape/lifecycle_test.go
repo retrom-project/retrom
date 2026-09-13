@@ -76,3 +76,54 @@ func TestMetadataDispatcherLimitsConcurrentExecutions(t *testing.T) {
 		t.Fatalf("closed recovery=%v", err)
 	}
 }
+
+func TestMediaDispatcherHasIndependentCapacityAndJoinsOnClose(t *testing.T) {
+	scrape, media := limitedRunner{entered: make(chan string, 2)}, limitedRunner{entered: make(chan string, 2)}
+	service := NewWithMedia(nil, scrape, media, func() time.Time { return time.UnixMilli(100) })
+	request, cancel := context.WithCancel(t.Context())
+	cancel()
+	if !service.Dispatch(request, "s1") || !service.Dispatch(request, "s2") ||
+		!service.ResumeMediaJob(request, "m1") || !service.ResumeMediaJob(request, "m2") {
+		t.Fatal("worker families did not have independent slots")
+	}
+	<-scrape.entered
+	<-scrape.entered
+	<-media.entered
+	<-media.entered
+	if service.ResumeMediaJob(request, "m3") {
+		t.Fatal("media capacity exceeded")
+	}
+	service.Close()
+	if service.ResumeMediaJob(request, "m1") {
+		t.Fatal("media registered after close")
+	}
+}
+
+type drainingMetadataRunner struct{ entered, cancelled, release chan struct{} }
+
+func (runner drainingMetadataRunner) Run(ctx context.Context, _ string) error {
+	close(runner.entered)
+	<-ctx.Done()
+	close(runner.cancelled)
+	<-runner.release
+	return context.Cause(ctx)
+}
+func (drainingMetadataRunner) Recover(context.Context) ([]string, error) { return nil, nil }
+
+func TestMediaRegistrationStopsWhileMetadataCloseIsStillJoining(t *testing.T) {
+	runner := drainingMetadataRunner{make(chan struct{}), make(chan struct{}), make(chan struct{})}
+	service := NewWithMedia(nil, runner, limitedRunner{entered: make(chan string, 1)}, mediaUnitNow)
+	if !service.Dispatch(t.Context(), "scrape") {
+		t.Fatal("scrape rejected")
+	}
+	<-runner.entered
+	closed := make(chan struct{})
+	go func() { service.Close(); close(closed) }()
+	<-runner.cancelled
+	accepted := service.ResumeMediaJob(t.Context(), "late-media")
+	close(runner.release)
+	<-closed
+	if accepted {
+		t.Fatal("MEDIA registered while Service.Close was joining metadata")
+	}
+}

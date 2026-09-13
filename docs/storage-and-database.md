@@ -117,7 +117,7 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前未发布建库基线包含 `001_identity.sql` 至 `013_bios_session_retirement.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger、view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
+当前未发布建库基线包含 `001_identity.sql` 至 `014_metadata_media_queue.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger、view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
 
 `store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。此次改写与旧开发基线不兼容，旧 checksum 不会被覆盖；当前前缀只用于中断初始化的续跑，不能解释为支持旧开发库升级。
 
@@ -197,7 +197,8 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `content_hash_evidence` | run 内的版本化 hash profile、来源 Blob/archive entry 与查询顺序 |
 | `metadata_scrape_query_attempts` | run/evidence 到每次网络或缓存 response 的不可变关联 |
 | `scrape_candidates` / `scrape_candidate_hits` | Hasheous 元信息候选及多 hash/entry 命中关系 |
-| `scrape_candidate_assets` | 候选媒体的受控获取状态、Blob 与尺寸 |
+| `scrape_candidate_assets` | 候选媒体的受控获取状态、Blob、尺寸、任务绑定、冻结顺序与资源收费 |
+| `metadata_media_runs` | 每个刮削 Run 的媒体顺序冻结、累计收费和版本 |
 | `review_uploaded_assets` | 审核期间人工上传的不可变封面资源及 Blob 归属 |
 | `metadata_provider_cache` | provider + request digest 的可变缓存指针与过期时间 |
 | `metadata_provider_responses` | 每次查询的不可变状态、原始响应 Blob 与有效期 |

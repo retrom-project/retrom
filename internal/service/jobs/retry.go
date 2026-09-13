@@ -49,7 +49,7 @@ func (service *Service) Retry(ctx context.Context, jobID string, expectedVersion
 		if err := records.Retry(ctx, change); err != nil {
 			return fmt.Errorf("retry job: %w", err)
 		}
-		result = Result{JobID: jobID, State: "QUEUED", ExecutionNo: executionNo, Version: job.Version + 1}
+		result = Result{Kind: job.Kind, JobID: jobID, State: "QUEUED", ExecutionNo: executionNo, Version: job.Version + 1}
 		return nil
 	})
 	if err != nil {

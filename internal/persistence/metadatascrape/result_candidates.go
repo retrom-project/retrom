@@ -61,9 +61,10 @@ func (records resultRecords) Assets(ctx context.Context, values []metadatascrape
 	for _, value := range values {
 		_, err := recordstore.CreateScrapeCandidateAssets(ctx, records.transaction, `INSERT INTO scrape_candidate_assets
  (id,scrape_candidate_id,provider_response_id,provider_asset_id,kind_hint,ordinal,source_path,status,version,
- created_at_ms,updated_at_ms)
- VALUES(?,?,?,?,?,?,?,'PENDING',1,?,?)`, value.ID, value.CandidateID, value.ResponseID, value.Reference.ProviderAssetID,
-			value.Reference.Kind, value.Reference.Ordinal, value.Reference.Path, value.Now, value.Now)
+ created_at_ms,updated_at_ms,media_fetch_job_id)
+ VALUES(?,?,?,?,?,?,?,'PENDING',1,?,?,?)`,
+			value.ID, value.CandidateID, value.ResponseID, value.Reference.ProviderAssetID,
+			value.Reference.Kind, value.Reference.Ordinal, value.Reference.Path, value.Now, value.Now, value.MediaJobID)
 		if err != nil {
 			return fmt.Errorf("insert pending candidate asset: %w", err)
 		}

@@ -30,7 +30,7 @@ func (memory *resultMemory) WithWrite(_ context.Context, work func(ResultScope) 
 	memory.calls++
 	memory.inTransaction = true
 	defer func() { memory.inTransaction = false }()
-	if err := work(ResultScope{Read: memory, Write: memory}); err != nil {
+	if err := work(ResultScope{Read: memory, Write: memory, Media: memory}); err != nil {
 		return err
 	}
 	return memory.lateError
@@ -151,3 +151,8 @@ func TestResultCommitFailureDoesNotReportCreatedCandidate(t *testing.T) {
 		t.Fatal("late failure did not execute candidate writes")
 	}
 }
+
+func (memory *resultMemory) Subject(context.Context, string) (Subject, error) {
+	return Subject{Kind: "IMPORT_ITEM", ID: "item"}, nil
+}
+func (memory *resultMemory) Enqueue(context.Context, MediaJobPlan) error { return nil }

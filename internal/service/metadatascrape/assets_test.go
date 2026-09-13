@@ -5,43 +5,21 @@ import (
 	"errors"
 	"io"
 	"testing"
-	"time"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/hasheous"
 )
 
-type assetMemory struct {
-	pending     []PendingAsset
-	failedCode  string
-	failure     error
-	publication AssetPublication
-	publishes   int
-}
-
-func (records *assetMemory) Pending(context.Context, string) ([]PendingAsset, error) {
-	return records.pending, nil
-}
-
-func (records *assetMemory) Publish(_ context.Context, value AssetPublication) error {
-	records.publication = value
-	records.publishes++
-	return records.failure
-}
-
-func (records *assetMemory) Fail(_ context.Context, _, code string, _ int64) error {
-	records.failedCode = code
-	return records.failure
-}
-
 type assetFetcher struct {
 	data  hasheous.AssetData
 	err   error
 	calls int
+	limit int64
 }
 
-func (provider *assetFetcher) FetchAsset(context.Context, hasheous.AssetRef) (hasheous.AssetData, error) {
+func (provider *assetFetcher) FetchAssetBounded(_ context.Context, _ hasheous.AssetRef, limit int64) (hasheous.AssetData, error) {
 	provider.calls++
+	provider.limit = limit
 	return provider.data, provider.err
 }
 
@@ -67,54 +45,100 @@ func TestAssetBudgetPreventsDownloadOrPublication(t *testing.T) {
 		consumed int64
 		calls    int
 	}{
-		{"already exhausted", 100 << 20, 0}, {"crosses budget", 100<<20 - 1, 1},
+		{"already exhausted", MediaRunBudget, 0}, {"crosses budget", MediaRunBudget - 1, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			records, provider, blobs := &assetMemory{}, &assetFetcher{data: hasheous.AssetData{Bytes: []byte("ab")}}, &assetBytes{}
-			service := NewAssets(records, provider, blobs, func() time.Time { return time.UnixMilli(10) })
-			_, err := service.fetch(t.Context(), PendingAsset{ID: "asset"}, test.consumed)
+			memory, err := newMediaMemory()
 			if err != nil {
 				t.Fatal(err)
 			}
-			if provider.calls != test.calls || blobs.calls != 0 || records.publishes != 0 || records.failedCode != "ASSET_RUN_BUDGET_EXCEEDED" {
-				t.Fatalf("budget policy: calls=%d writes=%d publication=%d error=%s", provider.calls, blobs.calls, records.publishes, records.failedCode)
+			memory.snapshot.Charged = test.consumed
+			provider := &assetFetcher{data: hasheous.AssetData{ReceivedBytes: 1}, err: hasheous.ErrAssetReadLimit}
+			blobs := &assetBytes{}
+			err = NewMediaWorker(memory, provider, blobs, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
+			if !errors.Is(err, hasheous.ErrAssetReadLimit) {
+				t.Fatalf("budget cause=%v", err)
+			}
+			if provider.calls != test.calls || blobs.calls != 0 || memory.publication.ID != "" || memory.outcome.Code != "ASSET_RUN_BUDGET_EXCEEDED" {
+				t.Fatalf("budget calls=%d publication=%+v outcome=%+v", provider.calls, memory.publication, memory.outcome)
 			}
 		})
 	}
 }
 
 func TestAssetPublicationUsesPreparedBytesAndOneTimestamp(t *testing.T) {
-	records := &assetMemory{pending: []PendingAsset{{ID: "asset"}}}
-	provider := &assetFetcher{data: hasheous.AssetData{Bytes: []byte("image"), MediaType: "image/png", Width: 4, Height: 3}}
-	blobs := &assetBytes{}
-	clocks := 0
-	service := NewAssets(records, provider, blobs, func() time.Time { clocks++; return time.UnixMilli(int64(clocks * 10)) })
-	if err := service.Run(t.Context(), "run"); err != nil {
+	memory, err := newMediaMemory()
+	if err != nil {
 		t.Fatal(err)
 	}
-	value := records.publication
-	if blobs.bytes != "image" || clocks != 1 || value.ID != "asset" || value.Now != 10 || value.Width != 4 || value.Height != 3 || value.MediaType != "image/png" || value.Blob.SHA256 != "digest" {
-		t.Fatalf("publication: %+v clocks=%d bytes=%s", value, clocks, blobs.bytes)
+	provider := &assetFetcher{data: hasheous.AssetData{Bytes: []byte("image"), ReceivedBytes: 5, MediaType: "image/png", Width: 4, Height: 3}}
+	blobs := &assetBytes{}
+	if err := NewMediaWorker(memory, provider, blobs, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID); err != nil {
+		t.Fatal(err)
+	}
+	value := memory.publication
+	if blobs.bytes != "image" || value.ID != "asset" || value.Now != 100 || memory.outcome.Now != value.Now ||
+		value.Width != 4 || value.Height != 3 || value.MediaType != "image/png" || value.Blob.SHA256 != "digest" {
+		t.Fatalf("publication=%+v outcome=%+v bytes=%s", value, memory.outcome, blobs.bytes)
 	}
 }
 
 func TestAssetErrorsRemainStableAndPersistenceFailuresPropagate(t *testing.T) {
-	records := &assetMemory{failure: context.DeadlineExceeded}
+	memory, err := newMediaMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	memory.failure = context.DeadlineExceeded
 	provider := &assetFetcher{err: hasheous.ErrAssetIPRejected}
-	service := NewAssets(records, provider, &assetBytes{}, func() time.Time { return time.UnixMilli(1) })
-	_, err := service.fetch(t.Context(), PendingAsset{ID: "asset"}, 0)
-	if !errors.Is(err, context.DeadlineExceeded) || records.failedCode != "ASSET_IP_REJECTED" {
-		t.Fatalf("failure: %s / %v", records.failedCode, err)
+	err = NewMediaWorker(memory, provider, &assetBytes{}, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
+	if !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, hasheous.ErrAssetIPRejected) {
+		t.Fatalf("failure=%v", err)
 	}
 }
 
 func TestCancelledAssetFetchDoesNotDownload(t *testing.T) {
-	records, provider := &assetMemory{}, &assetFetcher{}
-	service := NewAssets(records, provider, &assetBytes{}, time.Now)
+	memory, err := newMediaMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &assetFetcher{}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, err := service.fetch(ctx, PendingAsset{}, 0)
-	if !errors.Is(err, context.Canceled) || provider.calls != 0 || records.publishes != 0 {
-		t.Fatalf("cancelled fetch: calls=%d error=%v", provider.calls, err)
+	err = NewMediaWorker(memory, provider, &assetBytes{}, mediaUnitNow).Run(ctx, memory.snapshot.Job.ID)
+	if !errors.Is(err, context.Canceled) || provider.calls != 0 || memory.publication.ID != "" {
+		t.Fatalf("cancel=%v calls=%d", err, provider.calls)
+	}
+}
+
+func TestMediaCASFailureKeepsReceivedBytesCharged(t *testing.T) {
+	memory, err := newMediaMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &assetFetcher{data: hasheous.AssetData{Bytes: []byte("image"), ReceivedBytes: 5}}
+	cause := errors.New("CAS unavailable")
+	err = NewMediaWorker(memory, provider, &assetBytes{err: cause}, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
+	if !errors.Is(err, cause) || memory.snapshot.Charged != 5 || memory.snapshot.Asset.Reserved != 0 || memory.outcome.State != "FAILED" {
+		t.Fatalf("CAS failure reset budget: charged=%d outcome=%+v cause=%v", memory.snapshot.Charged, memory.outcome, err)
+	}
+}
+
+func TestMediaCancellationBeforeSourceRefundsUnreadReservation(t *testing.T) {
+	memory, err := newMediaMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := &assetFetcher{}
+	worker := NewMediaWorker(memory, source, &assetBytes{}, mediaUnitNow)
+	execution, err := worker.claim(t.Context(), memory.snapshot.Job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, _, cause := worker.fetch(ctx, execution)
+	if !errors.Is(cause, context.Canceled) || source.calls != 0 || memory.snapshot.Charged != 0 || memory.snapshot.Asset.Reserved != 0 {
+		t.Fatalf("unread cancellation charged bytes: calls=%d charged=%d reserved=%d cause=%v", source.calls,
+			memory.snapshot.Charged, memory.snapshot.Asset.Reserved, cause)
 	}
 }

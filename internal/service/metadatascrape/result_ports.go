@@ -40,13 +40,14 @@ type CandidateHit struct {
 	Now                                int64
 }
 type CandidateAsset struct {
-	ID, CandidateID, ResponseID string
-	Reference                   hasheous.AssetRef
-	Now                         int64
+	ID, CandidateID, ResponseID, MediaJobID string
+	Reference                               hasheous.AssetRef
+	Now                                     int64
 }
 type ResultReader interface {
 	Writable(context.Context, WorkerClaim) (bool, error)
 	Hashes(context.Context, string) (Hashes, error)
+	Subject(context.Context, string) (Subject, error)
 }
 type ResultWriter interface {
 	Response(context.Context, ResponseRecord) error
@@ -56,6 +57,7 @@ type ResultWriter interface {
 	Assets(context.Context, []CandidateAsset) error
 }
 type ResultScope struct {
+	Media MediaQueueWriter
 	Read  ResultReader
 	Write ResultWriter
 }
