@@ -504,7 +504,7 @@ EmulationStation 的 `ReviewPreparer` 编排普通来源创建、永久绑定重
 
 每个有效 Collection 必须由管理员显式选择 `IMPORT + PlatformInstance + tagIds` 或 `SKIP`；没有默认映射，不依据清单路径、扩展名、外部平台名或同名目录猜测。批量标签只以去重 union 追加到尚未跳过的 Collection，`SKIP` 清空标签。start 前要求至少一个非空 `IMPORT` Collection，并以 plan ETag 同时校验 source snapshot、root snapshot、目标 PlatformInstance/version/default Provider Target/DAT 与 Tag 状态；目标漂移返回可修复的重新映射冲突，来源漂移要求新建计划，不能沿旧 mapping 静默执行。
 
-执行阶段重新 no-follow 打开冻结 source manifest，流式复制到 CAS，再复用普通 import 的格式分组、内容身份、CoreValidation、DAT、BIOS、重复检查、审核与发布服务。M3U 只接受与清单同目录的 2–8 个现存 CHD；其他多文件格式不猜分组。Arcade companion 只允许来自同一次 execution、同一目标目录与同一冻结 DAT 的显式 ZIP 依赖闭包。封面按 `image → boxart → mix → thumbnail/s` 选择，video 独立；缺失或坏媒体只写 warning，不阻断可运行内容。
+执行阶段重新 no-follow 打开冻结 source manifest，流式复制到 CAS，再复用普通 import 的格式分组、内容身份、CoreValidation、DAT、BIOS、重复检查、审核与发布服务。M3U 只接受与清单同目录的 2–8 个现存 CHD；其他多文件格式不猜分组。Arcade companion 只允许来自同一次 execution、同一目标目录与同一冻结 DAT 的显式 ZIP 依赖闭包。伴随文件选择冻结主来源及映射，复制在事务外完成；随后逐个短事务重验原始执行权限、当前目标、来源与映射快照以及精确候选身份，并原子登记 Blob。可选宿主伴随文件缺失可继续，取消、期限或存储观察失败必须保留原因并停止，提交失败不能返回 Blob 身份。封面按 `image → boxart → mix → thumbnail/s` 选择，video 独立；缺失或坏媒体只写 warning，不阻断可运行内容。
 
 Worker 对每个新候选在普通 `REVIEW_PENDING` 停止，审核前 Game 数必须为零；`CreateServerSourceOnce` 在创建内部 ImportJob/ImportItem 的同一事务写入不可变 `EMULATIONSTATION` handoff 预留，并在崩溃重试时复用同一 Item。在来源 Item attach 且进入 `REVIEW_PENDING` 之前，该普通 Item 不进入队列、详情、批量审批、审核决定或待审核 KPI；attach 完成后这些入口才同时开放。队列可按 `emulationStationImportId` 精确收窄，来源类型为 `EMULATIONSTATION`，并显示清单/Collection、cover/video 与来源 flag。只有普通 Approve 或既有严格 READY 快速审批事务可创建 `SERVER_EMULATIONSTATION_IMPORT` 的 Game 当前元信息字段/GameFiles/Game；Discard、重复与内部失败继续复用普通审计和确定性错误边界。取消不删除已交接审核事项，retry 只重跑服务端声明可重试的失败 Item，崩溃恢复复用既有关联，不能创建第二个不可见 ImportItem。
 

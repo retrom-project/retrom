@@ -10,7 +10,7 @@ import (
 func (service *Service) checkSourceExecution(ctx context.Context, unit work) error {
 	state, err := service.executionControl().Observe(ctx, unit)
 	if err != nil {
-		return fmt.Errorf("observe EmulationStation source execution: %w", err)
+		return fmt.Errorf("observe EmulationStation source execution: %w: %w", application.ErrExecutionObservation, err)
 	}
 	switch state {
 	case application.LeaseActive:
