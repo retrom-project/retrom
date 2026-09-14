@@ -3,7 +3,6 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
-	"math"
 
 	application "retrom/internal/model/payloadrelease"
 
@@ -110,14 +109,15 @@ func (scheduler *Scheduler) scheduleOwner(
 	ctx context.Context, scope application.SchedulingScope, owner application.Owner,
 	reason application.Reason, now int64,
 ) (string, error) {
-	if owner.PayloadState != "RETAINED" {
-		return existingOwnerRelease(owner)
+	decision, err := application.DecideOwnerRelease(owner, reason)
+	if err != nil {
+		return "", fmt.Errorf("decide owner release: %w", err)
 	}
-	if owner.Version == math.MaxInt64 {
-		return "", application.ErrScopeInvalid
+	if decision.ExistingJobID != "" {
+		return decision.ExistingJobID, nil
 	}
 	id, err := scheduler.Queue(ctx, scope, application.ScheduleRequest{
-		Scope: owner.Scope, ScopeVersion: owner.Version + 1, Reason: reason, NowMS: now,
+		Scope: owner.Scope, ScopeVersion: decision.ScopeVersion, Reason: reason, NowMS: now,
 	})
 	if err != nil {
 		return "", err
@@ -144,14 +144,6 @@ func readSchedulingOwner(
 	return owner, nil
 }
 
-func existingOwnerRelease(owner application.Owner) (string, error) {
-	if owner.ReleaseJobID != "" && (owner.PayloadState == "RELEASING" || owner.PayloadState == "RELEASED" ||
-		owner.PayloadState == "FAILED") {
-		return owner.ReleaseJobID, nil
-	}
-	return "", application.ErrScopeInvalid
-}
-
 func (scheduler *Scheduler) TerminalSource(
 	ctx context.Context, scope application.SchedulingScope, ref application.Scope, now int64,
 ) (string, error) {
@@ -166,14 +158,18 @@ func (scheduler *Scheduler) TerminalSource(
 		return "", nil
 	}
 	if owner.PayloadState != "RETAINED" {
-		return existingOwnerRelease(owner)
+		jobID, err := application.ExistingOwnerRelease(owner)
+		if err != nil {
+			return "", fmt.Errorf("resolve existing owner release: %w", err)
+		}
+		return jobID, nil
 	}
 	if owner.PublicID != "" {
 		return scheduler.linkSource(ctx, scope, owner, now)
 	}
-	reason := application.ReasonPegasusTerminal
-	if ref.Type == application.ScopeEmulationStationImportItem {
-		reason = application.ReasonEmulationStationTerminal
+	reason, err := application.SourceReleaseReason(ref.Type)
+	if err != nil {
+		return "", fmt.Errorf("resolve source release reason: %w", err)
 	}
 	return scheduler.scheduleOwner(ctx, scope, owner, reason, now)
 }
@@ -181,23 +177,22 @@ func (scheduler *Scheduler) TerminalSource(
 func (scheduler *Scheduler) linkSource(
 	ctx context.Context, scope application.SchedulingScope, owner application.Owner, now int64,
 ) (string, error) {
-	if owner.Version == math.MaxInt64 {
-		return "", application.ErrScopeInvalid
-	}
 	ordinary, err := readSchedulingOwner(
 		ctx, scope, application.Scope{Type: application.ScopeImportItem, ID: owner.PublicID},
 	)
 	if err != nil {
 		return "", err
 	}
-	jobID, err := existingOwnerRelease(ordinary)
+	decision, err := application.DecideSourceLink(owner, ordinary)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("decide source release link: %w", err)
 	}
-	if err := scope.BeginRelease(ctx, application.OwnerRelease{Before: owner, JobID: jobID, NowMS: now}); err != nil {
+	if err := scope.BeginRelease(ctx, application.OwnerRelease{
+		Before: owner, JobID: decision.ExistingJobID, NowMS: now,
+	}); err != nil {
 		return "", fmt.Errorf("link source to ordinary payload release: %w", err)
 	}
-	return jobID, nil
+	return decision.ExistingJobID, nil
 }
 
 func (scheduler *Scheduler) Consumption(
@@ -207,11 +202,9 @@ func (scheduler *Scheduler) Consumption(
 	if err != nil {
 		return "", fmt.Errorf("read upload consumption release: %w", err)
 	}
-	if before.Released {
-		return "", nil
-	}
-	if before.ExistingJobID != "" {
-		return before.ExistingJobID, nil
+	decision := application.DecideConsumption(before)
+	if !decision.Schedule {
+		return decision.ExistingJobID, nil
 	}
 	return scheduler.Queue(ctx, scope, application.ScheduleRequest{
 		Scope: application.Scope{Type: application.ScopeUploadConsumption, ID: id}, ScopeVersion: before.Version,
@@ -226,12 +219,12 @@ func (scheduler *Scheduler) DeleteGame(
 	if err != nil {
 		return "", err
 	}
-	if before.Version != version || version == math.MaxInt64 || before.State != "PUBLISHED" ||
-		before.PayloadState != "RETAINED" {
-		return "", application.ErrScopeInvalid
+	decision, err := application.DecideGameDeletion(before, version)
+	if err != nil {
+		return "", fmt.Errorf("decide game deletion release: %w", err)
 	}
 	jobID, err := scheduler.Queue(ctx, scope, application.ScheduleRequest{
-		Scope: before.Scope, ScopeVersion: version + 1, Reason: application.ReasonGameDeleted, NowMS: now,
+		Scope: before.Scope, ScopeVersion: decision.ScopeVersion, Reason: application.ReasonGameDeleted, NowMS: now,
 	})
 	if err != nil {
 		return "", err

@@ -57,6 +57,22 @@ func (reviewDraftValidationStub) SelectScummVM(
 	return application.ReviewValidationPlan{}, nil
 }
 
+type reviewDraftPlanValidationStub struct {
+	plan application.ReviewValidationPlan
+}
+
+func (stub reviewDraftPlanValidationStub) Resolve(
+	context.Context, ReviewDraftValidationRequest,
+) (application.ReviewValidationPlan, error) {
+	return stub.plan, nil
+}
+
+func (stub reviewDraftPlanValidationStub) SelectScummVM(
+	context.Context, ReviewDraftScummVMRequest,
+) (application.ReviewValidationPlan, error) {
+	return stub.plan, nil
+}
+
 func newReviewDraftTestService(repository *reviewDraftRepositoryStub) *ReviewDrafts {
 	return NewReviewDrafts(repository, ReviewDraftsOptions{Validation: reviewDraftValidationStub{}})
 }
@@ -109,5 +125,61 @@ func TestReviewDraftsPreservesRepositoryError(t *testing.T) {
 	_, err := service.Patch(t.Context(), testReviewItemID, 1, DraftPatch{Metadata: &MetadataPatch{}, TagIDs: []string{}})
 	if !errors.Is(err, cause) {
 		t.Fatalf("error = %v, want cause", err)
+	}
+}
+
+func TestReviewDraftsRejectsExplicitRPGValidationSelection(t *testing.T) {
+	t.Parallel()
+	selected := "rpg-validation"
+	snapshot := reviewDraftSnapshot()
+	snapshot.IsRPG = true
+	service := &ReviewDrafts{validation: reviewDraftValidationStub{}}
+	_, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil,
+		DraftPatch{SelectedValidationID: &selected}, snapshot)
+	if !errors.Is(err, ErrInvalid) {
+		t.Fatalf("error = %v, want ErrInvalid", err)
+	}
+}
+
+func TestReviewDraftsKeepsScummVMCandidatePlanWithCurrentExplicitSelection(t *testing.T) {
+	t.Parallel()
+	selected := "validation-a"
+	created := &application.ReviewValidationRefreshCreate{ID: "validation-b"}
+	copied := &application.ReviewValidationRefreshFileCopy{ValidationID: "validation-b"}
+	validation := reviewDraftPlanValidationStub{plan: application.ReviewValidationPlan{
+		SelectedValidationID: "validation-b", Create: created, Copy: copied,
+	}}
+	snapshot := reviewDraftSnapshot()
+	snapshot.ValidationID = selected
+	service := &ReviewDrafts{validation: validation}
+	candidate := "candidate-b"
+	plan, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil, DraftPatch{
+		ScummVMCandidateID: &candidate, SelectedValidationID: &selected,
+	}, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.SelectedValidationID != "validation-b" || plan.Create != created || plan.Copy != copied {
+		t.Fatalf("candidate plan was overwritten: %#v", plan)
+	}
+}
+
+func TestReviewDraftsKeepsExplicitNonRPGSelection(t *testing.T) {
+	t.Parallel()
+	selected := "validation-explicit"
+	validation := reviewDraftPlanValidationStub{plan: application.ReviewValidationPlan{
+		SelectedValidationID: "resolver-selection",
+		Create:               &application.ReviewValidationRefreshCreate{ID: "new-validation"},
+		Copy:                 &application.ReviewValidationRefreshFileCopy{ValidationID: "new-validation"},
+	}}
+	service := &ReviewDrafts{validation: validation}
+	plan, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil, DraftPatch{
+		SelectedValidationID: &selected,
+	}, reviewDraftSnapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.SelectedValidationID != selected || plan.Create != nil || plan.Copy != nil {
+		t.Fatalf("explicit selection was not preserved: %#v", plan)
 	}
 }

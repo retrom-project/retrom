@@ -53,8 +53,28 @@ func assertRefreshInputs(
 	if inputs.DraftID != "draft" || inputs.EffectiveSnapshotID != "snapshot" ||
 		inputs.ContentKind != "SINGLE_FILE" || inputs.CoreID != coreID ||
 		inputs.ProviderID != providerID || inputs.RuntimeTargetID != targetID ||
-		inputs.DATVersionID != nil || !inputs.ContentPolicy.Supports("SINGLE_FILE") {
+		inputs.DATVersionID != nil || inputs.PlatformID == "" || inputs.PlatformVersion < 1 ||
+		inputs.DependencyFactsDigest == "" || !inputs.ContentPolicy.Supports("SINGLE_FILE") {
 		t.Fatalf("typed inputs=%#v", inputs)
+	}
+}
+
+func TestReviewValidationRefreshInputsTrackPlatformVersion(t *testing.T) {
+	t.Parallel()
+	database := metadataDatabase(t)
+	instance := testsupport.MustPlatformInstanceID(t, database, "gba/mgba")
+	repository := BindReviewValidation(database)
+	before, err := repository.Inputs(t.Context(), "item", instance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadataExec(t, database, `UPDATE platform_instances SET version=version+1 WHERE id=?`, instance)
+	after, err := repository.Inputs(t.Context(), "item", instance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.PlatformVersion != before.PlatformVersion+1 || after.DependencyFactsDigest == "" {
+		t.Fatalf("platform facts before=%#v after=%#v", before, after)
 	}
 }
 

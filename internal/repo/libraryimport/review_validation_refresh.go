@@ -38,9 +38,10 @@ WHERE draft.import_item_id=?
 SELECT version,platform_id,default_core_id
 FROM platform_instances
 WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
-`, targetID).Scan(&result.PlatformVersion, &platformID, &defaultCoreID); err != nil {
+	`, targetID).Scan(&result.PlatformVersion, &platformID, &defaultCoreID); err != nil {
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
+	result.PlatformID = platformID
 	if platformID == "rpgmaker" {
 		return records.rpgInputs(ctx, itemID, targetID, result)
 	}
@@ -61,6 +62,13 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
 	result.DATVersionID = nullableReviewValidationString(datVersionID)
+	dependencyDigest, err := records.dependencyFactsDigest(
+		ctx, itemID, result.ProviderID, result.RuntimeTargetID, result.ContentKind,
+	)
+	if err != nil {
+		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+	}
+	result.DependencyFactsDigest = dependencyDigest
 	return result, nil
 }
 
@@ -87,6 +95,13 @@ WHERE draft.import_item_id=? AND draft.target_platform_instance_id=?
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
 	result.DATVersionID = nullableReviewValidationString(datVersionID)
+	dependencyDigest, err := records.dependencyFactsDigest(
+		ctx, itemID, result.ProviderID, result.RuntimeTargetID, result.ContentKind,
+	)
+	if err != nil {
+		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+	}
+	result.DependencyFactsDigest = dependencyDigest
 	return result, nil
 }
 

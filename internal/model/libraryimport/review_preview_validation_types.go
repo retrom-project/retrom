@@ -17,6 +17,7 @@ type ReviewPreviewValidationPlan struct {
 	ItemID, ValidationID       string
 	ExpectedVersion            int64
 	ExpectedSelectedValidation string
+	ExpectedValidationGuard    ReviewValidationGuard
 	Create                     *ReviewValidationRefreshCreate
 	Copy                       *ReviewValidationRefreshFileCopy
 	NowMS                      int64

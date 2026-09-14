@@ -40,6 +40,7 @@ type ReviewValidationPlan struct {
 	Create               *ReviewValidationRefreshCreate
 	Copy                 *ReviewValidationRefreshFileCopy
 	RPGDependencyDigest  string
+	Guard                ReviewValidationGuard
 }
 
 // ReviewDraftWritePlan is the complete application decision handed to the
@@ -57,6 +58,8 @@ type ReviewDraftWritePlan struct {
 	ExpectedEffectiveSnapshotID string
 	ExpectedDOSEntry            *string
 	ExpectedIsRPG               bool
+	ExpectedValidationGuard     ReviewValidationGuard
+	ValidationSelectionExplicit bool
 
 	TargetID, ValidationID                                        string
 	CandidateID, CoverID, UploadedCoverID, BackgroundID, DOSEntry *string

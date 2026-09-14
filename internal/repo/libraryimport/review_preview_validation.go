@@ -52,6 +52,11 @@ func (repository *ReviewPreviewValidationRepository) Commit(
 		return fmt.Errorf("begin review preview validation: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
+	guard := plan.ExpectedValidationGuard
+	inputs, err := BindReviewValidation(transaction).Inputs(ctx, plan.ItemID, guard.TargetPlatformInstanceID)
+	if err != nil || !reviewValidationGuardMatches(guard, inputs, guard.TargetPlatformInstanceID, guard.DefaultDOSEntry) {
+		return application.ErrVersionConflict
+	}
 	if err := createPreviewValidation(ctx, transaction, plan); err != nil {
 		return err
 	}
@@ -70,8 +75,7 @@ func createPreviewValidation(
 	if plan.Create == nil {
 		return nil
 	}
-	if plan.Create.ID != plan.ValidationID || plan.Create.ItemID != plan.ItemID ||
-		plan.Copy == nil || plan.Copy.ValidationID != plan.ValidationID {
+	if !previewValidationCreateMatches(plan) {
 		return application.ErrInvalid
 	}
 	if err := BindReviewValidation(transaction).Create(ctx, *plan.Create); err != nil {
@@ -81,6 +85,31 @@ func createPreviewValidation(
 		return fmt.Errorf("copy review preview validation files: %w", err)
 	}
 	return nil
+}
+
+func previewValidationCreateMatches(plan application.ReviewPreviewValidationPlan) bool {
+	create := plan.Create
+	if create.ID != plan.ValidationID || create.ItemID != plan.ItemID || plan.Copy == nil {
+		return false
+	}
+	if plan.Copy.ValidationID != plan.ValidationID {
+		return false
+	}
+	guard := plan.ExpectedValidationGuard
+	if create.TargetPlatformInstanceID != guard.TargetPlatformInstanceID ||
+		create.PlatformInstanceVersion != guard.PlatformInstanceVersion {
+		return false
+	}
+	if create.CoreID != guard.CoreID || create.ProviderID != guard.ProviderID || create.TargetID != guard.TargetID {
+		return false
+	}
+	if create.SourceSnapshotID != guard.SourceSnapshotID || create.SourceManifestDigest != guard.SourceManifestDigest {
+		return false
+	}
+	if !sameNullable(create.DATVersionID, guard.DATVersionID) {
+		return false
+	}
+	return sameNullable(create.DefaultDOSEntry, guard.DefaultDOSEntry)
 }
 
 func selectPreviewValidation(

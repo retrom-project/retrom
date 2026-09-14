@@ -108,9 +108,10 @@ type draftValidationState struct {
 	dosEntry *string
 
 	draftID, effectiveSnapshotID, effectiveManifestDigest, contentKind string
+	platformID, coreID, providerID, runtimeTargetID                    string
 	platformVersion                                                    int64
-	coreID, providerID, runtimeTargetID                                string
 	contentPolicy                                                      contentcapability.Policy
+	dependencyFactsDigest                                              string
 	datID                                                              *string
 	sourceID, sourceManifestDigest, sourceInputDigest                  string
 	sourceStatus, compatibilityCode, dependencySnapshot                string
@@ -139,8 +140,10 @@ func (resolver *ReviewDraftValidationResolver) load(
 		resolver: resolver, ctx: ctx, itemID: itemID, targetID: targetID, dosEntry: dosEntry,
 		draftID: inputs.DraftID, effectiveSnapshotID: inputs.EffectiveSnapshotID,
 		effectiveManifestDigest: inputs.EffectiveManifestDigest, contentKind: inputs.ContentKind,
-		platformVersion: inputs.PlatformVersion, coreID: inputs.CoreID, providerID: inputs.ProviderID,
-		runtimeTargetID: inputs.RuntimeTargetID, contentPolicy: inputs.ContentPolicy, datID: inputs.DATVersionID,
+		platformID: inputs.PlatformID, platformVersion: inputs.PlatformVersion, coreID: inputs.CoreID,
+		providerID: inputs.ProviderID, runtimeTargetID: inputs.RuntimeTargetID,
+		contentPolicy: inputs.ContentPolicy, dependencyFactsDigest: inputs.DependencyFactsDigest,
+		datID: inputs.DATVersionID,
 	}, nil
 }
 
@@ -305,11 +308,23 @@ func (state *draftValidationState) resolveDependencies() error {
 }
 
 func (state *draftValidationState) plan(selected string) application.ReviewValidationPlan {
-	plan := application.ReviewValidationPlan{SelectedValidationID: selected}
+	plan := application.ReviewValidationPlan{SelectedValidationID: selected, Guard: state.guard()}
 	if state.contentKind == "RPG_MAKER_PROJECT" && state.dependencyState.tracked {
 		plan.RPGDependencyDigest = state.rpgDependencyDigest
 	}
 	return plan
+}
+
+func (state *draftValidationState) guard() application.ReviewValidationGuard {
+	return application.ReviewValidationGuard{
+		SourceSnapshotID: state.effectiveSnapshotID, SourceManifestDigest: state.effectiveManifestDigest,
+		ContentKind: state.contentKind, TargetPlatformInstanceID: state.targetID,
+		PlatformInstanceVersion: state.platformVersion, PlatformID: state.platformID,
+		CoreID: state.coreID, ProviderID: state.providerID, TargetID: state.runtimeTargetID,
+		DATVersionID: copyString(state.datID), DefaultDOSEntry: copyString(state.dosEntry),
+		ContentPolicyDigest:   state.contentPolicy.DigestFor(state.contentKind),
+		DependencyFactsDigest: state.dependencyFactsDigest,
+	}
 }
 
 func (state *draftValidationState) newValidationPlan() (application.ReviewValidationPlan, error) {
@@ -338,7 +353,7 @@ func (state *draftValidationState) newValidationPlan() (application.ReviewValida
 		ValidationID: id.String(), SourceValidationID: state.sourceID, CreatedAtMS: createdAt,
 		ReplaceBIOSBundle: state.dependencyState.replaceBundle, Dependencies: state.dependencyState.dependencies,
 	}
-	plan := application.ReviewValidationPlan{Create: create, Copy: copyFiles}
+	plan := application.ReviewValidationPlan{Create: create, Copy: copyFiles, Guard: state.guard()}
 	if state.sourceStatus == "READY" {
 		plan.SelectedValidationID = id.String()
 	}

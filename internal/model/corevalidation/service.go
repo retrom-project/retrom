@@ -2,6 +2,10 @@ package corevalidation
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"sort"
 
 	contentvalidation "retrom/internal/capability/content/corevalidation"
 )
@@ -17,4 +21,25 @@ type Repository interface {
 type BIOSRecord struct {
 	Dependency        contentvalidation.BIOSDependency
 	ActivationOptions *string
+}
+
+// BIOSFactsDigest returns a stable digest for the complete set of mutable BIOS
+// facts used by validation planning. The record set is copied and sorted here
+// so callers do not have to rely on a particular SQL ORDER BY clause.
+func BIOSFactsDigest(records []BIOSRecord) string {
+	ordered := append([]BIOSRecord(nil), records...)
+	sort.SliceStable(ordered, func(left, right int) bool {
+		leftKey := ordered[left].Dependency.RequirementID + "\x00" + ordered[left].Dependency.LogicalName
+		rightKey := ordered[right].Dependency.RequirementID + "\x00" + ordered[right].Dependency.LogicalName
+		return leftKey < rightKey
+	})
+	encoded, err := json.Marshal(struct {
+		SchemaVersion int
+		Records       []BIOSRecord
+	}{SchemaVersion: 1, Records: ordered})
+	if err != nil {
+		return ""
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:])
 }

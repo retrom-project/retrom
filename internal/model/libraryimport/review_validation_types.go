@@ -32,10 +32,32 @@ type ReviewValidationReader interface {
 // the application port does not expose driver-specific details.
 type ReviewValidationRefreshInputs struct {
 	DraftID, EffectiveSnapshotID, EffectiveManifestDigest, ContentKind string
+	PlatformID, CoreID, ProviderID, RuntimeTargetID                    string
 	PlatformVersion                                                    int64
-	CoreID, ProviderID, RuntimeTargetID                                string
 	DATVersionID                                                       *string
 	ContentPolicy                                                      contentcapability.Policy
+	DependencyFactsDigest                                              string
+}
+
+// ReviewValidationGuard identifies every mutable external fact used to build
+// a validation plan. Draft version guards protect only the draft row itself;
+// this value is carried alongside the plan so the repository can compare the
+// planning inputs again in its write transaction.
+type ReviewValidationGuard struct {
+	SourceSnapshotID, SourceManifestDigest, ContentKind string
+	TargetPlatformInstanceID                            string
+	PlatformInstanceVersion                             int64
+	PlatformID, CoreID, ProviderID, TargetID            string
+	DATVersionID                                        *string
+	DefaultDOSEntry                                     *string
+	ContentPolicyDigest, DependencyFactsDigest          string
+}
+
+func (guard ReviewValidationGuard) Valid() bool {
+	return guard.SourceSnapshotID != "" && guard.SourceManifestDigest != "" && guard.ContentKind != "" &&
+		guard.TargetPlatformInstanceID != "" && guard.PlatformInstanceVersion >= 1 && guard.PlatformID != "" &&
+		guard.CoreID != "" && guard.ProviderID != "" && guard.TargetID != "" && guard.ContentPolicyDigest != "" &&
+		guard.DependencyFactsDigest != ""
 }
 
 // ReviewValidationRefreshRecord is the latest validation candidate for a

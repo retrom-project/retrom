@@ -243,6 +243,9 @@ func (run *draftPatchRun) applyPlan() error {
 		}
 		run.targetOrDOSChanged = true
 	}
+	if err := run.validateValidationGuard(); err != nil {
+		return err
+	}
 	if err := run.applyValidation(); err != nil {
 		return err
 	}
@@ -257,6 +260,18 @@ func (run *draftPatchRun) applyPlan() error {
 	}
 	if run.targetOrDOSChanged && run.plan.ValidationID == "" {
 		return application.ErrInvalid
+	}
+	return nil
+}
+
+func (run *draftPatchRun) validateValidationGuard() error {
+	guard := run.plan.ExpectedValidationGuard
+	inputs, err := BindReviewValidation(run.transaction).Inputs(run.ctx, run.plan.ItemID, run.targetID)
+	if err != nil {
+		return application.ErrVersionConflict
+	}
+	if !reviewValidationGuardMatches(guard, inputs, run.targetID, run.plan.DOSEntry) {
+		return application.ErrVersionConflict
 	}
 	return nil
 }
@@ -313,9 +328,7 @@ func (run *draftPatchRun) createValidation() error {
 		}
 		return nil
 	}
-	if create.ID == "" || create.ItemID != run.plan.ItemID || create.TargetPlatformInstanceID != run.targetID ||
-		create.SourceSnapshotID != run.effectiveSnapshotID || !sameNullable(create.DefaultDOSEntry, run.plan.DOSEntry) ||
-		(create.Status == "READY") != (run.plan.ValidationID == create.ID) {
+	if !run.validationCreateMatches(create) {
 		return application.ErrInvalid
 	}
 	if err := BindReviewValidation(run.transaction).Create(run.ctx, *create); err != nil {
@@ -331,34 +344,109 @@ func (run *draftPatchRun) createValidation() error {
 	return nil
 }
 
+func (run *draftPatchRun) validationCreateMatches(create *application.ReviewValidationRefreshCreate) bool {
+	if create.ID == "" || create.ItemID != run.plan.ItemID || create.TargetPlatformInstanceID != run.targetID {
+		return false
+	}
+	if create.SourceSnapshotID != run.effectiveSnapshotID || !sameNullable(create.DefaultDOSEntry, run.plan.DOSEntry) {
+		return false
+	}
+	guard := run.plan.ExpectedValidationGuard
+	if create.PlatformInstanceVersion != guard.PlatformInstanceVersion || create.CoreID != guard.CoreID {
+		return false
+	}
+	if create.ProviderID != guard.ProviderID || create.TargetID != guard.TargetID {
+		return false
+	}
+	if create.SourceManifestDigest != guard.SourceManifestDigest ||
+		!sameNullable(create.DATVersionID, guard.DATVersionID) {
+		return false
+	}
+	return (create.Status == "READY") == (run.plan.ValidationID == create.ID)
+}
+
 func (run *draftPatchRun) selectValidation() error {
 	if run.plan.ValidationID == "" {
 		run.validationID = ""
 		return nil
 	}
 	if run.isRPG {
-		if run.plan.ValidationCreate != nil &&
-			run.plan.ValidationCreate.ID == run.plan.ValidationID &&
-			run.plan.ValidationCreate.CoreID == "rpgmaker" {
-			run.validationID = run.plan.ValidationID
-			return nil
-		}
-		if run.plan.ValidationCreate == nil && run.plan.ValidationID == run.validationID {
-			return nil
-		}
+		return run.selectRPGValidation()
+	}
+	return run.selectExistingValidation()
+}
+
+func (run *draftPatchRun) selectRPGValidation() error {
+	if run.plan.ValidationSelectionExplicit {
 		return application.ErrInvalid
 	}
-	var targetID, snapshotID, status string
+	if run.plan.ValidationCreate != nil {
+		if run.plan.ValidationCreate.ID != run.plan.ValidationID || run.plan.ValidationCreate.CoreID != "rpgmaker" {
+			return application.ErrInvalid
+		}
+		run.validationID = run.plan.ValidationID
+		return nil
+	}
+	if run.plan.ValidationID != run.validationID {
+		return application.ErrInvalid
+	}
+	return run.selectExistingValidation()
+}
+
+func (run *draftPatchRun) selectExistingValidation() error {
+	var targetID, snapshotID, status, coreID, providerID, runtimeTargetID string
+	var sourceManifestDigest, prepublishInputDigest, dependencySnapshot, compatibilityCode string
+	var datVersionID, dosEntry sql.NullString
 	err := run.transaction.QueryRowContext(run.ctx, `
-SELECT target_platform_instance_id,source_snapshot_id,status
+SELECT target_platform_instance_id,source_snapshot_id,status,core_id,
+  provider_id,target_id,source_manifest_digest,dat_version_id,default_dos_entry,
+  prepublish_input_digest,dependency_snapshot_json,compatibility_code
 FROM import_item_core_validations
 WHERE id=? AND import_item_id=?
-`, run.plan.ValidationID, run.plan.ItemID).Scan(&targetID, &snapshotID, &status)
-	if err != nil || targetID != run.targetID || snapshotID != run.effectiveSnapshotID || status != "READY" {
+	`, run.plan.ValidationID, run.plan.ItemID).Scan(
+		&targetID, &snapshotID, &status, &coreID, &providerID,
+		&runtimeTargetID, &sourceManifestDigest, &datVersionID, &dosEntry,
+		&prepublishInputDigest, &dependencySnapshot, &compatibilityCode,
+	)
+	guard := run.plan.ExpectedValidationGuard
+	if err != nil {
+		return application.ErrInvalid
+	}
+	if !run.existingValidationMatches(targetID, snapshotID, status, coreID, providerID,
+		runtimeTargetID, sourceManifestDigest, nullablePointer(datVersionID), nullablePointer(dosEntry),
+		prepublishInputDigest, dependencySnapshot, compatibilityCode, guard) {
 		return application.ErrInvalid
 	}
 	run.validationID = run.plan.ValidationID
 	return nil
+}
+
+func (run *draftPatchRun) existingValidationMatches(
+	targetID, snapshotID, status, coreID, providerID, runtimeTargetID,
+	sourceManifestDigest string, datVersionID, dosEntry *string, prepublishInputDigest,
+	dependencySnapshot, compatibilityCode string, guard application.ReviewValidationGuard,
+) bool {
+	if targetID != run.targetID || snapshotID != run.effectiveSnapshotID || status != "READY" {
+		return false
+	}
+	if coreID != guard.CoreID || providerID != guard.ProviderID {
+		return false
+	}
+	if runtimeTargetID != guard.TargetID || sourceManifestDigest != guard.SourceManifestDigest {
+		return false
+	}
+	if !sameNullable(datVersionID, guard.DATVersionID) || !sameNullable(dosEntry, guard.DefaultDOSEntry) {
+		return false
+	}
+	return application.PrepublishDigestMatches(prepublishInputDigest, application.PrepublishDigestInput{
+		SchemaVersion: 1, SourceSnapshotID: guard.SourceSnapshotID,
+		SourceManifestDigest: guard.SourceManifestDigest, ContentKind: guard.ContentKind,
+		TargetPlatformInstanceID: guard.TargetPlatformInstanceID, ProviderID: guard.ProviderID,
+		TargetID: guard.TargetID, ContentPolicyDigest: guard.ContentPolicyDigest,
+		DATVersionID: guard.DATVersionID, DefaultDOSEntry: guard.DefaultDOSEntry,
+		DependencySnapshot: json.RawMessage(dependencySnapshot), Status: status,
+		CompatibilityCode: compatibilityCode,
+	})
 }
 
 func (run *draftPatchRun) validateCandidate() error {
@@ -379,11 +467,17 @@ WHERE c.id=? AND r.import_item_id=? AND r.state='COMPLETED'
 }
 
 func (run *draftPatchRun) applyRPGBinding() error {
-	if run.plan.RPGSelfContainedOverride == nil {
+	if !run.isRPG {
+		if run.plan.RPGSelfContainedOverride != nil {
+			return application.ErrInvalid
+		}
 		return nil
 	}
-	if !run.isRPG || run.targetOrDOSChanged {
+	if run.targetOrDOSChanged {
 		return application.ErrInvalid
+	}
+	if run.plan.RPGSelfContainedOverride == nil {
+		return nil
 	}
 	var generation string
 	if err := run.transaction.QueryRowContext(

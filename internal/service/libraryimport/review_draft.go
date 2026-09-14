@@ -89,7 +89,7 @@ func (service *ReviewDrafts) buildPatchPlan(
 		return application.ReviewDraftWritePlan{}, fmt.Errorf("plan review draft tags: %w", err)
 	}
 	targetID, dosEntry := patchedTargetAndDOS(snapshot, patch)
-	validationPlan, err := service.resolveValidationPlan(ctx, itemID, targetID, dosEntry, patch)
+	validationPlan, err := service.resolveValidationPlan(ctx, itemID, targetID, dosEntry, patch, snapshot)
 	if err != nil {
 		return application.ReviewDraftWritePlan{}, fmt.Errorf("resolve review draft validation: %w", err)
 	}
@@ -98,7 +98,9 @@ func (service *ReviewDrafts) buildPatchPlan(
 		ExpectedTargetID: snapshot.TargetID, ExpectedValidationID: snapshot.ValidationID,
 		ExpectedEffectiveSnapshotID: snapshot.EffectiveSnapshotID,
 		ExpectedDOSEntry:            copyString(snapshot.DOSEntry), ExpectedIsRPG: snapshot.IsRPG,
-		TargetID: targetID, ValidationID: validationPlan.SelectedValidationID,
+		ExpectedValidationGuard:     validationPlan.Guard,
+		ValidationSelectionExplicit: patch.SelectedValidationID != nil,
+		TargetID:                    targetID, ValidationID: validationPlan.SelectedValidationID,
 		CandidateID: patchString(snapshot.CandidateID), CoverID: patchString(snapshot.CoverID),
 		UploadedCoverID: patchString(snapshot.UploadedCoverID), BackgroundID: patchString(snapshot.BackgroundID),
 		DOSEntry: dosEntry, Metadata: metadata,
@@ -135,18 +137,36 @@ func (service *ReviewDrafts) resolveValidationPlan(
 	targetID string,
 	dosEntry *string,
 	patch DraftPatch,
+	snapshot application.ReviewDraftPatchSnapshot,
 ) (application.ReviewValidationPlan, error) {
-	if service.validation == nil && (patch.ScummVMCandidateID != nil || patch.SelectedValidationID == nil) {
+	if service.validation == nil {
 		return application.ReviewValidationPlan{}, ErrInvalid
 	}
-	plan := application.ReviewValidationPlan{}
-	var err error
+	if patch.SelectedValidationID != nil && *patch.SelectedValidationID == "" {
+		return application.ReviewValidationPlan{}, ErrInvalid
+	}
+	// RPG validation is derived from the project profile and requested
+	// resource policy. An explicit validation ID would bypass that derivation.
+	if snapshot.IsRPG && patch.SelectedValidationID != nil {
+		return application.ReviewValidationPlan{}, ErrInvalid
+	}
+	var (
+		plan application.ReviewValidationPlan
+		err  error
+	)
 	if patch.ScummVMCandidateID != nil {
+		// Preserve the legacy precedence rule: an explicit ScummVM candidate is
+		// the final selection. If a caller also sends a validation ID, it must
+		// describe the draft's current selection; it must not replace the new
+		// candidate plan after resolution.
+		if patch.SelectedValidationID != nil && *patch.SelectedValidationID != snapshot.ValidationID {
+			return application.ReviewValidationPlan{}, ErrInvalid
+		}
 		plan, err = service.validation.SelectScummVM(ctx, ReviewDraftScummVMRequest{
 			ItemID: itemID, TargetPlatformInstanceID: targetID, DefaultDOSEntry: dosEntry,
 			CandidateID: *patch.ScummVMCandidateID,
 		})
-	} else if patch.SelectedValidationID == nil {
+	} else {
 		plan, err = service.validation.Resolve(ctx, ReviewDraftValidationRequest{
 			ItemID: itemID, TargetPlatformInstanceID: targetID, DefaultDOSEntry: dosEntry,
 			RPGSelfContainedOverride: patch.RPGSelfContainedOverride,
@@ -155,10 +175,11 @@ func (service *ReviewDrafts) resolveValidationPlan(
 	if err != nil {
 		return application.ReviewValidationPlan{}, fmt.Errorf("review validation: %w", err)
 	}
-	if patch.SelectedValidationID != nil {
-		if *patch.SelectedValidationID == "" {
-			return application.ReviewValidationPlan{}, ErrInvalid
-		}
+	if patch.SelectedValidationID != nil && patch.ScummVMCandidateID == nil {
+		// Non-RPG explicit selection keeps its existing product contract: the
+		// repository validates the selected record, while Resolve above supplies
+		// the current external-fact guard. Do not let a resolver's refresh
+		// candidate replace the ID explicitly selected by the caller.
 		plan.SelectedValidationID = *patch.SelectedValidationID
 		plan.Create = nil
 		plan.Copy = nil
