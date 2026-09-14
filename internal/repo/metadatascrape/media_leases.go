@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func (records mediaRecords) Claim(ctx context.Context, claim metadatascrape.MediaClaim) error {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/libraryimport"
 )
 
 func (records ReviewDrafts) ScreenshotIDs(ctx context.Context, itemID string) ([]string, error) {

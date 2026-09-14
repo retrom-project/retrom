@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/isolation"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/isolation"
 )
 
 type (

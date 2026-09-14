@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/metadatascrape"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/metadatascrape"
 )
 
 func (records initialRecords) Apply(ctx context.Context, change metadatascrape.InitialDraftChange) error {

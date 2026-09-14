@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/diagnostics"
+	application "retrom/internal/model/diagnostics"
 )
 
 func (reader records) SchemaVersion(ctx context.Context) (int64, error) {

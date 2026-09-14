@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func (records creationRecords) Aggregate(ctx context.Context, change application.CreationAggregate) error {

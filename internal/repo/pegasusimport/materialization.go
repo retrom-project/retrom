@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type Materialization struct{ database *sql.DB }

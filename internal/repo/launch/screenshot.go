@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/launch"
 )
 
 type Screenshots struct{ database *sql.DB }

@@ -10,8 +10,8 @@ import (
 
 	"retrom/internal/capability/content/gametitle"
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/gamecontent"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/gamecontent"
 
 	"github.com/google/uuid"
 )

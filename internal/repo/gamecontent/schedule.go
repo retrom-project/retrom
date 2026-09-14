@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/gamecontent"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/gamecontent"
 )
 
 func (writes writes) Enqueue(ctx context.Context, value gamecontent.ScheduleWrite) error {

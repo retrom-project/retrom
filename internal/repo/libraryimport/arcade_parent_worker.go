@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 var errArcadeParentSourceArchiveBlobMissing = errors.New("arcade parent source archive blob is missing")

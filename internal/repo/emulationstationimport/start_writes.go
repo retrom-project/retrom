@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func (records startRecords) Queue(ctx context.Context, plan application.StartPlan) error {

@@ -1,6 +1,6 @@
 package accounts
 
-import "retrom/internal/service/accounts"
+import "retrom/internal/model/accounts"
 
 type directorySQL struct {
 	query     string

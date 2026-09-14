@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	service "retrom/internal/model/uploads"
 	"retrom/internal/repo/dbexec"
-	service "retrom/internal/service/uploads"
 )
 
 func (records sessionRecords) Create(ctx context.Context, input service.Registration) error {

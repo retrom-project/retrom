@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/gamecontent"
+	"retrom/internal/model/gamecontent"
 )
 
 func (writes writes) Claim(ctx context.Context, claim gamecontent.Claim) (bool, error) {

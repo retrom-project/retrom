@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/netplay"
 	validation "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/netplay"
 )
 
 type RoomControl struct{ database *sql.DB }

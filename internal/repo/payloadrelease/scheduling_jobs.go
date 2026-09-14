@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 )
 
 func (records scheduling) CreateJob(ctx context.Context, job application.ScheduledJob) error {

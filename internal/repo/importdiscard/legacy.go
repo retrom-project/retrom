@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/importdiscard"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
-	"retrom/internal/service/importdiscard"
 )
 
 func (writes writes) LegacyCandidates(ctx context.Context, itemID string) ([]importdiscard.Envelope, error) {

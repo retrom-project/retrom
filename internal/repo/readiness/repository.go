@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	application "retrom/internal/service/readiness"
+	application "retrom/internal/model/readiness"
 )
 
 type Repository struct{ database *sql.DB }

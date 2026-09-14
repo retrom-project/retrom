@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/content/corevalidation"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/libraryimport"
 )
 
 type creationArcadeRecords struct{ executor dbexec.Executor }

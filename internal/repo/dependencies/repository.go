@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	service "retrom/internal/model/dependencies"
 	"retrom/internal/repo/datindex"
 	"retrom/internal/repo/dbexec"
-	service "retrom/internal/service/dependencies"
 )
 
 type (

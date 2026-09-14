@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/firmware"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/firmware"
 )
 
 type supersessionRecords struct{ executor dbexec.Executor }

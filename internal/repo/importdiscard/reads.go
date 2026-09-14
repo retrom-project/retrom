@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/importdiscard"
+	"retrom/internal/model/importdiscard"
 )
 
 func (records records) Batch(ctx context.Context, key importdiscard.Key) (importdiscard.Batch, error) {

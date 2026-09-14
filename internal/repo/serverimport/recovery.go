@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/serverimport"
+	"retrom/internal/model/serverimport"
 )
 
 type Recovery struct{ database *sql.DB }

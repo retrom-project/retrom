@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/content/multidisc"
+	"retrom/internal/model/gamecontent"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/gamecontent"
 )
 
 func (writes writes) Publish(ctx context.Context, value gamecontent.Publication) error {

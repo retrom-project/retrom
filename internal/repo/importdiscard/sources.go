@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/importdiscard"
+	payloadservice "retrom/internal/model/payloadrelease"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/importdiscard"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 func (writes writes) Complete(ctx context.Context, key importdiscard.Key, now int64) error {

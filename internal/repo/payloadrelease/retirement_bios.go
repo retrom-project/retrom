@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/payloadrelease"
 )
 
 func (records retirementRecords) FenceBIOS(ctx context.Context, before application.BIOSRetirement) error {

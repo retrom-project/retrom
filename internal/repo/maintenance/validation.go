@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/maintenance"
+	"retrom/internal/model/maintenance"
 
 	// Register the driver used only by this database adapter.
 	_ "modernc.org/sqlite"

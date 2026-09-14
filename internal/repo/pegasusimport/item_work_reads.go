@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 func (records itemWorkRecords) Current(ctx context.Context, id string) (application.OwnedItem, error) {

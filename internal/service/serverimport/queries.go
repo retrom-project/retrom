@@ -2,43 +2,10 @@ package serverimport
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 )
 
-var (
-	ErrNotFound = errors.New("SERVER_IMPORT_NOT_FOUND")
-	ErrQuery    = errors.New("SERVER_IMPORT_QUERY_INVALID")
-)
-
-type SummaryCursor struct {
-	CreatedAtMS int64
-	ID          string
-}
-type (
-	ItemCursor      struct{ Core, Name, ID string }
-	CandidateCursor struct {
-		Rank int64
-		ID   string
-	}
-)
-
-type ListQuery struct {
-	State  string
-	Before *SummaryCursor
-	Limit  int
-}
-type ItemQuery struct {
-	ImportID, Text, Outcome, Method string
-	After                           *ItemCursor
-	Limit                           int
-}
-type CandidateQuery struct {
-	ImportID, RequirementID string
-	After                   *CandidateCursor
-	Limit                   int
-}
 type QueryRepository interface {
 	Get(context.Context, string) (Summary, error)
 	List(context.Context, ListQuery) ([]Summary, error)

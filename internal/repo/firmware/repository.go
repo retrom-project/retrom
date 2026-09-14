@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/firmware"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/firmware"
 )
 
 type (

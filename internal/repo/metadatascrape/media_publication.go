@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/metadatascrape"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/metadatascrape"
 )
 
 func (records mediaRecords) Publish(ctx context.Context, value metadatascrape.AssetPublication, version int64) error {

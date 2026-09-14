@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/model/firmware"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/firmware"
 )
 
 func (store writes) Ensure(ctx context.Context, metadata blobstore.Metadata, now int64) (string, error) {

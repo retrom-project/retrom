@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type Leases struct{ database *sql.DB }

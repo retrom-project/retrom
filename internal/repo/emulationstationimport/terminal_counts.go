@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func LoadTerminalItemCounts(

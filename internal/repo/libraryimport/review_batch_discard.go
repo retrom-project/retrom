@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/libraryimport"
+	payloadservice "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/libraryimport"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 type ReviewBatchDiscards struct{ database *sql.DB }

@@ -53,7 +53,7 @@ func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Serv
 		database: database, now: now, tags: tagging.New(tagpersistence.New(database), now),
 	}
 	service.reviewDrafts = composition.NewReviewDrafts(
-		database, service.tags, now,
+		database, now,
 		service.ensureCompatibleDraftValidation,
 		service.selectScummVMCandidate,
 	)

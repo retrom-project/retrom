@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/metadatascrape"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/metadatascrape"
 )
 
 type EvidenceQueries struct{ executor dbexec.Executor }

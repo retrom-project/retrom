@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/libraryimport"
 	biopersistence "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
 	metadatapersistence "retrom/internal/repo/metadatascrape"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 	tagpersistence "retrom/internal/repo/tagging"
-	application "retrom/internal/service/libraryimport"
 )
 
 type (

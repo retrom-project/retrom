@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func (service *Queries) Collections(ctx context.Context,

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func (reads scheduleReads) Import(ctx context.Context, id string) (metadatascrape.ImportSubject, error) {

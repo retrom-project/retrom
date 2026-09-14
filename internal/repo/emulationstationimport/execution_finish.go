@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func (records executionRecords) Finish(ctx context.Context, change application.ExecutionFinish) error {

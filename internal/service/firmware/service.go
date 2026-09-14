@@ -3,7 +3,6 @@ package firmware
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -12,12 +11,6 @@ import (
 	"retrom/internal/capability/format/importing"
 
 	"github.com/google/uuid"
-)
-
-var (
-	ErrInvalid              = firmware.ErrInvalid
-	ErrArchiveFactsNotFound = errors.New("BIOS_ARCHIVE_FACTS_NOT_FOUND")
-	ErrCatalogChanged       = errors.New("BIOS_REQUIREMENT_CATALOG_CHANGED")
 )
 
 type Service struct {

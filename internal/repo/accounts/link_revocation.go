@@ -3,8 +3,8 @@ package accounts
 import (
 	"context"
 
+	"retrom/internal/model/accounts"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/accounts"
 )
 
 func (records linkRecords) Revoke(ctx context.Context, plan accounts.LinkRevocation) error {

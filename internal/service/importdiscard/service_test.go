@@ -200,12 +200,12 @@ func TestProgressDoesNotMarkFailuresCompleted(t *testing.T) {
 		{ErrAmbiguousOwner, "IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS"},
 	}
 	for _, test := range tests {
-		result := progressFor(Key{"IMPORT", batchID}, true, test.err, 17)
+		result := progressFor(Key{Kind: "IMPORT", ID: batchID}, true, test.err, 17)
 		if result.State != "FAILED" || result.CompletedAt != nil || result.ErrorCode == nil || *result.ErrorCode != test.code {
 			t.Fatalf("failure progress=%+v", result)
 		}
 	}
-	result := progressFor(Key{"IMPORT", batchID}, true, nil, 17)
+	result := progressFor(Key{Kind: "IMPORT", ID: batchID}, true, nil, 17)
 	if result.State != "COMPLETED" || result.CompletedAt == nil || *result.CompletedAt != 17 {
 		t.Fatalf("completion=%+v", result)
 	}

@@ -7,8 +7,8 @@ import (
 
 	payload "retrom/internal/repo/payloadrelease"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 type WorkflowControl struct{ database *sql.DB }

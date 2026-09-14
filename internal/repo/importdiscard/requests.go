@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/service/importdiscard"
+	"retrom/internal/model/importdiscard"
 )
 
 func (writes writes) Request(ctx context.Context, request importdiscard.Request) error {

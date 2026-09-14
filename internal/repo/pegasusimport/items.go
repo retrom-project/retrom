@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/pegasusimport"
 )
 
 func (service *Queries) Items(

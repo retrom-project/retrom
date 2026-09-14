@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/netplay"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/netplay"
 )
 
 func (repository *RoomQueries) Snapshot(ctx context.Context, roomID string) (netplay.Room, error) {

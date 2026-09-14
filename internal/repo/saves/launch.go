@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/saves"
+	"retrom/internal/model/saves"
 )
 
 func (store records) LoadLaunch(ctx context.Context, id string) (saves.Launch, error) {

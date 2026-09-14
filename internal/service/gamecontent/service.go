@@ -2,18 +2,11 @@ package gamecontent
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/service/payloadrelease"
-)
-
-var (
-	ErrInvalid              = errors.New("GAME_CONTENT_INVALID")
-	ErrIdempotencyKeyReused = errors.New("IDEMPOTENCY_KEY_REUSED")
-	ErrExecutionLost        = errors.New("GAME_CONTENT_EXECUTION_LOST")
 )
 
 type Scheduled struct {

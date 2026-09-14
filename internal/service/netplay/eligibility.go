@@ -5,42 +5,7 @@ import (
 	"strings"
 
 	"retrom/internal/service/tagging"
-	"retrom/internal/transport/netplay/profile"
 )
-
-type ProfileSummary struct {
-	ID         string `json:"id"`
-	CoreID     string `json:"coreId"`
-	CoreName   string `json:"coreName"`
-	ProviderID string `json:"providerId"`
-	TargetID   string `json:"targetId"`
-	MaxPlayers int    `json:"maxPlayers"`
-}
-
-type GameSummary struct {
-	GameID               string              `json:"gameId"`
-	Title                string              `json:"title"`
-	CoverURL             *string             `json:"coverUrl"`
-	PlatformID           string              `json:"platformId"`
-	PlatformName         string              `json:"platformName"`
-	PlatformInstanceID   string              `json:"platformInstanceId"`
-	PlatformInstanceName string              `json:"platformInstanceName"`
-	LastPlayedAtMS       *int64              `json:"lastPlayedAtMs"`
-	AddedAtMS            int64               `json:"addedAtMs"`
-	Availability         string              `json:"availability"`
-	NetplayProfiles      []ProfileSummary    `json:"netplayProfiles"`
-	BlockerCode          *string             `json:"blockerCode"`
-	Tags                 []tagging.Reference `json:"tags"`
-}
-
-type EligibleProfile struct {
-	Summary                ProfileSummary
-	Manifest               profile.ManifestProfile
-	VariantID              string
-	BundleSHA256           string
-	SourceManifestDigest   string
-	DependencySnapshotJSON string
-}
 
 func (service *Eligibility) Games(ctx context.Context, profileID, availability string) ([]GameSummary, error) {
 	items := make([]GameSummary, 0)

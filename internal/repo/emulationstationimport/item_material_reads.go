@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func loadExecutionFiles(ctx context.Context, executor dbexec.Executor, id string) ([]application.ExecutionFile, error) {

@@ -9,11 +9,11 @@ import (
 
 	"retrom/internal/capability/content/gametitle"
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/gamemetadata"
+	payloadservice "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/gamemetadata"
-	payloadservice "retrom/internal/service/payloadrelease"
 
 	"github.com/google/uuid"
 )

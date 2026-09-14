@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/netplay"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/netplay"
 )
 
 type ParticipantAccess struct{ executor dbexec.Executor }

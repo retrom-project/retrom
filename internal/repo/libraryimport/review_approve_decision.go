@@ -3,8 +3,8 @@ package libraryimport
 import (
 	"context"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/libraryimport"
 )
 
 func (records reviewApprovalRecords) ClaimIdentity(ctx context.Context, platformID, digest string, now int64) error {

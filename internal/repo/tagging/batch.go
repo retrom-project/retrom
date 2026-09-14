@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/tagging"
 )
 
 func batchReferences(

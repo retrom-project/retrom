@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	service "retrom/internal/service/uploads"
+	service "retrom/internal/model/uploads"
 )
 
 func (records jobRecords) Create(ctx context.Context, input service.JobCreation) error {

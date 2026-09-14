@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/platforminstance"
+	"retrom/internal/model/platforminstance"
 )
 
 func (writer records) Find(

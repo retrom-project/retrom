@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 )
 
 func (records effectRecords) Owner(ctx context.Context, scope application.Scope) (application.EffectOwner, error) {

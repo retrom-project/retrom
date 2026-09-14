@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"retrom/internal/capability/format/arcadedat"
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/contentquery"
-	application "retrom/internal/service/launch"
 )
 
 func (records validationWorkerRecords) Facts(

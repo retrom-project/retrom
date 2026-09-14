@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	payloadService "retrom/internal/model/payloadrelease"
 	payload "retrom/internal/repo/payloadrelease"
-	payloadService "retrom/internal/service/payloadrelease"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type Completion struct{ database *sql.DB }

@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/netplay"
 	validation "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/netplay"
 )
 
 type SessionStart struct{ database *sql.DB }

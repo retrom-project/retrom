@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 func (records companionRecords) Candidates(

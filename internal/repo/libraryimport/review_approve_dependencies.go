@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func (records approvalDependencyRecords) LogicalName(ctx context.Context, snapshotID string) (string, error) {

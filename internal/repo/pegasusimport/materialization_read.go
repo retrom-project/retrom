@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 func (records materialRecords) Source(

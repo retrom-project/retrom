@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/content/corevalidation"
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/launch"
 )
 
 func (records validationWorkerRecords) Apply(ctx context.Context, plan application.ValidationVariantWrite) error {

@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/jobs"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/jobs"
 )
 
 func (repository *Repository) WithRead(ctx context.Context, work func(jobs.ReadRecords) error) error {

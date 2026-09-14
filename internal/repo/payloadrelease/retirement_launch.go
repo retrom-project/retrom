@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	application "retrom/internal/service/payloadrelease"
 )
 
 func (records retirementRecords) FenceLaunch(ctx context.Context, before application.LaunchRetirement) error {

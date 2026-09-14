@@ -8,8 +8,8 @@ import (
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/catalog"
 	"retrom/internal/repo/contentquery"
-	application "retrom/internal/service/catalog"
 )
 
 type Repository struct{ database *sql.DB }

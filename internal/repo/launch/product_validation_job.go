@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/launch"
 )
 
 // ValidationJobs shares the enclosing Product, move or DAT transaction.

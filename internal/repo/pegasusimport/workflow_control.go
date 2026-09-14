@@ -8,8 +8,8 @@ import (
 
 	payload "retrom/internal/repo/payloadrelease"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type WorkflowControl struct{ database *sql.DB }

@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
 	library "retrom/internal/repo/libraryimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type ReviewHandoff struct{ database *sql.DB }

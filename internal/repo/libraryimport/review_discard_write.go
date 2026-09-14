@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/libraryimport"
 )
 
 func requireDiscardMutation(result sql.Result, err error, action string) error {

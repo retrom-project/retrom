@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type ScanPublication struct{ database *sql.DB }

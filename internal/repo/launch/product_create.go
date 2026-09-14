@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/launch"
 )
 
 type ProductCreation struct{ database *sql.DB }

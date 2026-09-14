@@ -4,28 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	release "retrom/internal/service/payloadrelease"
+	release "retrom/internal/model/payloadrelease"
 )
-
-type RestoredImportScope struct {
-	Reviews  RestoredReviewScope
-	Payloads RestoredPayloadScope
-}
-
-type RestoredPayloadQuery struct {
-	Kind    release.ScopeType
-	AfterID string
-	Limit   int
-}
-
-type RestoredPayloadRecords interface {
-	RetainedSources(context.Context, RestoredPayloadQuery) ([]string, error)
-}
-
-type RestoredPayloadScope struct {
-	Records    RestoredPayloadRecords
-	Scheduling release.SchedulingScope
-}
 
 // ScheduleRestoredPayloads runs after source termination in the same restore transaction.
 // The shared scheduler keeps materialized reviews and retryable sources retained.

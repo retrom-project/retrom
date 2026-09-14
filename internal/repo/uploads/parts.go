@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	service "retrom/internal/service/uploads"
+	service "retrom/internal/model/uploads"
 )
 
 func (records partRecords) Put(ctx context.Context, input service.PartRecord) (bool, error) {

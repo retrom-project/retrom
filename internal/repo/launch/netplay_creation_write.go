@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	application "retrom/internal/service/launch"
 )
 
 func (records netplayCreationRecords) Create(ctx context.Context, plan application.NetplayCreationPlan) error {

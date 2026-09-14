@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/maintenance"
 	"retrom/internal/repo/dbexec"
 	library "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/maintenance"
 )
 
 type reviewRecords struct{ executor dbexec.Executor }

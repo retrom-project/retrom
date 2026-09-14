@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/service/serverimport"
+	"retrom/internal/model/serverimport"
 )
 
 type candidateDatabaseValues struct {

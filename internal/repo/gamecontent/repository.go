@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/gamecontent"
 	validation "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/gamecontent"
 )
 
 type Repository struct {

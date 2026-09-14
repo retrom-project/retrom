@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	application "retrom/internal/model/maintenance"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/maintenance"
 )
 
 func (records reviewRecords) Complete(ctx context.Context, change application.RestoredReviewChange) error {

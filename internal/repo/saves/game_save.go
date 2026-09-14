@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/saves"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/saves"
 )
 
 func (store records) Binding(ctx context.Context, id string) (saves.GameSaveBinding, bool, error) {

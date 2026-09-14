@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/gameassets"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/gameassets"
 )
 
 // ReleaseScheduler keeps payload release work in the same transaction as the

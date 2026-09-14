@@ -3,8 +3,8 @@ package netplay
 import (
 	"context"
 
+	"retrom/internal/model/netplay"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/netplay"
 )
 
 func (records roomControlRecords) Seat(ctx context.Context, plan netplay.RoomSeatPlan) error {

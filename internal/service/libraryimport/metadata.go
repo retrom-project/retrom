@@ -14,49 +14,12 @@ import (
 	"retrom/internal/capability/security/authn"
 )
 
-var (
-	ErrInvalid         = errors.New("IMPORT_INVALID")
-	ErrVersionConflict = errors.New("VERSION_CONFLICT")
-	errMetadataObject  = errors.New("server review metadata audit must be an object")
-)
+var errMetadataObject = errors.New("server review metadata audit must be an object")
 
-type (
-	ServerMetadata struct {
-		Title, Description, Developer, Publisher, Genre string
-		Players, ReleaseYear                            *int
-	}
-	ServerMetadataWarning struct {
-		Code  string `json:"code"`
-		Field string `json:"field"`
-	}
-	MetadataDraft struct {
-		MetadataJSON string
-		Version      int64
-	}
-	MetadataAudit struct {
-		ID, ActorKind           string
-		ActorUserID, ActorLabel *string
-		BeforeJSON, AfterJSON   string
-	}
-	MetadataChange struct {
-		ItemID                   string
-		Before                   MetadataDraft
-		MetadataJSON, SearchText string
-		Audit                    MetadataAudit
-		NowMS                    int64
-	}
-	MetadataScope interface {
-		CurrentMetadata(context.Context, string) (MetadataDraft, error)
-		SaveMetadata(context.Context, MetadataChange) error
-	}
-	MetadataRepository interface {
-		WithMetadata(context.Context, func(MetadataScope) error) error
-	}
-	MetadataSeeder struct {
-		repository MetadataRepository
-		now        func() time.Time
-	}
-)
+type MetadataSeeder struct {
+	repository MetadataRepository
+	now        func() time.Time
+}
 
 func NewMetadataSeeder(repository MetadataRepository, now func() time.Time) *MetadataSeeder {
 	return &MetadataSeeder{repository: repository, now: now}

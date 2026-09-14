@@ -12,48 +12,6 @@ import (
 	"retrom/internal/transport/netplay/capability"
 )
 
-type PreparationRequest struct {
-	RoomID, SessionID, ProfileID string
-	Capabilities                 launch.Capabilities
-}
-type ParticipantLaunchResult struct {
-	Launch           launch.Created
-	RoomCapability   string
-	CredentialExpiry int64
-}
-type PreparationSnapshot struct {
-	Control                                               SessionControlSnapshot
-	Peer                                                  SessionPeer
-	GameID, VariantID, ProviderID, TargetID, BundleSHA256 string
-	LaunchRecorded                                        bool
-	Locked                                                int
-}
-type PreparationPlan struct {
-	Before         PreparationSnapshot
-	Events         []SessionEvent
-	AdvanceLoading bool
-	Now            int64
-}
-type PreparationReader interface {
-	Snapshot(context.Context, string, string, string) (PreparationSnapshot, error)
-}
-type PreparationWriter interface {
-	Record(context.Context, PreparationPlan) error
-}
-type PreparationScope struct {
-	Read  PreparationReader
-	Write PreparationWriter
-}
-type PreparationRepository interface {
-	Snapshot(context.Context, string, string, string) (PreparationSnapshot, error)
-	WithPreparation(context.Context, func(PreparationScope) error) error
-}
-type NetplayLauncher interface {
-	CreateNetplay(context.Context, launch.NetplayCreateRequest) (launch.Created, error)
-}
-type PreparationAborter interface {
-	AbortPreparation(context.Context, string, string) error
-}
 type ParticipantPreparation struct {
 	repository PreparationRepository
 	signer     CredentialSigner

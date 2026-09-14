@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func (records workflowRecords) Retry(ctx context.Context, plan application.RetryPlan) error {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 )
 
 func (records gcRecords) Fence(ctx context.Context, facts []application.GCBlob) error {

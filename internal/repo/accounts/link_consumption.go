@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/accounts"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/accounts"
 )
 
 func (repository *LinkRepository) WithConsumptionWrite(

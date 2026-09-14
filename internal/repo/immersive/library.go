@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/immersive"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/storequery"
-	"retrom/internal/service/immersive"
 )
 
 func libraryCondition(kind, profileID, folderID string) (string, []any, error) {

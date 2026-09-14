@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type Creation struct{ database *sql.DB }

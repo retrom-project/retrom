@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/pegasusimport"
 )
 
 func (records workflowRecords) Retry(ctx context.Context, plan application.RetryPlan) error {

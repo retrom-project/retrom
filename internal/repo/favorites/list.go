@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"retrom/internal/service/favorites"
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/favorites"
+	"retrom/internal/model/tagging"
 )
 
 func querySummary(ctx context.Context, transaction *sql.Tx, profileID string) (favorites.Summary, error) {

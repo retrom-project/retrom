@@ -7,9 +7,9 @@ import (
 
 	"retrom/internal/foundation/cleanup"
 
+	"retrom/internal/model/gamecontent"
 	"retrom/internal/repo/dbexec"
 	payloadrepo "retrom/internal/repo/payloadrelease"
-	"retrom/internal/service/gamecontent"
 )
 
 type retirementRecords struct{ executor dbexec.Executor }

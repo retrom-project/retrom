@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/libraryimport"
 )
 
 func (records reviewApprovalRecords) NextEmulatorID(ctx context.Context) (int64, error) {

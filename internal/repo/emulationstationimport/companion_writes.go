@@ -3,7 +3,7 @@ package emulationstationimport
 import (
 	"context"
 
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func (records companionRecords) Register(ctx context.Context, change application.CompanionBinding) (string, error) {

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func (records materialRecords) Bind(ctx context.Context, change application.MaterialBinding) (string, error) {

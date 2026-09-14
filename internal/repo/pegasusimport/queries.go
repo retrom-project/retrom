@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/pegasusimport"
 )
 
 const summaryQuery = `

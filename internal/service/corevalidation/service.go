@@ -8,16 +8,6 @@ import (
 	"retrom/internal/capability/content/corevalidation"
 )
 
-type Repository interface {
-	Catalog(context.Context, string, string) ([]corevalidation.BIOSCatalogEntry, error)
-	BIOS(context.Context, string, string) ([]BIOSRecord, error)
-}
-
-type BIOSRecord struct {
-	Dependency        corevalidation.BIOSDependency
-	ActivationOptions *string
-}
-
 type Service struct{ repository Repository }
 
 func New(repository Repository) *Service { return &Service{repository: repository} }

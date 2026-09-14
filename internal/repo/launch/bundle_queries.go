@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/launch"
+	application "retrom/internal/model/launch"
 )
 
 // Bundle reads authority and every member in one statement snapshot.

@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/launch"
 )
 
 func configRestore(

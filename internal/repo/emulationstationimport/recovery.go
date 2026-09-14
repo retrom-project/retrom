@@ -8,9 +8,9 @@ import (
 	payload "retrom/internal/repo/payloadrelease"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
 	library "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 type Recovery struct{ database *sql.DB }

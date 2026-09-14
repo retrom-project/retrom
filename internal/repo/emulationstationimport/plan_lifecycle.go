@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 type PlanLifecycle struct{ database *sql.DB }

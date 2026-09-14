@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 type initialRecords struct{ transaction *sql.Tx }

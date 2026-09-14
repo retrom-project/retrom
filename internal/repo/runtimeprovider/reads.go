@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	service "retrom/internal/service/runtimeprovider"
+	service "retrom/internal/model/runtimeprovider"
 )
 
 func (records catalogRecords) Current(ctx context.Context) (service.CurrentState, error) {

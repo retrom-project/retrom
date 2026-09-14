@@ -2,14 +2,8 @@ package accounts
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
-)
-
-var (
-	ErrAccountLinkUnavailable = errors.New("ACCOUNT_LINK_UNAVAILABLE")
-	ErrAccountLinkNotActive   = errors.New("ACCOUNT_LINK_NOT_ACTIVE")
 )
 
 type LinkService struct {

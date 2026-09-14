@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/payloadrelease"
 )
 
 type scheduling struct{ executor dbexec.Executor }

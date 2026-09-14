@@ -11,9 +11,8 @@ import (
 )
 
 var (
-	ErrDATJobNotClaimed = errors.New("DEPENDENCY_DAT_JOB_NOT_CLAIMABLE")
-	ErrDATParseFailed   = errors.New("DEPENDENCY_DAT_PARSE_FAILED")
-	errBIOSOptions      = errors.New("DEPENDENCY_BIOS_ACTIVATION_OPTIONS_INVALID")
+	ErrDATParseFailed = errors.New("DEPENDENCY_DAT_PARSE_FAILED")
+	errBIOSOptions    = errors.New("DEPENDENCY_BIOS_ACTIVATION_OPTIONS_INVALID")
 )
 
 type Service struct {

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func (records materialRecords) Source(

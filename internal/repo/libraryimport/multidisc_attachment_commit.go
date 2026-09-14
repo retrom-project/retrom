@@ -8,13 +8,13 @@ import (
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/multidisc"
+	validationservice "retrom/internal/model/corevalidation"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/contentquery"
 	validationpersistence "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	validationservice "retrom/internal/service/corevalidation"
-	application "retrom/internal/service/libraryimport"
 )
 
 type MultiDiscAttachmentFinalization struct{ database *sql.DB }

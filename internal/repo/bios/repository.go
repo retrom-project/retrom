@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/bios"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/bios"
 )
 
 type Repository struct {

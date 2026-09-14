@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/launch"
 )
 
 func (records previewCreationRecords) Create(ctx context.Context, plan application.PreviewCreatePlan) error {

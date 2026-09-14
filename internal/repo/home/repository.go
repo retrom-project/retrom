@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/home"
 	"retrom/internal/repo/storequery"
-	application "retrom/internal/service/home"
 )
 
 type Repository struct{ database *sql.DB }

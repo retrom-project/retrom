@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 type Leases struct{ database *sql.DB }

@@ -8,10 +8,10 @@ import (
 
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
 	tagpersistence "retrom/internal/repo/tagging"
-	application "retrom/internal/service/libraryimport"
 )
 
 type (

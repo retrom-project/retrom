@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/maintenance"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	"retrom/internal/service/maintenance"
 )
 
 func (writes writes) RevokeAccess(ctx context.Context, nowMS int64) (maintenance.AccessCounts, error) {

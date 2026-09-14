@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 )
 
 func (records effectRecords) Remaining(ctx context.Context, scope application.Scope) (int64, error) {

@@ -7,10 +7,10 @@ import (
 
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 
+	application "retrom/internal/model/libraryimport"
 	biopersistence "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
 	tagpersistence "retrom/internal/repo/tagging"
-	application "retrom/internal/service/libraryimport"
 )
 
 type (

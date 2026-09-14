@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/serverimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/serverimport"
 )
 
 type Creation struct{ database *sql.DB }

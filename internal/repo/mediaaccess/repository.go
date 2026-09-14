@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	service "retrom/internal/model/mediaaccess"
 	"retrom/internal/repo/dbexec"
-	service "retrom/internal/service/mediaaccess"
 )
 
 type (

@@ -21,3 +21,11 @@ func TestSQLInfrastructureLivesInRepo(t *testing.T) {
 		}
 	}
 }
+
+func TestModelAndRepoDoNotDependOnService(t *testing.T) {
+	t.Parallel()
+	repoRoot := architecture.PackageDirectory(t)
+	internalRoot := filepath.Dir(repoRoot)
+	architecture.AssertNoImportsIn(t, filepath.Join(internalRoot, "model"), "retrom/internal/service/")
+	architecture.AssertNoImportsIn(t, repoRoot, "retrom/internal/service/")
+}

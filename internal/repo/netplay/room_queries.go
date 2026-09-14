@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/netplay"
+	"retrom/internal/model/netplay"
 )
 
 type RoomQueries struct{ database *sql.DB }

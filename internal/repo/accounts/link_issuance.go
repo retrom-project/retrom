@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/accounts"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/accounts"
 )
 
 func (repository *LinkRepository) WithIssueWrite(ctx context.Context, work func(accounts.LinkIssueScope) error) error {

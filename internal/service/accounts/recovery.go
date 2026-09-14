@@ -2,7 +2,6 @@ package accounts
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,8 +9,6 @@ import (
 
 	"github.com/google/uuid"
 )
-
-var ErrOfflineAdmin = errors.New("OFFLINE_ADMIN_INVALID")
 
 type RecoveryService struct {
 	repository RecoveryRepository

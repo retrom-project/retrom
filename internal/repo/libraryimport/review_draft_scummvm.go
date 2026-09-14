@@ -1,6 +1,6 @@
 package libraryimport
 
-import "retrom/internal/service/libraryimport"
+import "retrom/internal/model/libraryimport"
 
 func (run *draftPatchRun) applyScummVMSelection() error {
 	if run.patch.ScummVMCandidateID == nil {

@@ -3,7 +3,7 @@ package payloadrelease
 import (
 	"context"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 )
 
 func (records effectRecords) gameConsumptions(ctx context.Context, id string) ([]application.EffectConsumption, error) {

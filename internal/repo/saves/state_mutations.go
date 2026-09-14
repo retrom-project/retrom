@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/saves"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/saves"
 )
 
 func (repository *Repository) Rename(

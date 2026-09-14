@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/libraryimport"
+	payloadservice "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/libraryimport"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 type ImportBatchCancellations struct{ database *sql.DB }

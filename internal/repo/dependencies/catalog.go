@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	service "retrom/internal/model/dependencies"
 	"retrom/internal/repo/datindex"
-	service "retrom/internal/service/dependencies"
 )
 
 func (records catalogRecords) Version(ctx context.Context, id string) (int64, error) {

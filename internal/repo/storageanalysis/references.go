@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/storageanalysis"
 	"retrom/internal/repo/blobregistry"
-	"retrom/internal/service/storageanalysis"
 )
 
 var errReferenceCoverage = errors.New("STORAGE_ANALYSIS_REFERENCE_COVERAGE_MISMATCH")

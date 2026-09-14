@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/tagging"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/tagging"
 )
 
 const adminItemQuery = `

@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/model/saves"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/saves"
 )
 
 type (

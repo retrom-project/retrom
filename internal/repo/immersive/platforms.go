@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/immersive"
+	"retrom/internal/model/immersive"
 )
 
 func (records platformRecords) Platforms(ctx context.Context, profileID string) ([]immersive.Platform, error) {

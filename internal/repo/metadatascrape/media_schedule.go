@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func (records resultRecords) Subject(ctx context.Context, runID string) (metadatascrape.Subject, error) {

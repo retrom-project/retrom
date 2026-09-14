@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/libraryimport"
 )
 
 type ReviewMedia struct{ executor dbexec.Executor }

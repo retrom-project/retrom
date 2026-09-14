@@ -10,20 +10,13 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/libraryimport"
+	"retrom/internal/model/tagging"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
 	tagpersistence "retrom/internal/repo/tagging"
-	application "retrom/internal/service/libraryimport"
-	"retrom/internal/service/tagging"
 
 	"github.com/google/uuid"
-)
-
-type (
-	MetadataPatch  = application.MetadataPatch
-	SelectedAssets = application.SelectedAssets
-	DraftPatch     = application.DraftPatch
-	DraftResult    = application.DraftResult
 )
 
 // DraftValidationRefresher is supplied by the legacy validation subsystem
@@ -39,7 +32,6 @@ type ScummVMSelector func(
 ) (string, error)
 
 type ReviewDraftPatchOptions struct {
-	Tags              *tagging.Service
 	Now               func() time.Time
 	RefreshValidation DraftValidationRefresher
 	SelectScummVM     ScummVMSelector
@@ -47,7 +39,6 @@ type ReviewDraftPatchOptions struct {
 
 type ReviewDraftPatches struct {
 	database          *sql.DB
-	tags              *tagging.Service
 	now               func() time.Time
 	refreshValidation DraftValidationRefresher
 	selectScummVM     ScummVMSelector
@@ -59,7 +50,7 @@ func NewReviewDraftPatches(database *sql.DB, options ReviewDraftPatchOptions) *R
 		now = time.Now
 	}
 	return &ReviewDraftPatches{
-		database: database, tags: options.Tags, now: now,
+		database: database, now: now,
 		refreshValidation: options.RefreshValidation, selectScummVM: options.SelectScummVM,
 	}
 }
@@ -136,8 +127,8 @@ WHERE i.id=? AND i.state='REVIEW_PENDING'
 	if currentVersion != run.expectedVersion {
 		return application.ErrVersionConflict
 	}
-	beforeTags, err := run.repository.tags.ReviewDraftReferences(
-		run.ctx, tagpersistence.Bind(run.transaction), run.draftID,
+	beforeTags, err := tagging.ReviewDraftReferencesInScope(
+		run.ctx, tagpersistence.Bind(run.transaction).Relations, run.draftID,
 	)
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: read draft tags: %w", err)
@@ -181,7 +172,7 @@ func (run *draftPatchRun) applyMetadata() error {
 	return nil
 }
 
-func (run *draftPatchRun) validatedMetadataUpdates(patch MetadataPatch) (map[string]any, error) {
+func (run *draftPatchRun) validatedMetadataUpdates(patch application.MetadataPatch) (map[string]any, error) {
 	updates := make(map[string]any)
 	if patch.Title != nil {
 		if !application.ValidReviewField(*patch.Title, 200, false) || *patch.Title == "" {
@@ -369,7 +360,7 @@ func (run *draftPatchRun) applySelectedAssets() error {
 	return run.replaceScreenshots(assets.ScreenshotCandidateAssetIDs)
 }
 
-func (run *draftPatchRun) validateSelectedAssets(assets SelectedAssets) error {
+func (run *draftPatchRun) validateSelectedAssets(assets application.SelectedAssets) error {
 	if len(assets.ScreenshotCandidateAssetIDs) > 32 {
 		return application.ErrInvalid
 	}
@@ -418,7 +409,7 @@ func (run *draftPatchRun) persist() (application.DraftResult, error) {
 	now := run.repository.now().UnixMilli()
 	actor := run.actor
 	actorUserID, _ := actor.UserID.(string)
-	_, afterTags, err := run.repository.tags.ReplaceReviewDraftTags(
+	_, afterTags, err := tagging.ReplaceReviewDraftTags(
 		run.ctx, tagpersistence.Bind(run.transaction), run.draftID, run.patch.TagIDs, actorUserID, now,
 	)
 	if err != nil {

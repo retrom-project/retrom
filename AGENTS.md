@@ -67,7 +67,8 @@
 
 - 禁止使用数据库 VIEW 和 TRIGGER；迁移与运行时代码不得创建或依赖它们，相关查询、校验与联动使用应用层显式 SQL，并在事务中保证一致性。
 - HTTP handler 负责协议解析、校验和错误映射；业务规则进入对应应用模块；SQL 与持久化细节留在存储层。
-- SQL 语句的执行必须收拢在 `internal/repo/` 及其子包；禁止在 `internal/repo/` 目录外直接构造 SQL 并调用 `database/sql` 或 SQLite 驱动提供的 `Exec*`、`Query*`、`Begin*`、`Prepare*` 等执行方法。Service、Capability、Adapter、Transport 等上层只能依赖 repo 暴露的业务接口或端口。
+- SQL 语句的执行必须收拢在 `internal/repo/` 及其子包；禁止在 `internal/repo/` 目录外直接构造 SQL 并调用 `database/sql` 或 SQLite 驱动提供的 `Exec*`、`Query*`、`Begin*`、`Prepare*` 等执行方法。Service、Capability、Adapter、Transport 等上层只能依赖 `internal/model` 的业务接口或 port；具体 repo 实现在 composition 中注入。
+- `internal/model/` 持有跨层共享的 DTO、Entity、领域错误、Repository/Capability port 及纯领域策略；`internal/service/` 只负责用例编排；`internal/repo/` 实现 model port 和 SQL。生产代码中的 `internal/model/` 与 `internal/repo/` 禁止导入 `internal/service/`，共享契约不得反向放回 service 包。
 - 后台任务只负责编排、租约和重试，不复制领域规则。耗时哈希、网络访问、归档扫描和 DAT 解析不得占用长数据库写事务。
 - 依赖方向遵循 `httpapi/jobs -> 应用模块 -> repo/blobstore`。底层包不得反向依赖 HTTP、任务编排或进程入口。
 - 错误必须保留原因并在边界映射为稳定错误码；不得静默吞错、依赖错误字符串分支或输出临时调试日志。

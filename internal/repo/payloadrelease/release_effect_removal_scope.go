@@ -1,6 +1,6 @@
 package payloadrelease
 
-import application "retrom/internal/service/payloadrelease"
+import application "retrom/internal/model/payloadrelease"
 
 func validEffectRemoval(group application.EffectReferenceGroup, scope application.ScopeType) bool {
 	switch group {

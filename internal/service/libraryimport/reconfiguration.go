@@ -11,37 +11,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// ReconfigurationSource contains the rejected upload files that can be
-// carried into a replacement import.
-type ReconfigurationSource struct {
-	SourceType string
-	Files      []PreparedReusableUploadFile
-}
-
-// ReconfigurationClone describes the immutable input for a cloned upload
-// session. The persistence adapter owns the transaction and row identities.
-type ReconfigurationClone struct {
-	UploadID          string
-	SourceImportJobID string
-	ExpectedVersion   int64
-	SourceType        string
-	Files             []PreparedReusableUploadFile
-	ManifestDigest    string
-	NowMS             int64
-}
-
 type ReconfigurationRequest struct {
 	SourceImportJobID      string
 	ExpectedVersion        int64
 	TargetPlatformInstance string
 	MetadataProvider       string
 	TagIDs                 []string
-}
-
-type ReconfigurationRepository interface {
-	Source(context.Context, string, int64) (ReconfigurationSource, bool, error)
-	Clone(context.Context, ReconfigurationClone) error
-	RemoveUnused(context.Context, string) error
 }
 
 type ReconfigurationCreate func(context.Context, ImportRequest, ImportCreationOptions) (ImportCreationResult, error)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	service "retrom/internal/service/uploads"
+	service "retrom/internal/model/uploads"
 )
 
 func (records leaseRecords) Refresh(ctx context.Context, run service.Run, now int64) error {

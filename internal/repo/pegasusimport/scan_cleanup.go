@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 // ClearUnpublishedScan is called after the enclosing transaction fences the scan job.

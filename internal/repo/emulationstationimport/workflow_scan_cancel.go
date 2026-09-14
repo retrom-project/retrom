@@ -3,8 +3,8 @@ package emulationstationimport
 import (
 	"context"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func (records workflowRecords) cancelScanAggregate(ctx context.Context, plan application.CancellationPlan) error {

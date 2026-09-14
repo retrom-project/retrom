@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/launch"
 )
 
 type productValidationRecords struct {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/payloadrelease"
 )
 
 type (

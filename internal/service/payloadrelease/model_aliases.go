@@ -1,0 +1,154 @@
+package payloadrelease
+
+import model "retrom/internal/model/payloadrelease"
+
+type (
+	Consumption             = model.Consumption
+	GameImpact              = model.GameImpact
+	ImpactBlob              = model.ImpactBlob
+	ImpactCounts            = model.ImpactCounts
+	ImpactReader            = model.ImpactReader
+	ImpactQueries           = model.ImpactQueries
+	ImpactSnapshot          = model.ImpactSnapshot
+	EffectAuthority         = model.EffectAuthority
+	EffectConsumption       = model.EffectConsumption
+	EffectConsumptionChange = model.EffectConsumptionChange
+	EffectOwner             = model.EffectOwner
+	EffectOwnerChange       = model.EffectOwnerChange
+	EffectPayload           = model.EffectPayload
+	EffectReader            = model.EffectReader
+	EffectReferenceGroup    = model.EffectReferenceGroup
+	EffectRemoval           = model.EffectRemoval
+	EffectRepository        = model.EffectRepository
+	EffectScope             = model.EffectScope
+	EffectSource            = model.EffectSource
+	EffectUpload            = model.EffectUpload
+	EffectUploads           = model.EffectUploads
+	EffectWaiter            = model.EffectWaiter
+	EffectWriter            = model.EffectWriter
+	ExpirationReader        = model.ExpirationReader
+	ExpirationRepository    = model.ExpirationRepository
+	ExpirationScope         = model.ExpirationScope
+	ExpirationWriter        = model.ExpirationWriter
+	GCAdvance               = model.GCAdvance
+	GCBlob                  = model.GCBlob
+	GCCancellation          = model.GCCancellation
+	GCCandidate             = model.GCCandidate
+	GCAudit                 = model.GCAudit
+	GCQueue                 = model.GCQueue
+	GCRetry                 = model.GCRetry
+	GCReader                = model.GCReader
+	GCRepository            = model.GCRepository
+	GCScope                 = model.GCScope
+	GCStager                = model.GCStager
+	GCWriter                = model.GCWriter
+	GarbageFacts            = model.GarbageFacts
+	GarbageFiles            = model.GarbageFiles
+	GarbageReader           = model.GarbageReader
+	GarbageRepository       = model.GarbageRepository
+	GarbageScope            = model.GarbageScope
+	GarbageWriter           = model.GarbageWriter
+	Input                   = model.Input
+	Execution               = model.Execution
+	Owner                   = model.Owner
+	OwnerRelease            = model.OwnerRelease
+	Reason                  = model.Reason
+	ScheduleRequest         = model.ScheduleRequest
+	ScheduledJob            = model.ScheduledJob
+	SchedulingScope         = model.SchedulingScope
+	Scope                   = model.Scope
+	ScopeInputs             = model.ScopeInputs
+	ScopeType               = model.ScopeType
+	ReleaseScope            = model.ReleaseScope
+	ReviewRelease           = model.ReviewRelease
+	Scheduler               = model.Scheduler
+	SourceBatch             = model.SourceBatch
+	SourceReleaseReader     = model.SourceReleaseReader
+	Work                    = model.Work
+	WorkChange              = model.WorkChange
+	WorkExecutor            = model.WorkExecutor
+	WorkTime                = model.WorkTime
+	WorkerReader            = model.WorkerReader
+	WorkerRepository        = model.WorkerRepository
+	WorkerScope             = model.WorkerScope
+	WorkerWriter            = model.WorkerWriter
+	FailureOwnerReader      = model.FailureOwnerReader
+	BlobEdge                = model.BlobEdge
+	BIOSRetirement          = model.BIOSRetirement
+	LaunchRetirement        = model.LaunchRetirement
+	LaunchRetirementEnd     = model.LaunchRetirementEnd
+	LifecycleOwner          = model.LifecycleOwner
+	LifecycleReader         = model.LifecycleReader
+	LifecycleRepository     = model.LifecycleRepository
+	RetirementCompletion    = model.RetirementCompletion
+	RetirementFile          = model.RetirementFile
+	RetirementPlay          = model.RetirementPlay
+	RetirementReader        = model.RetirementReader
+	RetirementScope         = model.RetirementScope
+	RetirementRepository    = model.RetirementRepository
+	BIOSRetirementWriter    = model.BIOSRetirementWriter
+	LaunchRetirementWriter  = model.LaunchRetirementWriter
+	ProviderExpiration      = model.ProviderExpiration
+	PreviewExpiration       = model.PreviewExpiration
+	PreviewExpiry           = model.PreviewExpiry
+	ImmediateGCResult       = model.ImmediateGCResult
+)
+
+const (
+	ReasonEmulationStationTerminal  = model.ReasonEmulationStationTerminal
+	ReasonGameDeleted               = model.ReasonGameDeleted
+	ReasonImportCancelled           = model.ReasonImportCancelled
+	ReasonImportDiscarded           = model.ReasonImportDiscarded
+	ReasonImportFailed              = model.ReasonImportFailed
+	ReasonImportPublished           = model.ReasonImportPublished
+	ReasonImportTerminal            = model.ReasonImportTerminal
+	ReasonPegasusTerminal           = model.ReasonPegasusTerminal
+	ReasonUploadConsumed            = model.ReasonUploadConsumed
+	ScopeBlob                       = model.ScopeBlob
+	ScopeEmulationStationImportItem = model.ScopeEmulationStationImportItem
+	ScopeGame                       = model.ScopeGame
+	ScopeImportItem                 = model.ScopeImportItem
+	ScopeImportJob                  = model.ScopeImportJob
+	ScopePegasusImportItem          = model.ScopePegasusImportItem
+	ScopeUploadConsumption          = model.ScopeUploadConsumption
+	EffectGameRuntime               = model.EffectGameRuntime
+	EffectGameEvidence              = model.EffectGameEvidence
+	EffectGameFiles                 = model.EffectGameFiles
+	EffectImportReview              = model.EffectImportReview
+	EffectImportEvidence            = model.EffectImportEvidence
+	EffectImportFiles               = model.EffectImportFiles
+	EffectSourceFiles               = model.EffectSourceFiles
+	EffectSourceAssets              = model.EffectSourceAssets
+)
+
+var (
+	ErrScheduleIDInvalid            = model.ErrScheduleIDInvalid
+	ErrScopeInvalid                 = model.ErrScopeInvalid
+	ErrImpactInvalid                = model.ErrImpactInvalid
+	ErrAttemptsExhausted            = model.ErrAttemptsExhausted
+	ErrExecutionLost                = model.ErrExecutionLost
+	ErrExecutionTimeout             = model.ErrExecutionTimeout
+	ErrExpirationSnapshotChanged    = model.ErrExpirationSnapshotChanged
+	ErrGCRetentionInvalid           = model.ErrGCRetentionInvalid
+	ErrGCSnapshotChanged            = model.ErrGCSnapshotChanged
+	ErrImmediateGCAuditActorMissing = model.ErrImmediateGCAuditActorMissing
+	ErrImmediateGCBytesOverflow     = model.ErrImmediateGCBytesOverflow
+	ErrImmediateGCJobStateInvalid   = model.ErrImmediateGCJobStateInvalid
+	ErrInputInvalid                 = model.ErrInputInvalid
+	ErrWorkerClosed                 = model.ErrWorkerClosed
+	ErrLifecycleInvariant           = model.ErrLifecycleInvariant
+	ErrRetirementSnapshotChanged    = model.ErrRetirementSnapshotChanged
+	ErrEffectConflict               = model.ErrEffectConflict
+)
+
+var (
+	NewScheduler               = model.NewScheduler
+	NewImpactQueries           = model.NewImpactQueries
+	GameDeleteAuditImpact      = model.GameDeleteAuditImpact
+	NormalizeImpactSourceKinds = model.NormalizeImpactSourceKinds
+	TerminalImportItem         = model.TerminalImportItem
+	TerminalImportJob          = model.TerminalImportJob
+	TerminalSourceItem         = model.TerminalSourceItem
+	ValidReason                = model.ValidReason
+	ValidScheduleScope         = model.ValidScheduleScope
+)

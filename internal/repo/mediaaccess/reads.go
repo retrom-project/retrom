@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	service "retrom/internal/service/mediaaccess"
+	service "retrom/internal/model/mediaaccess"
 )
 
 func (reader reader) Game(ctx context.Context, id string) (service.GameAsset, bool, error) {

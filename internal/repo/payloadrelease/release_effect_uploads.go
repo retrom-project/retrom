@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 )
 
 const effectUploadReferences = `(SELECT count(*) FROM import_item_source_files WHERE upload_file_id=file.id)+

@@ -6,11 +6,6 @@ import (
 	"fmt"
 )
 
-var (
-	ErrAdminGameNotFound        = errors.New("GAME_NOT_FOUND")
-	ErrAdminGameVersionConflict = errors.New("GAME_METADATA_VERSION_CONFLICT")
-)
-
 // AdminGame loads the complete administrative game detail projection through
 // one repository read snapshot.
 func (service *Service) AdminGame(ctx context.Context, gameID string) (AdminGameDetail, error) {

@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/serverimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/serverimport"
 )
 
 func (repository *Creation) Catalog(ctx context.Context) ([]serverimport.CatalogEntry, error) {

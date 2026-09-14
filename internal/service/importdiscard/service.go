@@ -3,20 +3,11 @@ package importdiscard
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
-)
-
-var (
-	ErrInvalid        = errors.New("IMPORT_BATCH_DISCARD_INVALID")
-	ErrNotFound       = errors.New("IMPORT_BATCH_DISCARD_NOT_FOUND")
-	ErrReleaseFailed  = errors.New("IMPORT_BATCH_DISCARD_RELEASE_FAILED")
-	ErrAmbiguousOwner = errors.New("IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS")
-	ErrNotCancellable = errors.New("IMPORT_BATCH_DISCARD_NOT_CANCELLABLE")
 )
 
 const reason = "丢弃本批次未发布内容"
@@ -49,7 +40,7 @@ func validKey(key Key) bool {
 }
 
 func (service *Service) Get(ctx context.Context, kind, id string) (Status, error) {
-	key := Key{kind, id}
+	key := Key{Kind: kind, ID: id}
 	if !validKey(key) {
 		return Status{}, ErrInvalid
 	}
@@ -114,7 +105,7 @@ func undecided(kind, state string) bool {
 }
 
 func (service *Service) Request(ctx context.Context, kind, id, userID string) (Status, error) {
-	key := Key{kind, id}
+	key := Key{Kind: kind, ID: id}
 	if !validKey(key) {
 		return Status{}, ErrInvalid
 	}

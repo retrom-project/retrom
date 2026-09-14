@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/payloadrelease"
 )
 
 type ReleaseEffects struct{ database *sql.DB }

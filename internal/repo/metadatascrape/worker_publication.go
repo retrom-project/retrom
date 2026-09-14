@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func (records workerRecords) Finish(ctx context.Context, value metadatascrape.WorkerOutcome) error {

@@ -74,7 +74,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/service/gameassets/repository.go",
+      "path": "internal/model/gameassets/repository.go",
       "line": 14,
       "symbol": "type WriteScope interface",
       "linter": "interfacebloat",
@@ -83,7 +83,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/service/gamemove/repository.go",
+      "path": "internal/model/gamemove/repository.go",
       "line": 12,
       "symbol": "type Repository interface",
       "linter": "interfacebloat",
@@ -92,7 +92,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/service/home/repository.go",
+      "path": "internal/model/home/repository.go",
       "line": 9,
       "symbol": "type Repository interface",
       "linter": "interfacebloat",
@@ -101,7 +101,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/service/libraryimport/import_reads_types.go",
+      "path": "internal/model/libraryimport/import_reads_types.go",
       "line": 181,
       "symbol": "type ImportReadRepository interface",
       "linter": "interfacebloat",
@@ -110,7 +110,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/service/libraryimport/review_validation_types.go",
+      "path": "internal/model/libraryimport/review_validation_types.go",
       "line": 76,
       "symbol": "type ReviewValidationRefreshRepository interface",
       "linter": "interfacebloat",
@@ -119,7 +119,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/service/platforminstance/repository.go",
+      "path": "internal/model/platforminstance/repository.go",
       "line": 15,
       "symbol": "type Reader interface",
       "linter": "interfacebloat",
@@ -128,7 +128,7 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/service/platforminstance/repository.go",
+      "path": "internal/model/platforminstance/repository.go",
       "line": 31,
       "symbol": "type DirectoryWrites interface",
       "linter": "interfacebloat",

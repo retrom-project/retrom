@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func evidenceSource(subject metadatascrape.Subject) (string, string) {

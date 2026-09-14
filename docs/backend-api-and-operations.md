@@ -127,11 +127,11 @@ web/components/           无业务状态的通用组件
 
 ### 2.1 Service 与持久化边界
 
-业务模块按 `internal/service/<模块>` 组织，包含用例编排、业务类型和由消费者定义的 Repository 接口。`internal/repo/<模块>` 实现这些接口，封装 SQL、字段映射和原子操作；目录不绑定数据库产品名称。解析器、算法和内容格式校验仍按独立基础能力组织，不因分层统一迁入 Service。
+业务模块的共享 DTO、Entity、领域错误、Repository/Capability port 与纯领域策略放在 `internal/model/<模块>`；`internal/service/<模块>` 只负责用例编排和跨端口协调；`internal/repo/<模块>` 实现 model port，封装 SQL、字段映射和原子操作。生产代码中的 model 与 repo 不得导入 service，避免把共享契约放在高层后形成反向依赖。目录不绑定数据库产品名称。解析器、算法和内容格式校验仍按独立基础能力组织，不因分层统一迁入 Service。
 
 Handler 负责协议解析、身份提取和结果映射，通过 Service 执行业务；Service 不导入数据库驱动或持久化实现，也不接收 SQL、表名、SET/WHERE、连接或事务对象。组装代码创建 Repository 并注入 Service。接口返回业务结果与可识别错误，不把 `sql.Rows`、`sql.Result`、`sql.Null*` 传播到上层。
 
-数据访问层共享 `internal/repo/dbexec.Executor`，统一数据库连接、事务及独占连接的 SQL 执行接口；各 Repository 不重复定义相同接口。该接口只属于 SQL 基础设施，Service 仍依赖业务 Repository 接口。
+数据访问层共享 `internal/repo/dbexec.Executor`，统一数据库连接、事务及独占连接的 SQL 执行接口；各 Repository 不重复定义相同接口。该接口只属于 SQL 基础设施，Service 通过 `internal/model` 中的业务 Repository port 使用数据访问能力。
 
 公共 SQL 组件也归入 `internal/repo/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`blobregistry` 管理保护引用，`blobcatalog` 登记已校验的 CAS 对象。它们由各模块 Repository 复用；`blobstore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `dbexec`。
 

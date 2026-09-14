@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	service "retrom/internal/model/dependencies"
 	"retrom/internal/repo/recordstore"
-	service "retrom/internal/service/dependencies"
 
 	"github.com/google/uuid"
 )

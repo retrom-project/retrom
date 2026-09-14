@@ -4,35 +4,12 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	payload "retrom/internal/service/payloadrelease"
 )
 
-type (
-	CompletionCounts struct {
-		Blocked, Failed, ReviewPending, Published, ReviewDiscarded, Existing, Cancelled, Unfinished int64
-	}
-	CompletionChange struct {
-		Before      ExecutionSnapshot
-		Counts      CompletionCounts
-		ImportState string
-		Retryable   bool
-		NowMS       int64
-	}
-	CompletionRecords interface {
-		Payload() payload.ReleaseScope
-		Current(context.Context, string) (ExecutionSnapshot, error)
-		Counts(context.Context, string) (CompletionCounts, error)
-		Complete(context.Context, CompletionChange) error
-	}
-	CompletionRepository interface {
-		WithCompletion(context.Context, func(CompletionRecords) error) error
-	}
-	Completion struct {
-		repository CompletionRepository
-		now        func() time.Time
-	}
-)
+type Completion struct {
+	repository CompletionRepository
+	now        func() time.Time
+}
 
 func NewCompletion(repository CompletionRepository, now func() time.Time) *Completion {
 	return &Completion{repository: repository, now: now}

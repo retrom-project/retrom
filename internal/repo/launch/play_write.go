@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	application "retrom/internal/service/launch"
 )
 
 func (records playRecords) Start(ctx context.Context, plan application.PlayStart) error {

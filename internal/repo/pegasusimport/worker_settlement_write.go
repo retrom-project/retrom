@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/pegasusimport"
 )
 
 func (records workerSettlementRecords) Close(ctx context.Context, change application.WorkerSettlementChange) error {

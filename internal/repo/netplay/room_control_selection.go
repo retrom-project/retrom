@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/netplay"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/netplay"
 )
 
 func requireRoomChange(result sql.Result, err error, conflict error) error {

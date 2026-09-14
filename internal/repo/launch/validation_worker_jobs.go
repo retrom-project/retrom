@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	application "retrom/internal/service/launch"
+	application "retrom/internal/model/launch"
 )
 
 func (records validationWorkerRecords) Claim(ctx context.Context, plan application.ValidationClaimWrite) error {

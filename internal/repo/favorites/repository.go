@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/service/favorites"
+	"retrom/internal/model/favorites"
 )
 
 type Repository struct{ database *sql.DB }

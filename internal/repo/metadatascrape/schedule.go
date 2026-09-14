@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/metadatascrape"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/metadatascrape"
 )
 
 type (

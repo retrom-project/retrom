@@ -1,6 +1,6 @@
 package libraryimport
 
-import application "retrom/internal/service/libraryimport"
+import application "retrom/internal/model/libraryimport"
 
 func sourceOwnerTable(kind application.SourceOwnerKind) (string, error) {
 	switch kind {

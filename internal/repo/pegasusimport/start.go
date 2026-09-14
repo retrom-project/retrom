@@ -8,8 +8,8 @@ import (
 	payload "retrom/internal/repo/payloadrelease"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type Starter struct{ database *sql.DB }

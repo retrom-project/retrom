@@ -7,8 +7,8 @@ import (
 
 	"retrom/internal/foundation/cleanup"
 
+	"retrom/internal/model/gamecontent"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/gamecontent"
 )
 
 func retirementReferenceQuery(kind gamecontent.RetirementReferenceKind) string {

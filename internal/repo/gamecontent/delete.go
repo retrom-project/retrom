@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/gamecontent"
+	payloadservice "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/auditevents"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	application "retrom/internal/service/gamecontent"
-	payloadservice "retrom/internal/service/payloadrelease"
 
 	"github.com/google/uuid"
 )
