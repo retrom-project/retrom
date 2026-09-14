@@ -16,10 +16,13 @@ type ReviewDraftPatchRepository interface {
 
 type ReviewDraftValidationPort interface {
 	Resolve(context.Context, ReviewDraftValidationRequest) (application.ReviewValidationPlan, error)
+	ResolveSelected(context.Context, ReviewDraftSelectedValidationRequest) (application.ReviewValidationPlan, error)
 	SelectScummVM(context.Context, ReviewDraftScummVMRequest) (application.ReviewValidationPlan, error)
 }
 
 type ReviewDraftValidationReader = application.ReviewValidationRefreshReader
+
+type ReviewDraftValidationSelectedReader = application.ReviewValidationRefreshSelectedReader
 
 type ReviewDraftValidationDependencyReader = application.ReviewValidationRefreshDependencyReader
 
@@ -27,6 +30,11 @@ type ReviewDraftValidationRequest struct {
 	ItemID, TargetPlatformInstanceID string
 	DefaultDOSEntry                  *string
 	RPGSelfContainedOverride         *bool
+}
+
+type ReviewDraftSelectedValidationRequest struct {
+	ItemID, TargetPlatformInstanceID, ValidationID string
+	DefaultDOSEntry                                *string
 }
 
 type ReviewDraftScummVMRequest struct {

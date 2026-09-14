@@ -42,6 +42,12 @@ func (reviewPreviewValidationStub) Resolve(
 	return application.ReviewValidationPlan{SelectedValidationID: "validation"}, nil
 }
 
+func (reviewPreviewValidationStub) ResolveSelected(
+	context.Context, ReviewDraftSelectedValidationRequest,
+) (application.ReviewValidationPlan, error) {
+	return application.ReviewValidationPlan{}, nil
+}
+
 func (reviewPreviewValidationStub) SelectScummVM(
 	context.Context, ReviewDraftScummVMRequest,
 ) (application.ReviewValidationPlan, error) {

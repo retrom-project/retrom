@@ -2,6 +2,7 @@ package libraryimport
 
 import (
 	"database/sql"
+	"errors"
 	"strings"
 	"testing"
 
@@ -9,6 +10,19 @@ import (
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
+
+func TestReviewValidationInputsPreserveInfrastructureErrors(t *testing.T) {
+	t.Parallel()
+	cause := errors.New("validation facts unavailable")
+	wrapped := reviewValidationInputsError("read validation facts", cause)
+	if !errors.Is(wrapped, cause) || errors.Is(wrapped, application.ErrInvalid) {
+		t.Fatalf("wrapped infrastructure error = %v", wrapped)
+	}
+	invalid := reviewValidationInputsError("read validation facts", sql.ErrNoRows)
+	if !errors.Is(invalid, sql.ErrNoRows) || !errors.Is(invalid, application.ErrInvalid) {
+		t.Fatalf("classified missing facts error = %v", invalid)
+	}
+}
 
 func TestReviewValidationRefreshRepositoryLoadsTypedInputsAndCandidates(t *testing.T) {
 	t.Parallel()
@@ -95,6 +109,19 @@ func assertRefreshCandidates(
 	fallback, found, err := repository.Fallback(t.Context(), lookup)
 	if err != nil || !found || fallback.ID != exact.ID {
 		t.Fatalf("fallback=%#v found=%t err=%v", fallback, found, err)
+	}
+	assertSelectedRefreshCandidate(t, repository, instance, coreID, providerID, targetID, exact.ID)
+}
+
+func assertSelectedRefreshCandidate(
+	t *testing.T, repository *ReviewValidation, instance, coreID, providerID, targetID, exactID string,
+) {
+	t.Helper()
+	selected, found, err := repository.Selected(t.Context(), "item", "refresh-source")
+	if err != nil || !found || selected.ID != exactID || selected.SourceSnapshotID != "snapshot" ||
+		selected.TargetPlatformInstanceID != instance || selected.CoreID != coreID ||
+		selected.ProviderID != providerID || selected.TargetID != targetID {
+		t.Fatalf("selected=%#v found=%t err=%v", selected, found, err)
 	}
 }
 

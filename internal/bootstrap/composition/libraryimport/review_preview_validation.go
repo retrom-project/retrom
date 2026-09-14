@@ -13,7 +13,7 @@ func NewReviewPreviewValidations(
 	now func() time.Time,
 ) *application.ReviewPreviewValidations {
 	reviewValidation := repository.BindReviewValidation(database)
-	validation := application.NewReviewDraftValidationResolver(reviewValidation, reviewValidation, now)
+	validation := application.NewReviewDraftValidationResolver(reviewValidation, reviewValidation, reviewValidation, now)
 	return application.NewReviewPreviewValidations(
 		repository.NewReviewPreviewValidationRepository(database), validation, now,
 	)

@@ -96,8 +96,9 @@ func (service *ReviewDrafts) buildPatchPlan(
 	plan := application.ReviewDraftWritePlan{
 		ItemID: itemID, DraftID: snapshot.DraftID, ExpectedVersion: expectedVersion,
 		ExpectedTargetID: snapshot.TargetID, ExpectedValidationID: snapshot.ValidationID,
-		ExpectedEffectiveSnapshotID: snapshot.EffectiveSnapshotID,
-		ExpectedDOSEntry:            copyString(snapshot.DOSEntry), ExpectedIsRPG: snapshot.IsRPG,
+		ExpectedValidationPrepublishDigest: validationPlan.SelectedValidationPrepublishDigest,
+		ExpectedEffectiveSnapshotID:        snapshot.EffectiveSnapshotID,
+		ExpectedDOSEntry:                   copyString(snapshot.DOSEntry), ExpectedIsRPG: snapshot.IsRPG,
 		ExpectedValidationGuard:     validationPlan.Guard,
 		ValidationSelectionExplicit: patch.SelectedValidationID != nil,
 		TargetID:                    targetID, ValidationID: validationPlan.SelectedValidationID,
@@ -154,7 +155,8 @@ func (service *ReviewDrafts) resolveValidationPlan(
 		plan application.ReviewValidationPlan
 		err  error
 	)
-	if patch.ScummVMCandidateID != nil {
+	switch {
+	case patch.ScummVMCandidateID != nil:
 		// Preserve the legacy precedence rule: an explicit ScummVM candidate is
 		// the final selection. If a caller also sends a validation ID, it must
 		// describe the draft's current selection; it must not replace the new
@@ -166,7 +168,12 @@ func (service *ReviewDrafts) resolveValidationPlan(
 			ItemID: itemID, TargetPlatformInstanceID: targetID, DefaultDOSEntry: dosEntry,
 			CandidateID: *patch.ScummVMCandidateID,
 		})
-	} else {
+	case patch.SelectedValidationID != nil:
+		plan, err = service.validation.ResolveSelected(ctx, ReviewDraftSelectedValidationRequest{
+			ItemID: itemID, TargetPlatformInstanceID: targetID, DefaultDOSEntry: dosEntry,
+			ValidationID: *patch.SelectedValidationID,
+		})
+	default:
 		plan, err = service.validation.Resolve(ctx, ReviewDraftValidationRequest{
 			ItemID: itemID, TargetPlatformInstanceID: targetID, DefaultDOSEntry: dosEntry,
 			RPGSelfContainedOverride: patch.RPGSelfContainedOverride,
@@ -174,16 +181,6 @@ func (service *ReviewDrafts) resolveValidationPlan(
 	}
 	if err != nil {
 		return application.ReviewValidationPlan{}, fmt.Errorf("review validation: %w", err)
-	}
-	if patch.SelectedValidationID != nil && patch.ScummVMCandidateID == nil {
-		// Non-RPG explicit selection keeps its existing product contract: the
-		// repository validates the selected record, while Resolve above supplies
-		// the current external-fact guard. Do not let a resolver's refresh
-		// candidate replace the ID explicitly selected by the caller.
-		plan.SelectedValidationID = *patch.SelectedValidationID
-		plan.Create = nil
-		plan.Copy = nil
-		plan.RPGDependencyDigest = ""
 	}
 	return plan, nil
 }

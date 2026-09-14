@@ -15,7 +15,7 @@ func NewReviewDrafts(
 	now func() time.Time,
 ) *application.ReviewDrafts {
 	reviewValidation := repository.BindReviewValidation(database)
-	validation := application.NewReviewDraftValidationResolver(reviewValidation, reviewValidation, now)
+	validation := application.NewReviewDraftValidationResolver(reviewValidation, reviewValidation, reviewValidation, now)
 	return application.NewReviewDrafts(repository.NewReviewDraftPatches(database), application.ReviewDraftsOptions{
 		Validation: validation, Now: now,
 	})

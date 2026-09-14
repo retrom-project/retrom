@@ -14,13 +14,14 @@ type ReviewPreviewValidationDraft struct {
 // repository applies validation creation, file copying, and selection in one
 // transaction without calling back into the service layer.
 type ReviewPreviewValidationPlan struct {
-	ItemID, ValidationID       string
-	ExpectedVersion            int64
-	ExpectedSelectedValidation string
-	ExpectedValidationGuard    ReviewValidationGuard
-	Create                     *ReviewValidationRefreshCreate
-	Copy                       *ReviewValidationRefreshFileCopy
-	NowMS                      int64
+	ItemID, ValidationID                       string
+	ExpectedVersion                            int64
+	ExpectedSelectedValidation                 string
+	ExpectedSelectedValidationPrepublishDigest string
+	ExpectedValidationGuard                    ReviewValidationGuard
+	Create                                     *ReviewValidationRefreshCreate
+	Copy                                       *ReviewValidationRefreshFileCopy
+	NowMS                                      int64
 }
 
 type ReviewPreviewValidationRepository interface {

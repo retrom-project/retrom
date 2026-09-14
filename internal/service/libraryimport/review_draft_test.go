@@ -51,6 +51,12 @@ func (reviewDraftValidationStub) Resolve(
 	return application.ReviewValidationPlan{}, nil
 }
 
+func (reviewDraftValidationStub) ResolveSelected(
+	context.Context, ReviewDraftSelectedValidationRequest,
+) (application.ReviewValidationPlan, error) {
+	return application.ReviewValidationPlan{}, nil
+}
+
 func (reviewDraftValidationStub) SelectScummVM(
 	context.Context, ReviewDraftScummVMRequest,
 ) (application.ReviewValidationPlan, error) {
@@ -58,13 +64,20 @@ func (reviewDraftValidationStub) SelectScummVM(
 }
 
 type reviewDraftPlanValidationStub struct {
-	plan application.ReviewValidationPlan
+	plan         application.ReviewValidationPlan
+	selectedPlan application.ReviewValidationPlan
 }
 
 func (stub reviewDraftPlanValidationStub) Resolve(
 	context.Context, ReviewDraftValidationRequest,
 ) (application.ReviewValidationPlan, error) {
 	return stub.plan, nil
+}
+
+func (stub reviewDraftPlanValidationStub) ResolveSelected(
+	context.Context, ReviewDraftSelectedValidationRequest,
+) (application.ReviewValidationPlan, error) {
+	return stub.selectedPlan, nil
 }
 
 func (stub reviewDraftPlanValidationStub) SelectScummVM(
@@ -167,11 +180,14 @@ func TestReviewDraftsKeepsScummVMCandidatePlanWithCurrentExplicitSelection(t *te
 func TestReviewDraftsKeepsExplicitNonRPGSelection(t *testing.T) {
 	t.Parallel()
 	selected := "validation-explicit"
-	validation := reviewDraftPlanValidationStub{plan: application.ReviewValidationPlan{
+	validation := reviewDraftPlanValidationStub{selectedPlan: application.ReviewValidationPlan{
+		SelectedValidationID: selected,
+	}}
+	validation.plan = application.ReviewValidationPlan{
 		SelectedValidationID: "resolver-selection",
 		Create:               &application.ReviewValidationRefreshCreate{ID: "new-validation"},
 		Copy:                 &application.ReviewValidationRefreshFileCopy{ValidationID: "new-validation"},
-	}}
+	}
 	service := &ReviewDrafts{validation: validation}
 	plan, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil, DraftPatch{
 		SelectedValidationID: &selected,

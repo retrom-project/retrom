@@ -377,6 +377,11 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
 		sha256Value, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := importer.PatchDraft(ctx, itemID, 4, DraftPatch{
+		SelectedValidationID: &refreshedValidationID, TagIDs: []string{},
+	}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("stale explicit validation selection error = %v", err)
+	}
 	if err := json.Unmarshal([]byte(`{"metadata":{"description":"BIOS snapshot refreshed"},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
 	}

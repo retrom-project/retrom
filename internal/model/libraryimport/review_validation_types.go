@@ -64,8 +64,11 @@ func (guard ReviewValidationGuard) Valid() bool {
 // draft. It is deliberately a value object shared by the refresh workflow and
 // its storage adapter.
 type ReviewValidationRefreshRecord struct {
-	ID, SourceManifestDigest, PrepublishInputDigest string
-	Status, CompatibilityCode, DependencySnapshot   string
+	ID, SourceManifestDigest, PrepublishInputDigest                string
+	Status, CompatibilityCode, DependencySnapshot                  string
+	SourceSnapshotID, TargetPlatformInstanceID, CoreID, ProviderID string
+	TargetID                                                       string
+	DATVersionID, DefaultDOSEntry                                  *string
 }
 
 type ReviewValidationRefreshLookup struct {
@@ -99,6 +102,7 @@ type ReviewValidationRefreshFileCopy struct {
 //nolint:interfacebloat // one refresh transaction needs this cohesive read/write port
 type ReviewValidationRefreshRepository interface {
 	Inputs(context.Context, string, string) (ReviewValidationRefreshInputs, error)
+	Selected(context.Context, string, string) (ReviewValidationRefreshRecord, bool, error)
 	Exact(context.Context, ReviewValidationRefreshLookup) (ReviewValidationRefreshRecord, bool, error)
 	Fallback(context.Context, ReviewValidationRefreshLookup) (ReviewValidationRefreshRecord, bool, error)
 	Create(context.Context, ReviewValidationRefreshCreate) error
@@ -118,6 +122,10 @@ type ReviewValidationRefreshReader interface {
 	Fallback(context.Context, ReviewValidationRefreshLookup) (ReviewValidationRefreshRecord, bool, error)
 	ContentLogicalName(context.Context, string) (string, error)
 	RPGProfile(context.Context, string) (RPGReviewProfile, error)
+}
+
+type ReviewValidationRefreshSelectedReader interface {
+	Selected(context.Context, string, string) (ReviewValidationRefreshRecord, bool, error)
 }
 
 // ReviewValidationRefreshDependencyReader supplies the runtime dependency

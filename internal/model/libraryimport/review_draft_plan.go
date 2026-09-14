@@ -36,11 +36,12 @@ type ReviewDraftPatchSnapshot struct {
 // new validation record and its file-copy instructions. It is a value plan;
 // the repo applies it inside the draft write transaction.
 type ReviewValidationPlan struct {
-	SelectedValidationID string
-	Create               *ReviewValidationRefreshCreate
-	Copy                 *ReviewValidationRefreshFileCopy
-	RPGDependencyDigest  string
-	Guard                ReviewValidationGuard
+	SelectedValidationID               string
+	SelectedValidationPrepublishDigest string
+	Create                             *ReviewValidationRefreshCreate
+	Copy                               *ReviewValidationRefreshFileCopy
+	RPGDependencyDigest                string
+	Guard                              ReviewValidationGuard
 }
 
 // ReviewDraftWritePlan is the complete application decision handed to the
@@ -52,14 +53,15 @@ type ReviewDraftWritePlan struct {
 	// These fields describe the facts used to build the plan. CommitPatch
 	// checks them again inside its write transaction before applying any
 	// change, so a plan cannot silently cross a changed draft snapshot.
-	ExpectedVersion             int64
-	ExpectedTargetID            string
-	ExpectedValidationID        string
-	ExpectedEffectiveSnapshotID string
-	ExpectedDOSEntry            *string
-	ExpectedIsRPG               bool
-	ExpectedValidationGuard     ReviewValidationGuard
-	ValidationSelectionExplicit bool
+	ExpectedVersion                    int64
+	ExpectedTargetID                   string
+	ExpectedValidationID               string
+	ExpectedValidationPrepublishDigest string
+	ExpectedEffectiveSnapshotID        string
+	ExpectedDOSEntry                   *string
+	ExpectedIsRPG                      bool
+	ExpectedValidationGuard            ReviewValidationGuard
+	ValidationSelectionExplicit        bool
 
 	TargetID, ValidationID                                        string
 	CandidateID, CoverID, UploadedCoverID, BackgroundID, DOSEntry *string

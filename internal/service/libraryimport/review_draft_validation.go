@@ -20,19 +20,21 @@ import (
 // receives an executor or a transaction.
 type ReviewDraftValidationResolver struct {
 	reader       ReviewDraftValidationReader
+	selected     ReviewDraftValidationSelectedReader
 	dependencies ReviewDraftValidationDependencyReader
 	now          func() time.Time
 }
 
 func NewReviewDraftValidationResolver(
 	reader ReviewDraftValidationReader,
+	selected ReviewDraftValidationSelectedReader,
 	dependencies ReviewDraftValidationDependencyReader,
 	now func() time.Time,
 ) *ReviewDraftValidationResolver {
 	if now == nil {
 		now = time.Now
 	}
-	return &ReviewDraftValidationResolver{reader: reader, dependencies: dependencies, now: now}
+	return &ReviewDraftValidationResolver{reader: reader, selected: selected, dependencies: dependencies, now: now}
 }
 
 func (resolver *ReviewDraftValidationResolver) Resolve(
@@ -60,6 +62,41 @@ func (resolver *ReviewDraftValidationResolver) Resolve(
 		return application.ReviewValidationPlan{}, err
 	}
 	return state.newValidationPlan()
+}
+
+// ResolveSelected validates an explicitly requested non-RPG validation against
+// the current dependency facts. The selected record is a candidate, not a
+// shortcut around dependency resolution.
+func (resolver *ReviewDraftValidationResolver) ResolveSelected(
+	ctx context.Context, request ReviewDraftSelectedValidationRequest,
+) (application.ReviewValidationPlan, error) {
+	if request.ValidationID == "" {
+		return application.ReviewValidationPlan{}, ErrInvalid
+	}
+	if resolver.selected == nil {
+		return application.ReviewValidationPlan{}, ErrInvalid
+	}
+	state, err := resolver.load(ctx, request.ItemID, request.TargetPlatformInstanceID, request.DefaultDOSEntry)
+	if err != nil {
+		return application.ReviewValidationPlan{}, err
+	}
+	record, found, err := resolver.selected.Selected(ctx, request.ItemID, request.ValidationID)
+	if err != nil {
+		return application.ReviewValidationPlan{}, fmt.Errorf("read selected review validation: %w", err)
+	}
+	if !found || !state.selectedRecordMatches(record) {
+		return application.ReviewValidationPlan{}, ErrInvalid
+	}
+	state.setRecord(record)
+	dependencyState, err := state.resolveDependencyState()
+	if err != nil {
+		return application.ReviewValidationPlan{}, err
+	}
+	state.dependencyState = dependencyState
+	if state.sourceStatus != "READY" || !state.exactValidationCurrent() || !state.dependenciesCurrent() {
+		return application.ReviewValidationPlan{}, ErrInvalid
+	}
+	return state.plan(record.ID), nil
 }
 
 func (resolver *ReviewDraftValidationResolver) SelectScummVM(
@@ -169,10 +206,7 @@ func (state *draftValidationState) loadExact() (string, bool, error) {
 	if !state.exactValidationCurrent() {
 		return "", false, nil
 	}
-	dependenciesUnchanged := !dependencyState.tracked ||
-		(dependencyState.snapshotJSON == state.dependencySnapshot &&
-			dependencyState.status == state.sourceStatus && dependencyState.code == state.compatibilityCode)
-	if !dependenciesUnchanged {
+	if !state.dependenciesCurrent() {
 		return "", false, nil
 	}
 	if state.sourceStatus == "READY" {
@@ -188,6 +222,31 @@ func (state *draftValidationState) setRecord(record application.ReviewValidation
 	state.sourceStatus = record.Status
 	state.compatibilityCode = record.CompatibilityCode
 	state.dependencySnapshot = record.DependencySnapshot
+}
+
+func (state *draftValidationState) selectedRecordMatches(
+	record application.ReviewValidationRefreshRecord,
+) bool {
+	return record.ID != "" && record.SourceSnapshotID == state.effectiveSnapshotID &&
+		record.TargetPlatformInstanceID == state.targetID && record.CoreID == state.coreID &&
+		record.ProviderID == state.providerID && record.TargetID == state.runtimeTargetID &&
+		record.SourceManifestDigest == state.effectiveManifestDigest &&
+		sameValidationNullable(record.DATVersionID, state.datID) &&
+		sameValidationNullable(record.DefaultDOSEntry, state.dosEntry)
+}
+
+func sameValidationNullable(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func (state *draftValidationState) dependenciesCurrent() bool {
+	return !state.dependencyState.tracked ||
+		(state.dependencyState.snapshotJSON == state.dependencySnapshot &&
+			state.dependencyState.status == state.sourceStatus &&
+			state.dependencyState.code == state.compatibilityCode)
 }
 
 func (state *draftValidationState) exactValidationCurrent() bool {
@@ -308,7 +367,10 @@ func (state *draftValidationState) resolveDependencies() error {
 }
 
 func (state *draftValidationState) plan(selected string) application.ReviewValidationPlan {
-	plan := application.ReviewValidationPlan{SelectedValidationID: selected, Guard: state.guard()}
+	plan := application.ReviewValidationPlan{
+		SelectedValidationID: selected, SelectedValidationPrepublishDigest: state.sourceInputDigest,
+		Guard: state.guard(),
+	}
 	if state.contentKind == "RPG_MAKER_PROJECT" && state.dependencyState.tracked {
 		plan.RPGDependencyDigest = state.rpgDependencyDigest
 	}
@@ -353,7 +415,10 @@ func (state *draftValidationState) newValidationPlan() (application.ReviewValida
 		ValidationID: id.String(), SourceValidationID: state.sourceID, CreatedAtMS: createdAt,
 		ReplaceBIOSBundle: state.dependencyState.replaceBundle, Dependencies: state.dependencyState.dependencies,
 	}
-	plan := application.ReviewValidationPlan{Create: create, Copy: copyFiles, Guard: state.guard()}
+	plan := application.ReviewValidationPlan{
+		Create: create, Copy: copyFiles, SelectedValidationPrepublishDigest: create.PrepublishInputDigest,
+		Guard: state.guard(),
+	}
 	if state.sourceStatus == "READY" {
 		plan.SelectedValidationID = id.String()
 	}

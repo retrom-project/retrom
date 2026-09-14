@@ -50,8 +50,10 @@ func (service *ReviewPreviewValidations) Refresh(ctx context.Context, itemID str
 	if err := service.repository.Commit(ctx, ReviewPreviewValidationPlan{
 		ItemID: itemID, ValidationID: validationPlan.SelectedValidationID,
 		ExpectedVersion: draft.Version, ExpectedSelectedValidation: draft.Selected,
-		ExpectedValidationGuard: validationPlan.Guard,
-		Create:                  validationPlan.Create, Copy: validationPlan.Copy, NowMS: service.now().UnixMilli(),
+		ExpectedSelectedValidationPrepublishDigest: validationPlan.SelectedValidationPrepublishDigest,
+		ExpectedValidationGuard:                    validationPlan.Guard,
+		Create:                                     validationPlan.Create, Copy: validationPlan.Copy,
+		NowMS: service.now().UnixMilli(),
 	}); err != nil {
 		return fmt.Errorf("refresh review preview validation: %w", err)
 	}

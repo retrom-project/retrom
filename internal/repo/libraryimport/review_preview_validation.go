@@ -54,7 +54,10 @@ func (repository *ReviewPreviewValidationRepository) Commit(
 	defer dbexec.Rollback(transaction)
 	guard := plan.ExpectedValidationGuard
 	inputs, err := BindReviewValidation(transaction).Inputs(ctx, plan.ItemID, guard.TargetPlatformInstanceID)
-	if err != nil || !reviewValidationGuardMatches(guard, inputs, guard.TargetPlatformInstanceID, guard.DefaultDOSEntry) {
+	if err != nil {
+		return fmt.Errorf("read review preview validation facts: %w", err)
+	}
+	if !reviewValidationGuardMatches(guard, inputs, guard.TargetPlatformInstanceID, guard.DefaultDOSEntry) {
 		return application.ErrVersionConflict
 	}
 	if err := createPreviewValidation(ctx, transaction, plan); err != nil {
@@ -109,6 +112,9 @@ func previewValidationCreateMatches(plan application.ReviewPreviewValidationPlan
 	if !sameNullable(create.DATVersionID, guard.DATVersionID) {
 		return false
 	}
+	if create.PrepublishInputDigest != plan.ExpectedSelectedValidationPrepublishDigest {
+		return false
+	}
 	return sameNullable(create.DefaultDOSEntry, guard.DefaultDOSEntry)
 }
 
@@ -120,10 +126,14 @@ func selectPreviewValidation(
 		Scope: recordstore.Scope{Where: `import_item_id=? AND version=? AND
   COALESCE(selected_validation_id,'')=? AND EXISTS(
     SELECT 1 FROM import_items item WHERE item.id=review_drafts.import_item_id AND item.state='REVIEW_PENDING'
-	  ) AND EXISTS(
+  ) AND EXISTS(
     SELECT 1 FROM import_item_core_validations validation
     WHERE validation.id=? AND validation.import_item_id=review_drafts.import_item_id AND validation.status='READY'
-  )`, Args: []any{plan.ItemID, plan.ExpectedVersion, plan.ExpectedSelectedValidation, plan.ValidationID}},
+  AND validation.prepublish_input_digest=?
+  )`, Args: []any{
+			plan.ItemID, plan.ExpectedVersion, plan.ExpectedSelectedValidation,
+			plan.ValidationID, plan.ExpectedSelectedValidationPrepublishDigest,
+		}},
 		Values: []any{plan.ValidationID, plan.NowMS},
 	})
 	if err != nil {

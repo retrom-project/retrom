@@ -111,7 +111,7 @@
     },
     {
       "path": "internal/model/libraryimport/review_validation_types.go",
-      "line": 99,
+      "line": 102,
       "symbol": "type ReviewValidationRefreshRepository interface",
       "linter": "interfacebloat",
       "reason": "Validation refresh requires one transaction-bound port spanning evidence reads and candidate writes.",

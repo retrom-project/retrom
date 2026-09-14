@@ -346,6 +346,10 @@ func (server *Server) patchReview(writer http.ResponseWriter, request *http.Requ
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "审核条目版本已变化", map[string]any{})
 		return
 	}
+	if err != nil && !errors.Is(err, libraryimport.ErrInvalid) {
+		server.databaseError(writer, request, err)
+		return
+	}
 	if err != nil {
 		writeError(
 			writer,

@@ -29,17 +29,21 @@ SELECT draft.id,snapshot.id,snapshot.source_manifest_digest,snapshot.content_kin
 FROM review_drafts draft
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 WHERE draft.import_item_id=?
-`, itemID).Scan(
+	`, itemID).Scan(
 		&result.DraftID, &result.EffectiveSnapshotID, &result.EffectiveManifestDigest, &result.ContentKind,
 	); err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return application.ReviewValidationRefreshInputs{}, reviewValidationInputsError(
+			"read review draft validation inputs", err,
+		)
 	}
 	if err := records.executor.QueryRowContext(ctx, `
-SELECT version,platform_id,default_core_id
+	SELECT version,platform_id,default_core_id
 FROM platform_instances
 WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 	`, targetID).Scan(&result.PlatformVersion, &platformID, &defaultCoreID); err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return application.ReviewValidationRefreshInputs{}, reviewValidationInputsError(
+			"read review validation platform", err,
+		)
 	}
 	result.PlatformID = platformID
 	if platformID == "rpgmaker" {
@@ -59,14 +63,18 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 		&result.ProviderID, &result.RuntimeTargetID, &datVersionID,
 		contentquery.ScanPolicy(&result.ContentPolicy),
 	); err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return application.ReviewValidationRefreshInputs{}, reviewValidationInputsError(
+			"read review validation binding", err,
+		)
 	}
 	result.DATVersionID = nullableReviewValidationString(datVersionID)
 	dependencyDigest, err := records.dependencyFactsDigest(
 		ctx, itemID, result.ProviderID, result.RuntimeTargetID, result.ContentKind,
 	)
 	if err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return application.ReviewValidationRefreshInputs{}, reviewValidationInputsError(
+			"read review validation dependency facts", err,
+		)
 	}
 	result.DependencyFactsDigest = dependencyDigest
 	return result, nil
@@ -92,17 +100,57 @@ WHERE draft.import_item_id=? AND draft.target_platform_instance_id=?
 		&result.CoreID, &result.ProviderID, &result.RuntimeTargetID,
 		&datVersionID, contentquery.ScanPolicy(&result.ContentPolicy),
 	); err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return application.ReviewValidationRefreshInputs{}, reviewValidationInputsError(
+			"read RPG review validation binding", err,
+		)
 	}
 	result.DATVersionID = nullableReviewValidationString(datVersionID)
 	dependencyDigest, err := records.dependencyFactsDigest(
 		ctx, itemID, result.ProviderID, result.RuntimeTargetID, result.ContentKind,
 	)
 	if err != nil {
-		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+		return application.ReviewValidationRefreshInputs{}, reviewValidationInputsError(
+			"read RPG review validation dependency facts", err,
+		)
 	}
 	result.DependencyFactsDigest = dependencyDigest
 	return result, nil
+}
+
+func reviewValidationInputsError(operation string, err error) error {
+	if errors.Is(err, application.ErrInvalid) || errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("%w: %s: %w", application.ErrInvalid, operation, err)
+	}
+	return fmt.Errorf("%s: %w", operation, err)
+}
+
+func (records *ReviewValidation) Selected(
+	ctx context.Context, itemID, validationID string,
+) (application.ReviewValidationRefreshRecord, bool, error) {
+	var result application.ReviewValidationRefreshRecord
+	var datVersionID, dosEntry sql.NullString
+	err := records.executor.QueryRowContext(ctx, `
+SELECT id,source_manifest_digest,prepublish_input_digest,status,
+  compatibility_code,dependency_snapshot_json,source_snapshot_id,
+  target_platform_instance_id,core_id,provider_id,target_id,
+  dat_version_id,default_dos_entry
+FROM import_item_core_validations
+WHERE id=? AND import_item_id=?
+`, validationID, itemID).Scan(
+		&result.ID, &result.SourceManifestDigest, &result.PrepublishInputDigest,
+		&result.Status, &result.CompatibilityCode, &result.DependencySnapshot,
+		&result.SourceSnapshotID, &result.TargetPlatformInstanceID, &result.CoreID,
+		&result.ProviderID, &result.TargetID, &datVersionID, &dosEntry,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return application.ReviewValidationRefreshRecord{}, false, nil
+	}
+	if err != nil {
+		return application.ReviewValidationRefreshRecord{}, false, fmt.Errorf("query selected review validation: %w", err)
+	}
+	result.DATVersionID = nullableReviewValidationString(datVersionID)
+	result.DefaultDOSEntry = nullableReviewValidationString(dosEntry)
+	return result, true, nil
 }
 
 func nullableReviewValidationString(value sql.NullString) *string {

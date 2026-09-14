@@ -268,7 +268,7 @@ func (run *draftPatchRun) validateValidationGuard() error {
 	guard := run.plan.ExpectedValidationGuard
 	inputs, err := BindReviewValidation(run.transaction).Inputs(run.ctx, run.plan.ItemID, run.targetID)
 	if err != nil {
-		return application.ErrVersionConflict
+		return fmt.Errorf("read review draft validation facts: %w", err)
 	}
 	if !reviewValidationGuardMatches(guard, inputs, run.targetID, run.plan.DOSEntry) {
 		return application.ErrVersionConflict
@@ -362,6 +362,9 @@ func (run *draftPatchRun) validationCreateMatches(create *application.ReviewVali
 		!sameNullable(create.DATVersionID, guard.DATVersionID) {
 		return false
 	}
+	if create.PrepublishInputDigest != run.plan.ExpectedValidationPrepublishDigest {
+		return false
+	}
 	return (create.Status == "READY") == (run.plan.ValidationID == create.ID)
 }
 
@@ -436,6 +439,9 @@ func (run *draftPatchRun) existingValidationMatches(
 		return false
 	}
 	if !sameNullable(datVersionID, guard.DATVersionID) || !sameNullable(dosEntry, guard.DefaultDOSEntry) {
+		return false
+	}
+	if prepublishInputDigest != run.plan.ExpectedValidationPrepublishDigest {
 		return false
 	}
 	return application.PrepublishDigestMatches(prepublishInputDigest, application.PrepublishDigestInput{
