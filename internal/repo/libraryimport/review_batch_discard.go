@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/foundation/cleanup"
 	application "retrom/internal/model/libraryimport"
-	payloadservice "retrom/internal/model/payloadrelease"
+	payloadmodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 )
@@ -68,10 +68,10 @@ SELECT id FROM import_items WHERE import_job_id=? AND payload_state='RETAINED'`,
 	if err != nil {
 		return fmt.Errorf("list discarded children: %w", err)
 	}
-	scheduler := payloadservice.NewScheduler(nil)
+	scheduler := payloadpersistence.NewScheduler(nil)
 	for _, id := range ids {
 		if _, err := scheduler.TerminalItem(ctx, payloadpersistence.BindScheduling(tx), id,
-			payloadservice.ReasonImportDiscarded, now); err != nil {
+			payloadmodel.ReasonImportDiscarded, now); err != nil {
 			return fmt.Errorf("release discarded child: %w", err)
 		}
 	}

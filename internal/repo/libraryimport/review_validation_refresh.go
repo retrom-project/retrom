@@ -7,8 +7,11 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/capability/content/corevalidation"
+	corevalidationmodel "retrom/internal/model/corevalidation"
 	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/contentquery"
+	corevalidationrepo "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/recordstore"
 )
 
@@ -271,4 +274,19 @@ UPDATE rpgmaker_review_profiles SET dependency_snapshot_sha256=?,updated_at_ms=?
 	return nil
 }
 
+// BIOS exposes only the facts needed by the application validation planner.
+// The planner receives values and never receives this executor.
+func (records *ReviewValidation) BIOS(
+	ctx context.Context, providerID, targetID string,
+) ([]corevalidationmodel.BIOSRecord, error) {
+	return corevalidationrepo.New(records.executor).BIOS(ctx, providerID, targetID)
+}
+
+func (records *ReviewValidation) ArcadeBIOS(
+	ctx context.Context, providerID, targetID, logicalName string,
+) (corevalidation.BIOSDependency, bool, error) {
+	return BindCreationArcade(records.executor).BIOS(ctx, providerID, targetID, logicalName)
+}
+
 var _ application.ReviewValidationRefreshRepository = (*ReviewValidation)(nil)
+var _ application.ReviewValidationRefreshReader = (*ReviewValidation)(nil)

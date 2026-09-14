@@ -61,7 +61,6 @@ type (
 	ScopeType               = model.ScopeType
 	ReleaseScope            = model.ReleaseScope
 	ReviewRelease           = model.ReviewRelease
-	Scheduler               = model.Scheduler
 	SourceBatch             = model.SourceBatch
 	SourceReleaseReader     = model.SourceReleaseReader
 	Work                    = model.Work
@@ -142,7 +141,6 @@ var (
 )
 
 var (
-	NewScheduler               = model.NewScheduler
 	NewImpactQueries           = model.NewImpactQueries
 	GameDeleteAuditImpact      = model.GameDeleteAuditImpact
 	NormalizeImpactSourceKinds = model.NormalizeImpactSourceKinds

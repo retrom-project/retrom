@@ -11,9 +11,9 @@ import (
 func NewReviewPreviewValidations(
 	database *sql.DB,
 	now func() time.Time,
-	refresh repository.DraftValidationRefresher,
 ) *application.ReviewPreviewValidations {
+	validation := application.NewReviewDraftValidationResolver(repository.BindReviewValidation(database), now)
 	return application.NewReviewPreviewValidations(
-		repository.NewReviewPreviewValidationRepository(database, refresh), now,
+		repository.NewReviewPreviewValidationRepository(database), validation, now,
 	)
 }

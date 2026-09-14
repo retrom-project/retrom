@@ -10,53 +10,86 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-type ReviewPreviewValidationDraft struct {
-	TargetID string
-	Selected string
-	DOSEntry sql.NullString
+// ReviewPreviewValidationRepository owns the preview refresh transaction. It
+// accepts a value-only plan and never invokes a service or adapter callback.
+type ReviewPreviewValidationRepository struct{ database *sql.DB }
+
+func NewReviewPreviewValidationRepository(database *sql.DB) *ReviewPreviewValidationRepository {
+	return &ReviewPreviewValidationRepository{database: database}
 }
 
-type ReviewPreviewValidations struct{ executor dbexec.Executor }
-
-// ReviewPreviewValidationRepository owns the transaction around preview
-// validation refreshes. The validation resolver remains a typed callback until
-// the legacy validation workflow is migrated into the application package.
-type ReviewPreviewValidationRepository struct {
-	database *sql.DB
-	refresh  DraftValidationRefresher
+func (repository *ReviewPreviewValidationRepository) Draft(
+	ctx context.Context, itemID string,
+) (application.ReviewPreviewValidationDraft, error) {
+	if repository == nil || repository.database == nil {
+		return application.ReviewPreviewValidationDraft{}, application.ErrInvalid
+	}
+	var result application.ReviewPreviewValidationDraft
+	var dosEntry sql.NullString
+	err := repository.database.QueryRowContext(ctx, `
+SELECT draft.target_platform_instance_id,COALESCE(draft.selected_validation_id,''),
+  draft.default_dos_entry,draft.version
+FROM review_drafts draft JOIN import_items item ON item.id=draft.import_item_id
+WHERE item.id=? AND item.state='REVIEW_PENDING'
+`, itemID).Scan(&result.TargetID, &result.Selected, &dosEntry, &result.Version)
+	if err != nil {
+		return application.ReviewPreviewValidationDraft{}, fmt.Errorf("query review preview draft: %w", err)
+	}
+	result.ItemID = itemID
+	result.DOSEntry = nullablePointer(dosEntry)
+	return result, nil
 }
 
-func NewReviewPreviewValidationRepository(
-	database *sql.DB,
-	refresh DraftValidationRefresher,
-) *ReviewPreviewValidationRepository {
-	return &ReviewPreviewValidationRepository{database: database, refresh: refresh}
-}
-
-func (repository *ReviewPreviewValidationRepository) Refresh(
-	ctx context.Context, itemID string, nowMS int64,
+func (repository *ReviewPreviewValidationRepository) Commit(
+	ctx context.Context, plan application.ReviewPreviewValidationPlan,
 ) error {
-	if repository == nil || repository.refresh == nil {
+	if repository == nil || repository.database == nil || plan.ItemID == "" || plan.ValidationID == "" ||
+		plan.ExpectedVersion < 1 || plan.NowMS < 0 {
 		return application.ErrInvalid
 	}
-	return NewTransactions(repository.database).Write(ctx, func(executor dbexec.Executor) error {
-		draft, err := BindReviewPreviewValidations(executor).Draft(ctx, itemID)
-		if err != nil {
-			return fmt.Errorf("read review preview draft: %w", err)
+	transaction, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin review preview validation: %w", err)
+	}
+	defer dbexec.Rollback(transaction)
+	if plan.Create != nil {
+		if plan.Create.ID != plan.ValidationID || plan.Create.ItemID != plan.ItemID ||
+			plan.Copy == nil || plan.Copy.ValidationID != plan.ValidationID {
+			return application.ErrInvalid
 		}
-		validationID, err := repository.refresh(ctx, executor, itemID, draft.TargetID, draft.DOSEntry)
-		if err != nil {
-			return err
+		if err := BindReviewValidation(transaction).Create(ctx, *plan.Create); err != nil {
+			return fmt.Errorf("create review preview validation: %w", err)
 		}
-		if validationID == draft.Selected {
-			return nil
+		if err := BindReviewValidation(transaction).CopyFiles(ctx, *plan.Copy); err != nil {
+			return fmt.Errorf("copy review preview validation files: %w", err)
 		}
-		if err := BindReviewPreviewValidations(executor).Select(ctx, itemID, validationID, nowMS); err != nil {
-			return fmt.Errorf("select review preview validation: %w", err)
-		}
-		return nil
+	}
+	result, err := recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+		Set: `selected_validation_id=NULLIF(?,''),version=version+1,updated_at_ms=?`,
+		Scope: recordstore.Scope{Where: `import_item_id=? AND version=? AND
+  COALESCE(selected_validation_id,'')=? AND EXISTS(
+    SELECT 1 FROM import_items item WHERE item.id=review_drafts.import_item_id AND item.state='REVIEW_PENDING'
+	  ) AND EXISTS(
+    SELECT 1 FROM import_item_core_validations validation
+    WHERE validation.id=? AND validation.import_item_id=review_drafts.import_item_id AND validation.status='READY'
+  )`, Args: []any{plan.ItemID, plan.ExpectedVersion, plan.ExpectedSelectedValidation, plan.ValidationID}},
+		Values: []any{plan.ValidationID, plan.NowMS},
 	})
+	if err != nil {
+		return fmt.Errorf("select review preview validation: %w", err)
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return application.ErrVersionConflict
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("commit review preview validation: %w", err)
+	}
+	return nil
 }
+
+// The binder remains useful to other read-side review code. It intentionally
+// exposes only executor-scoped SQL helpers, not the application transaction.
+type ReviewPreviewValidations struct{ executor dbexec.Executor }
 
 func BindReviewPreviewValidations(executor dbexec.Executor) ReviewPreviewValidations {
 	return ReviewPreviewValidations{executor: executor}
@@ -64,16 +97,20 @@ func BindReviewPreviewValidations(executor dbexec.Executor) ReviewPreviewValidat
 
 func (records ReviewPreviewValidations) Draft(
 	ctx context.Context, itemID string,
-) (ReviewPreviewValidationDraft, error) {
-	var result ReviewPreviewValidationDraft
+) (application.ReviewPreviewValidationDraft, error) {
+	var result application.ReviewPreviewValidationDraft
+	var dosEntry sql.NullString
 	err := records.executor.QueryRowContext(ctx, `
-SELECT draft.target_platform_instance_id,COALESCE(draft.selected_validation_id,''),draft.default_dos_entry
+SELECT draft.target_platform_instance_id,COALESCE(draft.selected_validation_id,''),
+  draft.default_dos_entry,draft.version
 FROM review_drafts draft JOIN import_items item ON item.id=draft.import_item_id
 WHERE item.id=? AND item.state='REVIEW_PENDING'
-`, itemID).Scan(&result.TargetID, &result.Selected, &result.DOSEntry)
+`, itemID).Scan(&result.TargetID, &result.Selected, &dosEntry, &result.Version)
 	if err != nil {
-		return ReviewPreviewValidationDraft{}, fmt.Errorf("query review preview draft: %w", err)
+		return application.ReviewPreviewValidationDraft{}, fmt.Errorf("query review preview draft: %w", err)
 	}
+	result.ItemID = itemID
+	result.DOSEntry = nullablePointer(dosEntry)
 	return result, nil
 }
 

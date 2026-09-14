@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/model/importdiscard"
-	payloadservice "retrom/internal/model/payloadrelease"
+	payloadmodel "retrom/internal/model/payloadrelease"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
 )
@@ -64,17 +64,17 @@ SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, i
 func scheduleSourceRelease(ctx context.Context, tx *sql.Tx, kind, id string, now int64) error {
 	var err error
 	if kind == "PEGASUS" {
-		_, err = payloadservice.NewScheduler(nil).TerminalSource(
+		_, err = payloadpersistence.NewScheduler(nil).TerminalSource(
 			ctx,
 			payloadpersistence.BindScheduling(tx),
-			payloadservice.Scope{Type: payloadservice.ScopePegasusImportItem, ID: id},
+			payloadmodel.Scope{Type: payloadmodel.ScopePegasusImportItem, ID: id},
 			now,
 		)
 	} else {
-		_, err = payloadservice.NewScheduler(nil).TerminalSource(
+		_, err = payloadpersistence.NewScheduler(nil).TerminalSource(
 			ctx,
 			payloadpersistence.BindScheduling(tx),
-			payloadservice.Scope{Type: payloadservice.ScopeEmulationStationImportItem, ID: id},
+			payloadmodel.Scope{Type: payloadmodel.ScopeEmulationStationImportItem, ID: id},
 			now,
 		)
 	}

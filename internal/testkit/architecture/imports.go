@@ -82,7 +82,7 @@ func AssertNoImportsIn(t testing.TB, directory, forbiddenPrefix string) {
 			if err != nil {
 				return fmt.Errorf("decode import path in %q: %w", path, err)
 			}
-			if value == forbiddenPrefix || strings.HasPrefix(value, forbiddenPrefix) {
+			if inPackageTree(value, forbiddenPrefix) {
 				t.Errorf("%s imports forbidden layer %s", path, value)
 			}
 		}
@@ -91,6 +91,11 @@ func AssertNoImportsIn(t testing.TB, directory, forbiddenPrefix string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func inPackageTree(importPath, root string) bool {
+	root = strings.TrimSuffix(root, "/")
+	return importPath == root || strings.HasPrefix(importPath, root+"/")
 }
 
 // GoSourceFiles returns the production Go files in the calling package.

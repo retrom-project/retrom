@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	release "retrom/internal/model/payloadrelease"
+	release "retrom/internal/service/payloadrelease"
 )
 
 // ScheduleRestoredPayloads runs after source termination in the same restore transaction.

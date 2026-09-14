@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"retrom/internal/model/payloadrelease"
+	"retrom/internal/service/payloadrelease"
 )
 
 func SupersedeInScope(ctx context.Context, scope SupersessionScope, requirementID string, now int64) error {

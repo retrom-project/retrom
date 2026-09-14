@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -40,37 +39,6 @@ type Requirement struct {
 type Retirement struct {
 	ProviderID, TargetID, CurrentVersionID string
 	AtMS                                   int64
-}
-
-func SyncRequirements(ctx context.Context, records Records, datID string, now time.Time) error {
-	definition, err := records.Definition(ctx, datID)
-	if err != nil {
-		return fmt.Errorf("datindex/read definition: %w", err)
-	}
-	machines, err := records.MachineNames(ctx, datID)
-	if err != nil {
-		return fmt.Errorf("datindex/read machines: %w", err)
-	}
-	for _, machine := range machines {
-		entries, err := records.RequiredEntries(ctx, datID, machine)
-		if err != nil {
-			return fmt.Errorf("datindex/read requirement entries: %w", err)
-		}
-		requirement, err := buildRequirement(definition, datID, machine, entries, now.UnixMilli())
-		if err != nil {
-			return err
-		}
-		if err := records.UpsertRequirement(ctx, requirement); err != nil {
-			return fmt.Errorf("datindex/sync requirement: %w", err)
-		}
-	}
-	if err := records.DisableStale(ctx, Retirement{
-		ProviderID: definition.ProviderID, TargetID: definition.TargetID,
-		CurrentVersionID: datID, AtMS: now.UnixMilli(),
-	}); err != nil {
-		return fmt.Errorf("datindex/retire requirements: %w", err)
-	}
-	return nil
 }
 
 func buildRequirement(definition Definition, datID, machine string, entries []Entry, now int64) (Requirement, error) {

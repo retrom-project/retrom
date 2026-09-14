@@ -190,8 +190,6 @@ type (
 	SelectedAssets                            = model.SelectedAssets
 	DraftPatch                                = model.DraftPatch
 	DraftResult                               = model.DraftResult
-	ReviewDraftPatchRequest                   = model.ReviewDraftPatchRequest
-	ReviewDraftPatchRepository                = model.ReviewDraftPatchRepository
 	ReviewValidationEvidence                  = model.ReviewValidationEvidence
 	ReviewValidationReader                    = model.ReviewValidationReader
 	ReviewValidationRefreshCreate             = model.ReviewValidationRefreshCreate
@@ -356,6 +354,8 @@ type (
 	ReviewDeduplicateRequest                  = model.ReviewDeduplicateRequest
 	ReviewDeduplicateResult                   = model.ReviewDeduplicateResult
 	ReviewPreviewValidationRepository         = model.ReviewPreviewValidationRepository
+	ReviewPreviewValidationDraft              = model.ReviewPreviewValidationDraft
+	ReviewPreviewValidationPlan               = model.ReviewPreviewValidationPlan
 )
 
 const (
@@ -417,7 +417,6 @@ const (
 
 var (
 	ArcadeDependencyClosure          = model.ArcadeDependencyClosure
-	LoadArcadeClosure                = model.LoadArcadeClosure
 	ResolveRPGResourcePolicy         = model.ResolveRPGResourcePolicy
 	ResolveRPGReviewDependencies     = model.ResolveRPGReviewDependencies
 	NewContentDuplicates             = model.NewContentDuplicates

@@ -17,8 +17,10 @@ type (
 	Owner                  = model.Owner
 	OwnerKind              = model.OwnerKind
 	Reference              = model.Reference
+	ReferenceReader        = model.ReferenceReader
 	RelationRecords        = model.RelationRecords
 	Repository             = model.Repository
+	ReplacementPlan        = model.ReplacementPlan
 	Summary                = model.Summary
 	TagReader              = model.TagReader
 	TagWrite               = model.TagWrite
@@ -57,4 +59,12 @@ var (
 	ErrNotFound                = model.ErrNotFound
 	ErrReferenceInvalid        = model.ErrReferenceInvalid
 	ErrVersionConflict         = model.ErrVersionConflict
+)
+
+var (
+	BuildReplacementPlan         = model.BuildReplacementPlan
+	ValidateActiveReferenceFacts = model.ValidateActiveReferenceFacts
+	ReferenceDiff                = model.ReferenceDiff
+	ReferenceIDs                 = model.ReferenceIDs
+	ReferencesEqual              = model.ReferencesEqual
 )

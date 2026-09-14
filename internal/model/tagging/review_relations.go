@@ -1,61 +1,64 @@
 package tagging
 
 import (
-	"context"
-	"fmt"
 	"sort"
 	"strings"
 )
 
-type ReferenceReader interface {
-	References(context.Context, Owner) ([]Reference, error)
+// ReplacementPlan is the value-only description of a relation replacement.
+// It deliberately contains no reader, writer, transaction, or context so it
+// can be built by an application service and applied atomically by a repo.
+type ReplacementPlan struct {
+	Owner       Owner
+	Before      []Reference
+	After       []Reference
+	Added       []Reference
+	Removed     []Reference
+	ActorUserID string
+	NowMS       int64
+	Changed     bool
 }
 
-func ReviewDraftReferencesInScope(ctx context.Context, reader ReferenceReader, draftID string) ([]Reference, error) {
-	refs, err := reader.References(ctx, Owner{Kind: OwnerReviewDraft, ID: draftID})
-	return refs, relationError("review references", err)
-}
-
-func ReplaceReviewDraftTags(
-	ctx context.Context,
-	scope WriteScope,
-	draftID string,
-	ids []string,
+// BuildReplacementPlan validates and compares already-loaded relation facts.
+// The caller is responsible for loading active references; this function only
+// computes the deterministic relation delta.
+func BuildReplacementPlan(
+	owner Owner,
+	before, after []Reference,
 	actorUserID string,
 	now int64,
-) ([]Reference, []Reference, error) {
-	if !ValidID(draftID) {
-		return nil, nil, ErrInvalid
+) (ReplacementPlan, error) {
+	if !ValidID(owner.ID) {
+		return ReplacementPlan{}, ErrInvalid
 	}
-	desired, err := ValidateActiveReferences(ctx, scope.Tags, ids)
-	if err != nil {
-		return nil, nil, err
+	if _, err := ValidateIDs(ReferenceIDs(after)); err != nil {
+		return ReplacementPlan{}, err
 	}
-	owner := Owner{Kind: OwnerReviewDraft, ID: draftID}
-	before, err := scope.Relations.References(ctx, owner)
-	if err != nil {
-		return nil, nil, relationError("read review tags", err)
+	plan := ReplacementPlan{
+		Owner: owner, Before: append([]Reference(nil), before...),
+		After: append([]Reference(nil), after...), ActorUserID: actorUserID, NowMS: now,
 	}
-	if sameReferences(before, desired) {
-		return before, desired, nil
+	if ReferencesEqual(before, after) {
+		return plan, nil
 	}
 	if !ValidID(actorUserID) {
-		return nil, nil, ErrInvalid
+		return ReplacementPlan{}, ErrInvalid
 	}
-	return replaceOwnerReferences(ctx, scope, owner, actorUserID, desired, now)
+	plan.Added, plan.Removed = ReferenceDiff(before, after)
+	plan.Changed = true
+	return plan, nil
 }
 
-func ValidateActiveReferences(ctx context.Context, reader TagReader, tagIDs []string) ([]Reference, error) {
-	validated, err := ValidateIDs(tagIDs)
+// ValidateActiveReferenceFacts validates requested IDs against an already
+// loaded set of active tag records. It is the pure counterpart of the
+// service-level database reader.
+func ValidateActiveReferenceFacts(ids []string, result []Reference) ([]Reference, error) {
+	validated, err := ValidateIDs(ids)
 	if err != nil {
 		return nil, err
 	}
 	if len(validated) == 0 {
 		return []Reference{}, nil
-	}
-	result, err := reader.ActiveReferences(ctx, validated)
-	if err != nil {
-		return nil, relationError("read active references", err)
 	}
 	found := make(map[string]struct{}, len(result))
 	for _, reference := range result {
@@ -89,7 +92,12 @@ func sameReferences(left, right []Reference) bool {
 	return strings.Join(leftIDs, "\x00") == strings.Join(rightIDs, "\x00")
 }
 
-func referenceIDs(values []Reference) []string {
+// ReferencesEqual compares relation identity as an unordered set.
+func ReferencesEqual(left, right []Reference) bool {
+	return sameReferences(left, right)
+}
+
+func ReferenceIDs(values []Reference) []string {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
 		result = append(result, value.TagID)
@@ -97,7 +105,7 @@ func referenceIDs(values []Reference) []string {
 	return result
 }
 
-func referenceDiff(before, after []Reference) ([]Reference, []Reference) {
+func ReferenceDiff(before, after []Reference) ([]Reference, []Reference) {
 	added := make([]Reference, 0)
 	removed := make([]Reference, 0)
 	beforeByID := make(map[string]Reference, len(before))
@@ -117,42 +125,4 @@ func referenceDiff(before, after []Reference) ([]Reference, []Reference) {
 		}
 	}
 	return added, removed
-}
-
-func replaceOwnerReferences(
-	ctx context.Context,
-	scope WriteScope,
-	owner Owner,
-	actorUserID string,
-	desired []Reference,
-	now int64,
-) ([]Reference, []Reference, error) {
-	before, err := scope.Relations.References(ctx, owner)
-	if err != nil {
-		return nil, nil, relationError("read owner references", err)
-	}
-	if sameReferences(before, desired) {
-		return before, desired, nil
-	}
-	added, removed := referenceDiff(before, desired)
-	if err := scope.Relations.Remove(ctx, owner, referenceIDs(removed)); err != nil {
-		return nil, nil, relationError("remove owner tags", err)
-	}
-	if err := scope.Relations.Add(ctx, Assignment{
-		Owner: owner, References: added, ActorUserID: actorUserID, NowMS: now,
-	}); err != nil {
-		return nil, nil, relationError("add owner tags", err)
-	}
-	touched := append(referenceIDs(added), referenceIDs(removed)...)
-	if err := scope.Relations.TouchTags(ctx, actorUserID, touched, now); err != nil {
-		return nil, nil, relationError("touch owner tags", err)
-	}
-	return before, desired, nil
-}
-
-func relationError(operation string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("tagging: %s: %w", operation, err)
 }

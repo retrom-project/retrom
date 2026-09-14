@@ -52,11 +52,7 @@ func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Serv
 	service := &Service{
 		database: database, now: now, tags: tagging.New(tagpersistence.New(database), now),
 	}
-	service.reviewDrafts = composition.NewReviewDrafts(
-		database, now,
-		service.ensureCompatibleDraftValidation,
-		service.selectScummVMCandidate,
-	)
+	service.reviewDrafts = composition.NewReviewDrafts(database, now)
 	if len(scraper) > 0 {
 		service.scraper = scraper[0]
 	}

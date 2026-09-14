@@ -1,7 +1,6 @@
 package libraryimport
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"retrom/internal/capability/security/authn"
 	"retrom/internal/model/tagging"
 )
 
@@ -98,23 +96,6 @@ type DraftResult struct {
 	Metadata    map[string]any      `json:"metadata"`
 	Tags        []tagging.Reference `json:"tags"`
 	UpdatedAtMS int64               `json:"updatedAtMs"`
-}
-
-// ReviewDraftPatchRequest is the application command handed to the review
-// draft repository. Actor projection happens in the service boundary so the
-// repository does not need to inspect request context or HTTP concerns.
-type ReviewDraftPatchRequest struct {
-	ItemID          string
-	ExpectedVersion int64
-	Patch           DraftPatch
-	Actor           authn.Actor
-}
-
-// ReviewDraftPatchRepository owns the transaction and storage details of a
-// draft patch. The application service deliberately exposes only this typed
-// port to callers.
-type ReviewDraftPatchRepository interface {
-	Patch(context.Context, ReviewDraftPatchRequest) (DraftResult, error)
 }
 
 // ErrReimportRequiredPlatformChange is returned when changing the base

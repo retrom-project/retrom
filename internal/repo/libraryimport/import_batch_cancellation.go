@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	application "retrom/internal/model/libraryimport"
-	payloadservice "retrom/internal/model/payloadrelease"
+	payloadmodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
@@ -146,10 +146,10 @@ ORDER BY id`, importID)
 	if err != nil {
 		return fmt.Errorf("list cancelled import payloads: %w", err)
 	}
-	scheduler := payloadservice.NewScheduler(nil)
+	scheduler := payloadpersistence.NewScheduler(nil)
 	for _, itemID := range ids {
 		if _, err := scheduler.TerminalItem(ctx, payloadpersistence.BindScheduling(tx), itemID,
-			payloadservice.ReasonImportCancelled, now); err != nil {
+			payloadmodel.ReasonImportCancelled, now); err != nil {
 			return fmt.Errorf("schedule cancelled import payload: %w", err)
 		}
 	}

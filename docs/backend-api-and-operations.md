@@ -127,7 +127,7 @@ web/components/           无业务状态的通用组件
 
 ### 2.1 Service 与持久化边界
 
-业务模块的共享 DTO、Entity、领域错误、Repository/Capability port 与纯领域策略放在 `internal/model/<模块>`；`internal/service/<模块>` 只负责用例编排和跨端口协调；`internal/repo/<模块>` 实现 model port，封装 SQL、字段映射和原子操作。生产代码中的 model 与 repo 不得导入 service，避免把共享契约放在高层后形成反向依赖。目录不绑定数据库产品名称。解析器、算法和内容格式校验仍按独立基础能力组织，不因分层统一迁入 Service。
+业务模块的共享 DTO、Entity、领域错误、Repository/Capability port 与纯领域策略放在 `internal/model/<模块>`；`internal/service/<模块>` 只负责用例编排和跨端口协调；`internal/repo/<模块>` 实现 model port，封装 SQL、字段映射和原子操作。生产代码中的 model 与 repo 不得导入 service，service 也不得导入具体 repo；具体实现只在 composition 中组装。目录不绑定数据库产品名称。解析器、算法和内容格式校验仍按独立基础能力组织，不因分层统一迁入 Service。
 
 Handler 负责协议解析、身份提取和结果映射，通过 Service 执行业务；Service 不导入数据库驱动或持久化实现，也不接收 SQL、表名、SET/WHERE、连接或事务对象。组装代码创建 Repository 并注入 Service。接口返回业务结果与可识别错误，不把 `sql.Rows`、`sql.Result`、`sql.Null*` 传播到上层。
 
@@ -135,7 +135,7 @@ Handler 负责协议解析、身份提取和结果映射，通过 Service 执行
 
 公共 SQL 组件也归入 `internal/repo/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`blobregistry` 管理保护引用，`blobcatalog` 登记已校验的 CAS 对象。它们由各模块 Repository 复用；`blobstore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `dbexec`。
 
-Service 决定事务范围；Repository 的事务回调只提供绑定到同一事务的业务能力。跨表校验、乐观条件、幂等响应和联动写入保持原子，失败与取消必须回滚。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
+Service 决定用例需要的原子边界；对于跨层写入，优先由 Service 生成只含业务值和并发 guard 的 plan，再由 Repository 在一个短事务内完成跨表校验、乐观条件、幂等响应和联动写入，失败与取消必须整体回滚。Repository 不得执行或触发注入的上层业务回调、校验服务或流程编排，也不得把 Executor、事务对象或 SQL 值传播到上层。历史通用 Unit of Work 回调只有在明确不承载上层业务行为时才能保留。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
 
 BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后缀决定适用性，再解析激活选项并判断安装是否阻断启动。快照与摘要保留在纯 `corevalidation` 包，使用可选业务值而非 SQL nullable 类型；参与摘要的 JSON 口径保持稳定。运行目录的纯解析与数据库投影分开，投影仍加入调用方的启动事务。DAT 索引写入属于持久化层；BIOS 需求同步由 Service 生成稳定身份与摘要，并通过调用方事务绑定的记录端口完成新增/更新及旧版本需求停用。
 

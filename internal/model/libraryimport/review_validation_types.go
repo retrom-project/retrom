@@ -5,6 +5,7 @@ import (
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/corevalidation"
+	corevalidationmodel "retrom/internal/model/corevalidation"
 )
 
 type ReviewValidationEvidence struct {
@@ -83,4 +84,18 @@ type ReviewValidationRefreshRepository interface {
 	ContentLogicalName(context.Context, string) (string, error)
 	RPGProfile(context.Context, string) (RPGReviewProfile, error)
 	UpdateRPGDependencyDigest(context.Context, string, string, int64) error
+}
+
+// ReviewValidationRefreshReader is the read-only fact port used by the draft
+// application service while it builds a validation write plan. It contains no
+// transaction callback and no write operation; the repository applies the
+// resulting plan later with the draft update.
+type ReviewValidationRefreshReader interface {
+	Inputs(context.Context, string, string) (ReviewValidationRefreshInputs, error)
+	Exact(context.Context, ReviewValidationRefreshLookup) (ReviewValidationRefreshRecord, bool, error)
+	Fallback(context.Context, ReviewValidationRefreshLookup) (ReviewValidationRefreshRecord, bool, error)
+	ContentLogicalName(context.Context, string) (string, error)
+	RPGProfile(context.Context, string) (RPGReviewProfile, error)
+	BIOS(context.Context, string, string) ([]corevalidationmodel.BIOSRecord, error)
+	ArcadeBIOS(context.Context, string, string, string) (corevalidation.BIOSDependency, bool, error)
 }

@@ -10,6 +10,13 @@ type Repository interface {
 	References(context.Context, OwnerKind, []string) (map[string][]Reference, error)
 }
 
+// ReferenceReader is the read-only port used by application projections that
+// need the relations owned by a tagging aggregate. It belongs to the model
+// boundary so model packages do not have to depend on the service package.
+type ReferenceReader interface {
+	References(context.Context, Owner) ([]Reference, error)
+}
+
 type WriteScope struct {
 	Tags      TagReader
 	Changes   TagWriter

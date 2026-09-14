@@ -11,6 +11,6 @@ type (
 )
 
 var (
-	SyncRequirements = model.SyncRequirements
+	BuildRequirement = model.BuildRequirement
 	buildRequirement = model.BuildRequirement
 )
