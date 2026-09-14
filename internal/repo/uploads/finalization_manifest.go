@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	service "retrom/internal/service/uploads"
+	service "retrom/internal/model/uploads"
 )
 
 func scanFinalizationManifest(rows *sql.Rows) ([]service.FrozenFile, error) {

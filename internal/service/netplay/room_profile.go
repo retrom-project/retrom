@@ -6,12 +6,6 @@ import (
 	"retrom/internal/transport/netplay/profile"
 )
 
-type FrozenRoomProfile struct {
-	Selection                          RoomSelection
-	ProviderID, TargetID, BundleSHA256 string
-	Canonical                          []byte
-}
-
 func freezeRoomProfile(
 	registry *profile.Registry,
 	gameID string,

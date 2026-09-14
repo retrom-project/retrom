@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/accounts"
+	"retrom/internal/model/accounts"
 )
 
 func (records authRecords) Credential(ctx context.Context, username string) (accounts.LoginCredential, bool, error) {

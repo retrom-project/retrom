@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	application "retrom/internal/service/launch"
+	application "retrom/internal/model/launch"
 )
 
 func (records previewCreationRecords) Restore(

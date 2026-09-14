@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/contentquery"
-	application "retrom/internal/service/libraryimport"
 )
 
 func (records creationRecords) Queued(

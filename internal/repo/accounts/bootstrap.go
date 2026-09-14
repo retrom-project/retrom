@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/accounts"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/accounts"
 )
 
 func (records initializationRecords) Bootstrap(ctx context.Context, plan accounts.BootstrapPlan) error {

@@ -3,7 +3,7 @@ package metadatascrape
 import (
 	"context"
 
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func (records mediaRecords) Reserve(ctx context.Context, asset metadatascrape.MediaAsset, amount, now int64) error {

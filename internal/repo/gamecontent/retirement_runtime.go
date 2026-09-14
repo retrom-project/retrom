@@ -3,9 +3,9 @@ package gamecontent
 import (
 	"context"
 
+	"retrom/internal/model/gamecontent"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	"retrom/internal/service/gamecontent"
 )
 
 func (records retirementRecords) Change(ctx context.Context, value gamecontent.RetirementChange) error {

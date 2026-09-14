@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/service/gamecontent"
+	"retrom/internal/model/gamecontent"
 )
 
 func (writes writes) Fail(ctx context.Context, outcome gamecontent.Outcome) (bool, error) {

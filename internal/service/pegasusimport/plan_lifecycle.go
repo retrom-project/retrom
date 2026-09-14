@@ -9,34 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-type (
-	ExpiredPlan struct {
-		ID      string
-		Version int64
-	}
-	PlanDeletion struct {
-		Before           Summary
-		ActorID, AuditID string
-		NowMS            int64
-	}
-	PlanExpiry struct {
-		Before Summary
-		NowMS  int64
-	}
-	PlanRecords interface {
-		Get(context.Context, string) (Summary, error)
-		Delete(context.Context, PlanDeletion) error
-		Expire(context.Context, PlanExpiry) error
-	}
-	PlanLifecycleRepository interface {
-		WithPlanWrite(context.Context, func(PlanRecords) error) error
-		ExpiredPlans(context.Context, int64, int) ([]ExpiredPlan, error)
-	}
-	PlanLifecycle struct {
-		repository PlanLifecycleRepository
-		now        func() time.Time
-	}
-)
+type PlanLifecycle struct {
+	repository PlanLifecycleRepository
+	now        func() time.Time
+}
 
 func NewPlanLifecycle(
 	repository PlanLifecycleRepository,

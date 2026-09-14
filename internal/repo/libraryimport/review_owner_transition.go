@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/libraryimport"
 )
 
 func transitionServerReviewOwner(

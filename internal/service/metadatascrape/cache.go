@@ -11,21 +11,9 @@ import (
 	"retrom/internal/foundation/cleanup"
 )
 
-type CachedResponse struct {
-	ID, RawSHA256 string
-	Outcome       hasheous.ProviderOutcome
-	HTTPStatus    int
-}
-type CacheReader interface {
-	Cached(context.Context, string, int64) (CachedResponse, bool, error)
-}
 type LookupProvider interface {
 	LookupByHash(context.Context, hasheous.ContentHashes) (hasheous.LookupResult, error)
 	RestoreCached(hasheous.ContentHashes, hasheous.ProviderOutcome, int, []byte) (hasheous.LookupResult, error)
-}
-type ResolvedLookup struct {
-	Result           hasheous.LookupResult
-	CachedResponseID string
 }
 type LookupService struct {
 	records  CacheReader

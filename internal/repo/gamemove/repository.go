@@ -8,9 +8,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/gamemove"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/gamemove"
 )
 
 type Repository struct{ database *sql.DB }

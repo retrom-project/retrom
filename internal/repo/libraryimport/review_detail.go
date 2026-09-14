@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	metadatapersistence "retrom/internal/repo/metadatascrape"
 	tagpersistence "retrom/internal/repo/tagging"
-	application "retrom/internal/service/libraryimport"
 )
 
 type ReviewDetail struct{ database *sql.DB }

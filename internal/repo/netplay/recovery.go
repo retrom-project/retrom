@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/netplay"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	"retrom/internal/service/netplay"
 )
 
 func (records roomMaintenanceRecords) Recover(ctx context.Context, plan netplay.RecoveryPlan) error {

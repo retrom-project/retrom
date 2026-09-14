@@ -66,9 +66,9 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	archiveBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "importing", "testdata", "sevenzip", "single.7z"))
+	archiveBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "capability", "format", "importing", "testdata", "sevenzip", "single.7z"))
 	testassert.False(t, err != nil, err)
-	payloadBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "importing", "testdata", "sevenzip", "payload", "game.a26"))
+	payloadBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "capability", "format", "importing", "testdata", "sevenzip", "payload", "game.a26"))
 	testassert.False(t, err != nil, err)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
@@ -376,6 +376,11 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
 `, biosInstallationID, requirementID, sourceBlobID, "gba_bios.bin", sourceSize, md5Value, sha1Value,
 		sha256Value, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := importer.PatchDraft(ctx, itemID, 4, DraftPatch{
+		SelectedValidationID: &refreshedValidationID, TagIDs: []string{},
+	}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("stale explicit validation selection error = %v", err)
 	}
 	if err := json.Unmarshal([]byte(`{"metadata":{"description":"BIOS snapshot refreshed"},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)

@@ -10,11 +10,6 @@ import (
 	"retrom/internal/capability/security/authn"
 )
 
-var (
-	ErrAuthentication       = errors.New("AUTHENTICATION_FAILED")
-	ErrAuthenticationNeeded = errors.New("AUTHENTICATION_REQUIRED")
-)
-
 type Authentication struct {
 	repository AuthRepository
 	verifier   PasswordVerifier

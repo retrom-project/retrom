@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/netplay"
+	"retrom/internal/model/netplay"
 )
 
 func (repository *Eligibility) ArcadeDependencies(

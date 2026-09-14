@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/repo/dbexec"
 
-	"retrom/internal/service/storageanalysis"
+	"retrom/internal/model/storageanalysis"
 
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/repo/blobregistry"

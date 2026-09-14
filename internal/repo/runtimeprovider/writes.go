@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	service "retrom/internal/service/runtimeprovider"
+	service "retrom/internal/model/runtimeprovider"
 
 	runtimecatalogpersistence "retrom/internal/repo/runtimecatalog"
 

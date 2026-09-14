@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	application "retrom/internal/service/idempotency"
+	application "retrom/internal/model/idempotency"
 )
 
 type Repository struct {

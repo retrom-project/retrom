@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	application "retrom/internal/service/launch"
 )
 
 func (records productCreationRecords) Create(ctx context.Context, plan application.ProductCreatePlan) error {

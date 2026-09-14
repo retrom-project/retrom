@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/service/maintenance"
+	"retrom/internal/model/maintenance"
 )
 
 func (writes writes) Audit(ctx context.Context, audit maintenance.FenceAudit) error {

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	application "retrom/internal/service/launch"
+	application "retrom/internal/model/launch"
 )
 
 func (repository *ContentQueries) External(

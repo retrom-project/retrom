@@ -68,7 +68,7 @@ func (service *Service) ensureWritable(ctx context.Context, records LaunchReader
 	if !sameCheckpointOwner(current, expected) {
 		return ErrCredential
 	}
-	if expected.localDraft {
+	if expected.LocalDraft {
 		if !localDraftWritable(current) {
 			return ErrCredential
 		}

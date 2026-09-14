@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	application "retrom/internal/service/launch"
+	application "retrom/internal/model/launch"
 )
 
 func (records productCreationRecords) Snapshot(

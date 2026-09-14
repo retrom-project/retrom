@@ -5,7 +5,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
@@ -37,11 +36,6 @@ func NormalizeFolderName(value string) (string, string, error) {
 		return "", "", ErrInvalidFolderName
 	}
 	return display, cases.Fold().String(display), nil
-}
-
-func ValidID(value string) bool {
-	parsed, err := uuid.Parse(value)
-	return err == nil && parsed.String() == value
 }
 
 func validateUniqueIDs(values []string, maximum int) error {

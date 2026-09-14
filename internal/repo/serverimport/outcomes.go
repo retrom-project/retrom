@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/serverimport"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/serverimport"
 )
 
 type Outcomes struct{ database *sql.DB }

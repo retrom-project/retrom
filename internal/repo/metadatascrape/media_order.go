@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/metadatascrape"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/metadatascrape"
 )
 
 func (records mediaRecords) Ordering(ctx context.Context, id string) ([]metadatascrape.MediaOrder, error) {

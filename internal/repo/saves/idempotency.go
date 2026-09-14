@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/saves"
+	"retrom/internal/model/saves"
 )
 
 func (store records) Replay(ctx context.Context, key saves.ReplayKey) (saves.Replay, bool, error) {

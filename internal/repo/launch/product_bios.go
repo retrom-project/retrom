@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/launch"
 	validation "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/launch"
 )
 
 func ProductBIOSFacts(

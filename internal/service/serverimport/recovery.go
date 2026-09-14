@@ -9,13 +9,6 @@ import (
 	"retrom/internal/capability/content/firmware"
 )
 
-type CandidateEvidence struct {
-	ID, RequirementID, Association, State string
-	Facts                                 firmware.FileFacts
-	Static                                *firmware.StaticEvaluation
-	DAT                                   *firmware.DATEvaluation
-	Details                               map[string]any
-}
 type RecoveryRepository interface {
 	Items(context.Context, string) ([]CatalogItem, error)
 	Phase(context.Context, string) (string, error)

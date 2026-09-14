@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/blobstore"
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/launch"
 )
 
 func (records screenshotRecords) Replace(ctx context.Context, plan application.ScreenshotWrite) error {

@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/netplay"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/netplay"
 )
 
 type RoomMaintenance struct{ database *sql.DB }

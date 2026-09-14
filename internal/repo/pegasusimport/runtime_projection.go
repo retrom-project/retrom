@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 func projectRuntimeCheck(

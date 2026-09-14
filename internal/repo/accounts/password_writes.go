@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/service/accounts"
+	"retrom/internal/model/accounts"
 )
 
 func (records passwordRecords) Rotate(ctx context.Context, plan accounts.PasswordPlan) error {

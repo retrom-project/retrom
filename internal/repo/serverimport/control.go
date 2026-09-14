@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/serverimport"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/serverimport"
 )
 
 type Control struct{ database *sql.DB }

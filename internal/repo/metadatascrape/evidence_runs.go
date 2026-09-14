@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/metadatascrape"
+	application "retrom/internal/model/metadatascrape"
 )
 
 func (records *EvidenceQueries) ReviewRuns(ctx context.Context, itemID string) ([]application.ReviewRun, error) {

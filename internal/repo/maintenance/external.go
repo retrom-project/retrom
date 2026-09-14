@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/maintenance"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/maintenance"
 )
 
 func (writes writes) StopExternalImports(ctx context.Context, nowMS int64) (maintenance.ImportCounts, error) {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/maintenance"
+	"retrom/internal/model/maintenance"
 )
 
 func backupBlobs(ctx context.Context, database *sql.DB) ([]maintenance.Blob, error) {

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/pegasusimport"
 )
 
 const materialItemFence = ` AND EXISTS(SELECT 1 FROM pegasus_import_items item

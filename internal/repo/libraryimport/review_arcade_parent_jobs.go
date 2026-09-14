@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/libraryimport"
 )
 
 // ReviewArcadeParentJobs reads the queue used to resume arcade parent

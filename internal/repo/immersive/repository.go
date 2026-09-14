@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/immersive"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/immersive"
 )
 
 type (

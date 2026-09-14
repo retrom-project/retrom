@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	repository "retrom/internal/repo/libraryimport"
@@ -15,14 +14,6 @@ func prepublishDigest(input prepublishDigestInput) string { return application.P
 
 func prepublishDigestMatches(digest string, input prepublishDigestInput) bool {
 	return application.PrepublishDigestMatches(digest, input)
-}
-
-func nullStringPointer(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	valueCopy := value.String
-	return &valueCopy
 }
 
 func preparedGroupContentKind(group preparedGroup) string {

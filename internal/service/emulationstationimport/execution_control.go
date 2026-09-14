@@ -4,49 +4,12 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	payload "retrom/internal/service/payloadrelease"
-
-	library "retrom/internal/service/libraryimport"
 )
 
-type (
-	ExecutionFailure struct {
-		Code      string
-		Retryable bool
-	}
-	ExecutionFinish struct {
-		Before                                        LeaseSnapshot
-		NowMS, AvailableAtMS                          int64
-		JobState, ImportState, ItemState, Phase, Code string
-		Retryable                                     bool
-		ClearScan, TerminalItems, SchedulePayload     bool
-		RetryFailedItems                              bool
-	}
-	ExecutionReader interface {
-		Current(context.Context, string) (LeaseSnapshot, bool, error)
-		TerminalCount(context.Context, string) (int64, error)
-		Reviews(context.Context, string, int) ([]ExecutionReview, error)
-	}
-	ExecutionWriter interface {
-		Finish(context.Context, ExecutionFinish) error
-		Fence(context.Context, LeaseSnapshot, int64) error
-		CompleteReview(context.Context, ExecutionReviewCompletion) error
-	}
-	ExecutionScope struct {
-		Payload  payload.ReleaseScope
-		Read     ExecutionReader
-		Write    ExecutionWriter
-		Metadata library.MetadataScope
-	}
-	ExecutionRepository interface {
-		WithExecution(context.Context, func(ExecutionScope) error) error
-	}
-	ExecutionControl struct {
-		repository ExecutionRepository
-		now        func() time.Time
-	}
-)
+type ExecutionControl struct {
+	repository ExecutionRepository
+	now        func() time.Time
+}
 
 func NewExecutionControl(repository ExecutionRepository, now func() time.Time) *ExecutionControl {
 	return &ExecutionControl{repository: repository, now: now}

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/importdiscard"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
-	"retrom/internal/service/importdiscard"
 )
 
 func (writes writes) Releases(ctx context.Context, key importdiscard.Key) (importdiscard.ReleaseFacts, error) {

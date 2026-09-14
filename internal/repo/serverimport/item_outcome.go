@@ -3,8 +3,8 @@ package serverimport
 import (
 	"context"
 
+	"retrom/internal/model/serverimport"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/serverimport"
 )
 
 func (records outcomeRecords) Item(ctx context.Context, plan serverimport.ItemOutcome) error {

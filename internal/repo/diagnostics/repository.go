@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/diagnostics"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/diagnostics"
 )
 
 type Repository struct {

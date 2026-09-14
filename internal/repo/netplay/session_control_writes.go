@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/model/netplay"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/netplay"
 )
 
 func (records sessionControlRecords) fence(ctx context.Context, before netplay.SessionControlSnapshot) error {

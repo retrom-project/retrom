@@ -12,7 +12,7 @@ func NewWorker(repository WorkerRepository, executor WorkExecutor, options Worke
 		options.Now = time.Now
 	}
 	if options.NewID == nil {
-		options.NewID = NewScheduler(nil).identity
+		options.NewID = NewScheduler(nil).Identity
 	}
 	return &Worker{
 		repository: repository, executor: executor, now: options.Now, newID: options.NewID,

@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/tagging"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/tagging"
 )
 
 func ownerTable(kind tagging.OwnerKind) (string, string, error) {

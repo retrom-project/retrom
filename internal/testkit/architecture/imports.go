@@ -61,6 +61,43 @@ func AssertBusinessImportsIn(t testing.TB, directory string) {
 	}
 }
 
+// AssertNoImportsIn rejects a dependency prefix from production files below a
+// directory. It is useful for enforcing one-way layer boundaries without
+// coupling the test to the package's working directory.
+func AssertNoImportsIn(t testing.TB, directory, forbiddenPrefix string) {
+	t.Helper()
+	err := filepath.WalkDir(directory, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			return nil
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+		if err != nil {
+			return fmt.Errorf("parse imports in %q: %w", path, err)
+		}
+		for _, dependency := range file.Imports {
+			value, err := strconv.Unquote(dependency.Path.Value)
+			if err != nil {
+				return fmt.Errorf("decode import path in %q: %w", path, err)
+			}
+			if inPackageTree(value, forbiddenPrefix) {
+				t.Errorf("%s imports forbidden layer %s", path, value)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func inPackageTree(importPath, root string) bool {
+	root = strings.TrimSuffix(root, "/")
+	return importPath == root || strings.HasPrefix(importPath, root+"/")
+}
+
 // GoSourceFiles returns the production Go files in the calling package.
 func GoSourceFiles(t testing.TB) ([]string, error) {
 	t.Helper()

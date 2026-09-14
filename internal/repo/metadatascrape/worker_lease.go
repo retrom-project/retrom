@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func (records workerRecords) Claim(ctx context.Context, claim metadatascrape.WorkerClaim) (bool, error) {

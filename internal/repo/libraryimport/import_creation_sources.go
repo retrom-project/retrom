@@ -3,8 +3,8 @@ package libraryimport
 import (
 	"context"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/libraryimport"
 )
 
 func (records creationRecords) Source(ctx context.Context, change application.CreationSource) error {

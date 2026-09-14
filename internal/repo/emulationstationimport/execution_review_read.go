@@ -3,8 +3,8 @@ package emulationstationimport
 import (
 	"fmt"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 const executionReviewSQL = `SELECT source.id,source.execution_state,source.version,

@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/payloadrelease"
 )
 
 type Garbage struct{ database *sql.DB }

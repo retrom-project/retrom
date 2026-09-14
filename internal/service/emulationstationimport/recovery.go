@@ -5,43 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	payload "retrom/internal/service/payloadrelease"
-
-	library "retrom/internal/service/libraryimport"
 )
 
-type (
-	RecoveryChange struct {
-		Before                                               LeaseSnapshot
-		JobState, ImportState, Phase, ItemState, Code, Event string
-		NowMS, AvailableAtMS                                 int64
-		ClearScan, TerminalItems, SchedulePayload            bool
-	}
-	RecoveryReader interface {
-		Current(context.Context, string) (LeaseSnapshot, bool, error)
-		Reviews(context.Context, string, int) ([]ExecutionReview, error)
-	}
-	RecoveryWriter interface {
-		Apply(context.Context, RecoveryChange) error
-		Fence(context.Context, LeaseSnapshot, int64) error
-		CompleteReview(context.Context, ExecutionReviewCompletion) error
-	}
-	RecoveryScope struct {
-		Payload  payload.ReleaseScope
-		Read     RecoveryReader
-		Write    RecoveryWriter
-		Metadata library.MetadataScope
-	}
-	RecoveryRepository interface {
-		Expired(context.Context, int64, int) ([]LeaseSnapshot, error)
-		WithRecovery(context.Context, func(RecoveryScope) error) error
-	}
-	Recovery struct {
-		repository RecoveryRepository
-		now        func() time.Time
-	}
-)
+type Recovery struct {
+	repository RecoveryRepository
+	now        func() time.Time
+}
 
 func NewRecovery(repository RecoveryRepository, now func() time.Time) *Recovery {
 	return &Recovery{repository: repository, now: now}

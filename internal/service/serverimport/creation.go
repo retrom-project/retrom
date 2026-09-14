@@ -68,7 +68,7 @@ func (service *Creation) freezeCatalog(ctx context.Context) ([]CatalogItem, stri
 	items := make([]CatalogItem, 0, len(entries))
 	for _, entry := range entries {
 		if err := entry.Item.ValidateSource(entry.DATReady); err != nil {
-			return nil, "", err
+			return nil, "", fmt.Errorf("validate catalog item %s: %w", entry.Item.RequirementID, err)
 		}
 		items = append(items, entry.Item)
 	}

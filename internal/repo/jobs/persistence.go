@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/jobs"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/jobs"
 )
 
 type (

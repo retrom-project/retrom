@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/payloadrelease"
 )
 
 type sourceReleaseReader struct{ executor dbexec.Executor }

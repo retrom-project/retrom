@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/saves"
 	"retrom/internal/repo/storequery"
-	application "retrom/internal/service/saves"
 )
 
 const saveListSQL = `

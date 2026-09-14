@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	service "retrom/internal/model/datindex"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	service "retrom/internal/service/datindex"
 )
 
 type Records struct{ executor dbexec.Executor }

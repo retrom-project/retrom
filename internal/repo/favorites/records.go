@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/favorites"
+	"retrom/internal/model/favorites"
 )
 
 func encodedStringList(values []string) string {

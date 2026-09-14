@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/payloadrelease"
 )
 
 func (records effectRecords) ChangeOwner(ctx context.Context, change application.EffectOwnerChange) error {

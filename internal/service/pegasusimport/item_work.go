@@ -9,74 +9,10 @@ import (
 	payload "retrom/internal/service/payloadrelease"
 )
 
-type (
-	ExecutionItem struct {
-		ID, ImportID, State                                                    string
-		Version                                                                int64
-		TargetPlatformID, TargetPlatformKind, TargetDATVersionID, MetadataJSON string
-		LibraryImportJobID, LibraryImportItemID                                string
-		TagIDs                                                                 []string
-		Files                                                                  []ExecutionFile
-		Assets                                                                 []ExecutionAsset
-	}
-	ExecutionFile struct {
-		Ordinal     int64
-		Path, Facts string
-		Size        int64
-		BlobID      string
-	}
-	ExecutionAsset struct {
-		Kind, Path, Facts, MediaType string
-		Size                         int64
-		Width, Height                *int64
-		BlobID                       string
-	}
-	OwnedItem struct {
-		Execution ExecutionSnapshot
-		Item      ExecutionItem
-	}
-	ItemOutcome struct {
-		State, Code, ExistingGameID string
-		Retryable                   bool
-		Failure                     *FailureDetails
-		ExistingMatches             []ExistingMatch
-	}
-	ItemClaim struct {
-		Before OwnedItem
-		NowMS  int64
-	}
-	ItemResume struct {
-		Before OwnedItem
-		NowMS  int64
-	}
-	ItemFinish struct {
-		Before  OwnedItem
-		Outcome ItemOutcome
-		NowMS   int64
-	}
-	ItemWorkReader interface {
-		Execution(context.Context, string) (ExecutionSnapshot, error)
-		Next(context.Context, string) (ExecutionItem, bool, error)
-		Current(context.Context, string) (OwnedItem, error)
-	}
-	ItemWorkWriter interface {
-		Claim(context.Context, ItemClaim) error
-		Resume(context.Context, ItemResume) error
-		Finish(context.Context, ItemFinish) error
-	}
-	ItemWorkScope struct {
-		Payload payload.ReleaseScope
-		Read    ItemWorkReader
-		Write   ItemWorkWriter
-	}
-	ItemWorkRepository interface {
-		WithItemWork(context.Context, func(ItemWorkScope) error) error
-	}
-	ItemWork struct {
-		repository ItemWorkRepository
-		now        func() time.Time
-	}
-)
+type ItemWork struct {
+	repository ItemWorkRepository
+	now        func() time.Time
+}
 
 func NewItemWork(repository ItemWorkRepository, now func() time.Time) *ItemWork {
 	return &ItemWork{repository: repository, now: now}

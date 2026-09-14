@@ -2,8 +2,6 @@ package tagging
 
 import (
 	"context"
-	"sort"
-	"strings"
 )
 
 func ValidateActiveReferences(ctx context.Context, reader TagReader, tagIDs []string) ([]Reference, error) {
@@ -18,66 +16,7 @@ func ValidateActiveReferences(ctx context.Context, reader TagReader, tagIDs []st
 	if err != nil {
 		return nil, repositoryError("read active references", err)
 	}
-	found := make(map[string]struct{}, len(result))
-	for _, reference := range result {
-		found[reference.TagID] = struct{}{}
-	}
-	if len(found) != len(validated) {
-		invalid := make([]string, 0)
-		for _, id := range validated {
-			if _, exists := found[id]; !exists {
-				invalid = append(invalid, id)
-			}
-		}
-		sort.Strings(invalid)
-		return nil, &InvalidReferencesError{IDs: invalid}
-	}
-	return result, nil
-}
-
-func sameReferences(left, right []Reference) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	leftIDs := make([]string, len(left))
-	rightIDs := make([]string, len(right))
-	for index := range left {
-		leftIDs[index] = left[index].TagID
-		rightIDs[index] = right[index].TagID
-	}
-	sort.Strings(leftIDs)
-	sort.Strings(rightIDs)
-	return strings.Join(leftIDs, "\x00") == strings.Join(rightIDs, "\x00")
-}
-
-func referenceIDs(values []Reference) []string {
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		result = append(result, value.TagID)
-	}
-	return result
-}
-
-func referenceDiff(before, after []Reference) ([]Reference, []Reference) {
-	added := make([]Reference, 0)
-	removed := make([]Reference, 0)
-	beforeByID := make(map[string]Reference, len(before))
-	afterByID := make(map[string]Reference, len(after))
-	for _, value := range before {
-		beforeByID[value.TagID] = value
-	}
-	for _, value := range after {
-		afterByID[value.TagID] = value
-		if _, exists := beforeByID[value.TagID]; !exists {
-			added = append(added, value)
-		}
-	}
-	for _, value := range before {
-		if _, exists := afterByID[value.TagID]; !exists {
-			removed = append(removed, value)
-		}
-	}
-	return added, removed
+	return ValidateActiveReferenceFacts(validated, result)
 }
 
 func replaceOwnerReferences(
@@ -92,27 +31,12 @@ func replaceOwnerReferences(
 	if err != nil {
 		return nil, nil, repositoryError("read owner references", err)
 	}
-	if sameReferences(before, desired) {
-		return before, desired, nil
+	plan, err := BuildReplacementPlan(owner, before, desired, actorUserID, now)
+	if err != nil {
+		return nil, nil, err
 	}
-	added, removed := referenceDiff(before, desired)
-	if err := scope.Relations.Remove(ctx, owner, referenceIDs(removed)); err != nil {
-		return nil, nil, repositoryError("remove owner tags", err)
+	if err := applyReplacementPlan(ctx, scope, plan); err != nil {
+		return nil, nil, err
 	}
-	if err := scope.Relations.Add(
-		ctx,
-		Assignment{
-			Owner:       owner,
-			References:  added,
-			ActorUserID: actorUserID,
-			NowMS:       now,
-		},
-	); err != nil {
-		return nil, nil, repositoryError("add owner tags", err)
-	}
-	touched := append(referenceIDs(added), referenceIDs(removed)...)
-	if err := scope.Relations.TouchTags(ctx, actorUserID, touched, now); err != nil {
-		return nil, nil, repositoryError("touch owner tags", err)
-	}
-	return before, desired, nil
+	return plan.Before, plan.After, nil
 }

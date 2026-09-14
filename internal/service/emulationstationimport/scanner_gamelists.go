@@ -69,7 +69,7 @@ func (service *Scanner) projectGamelist(
 		if err != nil {
 			return err
 		}
-		result.collectGame(&collection, game, item, extensions)
+		collectGame(result, &collection, game, item, extensions)
 	}
 	collection.ExtensionSummaryJSON, collection.ExtensionOtherCount = extensionSummary(extensions)
 	result.Collections = append(result.Collections, collection)
@@ -91,7 +91,8 @@ func parserErrorCode(err error) string {
 	}
 }
 
-func (result *ScanProjection) collectGame(
+func collectGame(
+	result *scanResult,
 	collection *scannedCollection, game emulationstationmeta.Game,
 	item scannedItem, extensions map[string]int64,
 ) {
@@ -108,5 +109,5 @@ func (result *ScanProjection) collectGame(
 	if game.Path != "" {
 		extensions[extensionName(game.Path)]++
 	}
-	result.collectItem(item)
+	result.CollectItem(item)
 }

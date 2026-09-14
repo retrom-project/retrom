@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/runtime/dependencies"
-	service "retrom/internal/service/dependencies"
+	service "retrom/internal/model/dependencies"
 )
 
 func (records datRecords) Activation(ctx context.Context, id string) (service.ActivationState, error) {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"retrom/internal/model/jobs"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/jobs"
 )
 
 func (store records) CancelServerImport(ctx context.Context, change jobs.Cancellation) error {

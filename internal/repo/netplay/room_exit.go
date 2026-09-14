@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"retrom/internal/model/netplay"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/netplay"
 )
 
 type RoomExit struct{ database *sql.DB }

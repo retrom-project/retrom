@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/tagging"
 )
 
 func (records auditRecords) Record(ctx context.Context, audit tagging.AuditEvent) error {

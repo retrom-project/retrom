@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/platforminstance"
 	"retrom/internal/repo/contentquery"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/platforminstance"
 
 	"retrom/internal/capability/runtime/platformcatalog"
 )

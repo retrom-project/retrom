@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/capability/content/multidisc"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func (records *ReviewDependencies) MultiDiscSource(

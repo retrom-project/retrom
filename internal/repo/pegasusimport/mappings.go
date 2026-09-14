@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
 	tagrepository "retrom/internal/repo/tagging"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type Mappings struct{ database *sql.DB }

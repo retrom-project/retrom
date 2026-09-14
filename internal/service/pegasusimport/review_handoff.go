@@ -9,45 +9,11 @@ import (
 	library "retrom/internal/service/libraryimport"
 )
 
-type (
-	ReviewHandoffRequest struct {
-		ItemID, ImportID, JobID, LibraryJobID, LibraryItemID, WorkerID string
-		ExecutionNo, Attempt                                           int64
-	}
-	ReviewHandoffSnapshot struct {
-		Identity                                         ReviewHandoffRequest
-		State, ImportState, JobState                     string
-		Version, ImportVersion, LeaseUntilMS, DeadlineMS int64
-		Metadata                                         library.ServerMetadata
-		Warnings                                         []map[string]any
-	}
-	ReviewHandoffChange struct {
-		Before   ReviewHandoffSnapshot
-		Warnings []map[string]any
-		NowMS    int64
-	}
-	ReviewHandoffRecords interface {
-		CurrentReviewHandoff(context.Context, string) (ReviewHandoffSnapshot, error)
-		FinishReviewHandoff(context.Context, ReviewHandoffChange) error
-	}
-	ReviewHandoffScope struct {
-		Records  ReviewHandoffRecords
-		Metadata library.MetadataScope
-	}
-	ReviewHandoffRepository interface {
-		WithReviewHandoff(context.Context, func(ReviewHandoffScope) error) error
-	}
-	ReviewMetadataSeeder interface {
-		SeedInScope(
-			context.Context, library.MetadataScope, string, library.ServerMetadata, int,
-		) (int64, []library.ServerMetadataWarning, error)
-	}
-	ReviewHandoff struct {
-		repository ReviewHandoffRepository
-		metadata   ReviewMetadataSeeder
-		now        func() time.Time
-	}
-)
+type ReviewHandoff struct {
+	repository ReviewHandoffRepository
+	metadata   ReviewMetadataSeeder
+	now        func() time.Time
+}
 
 func NewReviewHandoff(
 	repository ReviewHandoffRepository,

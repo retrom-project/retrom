@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/capability/content/firmware"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/serverimport"
+	"retrom/internal/model/serverimport"
 )
 
 func (repository *Recovery) Candidates(ctx context.Context, importID string) ([]serverimport.CandidateEvidence, error) {

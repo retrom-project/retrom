@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func (records mediaRecords) Snapshot(ctx context.Context, id string) (metadatascrape.MediaSnapshot, error) {

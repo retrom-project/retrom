@@ -7,9 +7,9 @@ import (
 
 	payload "retrom/internal/repo/payloadrelease"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
 	library "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 type ExecutionControl struct{ database *sql.DB }

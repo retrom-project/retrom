@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/accounts"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/accounts"
 )
 
 type (

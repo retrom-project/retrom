@@ -3,8 +3,8 @@ package libraryimport
 import (
 	"context"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/libraryimport"
 )
 
 func (records multidiscAdmissionRecords) Job(ctx context.Context, value application.MultiDiscAttachmentWrite) error {

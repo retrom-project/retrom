@@ -3,7 +3,7 @@ package firmware
 import (
 	"context"
 
-	"retrom/internal/service/firmware"
+	"retrom/internal/model/firmware"
 )
 
 func (store writes) LockExecution(ctx context.Context, value firmware.ServerExecution) error {

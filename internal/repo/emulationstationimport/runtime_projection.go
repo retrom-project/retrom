@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func projectRuntimeCheck(

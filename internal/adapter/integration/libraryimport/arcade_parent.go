@@ -21,6 +21,11 @@ import (
 
 const parentAttachmentDeadline = application.ArcadeParentAttachmentDeadline
 
+type (
+	arcadeDraftDependency = application.ArcadeDraftDependency
+	arcadeDraftSnapshot   = application.ArcadeDraftSnapshot
+)
+
 const (
 	ParentErrorInvalid       = "REVIEW_PARENT_UPLOAD_INVALID"
 	ParentErrorNotFound      = "REVIEW_NOT_FOUND"

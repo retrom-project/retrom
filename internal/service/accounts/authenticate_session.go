@@ -7,7 +7,7 @@ import (
 )
 
 func (service *Authentication) Authenticate(ctx context.Context, token string) (Session, error) {
-	raw, err := decodeToken(token)
+	raw, err := DecodeToken(token)
 	if err != nil {
 		return Session{}, ErrAuthenticationNeeded
 	}
@@ -26,7 +26,7 @@ func (service *Authentication) Authenticate(ctx context.Context, token string) (
 			return Session{}, err
 		}
 	}
-	return snapshot.view(token, raw), nil
+	return snapshot.View(token, raw), nil
 }
 
 func (service *Authentication) refresh(ctx context.Context, digest [32]byte) (SessionSnapshot, error) {

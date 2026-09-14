@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/gamecontent"
+	payloadmodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/auditevents"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	application "retrom/internal/service/gamecontent"
-	payloadservice "retrom/internal/service/payloadrelease"
 
 	"github.com/google/uuid"
 )
@@ -71,7 +71,7 @@ WHERE principal_id=? AND operation_id=? AND key=?
 func (writes writes) DeleteGameImpact(
 	ctx context.Context, gameID string,
 ) (application.DeleteGameImpact, error) {
-	impact, err := payloadservice.NewImpactQueries(
+	impact, err := payloadmodel.NewImpactQueries(
 		payloadpersistence.BindImpact(writes.transaction),
 	).Game(ctx, gameID)
 	if err != nil {
@@ -96,7 +96,7 @@ func (writes writes) DeleteGameImpact(
 func (writes writes) ScheduleGameDeletion(
 	ctx context.Context, gameID string, version, now int64,
 ) (string, error) {
-	jobID, err := payloadservice.NewScheduler(nil).DeleteGame(
+	jobID, err := payloadpersistence.NewScheduler(nil).DeleteGame(
 		ctx, payloadpersistence.BindScheduling(writes.transaction), gameID, version, now,
 	)
 	if err != nil {

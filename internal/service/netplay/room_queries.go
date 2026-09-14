@@ -6,15 +6,6 @@ import (
 	"time"
 )
 
-type RoomFilter struct {
-	ProfileID, View, AfterRoomID    string
-	AfterUpdatedAtMS, RecentSinceMS int64
-	Limit                           int
-}
-type RoomQueryRepository interface {
-	RoomIDs(context.Context, RoomFilter) ([]string, error)
-	Snapshot(context.Context, string) (Room, error)
-}
 type RoomQueries struct {
 	repository RoomQueryRepository
 	now        func() time.Time

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/runtime/dependencies"
-	service "retrom/internal/service/dependencies"
+	service "retrom/internal/model/dependencies"
 )
 
 func (records jobRecords) Find(ctx context.Context, dedupe string) (service.Job, bool, error) {

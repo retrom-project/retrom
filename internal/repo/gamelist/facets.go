@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/gamelist"
+	application "retrom/internal/model/gamelist"
 )
 
 func (repository *Repository) facets(

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/tagging"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/tagging"
 )
 
 func (records tagRecords) Insert(ctx context.Context, input tagging.TagWrite) error {

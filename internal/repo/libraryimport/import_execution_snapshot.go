@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func (records importExecutionRecords) Current(

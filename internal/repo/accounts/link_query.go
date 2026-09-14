@@ -1,6 +1,6 @@
 package accounts
 
-import "retrom/internal/service/accounts"
+import "retrom/internal/model/accounts"
 
 func buildLinkListQuery(filter accounts.LinkListFilter, now int64) (string, []any) {
 	query := accountLinkProjection + ` WHERE link.kind=?`

@@ -8,56 +8,14 @@ import (
 	"math"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
-
 	"github.com/google/uuid"
 )
 
-const MaxMetadataFiles = 1000
-
-type (
-	MetadataEvidence struct {
-		RelativePath               string
-		SizeBytes                  int64
-		ContentDigest, FactsDigest string
-		ParseState, ErrorCode      string
-	}
-	StartSnapshot struct {
-		Summary                                Summary
-		RootConfigDigest, SourceSnapshotDigest string
-		Metadata                               []MetadataEvidence
-		TagsValid, OtherActive                 bool
-	}
-	StartScope struct {
-		Payload payload.ReleaseScope
-		Read    StartReader
-		Write   StartWriter
-	}
-	StartReader interface {
-		Current(context.Context, string) (StartSnapshot, error)
-	}
-	StartWriter interface {
-		Queue(context.Context, StartPlan) error
-	}
-	StartRepository interface {
-		Inspect(context.Context, string) (StartSnapshot, error)
-		WithStart(context.Context, func(StartScope) error) error
-	}
-	StartSources interface {
-		Select(context.Context, string, string) (SelectedRoot, error)
-		VerifyMetadata(context.Context, string, string, []MetadataEvidence) error
-	}
-	StartPlan struct {
-		Before                                          StartSnapshot
-		JobID, ExecutionID, AuditID, ActorID, DedupeKey string
-		NowMS                                           int64
-	}
-	Starter struct {
-		repository StartRepository
-		sources    StartSources
-		now        func() time.Time
-	}
-)
+type Starter struct {
+	repository StartRepository
+	sources    StartSources
+	now        func() time.Time
+}
 
 func NewStarter(repository StartRepository, sources StartSources, now func() time.Time) *Starter {
 	return &Starter{repository: repository, sources: sources, now: now}

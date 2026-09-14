@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/blobstore"
+	service "retrom/internal/model/uploads"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
-	service "retrom/internal/service/uploads"
 )
 
 func (repository *Repository) Target(ctx context.Context, key service.FileKey) (service.PartTarget, error) {

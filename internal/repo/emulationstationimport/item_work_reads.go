@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 const executionItemSQL = `SELECT item.id,item.import_id,item.version,item.execution_state,

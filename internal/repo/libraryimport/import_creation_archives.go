@@ -8,9 +8,9 @@ import (
 	"sort"
 
 	"retrom/internal/capability/format/importing"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/libraryimport"
 )
 
 func (records creationRecords) Artifact(

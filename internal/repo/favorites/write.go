@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/favorites"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/favorites"
 )
 
 type (

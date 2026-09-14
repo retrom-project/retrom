@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	service "retrom/internal/model/uploads"
 	"retrom/internal/repo/dbexec"
-	service "retrom/internal/service/uploads"
 )
 
 func (repository *Repository) Snapshot(ctx context.Context, id string) (service.Session, error) {

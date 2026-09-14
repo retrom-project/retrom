@@ -1,7 +1,7 @@
 package gamecontent
 
 func replacementBindingMatchesSnapshot(binding Binding, snapshot JobSnapshot) bool {
-	return binding.identity() == snapshot.bindingIdentity()
+	return replacementBindingIdentityOf(binding) == jobSnapshotIdentity(snapshot)
 }
 
 type replacementBindingIdentity struct {
@@ -13,7 +13,7 @@ type replacementBindingIdentity struct {
 	Version, PlatformVersion                       int64
 }
 
-func (binding Binding) identity() replacementBindingIdentity {
+func replacementBindingIdentityOf(binding Binding) replacementBindingIdentity {
 	return replacementBindingIdentity{
 		ManifestDigest: binding.ManifestDigest, InstanceID: binding.InstanceID, PlatformID: binding.PlatformID,
 		CoreID: binding.CoreID, ProviderID: binding.ProviderID, TargetID: binding.TargetID,
@@ -24,7 +24,7 @@ func (binding Binding) identity() replacementBindingIdentity {
 	}
 }
 
-func (snapshot JobSnapshot) bindingIdentity() replacementBindingIdentity {
+func jobSnapshotIdentity(snapshot JobSnapshot) replacementBindingIdentity {
 	return replacementBindingIdentity{
 		ManifestDigest: snapshot.BaseManifestDigest, InstanceID: snapshot.PlatformInstanceID,
 		PlatformID: snapshot.PlatformID, CoreID: snapshot.CoreID,

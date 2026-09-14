@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/importdiscard"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
-	"retrom/internal/service/importdiscard"
 )
 
 func (writes writes) Unlinked(ctx context.Context, key importdiscard.Key) ([]string, error) {

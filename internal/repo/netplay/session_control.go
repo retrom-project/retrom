@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/netplay"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/netplay"
 )
 
 type SessionControl struct{ database *sql.DB }

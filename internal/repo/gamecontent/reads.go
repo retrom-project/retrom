@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/gamecontent"
+	"retrom/internal/model/gamecontent"
 )
 
 func (records records) Upload(ctx context.Context, id string) (gamecontent.Upload, error) {

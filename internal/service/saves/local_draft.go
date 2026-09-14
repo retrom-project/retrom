@@ -15,6 +15,6 @@ func (service *Service) CreateLocalDraft(ctx context.Context, id, userID, profil
 	if launch.PrincipalID != userID || launch.ProfileID != profileID || !localDraftWritable(launch) {
 		return ManualResult{}, false, ErrCredential
 	}
-	launch.localDraft = true
+	launch.LocalDraft = true
 	return service.createManualForLaunch(ctx, id, key, request, launch)
 }

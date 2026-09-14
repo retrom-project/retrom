@@ -3,8 +3,8 @@ package serverimport
 import (
 	"context"
 
+	"retrom/internal/model/serverimport"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/serverimport"
 )
 
 type WorkerAccess = serverimport.WorkerAccess

@@ -1,21 +1,6 @@
 package accounts
 
-import (
-	"errors"
-	"strings"
-)
-
-var (
-	ErrUserVersion       = errors.New("USER_VERSION_CONFLICT")
-	ErrUserNoChange      = errors.New("USER_NO_STATE_CHANGE")
-	ErrUserSelfChange    = errors.New("USER_SELF_CHANGE_FORBIDDEN")
-	ErrLastAdmin         = errors.New("LAST_ENABLED_ADMIN")
-	ErrUserDeleted       = errors.New("USER_ALREADY_DELETED")
-	ErrUserTransition    = errors.New("USER_INVALID_TRANSITION")
-	ErrConfirmation      = errors.New("CONFIRMATION_MISMATCH")
-	ErrRoleConfirmation  = errors.New("ADMIN_ROLE_CONFIRMATION_REQUIRED")
-	ErrIdempotencyReused = errors.New("IDEMPOTENCY_KEY_REUSED")
-)
+import "strings"
 
 func resolveUserChange(before AdminUser, patch UserPatch, self bool) (UserChange, error) {
 	role, err := resolvedRole(before.Role, patch.Role)

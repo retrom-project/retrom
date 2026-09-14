@@ -44,14 +44,14 @@ func (service *Service) ReplaceGameTags(
 		if err != nil {
 			return err
 		}
-		if sameReferences(before, after) {
+		if ReferencesEqual(before, after) {
 			result = GameTagResult{GameID: gameID, Version: version, Tags: before}
 			return nil
 		}
 		if err := scope.Games.Touch(ctx, gameID, expectedVersion, now); err != nil {
 			return repositoryError("advance game version", err)
 		}
-		added, removed := referenceDiff(before, after)
+		added, removed := ReferenceDiff(before, after)
 		result = GameTagResult{GameID: gameID, Version: version + 1, Tags: after}
 		return writeAudit(
 			ctx,

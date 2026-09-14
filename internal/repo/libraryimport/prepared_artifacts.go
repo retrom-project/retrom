@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/blobstore"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/libraryimport"
 )
 
 type preparedArtifacts struct{ executor dbexec.Executor }

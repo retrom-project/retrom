@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/payloadrelease"
 )
 
 func (records workerRecords) failOwner(ctx context.Context, change application.WorkChange) error {

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 )
 
 const workFence = ` WHERE id=? AND kind=? AND scope_type=? AND scope_id=? AND state=?

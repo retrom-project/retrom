@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/maintenance"
+	"retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	release "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/maintenance"
-	"retrom/internal/service/payloadrelease"
 )
 
 type payloadRecords struct{ executor dbexec.Executor }

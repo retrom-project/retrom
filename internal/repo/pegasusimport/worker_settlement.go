@@ -7,9 +7,9 @@ import (
 
 	payload "retrom/internal/repo/payloadrelease"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
 	library "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/pegasusimport"
 )
 
 type WorkerSettlement struct{ database *sql.DB }

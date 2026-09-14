@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/payloadrelease"
 )
 
 func (records effectRecords) Remove(ctx context.Context, change application.EffectRemoval) error {

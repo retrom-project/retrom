@@ -70,7 +70,7 @@ func (service *Service) stopSource(ctx context.Context, key Key, userID string) 
 }
 
 func (service *Service) discardImport(ctx context.Context, id string) (bool, error) {
-	batch, err := service.batch(ctx, Key{"IMPORT", id})
+	batch, err := service.batch(ctx, Key{Kind: "IMPORT", ID: id})
 	if err != nil {
 		return false, failure("process discarded content", err)
 	}

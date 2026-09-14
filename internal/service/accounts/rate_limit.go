@@ -12,8 +12,6 @@ const (
 	rateLimitBlock  = 15 * time.Minute
 )
 
-var ErrRateLimited = errors.New("AUTH_RATE_LIMITED")
-
 type RateLimitError struct{ retryAfterSeconds int }
 
 func (err *RateLimitError) Error() string { return ErrRateLimited.Error() }

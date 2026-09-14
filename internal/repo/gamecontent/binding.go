@@ -8,8 +8,8 @@ import (
 
 	"retrom/internal/repo/contentquery"
 
+	"retrom/internal/model/gamecontent"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/gamecontent"
 )
 
 func loadReplacementBinding(

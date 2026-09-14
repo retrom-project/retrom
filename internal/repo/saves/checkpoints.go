@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/saves"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	"retrom/internal/service/saves"
 )
 
 func (store records) Duration(ctx context.Context, id string) (saves.Duration, error) {

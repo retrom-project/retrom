@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	application "retrom/internal/service/payloadrelease"
 )
 
 func (records expirationRecords) ReleaseProvider(

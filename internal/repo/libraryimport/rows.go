@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func collectRows[T any](

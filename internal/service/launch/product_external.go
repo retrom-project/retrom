@@ -98,11 +98,6 @@ func productExternalBIOS(
 	return files, nil
 }
 
-type ProductExternalSnapshot struct {
-	DependencySnapshot, ContentName string
-	Files                           []ProductExternalFile
-}
-
 func FreezeProductExternalBIOS(snapshot ProductExternalSnapshot, allowMissing bool) ([]ProductExternalFile, error) {
 	dependencies, err := corevalidation.ParseRuntimeBIOSDependencies(snapshot.DependencySnapshot)
 	if err != nil {

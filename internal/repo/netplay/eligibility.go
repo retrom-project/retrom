@@ -8,7 +8,7 @@ import (
 	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/netplay"
+	"retrom/internal/model/netplay"
 )
 
 type Eligibility struct{ database dbexec.Executor }

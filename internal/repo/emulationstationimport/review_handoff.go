@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
 	library "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 type ReviewHandoff struct{ database *sql.DB }

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/service/firmware"
+	"retrom/internal/model/firmware"
 )
 
 func (store requirementRecords) Get(ctx context.Context, id string) (firmware.Requirement, bool, error) {

@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/maintenance"
 	"retrom/internal/repo/blobregistry"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/store"
-	"retrom/internal/service/maintenance"
 )
 
 type (

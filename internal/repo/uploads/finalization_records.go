@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
-	service "retrom/internal/service/uploads"
+	service "retrom/internal/model/uploads"
 )
 
 func (records finalizationRecords) Manifest(ctx context.Context, id string) ([]service.FrozenFile, error) {

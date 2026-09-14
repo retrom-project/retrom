@@ -7,8 +7,8 @@ import (
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/foundation/cleanup"
+	service "retrom/internal/model/corevalidation"
 	"retrom/internal/repo/dbexec"
-	service "retrom/internal/service/corevalidation"
 )
 
 type Repository struct{ executor dbexec.Executor }

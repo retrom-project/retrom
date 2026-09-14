@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/libraryimport"
 )
 
 var _ application.MultiDiscAttachmentTerminalRepository = (*MultiDiscAttachmentFinalization)(nil)

@@ -6,33 +6,10 @@ import (
 	"time"
 )
 
-type (
-	ScanMutation struct {
-		Before LeaseSnapshot
-		NowMS  int64
-	}
-	ScanReader interface {
-		Current(context.Context, string) (LeaseSnapshot, bool, error)
-	}
-	ScanWriter interface {
-		Clear(context.Context, ScanMutation) error
-		Headers(context.Context, ScanMutation, ScanProjection) error
-		Items(context.Context, ScanMutation, []ScanItem) error
-		Complete(context.Context, ScanMutation, ScanProjection) error
-		Reject(context.Context, ScanMutation, ScanProjection) error
-	}
-	ScanScope struct {
-		Read  ScanReader
-		Write ScanWriter
-	}
-	ScanRepository interface {
-		WithScan(context.Context, func(ScanScope) error) error
-	}
-	ScanPublication struct {
-		repository ScanRepository
-		now        func() time.Time
-	}
-)
+type ScanPublication struct {
+	repository ScanRepository
+	now        func() time.Time
+}
 
 func NewScanPublication(repository ScanRepository, now func() time.Time) *ScanPublication {
 	return &ScanPublication{repository: repository, now: now}

@@ -5,19 +5,6 @@ import (
 	"fmt"
 )
 
-type Event struct {
-	ID        int64          `json:"id"`
-	EventType string         `json:"eventType"`
-	Data      map[string]any `json:"data"`
-	CreatedAt int64          `json:"createdAtMs"`
-}
-type RoomEventPage struct {
-	Exists bool
-	Events []Event
-}
-type RoomEventsRepository interface {
-	Page(context.Context, string, int64, int) (RoomEventPage, error)
-}
 type RoomEvents struct{ repository RoomEventsRepository }
 
 func NewRoomEvents(repository RoomEventsRepository) *RoomEvents { return &RoomEvents{repository} }

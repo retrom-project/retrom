@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/model/tagging"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/tagging"
 )
 
 func (records gameRecords) Version(ctx context.Context, gameID string) (int64, error) {

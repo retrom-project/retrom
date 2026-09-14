@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/serverimport"
 	"retrom/internal/repo/recordstore"
-	"retrom/internal/service/serverimport"
 )
 
 func (records controlRecords) Cancel(ctx context.Context, plan serverimport.Cancellation) error {

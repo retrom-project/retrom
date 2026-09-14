@@ -8,22 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type RoomCapacity struct {
-	Active     int
-	HostActive bool
-}
-type RoomCreationPlan struct {
-	RoomID, MemberID, HostID string
-	Now, ExpiresAtMS         int64
-	Event                    []byte
-}
-type RoomCreationWriter interface {
-	Capacity(context.Context, string) (RoomCapacity, error)
-	Insert(context.Context, RoomCreationPlan) (Room, error)
-}
-type RoomCreationRepository interface {
-	WithCreate(context.Context, func(RoomCreationWriter) error) error
-}
 type RoomCreation struct {
 	repository RoomCreationRepository
 	maximum    int

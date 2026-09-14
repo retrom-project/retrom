@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	service "retrom/internal/model/runtimeprovider"
 	"retrom/internal/repo/dbexec"
-	service "retrom/internal/service/runtimeprovider"
 
 	"retrom/internal/foundation/cleanup"
 )

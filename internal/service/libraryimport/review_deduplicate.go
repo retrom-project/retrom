@@ -10,38 +10,6 @@ import (
 
 const reviewDeduplicatePageSize = 50
 
-// ReviewDeduplicateRepository owns the transaction used by a bounded
-// deduplication pass. The application service supplies the policy and the
-// repository supplies transaction-scoped readers and writers.
-type ReviewDeduplicateRepository interface {
-	WithDeduplicate(context.Context, func(ReviewDeduplicateScope) error) error
-}
-
-type ReviewDeduplicateScope struct {
-	Reader     ReviewDeduplicateReader
-	Duplicates ContentDuplicateReader
-	Discard    ReviewDiscardScope
-}
-
-type ReviewDeduplicateReader interface {
-	LatestReviewItemID(context.Context) (*string, error)
-	Candidates(context.Context, ReviewBulkCandidateQuery) ([]ReviewBulkCandidate, error)
-}
-
-type ReviewDeduplicateRequest struct {
-	Scope         ReviewBulkScope
-	AfterItemID   string
-	ThroughItemID string
-}
-
-type ReviewDeduplicateResult struct {
-	ScannedCount          int
-	DiscardedCount        int
-	AttachmentActiveCount int
-	NextAfterItemID       *string
-	ThroughItemID         *string
-}
-
 type reviewInScopeDiscarder interface {
 	DiscardInScope(context.Context, ReviewDiscardScope, ReviewDiscardRequest) (ReviewDecisionResult, error)
 }

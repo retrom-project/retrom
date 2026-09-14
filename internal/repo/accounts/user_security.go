@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/model/accounts"
 	"retrom/internal/repo/recordstore"
 	"retrom/internal/repo/sessionstore"
-	"retrom/internal/service/accounts"
 )
 
 func (records administrationRecords) revokeSecurity(

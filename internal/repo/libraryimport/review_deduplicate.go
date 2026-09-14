@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/libraryimport"
 )
 
 // ReviewDeduplicates owns the transaction-scoped readers and discard scope

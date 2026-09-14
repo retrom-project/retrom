@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/serverimport"
 	"retrom/internal/repo/dbexec"
-	"retrom/internal/service/serverimport"
 )
 
 func (repository *Queries) Get(ctx context.Context, importID string) (serverimport.Summary, error) {

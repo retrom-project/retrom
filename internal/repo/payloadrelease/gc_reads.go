@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/blobregistry"
-	application "retrom/internal/service/payloadrelease"
 )
 
 const gcSQL = `SELECT blob.id,blob.sha256,blob.size_bytes,candidate.blob_id IS NOT NULL,

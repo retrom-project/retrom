@@ -34,7 +34,7 @@ func validateWorkInput(input Input) error {
 		}
 		return nil
 	}
-	if !validScheduleScope(input.Scope.Type) || input.Inputs.ScopeVersion < 1 || !validReason(input.Inputs.Reason) {
+	if !ValidScheduleScope(input.Scope.Type) || input.Inputs.ScopeVersion < 1 || !ValidReason(input.Inputs.Reason) {
 		return ErrInputInvalid
 	}
 	return nil

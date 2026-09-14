@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/contentquery"
 	"retrom/internal/repo/storequery"
-	application "retrom/internal/service/libraryimport"
 )
 
 func (records reviewApprovalRecords) Head(

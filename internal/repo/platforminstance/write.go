@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/service/platforminstance"
+	"retrom/internal/model/platforminstance"
 
 	"retrom/internal/repo/recordstore"
 )

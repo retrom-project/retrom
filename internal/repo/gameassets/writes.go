@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/gameassets"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/gameassets"
 )
 
 var errReleaseSchedulerUnavailable = errors.New("game asset payload release scheduler unavailable")
