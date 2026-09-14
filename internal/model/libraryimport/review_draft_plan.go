@@ -85,13 +85,31 @@ func MergeMetadata(current map[string]any, patch *MetadataPatch, now time.Time) 
 	if patch == nil {
 		return result, nil
 	}
-	if patch.Title != nil {
-		if !ValidReviewField(*patch.Title, 200, false) || *patch.Title == "" {
-			return nil, ErrInvalid
-		}
-		result["title"] = *patch.Title
+	if err := applyTitlePatch(result, patch.Title); err != nil {
+		return nil, err
 	}
-	for _, field := range []struct {
+	if err := applyTextPatches(result, patch); err != nil {
+		return nil, err
+	}
+	if err := applyNumericPatches(result, patch, now); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func applyTitlePatch(metadata map[string]any, value *string) error {
+	if value == nil {
+		return nil
+	}
+	if !ValidReviewField(*value, 200, false) || *value == "" {
+		return ErrInvalid
+	}
+	metadata["title"] = *value
+	return nil
+}
+
+func applyTextPatches(metadata map[string]any, patch *MetadataPatch) error {
+	fields := []struct {
 		key       string
 		value     *string
 		maximum   int
@@ -101,28 +119,34 @@ func MergeMetadata(current map[string]any, patch *MetadataPatch, now time.Time) 
 		{key: "developer", value: patch.Developer, maximum: 200},
 		{key: "publisher", value: patch.Publisher, maximum: 200},
 		{key: "genre", value: patch.Genre, maximum: 200},
-	} {
-		if field.value != nil && !ValidReviewField(*field.value, field.maximum, field.multiline) {
-			return nil, ErrInvalid
-		}
-		if field.value != nil {
-			result[field.key] = *field.value
-		}
 	}
+	for _, field := range fields {
+		if field.value == nil {
+			continue
+		}
+		if !ValidReviewField(*field.value, field.maximum, field.multiline) {
+			return ErrInvalid
+		}
+		metadata[field.key] = *field.value
+	}
+	return nil
+}
+
+func applyNumericPatches(metadata map[string]any, patch *MetadataPatch, now time.Time) error {
 	if present, value := patch.Players.Optional(); present {
 		if value != nil && (*value < 1 || *value > 64) {
-			return nil, ErrInvalid
+			return ErrInvalid
 		}
-		result["players"] = nullableInt(value)
+		metadata["players"] = nullableInt(value)
 	}
 	if present, value := patch.ReleaseYear.Optional(); present {
 		maximumYear := int64(now.UTC().Year() + 1)
 		if value != nil && (*value < 1950 || *value > maximumYear) {
-			return nil, ErrInvalid
+			return ErrInvalid
 		}
-		result["releaseYear"] = nullableInt(value)
+		metadata["releaseYear"] = nullableInt(value)
 	}
-	return result, nil
+	return nil
 }
 
 func nullableInt(value *int64) any {

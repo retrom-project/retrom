@@ -279,14 +279,24 @@ UPDATE rpgmaker_review_profiles SET dependency_snapshot_sha256=?,updated_at_ms=?
 func (records *ReviewValidation) BIOS(
 	ctx context.Context, providerID, targetID string,
 ) ([]corevalidationmodel.BIOSRecord, error) {
-	return corevalidationrepo.New(records.executor).BIOS(ctx, providerID, targetID)
+	result, err := corevalidationrepo.New(records.executor).BIOS(ctx, providerID, targetID)
+	if err != nil {
+		return nil, fmt.Errorf("read review validation BIOS: %w", err)
+	}
+	return result, nil
 }
 
 func (records *ReviewValidation) ArcadeBIOS(
 	ctx context.Context, providerID, targetID, logicalName string,
 ) (corevalidation.BIOSDependency, bool, error) {
-	return BindCreationArcade(records.executor).BIOS(ctx, providerID, targetID, logicalName)
+	dependency, found, err := BindCreationArcade(records.executor).BIOS(ctx, providerID, targetID, logicalName)
+	if err != nil {
+		return corevalidation.BIOSDependency{}, false, fmt.Errorf("read review validation arcade BIOS: %w", err)
+	}
+	return dependency, found, nil
 }
 
-var _ application.ReviewValidationRefreshRepository = (*ReviewValidation)(nil)
-var _ application.ReviewValidationRefreshReader = (*ReviewValidation)(nil)
+var (
+	_ application.ReviewValidationRefreshRepository = (*ReviewValidation)(nil)
+	_ application.ReviewValidationRefreshReader     = (*ReviewValidation)(nil)
+)

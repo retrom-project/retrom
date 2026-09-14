@@ -52,7 +52,11 @@ func (scheduler *Scheduler) prepare(request ScheduleRequest) (ScheduledJob, erro
 	if err != nil {
 		return ScheduledJob{}, err
 	}
-	return application.BuildScheduledJob(request, jobID, executionID)
+	job, err := application.BuildScheduledJob(request, jobID, executionID)
+	if err != nil {
+		return ScheduledJob{}, fmt.Errorf("build release schedule: %w", err)
+	}
+	return job, nil
 }
 
 func (scheduler *Scheduler) identity() (string, error) {
@@ -226,7 +230,9 @@ func (scheduler *Scheduler) DeleteGame(
 	if err != nil {
 		return "", err
 	}
-	if err := scope.BeginRelease(ctx, OwnerRelease{Before: before, JobID: jobID, NowMS: now, DeleteGame: true}); err != nil {
+	if err := scope.BeginRelease(ctx, OwnerRelease{
+		Before: before, JobID: jobID, NowMS: now, DeleteGame: true,
+	}); err != nil {
 		return "", fmt.Errorf("schedule deleted game payload: %w", err)
 	}
 	return jobID, nil
@@ -270,7 +276,9 @@ func (scheduler *Scheduler) boundSources(ctx context.Context, scope ReleaseScope
 	}
 }
 
-func (scheduler *Scheduler) TerminalSources(ctx context.Context, scope ReleaseScope, batch SourceBatch, now int64) error {
+func (scheduler *Scheduler) TerminalSources(
+	ctx context.Context, scope ReleaseScope, batch SourceBatch, now int64,
+) error {
 	if batch.ImportID == "" || !isSourceItemScope(batch.Type) || now < 0 {
 		return ErrScopeInvalid
 	}

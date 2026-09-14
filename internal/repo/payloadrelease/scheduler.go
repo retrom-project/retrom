@@ -54,7 +54,11 @@ func (scheduler *Scheduler) prepare(request application.ScheduleRequest) (applic
 	if err != nil {
 		return application.ScheduledJob{}, err
 	}
-	return application.BuildScheduledJob(request, jobID, executionID)
+	job, err := application.BuildScheduledJob(request, jobID, executionID)
+	if err != nil {
+		return application.ScheduledJob{}, fmt.Errorf("build release schedule: %w", err)
+	}
+	return job, nil
 }
 
 func (scheduler *Scheduler) identity() (string, error) {
@@ -124,7 +128,9 @@ func (scheduler *Scheduler) scheduleOwner(
 	return id, nil
 }
 
-func readSchedulingOwner(ctx context.Context, scope application.SchedulingScope, ref application.Scope) (application.Owner, error) {
+func readSchedulingOwner(
+	ctx context.Context, scope application.SchedulingScope, ref application.Scope,
+) (application.Owner, error) {
 	if ref.ID == "" {
 		return application.Owner{}, application.ErrScopeInvalid
 	}
@@ -178,7 +184,9 @@ func (scheduler *Scheduler) linkSource(
 	if owner.Version == math.MaxInt64 {
 		return "", application.ErrScopeInvalid
 	}
-	ordinary, err := readSchedulingOwner(ctx, scope, application.Scope{Type: application.ScopeImportItem, ID: owner.PublicID})
+	ordinary, err := readSchedulingOwner(
+		ctx, scope, application.Scope{Type: application.ScopeImportItem, ID: owner.PublicID},
+	)
 	if err != nil {
 		return "", err
 	}
@@ -228,7 +236,9 @@ func (scheduler *Scheduler) DeleteGame(
 	if err != nil {
 		return "", err
 	}
-	if err := scope.BeginRelease(ctx, application.OwnerRelease{Before: before, JobID: jobID, NowMS: now, DeleteGame: true}); err != nil {
+	if err := scope.BeginRelease(ctx, application.OwnerRelease{
+		Before: before, JobID: jobID, NowMS: now, DeleteGame: true,
+	}); err != nil {
 		return "", fmt.Errorf("schedule deleted game payload: %w", err)
 	}
 	return jobID, nil

@@ -43,6 +43,44 @@ func (repository *ReviewDraftPatches) LoadPatchSnapshot(
 func loadPatchSnapshot(
 	ctx context.Context, transaction *sql.Tx, query application.ReviewDraftPatchQuery,
 ) (application.ReviewDraftPatchSnapshot, error) {
+	result, currentVersion, metadataJSON, err := readPatchDraft(ctx, transaction, query.ItemID)
+	if err != nil {
+		return application.ReviewDraftPatchSnapshot{}, err
+	}
+	if currentVersion != query.ExpectedVersion {
+		return application.ReviewDraftPatchSnapshot{}, application.ErrVersionConflict
+	}
+	result.ItemID, result.Version = query.ItemID, currentVersion
+	if err := json.Unmarshal([]byte(metadataJSON), &result.Metadata); err != nil {
+		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
+	owner := tagging.Owner{Kind: tagging.OwnerReviewDraft, ID: result.DraftID}
+	result.BeforeTags, err = tagpersistence.Bind(transaction).Relations.References(ctx, owner)
+	if err != nil {
+		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: read draft tags: %w", err)
+	}
+	if len(query.TagIDs) > 0 {
+		result.ActiveTags, err = tagpersistence.Bind(transaction).Tags.ActiveReferences(ctx, query.TagIDs)
+		if err != nil {
+			return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: read active tags: %w", err)
+		}
+	} else {
+		result.ActiveTags = []tagging.Reference{}
+	}
+	result.SourcePaths, err = readPatchSourcePaths(ctx, transaction, result.EffectiveSnapshotID)
+	if err != nil {
+		return application.ReviewDraftPatchSnapshot{}, err
+	}
+	result.ScreenshotAssetIDs, err = readPatchScreenshots(ctx, transaction, result.DraftID)
+	if err != nil {
+		return application.ReviewDraftPatchSnapshot{}, err
+	}
+	return result, nil
+}
+
+func readPatchDraft(
+	ctx context.Context, transaction *sql.Tx, itemID string,
+) (application.ReviewDraftPatchSnapshot, int64, string, error) {
 	var result application.ReviewDraftPatchSnapshot
 	var currentVersion int64
 	var metadataJSON string
@@ -56,79 +94,59 @@ SELECT d.id,d.target_platform_instance_id,COALESCE(d.selected_validation_id,''),
 FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
 WHERE i.id=? AND i.state='REVIEW_PENDING'
-`, query.ItemID).Scan(
+`, itemID).Scan(
 		&result.DraftID, &result.TargetID, &result.ValidationID, &result.EffectiveSnapshotID,
 		&candidateID, &coverID, &uploadedCoverID, &backgroundID, &dosEntry,
 		&metadataJSON, &currentVersion, &result.IsRPG,
 	)
 	if err != nil {
-		return application.ReviewDraftPatchSnapshot{}, application.ErrInvalid
+		return application.ReviewDraftPatchSnapshot{}, 0, "", application.ErrInvalid
 	}
-	if currentVersion != query.ExpectedVersion {
-		return application.ReviewDraftPatchSnapshot{}, application.ErrVersionConflict
-	}
-	result.ItemID, result.Version = query.ItemID, currentVersion
 	result.CandidateID = nullablePointer(candidateID)
 	result.CoverID = nullablePointer(coverID)
 	result.UploadedCoverID = nullablePointer(uploadedCoverID)
 	result.BackgroundID = nullablePointer(backgroundID)
 	result.DOSEntry = nullablePointer(dosEntry)
-	if err := json.Unmarshal([]byte(metadataJSON), &result.Metadata); err != nil {
-		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: %w", err)
-	}
-	owner := tagging.Owner{Kind: tagging.OwnerReviewDraft, ID: result.DraftID}
-	result.BeforeTags, err = tagpersistence.Bind(transaction).Relations.References(ctx, owner)
-	if err != nil {
-		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: read draft tags: %w", err)
-	}
-	if query.TagIDs != nil && len(query.TagIDs) > 0 {
-		result.ActiveTags, err = tagpersistence.Bind(transaction).Tags.ActiveReferences(ctx, query.TagIDs)
-		if err != nil {
-			return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: read active tags: %w", err)
-		}
-	} else {
-		result.ActiveTags = []tagging.Reference{}
-	}
-	rows, err := transaction.QueryContext(ctx, `
+	return result, currentVersion, metadataJSON, nil
+}
+
+func readPatchSourcePaths(ctx context.Context, transaction *sql.Tx, snapshotID string) ([]string, error) {
+	return readPatchIDs(ctx, transaction, `
 SELECT u.relative_path
 FROM import_item_source_snapshot_files s
 JOIN upload_files u ON u.id=s.upload_file_id
 WHERE s.source_snapshot_id=?
 ORDER BY s.sort_order,s.role,s.logical_name
-`, result.EffectiveSnapshotID)
-	if err != nil {
-		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: read source paths: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-	for rows.Next() {
-		var path string
-		if err := rows.Scan(&path); err != nil {
-			return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: %w", err)
-		}
-		result.SourcePaths = append(result.SourcePaths, path)
-	}
-	if err := rows.Err(); err != nil {
-		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: %w", err)
-	}
-	assetRows, err := transaction.QueryContext(ctx, `
+	`, snapshotID, "read source paths")
+}
+
+func readPatchScreenshots(ctx context.Context, transaction *sql.Tx, draftID string) ([]string, error) {
+	return readPatchIDs(ctx, transaction, `
 SELECT candidate_asset_id FROM review_draft_screenshot_assets
 WHERE review_draft_id=? ORDER BY ordinal
-`, result.DraftID)
+	`, draftID, "read screenshots")
+}
+
+func readPatchIDs(
+	ctx context.Context, transaction *sql.Tx, query string, argument string, operation string,
+) ([]string, error) {
+	rows, err := transaction.QueryContext(ctx, query, argument)
 	if err != nil {
-		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: read screenshots: %w", err)
+		return nil, fmt.Errorf("libraryimport/review: %s: %w", operation, err)
 	}
-	defer func() { _ = assetRows.Close() }()
-	for assetRows.Next() {
-		var assetID string
-		if err := assetRows.Scan(&assetID); err != nil {
-			return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: %w", err)
+	defer func() { _ = rows.Close() }()
+	values := make([]string, 0)
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			return nil, fmt.Errorf("libraryimport/review: %s: %w", operation, err)
 		}
-		result.ScreenshotAssetIDs = append(result.ScreenshotAssetIDs, assetID)
+		values = append(values, value)
 	}
-	if err := assetRows.Err(); err != nil {
-		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: %w", err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("libraryimport/review: %s: %w", operation, err)
 	}
-	return result, nil
+	return values, nil
 }
 
 func (repository *ReviewDraftPatches) CommitPatch(
@@ -218,10 +236,7 @@ func (run *draftPatchRun) applyPlan() error {
 		}
 		run.targetOrDOSChanged = true
 	}
-	currentDOS, err := run.currentDOSEntry()
-	if err != nil {
-		return err
-	}
+	currentDOS := run.currentDOSEntry()
 	if !sameNullable(currentDOS, run.plan.DOSEntry) {
 		if run.plan.DOSEntry != nil && !run.validDOSEntry(*run.plan.DOSEntry) {
 			return application.ErrInvalid
@@ -266,12 +281,12 @@ WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 	return nil
 }
 
-func (run *draftPatchRun) currentDOSEntry() (*string, error) {
+func (run *draftPatchRun) currentDOSEntry() *string {
 	if run.currentDOS == nil {
-		return nil, nil
+		return nil
 	}
 	value := *run.currentDOS
-	return &value, nil
+	return &value
 }
 
 func (run *draftPatchRun) validDOSEntry(value string) bool {
@@ -284,32 +299,53 @@ WHERE import_item_id=? AND normalized_path=? AND enabled=1
 }
 
 func (run *draftPatchRun) applyValidation() error {
-	if run.plan.ValidationCreate == nil && run.plan.ValidationCopy != nil {
+	if err := run.createValidation(); err != nil {
+		return err
+	}
+	return run.selectValidation()
+}
+
+func (run *draftPatchRun) createValidation() error {
+	create := run.plan.ValidationCreate
+	if create == nil {
+		if run.plan.ValidationCopy != nil {
+			return application.ErrInvalid
+		}
+		return nil
+	}
+	if create.ID == "" || create.ItemID != run.plan.ItemID || create.TargetPlatformInstanceID != run.targetID ||
+		create.SourceSnapshotID != run.effectiveSnapshotID || !sameNullable(create.DefaultDOSEntry, run.plan.DOSEntry) ||
+		(create.Status == "READY") != (run.plan.ValidationID == create.ID) {
 		return application.ErrInvalid
 	}
-	if run.plan.ValidationCreate != nil {
-		create := run.plan.ValidationCreate
-		if create.ID == "" || create.ItemID != run.plan.ItemID || create.TargetPlatformInstanceID != run.targetID ||
-			create.SourceSnapshotID != run.effectiveSnapshotID || !sameNullable(create.DefaultDOSEntry, run.plan.DOSEntry) ||
-			(create.Status == "READY") != (run.plan.ValidationID == create.ID) {
-			return application.ErrInvalid
-		}
-		if err := BindReviewValidation(run.transaction).Create(run.ctx, *create); err != nil {
-			return fmt.Errorf("libraryimport/review: %w", err)
-		}
-		copyFiles := run.plan.ValidationCopy
-		if copyFiles == nil || copyFiles.ValidationID != create.ID {
-			return application.ErrInvalid
-		}
-		if err := BindReviewValidation(run.transaction).CopyFiles(run.ctx, *copyFiles); err != nil {
-			return fmt.Errorf("libraryimport/review: %w", err)
-		}
+	if err := BindReviewValidation(run.transaction).Create(run.ctx, *create); err != nil {
+		return fmt.Errorf("libraryimport/review: %w", err)
 	}
+	copyFiles := run.plan.ValidationCopy
+	if copyFiles == nil || copyFiles.ValidationID != create.ID {
+		return application.ErrInvalid
+	}
+	if err := BindReviewValidation(run.transaction).CopyFiles(run.ctx, *copyFiles); err != nil {
+		return fmt.Errorf("libraryimport/review: %w", err)
+	}
+	return nil
+}
+
+func (run *draftPatchRun) selectValidation() error {
 	if run.plan.ValidationID == "" {
 		run.validationID = ""
 		return nil
 	}
 	if run.isRPG {
+		if run.plan.ValidationCreate != nil &&
+			run.plan.ValidationCreate.ID == run.plan.ValidationID &&
+			run.plan.ValidationCreate.CoreID == "rpgmaker" {
+			run.validationID = run.plan.ValidationID
+			return nil
+		}
+		if run.plan.ValidationCreate == nil && run.plan.ValidationID == run.validationID {
+			return nil
+		}
 		return application.ErrInvalid
 	}
 	var targetID, snapshotID, status string
@@ -350,8 +386,11 @@ func (run *draftPatchRun) applyRPGBinding() error {
 		return application.ErrInvalid
 	}
 	var generation string
-	if err := run.transaction.QueryRowContext(run.ctx,
-		`SELECT generation FROM rpgmaker_review_profiles WHERE review_draft_id=?`, run.draftID).Scan(&generation); err != nil {
+	if err := run.transaction.QueryRowContext(
+		run.ctx,
+		`SELECT generation FROM rpgmaker_review_profiles WHERE review_draft_id=?`,
+		run.draftID,
+	).Scan(&generation); err != nil {
 		return application.ErrInvalid
 	}
 	if *run.plan.RPGSelfContainedOverride && (generation == "RPGMV" || generation == "RPGMZ") {
@@ -376,6 +415,13 @@ func (run *draftPatchRun) applyAssets() error {
 	if !run.plan.AssetsChanged {
 		return nil
 	}
+	if err := run.validateAssets(); err != nil {
+		return err
+	}
+	return run.replaceScreenshotAssets()
+}
+
+func (run *draftPatchRun) validateAssets() error {
 	if len(run.plan.ScreenshotAssetIDs) > 32 {
 		return application.ErrInvalid
 	}
@@ -397,6 +443,10 @@ func (run *draftPatchRun) applyAssets() error {
 			return application.ErrInvalid
 		}
 	}
+	return nil
+}
+
+func (run *draftPatchRun) replaceScreenshotAssets() error {
 	if _, err := run.transaction.ExecContext(run.ctx, `
 DELETE FROM review_draft_screenshot_assets WHERE review_draft_id=?
 `, run.draftID); err != nil {
@@ -436,9 +486,11 @@ SELECT count(*) FROM review_uploaded_assets WHERE id=? AND import_item_id=? AND 
 func (run *draftPatchRun) persist() (application.DraftResult, error) {
 	encoded, err := application.EncodeMetadata(run.plan.Metadata)
 	if err != nil {
-		return application.DraftResult{}, err
+		return application.DraftResult{}, fmt.Errorf("libraryimport/review: encode metadata: %w", err)
 	}
-	active, err := tagpersistence.Bind(run.transaction).Tags.ActiveReferences(run.ctx, tagging.ReferenceIDs(run.plan.Tags.After))
+	active, err := tagpersistence.Bind(run.transaction).Tags.ActiveReferences(
+		run.ctx, tagging.ReferenceIDs(run.plan.Tags.After),
+	)
 	if err != nil {
 		return application.DraftResult{}, fmt.Errorf("libraryimport/review: read active tags: %w", err)
 	}
@@ -447,7 +499,7 @@ func (run *draftPatchRun) persist() (application.DraftResult, error) {
 		run.plan.Tags.ActorUserID, run.plan.NowMS,
 	)
 	if err != nil {
-		return application.DraftResult{}, err
+		return application.DraftResult{}, fmt.Errorf("libraryimport/review: plan draft tags: %w", err)
 	}
 	if !tagging.ReferencesEqual(actualTags.After, run.plan.Tags.After) {
 		return application.DraftResult{}, application.ErrVersionConflict
@@ -478,7 +530,9 @@ target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
   background_candidate_asset_id=?,default_dos_entry=?,metadata_json=?,
   version=version+1,updated_at_ms=?
 `,
-		Scope: recordstore.Scope{Where: `import_item_id=? AND version=?`, Args: []any{run.plan.ItemID, run.plan.ExpectedVersion}},
+		Scope: recordstore.Scope{
+			Where: `import_item_id=? AND version=?`, Args: []any{run.plan.ItemID, run.plan.ExpectedVersion},
+		},
 		Values: []any{
 			run.targetID, run.validationID, nullableValue(run.plan.CandidateID), nullableValue(run.plan.CoverID),
 			nullableValue(run.plan.UploadedCoverID), nullableValue(run.plan.BackgroundID), nullableValue(run.plan.DOSEntry),

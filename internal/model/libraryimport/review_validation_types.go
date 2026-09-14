@@ -96,6 +96,12 @@ type ReviewValidationRefreshReader interface {
 	Fallback(context.Context, ReviewValidationRefreshLookup) (ReviewValidationRefreshRecord, bool, error)
 	ContentLogicalName(context.Context, string) (string, error)
 	RPGProfile(context.Context, string) (RPGReviewProfile, error)
+}
+
+// ReviewValidationRefreshDependencyReader supplies the runtime dependency
+// facts used by the validation planner. It is separate from the general
+// refresh reader so each application port stays narrow and cohesive.
+type ReviewValidationRefreshDependencyReader interface {
 	BIOS(context.Context, string, string) ([]corevalidationmodel.BIOSRecord, error)
 	ArcadeBIOS(context.Context, string, string, string) (corevalidation.BIOSDependency, bool, error)
 }

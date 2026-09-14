@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -49,7 +50,7 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 	seedLocalProfile(t, database.SQL)
 	mustRPGLaunchSQL(t, database.SQL, `INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
  VALUES('rpg-product-admin','local','rpg-product-admin','RPG admin','ADMIN','ENABLED',0,0)`)
-	dependencySet, err := dependencies.Load("../../data", []string{"4.2.3"}, "4.2.3")
+	dependencySet, err := dependencies.Load(filepath.Join(productRPGRepositoryRoot(t), "data"), []string{"4.2.3"}, "4.2.3")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +131,7 @@ func uploadProductRPGFixture(t *testing.T, database *sql.DB, blobs *blobstore.St
 
 func productRPGArchive(t *testing.T, generation string) []byte {
 	t.Helper()
-	root := filepath.Join("../../testdata/public-roms/rpgmaker-smoke", generation)
+	root := filepath.Join(productRPGRepositoryRoot(t), "testdata", "public-roms", "rpgmaker-smoke", generation)
 	var archive bytes.Buffer
 	writer := zip.NewWriter(&archive)
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
@@ -159,6 +160,15 @@ func productRPGArchive(t *testing.T, generation string) []byte {
 		t.Fatal(err)
 	}
 	return archive.Bytes()
+}
+
+func productRPGRepositoryRoot(t *testing.T) string {
+	t.Helper()
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve RPG product fixture source path")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", "..", ".."))
 }
 
 func productRPGSavedLaunch(t *testing.T, fixture productRPGFixture, target string) (Created, string) {

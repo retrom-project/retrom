@@ -19,15 +19,20 @@ import (
 // immutable read port and returns only a persistence-neutral plan. It never
 // receives an executor or a transaction.
 type ReviewDraftValidationResolver struct {
-	reader ReviewDraftValidationReader
-	now    func() time.Time
+	reader       ReviewDraftValidationReader
+	dependencies ReviewDraftValidationDependencyReader
+	now          func() time.Time
 }
 
-func NewReviewDraftValidationResolver(reader ReviewDraftValidationReader, now func() time.Time) *ReviewDraftValidationResolver {
+func NewReviewDraftValidationResolver(
+	reader ReviewDraftValidationReader,
+	dependencies ReviewDraftValidationDependencyReader,
+	now func() time.Time,
+) *ReviewDraftValidationResolver {
 	if now == nil {
 		now = time.Now
 	}
-	return &ReviewDraftValidationResolver{reader: reader, now: now}
+	return &ReviewDraftValidationResolver{reader: reader, dependencies: dependencies, now: now}
 }
 
 func (resolver *ReviewDraftValidationResolver) Resolve(
@@ -224,48 +229,66 @@ func (state *draftValidationState) resolveDependencyState() (draftDependencyStat
 		return draftDependencyState{tracked: true, status: status, code: code, snapshotJSON: state.dependencySnapshot}, nil
 	}
 	if state.contentKind == "RPG_MAKER_PROJECT" {
-		profile, err := state.resolver.reader.RPGProfile(state.ctx, state.draftID)
-		if err != nil {
-			return draftDependencyState{}, err
-		}
-		if state.rpgOverride != nil {
-			profile.SelfContainedOverride = *state.rpgOverride
-		}
-		dependencies, err := ResolveRPGReviewDependencies(profile)
-		if err != nil {
-			return draftDependencyState{}, err
-		}
-		state.rpgDependencyDigest = dependencies.Digest
-		return draftDependencyState{tracked: true, status: dependencies.Status, code: dependencies.Code,
-			snapshotJSON: dependencies.SnapshotJSON}, nil
+		return state.resolveRPGDependencyState()
 	}
 	if isStaticBIOSSnapshot(state.dependencySnapshot) {
-		logicalName, err := state.resolver.reader.ContentLogicalName(state.ctx, state.effectiveSnapshotID)
-		if err != nil {
-			return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
-		}
-		records, err := state.resolver.reader.BIOS(state.ctx, state.providerID, state.runtimeTargetID)
-		if err != nil {
-			return draftDependencyState{}, fmt.Errorf("libraryimport/review: read BIOS: %w", err)
-		}
-		snapshot, status, code, err := corevalidationservice.ResolveBIOSRecords(records, logicalName)
-		if err != nil {
-			return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
-		}
-		encoded, err := snapshot.JSON()
-		if err != nil {
-			return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
-		}
-		return draftDependencyState{tracked: true, replaceBundle: true, snapshotJSON: string(encoded),
-			status: status, code: code, dependencies: snapshot.BIOS}, nil
+		return state.resolveStaticBIOSDependencyState()
 	}
-	resolved, err := ResolveCreationArcade(state.ctx, creationArcadeReader{reader: state.resolver.reader},
+	return state.resolveArcadeDependencyState()
+}
+
+func (state *draftValidationState) resolveRPGDependencyState() (draftDependencyState, error) {
+	profile, err := state.resolver.reader.RPGProfile(state.ctx, state.draftID)
+	if err != nil {
+		return draftDependencyState{}, fmt.Errorf("libraryimport/review: read RPG profile: %w", err)
+	}
+	if state.rpgOverride != nil {
+		profile.SelfContainedOverride = *state.rpgOverride
+	}
+	dependencies, err := ResolveRPGReviewDependencies(profile)
+	if err != nil {
+		return draftDependencyState{}, err
+	}
+	state.rpgDependencyDigest = dependencies.Digest
+	return draftDependencyState{
+		tracked: true, status: dependencies.Status, code: dependencies.Code,
+		snapshotJSON: dependencies.SnapshotJSON,
+	}, nil
+}
+
+func (state *draftValidationState) resolveStaticBIOSDependencyState() (draftDependencyState, error) {
+	logicalName, err := state.resolver.reader.ContentLogicalName(state.ctx, state.effectiveSnapshotID)
+	if err != nil {
+		return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
+	records, err := state.resolver.dependencies.BIOS(state.ctx, state.providerID, state.runtimeTargetID)
+	if err != nil {
+		return draftDependencyState{}, fmt.Errorf("libraryimport/review: read BIOS: %w", err)
+	}
+	snapshot, status, code, err := corevalidationservice.ResolveBIOSRecords(records, logicalName)
+	if err != nil {
+		return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
+	encoded, err := snapshot.JSON()
+	if err != nil {
+		return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
+	return draftDependencyState{
+		tracked: true, replaceBundle: true, snapshotJSON: string(encoded),
+		status: status, code: code, dependencies: snapshot.BIOS,
+	}, nil
+}
+
+func (state *draftValidationState) resolveArcadeDependencyState() (draftDependencyState, error) {
+	resolved, err := ResolveCreationArcade(state.ctx, creationArcadeReader{reader: state.resolver.dependencies},
 		state.providerID, state.runtimeTargetID, state.dependencySnapshot, state.sourceStatus, state.compatibilityCode)
 	if err != nil {
 		return draftDependencyState{}, fmt.Errorf("resolve arcade BIOS: %w", err)
 	}
-	return draftDependencyState{tracked: resolved.Tracked, status: resolved.Status, code: resolved.Code,
-		snapshotJSON: resolved.SnapshotJSON, dependencies: resolved.Dependencies}, nil
+	return draftDependencyState{
+		tracked: resolved.Tracked, status: resolved.Status, code: resolved.Code,
+		snapshotJSON: resolved.SnapshotJSON, dependencies: resolved.Dependencies,
+	}, nil
 }
 
 func (state *draftValidationState) resolveDependencies() error {
@@ -330,10 +353,16 @@ func isStaticBIOSSnapshot(raw string) bool {
 	return err == nil
 }
 
-type creationArcadeReader struct{ reader ReviewDraftValidationReader }
+type creationArcadeReader struct {
+	reader ReviewDraftValidationDependencyReader
+}
 
 func (reader creationArcadeReader) BIOS(
 	ctx context.Context, providerID, targetID, logicalName string,
 ) (contentcore.BIOSDependency, bool, error) {
-	return reader.reader.ArcadeBIOS(ctx, providerID, targetID, logicalName)
+	dependency, found, err := reader.reader.ArcadeBIOS(ctx, providerID, targetID, logicalName)
+	if err != nil {
+		return contentcore.BIOSDependency{}, false, fmt.Errorf("read arcade BIOS dependency: %w", err)
+	}
+	return dependency, found, nil
 }

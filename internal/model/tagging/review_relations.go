@@ -35,8 +35,8 @@ func BuildReplacementPlan(
 		return ReplacementPlan{}, err
 	}
 	plan := ReplacementPlan{
-		Owner: owner, Before: append([]Reference(nil), before...),
-		After: append([]Reference(nil), after...), ActorUserID: actorUserID, NowMS: now,
+		Owner: owner, Before: cloneReferences(before),
+		After: cloneReferences(after), ActorUserID: actorUserID, NowMS: now,
 	}
 	if ReferencesEqual(before, after) {
 		return plan, nil
@@ -47,6 +47,13 @@ func BuildReplacementPlan(
 	plan.Added, plan.Removed = ReferenceDiff(before, after)
 	plan.Changed = true
 	return plan, nil
+}
+
+func cloneReferences(values []Reference) []Reference {
+	if values == nil {
+		return nil
+	}
+	return append([]Reference{}, values...)
 }
 
 // ValidateActiveReferenceFacts validates requested IDs against an already

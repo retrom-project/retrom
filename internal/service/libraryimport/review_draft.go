@@ -52,22 +52,72 @@ func (service *ReviewDrafts) Patch(
 	if err != nil {
 		return DraftResult{}, fmt.Errorf("load review draft patch snapshot: %w", err)
 	}
-	metadata, err := application.MergeMetadata(snapshot.Metadata, patch.Metadata, now)
+	plan, err := service.buildPatchPlan(ctx, itemID, expectedVersion, patch, snapshot, actor, now)
 	if err != nil {
 		return DraftResult{}, err
+	}
+	result, err := service.repository.CommitPatch(ctx, plan)
+	if err != nil {
+		return DraftResult{}, fmt.Errorf("patch review draft: %w", err)
+	}
+	return result, nil
+}
+
+func (service *ReviewDrafts) buildPatchPlan(
+	ctx context.Context,
+	itemID string,
+	expectedVersion int64,
+	patch DraftPatch,
+	snapshot application.ReviewDraftPatchSnapshot,
+	actor authn.Actor,
+	now time.Time,
+) (application.ReviewDraftWritePlan, error) {
+	metadata, err := application.MergeMetadata(snapshot.Metadata, patch.Metadata, now)
+	if err != nil {
+		return application.ReviewDraftWritePlan{}, fmt.Errorf("merge review draft metadata: %w", err)
 	}
 	actorUserID := actorString(actor.UserID)
 	desiredTags, err := tagging.ValidateActiveReferenceFacts(patch.TagIDs, snapshot.ActiveTags)
 	if err != nil {
-		return DraftResult{}, err
+		return application.ReviewDraftWritePlan{}, fmt.Errorf("validate review draft tags: %w", err)
 	}
 	tagPlan, err := tagging.BuildReplacementPlan(
 		tagging.Owner{Kind: tagging.OwnerReviewDraft, ID: snapshot.DraftID},
 		snapshot.BeforeTags, desiredTags, actorUserID, now.UnixMilli(),
 	)
 	if err != nil {
-		return DraftResult{}, err
+		return application.ReviewDraftWritePlan{}, fmt.Errorf("plan review draft tags: %w", err)
 	}
+	targetID, dosEntry := patchedTargetAndDOS(snapshot, patch)
+	validationPlan, err := service.resolveValidationPlan(ctx, itemID, targetID, dosEntry, patch)
+	if err != nil {
+		return application.ReviewDraftWritePlan{}, fmt.Errorf("resolve review draft validation: %w", err)
+	}
+	plan := application.ReviewDraftWritePlan{
+		ItemID: itemID, DraftID: snapshot.DraftID, ExpectedVersion: expectedVersion,
+		ExpectedTargetID: snapshot.TargetID, ExpectedValidationID: snapshot.ValidationID,
+		ExpectedEffectiveSnapshotID: snapshot.EffectiveSnapshotID,
+		ExpectedDOSEntry:            copyString(snapshot.DOSEntry), ExpectedIsRPG: snapshot.IsRPG,
+		TargetID: targetID, ValidationID: validationPlan.SelectedValidationID,
+		CandidateID: patchString(snapshot.CandidateID), CoverID: patchString(snapshot.CoverID),
+		UploadedCoverID: patchString(snapshot.UploadedCoverID), BackgroundID: patchString(snapshot.BackgroundID),
+		DOSEntry: dosEntry, Metadata: metadata,
+		SearchParts:        application.SearchParts(itemID, snapshot.SourcePaths, metadata),
+		ScreenshotAssetIDs: append([]string(nil), snapshot.ScreenshotAssetIDs...),
+		AssetsChanged:      patch.SelectedAssets != nil, Tags: tagPlan,
+		ActorKind: actor.Kind, ActorUserID: actorUserIDPtr(actor.UserID), ActorLabel: actorStringPtr(actor.Label),
+		RPGSelfContainedOverride: patch.RPGSelfContainedOverride,
+		RPGDependencyDigest:      validationPlan.RPGDependencyDigest,
+		ValidationCreate:         validationPlan.Create, ValidationCopy: validationPlan.Copy, NowMS: now.UnixMilli(),
+	}
+	applyCandidatePatch(&plan, patch)
+	applyAssetPatch(&plan, patch)
+	return plan, nil
+}
+
+func patchedTargetAndDOS(
+	snapshot application.ReviewDraftPatchSnapshot, patch DraftPatch,
+) (string, *string) {
 	targetID := snapshot.TargetID
 	if patch.TargetPlatformInstanceID != nil {
 		targetID = *patch.TargetPlatformInstanceID
@@ -76,65 +126,61 @@ func (service *ReviewDrafts) Patch(
 	if present, value := patch.DefaultDOSEntry.Optional(); present {
 		dosEntry = copyString(value)
 	}
-	validationPlan := application.ReviewValidationPlan{}
+	return targetID, dosEntry
+}
+
+func (service *ReviewDrafts) resolveValidationPlan(
+	ctx context.Context,
+	itemID string,
+	targetID string,
+	dosEntry *string,
+	patch DraftPatch,
+) (application.ReviewValidationPlan, error) {
+	if service.validation == nil && (patch.ScummVMCandidateID != nil || patch.SelectedValidationID == nil) {
+		return application.ReviewValidationPlan{}, ErrInvalid
+	}
+	plan := application.ReviewValidationPlan{}
+	var err error
 	if patch.ScummVMCandidateID != nil {
-		if service.validation == nil {
-			return DraftResult{}, ErrInvalid
-		}
-		validationPlan, err = service.validation.SelectScummVM(ctx, ReviewDraftScummVMRequest{
+		plan, err = service.validation.SelectScummVM(ctx, ReviewDraftScummVMRequest{
 			ItemID: itemID, TargetPlatformInstanceID: targetID, DefaultDOSEntry: dosEntry,
 			CandidateID: *patch.ScummVMCandidateID,
 		})
 	} else if patch.SelectedValidationID == nil {
-		if service.validation == nil {
-			return DraftResult{}, ErrInvalid
-		}
-		validationPlan, err = service.validation.Resolve(ctx, ReviewDraftValidationRequest{
+		plan, err = service.validation.Resolve(ctx, ReviewDraftValidationRequest{
 			ItemID: itemID, TargetPlatformInstanceID: targetID, DefaultDOSEntry: dosEntry,
 			RPGSelfContainedOverride: patch.RPGSelfContainedOverride,
 		})
 	}
 	if err != nil {
-		return DraftResult{}, fmt.Errorf("resolve review draft validation: %w", err)
+		return application.ReviewValidationPlan{}, fmt.Errorf("review validation: %w", err)
 	}
 	if patch.SelectedValidationID != nil {
 		if *patch.SelectedValidationID == "" {
-			return DraftResult{}, ErrInvalid
+			return application.ReviewValidationPlan{}, ErrInvalid
 		}
-		validationPlan.SelectedValidationID = *patch.SelectedValidationID
-		validationPlan.Create = nil
-		validationPlan.Copy = nil
-		validationPlan.RPGDependencyDigest = ""
+		plan.SelectedValidationID = *patch.SelectedValidationID
+		plan.Create = nil
+		plan.Copy = nil
+		plan.RPGDependencyDigest = ""
 	}
-	plan := application.ReviewDraftWritePlan{
-		ItemID: itemID, DraftID: snapshot.DraftID, ExpectedVersion: expectedVersion,
-		ExpectedTargetID: snapshot.TargetID, ExpectedValidationID: snapshot.ValidationID,
-		ExpectedEffectiveSnapshotID: snapshot.EffectiveSnapshotID, ExpectedDOSEntry: copyString(snapshot.DOSEntry),
-		ExpectedIsRPG: snapshot.IsRPG,
-		TargetID:      targetID, ValidationID: validationPlan.SelectedValidationID,
-		CandidateID: patchString(snapshot.CandidateID), CoverID: patchString(snapshot.CoverID),
-		UploadedCoverID: patchString(snapshot.UploadedCoverID), BackgroundID: patchString(snapshot.BackgroundID),
-		DOSEntry: dosEntry, Metadata: metadata, SearchParts: application.SearchParts(itemID, snapshot.SourcePaths, metadata),
-		ScreenshotAssetIDs: append([]string(nil), snapshot.ScreenshotAssetIDs...), AssetsChanged: patch.SelectedAssets != nil,
-		Tags:      tagPlan,
-		ActorKind: actor.Kind, ActorUserID: actorUserIDPtr(actor.UserID), ActorLabel: actorStringPtr(actor.Label),
-		RPGSelfContainedOverride: patch.RPGSelfContainedOverride, RPGDependencyDigest: validationPlan.RPGDependencyDigest,
-		ValidationCreate: validationPlan.Create, ValidationCopy: validationPlan.Copy, NowMS: now.UnixMilli(),
-	}
+	return plan, nil
+}
+
+func applyCandidatePatch(plan *application.ReviewDraftWritePlan, patch DraftPatch) {
 	if present, value := patch.SelectedCandidateID.Optional(); present {
 		plan.CandidateID = copyString(value)
 	}
-	if patch.SelectedAssets != nil {
-		plan.CoverID = copyString(patch.SelectedAssets.CoverCandidateAssetID)
-		plan.UploadedCoverID = copyString(patch.SelectedAssets.CoverUploadedAssetID)
-		plan.BackgroundID = copyString(patch.SelectedAssets.BackgroundCandidateAssetID)
-		plan.ScreenshotAssetIDs = append([]string(nil), patch.SelectedAssets.ScreenshotCandidateAssetIDs...)
+}
+
+func applyAssetPatch(plan *application.ReviewDraftWritePlan, patch DraftPatch) {
+	if patch.SelectedAssets == nil {
+		return
 	}
-	result, err := service.repository.CommitPatch(ctx, plan)
-	if err != nil {
-		return DraftResult{}, fmt.Errorf("patch review draft: %w", err)
-	}
-	return result, nil
+	plan.CoverID = copyString(patch.SelectedAssets.CoverCandidateAssetID)
+	plan.UploadedCoverID = copyString(patch.SelectedAssets.CoverUploadedAssetID)
+	plan.BackgroundID = copyString(patch.SelectedAssets.BackgroundCandidateAssetID)
+	plan.ScreenshotAssetIDs = append([]string(nil), patch.SelectedAssets.ScreenshotCandidateAssetIDs...)
 }
 
 func actorString(value any) string {

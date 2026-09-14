@@ -21,6 +21,8 @@ type ReviewDraftValidationPort interface {
 
 type ReviewDraftValidationReader = application.ReviewValidationRefreshReader
 
+type ReviewDraftValidationDependencyReader = application.ReviewValidationRefreshDependencyReader
+
 type ReviewDraftValidationRequest struct {
 	ItemID, TargetPlatformInstanceID string
 	DefaultDOSEntry                  *string

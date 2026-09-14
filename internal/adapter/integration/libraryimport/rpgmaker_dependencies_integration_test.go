@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -98,7 +99,11 @@ ORDER BY created_at_ms DESC,id DESC LIMIT 1`, itemID).Scan(&id, &gotStatus, &got
 
 func requiredRPGPackArchive(t *testing.T) []byte {
 	t.Helper()
-	root := "../../testdata/public-roms/rpgmaker-smoke/rpg2000"
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve RPG dependency fixture source path")
+	}
+	root := filepath.Join(filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", "..", "..")), "testdata", "public-roms", "rpgmaker-smoke", "rpg2000")
 	files := make(map[string][]byte)
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {

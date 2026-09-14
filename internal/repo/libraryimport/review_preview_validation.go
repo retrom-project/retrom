@@ -52,18 +52,40 @@ func (repository *ReviewPreviewValidationRepository) Commit(
 		return fmt.Errorf("begin review preview validation: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
-	if plan.Create != nil {
-		if plan.Create.ID != plan.ValidationID || plan.Create.ItemID != plan.ItemID ||
-			plan.Copy == nil || plan.Copy.ValidationID != plan.ValidationID {
-			return application.ErrInvalid
-		}
-		if err := BindReviewValidation(transaction).Create(ctx, *plan.Create); err != nil {
-			return fmt.Errorf("create review preview validation: %w", err)
-		}
-		if err := BindReviewValidation(transaction).CopyFiles(ctx, *plan.Copy); err != nil {
-			return fmt.Errorf("copy review preview validation files: %w", err)
-		}
+	if err := createPreviewValidation(ctx, transaction, plan); err != nil {
+		return err
 	}
+	if err := selectPreviewValidation(ctx, transaction, plan); err != nil {
+		return err
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("commit review preview validation: %w", err)
+	}
+	return nil
+}
+
+func createPreviewValidation(
+	ctx context.Context, transaction *sql.Tx, plan application.ReviewPreviewValidationPlan,
+) error {
+	if plan.Create == nil {
+		return nil
+	}
+	if plan.Create.ID != plan.ValidationID || plan.Create.ItemID != plan.ItemID ||
+		plan.Copy == nil || plan.Copy.ValidationID != plan.ValidationID {
+		return application.ErrInvalid
+	}
+	if err := BindReviewValidation(transaction).Create(ctx, *plan.Create); err != nil {
+		return fmt.Errorf("create review preview validation: %w", err)
+	}
+	if err := BindReviewValidation(transaction).CopyFiles(ctx, *plan.Copy); err != nil {
+		return fmt.Errorf("copy review preview validation files: %w", err)
+	}
+	return nil
+}
+
+func selectPreviewValidation(
+	ctx context.Context, transaction *sql.Tx, plan application.ReviewPreviewValidationPlan,
+) error {
 	result, err := recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
 		Set: `selected_validation_id=NULLIF(?,''),version=version+1,updated_at_ms=?`,
 		Scope: recordstore.Scope{Where: `import_item_id=? AND version=? AND
@@ -80,9 +102,6 @@ func (repository *ReviewPreviewValidationRepository) Commit(
 	}
 	if affected, _ := result.RowsAffected(); affected != 1 {
 		return application.ErrVersionConflict
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit review preview validation: %w", err)
 	}
 	return nil
 }

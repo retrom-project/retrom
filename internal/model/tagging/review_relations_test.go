@@ -23,6 +23,20 @@ func TestBuildReplacementPlanComputesOnlyTheRelationDelta(t *testing.T) {
 	}
 }
 
+func TestBuildReplacementPlanPreservesEmptyAfterAsAnArray(t *testing.T) {
+	t.Parallel()
+	owner := Owner{Kind: OwnerEmulationStationCollection, ID: "01900000-0000-7000-8000-000000000001"}
+	after := []Reference{}
+
+	plan, err := BuildReplacementPlan(owner, []Reference{{TagID: "01900000-0000-7000-8000-000000000002"}}, after, "01900000-0000-7000-8000-000000000004", 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.After == nil {
+		t.Fatal("plan.After must remain a non-nil empty slice so JSON persistence emits []")
+	}
+}
+
 func TestValidateActiveReferenceFactsRejectsMissingTagsWithoutIO(t *testing.T) {
 	t.Parallel()
 	_, err := ValidateActiveReferenceFacts(

@@ -66,9 +66,9 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	archiveBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "importing", "testdata", "sevenzip", "single.7z"))
+	archiveBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "capability", "format", "importing", "testdata", "sevenzip", "single.7z"))
 	testassert.False(t, err != nil, err)
-	payloadBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "importing", "testdata", "sevenzip", "payload", "game.a26"))
+	payloadBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "capability", "format", "importing", "testdata", "sevenzip", "payload", "game.a26"))
 	testassert.False(t, err != nil, err)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)

@@ -2,6 +2,7 @@ package payloadrelease
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 )
 
@@ -32,7 +33,7 @@ func TestBuildScheduledJobRejectsMissingIdentity(t *testing.T) {
 		Scope: Scope{Type: ScopeGame, ID: "game"}, ScopeVersion: 1,
 		Reason: ReasonGameDeleted,
 	}, "", "execution")
-	if err != ErrScheduleIDInvalid {
+	if !errors.Is(err, ErrScheduleIDInvalid) {
 		t.Fatalf("error = %v, want ErrScheduleIDInvalid", err)
 	}
 }
