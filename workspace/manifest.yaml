@@ -40,7 +40,8 @@
         "gbe-plus",
         "nxengine",
         "ppsspp",
-        "uzem"
+        "uzem",
+        "gam4980"
       ]
     },
     {
@@ -364,6 +365,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/libretro-uzem.git",
       "defaultBranch": "retrom/gd991ee94547c",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "gam4980",
+      "path": "project/retrom-core/gam4980",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/gam4980.git",
+      "defaultBranch": "retrom/geeaa531b55e7",
       "submodules": false,
       "dependsOn": []
     }

@@ -89,3 +89,5 @@ HTTP、运行时、依赖及统一验收专题维护。
 - active `retrom-runtime` Provider Bundle declaration 是 RPG Maker、ONS、KiriKiri、Butterscotch、TyranoScript、J2ME、WASM-4、TIC-80、FAKE-08、ScummVM 与 Play! 共 17 个 Target 的唯一机器事实源；Retrom 的 `data/runtime-target-bindings/v1/catalog.json` 只把产品 Core 绑定到精确 Target，不声明内部实现。Provider 源码、项目自有 bridge 与聚合发布 workflow 位于独立 `retrom-runtime`，第三方核心源码、构建与 Release workflow 位于各维护 fork。公开 RPG fixture 只有在来源、许可、确定性生成和真实产品消费者全部满足仓库夹具规则时才可进入 `testdata/public-roms/rpgmaker-smoke/`；不可分发输入仍只由对应当次 smoke 证明。
 - 任何表示时刻的 SQLite 字段必须为 Unix 毫秒 `INTEGER` 并以 `*_at_ms` 命名。
 - 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。
+
+- [步步高 RPG（GAM4980）集成](bbkrpg-integration.md)：平台、双 BIOS、输入、即时存档与 PFB 验证边界。
