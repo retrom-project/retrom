@@ -190,6 +190,7 @@ web-e2e: prepare-go prepare-e2e-browser public-fixtures-check
 data-check:
 	@python3 scripts/test_local_user.py
 	@python3 scripts/test_pfb.py
+	@python3 -m unittest discover -s scripts -p 'test_pfb_network.py'
 	@python3 -m unittest scripts.test_pfb_init
 	@python3 -m unittest scripts.test_pfb_data_reset
 	@python3 scripts/test_prepare_toolchains.py
