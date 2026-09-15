@@ -87,6 +87,15 @@ export async function pressBBKRPG(opened, button) {
   await opened.page.waitForTimeout(700);
 }
 
+export async function keyboardBBKRPG(opened, key) {
+  await resumePreview(opened.page);
+  await opened.canvas.click();
+  // Retrom's keyboard mapping is sampled by the native gamepad poll.
+  // A keydown/keyup pair in a single frame can disappear before that poll.
+  await opened.canvas.press(key, {delay: 150});
+  await opened.page.waitForTimeout(700);
+}
+
 export async function mainMenuBBKRPG(opened, directory) {
   await opened.page.waitForTimeout(1500);
   for (let attempt = 0; attempt < 40; attempt++) {

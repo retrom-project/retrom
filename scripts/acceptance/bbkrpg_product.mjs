@@ -7,8 +7,7 @@ import {localRpgAcceptanceProxy} from "./rpgmaker_local_proxy.mjs";
 import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import {fantasyClient, previewCart, approveCart, launchCart} from "./fantasy_product_client.mjs";
 import {singleFile, reviewForImport} from "./rpgmaker_security_upload.mjs";
-import {resumePreview} from "./rpgmaker_preview_actions.mjs";
-import {hash, openBBKRPG, pictureBBKRPG, pressBBKRPG, mainMenuBBKRPG, saveBBKRPG} from "./bbkrpg_browser.mjs";
+import {hash, openBBKRPG, pictureBBKRPG, pressBBKRPG, keyboardBBKRPG, mainMenuBBKRPG, saveBBKRPG} from "./bbkrpg_browser.mjs";
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/bbkrpg-product");
@@ -135,10 +134,7 @@ async function verifyGame(context, client, gameId) {
   const d = await pictureBBKRPG(restored, directory, "D-new-launch-restored");
   assert.equal(d.selected, "load");
   assert.equal(d.sha256, b.sha256, "BBKRPG_DID_NOT_RESTORE_SELECTED_MENU");
-  await resumePreview(restored.page);
-  await restored.canvas.click();
-  await restored.canvas.press("w");
-  await restored.page.waitForTimeout(700);
+  await keyboardBBKRPG(restored, "w");
   assert.equal((await pictureBBKRPG(restored, directory, "restored-keyboard-input")).selected, "new");
   await pressBBKRPG(restored, 0);
   let journey;
