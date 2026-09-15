@@ -12,7 +12,7 @@ import {hash, openBBKRPG, pictureBBKRPG, pressBBKRPG, mainMenuBBKRPG, saveBBKRPG
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/bbkrpg-product");
-mkdirSync(directory, {recursive: true});
+mkdirSync(join(directory, "screenshots"), {recursive: true});
 const evidence = {schemaVersion: 1, caseId: "ACC-BBKRPG-001", status: "FAIL",
   stages: [], errors: [], runtimes: [], inputDevice: "virtual-standard-gamepad", audio: "not-implemented-upstream"};
 const stage = name => {evidence.stages.push(name); console.log("bbkrpg_stage=" + name);};
@@ -34,7 +34,9 @@ try {
   await installVirtualStandardGamepad(context);
   const client = await fantasyClient(context, base);
   await installBIOS(client); stage("bios");
-  const progressPath = join(directory, "product-input.json");
+  const work = env.RETROM_ACCEPTANCE_RUN_DIR ? join(env.RETROM_ACCEPTANCE_RUN_DIR, "work") : directory;
+  mkdirSync(work, {recursive: true});
+  const progressPath = join(work, "bbkrpg-product-input.json");
   const progress = existsSync(progressPath) ? JSON.parse(readFileSync(progressPath)) : {};
   if (progress.cart) {assert.deepEqual(progress.cart, evidence.cart);}
   if (!progress.reviewId) {
@@ -61,7 +63,7 @@ try {
   evidence.status = "PASS";
 } catch (error) {
   evidence.errorCode = error.message.split("\n")[0].slice(0, 300);
-  writeFileSync(join(directory, "failure.txt"), String(error.stack));
+  writeFileSync(join(directory, "bbkrpg-failure.txt"), String(error.stack));
   process.exitCode = evidence.status === "BLOCKED" ? 3 : 1;
 } finally {
   await browser?.close(); await proxy?.close();
@@ -139,7 +141,13 @@ async function verifyGame(context, client, gameId) {
   await restored.page.waitForTimeout(700);
   assert.equal((await pictureBBKRPG(restored, directory, "restored-keyboard-input")).selected, "new");
   await pressBBKRPG(restored, 0);
-  const journey = await pictureBBKRPG(restored, directory, "restored-confirm-new-journey");
+  let journey;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    journey = await pictureBBKRPG(restored, directory, "restored-confirm-new-journey");
+    if (!journey.blank && journey.selected === null) {break;}
+    await restored.page.waitForTimeout(500);
+  }
+  assert.equal(journey.blank, false, "BBKRPG_RESTORED_GAMEPLAY_BLANK");
   assert.equal(journey.selected, null, "BBKRPG_RESTORED_CONFIRM_FAILED");
   assert.notEqual(journey.sha256, a.sha256);
   evidence.checkpoint = {saveStateId: saved.saveStateId, originalLaunchId: firstLaunch.launchId,

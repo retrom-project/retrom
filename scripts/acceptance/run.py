@@ -749,7 +749,7 @@ def archive_previous(case_dir: Path) -> None:
     for name in (
         "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
         "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json",
-        "openbor-product.json", "ruffle-product.json", "pc98-product.json", "checkpoint-storage-product.json", "rerun-resolution.json",
+        "openbor-product.json", "ruffle-product.json", "pc98-product.json", "checkpoint-storage-product.json", "bbkrpg-product.json", "bbkrpg-browser-diagnostics.log", "bbkrpg-failure.txt", "rerun-resolution.json",
     ):
         source = case_dir / name
         if source.exists():
