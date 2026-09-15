@@ -44,8 +44,9 @@ POKEMINI_CASES = {"ACC-POKEMINI-001"}
 PC98_CASES = {"ACC-PC98-001"}
 PC88_CASES = {"ACC-PC88-001"}
 STORAGE_CASES = {"ACC-SAVE-004"}
+BBKRPG_CASES = {"ACC-BBKRPG-001"}
 UZEBOX_CASES = {"ACC-UZEBOX-001"}
-PRODUCT_CASES = UZEBOX_CASES | PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
+PRODUCT_CASES = BBKRPG_CASES | UZEBOX_CASES | PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -494,6 +495,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     },
     "ACC-TIC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs tic80"),
     "ACC-SAVE-004": (300, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/checkpoint_storage_product.mjs"),
+    "ACC-BBKRPG-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/bbkrpg_product.mjs"),
     "ACC-UZEBOX-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/uzebox_product.mjs"),
     "ACC-PC88-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/pc88_product.mjs"),
     "ACC-POKEMINI-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/pokemini_product.mjs"),
@@ -747,7 +749,7 @@ def archive_previous(case_dir: Path) -> None:
     for name in (
         "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
         "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json",
-        "openbor-product.json", "ruffle-product.json", "pc98-product.json", "checkpoint-storage-product.json", "rerun-resolution.json",
+        "openbor-product.json", "ruffle-product.json", "pc98-product.json", "checkpoint-storage-product.json", "bbkrpg-product.json", "bbkrpg-browser-diagnostics.log", "bbkrpg-failure.txt", "rerun-resolution.json",
     ):
         source = case_dir / name
         if source.exists():
@@ -1016,6 +1018,8 @@ def execute_case(case_id: str) -> int:
             product_filename = "rpgmaker-product.json"
             if case_id in STORAGE_CASES:
                 product_filename = "checkpoint-storage-product.json"
+            elif case_id in BBKRPG_CASES:
+                product_filename = "bbkrpg-product.json"
             elif case_id in UZEBOX_CASES:
                 product_filename = "uzebox-product.json"
             elif case_id in PC88_CASES:

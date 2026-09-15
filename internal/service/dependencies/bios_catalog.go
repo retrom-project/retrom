@@ -32,6 +32,18 @@ type staticBIOS struct {
 
 var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 	{
+		coreID: "gam4980", logical: "8.BIN", mode: "REQUIRED", size: 2097152,
+		md5: "ea26b08e67511a34460c103b8b669154", sha256: "7663735609c416025b2738c80cedaf11528ff8cb5a7c74c7c31c1f46e43e9caf",
+		sourceURL: "https://github.com/ThisBoringWorld/gam4980/tree/eeaa531b55e7127ab4b5e0bdc5ceba686df59c6a",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/gam4980/8.BIN",
+	},
+	{
+		coreID: "gam4980", logical: "E.BIN", mode: "REQUIRED", size: 2097152,
+		md5: "f812738e5ae75de0f4faae78a3829866", sha256: "3e12d40948fd50710cef8c6d14acea26ad69f47312125a61bd1003912893fcad",
+		sourceURL: "https://github.com/ThisBoringWorld/gam4980/tree/eeaa531b55e7127ab4b5e0bdc5ceba686df59c6a",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/gam4980/E.BIN",
+	},
+	{
 		coreID: "freeintv", logical: "exec.bin", mode: "REQUIRED", size: 8192,
 		md5: "62e761035cb657903761800f4437b8af", sha256: "1aeb614856beba95463166daf09304b414d5617d3f37d221724b3337fc4b2722",
 		sourceURL: "https://docs.libretro.com/library/freeintv/",
