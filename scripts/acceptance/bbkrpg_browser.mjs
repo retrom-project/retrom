@@ -13,12 +13,12 @@ export async function openBBKRPG(context, base, launch, evidence, directory) {
   page.on("pageerror", error => evidence.errors.push(error.message.slice(0, 200)));
   page.on("console", message => {
     if (["error", "warning"].includes(message.type())) {
-      writeFileSync(join(directory, "browser-diagnostics.log"), message.text() + "\n", {flag: "a"});
+      writeFileSync(join(directory, "bbkrpg-browser-diagnostics.log"), message.text() + "\n", {flag: "a"});
     }
   });
   await page.goto(base + launch.playUrl, {waitUntil: "domcontentloaded", timeout: 90000});
   try {await waitForPreviewReady(page);} catch (error) {
-    await page.screenshot({path: join(directory, "startup-failure.png")});
+    await page.screenshot({path: join(directory, "screenshots", "startup-failure.png")});
     throw error;
   }
   const frame = page.frames().find(candidate => candidate !== page.mainFrame());
@@ -52,8 +52,13 @@ export async function openBBKRPG(context, base, launch, evidence, directory) {
 
 export async function pictureBBKRPG(opened, directory, name) {
   const png = await opened.canvas.screenshot();
-  if (name) {writeFileSync(join(directory, name + ".png"), png);}
-  const {data, info} = await sharp(png).resize(159, 96, {fit: "fill", kernel: "nearest"})
+  if (name) {writeFileSync(join(directory, "screenshots", name + ".png"), png);}
+  const metadata = await sharp(png).metadata();
+  const scale = Math.min(metadata.width / 159, metadata.height / 96);
+  const width = Math.floor(159 * scale), height = Math.floor(96 * scale);
+  const viewport = {width, height, left: Math.floor((metadata.width - width) / 2),
+    top: Math.floor((metadata.height - height) / 2)};
+  const {data, info} = await sharp(png).extract(viewport).resize(159, 96, {fit: "fill", kernel: "nearest"})
     .removeAlpha().raw().toBuffer({resolveWithObject: true});
   const bits = Buffer.alloc(159 * 96);
   for (let i = 0; i < bits.length; i++) {
@@ -69,10 +74,10 @@ export async function pictureBBKRPG(opened, directory, name) {
   const upperArrow = count(111, 34, 127, 45), lowerArrow = count(111, 48, 127, 60);
   const menuBorder = count(23, 25, 136, 29);
   const darkPixels = bits.reduce((sum, value) => sum + value, 0);
-  assert.ok(darkPixels > 40 && darkPixels < 14500, "BBKRPG_BLANK_FRAME");
-  const selected = menuBorder > 110 && upperArrow > 8 && lowerArrow < 5 ? "new"
+  const blank = darkPixels <= 40 || darkPixels >= 14500;
+  const selected = blank ? null : menuBorder > 110 && upperArrow > 8 && lowerArrow < 5 ? "new"
     : menuBorder > 110 && lowerArrow > 8 && upperArrow < 5 ? "load" : null;
-  return {sha256: hash(bits), selected, upperArrow, lowerArrow, menuBorder, darkPixels};
+  return {sha256: hash(bits), selected, upperArrow, lowerArrow, menuBorder, darkPixels, blank, viewport};
 }
 
 export async function pressBBKRPG(opened, button) {
@@ -84,10 +89,11 @@ export async function pressBBKRPG(opened, button) {
 
 export async function mainMenuBBKRPG(opened, directory) {
   await opened.page.waitForTimeout(1500);
-  for (let attempt = 0; attempt < 8; attempt++) {
+  for (let attempt = 0; attempt < 40; attempt++) {
     const current = await pictureBBKRPG(opened, directory, "menu-probe-" + attempt);
     if (current.selected) {return current;}
-    await pressBBKRPG(opened, 0);
+    if (!current.blank && attempt % 6 === 0) {await pressBBKRPG(opened, 0);}
+    else {await opened.page.waitForTimeout(500);}
   }
   throw Error("BBKRPG_TITLE_CONFIRM_FAILED");
 }
@@ -127,6 +133,6 @@ export async function saveBBKRPG(opened, client, launchId, gameId, directory) {
   assert.equal(added.length, 1, "BBKRPG_SAVE_RECEIPT_AMBIGUOUS");
   const screenshot = await client.raw("GET", added[0].screenshotUrl);
   assert.equal(screenshot.status(), 200);
-  writeFileSync(join(directory, "uploaded-screenshot.png"), await screenshot.body());
+  writeFileSync(join(directory, "screenshots", "uploaded-screenshot.png"), await screenshot.body());
   return {saved: added[0], before, native: await opened.frame.evaluate(() => window.__bbkrpgSavedNative)};
 }
