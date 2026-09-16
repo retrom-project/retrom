@@ -100,7 +100,10 @@ func TestCollectionsRejectCorruptStoredRules(t *testing.T) {
 			if _, err := db.ExecContext(t.Context(), statement); err != nil {
 				t.Fatal(err)
 			}
-			service := &Service{database: db, tags: tagging.New(tagrepository.New(db), time.Now)}
+			service := &Service{database: db, tags: func() *tagging.Service {
+				r := tagrepository.New(db)
+				return tagging.New(r, r, tagging.Options{Now: time.Now})
+			}()}
 			values, err := service.Collections(t.Context(), "import", "", 0, "", 10)
 			if err == nil || values != nil {
 				t.Fatalf("corrupt rules returned successful collections: %#v, %v", values, err)

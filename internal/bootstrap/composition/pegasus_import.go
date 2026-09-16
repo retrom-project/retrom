@@ -11,17 +11,15 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/repo/dberrors"
 	repository "retrom/internal/repo/pegasusimport"
-	tagrepository "retrom/internal/repo/tagging"
 	library "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/pegasusimport"
-	"retrom/internal/service/tagging"
 )
 
 func NewPegasusImport(database *sql.DB, blobs *blobstore.Store, importer application.ReviewSourceCreator,
 	credentials *retromruntime.Credentials, roots []serversource.Root, now func() time.Time,
 ) *application.Service {
 	source := pegasusimport.NewSources(blobs, credentials, roots)
-	tags := tagging.New(tagrepository.New(database), now)
+	tags := newTagService(database, now)
 	items := application.NewItemWork(repository.NewItemWork(database), now)
 	material := application.NewMaterialization(repository.NewMaterialization(database), now)
 	metadata := library.NewMetadataSeeder(nil, now)

@@ -32,7 +32,8 @@ VALUES('import-0','metadata.pegasus.txt',10,'ddddddddddddddddddddddddddddddddddd
 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee','VALID',1);`); err != nil {
 		t.Fatal(err)
 	}
-	mapper := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(2) })
+	tagRepo := tagrepository.New(db)
+	mapper := application.NewMappings(NewMappings(db), tagging.New(tagRepo, tagRepo, tagging.Options{Now: func() time.Time { return time.UnixMilli(2) }}), func() time.Time { return time.UnixMilli(2) })
 	if _, err := mapper.Update(t.Context(), "import-0", 1, []application.Mapping{
 		{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}},
 		{CollectionID: skippedStartCollection, Action: "SKIP", TagIDs: []string{}},

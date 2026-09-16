@@ -36,7 +36,10 @@ func TestMappingsPreserveExistingTagAssignmentOnDomainRejection(t *testing.T) {
 			instance := seedMappingTarget(t, db)
 			mapping, want := rejectedMapping(t, db, instance, kind)
 			before := planRows(t, db)
-			service := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(10) })
+			service := application.NewMappings(NewMappings(db), func() *tagging.Service {
+				r := tagrepository.New(db)
+				return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }})
+			}(), func() time.Time { return time.UnixMilli(10) })
 			result, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{mapping}, mappingActor)
 			if result.ID != "" || !errors.Is(err, want) {
 				t.Fatalf("%s result=%#v error=%v want=%v", kind, result, err, want)

@@ -53,14 +53,14 @@ COMMIT;
 		_ = database.Close()
 		t.Fatal(err)
 	}
+	repo := tagpersistence.New(database.SQL)
 	return database, tagging.New(
-		tagpersistence.New(
-			database.SQL,
-		),
-		func() time.Time {
-			return time.UnixMilli(
-				clock,
-			)
+		repo,
+		repo,
+		tagging.Options{
+			Now: func() time.Time {
+				return time.UnixMilli(clock)
+			},
 		},
 	), &clock
 }

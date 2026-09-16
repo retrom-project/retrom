@@ -77,7 +77,8 @@ func TestMappingsRollBackRelationsAndTagVersionsOnLateFailure(t *testing.T) {
 	db := mappingDatabase(t)
 	before := planRows(t, db)
 	cause := errors.New("late mapping failure")
-	service := application.NewMappings(failingMappingCommit{repository: NewMappings(db), cause: cause}, tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(10) })
+	tagRepo := tagrepository.New(db)
+	service := application.NewMappings(failingMappingCommit{repository: NewMappings(db), cause: cause}, tagging.New(tagRepo, tagRepo, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }}), func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}}, mappingActor)
 	if !errors.Is(err, cause) || value.ID != "" {
 		t.Fatalf("late mapping failure: %#v %v", value, err)
@@ -91,7 +92,10 @@ func TestMappingsRejectStalePlanAfterUpdatingCollection(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	beforeRows := planRows(t, db)
-	tags := tagging.New(tagrepository.New(db), time.Now)
+	tags := func() *tagging.Service {
+		r := tagrepository.New(db)
+		return tagging.New(r, r, tagging.Options{Now: time.Now})
+	}()
 	err := NewMappings(db).WithMappings(t.Context(), func(scope application.MappingScope) error {
 		before, err := scope.Read.Import(t.Context(), "import-0")
 		if err != nil {
@@ -119,7 +123,10 @@ func TestMappingsPersistSelectionThenClearItWhenSkipped(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	instance := seedMappingTarget(t, db)
-	service := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(10) })
+	service := application.NewMappings(NewMappings(db), func() *tagging.Service {
+		r := tagrepository.New(db)
+		return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }})
+	}(), func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}}}, mappingActor)
 	if err != nil {
 		t.Fatal(err)
@@ -195,7 +202,10 @@ func TestMappingsRejectDisabledTargetWithoutClearingTags(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := planRows(t, db)
-	service := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(10) })
+	service := application.NewMappings(NewMappings(db), func() *tagging.Service {
+		r := tagrepository.New(db)
+		return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }})
+	}(), func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{}}}, mappingActor)
 	if !errors.Is(err, application.ErrInvalid) || value.ID != "" {
 		t.Fatalf("disabled mapping: %#v %v", value, err)

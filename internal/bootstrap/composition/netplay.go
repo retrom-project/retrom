@@ -6,10 +6,8 @@ import (
 
 	validationrepository "retrom/internal/repo/corevalidation"
 	repository "retrom/internal/repo/netplay"
-	tagrepository "retrom/internal/repo/tagging"
 	"retrom/internal/service/corevalidation"
 	"retrom/internal/service/netplay"
-	"retrom/internal/service/tagging"
 	"retrom/internal/transport/netplay/profile"
 )
 
@@ -28,7 +26,7 @@ func NewNetplay(
 		Eligibility: netplay.NewEligibility(
 			repository.NewEligibility(database),
 			registry,
-			tagging.New(tagrepository.New(database), now),
+			newTagService(database, now),
 			corevalidation.New(validationrepository.New(database)),
 		),
 		Queries: netplay.NewRoomQueries(repository.NewRoomQueries(database), now),

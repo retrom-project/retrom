@@ -78,7 +78,8 @@ VALUES('01980000-0000-7000-8000-000000000800','pegasus-profile','pegasus-test','
 	ctx = authn.WithPrincipal(ctx, authn.Principal{
 		UserID: "01980000-0000-7000-8000-000000000800", ProfileID: "pegasus-profile", Role: "ADMIN",
 	})
-	tagService := tagging.New(tagpersistence.New(database.SQL), time.Now)
+	tagRepo := tagpersistence.New(database.SQL)
+	tagService := tagging.New(tagRepo, tagRepo, tagging.Options{Now: time.Now})
 	mappedTag, err := tagService.Create(ctx, "01980000-0000-7000-8000-000000000800", "扫描选择")
 	testassert.False(t, err != nil, err)
 	externalTag, err := tagService.Create(ctx, "01980000-0000-7000-8000-000000000800", "External")

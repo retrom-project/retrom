@@ -50,7 +50,10 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 
 func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Service) *Service {
 	service := &Service{
-		database: database, now: now, tags: tagging.New(tagpersistence.New(database), now),
+		database: database, now: now, tags: func() *tagging.Service {
+			r := tagpersistence.New(database)
+			return tagging.New(r, r, tagging.Options{Now: now})
+		}(),
 	}
 	service.reviewDrafts = composition.NewReviewDrafts(database, now)
 	if len(scraper) > 0 {

@@ -30,7 +30,10 @@ func TestMappingsRejectEveryIneligibleTargetBeforeTagChanges(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := planRows(t, db)
-			service := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(10) })
+			service := application.NewMappings(NewMappings(db), func() *tagging.Service {
+				r := tagrepository.New(db)
+				return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }})
+			}(), func() time.Time { return time.UnixMilli(10) })
 			result, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{}}}, mappingActor)
 			if result.ID != "" || !errors.Is(err, application.ErrInvalid) {
 				t.Fatalf("ineligible %s result=%#v error=%v", test.name, result, err)
@@ -52,7 +55,10 @@ SELECT ?,instance.default_core_id,binding.provider_id,binding.target_id,'mapping
 FROM platform_instances instance JOIN runtime_target_bindings binding ON binding.core_id=instance.default_core_id WHERE instance.id=?`, dat, planDigest, instance); err != nil {
 		t.Fatal(err)
 	}
-	tags := tagging.New(tagrepository.New(db), func() time.Time { return time.UnixMilli(5) })
+	tags := func() *tagging.Service {
+		r := tagrepository.New(db)
+		return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(5) }})
+	}()
 	if _, err := tags.Rename(t.Context(), mappingActor, mappingTag, "Renamed", 1); err != nil {
 		t.Fatal(err)
 	}
