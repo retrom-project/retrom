@@ -289,8 +289,8 @@ WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 `, targetID).Scan(&targetPlatform); err != nil {
 		return application.ErrInvalid
 	}
-	if currentPlatform != targetPlatform {
-		return application.ErrReimportRequiredPlatformChange
+	if err := application.ValidateDraftTargetChange(currentPlatform, targetPlatform); err != nil {
+		return fmt.Errorf("libraryimport/review: target change: %w", err)
 	}
 	run.targetID = targetID
 	return nil
@@ -306,11 +306,13 @@ func (run *draftPatchRun) currentDOSEntry() *string {
 
 func (run *draftPatchRun) validDOSEntry(value string) bool {
 	var count int
-	err := run.transaction.QueryRowContext(run.ctx, `
+	if err := run.transaction.QueryRowContext(run.ctx, `
 SELECT count(*) FROM import_item_dos_entries
 WHERE import_item_id=? AND normalized_path=? AND enabled=1
-`, run.plan.ItemID, value).Scan(&count)
-	return err == nil && count == 1
+`, run.plan.ItemID, value).Scan(&count); err != nil {
+		return false
+	}
+	return count == 1
 }
 
 func (run *draftPatchRun) applyValidation() error {
@@ -345,27 +347,15 @@ func (run *draftPatchRun) createValidation() error {
 }
 
 func (run *draftPatchRun) validationCreateMatches(create *application.ReviewValidationRefreshCreate) bool {
-	if create.ID == "" || create.ItemID != run.plan.ItemID || create.TargetPlatformInstanceID != run.targetID {
-		return false
-	}
-	if create.SourceSnapshotID != run.effectiveSnapshotID || !sameNullable(create.DefaultDOSEntry, run.plan.DOSEntry) {
-		return false
-	}
-	guard := run.plan.ExpectedValidationGuard
-	if create.PlatformInstanceVersion != guard.PlatformInstanceVersion || create.CoreID != guard.CoreID {
-		return false
-	}
-	if create.ProviderID != guard.ProviderID || create.TargetID != guard.TargetID {
-		return false
-	}
-	if create.SourceManifestDigest != guard.SourceManifestDigest ||
-		!sameNullable(create.DATVersionID, guard.DATVersionID) {
-		return false
-	}
-	if create.PrepublishInputDigest != run.plan.ExpectedValidationPrepublishDigest {
-		return false
-	}
-	return (create.Status == "READY") == (run.plan.ValidationID == create.ID)
+	return application.ValidateValidationCreate(*create, application.ValidationCreateMatchesFacts{
+		ItemID:                   run.plan.ItemID,
+		TargetID:                 run.targetID,
+		EffectiveSnapshotID:      run.effectiveSnapshotID,
+		DOSEntry:                 run.plan.DOSEntry,
+		Guard:                    run.plan.ExpectedValidationGuard,
+		ExpectedPrepublishDigest: run.plan.ExpectedValidationPrepublishDigest,
+		ValidationID:             run.plan.ValidationID,
+	})
 }
 
 func (run *draftPatchRun) selectValidation() error {
@@ -429,30 +419,18 @@ func (run *draftPatchRun) existingValidationMatches(
 	sourceManifestDigest string, datVersionID, dosEntry *string, prepublishInputDigest,
 	dependencySnapshot, compatibilityCode string, guard application.ReviewValidationGuard,
 ) bool {
-	if targetID != run.targetID || snapshotID != run.effectiveSnapshotID || status != "READY" {
-		return false
-	}
-	if coreID != guard.CoreID || providerID != guard.ProviderID {
-		return false
-	}
-	if runtimeTargetID != guard.TargetID || sourceManifestDigest != guard.SourceManifestDigest {
-		return false
-	}
-	if !sameNullable(datVersionID, guard.DATVersionID) || !sameNullable(dosEntry, guard.DefaultDOSEntry) {
-		return false
-	}
-	if prepublishInputDigest != run.plan.ExpectedValidationPrepublishDigest {
-		return false
-	}
-	return application.PrepublishDigestMatches(prepublishInputDigest, application.PrepublishDigestInput{
-		SchemaVersion: 1, SourceSnapshotID: guard.SourceSnapshotID,
-		SourceManifestDigest: guard.SourceManifestDigest, ContentKind: guard.ContentKind,
-		TargetPlatformInstanceID: guard.TargetPlatformInstanceID, ProviderID: guard.ProviderID,
-		TargetID: guard.TargetID, ContentPolicyDigest: guard.ContentPolicyDigest,
-		DATVersionID: guard.DATVersionID, DefaultDOSEntry: guard.DefaultDOSEntry,
-		DependencySnapshot: json.RawMessage(dependencySnapshot), Status: status,
-		CompatibilityCode: compatibilityCode,
-	})
+	return application.ValidateExistingValidation(
+		targetID, snapshotID, status, coreID, providerID,
+		runtimeTargetID, sourceManifestDigest,
+		datVersionID, dosEntry,
+		prepublishInputDigest, dependencySnapshot, compatibilityCode,
+		application.ExistingValidationMatchesFacts{
+			TargetID:                 run.targetID,
+			EffectiveSnapshotID:      run.effectiveSnapshotID,
+			ExpectedPrepublishDigest: run.plan.ExpectedValidationPrepublishDigest,
+			Guard:                    guard,
+		},
+	)
 }
 
 func (run *draftPatchRun) validateCandidate() error {
@@ -473,28 +451,26 @@ WHERE c.id=? AND r.import_item_id=? AND r.state='COMPLETED'
 }
 
 func (run *draftPatchRun) applyRPGBinding() error {
-	if !run.isRPG {
-		if run.plan.RPGSelfContainedOverride != nil {
+	var generation string
+	if run.isRPG {
+		if err := run.transaction.QueryRowContext(
+			run.ctx,
+			`SELECT generation FROM rpgmaker_review_profiles WHERE review_draft_id=?`,
+			run.draftID,
+		).Scan(&generation); err != nil {
 			return application.ErrInvalid
 		}
-		return nil
 	}
-	if run.targetOrDOSChanged {
-		return application.ErrInvalid
+	if err := application.ValidateRPGOverride(application.RPGOverrideFacts{
+		IsRPG:                 run.isRPG,
+		TargetOrDOSChanged:    run.targetOrDOSChanged,
+		SelfContainedOverride: run.plan.RPGSelfContainedOverride,
+		Generation:            generation,
+	}); err != nil {
+		return fmt.Errorf("libraryimport/review: RPG override: %w", err)
 	}
 	if run.plan.RPGSelfContainedOverride == nil {
 		return nil
-	}
-	var generation string
-	if err := run.transaction.QueryRowContext(
-		run.ctx,
-		`SELECT generation FROM rpgmaker_review_profiles WHERE review_draft_id=?`,
-		run.draftID,
-	).Scan(&generation); err != nil {
-		return application.ErrInvalid
-	}
-	if *run.plan.RPGSelfContainedOverride && (generation == "RPGMV" || generation == "RPGMZ") {
-		return application.ErrInvalid
 	}
 	if _, err := run.transaction.ExecContext(run.ctx, `
 UPDATE rpgmaker_review_profiles SET self_contained_override=?,updated_at_ms=? WHERE review_draft_id=?
@@ -522,25 +498,33 @@ func (run *draftPatchRun) applyAssets() error {
 }
 
 func (run *draftPatchRun) validateAssets() error {
-	if len(run.plan.ScreenshotAssetIDs) > 32 {
-		return application.ErrInvalid
+	if err := application.ValidateDraftAssetSelection(
+		run.plan.ScreenshotAssetIDs,
+		run.plan.CoverID, run.plan.UploadedCoverID,
+	); err != nil {
+		return fmt.Errorf("libraryimport/review: asset selection: %w", err)
 	}
-	selected := make(map[string]struct{}, len(run.plan.ScreenshotAssetIDs))
 	for _, assetID := range run.plan.ScreenshotAssetIDs {
-		if _, duplicate := selected[assetID]; duplicate || !run.validCandidateAsset(assetID) {
+		if valid, err := run.validCandidateAsset(assetID); err != nil {
+			return err
+		} else if !valid {
 			return application.ErrInvalid
 		}
-		selected[assetID] = struct{}{}
 	}
-	if run.plan.CoverID != nil && run.plan.UploadedCoverID != nil {
-		return application.ErrInvalid
-	}
-	if run.plan.UploadedCoverID != nil && !run.validUploadedAsset(*run.plan.UploadedCoverID) {
-		return application.ErrInvalid
+	if run.plan.UploadedCoverID != nil {
+		if valid, err := run.validUploadedAsset(*run.plan.UploadedCoverID); err != nil {
+			return err
+		} else if !valid {
+			return application.ErrInvalid
+		}
 	}
 	for _, assetID := range []*string{run.plan.CoverID, run.plan.BackgroundID} {
-		if assetID != nil && !run.validCandidateAsset(*assetID) {
-			return application.ErrInvalid
+		if assetID != nil {
+			if valid, err := run.validCandidateAsset(*assetID); err != nil {
+				return err
+			} else if !valid {
+				return application.ErrInvalid
+			}
 		}
 	}
 	return nil
@@ -563,24 +547,28 @@ VALUES(?,?,?,?)
 	return nil
 }
 
-func (run *draftPatchRun) validCandidateAsset(assetID string) bool {
+func (run *draftPatchRun) validCandidateAsset(assetID string) (bool, error) {
 	var count int
-	err := run.transaction.QueryRowContext(run.ctx, `
+	if err := run.transaction.QueryRowContext(run.ctx, `
 SELECT count(*)
 FROM scrape_candidate_assets a
 JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
 WHERE a.id=? AND r.import_item_id=? AND r.state='COMPLETED' AND a.status='READY'
-`, assetID, run.plan.ItemID).Scan(&count)
-	return err == nil && count == 1
+`, assetID, run.plan.ItemID).Scan(&count); err != nil {
+		return false, fmt.Errorf("libraryimport/review: check candidate asset: %w", err)
+	}
+	return count == 1, nil
 }
 
-func (run *draftPatchRun) validUploadedAsset(assetID string) bool {
+func (run *draftPatchRun) validUploadedAsset(assetID string) (bool, error) {
 	var count int
-	err := run.transaction.QueryRowContext(run.ctx, `
+	if err := run.transaction.QueryRowContext(run.ctx, `
 SELECT count(*) FROM review_uploaded_assets WHERE id=? AND import_item_id=? AND kind='COVER'
-`, assetID, run.plan.ItemID).Scan(&count)
-	return err == nil && count == 1
+`, assetID, run.plan.ItemID).Scan(&count); err != nil {
+		return false, fmt.Errorf("libraryimport/review: check uploaded asset: %w", err)
+	}
+	return count == 1, nil
 }
 
 func (run *draftPatchRun) persist() (application.DraftResult, error) {
@@ -642,7 +630,11 @@ target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
-	if affected, _ := result.RowsAffected(); affected != 1 {
+	affected, affErr := result.RowsAffected()
+	if affErr != nil {
+		return fmt.Errorf("libraryimport/review: rows affected: %w", affErr)
+	}
+	if affected != 1 {
 		return application.ErrVersionConflict
 	}
 	_, err = recordstore.UpdateImportItems(run.ctx, run.transaction, recordstore.Update{

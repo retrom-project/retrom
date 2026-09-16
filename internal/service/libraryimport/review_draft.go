@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	application "retrom/internal/model/libraryimport"
-	"retrom/internal/service/tagging"
+	tagging "retrom/internal/model/tagging"
 )
 
 type ReviewDraftsOptions struct {
