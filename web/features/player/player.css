@@ -70,6 +70,7 @@
 .player-pause-overlay { position: absolute; z-index: 14; inset: 0; padding: 0; display: grid; place-items: center; color: inherit; border: 0; background: rgb(0 0 0 / 22%); opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
 .player-pause-overlay.is-visible { opacity: 1; pointer-events: auto; cursor: pointer; }
 .player-pause-overlay:disabled { cursor: default; }
+.player-pause-overlay.is-settings-passthrough { pointer-events: none; }
 .player-pause-pill { min-width: 150px; padding: 18px 24px; display: grid; justify-items: center; gap: 8px; border: 1px solid var(--player-line); border-radius: var(--radius-panel); background: rgb(17 23 34 / 88%); box-shadow: 0 18px 48px rgb(0 0 0 / 35%); backdrop-filter: blur(10px); }
 .player-pause-pill svg { width: 29px; height: 29px; }
 .player-pause-pill strong { color: #d7dce5; font-size: 13px; }
