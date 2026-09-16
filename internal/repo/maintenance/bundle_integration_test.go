@@ -118,7 +118,10 @@ SELECT value FROM (
 
 func seedBackupTags(t *testing.T, ctx context.Context, database *sql.DB, userID string) {
 	t.Helper()
-	service := tagging.New(tagpersistence.New(database), func() time.Time { return time.UnixMilli(3_000) })
+	service := func() *tagging.Service {
+		r := tagpersistence.New(database)
+		return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(3_000) }})
+	}()
 	active, err := service.Create(ctx, userID, "合作")
 	testassert.False(t, err != nil, err)
 	deleted, err := service.Create(ctx, userID, "历史标签")

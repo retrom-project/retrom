@@ -266,7 +266,8 @@ func New(
 		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
 	)
 	emulationStationImportService.Start()
-	tagService := tagging.New(tagpersistence.New(database), now)
+	tagRepo := tagpersistence.New(database)
+	tagService := tagging.New(tagRepo, tagRepo, tagging.Options{Now: now})
 	server := &Server{
 		config:                  config,
 		database:                database,

@@ -67,13 +67,9 @@ func New(
 			digest: hex.EncodeToString(digest[:]),
 		}
 	}
+	tagRepo := tagpersistence.New(database)
 	service := &Service{
-		database: database, blobs: blobs, importer: importer, roots: roots, now: now, tags: tagging.New(
-			tagpersistence.New(
-				database,
-			),
-			now,
-		),
+		database: database, blobs: blobs, importer: importer, roots: roots, now: now, tags: tagging.New(tagRepo, tagRepo, tagging.Options{Now: now}),
 	}
 	service.worker = service.newWorker()
 	return service

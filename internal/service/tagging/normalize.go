@@ -1,70 +1,32 @@
 package tagging
 
 import (
-	"strings"
-	"unicode"
-	"unicode/utf8"
+	"fmt"
 
-	"github.com/google/uuid"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/unicode/norm"
+	model "retrom/internal/model/tagging"
 )
 
+// NormalizeName delegates to the model's pure name policy.
+// Kept as a package-level function for backward compatibility with callers
+// that import service/tagging for this symbol.
 func NormalizeName(value string) (string, string, string, error) {
-	normalized := norm.NFC.String(value)
-	var builder strings.Builder
-	spacePending := false
-	started := false
-	for _, character := range normalized {
-		if unicode.IsControl(character) {
-			return "", "", "", ErrNameInvalid
-		}
-		if unicode.IsSpace(character) {
-			if started {
-				spacePending = true
-			}
-			continue
-		}
-		if spacePending {
-			builder.WriteByte(' ')
-			spacePending = false
-		}
-		builder.WriteRune(character)
-		started = true
+	name, key, search, err := model.NormalizeName(value)
+	if err != nil {
+		return "", "", "", fmt.Errorf("normalize name: %w", err)
 	}
-	display := builder.String()
-	if display == "" || utf8.RuneCountInString(display) > MaximumNameRunes || len(display) > MaximumNameBytes {
-		return "", "", "", ErrNameInvalid
-	}
-	return display, cases.Fold().String(display), canonicalSearch(display), nil
+	return name, key, search, nil
 }
 
-func canonicalSearch(value string) string {
-	return strings.ToLower(strings.Join(strings.Fields(norm.NFC.String(value)), " "))
-}
-
+// ValidID delegates to the model's pure ID validation.
 func ValidID(value string) bool {
-	parsed, err := uuid.Parse(value)
-	return err == nil && parsed.String() == value && parsed.Version() == 7
+	return model.ValidID(value)
 }
 
+// ValidateIDs delegates to the model's pure ID validation.
 func ValidateIDs(values []string) ([]string, error) {
-	if values == nil || len(values) > MaxTagsPerOwner {
-		if len(values) > MaxTagsPerOwner {
-			return nil, ErrAssignmentLimitExceeded
-		}
-		return nil, ErrInvalid
+	ids, err := model.ValidateIDs(values)
+	if err != nil {
+		return nil, fmt.Errorf("validate IDs: %w", err)
 	}
-	result := append([]string{}, values...)
-	seen := make(map[string]struct{}, len(result))
-	for _, value := range result {
-		if !ValidID(value) {
-			return nil, ErrInvalid
-		}
-		if _, exists := seen[value]; exists {
-			return nil, ErrInvalid
-		}
-		seen[value] = struct{}{}
-	}
-	return result, nil
+	return ids, nil
 }

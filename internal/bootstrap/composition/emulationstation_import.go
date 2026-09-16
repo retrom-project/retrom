@@ -11,10 +11,8 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/repo/dberrors"
 	repository "retrom/internal/repo/emulationstationimport"
-	tagrepository "retrom/internal/repo/tagging"
 	application "retrom/internal/service/emulationstationimport"
 	library "retrom/internal/service/libraryimport"
-	"retrom/internal/service/tagging"
 )
 
 func NewEmulationStationImport(database *sql.DB, blobs *blobstore.Store, importer application.ReviewSourceCreator,
@@ -28,7 +26,7 @@ func NewEmulationStationImport(database *sql.DB, blobs *blobstore.Store, importe
 		application.NewSourceGuard(control),
 		emulationStationDiagnostics{},
 	)
-	tags := tagging.New(tagrepository.New(database), now)
+	tags := newTagService(database, now)
 	items := application.NewItemWork(repository.NewItemWork(database), now)
 	materials := application.NewMaterialization(repository.NewMaterialization(database), now)
 	metadata := library.NewMetadataSeeder(nil, now)

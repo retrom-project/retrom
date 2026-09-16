@@ -1,26 +1,19 @@
 package tagging
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
+	"retrom/internal/model/tagging"
 )
 
-func writeAudit(
-	ctx context.Context,
-	records AuditRecords,
-	actorUserID, action, resourceType, resourceID string,
+func buildAuditEvent(
+	auditID, actorUserID, action, resourceType, resourceID string,
 	before, after, diff any,
 	now int64,
-) error {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return fmt.Errorf("tagging: create audit id: %w", err)
-	}
-	event := AuditEvent{
-		ID:           id.String(),
+) tagging.AuditEvent {
+	event := tagging.AuditEvent{
+		ID:           auditID,
 		ActorUserID:  actorUserID,
 		Action:       action,
 		ResourceType: resourceType,
@@ -34,9 +27,9 @@ func writeAudit(
 		}
 		encoded, err := json.Marshal(value)
 		if err != nil {
-			return fmt.Errorf("tagging: encode audit: %w", err)
+			panic(fmt.Sprintf("tagging: encode audit %s: %v", action, err))
 		}
 		*targets[index] = encoded
 	}
-	return repositoryError("write audit", records.Record(ctx, event))
+	return event
 }

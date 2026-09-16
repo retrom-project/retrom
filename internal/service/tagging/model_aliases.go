@@ -1,3 +1,6 @@
+// model_aliases.go re-exports model types for callers that historically
+// imported them from service/tagging. These aliases will be removed once all
+// callers are migrated to import model/tagging directly (P4/P5/P6).
 package tagging
 
 import model "retrom/internal/model/tagging"
@@ -67,4 +70,5 @@ var (
 	ReferenceDiff                = model.ReferenceDiff
 	ReferenceIDs                 = model.ReferenceIDs
 	ReferencesEqual              = model.ReferencesEqual
+	CommonTagNames               = model.CommonTagNames
 )

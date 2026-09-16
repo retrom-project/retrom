@@ -188,7 +188,9 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 		t.Fatal(err)
 	}
 	ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: adminID, ProfileID: profileID, Role: "ADMIN"})
-	defaultTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "待通关")
+	tagRepo := tagpersistence.New(database.SQL)
+	tagSvc := tagging.New(tagRepo, tagRepo, tagging.Options{Now: time.Now})
+	defaultTag, err := tagSvc.Create(ctx, adminID, "待通关")
 	testassert.False(t, err != nil, err)
 	blobs, _ := blobstore.Open(dataDir)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
@@ -271,15 +273,15 @@ WHERE job.id=?
 		t.Fatalf("default tag inheritance = drafts:%d config:%s error:%v", inheritedDrafts, initialConfigSnapshot, err)
 	}
 	importer := New(database.SQL, time.Now)
-	transientTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "删除失效")
+	transientTag, err := tagSvc.Create(ctx, adminID, "删除失效")
 	testassert.False(t, err != nil, err)
 	transientDraft, err := importer.PatchDraft(ctx, discardItemID, 1, DraftPatch{
 		TagIDs: []string{defaultTag.TagID, transientTag.TagID},
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return transientDraft.Version != 2 }), "add transient review tag = %#v, %v", transientDraft, err)
-	currentTransientTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Get(ctx, transientTag.TagID)
+	currentTransientTag, err := tagSvc.Get(ctx, transientTag.TagID)
 	testassert.False(t, err != nil, err)
-	if _, _, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Delete(
+	if _, _, err := tagSvc.Delete(
 		ctx, adminID, transientTag.TagID, transientTag.Name, currentTransientTag.Version,
 	); err != nil {
 		t.Fatal(err)

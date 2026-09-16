@@ -95,7 +95,8 @@ func TestMappingsRollbackEveryProjectionAtEachWriteBoundary(t *testing.T) {
 			db := mappingDatabase(t)
 			seedSecondMappingCollection(t, db)
 			before := planRows(t, db)
-			service := application.NewMappings(mappingFaultRepository{repository: NewMappings(db), phase: phase}, tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(10) })
+			tagRepo := tagrepository.New(db)
+			service := application.NewMappings(mappingFaultRepository{repository: NewMappings(db), phase: phase}, tagging.New(tagRepo, tagRepo, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }}), func() time.Time { return time.UnixMilli(10) })
 			result, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{
 				{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}},
 				{CollectionID: secondMappingCollection, Action: "SKIP", TagIDs: []string{}},

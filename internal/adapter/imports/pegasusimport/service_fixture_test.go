@@ -32,7 +32,10 @@ type work = application.Work
 
 func New(database *sql.DB, blobs *blobstore.Store, importer *libraryimport.Service, credentials *retromruntime.Credentials, configured []serversource.Root, now func() time.Time) *Service {
 	sources := NewSources(blobs, credentials, configured)
-	return &Service{database: database, blobs: blobs, importer: importer, roots: sources.roots, now: now, tags: tagging.New(tagpersistence.New(database), now)}
+	return &Service{database: database, blobs: blobs, importer: importer, roots: sources.roots, now: now, tags: func() *tagging.Service {
+		r := tagpersistence.New(database)
+		return tagging.New(r, r, tagging.Options{Now: now})
+	}()}
 }
 
 func (service *Service) sources() *Sources {

@@ -2,6 +2,9 @@ package tagging
 
 import (
 	"context"
+	"fmt"
+
+	model "retrom/internal/model/tagging"
 )
 
 func (service *Service) ReplaceGameTags(
@@ -9,65 +12,21 @@ func (service *Service) ReplaceGameTags(
 	actorUserID, gameID string,
 	expectedVersion int64,
 	tagIDs []string,
-) (GameTagResult, error) {
-	if !ValidID(actorUserID) || !ValidID(gameID) || expectedVersion < 1 {
-		return GameTagResult{}, ErrInvalid
+) (model.GameTagResult, error) {
+	if !model.ValidID(actorUserID) || !model.ValidID(gameID) || expectedVersion < 1 {
+		return model.GameTagResult{}, model.ErrInvalid
 	}
-	if _, err := ValidateIDs(tagIDs); err != nil {
-		return GameTagResult{}, err
+	if _, err := model.ValidateIDs(tagIDs); err != nil {
+		return model.GameTagResult{}, fmt.Errorf("validate tag IDs: %w", err)
 	}
-	var result GameTagResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		version, err := scope.Games.Version(ctx, gameID)
-		if err != nil {
-			return repositoryError("read game version", err)
-		}
-		if version != expectedVersion {
-			return ErrVersionConflict
-		}
-		desired, err := ValidateActiveReferences(ctx, scope.Tags, tagIDs)
-		if err != nil {
-			return err
-		}
-		now := service.now().UnixMilli()
-		before, after, err := replaceOwnerReferences(
-			ctx,
-			scope,
-			Owner{
-				Kind: OwnerGame,
-				ID:   gameID,
-			},
-			actorUserID,
-			desired,
-			now,
-		)
-		if err != nil {
-			return err
-		}
-		if ReferencesEqual(before, after) {
-			result = GameTagResult{GameID: gameID, Version: version, Tags: before}
-			return nil
-		}
-		if err := scope.Games.Touch(ctx, gameID, expectedVersion, now); err != nil {
-			return repositoryError("advance game version", err)
-		}
-		added, removed := ReferenceDiff(before, after)
-		result = GameTagResult{GameID: gameID, Version: version + 1, Tags: after}
-		return writeAudit(
-			ctx,
-			scope.Audit,
-			actorUserID,
-			"GAME_TAGS_REPLACED",
-			"GAME",
-			gameID,
-			before,
-			after,
-			map[string]any{
-				"added":   added,
-				"removed": removed,
-			},
-			now,
-		)
+	auditID, err := service.newID()
+	if err != nil {
+		return model.GameTagResult{}, repositoryError("game tags audit id", err)
+	}
+	result, err := service.commands.CommitReplaceGameTags(ctx, model.ReplaceGameTagsCommand{
+		GameID: gameID, AuditID: auditID, ActorUserID: actorUserID,
+		ExpectedVersion: expectedVersion, NowMS: service.now().UnixMilli(),
+		TagIDs: tagIDs,
 	})
 	return result, repositoryError("replace game tags", err)
 }

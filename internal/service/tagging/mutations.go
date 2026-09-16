@@ -2,40 +2,31 @@ package tagging
 
 import (
 	"context"
+	"fmt"
+
+	model "retrom/internal/model/tagging"
 )
 
-func (service *Service) Create(ctx context.Context, actorUserID, rawName string) (AdminItem, error) {
-	if !ValidID(actorUserID) {
-		return AdminItem{}, ErrInvalid
+func (service *Service) Create(ctx context.Context, actorUserID, rawName string) (model.AdminItem, error) {
+	if !model.ValidID(actorUserID) {
+		return model.AdminItem{}, model.ErrInvalid
 	}
-	name, key, search, err := NormalizeName(rawName)
+	name, key, search, err := model.NormalizeName(rawName)
 	if err != nil {
-		return AdminItem{}, err
+		return model.AdminItem{}, fmt.Errorf("normalize name: %w", err)
 	}
-	var result AdminItem
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		active, err := scope.Tags.ActiveByNameKey(ctx)
-		if err != nil {
-			return repositoryError("read active tags", err)
-		}
-		if len(active) >= MaxActiveTags {
-			return ErrLimitReached
-		}
-		if active[key] != "" {
-			return ErrNameConflict
-		}
-		result, err = createTag(
-			ctx,
-			scope,
-			actorUserID,
-			normalizedCommonTag{
-				name:       name,
-				nameKey:    key,
-				searchText: search,
-			},
-			service.now().UnixMilli(),
-		)
-		return err
+	tagID, err := service.newID()
+	if err != nil {
+		return model.AdminItem{}, repositoryError("create id", err)
+	}
+	auditID, err := service.newID()
+	if err != nil {
+		return model.AdminItem{}, repositoryError("create audit id", err)
+	}
+	result, err := service.commands.CommitCreate(ctx, model.CreateCommand{
+		TagID: tagID, AuditID: auditID, ActorUserID: actorUserID,
+		Name: name, NameKey: key, SearchText: search,
+		NowMS: service.now().UnixMilli(),
 	})
 	return result, repositoryError("create", err)
 }
@@ -44,72 +35,22 @@ func (service *Service) Rename(
 	ctx context.Context,
 	actorUserID, tagID, rawName string,
 	expectedVersion int64,
-) (AdminItem, error) {
-	if !ValidID(actorUserID) || !ValidID(tagID) || expectedVersion < 1 {
-		return AdminItem{}, ErrInvalid
+) (model.AdminItem, error) {
+	if !model.ValidID(actorUserID) || !model.ValidID(tagID) || expectedVersion < 1 {
+		return model.AdminItem{}, model.ErrInvalid
 	}
-	name, key, search, err := NormalizeName(rawName)
+	name, key, search, err := model.NormalizeName(rawName)
 	if err != nil {
-		return AdminItem{}, err
+		return model.AdminItem{}, fmt.Errorf("normalize name: %w", err)
 	}
-	var result AdminItem
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		before, err := scope.Tags.Get(ctx, tagID)
-		if err != nil {
-			return repositoryError("read tag", err)
-		}
-		if before.Status == StatusDeleted {
-			return ErrAlreadyDeleted
-		}
-		if before.Version != expectedVersion {
-			return ErrVersionConflict
-		}
-		if before.Name == name {
-			return ErrInvalid
-		}
-		active, err := scope.Tags.ActiveByNameKey(ctx)
-		if err != nil {
-			return repositoryError("read active tags", err)
-		}
-		if active[key] != "" && active[key] != tagID {
-			return ErrNameConflict
-		}
-		now := service.now().UnixMilli()
-		if err := scope.Changes.Rename(
-			ctx,
-			TagWrite{
-				ID:              tagID,
-				Name:            name,
-				NameKey:         key,
-				SearchText:      search,
-				ActorUserID:     actorUserID,
-				ExpectedVersion: expectedVersion,
-				NowMS:           now,
-			},
-		); err != nil {
-			return repositoryError("rename tag", err)
-		}
-		result, err = scope.Tags.Get(ctx, tagID)
-		if err != nil {
-			return repositoryError("read renamed tag", err)
-		}
-		return writeAudit(
-			ctx,
-			scope.Audit,
-			actorUserID,
-			"TAG_RENAMED",
-			"TAG",
-			tagID,
-			before,
-			result,
-			map[string]any{
-				"name": map[string]string{
-					"before": before.Name,
-					"after":  result.Name,
-				},
-			},
-			now,
-		)
+	auditID, err := service.newID()
+	if err != nil {
+		return model.AdminItem{}, repositoryError("rename audit id", err)
+	}
+	result, err := service.commands.CommitRename(ctx, model.RenameCommand{
+		TagID: tagID, AuditID: auditID, ActorUserID: actorUserID,
+		Name: name, NameKey: key, SearchText: search,
+		ExpectedVersion: expectedVersion, NowMS: service.now().UnixMilli(),
 	})
 	return result, repositoryError("rename", err)
 }
@@ -118,57 +59,18 @@ func (service *Service) Delete(
 	ctx context.Context,
 	actorUserID, tagID, confirmName string,
 	expectedVersion int64,
-) (AdminItem, DeleteImpact, error) {
-	if !ValidID(actorUserID) || !ValidID(tagID) || expectedVersion < 1 {
-		return AdminItem{}, DeleteImpact{}, ErrInvalid
+) (model.AdminItem, model.DeleteImpact, error) {
+	if !model.ValidID(actorUserID) || !model.ValidID(tagID) || expectedVersion < 1 {
+		return model.AdminItem{}, model.DeleteImpact{}, model.ErrInvalid
 	}
-	var result AdminItem
-	var impact DeleteImpact
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		before, err := scope.Tags.Get(ctx, tagID)
-		if err != nil {
-			return repositoryError("read tag", err)
-		}
-		if before.Status == StatusDeleted {
-			return ErrAlreadyDeleted
-		}
-		if before.Version != expectedVersion {
-			return ErrVersionConflict
-		}
-		if confirmName != before.Name {
-			return ErrDeleteConfirmation
-		}
-		impact = DeleteImpact(before.Usage)
-		now := service.now().UnixMilli()
-		if err := scope.Changes.Delete(
-			ctx,
-			TagWrite{
-				ID:              tagID,
-				ActorUserID:     actorUserID,
-				ExpectedVersion: expectedVersion,
-				NowMS:           now,
-			},
-		); err != nil {
-			return repositoryError("delete tag", err)
-		}
-		result, err = scope.Tags.Get(ctx, tagID)
-		if err != nil {
-			return repositoryError("read deleted tag", err)
-		}
-		return writeAudit(
-			ctx,
-			scope.Audit,
-			actorUserID,
-			"TAG_DELETED",
-			"TAG",
-			tagID,
-			before,
-			result,
-			map[string]any{
-				"impact": impact,
-			},
-			now,
-		)
+	auditID, err := service.newID()
+	if err != nil {
+		return model.AdminItem{}, model.DeleteImpact{}, repositoryError("delete audit id", err)
+	}
+	result, impact, err := service.commands.CommitDelete(ctx, model.DeleteCommand{
+		TagID: tagID, AuditID: auditID, ActorUserID: actorUserID,
+		ConfirmName:     confirmName,
+		ExpectedVersion: expectedVersion, NowMS: service.now().UnixMilli(),
 	})
 	return result, impact, repositoryError("delete", err)
 }
