@@ -327,6 +327,20 @@ describe("PlayerChrome explicit resume", () => {
     expect(values.onGameSurface).not.toHaveBeenCalled();
   });
 
+  it("makes the pause overlay pass-through when the settings toolbar is open", () => {
+    const values = props({paused: true, emulatorToolbarOpen: true});
+    render(<PlayerChrome {...values} />);
+    const overlay = screen.getByRole("button", {name: "继续游戏"});
+    expect(overlay.classList.contains("is-settings-passthrough")).toBe(true);
+  });
+
+  it("does not add pass-through class when settings toolbar is closed", () => {
+    const values = props({paused: true, emulatorToolbarOpen: false});
+    render(<PlayerChrome {...values} />);
+    const overlay = screen.getByRole("button", {name: "继续游戏"});
+    expect(overlay.classList.contains("is-settings-passthrough")).toBe(false);
+  });
+
   it("keeps netplay resume under the session controller", async () => {
     const values = props({paused: true, netplayPaused: true, netplayPlayerNo: 1});
     render(<PlayerChrome {...values} />);
