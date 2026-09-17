@@ -20,11 +20,9 @@ func (service *Service) process(ctx context.Context, key model.Key, userID strin
 	}
 	ids := []string{key.ID}
 	if key.Kind != "IMPORT" {
-		if err := service.repository.WithRead(ctx, func(records model.Reader) error {
-			var err error
-			ids, err = records.Children(ctx, key)
-			return failure("process discarded content", err)
-		}); err != nil {
+		var err error
+		ids, err = service.repository.Children(ctx, key)
+		if err != nil {
 			return false, failure("process discarded content", err)
 		}
 	}
@@ -41,13 +39,11 @@ func (service *Service) process(ctx context.Context, key model.Key, userID strin
 }
 
 func (service *Service) batch(ctx context.Context, key model.Key) (model.Batch, error) {
-	var batch model.Batch
-	err := service.repository.WithRead(ctx, func(records model.Reader) error {
-		var err error
-		batch, err = records.Batch(ctx, key)
-		return failure("process discarded content", err)
-	})
-	return batch, failure("process discarded content", err)
+	batch, err := service.repository.Batch(ctx, key)
+	if err != nil {
+		return model.Batch{}, failure("process discarded content", err)
+	}
+	return batch, nil
 }
 
 func (service *Service) stopSource(ctx context.Context, key model.Key, userID string) (bool, error) {

@@ -11,6 +11,9 @@ import (
 func (repository *Repository) CommitDelete(
 	ctx context.Context, cmd tagging.DeleteCommand,
 ) (tagging.AdminItem, tagging.DeleteImpact, error) {
+	if err := tagging.ValidateDeleteCommand(cmd); err != nil {
+		return tagging.AdminItem{}, tagging.DeleteImpact{}, fmt.Errorf("tagging: validate command: %w", err)
+	}
 	var result tagging.AdminItem
 	var impact tagging.DeleteImpact
 	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {

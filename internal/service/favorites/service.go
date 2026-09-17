@@ -27,59 +27,12 @@ func (service *Service) Favorite(ctx context.Context, principal model.Principal,
 	if !model.ValidID(gameID) {
 		return model.State{}, model.ErrInvalid
 	}
-	var state model.State
-	err := service.repository.CommitWrite(ctx, func(connection model.WriteScope) error {
-		visible, err := connection.Games.Visible(ctx, gameID)
-		if err != nil {
-			return repositoryError("Favorite", err)
-		}
-		if !visible {
-			return model.ErrGameNotFound
-		}
-		if err := connection.Games.Ensure(ctx, principal.ProfileID, gameID, service.now().UnixMilli()); err != nil {
-			return fmt.Errorf("favorites: insert favorite: %w", err)
-		}
-		var exists bool
-		state, exists, err = connection.Games.State(ctx, principal.ProfileID, gameID)
-		if err != nil {
-			return repositoryError("Favorite", err)
-		}
-		if !exists {
-			return model.ErrInvariant
-		}
-		return nil
+	state, err := service.repository.CommitFavorite(ctx, model.FavoriteCommand{
+		ProfileID: principal.ProfileID,
+		GameID:    gameID,
+		NowMS:     service.now().UnixMilli(),
 	})
 	return state, repositoryError("Favorite", err)
-}
-
-func replaceMemberships(
-	ctx context.Context,
-	database model.WriteScope,
-	profileID, gameID string,
-	desired, current []string,
-	now int64,
-) error {
-	desiredSet := make(map[string]struct{}, len(desired))
-	for _, folderID := range desired {
-		desiredSet[folderID] = struct{}{}
-	}
-	currentSet := make(map[string]struct{}, len(current))
-	for _, folderID := range current {
-		currentSet[folderID] = struct{}{}
-		if _, keep := desiredSet[folderID]; !keep {
-			if err := database.Memberships.Remove(ctx, profileID, folderID, gameID); err != nil {
-				return repositoryError("replaceMemberships", err)
-			}
-		}
-	}
-	for _, folderID := range desired {
-		if _, exists := currentSet[folderID]; !exists {
-			if err := database.Memberships.Add(ctx, profileID, folderID, gameID, now); err != nil {
-				return repositoryError("replaceMemberships", err)
-			}
-		}
-	}
-	return nil
 }
 
 func (service *Service) ReplaceFolders(
@@ -93,27 +46,11 @@ func (service *Service) ReplaceFolders(
 	}
 	desired := append([]string{}, folderIDs...)
 	sort.Strings(desired)
-	var state model.State
-	err := service.repository.CommitWrite(ctx, func(connection model.WriteScope) error {
-		if err := connection.Games.RequireVisible(ctx, []string{gameID}); err != nil {
-			return repositoryError("ReplaceFolders", err)
-		}
-		if err := connection.Folders.Require(ctx, principal.ProfileID, desired); err != nil {
-			return repositoryError("ReplaceFolders", err)
-		}
-		now := service.now().UnixMilli()
-		if err := connection.Games.Ensure(ctx, principal.ProfileID, gameID, now); err != nil {
-			return repositoryError("ReplaceFolders", err)
-		}
-		current, err := connection.Memberships.FolderIDs(ctx, principal.ProfileID, gameID)
-		if err != nil {
-			return repositoryError("ReplaceFolders", err)
-		}
-		if err := replaceMemberships(ctx, connection, principal.ProfileID, gameID, desired, current, now); err != nil {
-			return repositoryError("ReplaceFolders", err)
-		}
-		state, _, err = connection.Games.State(ctx, principal.ProfileID, gameID)
-		return repositoryError("ReplaceFolders", err)
+	state, err := service.repository.CommitReplaceFolders(ctx, model.ReplaceFoldersCommand{
+		ProfileID: principal.ProfileID,
+		GameID:    gameID,
+		FolderIDs: desired,
+		NowMS:     service.now().UnixMilli(),
 	})
 	return state, repositoryError("ReplaceFolders", err)
 }
@@ -128,52 +65,18 @@ func requestDigest(operation string, principal model.Principal, request any) str
 	return hex.EncodeToString(digest[:])
 }
 
-func (service *Service) idempotent(
-	ctx context.Context,
-	principal model.Principal,
-	operation, key string,
-	request any,
-	work func(model.WriteScope) (int, map[string]string, any, error),
-) (model.IdempotentResponse, error) {
-	digest := requestDigest(operation, principal, request)
-	var response model.IdempotentResponse
-	err := service.repository.CommitWrite(ctx, func(connection model.WriteScope) error {
-		now := service.now().UnixMilli()
-		identity := model.IdempotencyKey{PrincipalID: principal.UserID, Operation: operation, Key: key}
-		stored, found, err := connection.Idempotency.Find(ctx, identity, now)
-		if err != nil {
-			return repositoryError("idempotent", err)
-		}
-		if found {
-			if stored.Digest != digest {
-				return model.ErrIdempotencyReused
-			}
-			response = stored.Response
-			response.Replayed = true
-			return nil
-		}
-		status, headers, bodyValue, err := work(connection)
-		if err != nil {
-			return repositoryError("idempotent", err)
-		}
-		body := []byte{}
-		if bodyValue != nil {
-			body, err = json.Marshal(bodyValue)
-			if err != nil {
-				return fmt.Errorf("favorites: encode idempotent response: %w", err)
-			}
-			body = append(body, '\n')
-		}
-		response = model.IdempotentResponse{Status: status, Headers: headers, Body: body}
-		if err := connection.Idempotency.Save(ctx, identity, model.IdempotencyRecord{
-			Digest: digest, Response: response, CreatedAtMS: now,
-			ExpiresAtMS: now + int64(24*time.Hour/time.Millisecond),
-		}); err != nil {
-			return repositoryError("idempotent", err)
-		}
-		return nil
-	})
-	return response, repositoryError("idempotent", err)
+func (service *Service) idempotencyEnvelope(
+	principal model.Principal, operation, key string, request any,
+) model.IdempotencyEnvelope {
+	now := service.now().UnixMilli()
+	return model.IdempotencyEnvelope{
+		PrincipalID: principal.UserID,
+		Operation:   operation,
+		Key:         key,
+		Digest:      requestDigest(operation, principal, request),
+		NowMS:       now,
+		ExpiresAtMS: now + int64(24*time.Hour/time.Millisecond),
+	}
 }
 
 func normalizeAndValidateOrganize(
@@ -212,59 +115,6 @@ func normalizeAndValidateOrganize(
 	return games, add, remove, nil
 }
 
-func organizeGame(
-	ctx context.Context,
-	connection model.WriteScope,
-	profileID, gameID string,
-	add, remove []string,
-	now int64,
-) (model.State, bool, error) {
-	if len(add) > 0 {
-		if err := connection.Games.Ensure(ctx, profileID, gameID, now); err != nil {
-			return model.State{}, false, repositoryError("organizeGame", err)
-		}
-	}
-	for _, folderID := range remove {
-		if err := connection.Memberships.Remove(ctx, profileID, folderID, gameID); err != nil {
-			return model.State{}, false, repositoryError("organizeGame", err)
-		}
-	}
-	for _, folderID := range add {
-		if err := connection.Memberships.Add(ctx, profileID, folderID, gameID, now); err != nil {
-			return model.State{}, false, repositoryError("organizeGame", err)
-		}
-	}
-	state, exists, err := connection.Games.State(ctx, profileID, gameID)
-	return state, exists, repositoryError("organizeGame", err)
-}
-
-func (service *Service) organizeWork(
-	ctx context.Context,
-	connection model.WriteScope,
-	principal model.Principal,
-	games, add, remove []string,
-) (model.BatchResult, error) {
-	if err := connection.Games.RequireVisible(ctx, games); err != nil {
-		return model.BatchResult{}, repositoryError("organizeWork", err)
-	}
-	folders := append(append([]string{}, add...), remove...)
-	if err := connection.Folders.Require(ctx, principal.ProfileID, folders); err != nil {
-		return model.BatchResult{}, repositoryError("organizeWork", err)
-	}
-	result := model.BatchResult{Items: make([]model.State, 0, len(games))}
-	now := service.now().UnixMilli()
-	for _, gameID := range games {
-		state, exists, err := organizeGame(ctx, connection, principal.ProfileID, gameID, add, remove, now)
-		if err != nil {
-			return model.BatchResult{}, repositoryError("organizeWork", err)
-		}
-		if exists {
-			result.Items = append(result.Items, state)
-		}
-	}
-	return result, nil
-}
-
 func (service *Service) Organize(
 	ctx context.Context,
 	principal model.Principal,
@@ -280,14 +130,14 @@ func (service *Service) Organize(
 		AddFolderIDs    []string `json:"addFolderIds"`
 		RemoveFolderIDs []string `json:"removeFolderIds"`
 	}{games, add, remove}
-	return service.idempotent(ctx, principal, "postFavoriteOrganize", key, request,
-		func(connection model.WriteScope) (int, map[string]string, any, error) {
-			result, err := service.organizeWork(ctx, connection, principal, games, add, remove)
-			if err != nil {
-				return 0, nil, nil, repositoryError("Organize", err)
-			}
-			return 200, map[string]string{"Content-Type": "application/json; charset=utf-8"}, result, nil
-		})
+	response, err := service.repository.CommitOrganize(ctx, model.OrganizeCommand{
+		Idempotency:     service.idempotencyEnvelope(principal, "postFavoriteOrganize", key, request),
+		ProfileID:       principal.ProfileID,
+		GameIDs:         games,
+		AddFolderIDs:    add,
+		RemoveFolderIDs: remove,
+	})
+	return response, repositoryError("Organize", err)
 }
 
 func (service *Service) Unfavorite(
@@ -304,138 +154,15 @@ func (service *Service) Unfavorite(
 	}
 	games := append([]string{}, gameIDs...)
 	sort.Strings(games)
-	return service.idempotent(ctx, principal, "postFavoriteUnfavorite", key,
-		struct {
-			GameIDs []string `json:"gameIds"`
-		}{games},
-		func(connection model.WriteScope) (int, map[string]string, any, error) {
-			result := model.UnfavoriteResult{Items: make([]model.UnfavoriteItem, 0, len(games))}
-			for _, gameID := range games {
-				_, exists, err := connection.Games.State(ctx, principal.ProfileID, gameID)
-				if err != nil {
-					return 0, nil, nil, repositoryError("Unfavorite", err)
-				}
-				if !exists {
-					continue
-				}
-				folderIDs, err := connection.Memberships.FolderIDs(ctx, principal.ProfileID, gameID)
-				if err != nil {
-					return 0, nil, nil, repositoryError("Unfavorite", err)
-				}
-				result.Items = append(result.Items, model.UnfavoriteItem{GameID: gameID, FolderIDs: folderIDs})
-				if err := connection.Games.Remove(ctx, principal.ProfileID, gameID); err != nil {
-					return 0, nil, nil, repositoryError("Unfavorite", err)
-				}
-			}
-			return 200, map[string]string{"Content-Type": "application/json; charset=utf-8"}, result, nil
-		})
-}
-
-func requestedRestoreFolderIDs(items []model.RestoreItem) []string {
-	seen := make(map[string]struct{})
-	for _, item := range items {
-		for _, folderID := range item.FolderIDs {
-			seen[folderID] = struct{}{}
-		}
-	}
-	result := make([]string, 0, len(seen))
-	for folderID := range seen {
-		result = append(result, folderID)
-	}
-	sort.Strings(result)
-	return result
-}
-
-func restoreItem(
-	ctx context.Context,
-	connection model.WriteScope,
-	profileID string,
-	item model.RestoreItem,
-	existingFolders map[string]struct{},
-	skippedFolders map[string]struct{},
-	now int64,
-) (bool, error) {
-	visible, err := connection.Games.Visible(ctx, item.GameID)
-	if err != nil || !visible {
-		return false, repositoryError("restoreItem", err)
-	}
-	if err := connection.Games.Ensure(ctx, profileID, item.GameID, now); err != nil {
-		return false, repositoryError("restoreItem", err)
-	}
-	for _, folderID := range item.FolderIDs {
-		if _, exists := existingFolders[folderID]; !exists {
-			skippedFolders[folderID] = struct{}{}
-			continue
-		}
-		if err := connection.Memberships.Add(ctx, profileID, folderID, item.GameID, now); err != nil {
-			return false, repositoryError("restoreItem", err)
-		}
-	}
-	return true, nil
-}
-
-func sortedSetValues(values map[string]struct{}) []string {
-	result := make([]string, 0, len(values))
-	for value := range values {
-		result = append(result, value)
-	}
-	sort.Strings(result)
-	return result
-}
-
-func (service *Service) restoreWork(
-	ctx context.Context,
-	connection model.WriteScope,
-	principal model.Principal,
-	items []model.RestoreItem,
-) (model.RestoreResult, error) {
-	existingFolders, err := connection.Folders.Existing(ctx, principal.ProfileID,
-		requestedRestoreFolderIDs(items),
-	)
-	if err != nil {
-		return model.RestoreResult{}, repositoryError("restoreWork", err)
-	}
-	result := model.RestoreResult{RestoredGameIDs: []string{}, SkippedGameIDs: []string{}, SkippedFolderIDs: []string{}}
-	skippedFolders := make(map[string]struct{})
-	now := service.now().UnixMilli()
-	for _, item := range items {
-		restored, err := restoreItem(
-			ctx, connection, principal.ProfileID, item, existingFolders, skippedFolders, now,
-		)
-		if err != nil {
-			return model.RestoreResult{}, repositoryError("restoreWork", err)
-		}
-		if restored {
-			result.RestoredGameIDs = append(result.RestoredGameIDs, item.GameID)
-		} else {
-			result.SkippedGameIDs = append(result.SkippedGameIDs, item.GameID)
-		}
-	}
-	result.SkippedFolderIDs = sortedSetValues(skippedFolders)
-	return result, nil
-}
-
-func (service *Service) Restore(
-	ctx context.Context,
-	principal model.Principal,
-	key string,
-	items []model.RestoreItem,
-) (model.IdempotentResponse, error) {
-	canonical, err := normalizeRestoreItems(items)
-	if err != nil {
-		return model.IdempotentResponse{}, repositoryError("Restore", err)
-	}
-	return service.idempotent(ctx, principal, "postFavoriteRestore", key,
-		struct {
-			Items []model.RestoreItem `json:"items"`
-		}{canonical},
-		func(connection model.WriteScope) (int, map[string]string, any, error) {
-			result, err := service.restoreWork(ctx, connection, principal, canonical)
-			if err != nil {
-				return 0, nil, nil, repositoryError("Restore", err)
-			}
-			return 200, map[string]string{"Content-Type": "application/json; charset=utf-8"}, result, nil
-		})
+	request := struct {
+		GameIDs []string `json:"gameIds"`
+	}{games}
+	response, err := service.repository.CommitUnfavorite(ctx, model.UnfavoriteCommand{
+		Idempotency: service.idempotencyEnvelope(principal, "postFavoriteUnfavorite", key, request),
+		ProfileID:   principal.ProfileID,
+		GameIDs:     games,
+	})
+	return response, repositoryError("Unfavorite", err)
 }
 
 func normalizeRestoreItems(items []model.RestoreItem) ([]model.RestoreItem, error) {
@@ -470,6 +197,27 @@ func normalizeRestoreItems(items []model.RestoreItem) ([]model.RestoreItem, erro
 	return canonical, nil
 }
 
+func (service *Service) Restore(
+	ctx context.Context,
+	principal model.Principal,
+	key string,
+	items []model.RestoreItem,
+) (model.IdempotentResponse, error) {
+	canonical, err := normalizeRestoreItems(items)
+	if err != nil {
+		return model.IdempotentResponse{}, repositoryError("Restore", err)
+	}
+	request := struct {
+		Items []model.RestoreItem `json:"items"`
+	}{canonical}
+	response, err := service.repository.CommitRestore(ctx, model.RestoreCommand{
+		Idempotency: service.idempotencyEnvelope(principal, "postFavoriteRestore", key, request),
+		ProfileID:   principal.ProfileID,
+		Items:       canonical,
+	})
+	return response, repositoryError("Restore", err)
+}
+
 func (service *Service) CreateFolder(
 	ctx context.Context,
 	principal model.Principal,
@@ -485,55 +233,23 @@ func (service *Service) CreateFolder(
 	}
 	games := append([]string{}, initialGameIDs...)
 	sort.Strings(games)
+	folderID, err := uuid.NewV7()
+	if err != nil {
+		return model.IdempotentResponse{}, fmt.Errorf("favorites: new folder id: %w", err)
+	}
 	request := struct {
 		Name           string   `json:"name"`
 		InitialGameIDs []string `json:"initialGameIds"`
 	}{name, games}
-	return service.idempotent(ctx, principal, "postFavoriteFolder", key, request,
-		func(connection model.WriteScope) (int, map[string]string, any, error) {
-			count, err := connection.Folders.Count(ctx, principal.ProfileID)
-			if err != nil {
-				return 0, nil, nil, repositoryError("CreateFolder", err)
-			}
-			if count >= model.MaxFolders {
-				return 0, nil, nil, model.ErrFolderLimit
-			}
-			if err := connection.Folders.RequireAvailableName(ctx, principal.ProfileID, nameKey, ""); err != nil {
-				return 0, nil, nil, repositoryError("CreateFolder", err)
-			}
-			if err := connection.Games.RequireVisible(ctx, games); err != nil {
-				return 0, nil, nil, repositoryError("CreateFolder", err)
-			}
-			folderID, err := uuid.NewV7()
-			if err != nil {
-				return 0, nil, nil, fmt.Errorf("favorites: new folder id: %w", err)
-			}
-			now := service.now().UnixMilli()
-			if err := connection.FolderWrites.Create(ctx, model.FolderWrite{
-				ProfileID: principal.ProfileID, FolderID: folderID.String(),
-				Name: name, NameKey: nameKey, NowMS: now,
-			}); err != nil {
-				return 0, nil, nil, repositoryError("CreateFolder", err)
-			}
-			for _, gameID := range games {
-				if err := connection.Games.Ensure(ctx, principal.ProfileID, gameID, now); err != nil {
-					return 0, nil, nil, repositoryError("CreateFolder", err)
-				}
-				if err := connection.Memberships.Add(ctx, principal.ProfileID, folderID.String(), gameID, now); err != nil {
-					return 0, nil, nil, repositoryError("CreateFolder", err)
-				}
-			}
-			folder, err := connection.Folders.Get(ctx, principal.ProfileID, folderID.String())
-			if err != nil {
-				return 0, nil, nil, repositoryError("CreateFolder", err)
-			}
-			headers := map[string]string{
-				"Content-Type": "application/json; charset=utf-8",
-				"Location":     "/api/v1/favorite-folders/" + folderID.String(),
-				"ETag":         `"v1"`,
-			}
-			return 201, headers, folder, nil
-		})
+	response, err := service.repository.CommitCreateFolder(ctx, model.CreateFolderCommand{
+		Idempotency: service.idempotencyEnvelope(principal, "postFavoriteFolder", key, request),
+		ProfileID:   principal.ProfileID,
+		FolderID:    folderID.String(),
+		Name:        name,
+		NameKey:     nameKey,
+		GameIDs:     games,
+	})
+	return response, repositoryError("CreateFolder", err)
 }
 
 func (service *Service) RenameFolder(
@@ -554,37 +270,15 @@ func (service *Service) RenameFolder(
 		Name     string `json:"name"`
 		Version  int64  `json:"version"`
 	}{folderID, name, expectedVersion}
-	return service.idempotent(ctx, principal, "patchFavoriteFolder", key, request,
-		func(connection model.WriteScope) (int, map[string]string, any, error) {
-			folder, err := connection.Folders.Get(ctx, principal.ProfileID, folderID)
-			if err != nil {
-				return 0, nil, nil, repositoryError("RenameFolder", err)
-			}
-			if folder.Version != expectedVersion {
-				return 0, nil, nil, model.ErrVersionConflict
-			}
-			if folder.Name == name {
-				return 0, nil, nil, model.ErrInvalid
-			}
-			if err := connection.Folders.RequireAvailableName(ctx, principal.ProfileID, nameKey, folderID); err != nil {
-				return 0, nil, nil, repositoryError("RenameFolder", err)
-			}
-			now := service.now().UnixMilli()
-			err = connection.FolderWrites.Rename(ctx, model.FolderWrite{
-				ProfileID: principal.ProfileID, FolderID: folderID, Name: name, NameKey: nameKey,
-				ExpectedVersion: expectedVersion, NowMS: now,
-			})
-			if err != nil {
-				return 0, nil, nil, fmt.Errorf("favorites: rename folder: %w", err)
-			}
-			folder, err = connection.Folders.Get(ctx, principal.ProfileID, folderID)
-			if err != nil {
-				return 0, nil, nil, repositoryError("RenameFolder", err)
-			}
-			return 200, map[string]string{
-				"Content-Type": "application/json; charset=utf-8", "ETag": fmt.Sprintf(`"v%d"`, folder.Version),
-			}, folder, nil
-		})
+	response, err := service.repository.CommitRenameFolder(ctx, model.RenameFolderCommand{
+		Idempotency:     service.idempotencyEnvelope(principal, "patchFavoriteFolder", key, request),
+		ProfileID:       principal.ProfileID,
+		FolderID:        folderID,
+		Name:            name,
+		NameKey:         nameKey,
+		ExpectedVersion: expectedVersion,
+	})
+	return response, repositoryError("RenameFolder", err)
 }
 
 func (service *Service) DeleteFolder(
@@ -600,20 +294,13 @@ func (service *Service) DeleteFolder(
 		FolderID string `json:"folderId"`
 		Version  int64  `json:"version"`
 	}{folderID, expectedVersion}
-	return service.idempotent(ctx, principal, "deleteFavoriteFolder", key, request,
-		func(connection model.WriteScope) (int, map[string]string, any, error) {
-			folder, err := connection.Folders.Get(ctx, principal.ProfileID, folderID)
-			if err != nil {
-				return 0, nil, nil, repositoryError("DeleteFolder", err)
-			}
-			if folder.Version != expectedVersion {
-				return 0, nil, nil, model.ErrVersionConflict
-			}
-			if err := connection.FolderWrites.Delete(ctx, principal.ProfileID, folderID, expectedVersion); err != nil {
-				return 0, nil, nil, repositoryError("DeleteFolder", err)
-			}
-			return 204, map[string]string{}, nil, nil
-		})
+	response, err := service.repository.CommitDeleteFolder(ctx, model.DeleteFolderCommand{
+		Idempotency:     service.idempotencyEnvelope(principal, "deleteFavoriteFolder", key, request),
+		ProfileID:       principal.ProfileID,
+		FolderID:        folderID,
+		ExpectedVersion: expectedVersion,
+	})
+	return response, repositoryError("DeleteFolder", err)
 }
 
 func (service *Service) Reference(ctx context.Context, profileID, gameID string) (*model.FavoriteReference, error) {

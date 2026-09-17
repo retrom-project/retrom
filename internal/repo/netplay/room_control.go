@@ -15,7 +15,9 @@ import (
 type RoomControl struct{ database *sql.DB }
 
 func NewRoomControl(database *sql.DB) *RoomControl { return &RoomControl{database: database} }
-func (repository *RoomControl) CommitMutation(ctx context.Context, cmd netplay.MutationCommand) (netplay.Room, error) {
+func (repository *RoomControl) CommitMutation(
+	ctx context.Context, cmd netplay.MutationCommand, apply netplay.MutationFunc,
+) (netplay.Room, error) {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return netplay.Room{}, fmt.Errorf("netplay/begin room control: %w", err)
@@ -48,7 +50,7 @@ func (repository *RoomControl) CommitMutation(ctx context.Context, cmd netplay.M
 	if !found {
 		return netplay.Room{}, netplay.ErrRoomConflict
 	}
-	if err := cmd.Apply(scope, before, cmd.NowMS); err != nil {
+	if err := apply(scope, before, cmd.NowMS); err != nil {
 		return netplay.Room{}, fmt.Errorf("apply room control: %w", err)
 	}
 	result, err := scope.Read.Snapshot(ctx, cmd.RoomID)

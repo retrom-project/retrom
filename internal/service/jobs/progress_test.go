@@ -63,7 +63,7 @@ func TestProgressSnapshotsShareReadScope(t *testing.T) {
 
 func TestProgressReadFailurePreservesCause(t *testing.T) {
 	failure := errors.New("snapshot unavailable")
-	for _, stage := range []string{"begin", "detail", "events", "maximum"} {
+	for _, stage := range []string{"detail", "events", "maximum"} {
 		repository := &progressRepository{failure: failure, failAt: stage}
 		service := New(repository, time.Now)
 		var err error
@@ -79,8 +79,6 @@ func TestProgressReadFailurePreservesCause(t *testing.T) {
 }
 
 type progressRepository struct {
-	model.Repository
-	model.ReadRecords
 	state                string
 	events               []model.Event
 	opened, maximumReads int
@@ -89,41 +87,51 @@ type progressRepository struct {
 	failure              error
 }
 
-func (repository *progressRepository) WithRead(_ context.Context, work func(model.ReadRecords) error) error {
-	repository.opened++
-	if repository.failAt == "begin" {
-		return repository.failure
+func (r *progressRepository) LoadDetail(_ context.Context, _ string) (model.Snapshot, error) {
+	r.opened++
+	if r.failAt == "detail" {
+		return model.Snapshot{}, r.failure
 	}
-	return work(repository)
+	return model.Snapshot{State: r.state}, nil
 }
 
-func (repository *progressRepository) Detail(context.Context, string) (model.Snapshot, error) {
-	if repository.failAt == "detail" {
-		return model.Snapshot{}, repository.failure
+func (r *progressRepository) LoadJobStreamSnapshot(_ context.Context, _ string) (model.Snapshot, int64, error) {
+	r.opened++
+	r.maximumReads++
+	if r.failAt == "maximum" {
+		return model.Snapshot{}, 0, r.failure
 	}
-	return model.Snapshot{State: repository.state}, nil
+	return model.Snapshot{State: r.state}, 42, nil
 }
 
-func (repository *progressRepository) ImportProgress(context.Context, string) (model.ImportProgress, error) {
-	return model.ImportProgress{State: repository.state}, nil
+func (r *progressRepository) LoadImportStreamSnapshot(_ context.Context, _ string) (model.ImportProgress, int64, error) {
+	r.opened++
+	r.maximumReads++
+	return model.ImportProgress{State: r.state}, 42, nil
 }
 
-func (repository *progressRepository) EventMaximum(context.Context) (int64, error) {
-	repository.maximumReads++
-	if repository.failAt == "maximum" {
-		return 0, repository.failure
+func (r *progressRepository) LoadJobEvents(_ context.Context, id string, after int64) ([]model.Event, model.Snapshot, error) {
+	r.opened++
+	r.query = model.EventQuery{ResourceID: id, After: after, Limit: 1000}
+	if r.failAt == "detail" {
+		return nil, model.Snapshot{}, r.failure
 	}
-	return 42, nil
-}
-
-func (repository *progressRepository) JobEvents(_ context.Context, query model.EventQuery) ([]model.Event, error) {
-	repository.query = query
-	if repository.failAt == "events" {
-		return nil, repository.failure
+	if r.failAt == "events" {
+		return nil, model.Snapshot{}, r.failure
 	}
-	return repository.events, nil
+	return r.events, model.Snapshot{State: r.state}, nil
 }
 
-func (repository *progressRepository) ImportEvents(ctx context.Context, query model.EventQuery) ([]model.Event, error) {
-	return repository.JobEvents(ctx, query)
+func (r *progressRepository) LoadImportEvents(_ context.Context, id string, after int64) ([]model.Event, model.ImportProgress, error) {
+	r.opened++
+	r.query = model.EventQuery{ResourceID: id, After: after, Limit: 1000}
+	return r.events, model.ImportProgress{State: r.state}, nil
+}
+
+func (r *progressRepository) CommitCancel(context.Context, model.CancelCommand) (model.CancelResult, error) {
+	return model.CancelResult{}, nil
+}
+
+func (r *progressRepository) CommitRetry(context.Context, model.RetryCommand) (model.Result, error) {
+	return model.Result{}, nil
 }

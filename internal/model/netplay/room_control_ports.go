@@ -68,15 +68,20 @@ type RoomControlScope struct {
 }
 
 // MutationCommand captures the validated room mutation envelope.
+// It contains only values; the mutation function is passed separately.
 type MutationCommand struct {
 	RoomID, ActorID string
 	Version         int64
 	HostOnly        bool
 	States          []string
 	NowMS           int64
-	Apply           func(RoomControlScope, RoomControlSnapshot, int64) error
 }
 
+// MutationFunc is a function that applies a mutation within a room control
+// transaction scope. It is not a command field; the repository interface
+// accepts it as a separate parameter.
+type MutationFunc func(RoomControlScope, RoomControlSnapshot, int64) error
+
 type RoomControlRepository interface {
-	CommitMutation(context.Context, MutationCommand) (Room, error)
+	CommitMutation(context.Context, MutationCommand, MutationFunc) (Room, error)
 }

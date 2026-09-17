@@ -11,7 +11,7 @@ import (
 func (service *Service) application() *application.Service {
 	return application.New(application.ServiceDependencies{
 		Queries: service.queries(), Creation: application.NewCreation(repository.NewCreation(service.database), service.sources(), service.now),
-		Mappings:  application.NewMappings(repository.NewMappings(service.database), service.tags, service.now),
+		Mappings:  application.NewMappings(repository.NewMappings(service.database), service.now),
 		Starter:   application.NewStarter(repository.NewStarter(service.database), service.sources(), service.now),
 		Control:   application.NewWorkflowControl(repository.NewWorkflowControl(service.database), service.now),
 		Lifecycle: application.NewPlanLifecycle(repository.NewPlanLifecycle(service.database), service.now), Worker: service.backgroundWorker(),

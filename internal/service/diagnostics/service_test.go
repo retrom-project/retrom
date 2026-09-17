@@ -9,35 +9,20 @@ import (
 )
 
 type memoryRepository struct {
-	scope model.ReadScope
-	err   error
+	report model.Report
+	err    error
 }
 
-func (repository memoryRepository) WithRead(_ context.Context, work func(model.ReadScope) error) error {
-	if repository.err != nil {
-		return repository.err
-	}
-	return work(repository.scope)
-}
-
-type memoryScope struct {
-	schema int64
-	counts model.Counts
-	items  []model.RuntimeProvider
-}
-
-func (scope memoryScope) SchemaVersion(context.Context) (int64, error) { return scope.schema, nil }
-func (scope memoryScope) Counts(context.Context) (model.Counts, error) { return scope.counts, nil }
-func (scope memoryScope) RuntimeProviders(context.Context) ([]model.RuntimeProvider, error) {
-	return scope.items, nil
+func (repository memoryRepository) LoadReport(context.Context) (model.Report, error) {
+	return repository.report, repository.err
 }
 
 func TestReportUsesSnapshotProjections(t *testing.T) {
 	t.Parallel()
-	service := New(memoryRepository{scope: memoryScope{
-		schema: 14,
-		counts: model.Counts{PublishedGames: 3, ReadyDATs: 2},
-		items:  []model.RuntimeProvider{{ProviderID: "runtime"}},
+	service := New(memoryRepository{report: model.Report{
+		DatabaseSchemaVersion: 14,
+		Counts:                model.Counts{PublishedGames: 3, ReadyDATs: 2},
+		RuntimeProviders:      []model.RuntimeProvider{{ProviderID: "runtime"}},
 	}})
 	report, err := service.Report(t.Context())
 	if err != nil {

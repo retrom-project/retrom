@@ -9,9 +9,7 @@ import (
 
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	taggingmodel "retrom/internal/model/tagging"
-	tagrepository "retrom/internal/repo/tagging"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
-	taggingservice "retrom/internal/service/tagging"
 )
 
 const secondMappingCollection = "019b0000-0000-7000-8000-000000000004"
@@ -38,10 +36,7 @@ func TestMappingsPreserveExistingTagAssignmentOnDomainRejection(t *testing.T) {
 			instance := seedMappingTarget(t, db)
 			mapping, want := rejectedMapping(t, db, instance, kind)
 			before := planRows(t, db)
-			service := emulationstationimportservice.NewMappings(NewMappings(db), func() *taggingservice.Service {
-				r := tagrepository.New(db)
-				return taggingservice.New(r, r, taggingservice.Options{Now: func() time.Time { return time.UnixMilli(10) }})
-			}(), func() time.Time { return time.UnixMilli(10) })
+			service := emulationstationimportservice.NewMappings(NewMappings(db), func() time.Time { return time.UnixMilli(10) })
 			result, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{mapping}, mappingActor)
 			if result.ID != "" || !errors.Is(err, want) {
 				t.Fatalf("%s result=%#v error=%v want=%v", kind, result, err, want)

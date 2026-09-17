@@ -75,5 +75,3 @@ FROM runtime_providers ORDER BY provider_id
 	}
 	return providers, nil
 }
-
-var _ application.ReadScope = records{}

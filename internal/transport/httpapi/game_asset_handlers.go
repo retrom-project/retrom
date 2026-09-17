@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"retrom/internal/capability/security/authn"
+	gameassetmodel "retrom/internal/model/gameassets"
 	gameassets "retrom/internal/service/gameassets"
 	"retrom/internal/service/mediaaccess"
 )
@@ -63,11 +64,11 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 		GameID: request.PathValue("gameId"), UploadFileID: body.UploadFileID, Kind: body.Kind,
 		Ordinal: body.Ordinal, ExpectedVersion: expected, NowMS: server.now().UnixMilli(), Asset: asset,
 	})
-	if errors.Is(err, gameassets.ErrVersionConflict) {
+	if errors.Is(err, gameassetmodel.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	if errors.Is(err, gameassets.ErrUploadConsumed) {
+	if errors.Is(err, gameassetmodel.ErrUploadConsumed) {
 		writeError(writer, request, http.StatusConflict, "UPLOAD_ALREADY_CONSUMED", "上传文件已被其他操作占用", map[string]any{})
 		return
 	}
@@ -119,11 +120,11 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 	result, err := server.gameAssets.Delete(request.Context(), gameassets.DeleteRequest{
 		GameID: request.PathValue("gameId"), Kind: kind, ExpectedVersion: expected, NowMS: server.now().UnixMilli(),
 	})
-	if errors.Is(err, gameassets.ErrVersionConflict) {
+	if errors.Is(err, gameassetmodel.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	if errors.Is(err, gameassets.ErrAssetNotFound) {
+	if errors.Is(err, gameassetmodel.ErrAssetNotFound) {
 		writeError(writer, request, http.StatusNotFound, "ASSET_NOT_FOUND", "媒体不存在", map[string]any{})
 		return
 	}

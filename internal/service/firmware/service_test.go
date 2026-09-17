@@ -85,7 +85,6 @@ func TestStaticArchivesRejectAliasesWhileDATRemainsAdvisory(t *testing.T) {
 }
 
 type installMemory struct {
-	model.Repository
 	model.InstallationWriter
 	initial, current               model.Requirement
 	upload, currentUpload          model.Upload
@@ -102,8 +101,25 @@ func installFixture() *installMemory {
 	return &installMemory{initial: requirement, current: requirement, upload: upload, currentUpload: upload}
 }
 
-func (memory *installMemory) WithRead(_ context.Context, work func(model.ReadScope) error) error {
-	return work(model.ReadScope{Requirements: requirementMemory{value: memory.initial}, Uploads: uploadMemory{memory.upload}})
+func (memory *installMemory) LoadInstallFacts(_ context.Context, requirementID string, expectedVersion int64, fileID string) (model.InstallFacts, error) {
+	req := memory.initial
+	if !req.Enabled || req.Version != expectedVersion {
+		return model.InstallFacts{}, model.ErrInvalid
+	}
+	up := memory.upload
+	if up.State != "COMPLETE" {
+		return model.InstallFacts{}, model.ErrInvalid
+	}
+	return model.InstallFacts{
+		SourceKind: req.SourceKind,
+		FileKind:   req.FileKind,
+		BlobID:     up.BlobID,
+		SHA256:     up.SHA256,
+	}, nil
+}
+
+func (memory *installMemory) LoadArchiveInspection(context.Context, string) (model.ArchiveInspection, error) {
+	return model.ArchiveInspection{}, nil
 }
 
 func (memory *installMemory) CommitBrowserInstall(_ context.Context, cmd model.BrowserInstallCommand) (model.Installation, error) {

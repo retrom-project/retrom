@@ -13,14 +13,13 @@ import (
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
 	platforminstancemodel "retrom/internal/model/platforminstance"
-	platforminstanceservice "retrom/internal/service/platforminstance"
 )
 
 type coreImpact = platforminstancemodel.CoreImpact
 
 func impactDigest(value any) string {
 	if impact, ok := value.(coreImpact); ok {
-		return platforminstanceservice.ImpactDigest(impact)
+		return platforminstancemodel.ImpactDigest(impact)
 	}
 	encoded, _ := json.Marshal(value)
 	digest := sha256.Sum256(encoded)

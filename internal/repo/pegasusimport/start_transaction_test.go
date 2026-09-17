@@ -11,9 +11,7 @@ import (
 	"time"
 
 	pegasusimportmodel "retrom/internal/model/pegasusimport"
-	tagrepository "retrom/internal/repo/tagging"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
-	"retrom/internal/service/tagging"
 )
 
 const skippedStartCollection = "019b0000-0000-7000-8000-000000000004"
@@ -33,8 +31,7 @@ VALUES('import-0','metadata.pegasus.txt',10,'ddddddddddddddddddddddddddddddddddd
 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee','VALID',1);`); err != nil {
 		t.Fatal(err)
 	}
-	tagRepo := tagrepository.New(db)
-	mapper := pegasusimportservice.NewMappings(NewMappings(db), tagging.New(tagRepo, tagRepo, tagging.Options{Now: func() time.Time { return time.UnixMilli(2) }}), func() time.Time { return time.UnixMilli(2) })
+	mapper := pegasusimportservice.NewMappings(NewMappings(db), func() time.Time { return time.UnixMilli(2) })
 	if _, err := mapper.Update(t.Context(), "import-0", 1, []pegasusimportmodel.Mapping{
 		{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}},
 		{CollectionID: skippedStartCollection, Action: "SKIP", TagIDs: []string{}},

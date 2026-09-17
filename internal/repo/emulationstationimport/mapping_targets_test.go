@@ -31,10 +31,7 @@ func TestMappingsRejectEveryIneligibleTargetBeforeTagChanges(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := planRows(t, db)
-			service := emulationstationimportservice.NewMappings(NewMappings(db), func() *tagging.Service {
-				r := tagrepository.New(db)
-				return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }})
-			}(), func() time.Time { return time.UnixMilli(10) })
+			service := emulationstationimportservice.NewMappings(NewMappings(db), func() time.Time { return time.UnixMilli(10) })
 			result, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{}}}, mappingActor)
 			if result.ID != "" || !errors.Is(err, emulationstationimportmodel.ErrInvalid) {
 				t.Fatalf("ineligible %s result=%#v error=%v", test.name, result, err)
@@ -63,7 +60,7 @@ FROM platform_instances instance JOIN runtime_target_bindings binding ON binding
 	if _, err := tags.Rename(t.Context(), mappingActor, mappingTag, "Renamed", 1); err != nil {
 		t.Fatal(err)
 	}
-	service := emulationstationimportservice.NewMappings(NewMappings(db), tags, func() time.Time { return time.UnixMilli(10) })
+	service := emulationstationimportservice.NewMappings(NewMappings(db), func() time.Time { return time.UnixMilli(10) })
 	_, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}}}, mappingActor)
 	if err != nil {
 		t.Fatal(err)

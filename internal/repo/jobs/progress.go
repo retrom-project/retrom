@@ -11,19 +11,92 @@ import (
 	"retrom/internal/repo/dbexec"
 )
 
-func (repository *Repository) WithRead(ctx context.Context, work func(jobs.ReadRecords) error) error {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+func (repository *Repository) LoadDetail(ctx context.Context, id string) (jobs.Snapshot, error) {
+	return records{executor: repository.database}.Detail(ctx, id)
+}
+
+func (repository *Repository) LoadJobStreamSnapshot(ctx context.Context, id string) (jobs.Snapshot, int64, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return fmt.Errorf("begin job read snapshot: %w", err)
+		return jobs.Snapshot{}, 0, fmt.Errorf("begin job read snapshot: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	if err := work(records{executor: transaction}); err != nil {
-		return err
+	defer dbexec.Rollback(tx)
+	r := records{executor: tx}
+	snapshot, err := r.Detail(ctx, id)
+	if err != nil {
+		return jobs.Snapshot{}, 0, err
 	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit job read snapshot: %w", err)
+	maximum, err := r.EventMaximum(ctx)
+	if err != nil {
+		return jobs.Snapshot{}, 0, err
 	}
-	return nil
+	if err := tx.Commit(); err != nil {
+		return jobs.Snapshot{}, 0, fmt.Errorf("commit job read snapshot: %w", err)
+	}
+	return snapshot, maximum, nil
+}
+
+func (repository *Repository) LoadImportStreamSnapshot(ctx context.Context, id string) (jobs.ImportProgress, int64, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return jobs.ImportProgress{}, 0, fmt.Errorf("begin job read snapshot: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	r := records{executor: tx}
+	snapshot, err := r.ImportProgress(ctx, id)
+	if err != nil {
+		return jobs.ImportProgress{}, 0, err
+	}
+	maximum, err := r.EventMaximum(ctx)
+	if err != nil {
+		return jobs.ImportProgress{}, 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return jobs.ImportProgress{}, 0, fmt.Errorf("commit job read snapshot: %w", err)
+	}
+	return snapshot, maximum, nil
+}
+
+func (repository *Repository) LoadJobEvents(ctx context.Context, id string, after int64) ([]jobs.Event, jobs.Snapshot, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, jobs.Snapshot{}, fmt.Errorf("begin job read snapshot: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	r := records{executor: tx}
+	snapshot, err := r.Detail(ctx, id)
+	if err != nil {
+		return nil, jobs.Snapshot{}, err
+	}
+	events, err := r.JobEvents(ctx, jobs.EventQuery{ResourceID: id, After: after, Limit: jobs.EventBatchSize})
+	if err != nil {
+		return nil, jobs.Snapshot{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, jobs.Snapshot{}, fmt.Errorf("commit job read snapshot: %w", err)
+	}
+	return events, snapshot, nil
+}
+
+func (repository *Repository) LoadImportEvents(ctx context.Context, id string, after int64) ([]jobs.Event, jobs.ImportProgress, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, jobs.ImportProgress{}, fmt.Errorf("begin job read snapshot: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	r := records{executor: tx}
+	snapshot, err := r.ImportProgress(ctx, id)
+	if err != nil {
+		return nil, jobs.ImportProgress{}, err
+	}
+	events, err := r.ImportEvents(ctx, jobs.EventQuery{ResourceID: id, After: after, Limit: jobs.EventBatchSize})
+	if err != nil {
+		return nil, jobs.ImportProgress{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, jobs.ImportProgress{}, fmt.Errorf("commit job read snapshot: %w", err)
+	}
+	return events, snapshot, nil
 }
 
 func (store records) Detail(ctx context.Context, id string) (jobs.Snapshot, error) {

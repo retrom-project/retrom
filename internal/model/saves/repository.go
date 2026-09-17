@@ -11,7 +11,32 @@ import (
 type Repository interface {
 	LoadLaunch(context.Context, string) (Launch, error)
 	Restore(context.Context, string) (Restore, error)
-	CommitWrite(context.Context, func(WriteScope) error) error
+	CommitManualCheckpoint(context.Context, ManualCheckpointCommand) (ManualResult, bool, error)
+}
+
+// ManualCheckpointCommand captures all pre-computed values for a checkpoint save.
+type ManualCheckpointCommand struct {
+	LaunchID, PrincipalID string
+	IdempotencyKey        ReplayKey
+	Digest                string
+	ExpiresAtMS           int64
+	Launch                Launch
+	Payload               ManualCheckpointPayload
+	Screenshot            *ManualCheckpointImage
+	ScreenshotMediaType   string
+	SaveStateID           string
+	MetadataName          string
+	MetadataDiscIndex     *int
+}
+
+type ManualCheckpointPayload struct {
+	SHA256, MediaType string
+	Size              int64
+}
+
+type ManualCheckpointImage struct {
+	SHA256, MediaType string
+	Size              int64
 }
 
 // ListRepository owns the administrator-facing save list projection. It is

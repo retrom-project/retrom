@@ -58,10 +58,6 @@ type accessMemory struct {
 	lastKind    string
 }
 
-func (memory *accessMemory) WithRead(_ context.Context, work func(model.Reader) error) error {
-	return work(memory)
-}
-
 func (memory *accessMemory) Game(context.Context, string) (model.GameAsset, bool, error) {
 	return memory.game, true, memory.cause
 }

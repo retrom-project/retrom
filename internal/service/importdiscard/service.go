@@ -45,17 +45,15 @@ func (service *Service) Get(ctx context.Context, kind, id string) (model.Status,
 	if !validKey(key) {
 		return model.Status{}, model.ErrInvalid
 	}
-	var result model.Status
-	err := service.repository.WithRead(ctx, func(records model.Reader) error {
-		var err error
-		result, err = discardStatus(ctx, records, key)
-		return failure("access discard status", err)
-	})
-	return result, failure("access discard status", err)
+	result, err := discardStatus(ctx, service.repository, key)
+	if err != nil {
+		return model.Status{}, failure("access discard status", err)
+	}
+	return result, nil
 }
 
-func discardStatus(ctx context.Context, records model.Reader, key model.Key) (model.Status, error) {
-	batch, err := records.Batch(ctx, key)
+func discardStatus(ctx context.Context, repo model.Repository, key model.Key) (model.Status, error) {
+	batch, err := repo.Batch(ctx, key)
 	if err != nil {
 		return model.Status{}, failure("access discard status", err)
 	}
@@ -63,7 +61,7 @@ func discardStatus(ctx context.Context, records model.Reader, key model.Key) (mo
 	if available(key.Kind, batch) {
 		result.State = "AVAILABLE"
 	}
-	disposition, found, err := records.Disposition(ctx, key)
+	disposition, found, err := repo.Disposition(ctx, key)
 	if err != nil {
 		return model.Status{}, failure("access discard status", err)
 	}

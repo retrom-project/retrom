@@ -9,6 +9,9 @@ import (
 )
 
 func (repository *Repository) CommitCreate(ctx context.Context, cmd tagging.CreateCommand) (tagging.AdminItem, error) {
+	if err := tagging.ValidateCreateCommand(cmd); err != nil {
+		return tagging.AdminItem{}, fmt.Errorf("tagging: validate command: %w", err)
+	}
 	var result tagging.AdminItem
 	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
 		records := tagRecords{exec}

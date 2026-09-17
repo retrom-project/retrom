@@ -19,7 +19,7 @@ func (service *Service) UpdateMappings(
 	if principal, ok := authn.PrincipalFromContext(ctx); ok {
 		actorID = principal.UserID
 	}
-	result, err := application.NewMappings(repository.NewMappings(service.database), service.tags, service.now).
+	result, err := application.NewMappings(repository.NewMappings(service.database), service.now).
 		Update(ctx, importID, expectedVersion, mappings, actorID)
 	if err != nil {
 		return Summary{}, fmt.Errorf("update EmulationStation mappings: %w", err)

@@ -80,7 +80,7 @@ type ReviewApprovalScope struct {
 	Validation   ReviewValidationReader
 	Dependencies ApprovalDependencyScope
 	Duplicates   ContentDuplicateReader
-	Tags         tagging.WriteScope
+	Tags         tagging.CrossDomainWriter
 	Games        ApprovalGameWriter
 	Variants     ApprovalVariantWriter
 	Decisions    ApprovalDecisionWriter

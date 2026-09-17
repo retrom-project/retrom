@@ -54,7 +54,8 @@ func TestRetryRollsBackOnVersionConflict(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	insertJob(t, database, "job", "MEDIA_FETCH", "FAILED", int64(1), now.UnixMilli())
 	_, err = New(database.SQL).CommitRetry(t.Context(), jobs.RetryCommand{
-		JobID: "job", ExpectedVersion: 8, NowMS: now.UnixMilli(),
+		JobID: "job", ExecutionID: "01980000-0000-7000-8000-000000000099",
+		ExpectedVersion: 8, NowMS: now.UnixMilli(),
 	})
 	if err == nil {
 		t.Fatal("expected conflict or eligibility error")

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	model "retrom/internal/model/libraryimport"
+	"retrom/internal/model/tagging"
 
 	"retrom/internal/capability/content/contentmanifest"
 	"retrom/internal/capability/content/multidisc"
@@ -113,8 +114,9 @@ func (run *creationCommit) persistGroup(
 	if err := scope.Reviews.Draft(ctx, draft); err != nil {
 		return fmt.Errorf("persist creation draft: %w", err)
 	}
-	if err := run.service.tags.AssignReviewDraftTags(
-		ctx, scope.Tags, record.draftID, run.tags, run.actorID, run.header.NowMS,
+	draftOwner := tagging.Owner{Kind: tagging.OwnerReviewDraft, ID: record.draftID}
+	if err := scope.Tags.AssignReferences(
+		ctx, draftOwner, run.tags, run.actorID, run.header.NowMS,
 	); err != nil {
 		return fmt.Errorf("assign creation tags: %w", err)
 	}

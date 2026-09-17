@@ -11,6 +11,9 @@ import (
 func (repository *Repository) CommitEnsureCommonTags(
 	ctx context.Context, cmd tagging.EnsureCommonTagsCommand,
 ) (tagging.CommonTagsResult, error) {
+	if err := tagging.ValidateEnsureCommonTagsCommand(cmd); err != nil {
+		return tagging.CommonTagsResult{}, fmt.Errorf("tagging: validate command: %w", err)
+	}
 	result := tagging.CommonTagsResult{
 		CreatedItems:  []tagging.AdminItem{},
 		ExistingItems: []tagging.AdminItem{},

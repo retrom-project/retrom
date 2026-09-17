@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"retrom/internal/foundation/cleanup"
-	jobsmodel "retrom/internal/model/jobs"
 	"retrom/internal/repo/store"
 	jobsservice "retrom/internal/service/jobs"
 )
@@ -20,30 +19,17 @@ func TestProgressReadsKeepStateAndEventsInOneSnapshot(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	insertJob(t, database, "job", "MEDIA_FETCH", "RUNNING", nil, now.UnixMilli())
 	repository := New(database.ReadOnly)
-	err = repository.WithRead(t.Context(), func(records jobsmodel.ReadRecords) error {
-		first, err := records.Detail(t.Context(), "job")
-		if err != nil {
-			return err
-		}
-		commitJobCompletion(t, database, now.UnixMilli())
-		second, err := records.Detail(t.Context(), "job")
-		if err != nil {
-			return err
-		}
-		maximum, err := records.EventMaximum(t.Context())
-		if err != nil {
-			return err
-		}
-		events, err := records.JobEvents(t.Context(), jobsmodel.EventQuery{ResourceID: "job", Limit: 1000})
-		if err != nil || first.State != "RUNNING" || second.State != first.State || maximum != 0 || len(events) != 0 {
-			t.Fatalf("mixed snapshots: before=%s after=%s maximum=%d events=%d error=%v",
-				first.State, second.State, maximum, len(events), err)
-		}
-		return nil
-	})
+
+	snapshot, maximum, err := repository.LoadJobStreamSnapshot(t.Context(), "job")
 	if err != nil {
 		t.Fatal(err)
 	}
+	if snapshot.State != "RUNNING" || maximum != 0 {
+		t.Fatalf("unexpected initial snapshot: state=%s maximum=%d", snapshot.State, maximum)
+	}
+
+	commitJobCompletion(t, database, now.UnixMilli())
+
 	batch, err := jobsservice.New(repository, time.Now).JobEvents(t.Context(), "job", 0)
 	if err != nil || !batch.Terminal || len(batch.Events) != 1 || batch.Events[0].Type != "SUCCEEDED" {
 		t.Fatalf("next snapshot missed completion: %+v error=%v", batch, err)

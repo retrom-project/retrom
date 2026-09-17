@@ -19,16 +19,16 @@ import (
 // immutable read port and returns only a persistence-neutral plan. It never
 // receives an executor or a transaction.
 type ReviewDraftValidationResolver struct {
-	reader       ReviewDraftValidationReader
-	selected     ReviewDraftValidationSelectedReader
-	dependencies ReviewDraftValidationDependencyReader
+	reader       application.ReviewValidationRefreshReader
+	selected     application.ReviewValidationRefreshSelectedReader
+	dependencies application.ReviewValidationRefreshDependencyReader
 	now          func() time.Time
 }
 
 func NewReviewDraftValidationResolver(
-	reader ReviewDraftValidationReader,
-	selected ReviewDraftValidationSelectedReader,
-	dependencies ReviewDraftValidationDependencyReader,
+	reader application.ReviewValidationRefreshReader,
+	selected application.ReviewValidationRefreshSelectedReader,
+	dependencies application.ReviewValidationRefreshDependencyReader,
 	now func() time.Time,
 ) *ReviewDraftValidationResolver {
 	if now == nil {
@@ -440,7 +440,7 @@ func isStaticBIOSSnapshot(raw string) bool {
 }
 
 type creationArcadeReader struct {
-	reader ReviewDraftValidationDependencyReader
+	reader application.ReviewValidationRefreshDependencyReader
 }
 
 func (reader creationArcadeReader) BIOS(

@@ -16,19 +16,20 @@ type (
 )
 
 func New(database *sql.DB) *Repository { return &Repository{database} }
-func (repository *Repository) WithRead(ctx context.Context, work func(importdiscard.Reader) error) error {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return fmt.Errorf("begin discard read: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	if err := work(records{tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit discard read: %w", err)
-	}
-	return nil
+func (repository *Repository) Batch(ctx context.Context, key importdiscard.Key) (importdiscard.Batch, error) {
+	return records{repository.database}.Batch(ctx, key)
+}
+
+func (repository *Repository) Disposition(ctx context.Context, key importdiscard.Key) (importdiscard.Disposition, bool, error) {
+	return records{repository.database}.Disposition(ctx, key)
+}
+
+func (repository *Repository) Pending(ctx context.Context) (importdiscard.Request, bool, error) {
+	return records{repository.database}.Pending(ctx)
+}
+
+func (repository *Repository) Children(ctx context.Context, key importdiscard.Key) ([]string, error) {
+	return records{repository.database}.Children(ctx, key)
 }
 
 func (repository *Repository) writeScope(tx *sql.Tx) importdiscard.WriteScope {

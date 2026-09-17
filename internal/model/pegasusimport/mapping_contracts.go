@@ -9,7 +9,7 @@ import (
 type MappingScope struct {
 	Read  MappingReader
 	Write MappingWriter
-	Tags  tagging.WriteScope
+	Tags  tagging.CrossDomainWriter
 }
 
 type MappingReader interface {
@@ -25,12 +25,6 @@ type MappingWriter interface {
 
 type MappingRepository interface {
 	WithMappings(context.Context, func(MappingScope) error) error
-}
-
-type MappingTagWriter interface {
-	ReplacePegasusCollectionTags(
-		context.Context, tagging.WriteScope, string, []string, string, int64,
-	) ([]tagging.Reference, error)
 }
 
 type MappingTarget struct {

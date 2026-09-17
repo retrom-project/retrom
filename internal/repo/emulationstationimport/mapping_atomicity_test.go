@@ -9,9 +9,7 @@ import (
 
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	taggingmodel "retrom/internal/model/tagging"
-	tagrepository "retrom/internal/repo/tagging"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
-	taggingservice "retrom/internal/service/tagging"
 )
 
 var errMappingStep = errors.New("mapping step failed")
@@ -26,7 +24,7 @@ func (r mappingFaultRepository) WithMappings(ctx context.Context, work func(emul
 		scope.Read = &mappingFaultReader{MappingReader: scope.Read, fail: r.phase == "response"}
 		scope.Write = &mappingFaultWriter{MappingWriter: scope.Write, phase: r.phase}
 		if r.phase == "tag touch" {
-			scope.Tags.Relations = mappingFaultTags{RelationRecords: scope.Tags.Relations}
+			scope.Tags = &mappingFaultTagWriter{CrossDomainWriter: scope.Tags}
 		}
 		return work(scope)
 	})
@@ -80,13 +78,17 @@ func (writer *mappingFaultWriter) Advance(ctx context.Context, change emulations
 	return nil
 }
 
-type mappingFaultTags struct{ taggingmodel.RelationRecords }
+type mappingFaultTagWriter struct{ taggingmodel.CrossDomainWriter }
 
-func (records mappingFaultTags) TouchTags(ctx context.Context, actor string, ids []string, now int64) error {
-	if err := records.RelationRecords.TouchTags(ctx, actor, ids, now); err != nil {
-		return err
+func (w *mappingFaultTagWriter) ReplaceOwnerReferences(
+	ctx context.Context, owner taggingmodel.Owner, tagIDs []string,
+	actorUserID string, now int64,
+) ([]taggingmodel.Reference, []taggingmodel.Reference, error) {
+	before, after, err := w.CrossDomainWriter.ReplaceOwnerReferences(ctx, owner, tagIDs, actorUserID, now)
+	if err != nil {
+		return nil, nil, err
 	}
-	return errMappingStep
+	return before, after, errMappingStep
 }
 
 func TestMappingsRollbackEveryProjectionAtEachWriteBoundary(t *testing.T) {
@@ -97,8 +99,7 @@ func TestMappingsRollbackEveryProjectionAtEachWriteBoundary(t *testing.T) {
 			db := mappingDatabase(t)
 			seedSecondMappingCollection(t, db)
 			before := planRows(t, db)
-			tagRepo := tagrepository.New(db)
-			service := emulationstationimportservice.NewMappings(mappingFaultRepository{repository: NewMappings(db), phase: phase}, taggingservice.New(tagRepo, tagRepo, taggingservice.Options{Now: func() time.Time { return time.UnixMilli(10) }}), func() time.Time { return time.UnixMilli(10) })
+			service := emulationstationimportservice.NewMappings(mappingFaultRepository{repository: NewMappings(db), phase: phase}, func() time.Time { return time.UnixMilli(10) })
 			result, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{
 				{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}},
 				{CollectionID: secondMappingCollection, Action: "SKIP", TagIDs: []string{}},

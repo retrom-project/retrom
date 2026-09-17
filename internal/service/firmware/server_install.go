@@ -18,7 +18,7 @@ func (service *Service) InstallServerCandidate(
 	}
 	result, err := service.repository.CommitServerInstall(ctx, model.ServerInstallCommand{
 		Request: request,
-		NowFn:   func() int64 { return service.now().UnixMilli() },
+		NowMS:   service.now().UnixMilli(),
 	})
 	if err != nil {
 		return model.ServerInstallResult{}, fmt.Errorf("install server BIOS: %w", err)

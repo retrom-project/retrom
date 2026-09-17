@@ -52,7 +52,7 @@ func BindImportCreation(tx *sql.Tx) application.ImportCreationScope {
 		Arcade:     creationArcadeRecords{executor: tx},
 		Duplicates: BindContentDuplicates(tx),
 		Claims:     BindReviewApproval(tx).Decisions,
-		Tags:       tagpersistence.Bind(tx),
+		Tags:       tagpersistence.BindCrossDomain(tx),
 		Metadata:   metadatapersistence.BindSchedule(tx),
 		Payload:    payloadpersistence.BindScheduling(tx),
 		Ownership:  BindSourceOwnership(tx),

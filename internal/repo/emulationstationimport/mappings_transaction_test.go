@@ -11,9 +11,8 @@ import (
 
 	"retrom/internal/adapter/runtime/dependencies"
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	tagrepository "retrom/internal/repo/tagging"
+	taggingmodel "retrom/internal/model/tagging"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
-	"retrom/internal/service/tagging"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -81,8 +80,7 @@ func TestMappingsRollBackRelationsAndTagVersionsOnLateFailure(t *testing.T) {
 	db := mappingDatabase(t)
 	before := planRows(t, db)
 	cause := errors.New("late mapping failure")
-	tagRepo := tagrepository.New(db)
-	service := emulationstationimportservice.NewMappings(failingMappingCommit{repository: NewMappings(db), cause: cause}, tagging.New(tagRepo, tagRepo, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }}), func() time.Time { return time.UnixMilli(10) })
+	service := emulationstationimportservice.NewMappings(failingMappingCommit{repository: NewMappings(db), cause: cause}, func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}}, mappingActor)
 	if !errors.Is(err, cause) || value.ID != "" {
 		t.Fatalf("late mapping failure: %#v %v", value, err)
@@ -96,16 +94,13 @@ func TestMappingsRejectStalePlanAfterUpdatingCollection(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	beforeRows := planRows(t, db)
-	tags := func() *tagging.Service {
-		r := tagrepository.New(db)
-		return tagging.New(r, r, tagging.Options{Now: time.Now})
-	}()
 	err := NewMappings(db).WithMappings(t.Context(), func(scope emulationstationimportmodel.MappingScope) error {
 		before, err := scope.Read.Import(t.Context(), "import-0")
 		if err != nil {
 			return err
 		}
-		refs, err := tags.ReplaceEmulationStationCollectionTags(t.Context(), scope.Tags, mappingCollection, []string{}, mappingActor, 10)
+		owner := taggingmodel.Owner{Kind: taggingmodel.OwnerEmulationStationCollection, ID: mappingCollection}
+		_, refs, err := scope.Tags.ReplaceOwnerReferences(t.Context(), owner, []string{}, mappingActor, 10)
 		if err != nil {
 			return err
 		}
@@ -127,10 +122,7 @@ func TestMappingsPersistSelectionThenClearItWhenSkipped(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	instance := seedMappingTarget(t, db)
-	service := emulationstationimportservice.NewMappings(NewMappings(db), func() *tagging.Service {
-		r := tagrepository.New(db)
-		return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }})
-	}(), func() time.Time { return time.UnixMilli(10) })
+	service := emulationstationimportservice.NewMappings(NewMappings(db), func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}}}, mappingActor)
 	if err != nil {
 		t.Fatal(err)
@@ -206,10 +198,7 @@ func TestMappingsRejectDisabledTargetWithoutClearingTags(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := planRows(t, db)
-	service := emulationstationimportservice.NewMappings(NewMappings(db), func() *tagging.Service {
-		r := tagrepository.New(db)
-		return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }})
-	}(), func() time.Time { return time.UnixMilli(10) })
+	service := emulationstationimportservice.NewMappings(NewMappings(db), func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{}}}, mappingActor)
 	if !errors.Is(err, emulationstationimportmodel.ErrInvalid) || value.ID != "" {
 		t.Fatalf("disabled mapping: %#v %v", value, err)

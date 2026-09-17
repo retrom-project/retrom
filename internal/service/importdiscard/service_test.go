@@ -43,9 +43,21 @@ type memoryRepository struct {
 	readCount, writeCount int
 }
 
-func (repository *memoryRepository) WithRead(_ context.Context, work func(model.Reader) error) error {
+func (repository *memoryRepository) Batch(ctx context.Context, key model.Key) (model.Batch, error) {
 	repository.readCount++
-	return work(repository.records)
+	return repository.records.Batch(ctx, key)
+}
+
+func (repository *memoryRepository) Disposition(ctx context.Context, key model.Key) (model.Disposition, bool, error) {
+	return repository.records.Disposition(ctx, key)
+}
+
+func (repository *memoryRepository) Pending(context.Context) (model.Request, bool, error) {
+	return model.Request{}, false, nil
+}
+
+func (repository *memoryRepository) Children(context.Context, model.Key) ([]string, error) {
+	return nil, nil
 }
 
 func (repository *memoryRepository) CommitRecoverOwnership(context.Context, model.RecoverOwnershipCommand) error {

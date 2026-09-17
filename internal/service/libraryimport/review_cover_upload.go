@@ -56,22 +56,31 @@ func (service *ReviewCoverUploads) Upload(
 	if err != nil {
 		return model.ReviewCoverResult{}, err
 	}
-	var result model.ReviewCoverResult
-	err = service.repository.CommitWrite(ctx, func(scope model.ReviewCoverScope) error {
-		record, saveErr := service.save(ctx, scope, request, source, prepared)
-		if saveErr != nil {
-			return saveErr
-		}
-		result = model.ReviewCoverResult{
-			AssetID: record.ID, Kind: "COVER", Width: record.Width, Height: record.Height,
-			MediaType: record.MediaType, CreatedAtMS: record.CreatedAtMS, Version: request.ExpectedVersion,
-		}
-		return nil
+	assetID, err := service.newID()
+	if err != nil {
+		return model.ReviewCoverResult{}, fmt.Errorf("create review asset ID: %w", err)
+	}
+	consumptionID, err := service.newID()
+	if err != nil {
+		return model.ReviewCoverResult{}, fmt.Errorf("create review consumption ID: %w", err)
+	}
+	record, err := service.repository.CommitCoverUpload(ctx, model.ReviewCoverUploadCommand{
+		Request:       request,
+		Source:        source,
+		AssetID:       assetID,
+		ConsumptionID: consumptionID,
+		Width:         prepared.Width,
+		Height:        prepared.Height,
+		MediaType:     prepared.MediaType,
+		NowMS:         service.now().UnixMilli(),
 	})
 	if err != nil {
 		return model.ReviewCoverResult{}, fmt.Errorf("commit review cover upload: %w", err)
 	}
-	return result, nil
+	return model.ReviewCoverResult{
+		AssetID: record.ID, Kind: "COVER", Width: record.Width, Height: record.Height,
+		MediaType: record.MediaType, CreatedAtMS: record.CreatedAtMS, Version: request.ExpectedVersion,
+	}, nil
 }
 
 func (service *ReviewCoverUploads) prepare(
@@ -100,70 +109,3 @@ func (service *ReviewCoverUploads) prepare(
 	return prepared, nil
 }
 
-func (service *ReviewCoverUploads) save(
-	ctx context.Context, scope model.ReviewCoverScope, request model.ReviewCoverRequest,
-	source model.ReviewCoverSource, prepared hasheous.AssetData,
-) (model.ReviewCoverRecord, error) {
-	if err := checkReviewCoverAuthority(ctx, scope.Reader, request, source); err != nil {
-		return model.ReviewCoverRecord{}, err
-	}
-	existing, found, err := scope.Reader.ExistingByUpload(ctx, source.FileID)
-	if err != nil {
-		return model.ReviewCoverRecord{}, fmt.Errorf("read review cover ownership: %w", err)
-	}
-	if found {
-		if existing.Record.ItemID != request.ItemID {
-			return model.ReviewCoverRecord{}, model.ErrReviewCoverConsumed
-		}
-		if !existing.HasConsumption || existing.Record.BlobID != source.BlobID {
-			return model.ReviewCoverRecord{}, model.ErrReviewCoverIntegrity
-		}
-		return existing.Record, nil
-	}
-	assetID, err := service.newID()
-	if err != nil {
-		return model.ReviewCoverRecord{}, fmt.Errorf("create review asset ID: %w", err)
-	}
-	consumptionID, err := service.newID()
-	if err != nil {
-		return model.ReviewCoverRecord{}, fmt.Errorf("create review consumption ID: %w", err)
-	}
-	record := model.ReviewCoverRecord{
-		ID: assetID, ItemID: request.ItemID, UploadFileID: source.FileID, BlobID: source.BlobID,
-		Width: prepared.Width, Height: prepared.Height, MediaType: prepared.MediaType, CreatedAtMS: service.now().UnixMilli(),
-	}
-	if err := scope.Writer.InsertAsset(ctx, record); err != nil {
-		return model.ReviewCoverRecord{}, fmt.Errorf("save review cover asset: %w", err)
-	}
-	if err := scope.Writer.Consume(ctx, model.ReviewCoverConsumption{
-		ID: consumptionID, UploadID: source.UploadID, FileID: source.FileID,
-		AssetID: assetID, CreatedAtMS: record.CreatedAtMS,
-	}); err != nil {
-		return model.ReviewCoverRecord{}, fmt.Errorf("retain review cover upload: %w", err)
-	}
-	return record, nil
-}
-
-func checkReviewCoverAuthority(
-	ctx context.Context,
-	reader model.ReviewCoverReader,
-	request model.ReviewCoverRequest,
-	prepared model.ReviewCoverSource,
-) error {
-	current, found, err := reader.Source(ctx, request.UploadFileID)
-	if err != nil {
-		return fmt.Errorf("recheck review cover source: %w", err)
-	}
-	if !found || current != prepared {
-		return model.ErrReviewCoverUploadInvalid
-	}
-	draft, found, err := reader.Draft(ctx, request.ItemID)
-	if err != nil {
-		return fmt.Errorf("read review cover authority: %w", err)
-	}
-	if !found || draft.Version != request.ExpectedVersion || draft.State != "REVIEW_PENDING" ||
-		(draft.HandoffKind != "DIRECT" && !draft.EmulationStationReady) || draft.SourceBusy {
-		return model.ErrReviewCoverVersion
-	}
-	return nil
-}

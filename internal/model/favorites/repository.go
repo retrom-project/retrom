@@ -2,67 +2,93 @@ package favorites
 
 import "context"
 
-// Repository supplies a consistent read projection and transaction-scoped writes.
+// Repository supplies a consistent read projection and named atomic commands.
 type Repository interface {
-	CommitWrite(context.Context, func(WriteScope) error) error
+	CommitFavorite(context.Context, FavoriteCommand) (State, error)
+	CommitReplaceFolders(context.Context, ReplaceFoldersCommand) (State, error)
+	CommitOrganize(context.Context, OrganizeCommand) (IdempotentResponse, error)
+	CommitUnfavorite(context.Context, UnfavoriteCommand) (IdempotentResponse, error)
+	CommitRestore(context.Context, RestoreCommand) (IdempotentResponse, error)
+	CommitCreateFolder(context.Context, CreateFolderCommand) (IdempotentResponse, error)
+	CommitRenameFolder(context.Context, RenameFolderCommand) (IdempotentResponse, error)
+	CommitDeleteFolder(context.Context, DeleteFolderCommand) (IdempotentResponse, error)
 	List(context.Context, string, ListOptions) (ListResult, error)
 	Reference(context.Context, string, string) (*FavoriteReference, error)
 	References(context.Context, string, []string) (map[string]FavoriteReference, error)
 }
 
-// WriteScope binds every capability to the same atomic operation.
-type WriteScope struct {
-	Games        FavoriteRecords
-	Memberships  MembershipRecords
-	Folders      FolderRecords
-	FolderWrites FolderWrites
-	Idempotency  IdempotencyRecords
+// FavoriteCommand ensures a game is favorited for a profile.
+type FavoriteCommand struct {
+	ProfileID, GameID string
+	NowMS             int64
 }
 
-type FavoriteRecords interface {
-	Visible(context.Context, string) (bool, error)
-	RequireVisible(context.Context, []string) error
-	State(context.Context, string, string) (State, bool, error)
-	Ensure(context.Context, string, string, int64) error
-	Remove(context.Context, string, string) error
+// ReplaceFoldersCommand replaces folder memberships for a favorited game.
+type ReplaceFoldersCommand struct {
+	ProfileID, GameID string
+	FolderIDs         []string
+	NowMS             int64
 }
 
-type MembershipRecords interface {
-	FolderIDs(context.Context, string, string) ([]string, error)
-	Add(context.Context, string, string, string, int64) error
-	Remove(context.Context, string, string, string) error
+// IdempotencyEnvelope carries the common fields for idempotent commands.
+type IdempotencyEnvelope struct {
+	PrincipalID, Operation, Key, Digest string
+	NowMS, ExpiresAtMS                  int64
 }
 
-type FolderRecords interface {
-	Require(context.Context, string, []string) error
-	Existing(context.Context, string, []string) (map[string]struct{}, error)
-	RequireAvailableName(context.Context, string, string, string) error
-	Get(context.Context, string, string) (Folder, error)
-	Count(context.Context, string) (int, error)
+// OrganizeCommand adds/removes folder memberships for multiple games atomically.
+type OrganizeCommand struct {
+	Idempotency     IdempotencyEnvelope
+	ProfileID       string
+	GameIDs         []string
+	AddFolderIDs    []string
+	RemoveFolderIDs []string
 }
 
-type FolderWrites interface {
-	Create(context.Context, FolderWrite) error
-	Rename(context.Context, FolderWrite) error
-	Delete(context.Context, string, string, int64) error
+// UnfavoriteCommand removes favorites for the given games.
+type UnfavoriteCommand struct {
+	Idempotency IdempotencyEnvelope
+	ProfileID   string
+	GameIDs     []string
 }
 
+// RestoreCommand restores previously unfavorited games with their folder memberships.
+type RestoreCommand struct {
+	Idempotency IdempotencyEnvelope
+	ProfileID   string
+	Items       []RestoreItem
+}
+
+// CreateFolderCommand creates a new folder and optionally adds initial games.
+type CreateFolderCommand struct {
+	Idempotency IdempotencyEnvelope
+	ProfileID   string
+	FolderID    string
+	Name        string
+	NameKey     string
+	GameIDs     []string
+}
+
+// RenameFolderCommand renames an existing folder.
+type RenameFolderCommand struct {
+	Idempotency     IdempotencyEnvelope
+	ProfileID       string
+	FolderID        string
+	Name            string
+	NameKey         string
+	ExpectedVersion int64
+}
+
+// DeleteFolderCommand deletes a folder by ID and expected version.
+type DeleteFolderCommand struct {
+	Idempotency     IdempotencyEnvelope
+	ProfileID       string
+	FolderID        string
+	ExpectedVersion int64
+}
+
+// FolderWrite carries the fields for a folder create or rename operation.
 type FolderWrite struct {
 	ProfileID, FolderID, Name, NameKey string
 	ExpectedVersion, NowMS             int64
-}
-
-type IdempotencyKey struct {
-	PrincipalID, Operation, Key string
-}
-
-type IdempotencyRecord struct {
-	Digest                   string
-	Response                 IdempotentResponse
-	CreatedAtMS, ExpiresAtMS int64
-}
-
-type IdempotencyRecords interface {
-	Find(context.Context, IdempotencyKey, int64) (IdempotencyRecord, bool, error)
-	Save(context.Context, IdempotencyKey, IdempotencyRecord) error
 }

@@ -28,7 +28,7 @@ func (repository *ImportAdmissions) WithAdmission(
 	}
 	defer dbexec.Rollback(transaction)
 	scope := application.ImportAdmissionScope{
-		Facts: BindImportFacts(transaction), Tags: tagpersistence.Bind(transaction), Writer: admissionRecords{transaction},
+		Facts: BindImportFacts(transaction), Tags: tagpersistence.BindCrossDomain(transaction), Writer: admissionRecords{transaction},
 	}
 	if err := work(scope); err != nil {
 		return err

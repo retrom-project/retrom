@@ -2,9 +2,15 @@ package immersive
 
 import "context"
 
+// Repository provides consistent read snapshots for immersive views.
 type Repository interface {
-	WithRead(context.Context, func(ReadScope) error) error
+	LoadPlatforms(ctx context.Context, profileID string) ([]Platform, error)
+	LoadGamePage(ctx context.Context, profileID, platformID string, limit int, cursor *GameCursor) (GamePage, error)
+	LoadDestinations(ctx context.Context, profileID string) ([]Destination, error)
+	LoadLibraryPage(ctx context.Context, profileID, kind, folderID string, limit int, cursor *GameCursor) (LibraryPage, error)
 }
+
+// ReadScope contains the projections needed internally by the repository.
 type ReadScope struct {
 	Platforms PlatformReader
 	Libraries LibraryReader

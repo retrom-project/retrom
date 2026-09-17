@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	platformpersistence "retrom/internal/repo/platforminstance"
 	"retrom/internal/repo/recordstore"
 
 	"github.com/google/uuid"
@@ -21,7 +20,6 @@ import (
 	"retrom/internal/capability/runtime/runtimecatalog"
 	platforminstancemodel "retrom/internal/model/platforminstance"
 	"retrom/internal/repo/store"
-	platforminstanceservice "retrom/internal/service/platforminstance"
 )
 
 type PlatformInstanceReference struct {
@@ -124,20 +122,27 @@ func MustPlatformInstanceID(t testing.TB, database *sql.DB, templateKey string) 
 }
 
 func fixturePlatformSlug(ctx context.Context, database *sql.DB, platformID, name string) (string, error) {
-	base := platforminstanceservice.SlugBase(name, platformID)
-	var slugs []string
-	err := platformpersistence.New(database).WithRead(ctx, func(reader platforminstancemodel.Reader) error {
-		var err error
-		slugs, err = reader.UsedSlugs(ctx, platformID, base)
-		if err != nil {
-			return fmt.Errorf("testsupport: read reserved slugs: %w", err)
-		}
-		return nil
-	})
+	base := platforminstancemodel.SlugBase(name, platformID)
+	prefix := base + "-"
+	rows, err := database.QueryContext(ctx, `
+SELECT slug FROM platform_instances WHERE platform_id=? AND (slug=? OR substr(slug,1,?)=?)
+`, platformID, base, len(prefix), prefix)
 	if err != nil {
-		return "", fmt.Errorf("testsupport: read platform: %w", err)
+		return "", fmt.Errorf("testsupport: query slugs: %w", err)
 	}
-	slug, err := platforminstanceservice.NextSlug(base, slugs)
+	defer func() { _ = rows.Close() }()
+	var slugs []string
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return "", fmt.Errorf("testsupport: scan slug: %w", err)
+		}
+		slugs = append(slugs, slug)
+	}
+	if err := rows.Err(); err != nil {
+		return "", fmt.Errorf("testsupport: iterate slugs: %w", err)
+	}
+	slug, err := platforminstancemodel.NextSlug(base, slugs)
 	if err != nil {
 		return "", fmt.Errorf("testsupport: select slug: %w", err)
 	}

@@ -46,7 +46,7 @@ func BindReviewApproval(transaction *sql.Tx) application.ReviewApprovalScope {
 		Payload: payloadpersistence.BindReleases(transaction),
 		Reader:  records, Media: records, Validation: BindReviewValidation(transaction),
 		Dependencies: BindApprovalDependencies(transaction), Duplicates: BindContentDuplicates(transaction),
-		Tags: tagpersistence.Bind(transaction), Games: records, Variants: records, Decisions: records,
+		Tags: tagpersistence.BindCrossDomain(transaction), Games: records, Variants: records, Decisions: records,
 		Bulk: records,
 	}
 }

@@ -12,6 +12,7 @@ import (
 )
 
 type mappingMemory struct {
+	tags                         *mappingTagMemory
 	before                       model.Summary
 	owner                        string
 	target                       *model.MappingTarget
@@ -23,7 +24,7 @@ type mappingMemory struct {
 
 func (m *mappingMemory) WithMappings(_ context.Context, work func(model.MappingScope) error) error {
 	m.scopes++
-	if err := work(model.MappingScope{Read: m, Write: m}); err != nil {
+	if err := work(model.MappingScope{Read: m, Write: m, Tags: m.tags}); err != nil {
 		return err
 	}
 	return m.commitErr
@@ -62,20 +63,49 @@ type mappingTagMemory struct {
 	err        error
 }
 
-func (m *mappingTagMemory) ReplacePegasusCollectionTags(_ context.Context, _ tagging.WriteScope, _ string, ids []string, actor string, _ int64) ([]tagging.Reference, error) {
+func (m *mappingTagMemory) ValidateActiveReferences(_ context.Context, ids []string) ([]tagging.Reference, error) {
+	refs := make([]tagging.Reference, len(ids))
+	for i, id := range ids {
+		refs[i] = tagging.Reference{TagID: id}
+	}
+	return refs, nil
+}
+
+func (m *mappingTagMemory) ReplaceOwnerReferences(
+	_ context.Context, _ tagging.Owner, ids []string, actor string, _ int64,
+) ([]tagging.Reference, []tagging.Reference, error) {
 	m.ids = ids
 	m.actor = actor
-	return m.references, m.err
+	return nil, m.references, m.err
+}
+
+func (m *mappingTagMemory) AssignReferences(
+	_ context.Context, _ tagging.Owner, _ []tagging.Reference, _ string, _ int64,
+) error {
+	return nil
+}
+
+func (m *mappingTagMemory) ReadOwnerReferences(
+	_ context.Context, _ tagging.Owner,
+) ([]tagging.Reference, error) {
+	return nil, nil
+}
+
+func (m *mappingTagMemory) CopyOwnerReferences(
+	_ context.Context, _, _ tagging.Owner, _ string, _ int64,
+) ([]tagging.Reference, error) {
+	return nil, nil
 }
 
 func mappingFixture() (*mappingMemory, *mappingTagMemory) {
-	return &mappingMemory{before: model.Summary{ID: "import", State: "AWAITING_MAPPING", Version: 4, MappingVersion: 3, CreatedBy: model.CreatedBy{ID: "creator"}}, owner: "import", target: &model.MappingTarget{InstanceID: "instance", InstanceVersion: 2, PlatformID: "gba", CoreID: "mgba", ProviderID: "provider", TargetID: "target"}}, &mappingTagMemory{references: []tagging.Reference{}}
+	tags := &mappingTagMemory{references: []tagging.Reference{}}
+	return &mappingMemory{tags: tags, before: model.Summary{ID: "import", State: "AWAITING_MAPPING", Version: 4, MappingVersion: 3, CreatedBy: model.CreatedBy{ID: "creator"}}, owner: "import", target: &model.MappingTarget{InstanceID: "instance", InstanceVersion: 2, PlatformID: "gba", CoreID: "mgba", ProviderID: "provider", TargetID: "target"}}, tags
 }
 
 func TestMappingsUseCurrentSelectionAndActorWithinOneWriteScope(t *testing.T) {
 	t.Parallel()
 	m, tags := mappingFixture()
-	value, err := NewMappings(m, tags, func() time.Time { return time.UnixMilli(10) }).Update(t.Context(), "import", 4, []model.Mapping{{CollectionID: "collection", Action: "IMPORT", PlatformInstanceID: "instance", TagIDs: []string{}}}, "editor")
+	value, err := NewMappings(m, func() time.Time { return time.UnixMilli(10) }).Update(t.Context(), "import", 4, []model.Mapping{{CollectionID: "collection", Action: "IMPORT", PlatformInstanceID: "instance", TagIDs: []string{}}}, "editor")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,8 +132,8 @@ func TestMappingsRejectInvalidBatchBeforeStorage(t *testing.T) {
 		{{CollectionID: "collection", Action: "SKIP", TagIDs: []string{"tag"}}},
 		{{CollectionID: "collection", Action: "SKIP", TagIDs: []string{}}, {CollectionID: "collection", Action: "SKIP", TagIDs: []string{}}},
 	} {
-		m, tags := mappingFixture()
-		value, err := NewMappings(m, tags, time.Now).Update(t.Context(), "import", 4, mappings, "editor")
+		m, _ := mappingFixture()
+		value, err := NewMappings(m, time.Now).Update(t.Context(), "import", 4, mappings, "editor")
 		if !errors.Is(err, model.ErrInvalid) || value.ID != "" || m.scopes != 0 {
 			t.Fatalf("invalid mapping touched storage: %#v %v scopes=%d", mappings, err, m.scopes)
 		}
@@ -129,7 +159,7 @@ func TestMappingsRejectStaleForeignAndUnavailableSelections(t *testing.T) {
 			case "target":
 				m.target = nil
 			}
-			_, err := NewMappings(m, tags, time.Now).Update(t.Context(), "import", 4, []model.Mapping{{CollectionID: "collection", Action: "IMPORT", PlatformInstanceID: "instance", TagIDs: []string{}}}, "editor")
+			_, err := NewMappings(m, time.Now).Update(t.Context(), "import", 4, []model.Mapping{{CollectionID: "collection", Action: "IMPORT", PlatformInstanceID: "instance", TagIDs: []string{}}}, "editor")
 			if !errors.Is(err, want) || len(m.writes) != 0 || tags.actor != "" {
 				t.Fatalf("invalid %s mutated mappings: %v", reason, err)
 			}
@@ -154,7 +184,7 @@ func TestMappingsPreserveReadTagWriteAndCommitCauses(t *testing.T) {
 			case "commit":
 				m.commitErr = cause
 			}
-			value, err := NewMappings(m, tags, time.Now).Update(t.Context(), "import", 4, []model.Mapping{{CollectionID: "collection", Action: "SKIP", TagIDs: []string{}}}, "")
+			value, err := NewMappings(m, time.Now).Update(t.Context(), "import", 4, []model.Mapping{{CollectionID: "collection", Action: "SKIP", TagIDs: []string{}}}, "")
 			if !errors.Is(err, cause) || value.ID != "" {
 				t.Fatalf("partial mapping response: %#v %v", value, err)
 			}
@@ -165,7 +195,7 @@ func TestMappingsPreserveReadTagWriteAndCommitCauses(t *testing.T) {
 func TestSkippedMappingClearsSelectionAndUsesCreatorFallback(t *testing.T) {
 	t.Parallel()
 	m, tags := mappingFixture()
-	if _, err := NewMappings(m, tags, time.Now).Update(t.Context(), "import", 4, []model.Mapping{{CollectionID: "collection", Action: "SKIP", TagIDs: []string{}}}, ""); err != nil {
+	if _, err := NewMappings(m, time.Now).Update(t.Context(), "import", 4, []model.Mapping{{CollectionID: "collection", Action: "SKIP", TagIDs: []string{}}}, ""); err != nil {
 		t.Fatal(err)
 	}
 	if m.writes[0].Target != nil || m.writes[0].Tags == nil || tags.actor != "creator" {

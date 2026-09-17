@@ -11,18 +11,22 @@ import (
 
 type boundaryRepository struct {
 	model.Repository
-	scope  model.WriteScope
-	writes int
+	createResult model.Instance
+	createError  error
+	patchResult  model.PatchResult
+	patchError   error
+	commits      int
 }
 
-func (repository *boundaryRepository) CommitWrite(_ context.Context, work func(model.WriteScope) error) error {
-	repository.writes++
-	return work(repository.scope)
+func (repository *boundaryRepository) CommitCreate(_ context.Context, cmd model.CreateCommand) (model.Instance, error) {
+	repository.commits++
+	return repository.createResult, repository.createError
 }
 
-type unavailableCore struct{ model.Reader }
-
-func (unavailableCore) CoreEnabled(context.Context, string, string) (bool, error) { return false, nil }
+func (repository *boundaryRepository) CommitPatch(_ context.Context, cmd model.PatchCommand) (model.PatchResult, error) {
+	repository.commits++
+	return repository.patchResult, repository.patchError
+}
 
 func TestInvalidCreateNeverOpensTransaction(t *testing.T) {
 	t.Parallel()
@@ -33,8 +37,8 @@ func TestInvalidCreateNeverOpensTransaction(t *testing.T) {
 			t.Fatalf("invalid input: %v", err)
 		}
 	}
-	if repository.writes != 0 {
-		t.Fatalf("invalid input opened %d transactions", repository.writes)
+	if repository.commits != 0 {
+		t.Fatalf("invalid input opened %d transactions", repository.commits)
 	}
 }
 
@@ -52,26 +56,26 @@ func TestInvalidPatchNeverOpensTransaction(t *testing.T) {
 			t.Fatalf("invalid patch: %v", err)
 		}
 	}
-	if repository.writes != 0 {
-		t.Fatalf("invalid patch opened %d transactions", repository.writes)
+	if repository.commits != 0 {
+		t.Fatalf("invalid patch opened %d transactions", repository.commits)
 	}
 }
 
 func TestUnavailableCoreCannotCreateDirectory(t *testing.T) {
 	t.Parallel()
-	repository := &boundaryRepository{scope: model.WriteScope{Reader: unavailableCore{}}}
+	repository := &boundaryRepository{createError: model.ErrDefaultCoreInvalid}
 	service := New(repository, time.Now)
 	if _, err := service.Create(t.Context(), model.AuditActor{}, model.CreateInput{Name: "Library", PlatformID: "gba", DefaultCoreID: "disabled"}); !errors.Is(err, model.ErrDefaultCoreInvalid) {
 		t.Fatalf("unavailable core: %v", err)
 	}
-	if repository.writes != 1 {
-		t.Fatalf("transaction count = %d", repository.writes)
+	if repository.commits != 1 {
+		t.Fatalf("transaction count = %d", repository.commits)
 	}
 }
 
 func TestSlugSelectionKeepsReservedNames(t *testing.T) {
 	t.Parallel()
-	slug, err := NextSlug(SlugBase("My Library", "gba"), []string{"my-library", "my-library-2", "my-library-4"})
+	slug, err := model.NextSlug(model.SlugBase("My Library", "gba"), []string{"my-library", "my-library-2", "my-library-4"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,14 +87,15 @@ func TestSlugSelectionKeepsReservedNames(t *testing.T) {
 func TestCoreImpactProjectionClassifiesVariantStates(t *testing.T) {
 	t.Parallel()
 	blockedCode := "LAUNCH_CORE_UNAVAILABLE"
-	result := projectCoreImpact("gba-directory", "mgba", model.CoreImpactFacts{
+	sp := func(s string) *string { return &s }
+	result := model.ProjectCoreImpact("gba-directory", "mgba", model.CoreImpactFacts{
 		PlatformInstanceVersion: 3,
 		ProviderID:              "provider",
 		TargetID:                "target",
 		BundleSHA256:            "bundle",
 		Games: []model.CoreImpactGame{
-			{GameID: "ready", GameVersion: 2, VariantID: stringPointer("variant-ready"), VariantStatus: stringPointer("READY")},
-			{GameID: "blocked", GameVersion: 4, VariantID: stringPointer("variant-blocked"), VariantStatus: stringPointer("BLOCKED"), TargetCompatibilityCode: &blockedCode},
+			{GameID: "ready", GameVersion: 2, VariantID: sp("variant-ready"), VariantStatus: sp("READY")},
+			{GameID: "blocked", GameVersion: 4, VariantID: sp("variant-blocked"), VariantStatus: sp("BLOCKED"), TargetCompatibilityCode: &blockedCode},
 			{GameID: "pending", GameVersion: 1},
 		},
 	})
@@ -102,6 +107,16 @@ func TestCoreImpactProjectionClassifiesVariantStates(t *testing.T) {
 	}
 	if result.Impact.PlatformInstanceVersion != 3 || result.Impact.CoreID != "mgba" {
 		t.Fatalf("impact = %#v", result.Impact)
+	}
+}
+
+func TestCreatePreservesRepositoryError(t *testing.T) {
+	t.Parallel()
+	cause := errors.New("database failure")
+	repository := &boundaryRepository{createError: cause}
+	service := New(repository, time.Now)
+	if _, err := service.Create(t.Context(), model.AuditActor{}, model.CreateInput{Name: "Library", PlatformID: "gba", DefaultCoreID: "mgba"}); !errors.Is(err, cause) {
+		t.Fatalf("error = %v, want wrapped %v", err, cause)
 	}
 }
 

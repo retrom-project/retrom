@@ -57,30 +57,55 @@ func cloneReferences(values []Reference) []Reference {
 }
 
 // ValidateActiveReferenceFacts validates requested IDs against an already
-// loaded set of active tag records. It is the pure counterpart of the
-// service-level database reader.
+// loaded set of active tag records. It requires exact set membership:
+// every requested ID must appear exactly once in the facts, and no
+// unrequested facts may be present.
 func ValidateActiveReferenceFacts(ids []string, result []Reference) ([]Reference, error) {
 	validated, err := ValidateIDs(ids)
 	if err != nil {
 		return nil, err
 	}
 	if len(validated) == 0 {
+		if len(result) > 0 {
+			return nil, ErrInvalid
+		}
 		return []Reference{}, nil
 	}
-	found := make(map[string]struct{}, len(result))
-	for _, reference := range result {
-		found[reference.TagID] = struct{}{}
+
+	// Build the requested set.
+	requested := make(map[string]struct{}, len(validated))
+	for _, id := range validated {
+		requested[id] = struct{}{}
 	}
-	if len(found) != len(validated) {
-		invalid := make([]string, 0)
-		for _, id := range validated {
-			if _, exists := found[id]; !exists {
-				invalid = append(invalid, id)
-			}
+
+	// Build the seen set from facts, rejecting duplicates.
+	seen := make(map[string]struct{}, len(result))
+	for _, ref := range result {
+		if _, dup := seen[ref.TagID]; dup {
+			return nil, ErrInvalid
 		}
-		sort.Strings(invalid)
-		return nil, &InvalidReferencesError{IDs: invalid}
+		seen[ref.TagID] = struct{}{}
 	}
+
+	// Check for missing IDs first (report all missing via InvalidReferencesError).
+	missing := make([]string, 0)
+	for _, id := range validated {
+		if _, ok := seen[id]; !ok {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return nil, &InvalidReferencesError{IDs: missing}
+	}
+
+	// After confirming no missing IDs, reject extra/unrequested facts.
+	for _, ref := range result {
+		if _, ok := requested[ref.TagID]; !ok {
+			return nil, ErrInvalid
+		}
+	}
+
 	return result, nil
 }
 

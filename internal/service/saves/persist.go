@@ -3,13 +3,14 @@ package saves
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	model "retrom/internal/model/saves"
+
+	"github.com/google/uuid"
 )
 
 func (service *Service) CreateManual(ctx context.Context, id, capability, key string,
@@ -35,78 +36,45 @@ func (service *Service) createManualForLaunch(ctx context.Context, id, key strin
 		screenshot = parsed.screenshot.SHA256
 	}
 	digest := sha256.Sum256([]byte(id + "\x00" + string(metadata) + "\x00" + parsed.payload.SHA256 + "\x00" + screenshot))
-	return service.persistManualSave(ctx, id, key, hex.EncodeToString(digest[:]), launch, parsed)
-}
 
-func (service *Service) persistManualSave(ctx context.Context, id, key, digest string,
-	launch model.Launch, parsed parsedManual,
-) (model.ManualResult, bool, error) {
-	var result model.ManualResult
-	var replayed bool
-	err := service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
-		now := service.now().UnixMilli()
-		var err error
-		result, replayed, err = replayManualSave(ctx, scope.Idempotency,
-			model.ReplayKey{PrincipalID: launch.PrincipalID, Key: key, AtMS: now}, digest)
-		if err != nil || replayed {
-			return err
-		}
-		if err := service.ensureWritable(ctx, scope.Launches, id, launch, parsed.payload.Size); err != nil {
-			return err
-		}
-		payloadID, err := scope.Blobs.Ensure(ctx, parsed.payload, "application/octet-stream", now)
+	saveStateID := ""
+	if launch.Purpose == "PRODUCT" {
+		generated, err := uuid.NewV7()
 		if err != nil {
-			return fmt.Errorf("register checkpoint payload: %w", err)
+			return model.ManualResult{}, false, fmt.Errorf("generate save identifier: %w", err)
 		}
-		if launch.Purpose == "PRODUCT" {
-			result, err = service.persistProductCheckpoint(ctx, scope, id, launch, parsed, payloadID, now)
-		} else {
-			result = model.ManualResult{
-				ResourceKind: "REVIEW_PREVIEW_CHECKPOINT", PreviewID: id,
-				CheckpointFormat: launch.Checkpoint.WriteFormat, CreatedAtMS: now,
-			}
-			err = scope.Checkpoints.ReplacePreview(ctx, model.PreviewWrite{
-				PreviewID: id, PayloadID: payloadID,
-				Format: launch.Checkpoint.WriteFormat, AtMS: now,
-			})
+		saveStateID = generated.String()
+	}
+
+	now := service.now().UnixMilli()
+	cmd := model.ManualCheckpointCommand{
+		LaunchID:    id,
+		PrincipalID: launch.PrincipalID,
+		IdempotencyKey: model.ReplayKey{
+			PrincipalID: launch.PrincipalID,
+			Key:         key,
+			AtMS:        now,
+		},
+		Digest:              hex.EncodeToString(digest[:]),
+		ExpiresAtMS:         now + int64(24*time.Hour/time.Millisecond),
+		Launch:              launch,
+		Payload:             model.ManualCheckpointPayload{SHA256: parsed.payload.SHA256, MediaType: "application/octet-stream", Size: parsed.payload.Size},
+		SaveStateID:         saveStateID,
+		MetadataName:        parsed.metadata.Name,
+		MetadataDiscIndex:   parsed.metadata.DiscIndex,
+		ScreenshotMediaType: parsed.screenshotMediaType,
+	}
+	if parsed.screenshot != nil {
+		cmd.Screenshot = &model.ManualCheckpointImage{
+			SHA256:    parsed.screenshot.SHA256,
+			MediaType: parsed.screenshotMediaType,
+			Size:      parsed.screenshot.Size,
 		}
-		if err != nil {
-			return fmt.Errorf("persist checkpoint: %w", err)
-		}
-		body, err := json.Marshal(result)
-		if err != nil {
-			return fmt.Errorf("encode checkpoint response: %w", err)
-		}
-		if err := scope.Idempotency.Remember(ctx, model.ReplayWrite{
-			ReplayKey: model.ReplayKey{PrincipalID: launch.PrincipalID, Key: key, AtMS: now},
-			Replay:    model.Replay{Digest: digest, Body: body}, ExpiresAtMS: now + int64(24*time.Hour/time.Millisecond),
-		}); err != nil {
-			return fmt.Errorf("remember checkpoint response: %w", err)
-		}
-		return nil
-	})
+	}
+
+	result, replayed, err := service.repository.CommitManualCheckpoint(ctx, cmd)
 	if err != nil {
 		return model.ManualResult{}, false, fmt.Errorf("commit checkpoint: %w", err)
 	}
 	return result, replayed, nil
-}
-
-func replayManualSave(ctx context.Context, records model.IdempotencyRecords, key model.ReplayKey,
-	digest string,
-) (model.ManualResult, bool, error) {
-	previous, found, err := records.Replay(ctx, key)
-	if err != nil {
-		return model.ManualResult{}, false, fmt.Errorf("read checkpoint replay: %w", err)
-	}
-	if !found {
-		return model.ManualResult{}, false, nil
-	}
-	if subtle.ConstantTimeCompare([]byte(previous.Digest), []byte(digest)) != 1 {
-		return model.ManualResult{}, false, model.ErrSequenceReused
-	}
-	var result model.ManualResult
-	if err := json.Unmarshal(previous.Body, &result); err != nil {
-		return model.ManualResult{}, false, fmt.Errorf("decode checkpoint replay: %w", err)
-	}
-	return result, true, nil
 }

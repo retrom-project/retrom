@@ -45,7 +45,7 @@ type roomMutation struct {
 func (service *RoomControl) mutate(
 	ctx context.Context,
 	request roomMutation,
-	apply func(model.RoomControlScope, model.RoomControlSnapshot, int64) error,
+	apply model.MutationFunc,
 ) (model.Room, error) {
 	now := service.now().UnixMilli()
 	result, err := service.repository.CommitMutation(ctx, model.MutationCommand{
@@ -55,8 +55,7 @@ func (service *RoomControl) mutate(
 		HostOnly: request.hostOnly,
 		States:   request.states,
 		NowMS:    now,
-		Apply:    apply,
-	})
+	}, apply)
 	if err != nil {
 		return model.Room{}, fmt.Errorf("netplay/mutate room: %w", err)
 	}

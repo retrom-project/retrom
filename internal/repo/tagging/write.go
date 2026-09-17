@@ -43,7 +43,11 @@ name=?,name_key=?,search_text=?,version=version+1,updated_by_user_id=?,updated_a
 	if err != nil {
 		return fmt.Errorf("tagging: rename tag: %w", err)
 	}
-	if affected, _ := updated.RowsAffected(); affected != 1 {
+	affected, raErr := updated.RowsAffected()
+	if raErr != nil {
+		return fmt.Errorf("tagging: rename rows affected: %w", raErr)
+	}
+	if affected != 1 {
 		return tagging.ErrVersionConflict
 	}
 	return nil
@@ -63,7 +67,11 @@ status='DELETED',version=version+1,updated_by_user_id=?,updated_at_ms=?,deleted_
 	if err != nil {
 		return fmt.Errorf("tagging: delete tag: %w", err)
 	}
-	if affected, _ := updated.RowsAffected(); affected != 1 {
+	affected, raErr := updated.RowsAffected()
+	if raErr != nil {
+		return fmt.Errorf("tagging: delete rows affected: %w", raErr)
+	}
+	if affected != 1 {
 		return tagging.ErrVersionConflict
 	}
 	if _, err := recordstore.UpdateGames(ctx, records.database, recordstore.Update{

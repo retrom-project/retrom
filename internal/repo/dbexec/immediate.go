@@ -49,9 +49,13 @@ func Immediate(ctx context.Context, db *sql.DB, work func(Executor) error) (err 
 		)
 		defer cancel()
 		if _, rbErr := conn.ExecContext(cleanupCtx, "ROLLBACK"); rbErr != nil {
-			slog.Warn("rollback failed, discarding connection",
-				"error", fmt.Sprintf("%T", rbErr))
+			slog.Error("rollback failed, discarding connection",
+				"rollback_error", rbErr.Error(),
+				"original_error", err)
 			discardConnection(conn)
+			if err != nil {
+				err = errors.Join(err, fmt.Errorf("dbexec: rollback failed: %w", rbErr))
+			}
 			return
 		}
 		_ = conn.Close()
@@ -83,8 +87,8 @@ func discardConnection(conn *sql.Conn) {
 	if rawErr := conn.Raw(func(any) error {
 		return driver.ErrBadConn
 	}); rawErr != nil && !errors.Is(rawErr, driver.ErrBadConn) {
-		slog.Warn("discard connection failed",
-			"error", fmt.Sprintf("%T", rawErr))
+		slog.Error("discard connection failed",
+			"error", rawErr.Error())
 	}
 	_ = conn.Close()
 }
