@@ -11,7 +11,7 @@ import (
 type Repository interface {
 	LoadLaunch(context.Context, string) (Launch, error)
 	Restore(context.Context, string) (Restore, error)
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitWrite(context.Context, func(WriteScope) error) error
 }
 
 // ListRepository owns the administrator-facing save list projection. It is

@@ -19,7 +19,7 @@ type workerMemory struct {
 
 func (memory *workerMemory) Run(context.Context, string) (WorkerRun, error) { return memory.run, nil }
 
-func (memory *workerMemory) WithWrite(ctx context.Context, work func(WorkerScope) error) error {
+func (memory *workerMemory) CommitWrite(ctx context.Context, work func(WorkerScope) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

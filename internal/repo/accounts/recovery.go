@@ -29,7 +29,7 @@ func (repository *RecoveryRepository) ByUsername(
 	)
 }
 
-func (repository *RecoveryRepository) WithWrite(ctx context.Context, work func(accounts.RecoveryScope) error) error {
+func (repository *RecoveryRepository) CommitWrite(ctx context.Context, work func(accounts.RecoveryScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin offline recovery: %w", err)

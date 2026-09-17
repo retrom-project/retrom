@@ -8,6 +8,7 @@ type (
 	ArchiveReader          = model.ArchiveReader
 	ArchiveWriter          = model.ArchiveWriter
 	BlobRecords            = model.BlobRecords
+	BrowserInstallCommand  = model.BrowserInstallCommand
 	Consumption            = model.Consumption
 	InstallRequest         = model.InstallRequest
 	Installation           = model.Installation
@@ -21,13 +22,13 @@ type (
 	RequirementRecords     = model.RequirementRecords
 	Selection              = model.Selection
 	ServerExecution        = model.ServerExecution
+	ServerInstallCommand   = model.ServerInstallCommand
 	ServerInstallRequest   = model.ServerInstallRequest
 	ServerInstallResult    = model.ServerInstallResult
 	ServerOutcome          = model.ServerOutcome
 	ServerRecords          = model.ServerRecords
 	Upload                 = model.Upload
 	UploadReader           = model.UploadReader
-	WriteScope             = model.WriteScope
 	SupersededInstallation = model.SupersededInstallation
 	SupersessionReader     = model.SupersessionReader
 	SupersessionScope      = model.SupersessionScope

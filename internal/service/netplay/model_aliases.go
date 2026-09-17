@@ -22,6 +22,7 @@ type (
 	RoomClearPlan               = model.RoomClearPlan
 	RoomControlEvidence         = model.RoomControlEvidence
 	RoomControlReader           = model.RoomControlReader
+	MutationCommand             = model.MutationCommand
 	RoomControlRepository       = model.RoomControlRepository
 	RoomControlScope            = model.RoomControlScope
 	RoomControlSnapshot         = model.RoomControlSnapshot

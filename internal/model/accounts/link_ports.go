@@ -68,5 +68,5 @@ type LinkScope struct {
 type LinkRepository interface {
 	Current(context.Context, string) (LinkRecord, bool, error)
 	List(context.Context, LinkQuery) ([]LinkRecord, error)
-	WithWrite(context.Context, func(LinkScope) error) error
+	CommitWrite(context.Context, func(LinkScope) error) error
 }

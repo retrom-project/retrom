@@ -21,7 +21,7 @@ func NewDiscovery(repository DiscoveryRepository, now func() time.Time) *Discove
 }
 
 func (service *Discovery) Reset(ctx context.Context, unit Work) error {
-	err := service.repository.WithWrite(ctx, func(records DiscoveryRecords) error {
+	err := service.repository.CommitWrite(ctx, func(records DiscoveryRecords) error {
 		if err := records.Reset(ctx, unit, service.now().UnixMilli()); err != nil {
 			return fmt.Errorf("reset import discovery: %w", err)
 		}
@@ -43,7 +43,7 @@ func (service *Discovery) Persist(
 	if err != nil {
 		return err
 	}
-	err = service.repository.WithWrite(ctx, func(records DiscoveryRecords) error {
+	err = service.repository.CommitWrite(ctx, func(records DiscoveryRecords) error {
 		if err := records.Persist(ctx, plan); err != nil {
 			return fmt.Errorf("persist import discovery: %w", err)
 		}

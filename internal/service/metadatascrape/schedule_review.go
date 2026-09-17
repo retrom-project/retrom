@@ -15,7 +15,7 @@ func (scheduler *Scheduler) ScheduleReview(
 	provider string,
 ) (Scheduled, int64, error) {
 	var scheduled Scheduled
-	err := scheduler.repository.WithWrite(ctx, func(scope ScheduleScope) error {
+	err := scheduler.repository.CommitWrite(ctx, func(scope ScheduleScope) error {
 		draft, found, err := scope.Subjects.Review(ctx, itemID)
 		if err != nil {
 			return fmt.Errorf("read review scrape subject: %w", err)
@@ -87,7 +87,7 @@ func recordReviewRequest(
 
 func (scheduler *Scheduler) ScheduleGame(ctx context.Context, id string, version int64) (Scheduled, int64, error) {
 	var scheduled Scheduled
-	err := scheduler.repository.WithWrite(ctx, func(scope ScheduleScope) error {
+	err := scheduler.repository.CommitWrite(ctx, func(scope ScheduleScope) error {
 		game, found, err := scope.Subjects.Game(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read game scrape subject: %w", err)

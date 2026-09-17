@@ -27,6 +27,6 @@ type RateLimitRecords interface {
 type RateLimitRepository interface {
 	Read(context.Context, RateLimitKey) (RateLimitBucket, bool, error)
 	Clear(context.Context, RateLimitKey) error
-	WithWrite(context.Context, func(RateLimitRecords) error) error
+	CommitWrite(context.Context, func(RateLimitRecords) error) error
 }
 type RateLimitHasher interface{ RateLimitSubject(string, string) [32]byte }

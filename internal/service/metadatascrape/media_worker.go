@@ -99,7 +99,7 @@ func (worker *MediaWorker) account(parent context.Context, execution mediaExecut
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
-	err := worker.repository.WithWrite(ctx, func(scope MediaScope) error {
+	err := worker.repository.CommitWrite(ctx, func(scope MediaScope) error {
 		snapshot, err := scope.Read.Snapshot(ctx, execution.Claim.JobID)
 		if err != nil {
 			return mediaError("read media byte owner", err)

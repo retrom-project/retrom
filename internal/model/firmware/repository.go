@@ -8,9 +8,29 @@ import (
 	"retrom/internal/capability/format/importing"
 )
 
+// BrowserInstallCommand captures all inputs for a browser BIOS installation.
+type BrowserInstallCommand struct {
+	RequirementID      string
+	FileID             string
+	Version            int64
+	PreparedSourceKind string
+	PreparedFileKind   string
+	PreparedBlobID     string
+	PreparedSHA256     string
+	ArchiveEntries     []importing.ArchiveEntry
+	NowMS              int64
+}
+
+// ServerInstallCommand wraps a ServerInstallRequest with timing for atomic commit.
+type ServerInstallCommand struct {
+	Request   ServerInstallRequest
+	NowFn     func() int64
+}
+
 type Repository interface {
 	WithRead(context.Context, func(ReadScope) error) error
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitBrowserInstall(context.Context, BrowserInstallCommand) (Installation, error)
+	CommitServerInstall(context.Context, ServerInstallCommand) (ServerInstallResult, error)
 }
 type ReadScope struct {
 	Requirements  RequirementRecords

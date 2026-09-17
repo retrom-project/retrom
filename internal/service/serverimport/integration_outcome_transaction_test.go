@@ -13,8 +13,8 @@ type failingOutcomeRepository struct {
 	importservice.OutcomeRepository
 }
 
-func (repository failingOutcomeRepository) WithWrite(ctx context.Context, work func(importservice.OutcomeScope) error) error {
-	return repository.OutcomeRepository.WithWrite(ctx, func(scope importservice.OutcomeScope) error {
+func (repository failingOutcomeRepository) CommitWrite(ctx context.Context, work func(importservice.OutcomeScope) error) error {
+	return repository.OutcomeRepository.CommitWrite(ctx, func(scope importservice.OutcomeScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}

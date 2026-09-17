@@ -17,7 +17,7 @@ func (service *Outcomes) CompleteItem(
 	if err != nil {
 		return err
 	}
-	err = service.repository.WithWrite(ctx, func(scope OutcomeScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope OutcomeScope) error {
 		if err := scope.Write.Lock(ctx, unit, plan.Now, RunningWorker); err != nil {
 			return fmt.Errorf("lock item outcome: %w", err)
 		}

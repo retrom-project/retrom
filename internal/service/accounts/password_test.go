@@ -20,7 +20,7 @@ func (memory *passwordMemory) Current(context.Context, PasswordActor, int64) (Pa
 	return memory.state, true, nil
 }
 
-func (memory *passwordMemory) WithWrite(_ context.Context, work func(PasswordScope) error) error {
+func (memory *passwordMemory) CommitWrite(_ context.Context, work func(PasswordScope) error) error {
 	if err := work(PasswordScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}

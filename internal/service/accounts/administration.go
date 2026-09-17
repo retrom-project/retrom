@@ -41,7 +41,7 @@ func (service *AdministrationService) Update(
 	}
 	var after AdminUser
 	var replayed bool
-	err = service.repository.WithWrite(ctx, func(scope AdministrationScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope AdministrationScope) error {
 		replay, err := scope.Read.Replay(ctx, operation)
 		if err != nil {
 			return fmt.Errorf("apply account administration: %w", err)

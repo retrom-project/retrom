@@ -45,12 +45,49 @@ func (repository *memoryRepository) WithRead(_ context.Context, work func(Reader
 	return work(repository.records)
 }
 
-func (repository *memoryRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *memoryRepository) CommitRecoverOwnership(context.Context, RecoverOwnershipCommand) error {
+	repository.writeCount++
+	return nil
+}
+
+func (repository *memoryRepository) CommitDiscardSourceItems(context.Context, DiscardSourceItemsCommand) (bool, error) {
+	repository.writeCount++
+	return true, nil
+}
+
+func (repository *memoryRepository) CommitRequestDiscard(_ context.Context, cmd RequestDiscardCommand) (Status, error) {
 	repository.writeCount++
 	if repository.beforeWrite != nil {
 		repository.beforeWrite()
 	}
-	return work(WriteScope{Reader: repository.records, Requests: repository.records})
+	batch, err := repository.records.Batch(nil, cmd.Key)
+	if err != nil {
+		return Status{}, err
+	}
+	result := Status{Kind: cmd.Key.Kind, ImportID: cmd.Key.ID, State: "UNAVAILABLE"}
+	if available(cmd.Key.Kind, batch) {
+		result.State = "AVAILABLE"
+	}
+	if repository.records.disposition != nil {
+		result.State = repository.records.disposition.State
+		result.ErrorCode = repository.records.disposition.ErrorCode
+	}
+	if result.State == "UNAVAILABLE" {
+		return Status{}, ErrInvalid
+	}
+	if result.State != "AVAILABLE" && result.State != "FAILED" {
+		return result, nil
+	}
+	if repository.records.fail != nil {
+		return Status{}, repository.records.fail
+	}
+	repository.records.requests = append(repository.records.requests, Request{Key: cmd.Key, UserID: cmd.UserID, AuditID: "test-audit", Now: cmd.NowMS})
+	return Status{Kind: cmd.Key.Kind, ImportID: cmd.Key.ID, State: "REQUESTED"}, nil
+}
+
+func (repository *memoryRepository) CommitProgress(context.Context, Progress) error {
+	repository.writeCount++
+	return repository.records.fail
 }
 
 func TestRequestUsesCurrentWriteSnapshotAndPreservesFailure(t *testing.T) {

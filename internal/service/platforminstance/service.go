@@ -57,7 +57,7 @@ func (service *Service) Create(ctx context.Context, actor AuditActor, input Crea
 		return Instance{}, ErrInvalid
 	}
 	var created Instance
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		var err error
 		created, err = service.createInstance(
 			ctx, scope, actor, input, "", "PLATFORM_INSTANCE_CREATED", service.now().UnixMilli(),

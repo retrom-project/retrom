@@ -11,8 +11,8 @@ import (
 
 type failingLeaseRepository struct{ importservice.LeaseRepository }
 
-func (repository failingLeaseRepository) WithWrite(ctx context.Context, work func(importservice.LeaseRecords) error) error {
-	return repository.LeaseRepository.WithWrite(ctx, func(records importservice.LeaseRecords) error {
+func (repository failingLeaseRepository) CommitWrite(ctx context.Context, work func(importservice.LeaseRecords) error) error {
+	return repository.LeaseRepository.CommitWrite(ctx, func(records importservice.LeaseRecords) error {
 		if err := work(records); err != nil {
 			return err
 		}
@@ -57,7 +57,7 @@ func TestProgressConflictRollsBackJobLeaseAndEvent(t *testing.T) {
 	}
 	repository := importpersistence.NewLeases(database)
 	var before importservice.LeaseSnapshot
-	if err := repository.WithWrite(t.Context(), func(records importservice.LeaseRecords) error {
+	if err := repository.CommitWrite(t.Context(), func(records importservice.LeaseRecords) error {
 		var err error
 		before, err = records.Current(t.Context(), unit.JobID)
 		return err
@@ -67,7 +67,7 @@ func TestProgressConflictRollsBackJobLeaseAndEvent(t *testing.T) {
 	if _, err := database.ExecContext(t.Context(), `UPDATE server_imports SET version=version+1 WHERE id=?`, created.ID); err != nil {
 		t.Fatal(err)
 	}
-	err = repository.WithWrite(t.Context(), func(records importservice.LeaseRecords) error {
+	err = repository.CommitWrite(t.Context(), func(records importservice.LeaseRecords) error {
 		return records.Touch(t.Context(), importservice.LeaseTouch{Before: before, Now: legacy.NowForTest().UnixMilli(), LeaseUntil: *before.LeaseUntil + 1000, Phase: "DISCOVERING", Event: []byte(`{"schemaVersion":1}`)})
 	})
 	if !errors.Is(err, importservice.ErrLeaseLost) {

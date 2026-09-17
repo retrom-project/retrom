@@ -41,23 +41,46 @@ func (repository *Repository) WithRead(ctx context.Context, work func(firmware.R
 	return nil
 }
 
-func (repository *Repository) WithWrite(ctx context.Context, work func(firmware.WriteScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+func (repository *Repository) writeScope(tx *sql.Tx) firmware.WriteScope {
+	bound := writes{transaction: tx}
+	return firmware.WriteScope{
+		ReadScope: readScope(tx), Archives: bound, Installations: bound,
+		Retirements: BindSupersession(tx), Server: bound, Blobs: bound,
+	}
+}
+
+func (repository *Repository) CommitBrowserInstall(ctx context.Context, cmd firmware.BrowserInstallCommand) (firmware.Installation, error) {
+	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin BIOS write: %w", err)
+		return firmware.Installation{}, fmt.Errorf("begin BIOS write: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	bound := writes{transaction: transaction}
-	if err := work(firmware.WriteScope{
-		ReadScope: readScope(transaction), Archives: bound, Installations: bound,
-		Retirements: BindSupersession(transaction), Server: bound, Blobs: bound,
-	}); err != nil {
-		return err
+	defer dbexec.Rollback(tx)
+	scope := repository.writeScope(tx)
+	result, err := browserInstall(ctx, scope, cmd)
+	if err != nil {
+		return firmware.Installation{}, err
 	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit BIOS write: %w", err)
+	if err := tx.Commit(); err != nil {
+		return firmware.Installation{}, fmt.Errorf("commit BIOS write: %w", err)
 	}
-	return nil
+	return result, nil
+}
+
+func (repository *Repository) CommitServerInstall(ctx context.Context, cmd firmware.ServerInstallCommand) (firmware.ServerInstallResult, error) {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return firmware.ServerInstallResult{}, fmt.Errorf("begin BIOS write: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	scope := repository.writeScope(tx)
+	result, err := serverInstall(ctx, scope, cmd)
+	if err != nil {
+		return firmware.ServerInstallResult{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return firmware.ServerInstallResult{}, fmt.Errorf("commit BIOS write: %w", err)
+	}
+	return result, nil
 }
 
 func changed(result sql.Result, err error) error {

@@ -23,7 +23,7 @@ func TestBootstrapLateFailureRollsBackIdentitySessionStateAndAudit(t *testing.T)
 	})
 	plan := accounts.BootstrapPlan{UserID: "initial-user", ProfileID: "initial-profile", Username: "admin", DisplayName: "Owner", PasswordHash: "initial-hash", Kind: "RELEASE_SETUP", ActorLabel: "release-setup", AuditID: "initial-audit", Now: 100}
 	plan.Session = accounts.SessionRecord{ID: "initial-session", UserID: plan.UserID, SessionVersion: 1, CreatedAt: 100, LastSeen: 100, IdleExpiry: 200, AbsoluteExpiry: 300}
-	err = NewInitialization(database.SQL).WithWrite(t.Context(), func(scope accounts.InitializationScope) error {
+	err = NewInitialization(database.SQL).CommitWrite(t.Context(), func(scope accounts.InitializationScope) error {
 		if err := scope.Write.Bootstrap(t.Context(), plan); err != nil {
 			return err
 		}

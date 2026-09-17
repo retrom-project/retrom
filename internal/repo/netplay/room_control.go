@@ -15,10 +15,10 @@ import (
 type RoomControl struct{ database *sql.DB }
 
 func NewRoomControl(database *sql.DB) *RoomControl { return &RoomControl{database: database} }
-func (repository *RoomControl) WithWrite(ctx context.Context, work func(netplay.RoomControlScope) error) error {
+func (repository *RoomControl) CommitMutation(ctx context.Context, cmd netplay.MutationCommand) (netplay.Room, error) {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("netplay/begin room control: %w", err)
+		return netplay.Room{}, fmt.Errorf("netplay/begin room control: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
 	records := roomControlRecords{transaction}
@@ -28,13 +28,37 @@ func (repository *RoomControl) WithWrite(ctx context.Context, work func(netplay.
 		Eligibility: NewEligibility(transaction),
 		BIOS:        validation.New(transaction),
 	}
-	if err := work(scope); err != nil {
-		return err
+	before, err := scope.Read.Current(ctx, cmd.RoomID, cmd.ActorID)
+	if err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/read room control: %w", err)
+	}
+	if cmd.HostOnly && before.HostID != cmd.ActorID {
+		return netplay.Room{}, netplay.ErrForbidden
+	}
+	if before.Version != cmd.Version {
+		return netplay.Room{}, netplay.ErrPrecondition
+	}
+	found := false
+	for _, s := range cmd.States {
+		if s == before.State {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return netplay.Room{}, netplay.ErrRoomConflict
+	}
+	if err := cmd.Apply(scope, before, cmd.NowMS); err != nil {
+		return netplay.Room{}, err
+	}
+	result, err := scope.Read.Snapshot(ctx, cmd.RoomID)
+	if err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/read updated room: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("netplay/commit room control: %w", err)
+		return netplay.Room{}, fmt.Errorf("netplay/commit room control: %w", err)
 	}
-	return nil
+	return result, nil
 }
 
 type roomControlRecords struct{ executor dbexec.Executor }

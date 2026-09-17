@@ -70,7 +70,7 @@ func terminationFixture() (*terminationRepository, Run) {
 	}, run
 }
 
-func (repository *terminationRepository) WithWrite(ctx context.Context, work func(WriteScope) error) error {
+func (repository *terminationRepository) CommitWrite(ctx context.Context, work func(WriteScope) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

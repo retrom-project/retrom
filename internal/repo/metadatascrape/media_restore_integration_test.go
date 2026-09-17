@@ -104,7 +104,7 @@ func mediaRestoreSQL(t *testing.T, database *sql.DB, query string, args ...any) 
 func restoredMediaSnapshot(t *testing.T, database *sql.DB, id string) metadatascrape.MediaSnapshot {
 	t.Helper()
 	var snapshot metadatascrape.MediaSnapshot
-	err := mediatapersistence.NewMedia(database).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
+	err := mediatapersistence.NewMedia(database).CommitWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
 		var err error
 		snapshot, err = scope.Read.Snapshot(t.Context(), id)
 		return err

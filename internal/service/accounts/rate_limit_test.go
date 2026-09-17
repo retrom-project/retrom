@@ -30,7 +30,7 @@ func (memory *limitMemory) Clear(_ context.Context, key RateLimitKey) error {
 	return nil
 }
 
-func (memory *limitMemory) WithWrite(_ context.Context, work func(RateLimitRecords) error) error {
+func (memory *limitMemory) CommitWrite(_ context.Context, work func(RateLimitRecords) error) error {
 	if err := work(memory); err != nil {
 		return err
 	}

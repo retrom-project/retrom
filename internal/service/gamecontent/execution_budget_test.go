@@ -23,7 +23,7 @@ func (repository *budgetRepository) Input(context.Context, string, int64) (Store
 	return repository.input, nil
 }
 
-func (repository *budgetRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *budgetRepository) CommitWrite(_ context.Context, work func(WriteScope) error) error {
 	return work(WriteScope{Leases: budgetLeases{repository: repository}})
 }
 

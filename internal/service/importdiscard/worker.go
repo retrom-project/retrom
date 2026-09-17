@@ -54,9 +54,7 @@ func (service *Service) RunOnce(ctx context.Context) (bool, error) {
 	if ctx.Err() != nil {
 		return true, errors.Join(workErr, ctx.Err())
 	}
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		return scope.Requests.Progress(ctx, progress)
-	})
+	err = service.repository.CommitProgress(ctx, progress)
 	return true, errors.Join(workErr, err)
 }
 

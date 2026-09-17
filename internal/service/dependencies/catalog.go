@@ -143,7 +143,7 @@ func (bootstrap *catalogBootstrap) targetForCore(coreID string) (RuntimeTarget, 
 }
 
 func (bootstrap *catalogBootstrap) activateReady(datID string) {
-	err := bootstrap.repository.WithWrite(bootstrap.ctx, func(scope WriteScope) error {
+	err := bootstrap.repository.CommitWrite(bootstrap.ctx, func(scope WriteScope) error {
 		return activateBuiltInDAT(bootstrap.ctx, scope, datID, bootstrap.now)
 	})
 	if err != nil {

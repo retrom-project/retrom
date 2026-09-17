@@ -25,7 +25,7 @@ func (memory *initializationMemory) Credentials(context.Context) ([]StoredCreden
 	return nil, nil
 }
 
-func (memory *initializationMemory) WithWrite(_ context.Context, work func(InitializationScope) error) error {
+func (memory *initializationMemory) CommitWrite(_ context.Context, work func(InitializationScope) error) error {
 	if err := work(InitializationScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}

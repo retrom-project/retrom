@@ -5,6 +5,7 @@ package firmware
 import (
 	"testing"
 
+	"retrom/internal/model/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 )
 
@@ -17,7 +18,7 @@ func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 		t.Fatal(err)
 	}
 	created := false
-	err := New(database).WithWrite(t.Context(), func(scope firmwareservice.WriteScope) error {
+	err := testWithWrite(New(database), t.Context(), func(scope firmware.WriteScope) error {
 		active, found, err := scope.ReadScope.Installations.Active(t.Context(), requirementID)
 		if err != nil || !found {
 			t.Fatalf("active BIOS missing: found=%v error=%v", found, err)

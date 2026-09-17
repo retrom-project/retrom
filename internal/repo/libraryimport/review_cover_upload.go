@@ -26,7 +26,7 @@ func (repository *ReviewCoverUploads) Source(
 	return (reviewCoverRecords{repository.database}).Source(ctx, fileID)
 }
 
-func (repository *ReviewCoverUploads) WithWrite(
+func (repository *ReviewCoverUploads) CommitWrite(
 	ctx context.Context, work func(application.ReviewCoverScope) error,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)

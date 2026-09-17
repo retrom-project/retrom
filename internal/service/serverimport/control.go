@@ -34,7 +34,7 @@ func (service *Control) Cancel(
 	}
 	var result Summary
 	var pending bool
-	err := service.repository.WithWrite(ctx, func(scope ControlScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope ControlScope) error {
 		before, err := scope.Read.Current(ctx, id)
 		if errors.Is(err, ErrNotFound) {
 			return ErrNotCancellable
@@ -84,7 +84,7 @@ func (service *Control) Cancel(
 
 func (service *Control) Retry(ctx context.Context, id string, version int64, actorID string) (Summary, error) {
 	var result Summary
-	err := service.repository.WithWrite(ctx, func(scope ControlScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope ControlScope) error {
 		before, err := scope.Read.Current(ctx, id)
 		if errors.Is(err, ErrNotFound) {
 			return ErrNotRetryable

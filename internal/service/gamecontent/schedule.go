@@ -36,7 +36,7 @@ func (service *Service) schedule(
 	}
 	var result Scheduled
 	var replayed bool
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		var err error
 		result, replayed, err = loadScheduled(ctx, scope.Replays, principalID, key, digest, now)
 		if err != nil || replayed {

@@ -4,7 +4,7 @@ import "context"
 
 // Repository supplies a consistent read projection and transaction-scoped writes.
 type Repository interface {
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitWrite(context.Context, func(WriteScope) error) error
 	List(context.Context, string, ListOptions) (ListResult, error)
 	Reference(context.Context, string, string) (*FavoriteReference, error)
 	References(context.Context, string, []string) (map[string]FavoriteReference, error)

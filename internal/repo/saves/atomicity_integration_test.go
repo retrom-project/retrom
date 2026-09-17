@@ -57,7 +57,7 @@ type lateSaveFailure struct {
 }
 
 func (repository lateSaveFailure) WithWrite(ctx context.Context, work func(saveservice.WriteScope) error) error {
-	return repository.Repository.WithWrite(ctx, func(scope saveservice.WriteScope) error {
+	return repository.Repository.CommitWrite(ctx, func(scope saveservice.WriteScope) error {
 		scope.Idempotency = lateSaveReplay{IdempotencyRecords: scope.Idempotency, failure: repository.failure}
 		return work(scope)
 	})

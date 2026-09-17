@@ -23,7 +23,7 @@ func (repository *InitializationRepository) State(ctx context.Context) (accounts
 	return (initializationRecords{repository.database}).State(ctx)
 }
 
-func (repository *InitializationRepository) WithWrite(
+func (repository *InitializationRepository) CommitWrite(
 	ctx context.Context,
 	work func(accounts.InitializationScope) error,
 ) error {

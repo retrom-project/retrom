@@ -38,7 +38,7 @@ func TestRetryWriteRejectsSnapshotChangedAfterPreparation(t *testing.T) {
 	_, database, created := failedControlImport(t)
 	repository := importpersistence.NewControl(database)
 	var before importservice.ControlSnapshot
-	if err := repository.WithWrite(t.Context(), func(scope importservice.ControlScope) error {
+	if err := repository.CommitWrite(t.Context(), func(scope importservice.ControlScope) error {
 		var err error
 		before, err = scope.Read.Current(t.Context(), created.ID)
 		return err
@@ -51,7 +51,7 @@ func TestRetryWriteRejectsSnapshotChangedAfterPreparation(t *testing.T) {
 	input := []byte(`{"schemaVersion":1}`)
 	digest := sha256.Sum256(input)
 	plan := importservice.ManualRetry{Before: before, Execution: before.Execution + 1, Input: input, InputDigest: fmt.Sprintf("%x", digest), Payload: []byte(`{"inputExecutionNo":2}`), Evidence: importservice.ControlEvidence{ActorID: controlActorID, AuditID: "retry-audit", Event: []byte(`{"schemaVersion":1,"executionNo":2}`), Now: created.UpdatedAtMS}}
-	err := repository.WithWrite(t.Context(), func(scope importservice.ControlScope) error { return scope.Write.Retry(t.Context(), plan) })
+	err := repository.CommitWrite(t.Context(), func(scope importservice.ControlScope) error { return scope.Write.Retry(t.Context(), plan) })
 	if !errors.Is(err, ErrNotRetryable) {
 		t.Fatalf("stale retry write: %v", err)
 	}
@@ -69,8 +69,8 @@ type failingControlRepository struct {
 	repository importservice.ControlRepository
 }
 
-func (repository failingControlRepository) WithWrite(ctx context.Context, work func(importservice.ControlScope) error) error {
-	return repository.repository.WithWrite(ctx, func(scope importservice.ControlScope) error {
+func (repository failingControlRepository) CommitWrite(ctx context.Context, work func(importservice.ControlScope) error) error {
+	return repository.repository.CommitWrite(ctx, func(scope importservice.ControlScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}

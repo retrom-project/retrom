@@ -76,7 +76,7 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Sess
 			SizeBytes: declaration.SizeBytes, State: "PENDING", Parts: []int{},
 		})
 	}
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		return scope.Sessions.Create(
 			ctx,
 			Registration{
@@ -136,7 +136,7 @@ func (service *Service) PutPart(
 		Number: partNo, Offset: span.start, Size: written, SHA256: expected,
 		Path: filepath.ToSlash(filepath.Join(uploadID, fileID, strconv.Itoa(partNo)+"-"+expected)),
 	}}
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		target, err := scope.Files.Target(ctx, key)
 		if err != nil {
 			return fmt.Errorf("recheck upload part target: %w", err)
@@ -234,6 +234,6 @@ func (service *Service) validateReceivingPart(ctx context.Context, key FileKey, 
 	if target.SessionState != "FAILED" {
 		return nil
 	}
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error { return repairAllowed(ctx, scope, key, number) })
+	err = service.repository.CommitWrite(ctx, func(scope WriteScope) error { return repairAllowed(ctx, scope, key, number) })
 	return finalizationError("validate repair target", err)
 }

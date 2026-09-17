@@ -16,7 +16,7 @@ type workflowRepository struct {
 	committed bool
 }
 
-func (repository *workflowRepository) WithWrite(ctx context.Context, work func(WriteScope) error) error {
+func (repository *workflowRepository) CommitWrite(ctx context.Context, work func(WriteScope) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

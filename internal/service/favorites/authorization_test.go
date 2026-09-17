@@ -13,7 +13,7 @@ type favoriteRepositoryStub struct {
 	writes int
 }
 
-func (repository *favoriteRepositoryStub) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *favoriteRepositoryStub) CommitWrite(_ context.Context, work func(WriteScope) error) error {
 	repository.writes++
 	return work(WriteScope{Games: repository.games})
 }

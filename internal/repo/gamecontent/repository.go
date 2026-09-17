@@ -49,7 +49,7 @@ func (repository *Repository) WithRead(ctx context.Context, work func(gameconten
 	return nil
 }
 
-func (repository *Repository) WithWrite(ctx context.Context, work func(gamecontent.WriteScope) error) error {
+func (repository *Repository) CommitWrite(ctx context.Context, work func(gamecontent.WriteScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin content replacement write: %w", err)

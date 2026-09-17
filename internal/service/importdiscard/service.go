@@ -12,12 +12,6 @@ import (
 
 const reason = "丢弃本批次未发布内容"
 
-type Status struct {
-	Kind      string  `json:"kind"`
-	ImportID  string  `json:"importId"`
-	State     string  `json:"state"`
-	ErrorCode *string `json:"errorCode"`
-}
 type Service struct {
 	repository Repository
 	importer   ImportWorkflow
@@ -46,62 +40,25 @@ func (service *Service) Get(ctx context.Context, kind, id string) (Status, error
 	}
 	var result Status
 	err := service.repository.WithRead(ctx, func(records Reader) error {
-		var err error
-		result, err = status(ctx, records, key)
-		return failure("access discard status", err)
+		batch, err := records.Batch(ctx, key)
+		if err != nil {
+			return failure("access discard status", err)
+		}
+		result = Status{Kind: key.Kind, ImportID: key.ID, State: "UNAVAILABLE"}
+		disposition, found, err := records.Disposition(ctx, key)
+		if err != nil {
+			return failure("access discard status", err)
+		}
+		if batch.Started && batch.State != "SCANNING" && batch.State != "AWAITING_MAPPING" {
+			result.State = "AVAILABLE"
+		}
+		if found {
+			result.State = disposition.State
+			result.ErrorCode = disposition.ErrorCode
+		}
+		return nil
 	})
 	return result, failure("access discard status", err)
-}
-
-func status(ctx context.Context, records Reader, key Key) (Status, error) {
-	batch, err := records.Batch(ctx, key)
-	if err != nil {
-		return Status{}, failure("access discard status", err)
-	}
-	result := Status{Kind: key.Kind, ImportID: key.ID, State: "UNAVAILABLE"}
-	if available(key.Kind, batch) {
-		result.State = "AVAILABLE"
-	}
-	disposition, found, err := records.Disposition(ctx, key)
-	if err != nil {
-		return Status{}, failure("access discard status", err)
-	}
-	if found {
-		result.State = disposition.State
-		result.ErrorCode = disposition.ErrorCode
-	}
-	return result, nil
-}
-
-func available(kind string, batch Batch) bool {
-	if !batch.Started || batch.State == "SCANNING" || batch.State == "AWAITING_MAPPING" {
-		return false
-	}
-	if kind == "IMPORT" && retainedImport(batch) {
-		return true
-	}
-	for state, count := range batch.ItemCounts {
-		if count > 0 && undecided(kind, state) {
-			return true
-		}
-	}
-	return false
-}
-
-func retainedImport(batch Batch) bool {
-	switch batch.State {
-	case "QUEUED", "RUNNING", "CANCEL_REQUESTED":
-		return true
-	default:
-		return batch.Rejected > batch.ResolvedRejected && batch.PayloadState != "RELEASED"
-	}
-}
-
-func undecided(kind, state string) bool {
-	if kind == "IMPORT" {
-		return state != "PUBLISHED" && state != "DISCARDED"
-	}
-	return state != "PUBLISHED" && state != "REVIEW_DISCARDED" && state != "SKIPPED_EXISTING"
 }
 
 func (service *Service) Request(ctx context.Context, kind, id, userID string) (Status, error) {
@@ -109,37 +66,8 @@ func (service *Service) Request(ctx context.Context, kind, id, userID string) (S
 	if !validKey(key) {
 		return Status{}, ErrInvalid
 	}
-	now := service.now().UnixMilli()
-	var result Status
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		current, err := status(ctx, scope.Reader, key)
-		if err != nil {
-			return failure("access discard status", err)
-		}
-		if current.State == "UNAVAILABLE" {
-			return ErrInvalid
-		}
-		if current.State != "AVAILABLE" && current.State != "FAILED" {
-			result = current
-			return nil
-		}
-		auditID, err := uuid.NewV7()
-		if err != nil {
-			return fmt.Errorf("create discard audit identity: %w", err)
-		}
-		if err := scope.Requests.Request(
-			ctx,
-			Request{
-				Key:     key,
-				UserID:  userID,
-				AuditID: auditID.String(),
-				Now:     now,
-			},
-		); err != nil {
-			return failure("access discard status", err)
-		}
-		result = Status{Kind: kind, ImportID: id, State: "REQUESTED"}
-		return nil
+	result, err := service.repository.CommitRequestDiscard(ctx, RequestDiscardCommand{
+		Key: key, UserID: userID, NowMS: service.now().UnixMilli(),
 	})
 	return result, failure("access discard status", err)
 }

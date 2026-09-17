@@ -54,14 +54,26 @@ func TestInstallRecordsWarningAndSignalsAfterCommit(t *testing.T) {
 func TestStaticArchivesRejectAliasesWhileDATRemainsAdvisory(t *testing.T) {
 	expected := []firmware.ExpectedDATEntry{{Name: "bios.bin", SizeBytes: 1, CRC32: "11111111"}}
 	actual := []importing.ArchiveEntry{{NormalizedPath: "renamed.bin", Size: 1, CRC32: "11111111"}}
+	comparisons, missing, mismatched, warnings := firmware.CompareArchiveEntries(expected, actual)
 	for _, strict := range []bool{false, true} {
-		status, details := evaluateArchive(expected, actual, strict)
+		details := map[string]any{
+			"schemaVersion": 1, "missingEntries": missing,
+			"mismatchedEntries": mismatched, "warnings": warnings,
+		}
+		status := "MATCHED"
+		if strict && (len(missing) > 0 || len(mismatched) > 0 || len(warnings) > 0) {
+			status = "INVALID"
+		} else if len(comparisons) == 0 || len(expected) == 0 || len(missing) > 0 {
+			status = "MISSING_ENTRY"
+		} else if len(mismatched) > 0 {
+			status = "HASH_WARNING"
+		}
 		want := "MATCHED"
 		if strict {
 			want = "INVALID"
 		}
-		warnings, ok := details["warnings"].([]string)
-		if status != want || !ok || len(warnings) != 1 {
+		ws, ok := details["warnings"].([]string)
+		if status != want || !ok || len(ws) != 1 {
 			t.Fatalf("strict=%v status=%s findings=%v", strict, status, details)
 		}
 	}
@@ -89,13 +101,50 @@ func (memory *installMemory) WithRead(_ context.Context, work func(ReadScope) er
 	return work(ReadScope{Requirements: requirementMemory{value: memory.initial}, Uploads: uploadMemory{memory.upload}})
 }
 
-func (memory *installMemory) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (memory *installMemory) CommitBrowserInstall(_ context.Context, cmd BrowserInstallCommand) (Installation, error) {
 	memory.insideWrite = true
 	defer func() { memory.insideWrite = false }()
-	return work(WriteScope{ReadScope: ReadScope{
-		Requirements: requirementMemory{value: memory.current},
-		Uploads:      uploadMemory{memory.currentUpload},
-	}, Installations: memory, Retirements: SupersessionScope{Read: memory, Write: memory}})
+	if memory.current.SourceKind != cmd.PreparedSourceKind ||
+		memory.current.FileKind != cmd.PreparedFileKind ||
+		memory.currentUpload.BlobID != cmd.PreparedBlobID ||
+		memory.currentUpload.SHA256 != cmd.PreparedSHA256 {
+		return Installation{}, ErrInvalid
+	}
+	if !memory.current.Enabled || memory.current.Version != cmd.Version {
+		return Installation{}, ErrInvalid
+	}
+	if memory.currentUpload.State != "COMPLETE" {
+		return Installation{}, ErrInvalid
+	}
+	memory.retired = true
+	id := "generated-id"
+	memory.created = &InstallationWrite{
+		ID: id, RequirementID: cmd.RequirementID, BlobID: memory.currentUpload.BlobID,
+		Filename: memory.currentUpload.RelativePath,
+		MD5: memory.currentUpload.MD5, SHA1: memory.currentUpload.SHA1,
+		SHA256: memory.currentUpload.SHA256, Size: memory.currentUpload.Size,
+		Status: "MATCHED", RequirementVersion: memory.current.Version,
+		AtMS: cmd.NowMS, SourceKind: "BROWSER_UPLOAD",
+	}
+	memory.consumption = &Consumption{
+		ID: "consumption-id", UploadID: memory.currentUpload.SessionID,
+		FileID: memory.currentUpload.ID, InstallationID: id, AtMS: cmd.NowMS,
+	}
+	status := "MATCHED"
+	if (memory.current.SHA256 != nil && *memory.current.SHA256 != memory.currentUpload.SHA256) ||
+		(memory.current.Size != nil && *memory.current.Size != memory.currentUpload.Size) ||
+		(memory.current.MD5 != nil && *memory.current.MD5 != memory.currentUpload.MD5) ||
+		(memory.current.SHA1 != nil && *memory.current.SHA1 != memory.currentUpload.SHA1) {
+		status = "HASH_WARNING"
+	}
+	return Installation{
+		InstallationID: id, RequirementID: cmd.RequirementID, Status: status, Active: true,
+		ValidatedRequirementVersion: memory.current.Version, CreatedAtMS: cmd.NowMS,
+	}, nil
+}
+
+func (memory *installMemory) CommitServerInstall(context.Context, ServerInstallCommand) (ServerInstallResult, error) {
+	return ServerInstallResult{}, nil
 }
 
 func (memory *installMemory) Create(_ context.Context, value InstallationWrite) error {

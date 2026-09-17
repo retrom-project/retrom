@@ -36,7 +36,7 @@ func (repository *RateLimits) Clear(ctx context.Context, key accounts.RateLimitK
 	return nil
 }
 
-func (repository *RateLimits) WithWrite(ctx context.Context, work func(accounts.RateLimitRecords) error) error {
+func (repository *RateLimits) CommitWrite(ctx context.Context, work func(accounts.RateLimitRecords) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin authentication rate limits: %w", err)

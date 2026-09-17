@@ -38,7 +38,7 @@ func (service *Authentication) Login(ctx context.Context, username, password str
 		return Session{}, fmt.Errorf("prepare login session: %w", err)
 	}
 	var now int64
-	err = service.repository.WithWrite(ctx, func(scope AuthScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope AuthScope) error {
 		now = service.now().UnixMilli()
 		if err := scope.Write.Login(
 			ctx,
@@ -92,7 +92,7 @@ func (service *Authentication) verify(
 }
 
 func (service *Authentication) Logout(ctx context.Context, id string) error {
-	err := service.repository.WithWrite(ctx, func(scope AuthScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope AuthScope) error {
 		if err := scope.Write.Revoke(ctx, id, service.now().UnixMilli()); err != nil {
 			return fmt.Errorf("revoke authentication session: %w", err)
 		}

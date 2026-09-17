@@ -31,7 +31,7 @@ func (repository *Repository) WithRead(ctx context.Context, work func(platformin
 	return nil
 }
 
-func (repository *Repository) WithWrite(ctx context.Context, work func(platforminstance.WriteScope) error) error {
+func (repository *Repository) CommitWrite(ctx context.Context, work func(platforminstance.WriteScope) error) error {
 	connection, err := repository.database.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("platforminstance: acquire connection: %w", err)

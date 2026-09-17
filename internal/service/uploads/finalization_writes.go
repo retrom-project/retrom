@@ -33,7 +33,7 @@ func (service *Service) finalizeWrite(
 	ctx context.Context, run Run, work func(WriteScope, SessionState) error,
 ) (bool, error) {
 	stopped := false
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		current, job, owned, err := currentFinalization(ctx, scope, run)
 		if err != nil {
 			return err
@@ -54,7 +54,7 @@ func (service *Service) fail(parent context.Context, run Run, cause error) error
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
 	cancelled := false
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		current, job, owned, err := currentFinalization(ctx, scope, run)
 		if err != nil {
 			return err

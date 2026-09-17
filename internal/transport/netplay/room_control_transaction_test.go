@@ -122,7 +122,7 @@ func assertControlRollback(t *testing.T, action string) {
 	if action == "stale room" || action == "stale member" {
 		want = application.ErrPrecondition
 	}
-	err := repository.NewRoomControl(fixture.database).WithWrite(t.Context(), func(scope application.RoomControlScope) error {
+	err := repository.NewRoomControl(fixture.database).CommitWrite(t.Context(), func(scope application.RoomControlScope) error {
 		before, err := scope.Read.Current(t.Context(), fixture.room.RoomID, actor)
 		if err != nil {
 			return err

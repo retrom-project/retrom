@@ -79,7 +79,7 @@ type workflowRepository struct {
 	found                        bool
 }
 
-func (repository *workflowRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *workflowRepository) CommitWrite(_ context.Context, work func(WriteScope) error) error {
 	repository.transactions++
 	return work(WriteScope{Jobs: repository, Catalog: repository})
 }

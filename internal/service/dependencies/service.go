@@ -26,7 +26,7 @@ func New(set *dependencies.Set, repository Repository) *Service {
 
 func (service *Service) Bootstrap(ctx context.Context, now time.Time) error {
 	preferred := preferredCoreVersions(service.set)
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		for _, versionName := range service.set.Order {
 			targets, err := service.staticBIOSTargets(ctx, scope.Targets)
 			if err != nil {

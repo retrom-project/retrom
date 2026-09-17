@@ -3,7 +3,6 @@ package tagging
 import "context"
 
 type Repository interface {
-	WithWrite(context.Context, func(WriteScope) error) error
 	Get(context.Context, string) (AdminItem, error)
 	List(context.Context, ListQuery) ([]AdminItem, error)
 	Summary(context.Context) (Summary, error)

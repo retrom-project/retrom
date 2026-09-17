@@ -101,33 +101,8 @@ func (service *Service) discardImport(ctx context.Context, id string) (bool, err
 }
 
 func (service *Service) discardSourceItems(ctx context.Context, key Key) (bool, error) {
-	var done bool
-	now := service.now().UnixMilli()
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		releases, err := scope.Sources.Releases(ctx, key)
-		if err != nil {
-			return failure("process discarded content", err)
-		}
-		if releases.Releasing > 0 {
-			if releases.Failed > 0 {
-				return ErrReleaseFailed
-			}
-			return nil
-		}
-		ids, err := scope.Sources.UnusedUploads(ctx, key)
-		if err != nil {
-			return failure("process discarded content", err)
-		}
-		for _, id := range ids {
-			if err := scope.Sources.DeleteUpload(ctx, id); err != nil {
-				return failure("process discarded content", err)
-			}
-		}
-		if err := scope.Sources.Complete(ctx, key, now); err != nil {
-			return failure("process discarded content", err)
-		}
-		done = true
-		return nil
+	done, err := service.repository.CommitDiscardSourceItems(ctx, DiscardSourceItemsCommand{
+		Key: key, NowMS: service.now().UnixMilli(),
 	})
 	return done, failure("process discarded content", err)
 }

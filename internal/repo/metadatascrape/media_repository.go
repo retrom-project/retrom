@@ -16,7 +16,7 @@ type (
 
 func NewMedia(database *sql.DB) *MediaRepository { return &MediaRepository{database} }
 
-func (repository *MediaRepository) WithWrite(ctx context.Context, work func(metadatascrape.MediaScope) error) error {
+func (repository *MediaRepository) CommitWrite(ctx context.Context, work func(metadatascrape.MediaScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin media transaction: %w", err)

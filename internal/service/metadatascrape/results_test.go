@@ -26,7 +26,7 @@ type resultMemory struct {
 	assets        []CandidateAsset
 }
 
-func (memory *resultMemory) WithWrite(_ context.Context, work func(ResultScope) error) error {
+func (memory *resultMemory) CommitWrite(_ context.Context, work func(ResultScope) error) error {
 	memory.calls++
 	memory.inTransaction = true
 	defer func() { memory.inTransaction = false }()

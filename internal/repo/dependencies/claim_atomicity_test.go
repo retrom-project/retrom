@@ -33,7 +33,7 @@ INSERT INTO dat_versions(id,parse_status,version) VALUES('dat','PENDING',1);
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	err = New(database).WithWrite(ctx, func(scope service.WriteScope) error {
+	err = New(database).CommitWrite(ctx, func(scope service.WriteScope) error {
 		if err := scope.Jobs.Claim(ctx, service.JobClaim{JobID: "job", DATID: "dat", AtMS: 1000}); err != nil {
 			return err
 		}

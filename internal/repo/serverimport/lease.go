@@ -13,7 +13,7 @@ import (
 type Leases struct{ database *sql.DB }
 
 func NewLeases(database *sql.DB) *Leases { return &Leases{database} }
-func (repository *Leases) WithWrite(ctx context.Context, work func(serverimport.LeaseRecords) error) error {
+func (repository *Leases) CommitWrite(ctx context.Context, work func(serverimport.LeaseRecords) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import lease: %w", err)

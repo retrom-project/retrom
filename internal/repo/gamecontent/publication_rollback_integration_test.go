@@ -17,7 +17,7 @@ import (
 type failingPublicationRepository struct{ gamecontent.Repository }
 
 func (repository failingPublicationRepository) WithWrite(ctx context.Context, work func(gamecontent.WriteScope) error) error {
-	return repository.Repository.WithWrite(ctx, func(scope gamecontent.WriteScope) error {
+	return repository.Repository.CommitWrite(ctx, func(scope gamecontent.WriteScope) error {
 		scope.ContentWriter = failingPublicationWriter{scope.ContentWriter}
 		return work(scope)
 	})

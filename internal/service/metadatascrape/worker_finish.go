@@ -10,7 +10,7 @@ import (
 func (worker *Worker) settle(parent context.Context, claim WorkerClaim, count int, code string, cause error) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
-	err := worker.repository.WithWrite(ctx, func(scope WorkerScope) error {
+	err := worker.repository.CommitWrite(ctx, func(scope WorkerScope) error {
 		now := worker.now().UnixMilli()
 		status, err := scope.Leases.Status(ctx, claim, now)
 		if err != nil {

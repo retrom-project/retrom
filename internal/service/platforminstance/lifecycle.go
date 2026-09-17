@@ -74,7 +74,7 @@ func (service *Service) Patch(ctx context.Context, input PlatformInstancePatch) 
 		return PlatformInstancePatchResult{}, ErrInvalid
 	}
 	var result PlatformInstancePatchResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		current, err := scope.Reader.Instance(ctx, input.ID)
 		if err != nil {
 			return fmt.Errorf("read instance: %w", err)
@@ -137,7 +137,7 @@ func (service *Service) Reorder(
 		return nil, err
 	}
 	var result []PlatformInstanceOrderResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		rows, err := scope.Reader.Directories(ctx)
 		if err != nil {
 			return fmt.Errorf("read directories: %w", err)
@@ -156,7 +156,7 @@ func (service *Service) Delete(ctx context.Context, input PlatformInstanceDelete
 	if input.ID == "" || input.ExpectedVersion < 1 {
 		return ErrInvalid
 	}
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		current, err := scope.Reader.Instance(ctx, input.ID)
 		if err != nil {
 			return fmt.Errorf("read instance: %w", err)

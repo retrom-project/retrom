@@ -17,7 +17,7 @@ func (service *Service) publish(
 	prepared PreparedReplacement,
 ) error {
 	now := service.now().UnixMilli()
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		binding, err := publicationBinding(ctx, scope, claim, snapshot, prepared, now)
 		if err != nil {
 			return err

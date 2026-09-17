@@ -45,7 +45,7 @@ func (service *PasswordService) Change(
 		return Session{}, err
 	}
 	var result Session
-	err = service.repository.WithWrite(ctx, func(scope PasswordScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope PasswordScope) error {
 		now := service.now().UnixMilli()
 		state, found, err := scope.Read.Current(ctx, actor, now)
 		if err != nil {

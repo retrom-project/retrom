@@ -31,7 +31,7 @@ func (service *Authentication) Authenticate(ctx context.Context, token string) (
 
 func (service *Authentication) refresh(ctx context.Context, digest [32]byte) (SessionSnapshot, error) {
 	var snapshot SessionSnapshot
-	err := service.repository.WithWrite(ctx, func(scope AuthScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope AuthScope) error {
 		current, found, err := scope.Read.Session(ctx, digest)
 		if err != nil {
 			return fmt.Errorf("recheck authentication session: %w", err)

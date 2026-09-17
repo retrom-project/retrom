@@ -15,7 +15,7 @@ func (worker *Worker) claim(ctx context.Context, run WorkerRun) (WorkerClaim, bo
 		WorkerID: workerID, Version: run.Version, AttemptCount: run.AttemptCount,
 	}
 	claimed := false
-	err = worker.repository.WithWrite(ctx, func(scope WorkerScope) error {
+	err = worker.repository.CommitWrite(ctx, func(scope WorkerScope) error {
 		claim.Now = worker.now().UnixMilli()
 		claim.Deadline = run.Deadline
 		if claim.Deadline == 0 {

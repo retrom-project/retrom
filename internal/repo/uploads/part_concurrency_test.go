@@ -77,11 +77,11 @@ type partCommitGate struct {
 	staged, proceed chan struct{}
 }
 
-func (gate *partCommitGate) WithWrite(ctx context.Context, work func(uploads.WriteScope) error) error {
+func (gate *partCommitGate) CommitWrite(ctx context.Context, work func(uploads.WriteScope) error) error {
 	close(gate.staged)
 	select {
 	case <-gate.proceed:
-		return gate.Repository.WithWrite(ctx, work)
+		return gate.Repository.CommitWrite(ctx, work)
 	case <-ctx.Done():
 		return ctx.Err()
 	}

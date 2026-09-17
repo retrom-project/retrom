@@ -29,7 +29,7 @@ WHERE launch_session_id=? ORDER BY logical_name LIMIT 1`, fmt.Sprintf("companion
 		}
 	}
 	var impact gamecontent.RetirementImpact
-	err := New(fixture.db).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	err := New(fixture.db).CommitWrite(t.Context(), func(scope gamecontent.WriteScope) error {
 		var err error
 		impact, err = gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
 		return err
@@ -64,7 +64,7 @@ func TestContentRetirementPreservesLateReadCauseAndRollsBack(t *testing.T) {
 			return nil
 		},
 	})
-	err := New(fault).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	err := New(fault).CommitWrite(t.Context(), func(scope gamecontent.WriteScope) error {
 		_, err := gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
 		return err
 	})

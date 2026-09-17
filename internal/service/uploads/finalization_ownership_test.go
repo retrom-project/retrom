@@ -26,7 +26,7 @@ type finalizationStopRepository struct {
 	writes int
 }
 
-func (repository *finalizationStopRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *finalizationStopRepository) CommitWrite(_ context.Context, work func(WriteScope) error) error {
 	repository.writes++
 	if repository.writes == 2 {
 		repository.job.ExecutionNo = 2

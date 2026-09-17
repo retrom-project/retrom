@@ -24,7 +24,7 @@ func (memory *recoveryMemory) Current(context.Context, string) (RecoveryTarget, 
 	return memory.target, true, nil
 }
 
-func (memory *recoveryMemory) WithWrite(_ context.Context, work func(RecoveryScope) error) error {
+func (memory *recoveryMemory) CommitWrite(_ context.Context, work func(RecoveryScope) error) error {
 	if err := work(RecoveryScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}

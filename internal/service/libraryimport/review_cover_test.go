@@ -29,7 +29,7 @@ func (fixture *coverRepositoryFixture) Source(context.Context, string) (ReviewCo
 	return source, source.FileID != "", fixture.sourceError
 }
 
-func (fixture *coverRepositoryFixture) WithWrite(_ context.Context, work func(ReviewCoverScope) error) error {
+func (fixture *coverRepositoryFixture) CommitWrite(_ context.Context, work func(ReviewCoverScope) error) error {
 	fixture.transactions++
 	fixture.insideTransaction = true
 	defer func() { fixture.insideTransaction = false }()

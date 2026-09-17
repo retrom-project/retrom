@@ -19,7 +19,7 @@ type administrationMemory struct {
 	lateError error
 }
 
-func (memory *administrationMemory) WithWrite(_ context.Context, work func(AdministrationScope) error) error {
+func (memory *administrationMemory) CommitWrite(_ context.Context, work func(AdministrationScope) error) error {
 	if err := work(AdministrationScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}

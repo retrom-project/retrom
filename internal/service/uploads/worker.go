@@ -27,7 +27,7 @@ func (service *Service) claim(ctx context.Context, id string) (finalizationClaim
 		return finalizationClaim{}, fmt.Errorf("create upload worker ID: %w", err)
 	}
 	var claim finalizationClaim
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		job, err := scope.Jobs.Get(ctx, id)
 		if err != nil {
 			return finalizationError("read upload authority", err)
@@ -175,7 +175,7 @@ func (service *Service) monitor(ctx context.Context, cancel context.CancelCauseF
 		case <-ticker.C:
 		}
 		now := service.now().UnixMilli()
-		err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 			job, err := scope.Jobs.Get(ctx, run.JobID)
 			if err != nil {
 				return finalizationError("observe upload job", err)

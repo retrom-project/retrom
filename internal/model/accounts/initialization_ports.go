@@ -36,7 +36,7 @@ type InitializationScope struct {
 type InitializationRepository interface {
 	State(context.Context) (InitializationState, error)
 	Credentials(context.Context) ([]StoredCredential, error)
-	WithWrite(context.Context, func(InitializationScope) error) error
+	CommitWrite(context.Context, func(InitializationScope) error) error
 }
 type SetupCredentials interface {
 	SetupCode() string

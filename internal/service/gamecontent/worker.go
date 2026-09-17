@@ -37,7 +37,7 @@ func (service *Service) Run(parent context.Context, jobID string, executionNo in
 		Deadline:    now + replacementExecutionTimeout.Milliseconds(),
 	}
 	var claimed bool
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		var err error
 		claimed, err = scope.Leases.Claim(ctx, claim)
 		if err != nil {
@@ -112,7 +112,7 @@ func (service *Service) heartbeat(
 			return
 		case <-ticker.C:
 			current := false
-			err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+			err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 				var err error
 				current, err = scope.Leases.Refresh(ctx, claim, service.now().UnixMilli())
 				if err != nil {
@@ -165,7 +165,7 @@ func (service *Service) settleFailure(parent context.Context, claim Claim, snaps
 	defer cancel()
 	outcome := failureOutcome(claim, snapshot, cause, service.now().UnixMilli())
 	changed := false
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		state, err := scope.Leases.State(ctx, claim)
 		if err != nil {
 			return fmt.Errorf("read failed replacement ownership: %w", err)

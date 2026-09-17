@@ -13,8 +13,8 @@ type failingDiscoveryRepository struct {
 	importservice.DiscoveryRepository
 }
 
-func (repository failingDiscoveryRepository) WithWrite(ctx context.Context, work func(importservice.DiscoveryRecords) error) error {
-	return repository.DiscoveryRepository.WithWrite(ctx, func(records importservice.DiscoveryRecords) error {
+func (repository failingDiscoveryRepository) CommitWrite(ctx context.Context, work func(importservice.DiscoveryRecords) error) error {
+	return repository.DiscoveryRepository.CommitWrite(ctx, func(records importservice.DiscoveryRecords) error {
 		if err := work(records); err != nil {
 			return err
 		}

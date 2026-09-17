@@ -9,7 +9,7 @@ import (
 
 type Repository interface {
 	WithRead(context.Context, func(ReadScope) error) error
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitWrite(context.Context, func(WriteScope) error) error
 }
 type ReadScope struct {
 	Content Reader

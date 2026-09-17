@@ -28,7 +28,7 @@ func (service *Service) DeleteAdminGame(
 		now = service.now().UnixMilli()
 	}
 	var result DeleteGameResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		return service.deleteInScope(ctx, scope, request, now, &result)
 	})
 	if err != nil {

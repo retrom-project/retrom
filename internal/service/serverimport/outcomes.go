@@ -21,7 +21,7 @@ func NewOutcomes(repository OutcomeRepository, now func() time.Time) *Outcomes {
 }
 
 func (service *Outcomes) Finish(ctx context.Context, unit Work) error {
-	err := service.repository.WithWrite(ctx, func(scope OutcomeScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope OutcomeScope) error {
 		now := service.now().UnixMilli()
 		counts, err := lockedCounts(ctx, scope, unit, now, RunningWorker)
 		if err != nil {
@@ -61,7 +61,7 @@ func (service *Outcomes) Finish(ctx context.Context, unit Work) error {
 }
 
 func (service *Outcomes) Cancel(ctx context.Context, unit Work) error {
-	err := service.repository.WithWrite(ctx, func(scope OutcomeScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope OutcomeScope) error {
 		now := service.now().UnixMilli()
 		counts, err := lockedCounts(ctx, scope, unit, now, CancelledWorker)
 		if err != nil {
@@ -96,7 +96,7 @@ func (service *Outcomes) Cancel(ctx context.Context, unit Work) error {
 
 func (service *Outcomes) Fail(ctx context.Context, unit Work, code string) (int64, error) {
 	var retryAt int64
-	err := service.repository.WithWrite(ctx, func(scope OutcomeScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope OutcomeScope) error {
 		now := service.now().UnixMilli()
 		access := RunningWorker
 		if unit.Recovery {

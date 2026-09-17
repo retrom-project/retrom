@@ -55,7 +55,7 @@ type AuthScope struct {
 type AuthRepository interface {
 	Credential(context.Context, string) (LoginCredential, bool, error)
 	Session(context.Context, [32]byte) (SessionSnapshot, bool, error)
-	WithWrite(context.Context, func(AuthScope) error) error
+	CommitWrite(context.Context, func(AuthScope) error) error
 }
 type PasswordVerifier interface {
 	Verify(context.Context, string, string) (bool, error)

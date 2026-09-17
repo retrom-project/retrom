@@ -24,7 +24,7 @@ func ensureBuiltInDATJob(
 	digest := sha256.Sum256(append([]byte("retrom-job-dedupe-v1\x00DAT_PARSE\x00"), canonical...))
 	dedupe := hex.EncodeToString(digest[:])
 	var id string
-	err = repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = repository.CommitWrite(ctx, func(scope WriteScope) error {
 		job, found, err := scope.Jobs.Find(ctx, dedupe)
 		if err != nil {
 			return fmt.Errorf("find built-in DAT job: %w", err)
@@ -90,7 +90,7 @@ func prepareDATJob(
 }
 
 func claimBuiltInDATJob(ctx context.Context, repository Repository, datID, jobID string, now time.Time) error {
-	err := repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := repository.CommitWrite(ctx, func(scope WriteScope) error {
 		if err := scope.Jobs.Claim(ctx, JobClaim{
 			JobID: jobID, DATID: datID, AtMS: now.UnixMilli(),
 			DeadlineMS: now.Add(30 * time.Minute).UnixMilli(), LeaseUntilMS: now.Add(time.Minute).UnixMilli(),
@@ -122,7 +122,7 @@ func failBuiltInDAT(ctx context.Context, repository Repository, datID, jobID, co
 	if err != nil {
 		return fmt.Errorf("encode DAT failure: %w", err)
 	}
-	err = repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = repository.CommitWrite(ctx, func(scope WriteScope) error {
 		if err := scope.Catalog.MarkFailed(ctx, datID, now.UnixMilli()); err != nil {
 			return fmt.Errorf("mark DAT failure: %w", err)
 		}

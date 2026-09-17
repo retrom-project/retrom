@@ -14,7 +14,7 @@ import (
 
 func (service *Service) Complete(ctx context.Context, id string, version int64) (string, int64, error) {
 	var run Run
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		current, err := scope.Sessions.Current(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read upload completion state: %w", err)
@@ -100,7 +100,7 @@ func jobEvent(run Run, attempt int, code string) []byte {
 func (service *Service) Cancel(ctx context.Context, id string, version int64) (Canceled, bool, error) {
 	var result Canceled
 	var pending bool
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		current, err := scope.Sessions.Current(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read upload cancellation state: %w", err)

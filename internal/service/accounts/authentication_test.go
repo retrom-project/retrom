@@ -27,7 +27,7 @@ func (memory *authMemory) Session(context.Context, [32]byte) (SessionSnapshot, b
 	return memory.snapshot, memory.found, memory.readError
 }
 
-func (memory *authMemory) WithWrite(_ context.Context, work func(AuthScope) error) error {
+func (memory *authMemory) CommitWrite(_ context.Context, work func(AuthScope) error) error {
 	memory.writeCalls++
 	if memory.duringWrite != nil {
 		memory.duringWrite()

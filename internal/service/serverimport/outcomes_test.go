@@ -18,7 +18,7 @@ type outcomeMemory struct {
 	lateErr, readErr error
 }
 
-func (memory *outcomeMemory) WithWrite(_ context.Context, work func(OutcomeScope) error) error {
+func (memory *outcomeMemory) CommitWrite(_ context.Context, work func(OutcomeScope) error) error {
 	if err := work(OutcomeScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}

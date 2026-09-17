@@ -27,7 +27,7 @@ func (repository *deleteGameTestRepository) WithRead(
 	return nil
 }
 
-func (repository *deleteGameTestRepository) WithWrite(
+func (repository *deleteGameTestRepository) CommitWrite(
 	_ context.Context, work func(WriteScope) error,
 ) error {
 	return work(WriteScope{GameDeletionReader: repository, GameDeletionWriter: repository})

@@ -79,7 +79,7 @@ type ScheduleScope struct {
 	Writes   ScheduleWriter
 }
 type ScheduleRepository interface {
-	WithWrite(context.Context, func(ScheduleScope) error) error
+	CommitWrite(context.Context, func(ScheduleScope) error) error
 }
 type ScrapeDispatcher interface {
 	Dispatch(context.Context, string) bool
