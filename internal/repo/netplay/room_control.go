@@ -3,57 +3,76 @@ package netplay
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/model/netplay"
-	validation "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
 )
 
 type RoomControl struct{ database *sql.DB }
 
 func NewRoomControl(database *sql.DB) *RoomControl { return &RoomControl{database: database} }
-func (repository *RoomControl) CommitMutation(
-	ctx context.Context, cmd netplay.MutationCommand, apply netplay.MutationFunc,
-) (netplay.Room, error) {
+
+func (repository *RoomControl) LoadControlSnapshot(
+	ctx context.Context, roomID, actorID string,
+) (netplay.RoomControlSnapshot, error) {
+	records := roomControlRecords{repository.database}
+	return records.Current(ctx, roomID, actorID)
+}
+
+// roomMutationGuard opens a transaction, reads the room snapshot, and
+// validates version, host-only and allowed-state guards.
+func (repository *RoomControl) roomMutationGuard(
+	ctx context.Context,
+	roomID, actorID string,
+	version int64,
+	hostOnly bool,
+	allowedStates []string,
+) (*sql.Tx, roomControlRecords, netplay.RoomControlSnapshot, error) {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return netplay.Room{}, fmt.Errorf("netplay/begin room control: %w", err)
+		return nil, roomControlRecords{}, netplay.RoomControlSnapshot{},
+			fmt.Errorf("netplay/begin room control: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
 	records := roomControlRecords{transaction}
-	scope := netplay.RoomControlScope{
-		Read:        records,
-		Write:       records,
-		Eligibility: NewEligibility(transaction),
-		BIOS:        validation.New(transaction),
-	}
-	before, err := scope.Read.Current(ctx, cmd.RoomID, cmd.ActorID)
+	before, err := records.Current(ctx, roomID, actorID)
 	if err != nil {
-		return netplay.Room{}, fmt.Errorf("netplay/read room control: %w", err)
+		dbexec.Rollback(transaction)
+		return nil, records, before,
+			fmt.Errorf("netplay/read room control: %w", err)
 	}
-	if cmd.HostOnly && before.HostID != cmd.ActorID {
-		return netplay.Room{}, netplay.ErrForbidden
+	if hostOnly && before.HostID != actorID {
+		dbexec.Rollback(transaction)
+		return nil, records, before, netplay.ErrForbidden
 	}
-	if before.Version != cmd.Version {
-		return netplay.Room{}, netplay.ErrPrecondition
+	if before.Version != version {
+		dbexec.Rollback(transaction)
+		return nil, records, before, netplay.ErrPrecondition
 	}
 	found := false
-	for _, s := range cmd.States {
+	for _, s := range allowedStates {
 		if s == before.State {
 			found = true
 			break
 		}
 	}
 	if !found {
-		return netplay.Room{}, netplay.ErrRoomConflict
+		dbexec.Rollback(transaction)
+		return nil, records, before, netplay.ErrRoomConflict
 	}
-	if err := apply(scope, before, cmd.NowMS); err != nil {
-		return netplay.Room{}, fmt.Errorf("apply room control: %w", err)
-	}
-	result, err := scope.Read.Snapshot(ctx, cmd.RoomID)
+	return transaction, records, before, nil
+}
+
+func (repository *RoomControl) commitRoomResult(
+	ctx context.Context,
+	transaction *sql.Tx,
+	records roomControlRecords,
+	roomID string,
+) (netplay.Room, error) {
+	result, err := records.Snapshot(ctx, roomID)
 	if err != nil {
 		return netplay.Room{}, fmt.Errorf("netplay/read updated room: %w", err)
 	}
@@ -61,6 +80,143 @@ func (repository *RoomControl) CommitMutation(
 		return netplay.Room{}, fmt.Errorf("netplay/commit room control: %w", err)
 	}
 	return result, nil
+}
+
+func (repository *RoomControl) CommitSelectGame(
+	ctx context.Context, cmd netplay.SelectGameCommand,
+) (netplay.Room, error) {
+	transaction, records, before, err := repository.roomMutationGuard(
+		ctx, cmd.RoomID, cmd.ActorID, cmd.Version, true,
+		[]string{netplay.RoomStateDraft, netplay.RoomStateWaiting},
+	)
+	if err != nil {
+		return netplay.Room{}, err
+	}
+	defer dbexec.Rollback(transaction)
+
+	for _, member := range before.Occupants {
+		if member.PlayerNo > cmd.Selection.MaxPlayers {
+			return netplay.Room{}, netplay.ErrInvalidSeat
+		}
+	}
+	data, err := json.Marshal(struct {
+		SchemaVersion int `json:"schemaVersion"`
+		PlayerCount   int `json:"playerCount"`
+	}{1, cmd.Selection.MaxPlayers})
+	if err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/selection event: %w", err)
+	}
+	player := 1
+	if err := records.Select(ctx, netplay.RoomSelectionPlan{
+		Before:    before,
+		Selection: cmd.Selection,
+		Evidence: netplay.RoomControlEvidence{
+			ActorID:     cmd.ActorID,
+			Type:        "GAME_SELECTED",
+			PlayerNo:    &player,
+			Data:        data,
+			Now:         cmd.NowMS,
+			ExpiresAtMS: cmd.NowMS + cmd.IdleMS,
+		},
+	}); err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/select game: %w", err)
+	}
+	return repository.commitRoomResult(ctx, transaction, records, cmd.RoomID)
+}
+
+func (repository *RoomControl) CommitClearGame(
+	ctx context.Context, cmd netplay.ClearGameCommand,
+) (netplay.Room, error) {
+	transaction, records, before, err := repository.roomMutationGuard(
+		ctx, cmd.RoomID, cmd.ActorID, cmd.Version, true,
+		[]string{netplay.RoomStateWaiting},
+	)
+	if err != nil {
+		return netplay.Room{}, err
+	}
+	defer dbexec.Rollback(transaction)
+
+	player := 1
+	if err := records.Clear(ctx, netplay.RoomClearPlan{
+		Before: before,
+		Evidence: netplay.RoomControlEvidence{
+			ActorID:     cmd.ActorID,
+			Type:        "GAME_CLEARED",
+			PlayerNo:    &player,
+			Data:        []byte(`{"schemaVersion":1}`),
+			Now:         cmd.NowMS,
+			ExpiresAtMS: cmd.NowMS + cmd.IdleMS,
+		},
+	}); err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/clear game: %w", err)
+	}
+	return repository.commitRoomResult(ctx, transaction, records, cmd.RoomID)
+}
+
+func (repository *RoomControl) CommitSetSeat(
+	ctx context.Context, cmd netplay.SetSeatCommand,
+) (netplay.Room, error) {
+	transaction, records, before, err := repository.roomMutationGuard(
+		ctx, cmd.RoomID, cmd.ActorID, cmd.Version, false,
+		[]string{netplay.RoomStateWaiting},
+	)
+	if err != nil {
+		return netplay.Room{}, err
+	}
+	defer dbexec.Rollback(transaction)
+
+	if err := netplay.ValidateSeat(before, cmd.PlayerNo, cmd.ActorID); err != nil {
+		return netplay.Room{}, err
+	}
+	plan, err := netplay.BuildSeatPlan(
+		before, cmd.ActorID, cmd.PlayerNo,
+		cmd.NewMemberID, cmd.NowMS, cmd.IdleMS,
+	)
+	if err != nil {
+		return netplay.Room{}, err
+	}
+	if err := records.Seat(ctx, plan); err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/set seat: %w", err)
+	}
+	return repository.commitRoomResult(ctx, transaction, records, cmd.RoomID)
+}
+
+func (repository *RoomControl) CommitSetReady(
+	ctx context.Context, cmd netplay.SetReadyCommand,
+) (netplay.Room, error) {
+	transaction, records, before, err := repository.roomMutationGuard(
+		ctx, cmd.RoomID, cmd.ActorID, cmd.Version, false,
+		[]string{netplay.RoomStateWaiting},
+	)
+	if err != nil {
+		return netplay.Room{}, err
+	}
+	defer dbexec.Rollback(transaction)
+
+	if before.Member == nil || before.Member.LeftAtMS != nil {
+		return netplay.Room{}, netplay.ErrForbidden
+	}
+	data, err := json.Marshal(struct {
+		SchemaVersion int  `json:"schemaVersion"`
+		Ready         bool `json:"ready"`
+	}{1, cmd.Ready})
+	if err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/ready event: %w", err)
+	}
+	if err := records.Ready(ctx, netplay.RoomReadyPlan{
+		Before: before,
+		Ready:  cmd.Ready,
+		Evidence: netplay.RoomControlEvidence{
+			ActorID:     cmd.ActorID,
+			Type:        "READY_CHANGED",
+			Data:        data,
+			Now:         cmd.NowMS,
+			ExpiresAtMS: cmd.NowMS + cmd.IdleMS,
+		},
+	}); err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/set ready: %w", err)
+	}
+	return repository.commitRoomResult(ctx, transaction, records, cmd.RoomID)
 }
 
 type roomControlRecords struct{ executor dbexec.Executor }

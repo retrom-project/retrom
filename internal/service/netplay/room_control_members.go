@@ -2,8 +2,6 @@ package netplay
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 
 	model "retrom/internal/model/netplay"
@@ -18,95 +16,24 @@ func (service *RoomControl) SetSeat(
 	if playerNo < 2 || playerNo > 4 {
 		return model.Room{}, model.ErrInvalidSeat
 	}
-	request := roomMutation{
-		roomID:  roomID,
-		actorID: actorID,
-		version: version,
-		states:  []string{model.RoomStateWaiting},
-	}
-	return service.mutate(
-		ctx,
-		request,
-		func(scope model.RoomControlScope, before model.RoomControlSnapshot, now int64) error {
-			if err := validateSeat(before, playerNo, actorID); err != nil {
-				return err
-			}
-			plan, err := service.seatPlan(before, actorID, playerNo, now)
-			if err != nil {
-				return err
-			}
-			if err := scope.Write.Seat(ctx, plan); err != nil {
-				return fmt.Errorf("netplay/set seat: %w", err)
-			}
-			return nil
-		},
-	)
-}
-
-func validateSeat(before model.RoomControlSnapshot, playerNo int, actorID string) error {
-	if before.Selection == nil {
-		return model.ErrProfileStale
-	}
-	if playerNo > before.Selection.MaxPlayers {
-		return model.ErrInvalidSeat
-	}
-	if before.Member != nil {
-		if before.Member.Ready {
-			return model.ErrRoomConflict
-		}
-		if before.Member.Role == "HOST" {
-			return model.ErrForbidden
-		}
-	}
-	for _, member := range before.Occupants {
-		if member.PlayerNo == playerNo && member.ProfileID != actorID {
-			return model.ErrSeatTaken
-		}
-	}
-	return nil
-}
-
-func (service *RoomControl) seatPlan(
-	before model.RoomControlSnapshot,
-	actorID string,
-	playerNo int,
-	now int64,
-) (model.RoomSeatPlan, error) {
-	memberID, eventType := "", "SEAT_CHANGED"
-	var fromPlayer *int
-	if before.Member != nil {
-		memberID = before.Member.ID
-		player := before.Member.PlayerNo
-		fromPlayer = &player
-	} else {
-		eventType = "MEMBER_JOINED"
-		var err error
-		memberID, err = service.newID()
-		if err != nil {
-			return model.RoomSeatPlan{}, fmt.Errorf("netplay/new member identity: %w", err)
-		}
-	}
-	data, err := json.Marshal(struct {
-		SchemaVersion int  `json:"schemaVersion"`
-		ToPlayerNo    int  `json:"toPlayerNo"`
-		FromPlayerNo  *int `json:"fromPlayerNo,omitempty"`
-	}{1, playerNo, fromPlayer})
+	memberID, err := service.newID()
 	if err != nil {
-		return model.RoomSeatPlan{}, fmt.Errorf("netplay/seat event: %w", err)
+		return model.Room{}, fmt.Errorf("netplay/new member identity: %w", err)
 	}
-	return model.RoomSeatPlan{
-		Before:   before,
-		MemberID: memberID,
-		PlayerNo: playerNo,
-		Evidence: model.RoomControlEvidence{
-			ActorID:     actorID,
-			Type:        eventType,
-			PlayerNo:    &playerNo,
-			Data:        data,
-			Now:         now,
-			ExpiresAtMS: now + service.waitingIdle.Milliseconds(),
-		},
-	}, nil
+	now := service.now().UnixMilli()
+	result, err := service.repository.CommitSetSeat(ctx, model.SetSeatCommand{
+		RoomID:      roomID,
+		ActorID:     actorID,
+		Version:     version,
+		PlayerNo:    playerNo,
+		NewMemberID: memberID,
+		NowMS:       now,
+		IdleMS:      service.waitingIdle.Milliseconds(),
+	})
+	if err != nil {
+		return model.Room{}, fmt.Errorf("netplay/set seat: %w", err)
+	}
+	return roomForViewer(result, actorID, now), nil
 }
 
 func (service *RoomControl) SetReady(
@@ -115,70 +42,26 @@ func (service *RoomControl) SetReady(
 	ready bool,
 	version int64,
 ) (model.Room, error) {
-	request := roomMutation{
-		roomID:  roomID,
-		actorID: actorID,
-		version: version,
-		states:  []string{model.RoomStateWaiting},
+	if ready {
+		snapshot, err := service.repository.LoadControlSnapshot(ctx, roomID, actorID)
+		if err != nil {
+			return model.Room{}, fmt.Errorf("netplay/read ready state: %w", err)
+		}
+		if err := service.requireCurrentSelection(ctx, snapshot.Selection); err != nil {
+			return model.Room{}, err
+		}
 	}
-	return service.mutate(
-		ctx,
-		request,
-		func(scope model.RoomControlScope, before model.RoomControlSnapshot, now int64) error {
-			if before.Member == nil || before.Member.LeftAtMS != nil {
-				return model.ErrForbidden
-			}
-			if ready {
-				if err := service.requireCurrentSelection(ctx, scope, before.Selection); err != nil {
-					return err
-				}
-			}
-			data, err := json.Marshal(struct {
-				SchemaVersion int  `json:"schemaVersion"`
-				Ready         bool `json:"ready"`
-			}{1, ready})
-			if err != nil {
-				return fmt.Errorf("netplay/ready event: %w", err)
-			}
-			err = scope.Write.Ready(
-				ctx,
-				model.RoomReadyPlan{
-					Before: before,
-					Ready:  ready,
-					Evidence: model.RoomControlEvidence{
-						ActorID:     actorID,
-						Type:        "READY_CHANGED",
-						Data:        data,
-						Now:         now,
-						ExpiresAtMS: now + service.waitingIdle.Milliseconds(),
-					},
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("netplay/set ready: %w", err)
-			}
-			return nil
-		},
-	)
-}
-
-func (service *RoomControl) requireCurrentSelection(
-	ctx context.Context,
-	scope model.RoomControlScope,
-	locked *model.RoomSelection,
-) error {
-	if locked == nil {
-		return model.ErrProfileStale
-	}
-	current, err := service.selection(ctx, scope, locked.GameID, locked.ProfileID)
-	if errors.Is(err, model.ErrInvalidProfile) {
-		return model.ErrProfileStale
-	}
+	now := service.now().UnixMilli()
+	result, err := service.repository.CommitSetReady(ctx, model.SetReadyCommand{
+		RoomID:  roomID,
+		ActorID: actorID,
+		Version: version,
+		Ready:   ready,
+		NowMS:   now,
+		IdleMS:  service.waitingIdle.Milliseconds(),
+	})
 	if err != nil {
-		return err
+		return model.Room{}, fmt.Errorf("netplay/set ready: %w", err)
 	}
-	if current != *locked {
-		return model.ErrProfileStale
-	}
-	return nil
+	return roomForViewer(result, actorID, now), nil
 }

@@ -39,6 +39,8 @@ func NewNetplay(
 		),
 		Controls: netplayservice.NewRoomControl(
 			repository.NewRoomControl(database),
+			repository.NewEligibility(database),
+			corevalidation.New(validationrepository.New(database)),
 			registry,
 			options.DraftIdle,
 			options.WaitingIdle,
