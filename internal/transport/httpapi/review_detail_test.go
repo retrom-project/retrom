@@ -255,7 +255,8 @@ func assertPegasusReviewSources(
 	videoPayload := []byte("pegasus review video fixture")
 	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
 	testassert.False(t, err != nil, err)
-	mustExecHTTPTest(t, server.database, `
+	mustExecHTTPTest(
+		t, server.database, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?),
@@ -263,7 +264,8 @@ VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,?
 `, pegasusScanJobID, pegasusImportID, strings.Repeat("1", 64), timestamp, timestamp, timestamp, timestamp,
 		pegasusWorkJobID, pegasusImportID, strings.Repeat("2", 64), timestamp, timestamp, timestamp, timestamp,
 	)
-	mustExecHTTPTest(t, server.database, `
+	mustExecHTTPTest(
+		t, server.database, `
 INSERT INTO pegasus_imports(
  id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,scan_job_id,
  import_job_id,collection_count,game_count,mapped_collection_count,processable_item_count,
@@ -283,7 +285,8 @@ INSERT INTO pegasus_import_collections(
  (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,?)
 `, pegasusCollectionID, pegasusImportID, target.ProviderID, target.TargetID,
 		timestamp, timestamp)
-	mustExecHTTPTest(t, server.database, `
+	mustExecHTTPTest(
+		t, server.database, `
 INSERT INTO pegasus_import_items(
  id,import_id,collection_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,
  execution_state,content_kind,metadata_json,source_manifest_json,source_manifest_digest,
@@ -293,13 +296,15 @@ INSERT INTO pegasus_import_items(
 `, pegasusItemID, pegasusImportID, pegasusCollectionID, strings.Repeat("4", 64), manifest, digest,
 		importID, itemID, timestamp, timestamp, timestamp,
 	)
-	mustExecHTTPTest(t, server.database, `
+	mustExecHTTPTest(
+		t, server.database, `
 INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,?,?,?,?,'video/mp4',?)
 `, pegasusVideoBlobID, videoMetadata.SHA256, videoMetadata.Size, videoMetadata.MD5,
 		videoMetadata.SHA1, videoMetadata.CRC32, timestamp,
 	)
-	mustExecHTTPTest(t, server.database, `
+	mustExecHTTPTest(
+		t, server.database, `
 INSERT INTO pegasus_import_item_assets(
  item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,blob_id,media_type,
  width_px,height_px,state,created_at_ms,updated_at_ms
@@ -349,7 +354,8 @@ WHERE id=?
 		return !strings.Contains(pegasusDetail.Body.String(), `"videoUrl":"/api/v1/admin/review-assets/`+pegasusItemID+`?kind=VIDEO"`)
 	}), "Pegasus review source media = %d %s", pegasusDetail.Code, pegasusDetail.Body.String())
 	pegasusVideo := httptest.NewRecorder()
-	pegasusVideoRequest := httptest.NewRequestWithContext(context.Background(),
+	pegasusVideoRequest := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodGet,
 		"/api/v1/admin/review-assets/"+pegasusItemID+"?kind=VIDEO",
 		nil,
@@ -371,7 +377,8 @@ VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','SYSTEM',NULL,'releas
 '{"schemaVersion":2,"decision":"APPROVED"}','{}','{}','{}','{}',NULL,?)
 `, itemID, `{"schemaVersion":2,"metadata":{"title":"Visible candidate"}}`, timestamp)
 	historyDetail := httptest.NewRecorder()
-	historyRequest := httptest.NewRequestWithContext(context.Background(),
+	historyRequest := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodGet,
 		"/api/v1/admin/review-history/01980000-0000-7000-8000-000000000135",
 		nil,

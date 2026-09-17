@@ -19,7 +19,8 @@ func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testin
 	server := newTestServer(t)
 	handler := server.Handler()
 	cookie, csrfToken := testSessionCredentials()
-	request := httptest.NewRequestWithContext(context.Background(),
+	request := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost,
 		"/api/v1/launches",
 		strings.NewReader(
@@ -33,7 +34,8 @@ func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testin
 	handler.ServeHTTP(recorder, request)
 	testassert.Falsef(t, testassert.Any(func() bool { return recorder.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(recorder.Body.String(), `"code":"INVALID_REQUEST"`) }), "unknown JSON response = %d %s", recorder.Code, recorder.Body.String())
 
-	request = httptest.NewRequestWithContext(context.Background(),
+	request = httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPatch,
 		"/api/v1/saves/01980000-0000-7000-8000-000000000001",
 		strings.NewReader(`{"name":"slot"}`),
@@ -90,7 +92,8 @@ func TestReviewScreenshotValidatesMediaTypeAndCredentialBeforeReadingBody(t *tes
 	server.storeReviewScreenshot(response, invalidType)
 	testassert.Falsef(t, testassert.Any(func() bool { return response.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(response.Body.String(), `"code":"REVIEW_SCREENSHOT_INVALID"`) }), "invalid review screenshot media type = %d %s", response.Code, response.Body.String())
 
-	unauthorized := httptest.NewRequestWithContext(context.Background(),
+	unauthorized := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost,
 		"/runtime/launches/preview/review-screenshot",
 		io.NopCloser(panicReader{}),
@@ -101,7 +104,8 @@ func TestReviewScreenshotValidatesMediaTypeAndCredentialBeforeReadingBody(t *tes
 	server.storeReviewScreenshot(response, unauthorized)
 	testassert.Falsef(t, testassert.Any(func() bool { return response.Code != http.StatusUnauthorized }, func() bool { return !strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) }), "unauthorized review screenshot = %d %s", response.Code, response.Body.String())
 
-	unauthorizedJPEG := httptest.NewRequestWithContext(context.Background(),
+	unauthorizedJPEG := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost,
 		"/runtime/launches/preview/review-screenshot",
 		io.NopCloser(panicReader{}),

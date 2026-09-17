@@ -63,7 +63,8 @@ FROM emulationstation_import_item_files WHERE item_id=?`,
 		item.ID, unit.JobID, unit.JobID, unit.JobID, item.ID).
 		Scan(&itemState, &jobState, &availableAt, &retryEvents, &copied, &discovered) != nil,
 		"read recovered work")
-	testassert.Falsef(t,
+	testassert.Falsef(
+		t,
 		itemState != "COPYING" || jobState != "QUEUED" || copied != 1 || discovered != 2 ||
 			availableAt != now+time.Second.Milliseconds() || retryEvents != 1,
 		"recovered state = item:%s job:%s available:%d events:%d copied:%d discovered:%d",
@@ -102,7 +103,8 @@ FROM emulationstation_import_item_files WHERE item_id=?`,
 	), "finished summary = %#v, error = %v", finished, err)
 
 	var retainedBlobID string
-	testassert.False(t, fixture.database.QueryRowContext(fixture.context, `
+	testassert.False(t, fixture.database.QueryRowContext(
+		fixture.context, `
 SELECT blob_id FROM emulationstation_import_item_files WHERE item_id=? AND ordinal=?`,
 		item.ID,
 		first.Ordinal,

@@ -17,25 +17,12 @@ type budgetRepository struct {
 	claim model.Claim
 }
 
-func (repository *budgetRepository) WithRead(_ context.Context, work func(model.ReadScope) error) error {
-	return work(model.ReadScope{Inputs: repository})
-}
-
-func (repository *budgetRepository) Input(context.Context, string, int64) (model.StoredInput, error) {
+func (repository *budgetRepository) ReadInput(_ context.Context, _ string, _ int64) (model.StoredInput, error) {
 	return repository.input, nil
 }
 
-func (repository *budgetRepository) CommitWrite(_ context.Context, work func(model.WriteScope) error) error {
-	return work(model.WriteScope{Leases: budgetLeases{repository: repository}})
-}
-
-type budgetLeases struct {
-	model.LeaseRecords
-	repository *budgetRepository
-}
-
-func (leases budgetLeases) Claim(_ context.Context, claim model.Claim) (bool, error) {
-	leases.repository.claim = claim
+func (repository *budgetRepository) CommitClaimLease(_ context.Context, claim model.Claim) (bool, error) {
+	repository.claim = claim
 	return false, nil
 }
 

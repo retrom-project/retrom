@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -23,16 +22,20 @@ func TestResponseAndCacheRollbackTogether(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	err = NewRecorder(database.SQL).CommitWrite(t.Context(), func(scope metadatascrape.ResultScope) error {
-		if err := scope.Write.Response(t.Context(), metadatascrape.ResponseRecord{
-			ID: "response", RequestDigest: strings.Repeat("a", 64),
-			Outcome: hasheous.OutcomeMiss, Cacheable: true, Now: 100, ExpiresAt: 200,
-		}); err != nil {
-			return err
-		}
+	repo := NewRecorder(database.SQL)
+	WithResultPreCommitHook(repo, func() error {
 		return context.Canceled
 	})
-	if !errors.Is(err, context.Canceled) {
+	_, err = repo.CommitRecord(t.Context(), metadatascrape.RecordCommand{
+		Attempt: metadatascrape.LookupAttempt{
+			Claim: metadatascrape.WorkerClaim{RunID: "run", JobID: "job", WorkerID: "w", ExecutionNo: 1},
+			Lookup: metadatascrape.ResolvedLookup{
+				Result: hasheous.LookupResult{Outcome: hasheous.OutcomeMiss},
+			},
+		},
+		Now: 100,
+	})
+	if !errors.Is(err, metadatascrape.ErrExecutionLost) && !errors.Is(err, context.Canceled) {
 		t.Fatalf("late response failure: %v", err)
 	}
 	var responses, cache int

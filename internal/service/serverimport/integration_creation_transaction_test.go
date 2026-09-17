@@ -11,22 +11,9 @@ import (
 	importservice "retrom/internal/service/serverimport"
 )
 
-type failingCreationRepository struct {
-	model.CreationRepository
-}
-
-func (repository failingCreationRepository) WithCreate(ctx context.Context, work func(model.CreationWriter) error) error {
-	return repository.CreationRepository.WithCreate(ctx, func(writer model.CreationWriter) error {
-		if err := work(writer); err != nil {
-			return err
-		}
-		return context.Canceled
-	})
-}
-
 func TestCreationLateFailureRollsBackTaskSnapshotItemsAndEvidence(t *testing.T) {
 	legacy, database, _ := archiveImportFixture(t)
-	repository := failingCreationRepository{importpersistence.NewCreation(database)}
+	repository := importpersistence.NewCreation(database).WithPreCommitHook(func() error { return context.Canceled })
 	creation := importservice.NewCreation(repository, legacy.SourceSelectorForTest(), legacy.NowForTest)
 	result, err := creation.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if !errors.Is(err, context.Canceled) || result.ID != "" {

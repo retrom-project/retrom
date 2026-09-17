@@ -168,7 +168,8 @@ FROM play_sessions ps_cursor WHERE ps_cursor.game_id=g.id AND ps_cursor.profile_
 			`(%s<? OR (%s=? AND (g.created_at_ms<? OR (g.created_at_ms=? AND (g.title>? OR (g.title=? AND g.id>?))))))`,
 			lastPlayedExpression, lastPlayedExpression,
 		))
-		arguments = append(arguments,
+		arguments = append(
+			arguments,
 			request.ProfileID, lastPlayed, request.ProfileID, lastPlayed,
 			createdAt, createdAt, payload.SortValues[2], payload.SortValues[2], payload.ID,
 		)

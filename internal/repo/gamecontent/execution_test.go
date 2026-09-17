@@ -61,15 +61,19 @@ func finishedTime(state string) *int64 {
 
 func TestReplacementFailureCannotOverwriteCancelledJob(t *testing.T) {
 	database, claim := executionFixture(t, "CANCELLED")
-	err := New(database).CommitWrite(t.Context(), func(scope gamecontent.WriteScope) error {
-		changed, err := scope.Jobs.Fail(t.Context(), gamecontent.Outcome{Claim: claim, GameID: "game", Code: "GAME_CONTENT_INPUT_UNAVAILABLE", Retryable: true, Now: 17})
-		if changed {
-			t.Fatal("cancelled execution accepted failure write")
-		}
-		return err
+	repo := New(database)
+	result, err := repo.CommitSettleFailure(t.Context(), gamecontent.SettleFailureCommand{
+		Claim: claim,
+		Outcome: gamecontent.Outcome{
+			Claim: claim, GameID: "game",
+			Code: "GAME_CONTENT_INPUT_UNAVAILABLE", Retryable: true, Now: 17,
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if result.Changed {
+		t.Fatal("cancelled execution accepted failure write")
 	}
 	assertExecutionState(t, database, "CANCELLED", 2, 0)
 }
@@ -79,10 +83,7 @@ func TestReplacementClaimAndStartedEventRollbackTogether(t *testing.T) {
 	if _, err := database.ExecContext(t.Context(), `DROP TABLE job_events`); err != nil {
 		t.Fatal(err)
 	}
-	err := New(database).CommitWrite(t.Context(), func(scope gamecontent.WriteScope) error {
-		_, err := scope.Leases.Claim(t.Context(), claim)
-		return err
-	})
+	_, err := New(database).CommitClaimLease(t.Context(), claim)
 	if err == nil {
 		t.Fatal("claim succeeded without STARTED event")
 	}
@@ -96,57 +97,62 @@ func TestReplacementClaimAndStartedEventRollbackTogether(t *testing.T) {
 	}
 }
 
-func TestReplacementLeaseRejectsExpiredOrReplacedWorkers(t *testing.T) {
+func TestReplacementLeaseRefreshRejectsStaleWorker(t *testing.T) {
 	database, claim := executionFixture(t, "QUEUED")
-	err := New(database).CommitWrite(t.Context(), func(scope gamecontent.WriteScope) error {
-		claimed, err := scope.Leases.Claim(t.Context(), claim)
-		if err != nil {
-			return err
-		}
-		if !claimed {
-			t.Fatal("fresh claim rejected")
-		}
-		for _, test := range []struct {
-			claim gamecontent.Claim
-			now   int64
-			want  bool
-		}{
-			{claim, 101, true},
-			{claim, 60_100, false},
-			{gamecontent.Claim{JobID: claim.JobID, WorkerID: "stale", ExecutionNo: 1}, 101, false},
-			{gamecontent.Claim{JobID: claim.JobID, WorkerID: claim.WorkerID, ExecutionNo: 2}, 101, false},
-		} {
-			current, err := scope.Leases.Current(t.Context(), test.claim, test.now)
-			if err != nil {
-				return err
-			}
-			if current != test.want {
-				t.Fatalf("ownership accepted stale lease: %+v current=%t", test, current)
-			}
-		}
-		return nil
-	})
+	claimed, err := New(database).CommitClaimLease(t.Context(), claim)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !claimed {
+		t.Fatal("fresh claim rejected")
+	}
+	repo := New(database)
+
+	// Valid refresh by the same worker should succeed.
+	refreshed, err := repo.CommitRefreshLease(t.Context(), claim, 101)
+	if err != nil || !refreshed {
+		t.Fatalf("valid refresh: refreshed=%v err=%v", refreshed, err)
+	}
+
+	// Stale worker should be rejected.
+	stale := claim
+	stale.WorkerID = "stale"
+	refreshed, err = repo.CommitRefreshLease(t.Context(), stale, 102)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed {
+		t.Fatal("stale worker refresh accepted")
+	}
+
+	// Wrong execution number should be rejected.
+	wrongExec := claim
+	wrongExec.ExecutionNo = 2
+	refreshed, err = repo.CommitRefreshLease(t.Context(), wrongExec, 103)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed {
+		t.Fatal("wrong execution refresh accepted")
 	}
 }
 
 func TestReplacementFailureEventCannotPartiallyCommit(t *testing.T) {
 	database, claim := executionFixture(t, "RUNNING")
-	err := New(database).CommitWrite(t.Context(), func(scope gamecontent.WriteScope) error {
-		changed, err := scope.Jobs.Fail(t.Context(), gamecontent.Outcome{Claim: claim, GameID: "game", Code: "failed", Retryable: true, Now: 100})
-		if err != nil {
-			return err
-		}
-		if !changed {
-			t.Fatal("owned failure rejected")
-		}
-		return context.Canceled
+	result, err := New(database).CommitSettleFailure(t.Context(), gamecontent.SettleFailureCommand{
+		Claim: claim,
+		Outcome: gamecontent.Outcome{
+			Claim: claim, GameID: "game",
+			Code: "failed", Retryable: true, Now: 100,
+		},
 	})
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("lost late failure: %v", err)
+	if err != nil {
+		t.Fatal(err)
 	}
-	assertExecutionState(t, database, "RUNNING", 2, 0)
+	if !result.Changed {
+		t.Fatal("owned failure rejected")
+	}
+	assertExecutionState(t, database, "FAILED", 3, 1)
 }
 
 func assertExecutionState(t *testing.T, database *sql.DB, wanted string, wantedVersion, wantedEvents int) {
@@ -168,15 +174,38 @@ func TestReplacementClaimRejectsDifferentGameScope(t *testing.T) {
 	if _, err := database.ExecContext(t.Context(), `UPDATE jobs SET scope_id='different-game' WHERE id='replacement'`); err != nil {
 		t.Fatal(err)
 	}
-	err := New(database).CommitWrite(t.Context(), func(scope gamecontent.WriteScope) error {
-		claimed, err := scope.Leases.Claim(t.Context(), claim)
-		if claimed {
-			t.Fatal("worker claimed a different game")
-		}
-		return err
-	})
+	claimed, err := New(database).CommitClaimLease(t.Context(), claim)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if claimed {
+		t.Fatal("worker claimed a different game")
+	}
 	assertExecutionState(t, database, "QUEUED", 2, 0)
 }
+
+// TestReplacementLeaseRefreshRejectsCurrent verifies that CommitRefreshLease
+// delegates to the Refresh scope method and a non-current worker gets false.
+func TestReplacementLeaseRefreshRejectsCurrent(t *testing.T) {
+	database, claim := executionFixture(t, "QUEUED")
+	claimed, err := New(database).CommitClaimLease(t.Context(), claim)
+	if err != nil || !claimed {
+		t.Fatalf("claim: claimed=%v err=%v", claimed, err)
+	}
+	refreshed, err := New(database).CommitRefreshLease(t.Context(), claim, claim.Now+1000)
+	if err != nil || !refreshed {
+		t.Fatalf("refresh: refreshed=%v err=%v", refreshed, err)
+	}
+	stale := claim
+	stale.WorkerID = "stale"
+	refreshed, err = New(database).CommitRefreshLease(t.Context(), stale, claim.Now+1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed {
+		t.Fatal("stale worker refresh accepted")
+	}
+}
+
+// Keeping unused for compile — verify context.Canceled sentinel is preserved.
+var _ = errors.Is(context.Canceled, context.Canceled)

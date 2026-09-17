@@ -249,7 +249,8 @@ func (scope moveScope) Audit(ctx context.Context, event application.AuditEvent) 
 		}
 		afterJSON = string(value)
 	}
-	_, err := scope.transaction.ExecContext(ctx, `
+	_, err := scope.transaction.ExecContext(
+		ctx, `
 INSERT INTO audit_events(id,
 actor_kind,
 actor_user_id,

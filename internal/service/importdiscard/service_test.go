@@ -12,7 +12,6 @@ import (
 const batchID = "01980000-0000-7000-8000-000000009981"
 
 type memoryRecords struct {
-	model.Reader
 	batch       model.Batch
 	disposition *model.Disposition
 	requests    []model.Request

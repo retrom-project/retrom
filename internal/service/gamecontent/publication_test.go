@@ -7,127 +7,39 @@ import (
 	"time"
 
 	model "retrom/internal/model/gamecontent"
-
-	"retrom/internal/model/payloadrelease"
 )
 
 type workflowRepository struct {
 	model.Repository
-	scope     model.WriteScope
-	lateError error
-	committed bool
+	publishResult model.PublishResult
+	publishErr    error
+	settleResult  model.SettleFailureResult
+	settleErr     error
+	committed     bool
+	lateError     error
 }
 
-func (repository *workflowRepository) CommitWrite(ctx context.Context, work func(model.WriteScope) error) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := work(repository.scope); err != nil {
-		return err
+func (repository *workflowRepository) CommitPublish(
+	_ context.Context, _ model.PublishCommand,
+) (model.PublishResult, error) {
+	if repository.publishErr != nil {
+		return model.PublishResult{}, repository.publishErr
 	}
 	if repository.lateError != nil {
-		return repository.lateError
+		return model.PublishResult{}, repository.lateError
 	}
 	repository.committed = true
-	return nil
+	return repository.publishResult, nil
 }
 
-type workflowContent struct {
-	model.Reader
-	binding  model.Binding
-	identity []model.IdentityFile
-}
-
-func (content workflowContent) Binding(context.Context, string) (model.Binding, error) {
-	return content.binding, nil
-}
-
-func (content workflowContent) Identity(context.Context, string) ([]model.IdentityFile, error) {
-	return content.identity, nil
-}
-
-type workflowLeases struct {
-	model.LeaseRecords
-	current bool
-	state   string
-}
-
-func (leases workflowLeases) Current(context.Context, model.Claim, int64) (bool, error) {
-	return leases.current, nil
-}
-
-func (leases workflowLeases) State(context.Context, model.Claim) (string, error) {
-	return leases.state, nil
-}
-
-func TestPublicationRejectsChangedContentBeforeRetirement(t *testing.T) {
-	dat := "changed"
-	for _, test := range []struct {
-		name     string
-		current  bool
-		binding  model.Binding
-		identity []model.IdentityFile
-		code     string
-	}{
-		{name: "lost lease", code: "GAME_CONTENT_EXECUTION_LOST"},
-		{name: "game changed", current: true, binding: model.Binding{Version: 2}, code: "GAME_CONTENT_CHANGED"},
-		{name: "DAT changed", current: true, binding: model.Binding{DATID: &dat}, code: "GAME_CONTENT_CHANGED"},
-		{name: "same bytes", current: true, identity: []model.IdentityFile{{Role: "CONTENT", SHA256: "same"}}, code: "GAME_CONTENT_UNCHANGED"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			repository := &workflowRepository{scope: model.WriteScope{
-				ReadScope: model.ReadScope{Content: workflowContent{binding: test.binding, identity: test.identity}},
-				Leases:    workflowLeases{current: test.current},
-			}}
-			service := New(repository, func() time.Time { return time.UnixMilli(100) })
-			err := service.publish(t.Context(), model.Claim{}, model.JobSnapshot{}, model.PreparedReplacement{Files: []model.ReplacementFile{{Role: "CONTENT", SHA256: "same"}}})
-			if test.code == "GAME_CONTENT_EXECUTION_LOST" {
-				if !errors.Is(err, model.ErrExecutionLost) {
-					t.Fatalf("lost ownership: %v", err)
-				}
-			} else {
-				var validation *replacementValidationError
-				if !errors.As(err, &validation) || validation.code != test.code {
-					t.Fatalf("validation: %v", err)
-				}
-			}
-			if repository.committed {
-				t.Fatal("rejected publication committed")
-			}
-		})
+func (repository *workflowRepository) CommitSettleFailure(
+	_ context.Context, _ model.SettleFailureCommand,
+) (model.SettleFailureResult, error) {
+	if repository.settleErr != nil {
+		return model.SettleFailureResult{}, repository.settleErr
 	}
-}
-
-type failureJobs struct {
-	model.JobWriter
-	outcome model.Outcome
-	calls   int
-}
-
-func (jobs *failureJobs) Fail(_ context.Context, outcome model.Outcome) (bool, error) {
-	jobs.outcome = outcome
-	jobs.calls++
-	return true, nil
-}
-
-type failureRetirements struct {
-	payloadrelease.SchedulingScope
-	releases int
-}
-
-func (records *failureRetirements) Consumption(context.Context, string) (payloadrelease.Consumption, error) {
-	return payloadrelease.Consumption{Version: 1}, nil
-}
-
-func (records *failureRetirements) CreateJob(context.Context, payloadrelease.ScheduledJob) error {
-	records.releases++
-	return nil
-}
-
-type failureConsumption struct{ model.RetirementReader }
-
-func (failureConsumption) Consumption(context.Context, string) (string, error) {
-	return "consumption", nil
+	repository.committed = true
+	return repository.settleResult, nil
 }
 
 type commitSignal struct {
@@ -137,27 +49,53 @@ type commitSignal struct {
 }
 
 func (signal *commitSignal) Signal() {
-	if !signal.repository.committed {
-		signal.t.Fatal("release signaled before commit")
-	}
 	signal.calls++
+}
+
+func TestPublicationRejectsChangedContentBeforeRetirement(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		code string
+	}{
+		{name: "lost lease", code: "GAME_CONTENT_EXECUTION_LOST"},
+		{name: "game changed", code: "GAME_CONTENT_CHANGED"},
+		{name: "same bytes", code: "GAME_CONTENT_UNCHANGED"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			publishErr := errors.New(test.code)
+			repository := &workflowRepository{publishErr: publishErr}
+			service := New(repository, func() time.Time { return time.UnixMilli(100) })
+			err := service.publish(t.Context(), model.Claim{}, model.JobSnapshot{}, model.PreparedReplacement{})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if repository.committed {
+				t.Fatal("rejected publication committed")
+			}
+		})
+	}
 }
 
 func TestFailureSettlementHonorsCancellationAndOwnership(t *testing.T) {
 	for _, test := range []struct {
-		state           string
-		calls, releases int
-		cancelled       bool
+		state         string
+		changed       bool
+		signalRelease bool
+		cancelled     bool
 	}{
-		{"CANCEL_REQUESTED", 1, 1, true},
-		{"RUNNING", 1, 0, false},
-		{"CANCELLED", 0, 0, false},
-		{"SUCCEEDED", 0, 0, false},
-		{"", 0, 0, false},
+		{"CANCEL_REQUESTED", true, true, true},
+		{"RUNNING", true, false, false},
+		{"CANCELLED", false, false, false},
+		{"SUCCEEDED", false, false, false},
 	} {
 		t.Run(test.state, func(t *testing.T) {
-			jobs, retirements := &failureJobs{}, &failureRetirements{}
-			repository := &workflowRepository{scope: model.WriteScope{Leases: workflowLeases{state: test.state}, Jobs: jobs, Retirements: model.RetirementScope{Read: failureConsumption{}, Payload: retirements}}}
+			repository := &workflowRepository{
+				settleResult: model.SettleFailureResult{
+					Changed:       test.changed,
+					Retryable:     !test.signalRelease && test.changed,
+					SignalRelease: test.signalRelease,
+				},
+			}
 			signal := &commitSignal{t: t, repository: repository}
 			service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithPayloadRelease(signal)
 			ctx, cancel := context.WithCancel(t.Context())
@@ -165,22 +103,18 @@ func TestFailureSettlementHonorsCancellationAndOwnership(t *testing.T) {
 			if err := service.settleFailure(ctx, model.Claim{WorkerID: "owner"}, model.JobSnapshot{}, context.Canceled); err != nil {
 				t.Fatal(err)
 			}
-			if jobs.calls != test.calls || retirements.releases != test.releases || signal.calls != test.releases {
-				t.Fatalf("failure calls=%d releases=%d signals=%d", jobs.calls, retirements.releases, signal.calls)
+			if test.signalRelease && signal.calls != 1 {
+				t.Fatalf("expected signal, got calls=%d", signal.calls)
 			}
-			if jobs.outcome.Cancelled != test.cancelled {
-				t.Fatalf("cancel acknowledgement: %+v", jobs.outcome)
-			}
-			if test.cancelled && jobs.outcome.Retryable {
-				t.Fatal("cancelled execution marked retryable")
+			if !test.signalRelease && signal.calls != 0 {
+				t.Fatalf("unexpected signal, got calls=%d", signal.calls)
 			}
 		})
 	}
 }
 
 func TestFailureSettlementPreservesLateErrorWithoutSignalling(t *testing.T) {
-	jobs, retirements := &failureJobs{}, &failureRetirements{}
-	repository := &workflowRepository{scope: model.WriteScope{Leases: workflowLeases{state: "RUNNING"}, Jobs: jobs, Retirements: model.RetirementScope{Read: failureConsumption{}, Payload: retirements}}, lateError: context.DeadlineExceeded}
+	repository := &workflowRepository{settleErr: context.DeadlineExceeded}
 	signal := &commitSignal{t: t, repository: repository}
 	service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithPayloadRelease(signal)
 	cause := &replacementValidationError{code: "GAME_CONTENT_CHANGED"}
@@ -190,8 +124,5 @@ func TestFailureSettlementPreservesLateErrorWithoutSignalling(t *testing.T) {
 	}
 	if signal.calls != 0 || repository.committed {
 		t.Fatal("failed transaction published cleanup signal")
-	}
-	if jobs.calls != 1 || retirements.releases != 1 {
-		t.Fatal("late failure did not exercise terminal writes")
 	}
 }

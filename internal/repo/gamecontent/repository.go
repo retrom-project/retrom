@@ -6,12 +6,14 @@ import (
 	"fmt"
 
 	"retrom/internal/model/gamecontent"
+	payloadmodel "retrom/internal/model/payloadrelease"
 	validation "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
 )
 
 type Repository struct {
 	database *sql.DB
+	gc       payloadmodel.GCStager
 }
 type (
 	records struct{ executor dbexec.Executor }
@@ -24,6 +26,11 @@ func New(database *sql.DB) *Repository {
 	return &Repository{database: database}
 }
 
+func (repository *Repository) WithGCStager(gc payloadmodel.GCStager) *Repository {
+	repository.gc = gc
+	return repository
+}
+
 func readScope(executor dbexec.Executor) gamecontent.ReadScope {
 	bound := records{executor}
 	return gamecontent.ReadScope{
@@ -34,47 +41,33 @@ func readScope(executor dbexec.Executor) gamecontent.ReadScope {
 	}
 }
 
-func (repository *Repository) WithRead(ctx context.Context, work func(gamecontent.ReadScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return fmt.Errorf("begin content replacement read: %w", err)
+func writeScope(tx *sql.Tx) gamecontent.WriteScope {
+	bound := writes{tx}
+	read := readScope(tx)
+	return gamecontent.WriteScope{
+		ReadScope:          read,
+		Replays:            bound,
+		Jobs:               bound,
+		Leases:             bound,
+		ContentWriter:      bound,
+		Retirements:        BindRetirement(tx),
+		AdminWriter:        bound,
+		GameDeletionReader: bound,
+		GameDeletionWriter: bound,
 	}
-	defer dbexec.Rollback(tx)
-	if err := work(readScope(tx)); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit content replacement read: %w", err)
-	}
-	return nil
 }
 
-func (repository *Repository) CommitWrite(ctx context.Context, work func(gamecontent.WriteScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+func beginWrite(ctx context.Context, db *sql.DB) (*sql.Tx, gamecontent.WriteScope, error) {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin content replacement write: %w", err)
+		return nil, gamecontent.WriteScope{}, fmt.Errorf("begin content write: %w", err)
 	}
-	defer dbexec.Rollback(tx)
-	bound := writes{tx}
-	if err := work(
-		gamecontent.WriteScope{
-			ReadScope: readScope(
-				tx,
-			),
-			Replays:            bound,
-			Jobs:               bound,
-			Leases:             bound,
-			ContentWriter:      bound,
-			Retirements:        BindRetirement(tx),
-			AdminWriter:        bound,
-			GameDeletionReader: bound,
-			GameDeletionWriter: bound,
-		},
-	); err != nil {
-		return err
-	}
+	return tx, writeScope(tx), nil
+}
+
+func commitScope(tx *sql.Tx) error {
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit content replacement write: %w", err)
+		return fmt.Errorf("commit content write: %w", err)
 	}
 	return nil
 }

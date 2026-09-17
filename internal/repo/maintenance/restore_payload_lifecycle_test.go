@@ -22,7 +22,8 @@ func TestRestoredSourceFailureSatisfiesStartupPayloadLifecycle(t *testing.T) {
 	err = db.QueryRowContext(t.Context(), `SELECT source.execution_state,source.payload_state,
 COALESCE(job.kind,''),COALESCE(job.scope_type,''),COALESCE(job.scope_id,'')
 FROM pegasus_import_items source LEFT JOIN jobs job ON job.id=source.payload_release_job_id WHERE source.id='item'`).Scan(
-		&sourceState, &payloadState, &kind, &scopeType, &scopeID)
+		&sourceState, &payloadState, &kind, &scopeType, &scopeID,
+	)
 	if err != nil || sourceState != "COMMIT_FAILED" || payloadState != "RELEASING" || kind != "PAYLOAD_RELEASE" ||
 		scopeType != "PEGASUS_IMPORT_ITEM" || scopeID != "item" {
 		t.Fatalf("restored terminal payload is not scheduled: %s/%s/%s/%s/%s %v",

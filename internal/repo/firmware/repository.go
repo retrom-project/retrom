@@ -20,10 +20,10 @@ type (
 )
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
-func readScope(executor dbexec.Executor) firmware.ReadScope {
-	return firmware.ReadScope{
-		Requirements: requirementRecords{executor}, Uploads: uploadRecords{executor},
-		Installations: installationRecords{executor}, Archives: archiveRecords{executor},
+func newReadScope(executor dbexec.Executor) readScope {
+	return readScope{
+		requirements: requirementRecords{executor}, uploads: uploadRecords{executor},
+		installations: installationRecords{executor}, archives: archiveRecords{executor},
 	}
 }
 
@@ -36,15 +36,15 @@ func (repository *Repository) LoadInstallFacts(
 		return firmware.InstallFacts{}, fmt.Errorf("begin BIOS snapshot: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	scope := readScope(tx)
-	requirement, found, err := scope.Requirements.Get(ctx, requirementID)
+	scope := newReadScope(tx)
+	requirement, found, err := scope.requirements.Get(ctx, requirementID)
 	if err != nil {
 		return firmware.InstallFacts{}, fmt.Errorf("read BIOS requirement: %w", err)
 	}
 	if !found || !requirement.Enabled || requirement.Version != expectedVersion {
 		return firmware.InstallFacts{}, firmware.ErrInvalid
 	}
-	upload, found, err := scope.Uploads.Get(ctx, fileID)
+	upload, found, err := scope.uploads.Get(ctx, fileID)
 	if err != nil {
 		return firmware.InstallFacts{}, fmt.Errorf("read BIOS upload: %w", err)
 	}
@@ -70,26 +70,26 @@ func (repository *Repository) LoadArchiveInspection(
 		return firmware.ArchiveInspection{}, fmt.Errorf("begin BIOS snapshot: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	scope := readScope(tx)
-	requirement, found, err := scope.Requirements.Get(ctx, requirementID)
+	scope := newReadScope(tx)
+	requirement, found, err := scope.requirements.Get(ctx, requirementID)
 	if err != nil {
 		return firmware.ArchiveInspection{}, fmt.Errorf("read BIOS inspection requirement: %w", err)
 	}
 	if !found || !requirement.Enabled || requirement.FileKind != "ARCHIVE" {
 		return firmware.ArchiveInspection{}, firmware.ErrArchiveFactsNotFound
 	}
-	active, found, err := scope.Installations.Active(ctx, requirementID)
+	active, found, err := scope.installations.Active(ctx, requirementID)
 	if err != nil {
 		return firmware.ArchiveInspection{}, fmt.Errorf("read active BIOS inspection: %w", err)
 	}
 	if !found {
 		return firmware.ArchiveInspection{}, firmware.ErrArchiveFactsNotFound
 	}
-	expected, err := expectedArchiveFacts(ctx, scope.Requirements, requirement)
+	expected, err := expectedArchiveFacts(ctx, scope.requirements, requirement)
 	if err != nil {
 		return firmware.ArchiveInspection{}, err
 	}
-	actual, err := scope.Archives.Entries(ctx, active.BlobID)
+	actual, err := scope.archives.Entries(ctx, active.BlobID)
 	if err != nil {
 		return firmware.ArchiveInspection{}, fmt.Errorf("read BIOS archive inspection: %w", err)
 	}
@@ -105,7 +105,7 @@ func (repository *Repository) LoadArchiveInspection(
 
 func expectedArchiveFacts(
 	ctx context.Context,
-	records firmware.RequirementRecords,
+	records requirementReader,
 	requirement firmware.Requirement,
 ) ([]firmwarecap.ExpectedDATEntry, error) {
 	if requirement.ArchiveMembersJSON != nil {
@@ -122,11 +122,11 @@ func expectedArchiveFacts(
 	return entries, nil
 }
 
-func (repository *Repository) writeScope(tx *sql.Tx) firmware.WriteScope {
+func (repository *Repository) newWriteScope(tx *sql.Tx) writeScope {
 	bound := writes{transaction: tx}
-	return firmware.WriteScope{
-		ReadScope: readScope(tx), Archives: bound, Installations: bound,
-		Retirements: BindSupersession(tx), Server: bound, Blobs: bound,
+	return writeScope{
+		readScope: newReadScope(tx), archives: bound, installations: bound,
+		retirements: BindSupersession(tx), server: bound, blobs: bound,
 	}
 }
 
@@ -139,7 +139,7 @@ func (repository *Repository) CommitBrowserInstall(
 		return firmware.Installation{}, fmt.Errorf("begin BIOS write: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	scope := repository.writeScope(tx)
+	scope := repository.newWriteScope(tx)
 	result, err := browserInstall(ctx, scope, cmd)
 	if err != nil {
 		return firmware.Installation{}, err
@@ -159,7 +159,7 @@ func (repository *Repository) CommitServerInstall(
 		return firmware.ServerInstallResult{}, fmt.Errorf("begin BIOS write: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	scope := repository.writeScope(tx)
+	scope := repository.newWriteScope(tx)
 	result, err := serverInstall(ctx, scope, cmd)
 	if err != nil {
 		return firmware.ServerInstallResult{}, err

@@ -5,30 +5,16 @@ import (
 	"errors"
 	"testing"
 
-	model "retrom/internal/model/serverimport"
-
 	importpersistence "retrom/internal/repo/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
-
-type failingOutcomeRepository struct {
-	model.OutcomeRepository
-}
-
-func (repository failingOutcomeRepository) CommitWrite(ctx context.Context, work func(model.OutcomeScope) error) error {
-	return repository.OutcomeRepository.CommitWrite(ctx, func(scope model.OutcomeScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		return context.Canceled
-	})
-}
 
 func TestOutcomeLateFailureRollsBackItemRetryAndFailure(t *testing.T) {
 	for _, action := range []string{"item", "retry", "failure"} {
 		t.Run(action, func(t *testing.T) {
 			legacy, database, unit, candidate := discoveryWriteFixture(t)
-			service := importservice.NewOutcomes(failingOutcomeRepository{importpersistence.NewOutcomes(database)}, legacy.NowForTest)
+			repo := importpersistence.NewOutcomes(database).WithPreCommitHook(func() error { return context.Canceled })
+			service := importservice.NewOutcomes(repo, legacy.NowForTest)
 			beforeImport, beforeJob := workerVersions(t, database, unit)
 			var err error
 			switch action {
@@ -69,7 +55,8 @@ func TestTerminalOutcomeLateFailurePreservesCurrentExecution(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			service := importservice.NewOutcomes(failingOutcomeRepository{importpersistence.NewOutcomes(database)}, legacy.NowForTest)
+			repo := importpersistence.NewOutcomes(database).WithPreCommitHook(func() error { return context.Canceled })
+			service := importservice.NewOutcomes(repo, legacy.NowForTest)
 			if action == "cancel" {
 				err = service.Cancel(t.Context(), unit)
 			} else {

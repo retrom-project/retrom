@@ -182,7 +182,8 @@ func TestServiceConcurrentFavoriteFolderConflictVersionAndLimit(t *testing.T) {
 		testassert.Falsef(t, state.FavoritedAtMS != 2000, "concurrent favorite state = %#v", state)
 	}
 	var favoriteRows int
-	queryErr := database.SQL.QueryRowContext(context.Background(),
+	queryErr := database.SQL.QueryRowContext(
+		context.Background(),
 		`SELECT count(*) FROM favorite_games WHERE profile_id=? AND game_id=?`, testProfileA, testGameA,
 	).Scan(&favoriteRows)
 	testassert.Falsef(t, testassert.Any(func() bool { return queryErr != nil }, func() bool { return favoriteRows != 1 }),

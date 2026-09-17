@@ -100,7 +100,8 @@ WHERE import_job.upload_session_id=?
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		var count int
-		if err := repository.database.QueryRowContext(ctx,
+		if err := repository.database.QueryRowContext(
+			ctx,
 			`SELECT count(*) FROM import_jobs WHERE upload_session_id=?`, uploadID,
 		).Scan(&count); err != nil {
 			return application.ServerCreated{}, false, fmt.Errorf("query server source creations: %w", err)

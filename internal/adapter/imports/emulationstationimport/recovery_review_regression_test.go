@@ -58,7 +58,8 @@ COALESCE(source.library_import_item_id,''),ordinary.state,draft.metadata_json,
 FROM emulationstation_import_items source JOIN emulationstation_imports plan ON plan.id=source.import_id,
 import_items ordinary JOIN review_drafts draft ON draft.import_item_id=ordinary.id
 WHERE source.id=? AND ordinary.id=?`, item.ID, imported.Items[0].ItemID).Scan(
-		&sourceState, &linkedID, &ordinaryState, &draft, &ordinaryItems, &games, &reviewCount)
+		&sourceState, &linkedID, &ordinaryState, &draft, &ordinaryItems, &games, &reviewCount,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

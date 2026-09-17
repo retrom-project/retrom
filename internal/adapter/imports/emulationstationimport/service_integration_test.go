@@ -171,7 +171,8 @@ WHERE item.import_id=? AND item.title='Discard fixture'
 SELECT game.id,game.metadata_source_kind,game.content_source_kind
 FROM games game
 `).Scan(&gameID, &metadataSource, &contentSource) != nil, "resolve published game")
-	testassert.Falsef(t,
+	testassert.Falsef(
+		t,
 		metadataSource != "SERVER_EMULATIONSTATION_IMPORT" || contentSource != metadataSource,
 		"published sources = %q/%q", metadataSource, contentSource,
 	)

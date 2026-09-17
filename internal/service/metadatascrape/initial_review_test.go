@@ -8,7 +8,7 @@ import (
 )
 
 func TestInitialReviewMergePreservesMissingCandidateFields(t *testing.T) {
-	value, title, err := mergeInitialReviewMetadata(`{"title":"old","description":"kept","players":2}`, `{"title":"new","description":"  ","players":0}`)
+	value, title, err := model.MergeInitialReviewMetadata(`{"title":"old","description":"kept","players":2}`, `{"title":"new","description":"  ","players":0}`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,14 +31,14 @@ func TestInitialCandidateUsesHitsThenEvidenceOrderThenProviderID(t *testing.T) {
 		{ID: "later-provider", HitCount: 2, FirstQueryOrder: 1, ProviderGameID: "b"},
 		{ID: "chosen", HitCount: 2, FirstQueryOrder: 1, ProviderGameID: "a"},
 	}
-	chosen, found := selectInitialCandidate(candidates)
+	chosen, found := model.SelectInitialCandidate(candidates)
 	if !found || chosen.ID != "chosen" {
 		t.Fatalf("selected candidate: %+v", chosen)
 	}
 	if candidates[0].ID != "low-hits" {
 		t.Fatal("selection mutated caller evidence")
 	}
-	if _, found := selectInitialCandidate(nil); found {
+	if _, found := model.SelectInitialCandidate(nil); found {
 		t.Fatal("empty evidence manufactured candidate")
 	}
 }

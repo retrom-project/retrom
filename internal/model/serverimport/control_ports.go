@@ -3,6 +3,7 @@ package serverimport
 import (
 	"context"
 	"errors"
+	"math"
 )
 
 var (
@@ -36,17 +37,65 @@ type ManualRetry struct {
 	InputDigest    string
 	Evidence       ControlEvidence
 }
-type ControlReader interface {
-	Current(context.Context, string) (ControlSnapshot, error)
+
+type CancelCommand struct {
+	ID      string
+	Version int64
+	Reason  string
+	ActorID string
+	Now     int64
 }
-type ControlWriter interface {
-	Cancel(context.Context, Cancellation) error
-	Retry(context.Context, ManualRetry) error
+
+type CancelResult struct {
+	Summary Summary
+	Pending bool
 }
-type ControlScope struct {
-	Read  ControlReader
-	Write ControlWriter
+
+type RetryCommand struct {
+	ID         string
+	Version    int64
+	ActorID    string
+	Now        int64
+	ValidRoots map[string]string
 }
+
 type ControlRepository interface {
-	CommitWrite(context.Context, func(ControlScope) error) error
+	CommitCancel(context.Context, CancelCommand) (CancelResult, error)
+	CommitRetry(context.Context, RetryCommand) (Summary, error)
+}
+
+// CancelValid checks whether the snapshot allows cancellation at the given
+// version.
+func CancelValid(before ControlSnapshot, version int64) bool {
+	return before.Summary.Version == version &&
+		version != math.MaxInt64 &&
+		before.JobState == before.Summary.State &&
+		(before.Summary.State == "QUEUED" ||
+			before.Summary.State == "RUNNING")
+}
+
+// Retryable checks whether the snapshot allows a manual retry at the given
+// version, using validRoots to confirm the root configuration is still current.
+func Retryable(
+	before ControlSnapshot,
+	version int64,
+	validRoots map[string]string,
+) bool {
+	summary := before.Summary
+	if before.OtherActive ||
+		summary.Version != version ||
+		version == math.MaxInt64 ||
+		before.Execution < 1 ||
+		before.Execution == math.MaxInt64 ||
+		summary.State != "FAILED" ||
+		before.JobState != "FAILED" ||
+		summary.LastErrorCode == nil {
+		return false
+	}
+	if *summary.LastErrorCode != "SERVER_IMPORT_ROOT_UNAVAILABLE" &&
+		*summary.LastErrorCode != "INTERNAL_ERROR" {
+		return false
+	}
+	digest, found := validRoots[summary.Root.ID]
+	return found && digest == before.RootDigest
 }

@@ -64,3 +64,5 @@
 /.pfb/
 /.pfb-shared/
 /td
+composition.test
+launch.test

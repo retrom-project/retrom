@@ -2,16 +2,12 @@ package serverimport
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
-	"math"
 	"strings"
 	"time"
 
 	model "retrom/internal/model/serverimport"
-
-	"github.com/google/uuid"
 )
 
 type Control struct {
@@ -20,8 +16,14 @@ type Control struct {
 	now        func() time.Time
 }
 
-func NewControl(repository model.ControlRepository, roots map[string]string, now func() time.Time) *Control {
-	return &Control{repository: repository, roots: maps.Clone(roots), now: now}
+func NewControl(
+	repository model.ControlRepository,
+	roots map[string]string,
+	now func() time.Time,
+) *Control {
+	return &Control{
+		repository: repository, roots: maps.Clone(roots), now: now,
+	}
 }
 
 func (service *Control) Cancel(
@@ -34,107 +36,27 @@ func (service *Control) Cancel(
 	if reason == "" || len([]rune(reason)) > 500 {
 		return model.Summary{}, false, model.ErrNotCancellable
 	}
-	var result model.Summary
-	var pending bool
-	err := service.repository.CommitWrite(ctx, func(scope model.ControlScope) error {
-		before, err := scope.Read.Current(ctx, id)
-		if errors.Is(err, model.ErrNotFound) {
-			return model.ErrNotCancellable
-		}
-		if err != nil {
-			return fmt.Errorf("read import cancellation state: %w", err)
-		}
-		if before.Summary.Version != version || version == math.MaxInt64 ||
-			before.JobState != before.Summary.State ||
-			(before.Summary.State != "QUEUED" && before.Summary.State != "RUNNING") {
-			return model.ErrNotCancellable
-		}
-		evidence, err := newControlEvidence(actorID, service.now().UnixMilli(), []byte(`{"schemaVersion":1}`))
-		if err != nil {
-			return err
-		}
-		plan := model.Cancellation{
-			Before:         before,
-			Pending:        before.Summary.State == "RUNNING",
-			State:          "CANCEL_REQUESTED",
-			Reason:         reason,
-			CancelledItems: before.Summary.Counts.Cancelled,
-			Evidence:       evidence,
-		}
-		if !plan.Pending {
-			plan.State = "CANCELLED"
-			now := evidence.Now
-			plan.CompletedAt = &now
-			plan.CancelledItems += before.PendingItems
-		}
-		if err := scope.Write.Cancel(ctx, plan); err != nil {
-			return fmt.Errorf("cancel server import: %w", err)
-		}
-		after, err := scope.Read.Current(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read cancelled import: %w", err)
-		}
-		result = after.Summary
-		pending = plan.Pending
-		return nil
+	result, err := service.repository.CommitCancel(ctx, model.CancelCommand{
+		ID: id, Version: version, Reason: reason,
+		ActorID: actorID, Now: service.now().UnixMilli(),
 	})
 	if err != nil {
-		return model.Summary{}, false, fmt.Errorf("commit server import cancellation: %w", err)
+		return model.Summary{}, false,
+			fmt.Errorf("commit server import cancellation: %w", err)
 	}
-	return result, pending, nil
+	return result.Summary, result.Pending, nil
 }
 
-func (service *Control) Retry(ctx context.Context, id string, version int64, actorID string) (model.Summary, error) {
-	var result model.Summary
-	err := service.repository.CommitWrite(ctx, func(scope model.ControlScope) error {
-		before, err := scope.Read.Current(ctx, id)
-		if errors.Is(err, model.ErrNotFound) {
-			return model.ErrNotRetryable
-		}
-		if err != nil {
-			return fmt.Errorf("read import retry state: %w", err)
-		}
-		if !service.retryable(before, version) {
-			return model.ErrNotRetryable
-		}
-		plan, err := newManualRetry(before, actorID, service.now().UnixMilli())
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Retry(ctx, plan); err != nil {
-			return fmt.Errorf("reset server import: %w", err)
-		}
-		after, err := scope.Read.Current(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read retried import: %w", err)
-		}
-		result = after.Summary
-		return nil
+func (service *Control) Retry(
+	ctx context.Context, id string, version int64, actorID string,
+) (model.Summary, error) {
+	result, err := service.repository.CommitRetry(ctx, model.RetryCommand{
+		ID: id, Version: version, ActorID: actorID,
+		Now: service.now().UnixMilli(), ValidRoots: service.roots,
 	})
 	if err != nil {
-		return model.Summary{}, fmt.Errorf("commit server import retry: %w", err)
+		return model.Summary{},
+			fmt.Errorf("commit server import retry: %w", err)
 	}
 	return result, nil
-}
-
-func (service *Control) retryable(before model.ControlSnapshot, version int64) bool {
-	summary := before.Summary
-	if before.OtherActive || summary.Version != version || version == math.MaxInt64 ||
-		before.Execution < 1 || before.Execution == math.MaxInt64 ||
-		summary.State != "FAILED" || before.JobState != "FAILED" || summary.LastErrorCode == nil {
-		return false
-	}
-	if *summary.LastErrorCode != "SERVER_IMPORT_ROOT_UNAVAILABLE" && *summary.LastErrorCode != "INTERNAL_ERROR" {
-		return false
-	}
-	digest, found := service.roots[summary.Root.ID]
-	return found && digest == before.RootDigest
-}
-
-func newControlEvidence(actorID string, now int64, event []byte) (model.ControlEvidence, error) {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return model.ControlEvidence{}, fmt.Errorf("create import audit identity: %w", err)
-	}
-	return model.ControlEvidence{ActorID: actorID, AuditID: id.String(), Event: event, Now: now}, nil
 }

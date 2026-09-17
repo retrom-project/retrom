@@ -10,17 +10,61 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-type Discovery struct{ database *sql.DB }
+type Discovery struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
-func NewDiscovery(database *sql.DB) *Discovery { return &Discovery{database} }
-func (repository *Discovery) CommitWrite(ctx context.Context, work func(serverimport.DiscoveryRecords) error) error {
+func NewDiscovery(database *sql.DB) *Discovery { return &Discovery{database: database} }
+
+func (d *Discovery) WithPreCommitHook(hook func() error) *Discovery {
+	d.preCommitHook = hook
+	return d
+}
+
+func (repository *Discovery) CommitReset(
+	ctx context.Context, unit serverimport.Work, now int64,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin discovery write: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(discoveryRecords{tx}); err != nil {
+
+	records := discoveryRecords{tx}
+	if err := records.Reset(ctx, unit, now); err != nil {
 		return err
+	}
+
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit discovery write: %w", err)
+	}
+	return nil
+}
+
+func (repository *Discovery) CommitPersist(
+	ctx context.Context, plan serverimport.DiscoveryPlan,
+) error {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin discovery write: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+
+	records := discoveryRecords{tx}
+	if err := records.Persist(ctx, plan); err != nil {
+		return err
+	}
+
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit discovery write: %w", err)
@@ -30,7 +74,9 @@ func (repository *Discovery) CommitWrite(ctx context.Context, work func(serverim
 
 type discoveryRecords struct{ executor dbexec.Executor }
 
-func (records discoveryRecords) Reset(ctx context.Context, unit serverimport.Work, now int64) error {
+func (records discoveryRecords) Reset(
+	ctx context.Context, unit serverimport.Work, now int64,
+) error {
 	if err := LockWorker(ctx, records.executor, unit, now, RunningWorker); err != nil {
 		return err
 	}
@@ -41,42 +87,51 @@ func (records discoveryRecords) Reset(ctx context.Context, unit serverimport.Wor
 	); err != nil {
 		return fmt.Errorf("delete discovery evidence: %w", err)
 	}
-	if _, err := recordstore.UpdateServerBiosImportItems(ctx, records.executor, recordstore.Update{
-		Set: `state='PENDING',candidate_count=0,match_method=NULL,selection_details_json=NULL,
+	if _, err := recordstore.UpdateServerBiosImportItems(
+		ctx, records.executor, recordstore.Update{
+			Set: `state='PENDING',candidate_count=0,match_method=NULL,selection_details_json=NULL,
  previous_installation_id=NULL,new_installation_id=NULL,outcome_code=NULL,completed_at_ms=NULL,updated_at_ms=?`,
-		Scope: recordstore.Scope{
-			Where: `server_import_id=? AND state IN ('PENDING','EVALUATING')`,
-			Args: []any{
-				unit.ImportID,
+			Scope: recordstore.Scope{
+				Where: `server_import_id=? AND state IN ('PENDING','EVALUATING')`,
+				Args:  []any{unit.ImportID},
 			},
-		}, Values: []any{
-			now,
+			Values: []any{now},
 		},
-	}); err != nil {
+	); err != nil {
 		return fmt.Errorf("reset discovery items: %w", err)
 	}
 	return nil
 }
 
-func (records discoveryRecords) Persist(ctx context.Context, plan serverimport.DiscoveryPlan) error {
-	if err := LockWorker(ctx, records.executor, plan.Unit, plan.Now, RunningWorker); err != nil {
+func (records discoveryRecords) Persist(
+	ctx context.Context, plan serverimport.DiscoveryPlan,
+) error {
+	if err := LockWorker(
+		ctx, records.executor, plan.Unit, plan.Now, RunningWorker,
+	); err != nil {
 		return err
 	}
 	for _, group := range plan.Groups {
 		for _, candidate := range group.Candidates {
-			if err := records.candidate(ctx, plan.Unit, candidate, plan.Now); err != nil {
+			if err := records.candidate(
+				ctx, plan.Unit, candidate, plan.Now,
+			); err != nil {
 				return err
 			}
 		}
-		result, err := recordstore.UpdateServerBiosImportItems(ctx, records.executor, recordstore.Update{
-			Set: `state='EVALUATING',candidate_count=?,updated_at_ms=?`, Scope: recordstore.Scope{
-				Where: `server_import_id=? AND requirement_id=? AND state IN ('PENDING','EVALUATING')`, Args: []any{
-					plan.Unit.ImportID,
-					group.RequirementID,
+		result, err := recordstore.UpdateServerBiosImportItems(
+			ctx, records.executor, recordstore.Update{
+				Set: `state='EVALUATING',candidate_count=?,updated_at_ms=?`,
+				Scope: recordstore.Scope{
+					Where: `server_import_id=? AND requirement_id=? AND state IN ('PENDING','EVALUATING')`,
+					Args:  []any{plan.Unit.ImportID, group.RequirementID},
 				},
-			}, Values: []any{len(group.Candidates), plan.Now},
-		})
-		if err := requireControlChange(result, err, serverimport.ErrLeaseLost); err != nil {
+				Values: []any{len(group.Candidates), plan.Now},
+			},
+		)
+		if err := requireControlChange(
+			result, err, serverimport.ErrLeaseLost,
+		); err != nil {
 			return err
 		}
 	}
@@ -85,7 +140,6 @@ func (records discoveryRecords) Persist(ctx context.Context, plan serverimport.D
 		`UPDATE server_imports SET phase='RANKING',candidate_count=?,
  evaluated_item_count=catalog_item_count,multi_candidate_item_count=?,skipped_special_count=?,
  skipped_unrepresentable_path_count=?,version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'`,
-
 		plan.Total,
 		plan.Multiple,
 		plan.Counts.SkippedSpecial,

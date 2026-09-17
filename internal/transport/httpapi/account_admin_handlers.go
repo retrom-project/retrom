@@ -73,7 +73,8 @@ func (server *Server) authPasswordResetComplete(writer http.ResponseWriter, requ
 	result, err := server.accounts.CompletePasswordResetRateLimited(
 		request.Context(), accounts.CompletePasswordResetRequest{
 			Token: body.Token, Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
-		}, server.authenticationClientIP(request))
+		}, server.authenticationClientIP(request),
+	)
 	if err != nil {
 		server.writeAccountError(writer, request, err)
 		return

@@ -86,7 +86,8 @@ func (service *Queries) List(
 			conditions,
 			" AND ",
 		)+` ORDER BY import.created_at_ms DESC,import.id DESC LIMIT ?`,
-		arguments...)
+		arguments...,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("pegasusimport/list: %w", err)
 	}

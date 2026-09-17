@@ -6,8 +6,6 @@ import (
 	"math"
 
 	model "retrom/internal/model/gamecontent"
-
-	"retrom/internal/service/payloadrelease"
 )
 
 func RetireInScope(
@@ -97,17 +95,6 @@ func retireReferences(
 		}
 		count += int64(len(references))
 	}
-}
-
-func releaseReplacementUpload(ctx context.Context, scope model.RetirementScope, jobID string, now int64) error {
-	id, err := scope.Read.Consumption(ctx, jobID)
-	if err != nil {
-		return fmt.Errorf("read replacement upload consumption: %w", err)
-	}
-	if _, err := payloadrelease.NewScheduler(nil).Consumption(ctx, scope.Payload, id, now); err != nil {
-		return fmt.Errorf("release replacement upload: %w", err)
-	}
-	return nil
 }
 
 func retirementState(before model.RetirementOwner, selected string) (string, bool, error) {

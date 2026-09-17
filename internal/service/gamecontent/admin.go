@@ -2,7 +2,6 @@ package gamecontent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	model "retrom/internal/model/gamecontent"
@@ -14,18 +13,7 @@ func (service *Service) AdminGame(ctx context.Context, gameID string) (model.Adm
 	if gameID == "" || service.repository == nil {
 		return model.AdminGameDetail{}, model.ErrInvalid
 	}
-	var result model.AdminGameDetail
-	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
-		if scope.Admin == nil {
-			return model.ErrInvalid
-		}
-		var err error
-		result, err = scope.Admin.AdminGame(ctx, gameID)
-		if err != nil {
-			return fmt.Errorf("read admin game detail: %w", err)
-		}
-		return nil
-	})
+	result, err := service.repository.ReadAdminGame(ctx, gameID)
 	if err != nil {
 		return model.AdminGameDetail{}, fmt.Errorf("read admin game: %w", err)
 	}
@@ -44,35 +32,8 @@ func (service *Service) PatchAdminGame(
 	if now <= 0 {
 		now = service.now().UnixMilli()
 	}
-	var result model.AdminGamePatchResult
-	err := service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
-		if scope.AdminWriter == nil {
-			return model.ErrInvalid
-		}
-		state, err := scope.AdminWriter.LoadPatchState(ctx, request.GameID)
-		if errors.Is(err, model.ErrAdminGameNotFound) {
-			return model.ErrAdminGameNotFound
-		}
-		if err != nil {
-			return fmt.Errorf("load admin game patch state: %w", err)
-		}
-		if state.Version != request.ExpectedVersion || state.Status != "PUBLISHED" {
-			return model.ErrAdminGameVersionConflict
-		}
-		applyAdminGamePatch(&state.Metadata, request)
-		changed, err := scope.AdminWriter.UpdatePatch(ctx, model.AdminGamePatchUpdate{
-			GameID: request.GameID, ExpectedVersion: request.ExpectedVersion,
-			Metadata: state.Metadata, Actor: request.Actor, NowMS: now,
-		})
-		if err != nil {
-			return fmt.Errorf("persist admin game patch: %w", err)
-		}
-		if !changed {
-			return model.ErrAdminGameVersionConflict
-		}
-		result = model.AdminGamePatchResult{Version: request.ExpectedVersion + 1, UpdatedAtMS: now}
-		return nil
-	})
+	request.NowMS = now
+	result, err := service.repository.CommitPatchGame(ctx, request)
 	if err != nil {
 		return model.AdminGamePatchResult{}, fmt.Errorf("patch admin game: %w", err)
 	}
@@ -82,28 +43,4 @@ func (service *Service) PatchAdminGame(
 func hasAdminGamePatch(request model.AdminGamePatchRequest) bool {
 	return request.Title != nil || request.Description != nil || request.Developer != nil ||
 		request.Publisher != nil || request.Genre != nil || request.PlayersPresent || request.ReleaseYearPresent
-}
-
-func applyAdminGamePatch(metadata *model.AdminGameMetadata, request model.AdminGamePatchRequest) {
-	if request.Title != nil {
-		metadata.Title = *request.Title
-	}
-	if request.Description != nil {
-		metadata.Description = *request.Description
-	}
-	if request.Developer != nil {
-		metadata.Developer = *request.Developer
-	}
-	if request.Publisher != nil {
-		metadata.Publisher = *request.Publisher
-	}
-	if request.Genre != nil {
-		metadata.Genre = *request.Genre
-	}
-	if request.PlayersPresent {
-		metadata.Players = request.Players
-	}
-	if request.ReleaseYearPresent {
-		metadata.ReleaseYear = request.ReleaseYear
-	}
 }

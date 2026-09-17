@@ -41,7 +41,8 @@ func NewPegasusImport(database *sql.DB, blobs *blobstore.Store, importer applica
 	worker := application.NewWorker(application.WorkerDependencies{
 		Leases: application.NewLeases(repository.NewLeases(database), now), Executor: dispatcher,
 		Maintenance: application.NewMaintenance(
-			application.NewRecovery(repository.NewRecovery(database), metadata, now), lifecycle),
+			application.NewRecovery(repository.NewRecovery(database), metadata, now), lifecycle,
+		),
 		Cancellation: application.NewWorkerCancellation(material, settlement), Report: report,
 	})
 	return application.New(application.ServiceDependencies{

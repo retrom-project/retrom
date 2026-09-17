@@ -27,7 +27,8 @@ COALESCE(source.library_import_item_id,''),item.state,json_extract(draft.metadat
 FROM emulationstation_import_items source,import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 WHERE source.id=? AND item.id=?`, item.ID, imported.Items[0].ItemID).Scan(
-				&sourceState, &sourceLibraryID, &ordinaryState, &title, &games, &ordinaryItems)
+				&sourceState, &sourceLibraryID, &ordinaryState, &title, &games, &ordinaryItems,
+			)
 			if err != nil || sourceState != "REVIEW_PENDING" || sourceLibraryID != imported.Items[0].ItemID ||
 				ordinaryState != "REVIEW_PENDING" || title != metadata.Title || games != 0 || ordinaryItems != 1 {
 				t.Fatalf("reserved review source=%s/%s ordinary=%s title=%s games=%d items=%d error=%v",

@@ -166,7 +166,8 @@ func (service *ImportPreparation) prepareMarkerProject(
 	files []model.ImportFile,
 	definition markerProjectDefinition,
 ) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
-	return service.prepareProject(ctx, sourceType, files,
+	return service.prepareProject(
+		ctx, sourceType, files,
 		func(files []model.ImportFile) ([]model.PreparedDisposition, model.PreparedGroup, error) {
 			return service.prepareMarkerProjectDirectory(files, definition)
 		},

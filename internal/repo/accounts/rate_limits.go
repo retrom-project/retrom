@@ -36,19 +36,42 @@ func (repository *RateLimits) Clear(ctx context.Context, key accounts.RateLimitK
 	return nil
 }
 
-func (repository *RateLimits) CommitWrite(ctx context.Context, work func(accounts.RateLimitRecords) error) error {
+func (repository *RateLimits) CommitRecordRateLimit(
+	ctx context.Context, cmd accounts.RecordRateLimitCommand,
+) (accounts.RecordRateLimitResult, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin authentication rate limits: %w", err)
+		return accounts.RecordRateLimitResult{}, fmt.Errorf("begin authentication rate limits: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(rateLimitRecords{tx}); err != nil {
-		return err
+	records := rateLimitRecords{tx}
+	if err := records.Prune(ctx, cmd.NowMS-accounts.RateLimitWindow.Milliseconds(), cmd.NowMS); err != nil {
+		return accounts.RecordRateLimitResult{}, fmt.Errorf("prune authentication limits: %w", err)
+	}
+	var maxRetry int64
+	for _, entry := range cmd.Entries {
+		current, found, err := records.Read(ctx, entry.Key)
+		if err != nil {
+			return accounts.RecordRateLimitResult{}, fmt.Errorf("read authentication failure bucket: %w", err)
+		}
+		if found && current.BlockedUntil != nil && *current.BlockedUntil > cmd.NowMS {
+			if *current.BlockedUntil > maxRetry {
+				maxRetry = *current.BlockedUntil
+			}
+			continue
+		}
+		next := accounts.NextRateLimitBucket(current, found, entry.Key, entry.Threshold, cmd.NowMS)
+		if err := records.Write(ctx, next); err != nil {
+			return accounts.RecordRateLimitResult{}, fmt.Errorf("record authentication failure bucket: %w", err)
+		}
+		if next.BlockedUntil != nil && *next.BlockedUntil > maxRetry {
+			maxRetry = *next.BlockedUntil
+		}
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit authentication rate limit records: %w", err)
+		return accounts.RecordRateLimitResult{}, fmt.Errorf("commit authentication rate limit records: %w", err)
 	}
-	return nil
+	return accounts.RecordRateLimitResult{MaxRetryAfterMS: maxRetry}, nil
 }
 
 func (records rateLimitRecords) Read(

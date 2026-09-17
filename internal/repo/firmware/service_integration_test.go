@@ -268,7 +268,8 @@ func assertFirmwareReplacementLifecycle(
 ) {
 	t.Helper()
 	var variantStatus, compatibilityCode string
-	if err := database.QueryRowContext(ctx,
+	if err := database.QueryRowContext(
+		ctx,
 		`SELECT status,compatibility_code FROM game_variants WHERE id=?`, lifecycle.variantID,
 	).Scan(&variantStatus, &compatibilityCode); err != nil {
 		t.Fatal(err)

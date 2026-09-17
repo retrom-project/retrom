@@ -36,11 +36,15 @@ func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = NewMedia(database.SQL).CommitWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
-		return scope.Assets.Publish(context.Background(), metadatascrape.AssetPublication{
-			ID: "deleted", Blob: metadata, MediaType: "image/png", Width: 1, Height: 1, Now: recoveryNow().UnixMilli(),
-		}, 1)
-	})
+	tx, txErr := database.SQL.BeginTx(t.Context(), nil)
+	if txErr != nil {
+		t.Fatal(txErr)
+	}
+	records := mediaRecords{tx}
+	err = records.Publish(context.Background(), metadatascrape.AssetPublication{
+		ID: "deleted", Blob: metadata, MediaType: "image/png", Width: 1, Height: 1, Now: recoveryNow().UnixMilli(),
+	}, 1)
+	_ = tx.Rollback()
 	if !errors.Is(err, metadatascrape.ErrExecutionLost) {
 		t.Fatalf("publication conflict: %v", err)
 	}

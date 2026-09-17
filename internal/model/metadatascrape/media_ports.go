@@ -73,9 +73,47 @@ type MediaScope struct {
 	Leases MediaLeases
 	Assets MediaAssets
 }
+
+type MediaClaimCommand struct {
+	JobID, WorkerID string
+	Now             int64
+}
+type MediaClaimResult struct {
+	Claim    MediaClaim
+	Asset    MediaAsset
+	Limit    int64
+	Acquired bool
+	Code     string
+	Failed   bool
+}
+type MediaRefreshCommand struct {
+	Claim MediaClaim
+	Now   int64
+}
+type MediaSettleCommand struct {
+	Claim       MediaClaim
+	Publication AssetPublication
+	Code        string
+	Failed      bool
+	Retryable   bool
+	Now         int64
+}
+type MediaSettleResult struct {
+	State string
+}
+type MediaAccountCommand struct {
+	Claim    MediaClaim
+	Received int64
+	Limit    int64
+	Now      int64
+}
+
 type MediaRepository interface {
 	Recoverable(context.Context, int64) ([]string, error)
-	CommitWrite(context.Context, func(MediaScope) error) error
+	CommitClaim(context.Context, MediaClaimCommand) (MediaClaimResult, error)
+	CommitRefresh(context.Context, MediaRefreshCommand) error
+	CommitSettle(context.Context, MediaSettleCommand) (MediaSettleResult, error)
+	CommitAccount(context.Context, MediaAccountCommand) error
 }
 type MediaProvider interface {
 	FetchAssetBounded(context.Context, hasheous.AssetRef, int64) (hasheous.AssetData, error)

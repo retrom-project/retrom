@@ -20,7 +20,8 @@ func (service *Queries) Items(
 	if limit < 1 || limit > 51 {
 		return nil, application.ErrInvalid
 	}
-	rows, err := service.database.QueryContext(ctx, `
+	rows, err := service.database.QueryContext(
+		ctx, `
 SELECT item.id,item.title,item.collection_id,collection.display_name,
 collection.target_platform_instance_id,platform.name,
 item.gamelist_relative_path,item.source_flags_json,item.execution_state,item.payload_state,

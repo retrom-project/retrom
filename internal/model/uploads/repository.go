@@ -10,12 +10,95 @@ import (
 type BlobWriter interface {
 	Put(io.Reader) (blobstore.Metadata, error)
 }
+
+//nolint:interfacebloat // named commands replace former CommitWrite callback
 type Repository interface {
-	CommitWrite(context.Context, func(WriteScope) error) error
 	Snapshot(context.Context, string) (Session, error)
 	Target(context.Context, FileKey) (PartTarget, error)
 	Parts(context.Context, string) ([]Part, error)
 	Recoverable(context.Context, int64) ([]string, error)
+
+	CommitCreateSession(context.Context, Registration) error
+	CommitRecordPart(context.Context, RecordPartCommand) error
+	CommitRepairPart(context.Context, FileKey, int) error
+	CommitComplete(context.Context, CompleteCommand) (Run, error)
+	CommitCancel(context.Context, CancelCommand) (CancelResult, error)
+	CommitClaimFinalization(context.Context, ClaimFinalizationCommand) (ClaimResult, error)
+	CommitObserveFinalization(context.Context, ObserveCommand) error
+	CommitReadCandidates(context.Context, FinalizationOwnershipCommand) ([]Candidate, bool, error)
+	CommitPublishFile(context.Context, PublishFileCommand) (bool, error)
+	CommitFinishFinalization(context.Context, FinishFinalizationCommand) (bool, error)
+	CommitFinalizationFailure(context.Context, FinalizationFailureCommand) (bool, error)
+}
+
+type RecordPartCommand struct {
+	Key        FileKey
+	Part       PartRecord
+	TotalBytes int64
+	NowMS      int64
+}
+
+type CompleteCommand struct {
+	UploadID    string
+	Version     int64
+	JobID       string
+	ExecutionID string
+	NowMS       int64
+}
+
+type CancelCommand struct {
+	UploadID string
+	Version  int64
+	NowMS    int64
+}
+
+type CancelResult struct {
+	Result  Canceled
+	Pending bool
+}
+
+type ClaimFinalizationCommand struct {
+	JobID    string
+	WorkerID string
+	NowMS    int64
+	Deadline int64
+}
+
+type ClaimResult struct {
+	Run       Run
+	Input     FinalizationInput
+	Acquired  bool
+	Cancelled bool
+	Cause     error
+}
+
+type ObserveCommand struct {
+	Run    Run
+	NowMS  int64
+	LastMS int64
+}
+
+type FinalizationOwnershipCommand struct {
+	Run   Run
+	NowMS int64
+}
+
+type PublishFileCommand struct {
+	Run      Run
+	FileID   string
+	Metadata blobstore.Metadata
+	NowMS    int64
+}
+
+type FinishFinalizationCommand struct {
+	Run   Run
+	NowMS int64
+}
+
+type FinalizationFailureCommand struct {
+	Run   Run
+	Cause error
+	NowMS int64
 }
 type WriteScope struct {
 	Sessions SessionRecords

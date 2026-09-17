@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"retrom/internal/capability/format/importing"
-	firmwareservice "retrom/internal/model/firmware"
 )
 
 func TestInvalidArchiveFactsAreNotSilentlyIgnored(t *testing.T) {
@@ -25,8 +24,8 @@ crc32 TEXT,md5 TEXT,sha1 TEXT,sha256 TEXT,materialized_blob_id TEXT,created_at_m
 PRIMARY KEY(archive_blob_id,ordinal))`); err != nil {
 		t.Fatal(err)
 	}
-	err = testWithWrite(t.Context(), New(database), func(scope firmwareservice.WriteScope) error {
-		return scope.Archives.Put(t.Context(), "blob", []importing.ArchiveEntry{{Ordinal: 0, Size: -1}}, 1)
+	err = testWithWrite(t.Context(), New(database), func(scope writeScope) error {
+		return scope.archives.Put(t.Context(), "blob", []importing.ArchiveEntry{{Ordinal: 0, Size: -1}}, 1)
 	})
 	if err == nil {
 		t.Fatal("invalid archive facts were accepted without a record")

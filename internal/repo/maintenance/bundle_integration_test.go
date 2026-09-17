@@ -66,7 +66,8 @@ INSERT INTO games(
 `, backupGameID, "Backup favorite", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "Backup favorite"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := transaction.ExecContext(context.Background(),
+	if _, err := transaction.ExecContext(
+		context.Background(),
 		`INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(?,?,2000)`, profileID, backupGameID,
 	); err != nil {
 		t.Fatal(err)
@@ -77,7 +78,8 @@ VALUES(?,?,'备份收藏夹','备份收藏夹',1,2000,2000)
 `, folderID, profileID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := transaction.ExecContext(context.Background(),
+	if _, err := transaction.ExecContext(
+		context.Background(),
 		`INSERT INTO favorite_folder_games(profile_id,folder_id,game_id,created_at_ms) VALUES(?,?,?,2000)`,
 		profileID, folderID, backupGameID,
 	); err != nil {

@@ -289,7 +289,8 @@ func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testin
 	preview := func(cursorValue *string) *httptest.ResponseRecorder {
 		body, err := json.Marshal(map[string]any{"coreId": "mgba", "cursor": cursorValue, "limit": 1})
 		testassert.False(t, err != nil, err)
-		request := httptest.NewRequestWithContext(context.Background(),
+		request := httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodPost,
 			"/api/v1/admin/platform-instances/"+instanceID+"/default-core-preview",
 			bytes.NewReader(body),
@@ -349,7 +350,8 @@ UPDATE games SET version=version+1,updated_at_ms=? WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return len(seen) != 3 }, func() bool { return cursorValue != nil }), "preview coverage = %d games, cursor=%v", len(seen), cursorValue)
 
 	requestBody := fmt.Sprintf(`{"coreId":"mgba","impactDigest":%q,"confirmBlocked":false}`, digest)
-	request := httptest.NewRequestWithContext(context.Background(),
+	request := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost,
 		"/api/v1/admin/platform-instances/"+instanceID+"/default-core",
 		strings.NewReader(requestBody),
@@ -387,7 +389,8 @@ func TestGameMetadataCurrentStateProjectionAndOptimisticEdit(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return detail.Code != http.StatusOK }, func() bool { return detail.Header().Get("ETag") != `"v1"` }, func() bool { return !strings.Contains(detail.Body.String(), `"files"`) }, func() bool { return !strings.Contains(detail.Body.String(), `"variants"`) }, func() bool { return strings.Contains(detail.Body.String(), `"contentRevisions"`) }), "admin game projection = %d %s", detail.Code, detail.Body.String())
 
 	sendPatch := func(etag string) *httptest.ResponseRecorder {
-		request := httptest.NewRequestWithContext(context.Background(),
+		request := httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodPatch,
 			"/api/v1/admin/games/"+gameID,
 			strings.NewReader(
@@ -451,7 +454,8 @@ func TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone(t *
 	ctx := context.Background()
 	const historyUserID = "01980000-0000-7000-8000-000000009996"
 	const historyProfileID = "01980000-0000-7000-8000-000000009997"
-	if _, err := server.database.ExecContext(ctx,
+	if _, err := server.database.ExecContext(
+		ctx,
 		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Payload history player',0)`,
 		historyProfileID,
 	); err != nil {
@@ -530,7 +534,8 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	secondSaveID := "01980000-0000-7000-8000-000000000199"
 	seedProductSave(t, server.database, secondSaveID, created.LaunchID, "Concurrent save")
 	sendDelete := func(targetID, etag, title, digest, key string) *httptest.ResponseRecorder {
-		request := httptest.NewRequestWithContext(context.Background(),
+		request := httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodDelete,
 			"/api/v1/admin/games/"+targetID,
 			strings.NewReader(fmt.Sprintf(`{"confirmTitle":%q,"impactDigest":%q}`, title, digest)),
@@ -668,7 +673,8 @@ WHERE g.id=?
 	}
 	waitForPayloadState(t, server.database, sharedGameID, "RELEASED")
 	var candidateCount int64
-	if err := server.database.QueryRowContext(ctx,
+	if err := server.database.QueryRowContext(
+		ctx,
 		`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
 	).Scan(&candidateCount); err != nil || candidateCount != 1 {
 		t.Fatalf("last shared release candidate = %d, error=%v", candidateCount, err)

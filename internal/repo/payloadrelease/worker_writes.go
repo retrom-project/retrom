@@ -61,7 +61,8 @@ func (records workerRecords) Change(ctx context.Context, change application.Work
 	if after.WorkerID != "" {
 		worker = after.WorkerID
 	}
-	values := append(make([]any, 0, 32),
+	values := append(
+		make([]any, 0, 32),
 		after.Attempt, worker, timeArgument(after.Started), timeArgument(after.Deadline), timeArgument(after.Lease),
 		timeArgument(after.Heartbeat), after.Version, after.AvailableMS, finished, errorCode, retryable, change.NowMS,
 	)

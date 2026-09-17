@@ -17,6 +17,7 @@ type CreateRequest struct {
 	SourceRelativePath string `json:"sourceRelativePath"`
 	ReplaceIfBetter    bool   `json:"replaceIfBetter"`
 }
+
 type (
 	RootSelection struct{ ID, Label, Digest string }
 	CatalogEntry  struct {
@@ -34,14 +35,12 @@ type CreationPlan struct {
 	Input, Payload, Audit      []byte
 	Evidence                   ControlEvidence
 }
+
 type SourceSelector interface {
 	Select(context.Context, string, string) (RootSelection, error)
 }
-type CreationWriter interface {
-	Active(context.Context, string) (bool, error)
-	Insert(context.Context, CreationPlan) (Summary, error)
-}
+
 type CreationRepository interface {
 	Catalog(context.Context) ([]CatalogEntry, error)
-	WithCreate(context.Context, func(CreationWriter) error) error
+	CommitCreate(context.Context, CreationPlan) (Summary, error)
 }

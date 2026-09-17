@@ -54,7 +54,8 @@ WHERE preview.id=? AND file.logical_name=?
 	err := repository.executor.QueryRowContext(ctx, query, ref.ID, logicalName).Scan(
 		&session.CredentialHash, &session.State, &session.HardExpiresAtMS,
 		&content.Digest, &content.Kind, &content.PlatformKey, &content.CoreKey,
-		&content.ProviderID, &content.TargetID, &content.BundleSHA256, &content.DiscCount)
+		&content.ProviderID, &content.TargetID, &content.BundleSHA256, &content.DiscCount,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ExternalRecord{}, false, nil
 	}

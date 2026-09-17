@@ -46,7 +46,8 @@ SELECT 1 FROM review_multidisc_attachments active WHERE active.import_item_id=?
 	AND active.state IN ('QUEUED','RUNNING','FAILED_RETRYABLE'))`, input.AttachmentID,
 		input.ImportItemID, input.ReviewDraftID,
 		input.RequestedByUserID, input.BaseSourceSnapshotID, input.UploadSessionID, input.ExpectedSetDigest, value.JobID,
-		value.Now, value.Now, input.ImportItemID)
+		value.Now, value.Now, input.ImportItemID,
+	)
 	return attachmentAdmissionCount(result, err, application.MultiDiscAttachmentErrorInProgress)
 }
 

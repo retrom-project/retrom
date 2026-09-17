@@ -67,7 +67,8 @@ func newArcadeGroupingFixture(ctx context.Context, t *testing.T) arcadeGroupingF
 		t.Fatal(err)
 	}
 	datID := "01980000-0000-7000-8000-000000000201"
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := database.SQL.ExecContext(
+		ctx, `
 INSERT INTO dat_versions(id,
 core_id,
 provider_id,
@@ -193,7 +194,8 @@ func (fixture arcadeGroupingFixture) createArchives(ctx context.Context, t *test
 		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
 		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil }, func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixtures[index].name, entries, scanErr)
 		machine := strings.TrimSuffix(fixtures[index].name, ".zip")
-		if _, err := database.SQL.ExecContext(ctx, `
+		if _, err := database.SQL.ExecContext(
+			ctx, `
 INSERT INTO dat_rom_entries(dat_version_id,
 machine_name,
 ordinal,

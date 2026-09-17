@@ -77,35 +77,6 @@ type Status struct {
 	State     string  `json:"state"`
 	ErrorCode *string `json:"errorCode"`
 }
-type Reader interface {
-	Batch(context.Context, Key) (Batch, error)
-	Disposition(context.Context, Key) (Disposition, bool, error)
-	Pending(context.Context) (Request, bool, error)
-	Children(context.Context, Key) ([]string, error)
-}
-type WriteScope struct {
-	Reader
-	Requests  RequestWriter
-	Sources   SourceWriter
-	Ownership Ownership
-}
-type RequestWriter interface {
-	Request(context.Context, Request) error
-	Progress(context.Context, Progress) error
-}
-type SourceWriter interface {
-	Releases(context.Context, Key) (ReleaseFacts, error)
-	Complete(context.Context, Key, int64) error
-	UnusedUploads(context.Context, Key) ([]string, error)
-	DeleteUpload(context.Context, string) error
-}
-type Ownership interface {
-	Unlinked(context.Context, Key) ([]string, error)
-	ImportByUpload(context.Context, string) (string, error)
-	LegacyCandidates(context.Context, string) ([]Envelope, error)
-	OwnerCount(context.Context, string) (int64, error)
-	Link(context.Context, string, string, string) error
-}
 type ImportWorkflow interface {
 	CancelForDiscard(context.Context, string, int64) error
 	DiscardBatchReviews(context.Context, string) (bool, error)

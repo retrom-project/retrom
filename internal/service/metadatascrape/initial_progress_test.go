@@ -84,7 +84,7 @@ func TestInitialReviewFailureRetainsScrapingStageAndCode(t *testing.T) {
 func TestInitialAssetsChooseReadyImagesByOrdinalWithoutMutatingInput(t *testing.T) {
 	assets := []model.InitialAsset{{ID: "later", Kind: "COVER", Ordinal: 2}, {ID: "shot", Kind: "SCREENSHOT", Ordinal: 0}, {ID: "first", Kind: "COVER", Ordinal: 1}}
 	var change model.InitialDraftChange
-	selectInitialAssets(&change, assets)
+	model.SelectInitialAssets(&change, assets)
 	if change.CoverID == nil || *change.CoverID != "first" || change.BackgroundID != nil || len(change.Screenshots) != 1 || change.Screenshots[0].ID != "shot" {
 		t.Fatalf("asset selection: %+v", change)
 	}

@@ -13,17 +13,17 @@ import (
 
 func serverInstall(
 	ctx context.Context,
-	scope fwmodel.WriteScope,
+	scope writeScope,
 	cmd fwmodel.ServerInstallCommand,
 ) (fwmodel.ServerInstallResult, error) {
 	request := cmd.Request
-	if err := scope.Server.LockExecution(ctx, fwmodel.ServerExecution{
+	if err := scope.server.LockExecution(ctx, serverExecution{
 		ImportID: request.ServerImportID, JobID: request.JobID, WorkerID: request.WorkerID,
 		ExecutionNo: request.ExecutionNo, AtMS: cmd.NowMS,
 	}); err != nil {
 		return fwmodel.ServerInstallResult{}, fmt.Errorf("lock server BIOS execution: %w", err)
 	}
-	requirement, found, err := scope.Requirements.Get(ctx, request.RequirementID)
+	requirement, found, err := scope.requirements.Get(ctx, request.RequirementID)
 	if err != nil {
 		return fwmodel.ServerInstallResult{}, fmt.Errorf("recheck server BIOS catalog: %w", err)
 	}
@@ -31,20 +31,20 @@ func serverInstall(
 		return fwmodel.ServerInstallResult{}, fwmodel.ErrCatalogChanged
 	}
 	now := cmd.NowMS
-	if err := scope.Server.SelectCandidate(ctx, fwmodel.Selection{
+	if err := scope.server.SelectCandidate(ctx, fwmodel.Selection{
 		CandidateID: request.CandidateID, ImportID: request.ServerImportID,
 		RequirementID: request.RequirementID, AtMS: now,
 	}); err != nil {
 		return fwmodel.ServerInstallResult{}, fmt.Errorf("select server BIOS: %w", err)
 	}
-	active, exists, err := scope.ReadScope.Installations.Active(ctx, request.RequirementID)
+	active, exists, err := scope.readScope.installations.Active(ctx, request.RequirementID)
 	if err != nil {
 		return fwmodel.ServerInstallResult{}, fmt.Errorf("read active server BIOS: %w", err)
 	}
 	var handled bool
 	result, handled, err := evaluateExistingInstallation(
 		ctx,
-		scope.ReadScope.Archives,
+		scope.readScope.archives,
 		request,
 		requirement.Version,
 		active,
@@ -59,7 +59,7 @@ func serverInstall(
 			return fwmodel.ServerInstallResult{}, err
 		}
 	}
-	if err := recordServerOutcome(ctx, scope.Server, request, result, now); err != nil {
+	if err := recordServerOutcome(ctx, scope.server, request, result, now); err != nil {
 		return fwmodel.ServerInstallResult{}, err
 	}
 	return result, nil
@@ -74,7 +74,7 @@ func matchesServerCatalog(requirement fwmodel.Requirement, request fwmodel.Serve
 
 func evaluateExistingInstallation(
 	ctx context.Context,
-	records fwmodel.ArchiveReader,
+	records archiveReader,
 	request fwmodel.ServerInstallRequest,
 	version int64,
 	active fwmodel.ActiveInstallation,
@@ -116,7 +116,7 @@ func evaluateExistingInstallation(
 	return result, true, nil
 }
 
-func candidateStrictlyBetter(ctx context.Context, records fwmodel.ArchiveReader, request fwmodel.ServerInstallRequest,
+func candidateStrictlyBetter(ctx context.Context, records archiveReader, request fwmodel.ServerInstallRequest,
 	activeBlobID string, facts firmware.FileFacts,
 ) (bool, bool, error) {
 	if request.SourceKind == "STATIC" && request.ArchiveMembersJSON == nil {
@@ -143,19 +143,19 @@ func candidateStrictlyBetter(ctx context.Context, records fwmodel.ArchiveReader,
 	return firmware.CompareDATQuality(*request.DATEvaluation, active) < 0, true, nil
 }
 
-func persistServerInstallation(ctx context.Context, scope fwmodel.WriteScope, request fwmodel.ServerInstallRequest,
+func persistServerInstallation(ctx context.Context, scope writeScope, request fwmodel.ServerInstallRequest,
 	version, now int64, result fwmodel.ServerInstallResult,
 ) (fwmodel.ServerInstallResult, error) {
-	blobID, err := scope.Blobs.Ensure(ctx, request.Metadata, now)
+	blobID, err := scope.blobs.Ensure(ctx, request.Metadata, now)
 	if err != nil {
 		return fwmodel.ServerInstallResult{}, fmt.Errorf("register server BIOS blob: %w", err)
 	}
 	if request.SourceKind == "DAT_MACHINE" || request.ArchiveMembersJSON != nil {
-		if err := scope.Archives.Put(ctx, blobID, request.ArchiveEntries, now); err != nil {
+		if err := scope.archives.Put(ctx, blobID, request.ArchiveEntries, now); err != nil {
 			return fwmodel.ServerInstallResult{}, fmt.Errorf("persist server BIOS archive: %w", err)
 		}
 	}
-	if err := supersedeInScope(ctx, scope.Retirements, request.RequirementID, now); err != nil {
+	if err := supersedeInScope(ctx, scope.retirements, request.RequirementID, now); err != nil {
 		return fwmodel.ServerInstallResult{}, fmt.Errorf("retire server BIOS: %w", err)
 	}
 	request.Details["schemaVersion"] = 1
@@ -168,7 +168,7 @@ func persistServerInstallation(ctx context.Context, scope fwmodel.WriteScope, re
 	if err != nil {
 		return fwmodel.ServerInstallResult{}, fmt.Errorf("generate server BIOS ID: %w", err)
 	}
-	if err := scope.Installations.Create(ctx, fwmodel.InstallationWrite{
+	if err := scope.installations.Create(ctx, fwmodel.InstallationWrite{
 		ID: id.String(), RequirementID: request.RequirementID, BlobID: blobID, Filename: request.OriginalFilename,
 		MD5: request.Metadata.MD5, SHA1: request.Metadata.SHA1, SHA256: request.Metadata.SHA256, Size: request.Metadata.Size,
 		RequirementVersion: version, Status: request.Status, DetailsJSON: encoded, AtMS: now, SourceKind: "SERVER_DIRECTORY",
@@ -188,7 +188,7 @@ func persistServerInstallation(ctx context.Context, scope fwmodel.WriteScope, re
 	return result, nil
 }
 
-func recordServerOutcome(ctx context.Context, records fwmodel.ServerRecords, request fwmodel.ServerInstallRequest,
+func recordServerOutcome(ctx context.Context, records serverRecords, request fwmodel.ServerInstallRequest,
 	result fwmodel.ServerInstallResult, now int64,
 ) error {
 	code := result.OutcomeCode

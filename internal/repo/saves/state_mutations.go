@@ -59,7 +59,8 @@ func (repository *Repository) checkMutationResult(
 		return nil
 	}
 	var exists int
-	err = repository.database.QueryRowContext(ctx,
+	err = repository.database.QueryRowContext(
+		ctx,
 		`SELECT 1 FROM save_states WHERE id=? AND profile_id=? AND deleted_at_ms IS NULL`,
 		id, profileID,
 	).Scan(&exists)

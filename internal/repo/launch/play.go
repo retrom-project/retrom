@@ -41,7 +41,8 @@ UNION ALL
 SELECT id,1,credential_sha256,state,'','',hard_expires_at_ms,NULL,version
 FROM review_preview_sessions WHERE id=?`, id, id).Scan(
 		&source.Ref.ID, &source.Ref.Preview, &source.Session.CredentialHash, &source.Session.State,
-		&source.ProfileID, &source.GameID, &source.Session.HardExpiresAtMS, &idle, &source.Version)
+		&source.ProfileID, &source.GameID, &source.Session.HardExpiresAtMS, &idle, &source.Version,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.PlaySource{}, false, nil
 	}

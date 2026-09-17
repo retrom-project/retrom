@@ -64,7 +64,8 @@ func readValidationWorkerJob(t *testing.T, database *sql.DB, id string) validati
 attempt_count,execution_no,(SELECT count(*) FROM job_events WHERE job_id=jobs.id),execution_started_at_ms,
 execution_deadline_at_ms,leased_until_ms,cancel_requested_at_ms FROM jobs WHERE id=?`, id).Scan(
 		&job.State, &job.ErrorCode, &job.WorkerID, &job.Version, &job.Attempt, &job.Execution, &job.Events,
-		&job.Started, &job.Deadline, &job.Lease, &job.CancelledAt)
+		&job.Started, &job.Deadline, &job.Lease, &job.CancelledAt,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

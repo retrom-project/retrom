@@ -14,10 +14,10 @@ import (
 
 func browserInstall(
 	ctx context.Context,
-	scope fwmodel.WriteScope,
+	scope writeScope,
 	cmd fwmodel.BrowserInstallCommand,
 ) (fwmodel.Installation, error) {
-	current, err := readInstallSnapshot(ctx, scope.ReadScope, cmd.RequirementID, cmd.FileID, cmd.Version)
+	current, err := readInstallSnapshot(ctx, scope.readScope, cmd.RequirementID, cmd.FileID, cmd.Version)
 	if err != nil {
 		return fwmodel.Installation{}, err
 	}
@@ -27,7 +27,7 @@ func browserInstall(
 		current.Upload.SHA256 != cmd.PreparedSHA256 {
 		return fwmodel.Installation{}, fwmodel.ErrInvalid
 	}
-	status, details, err := evaluateInstall(ctx, scope.Requirements, current, cmd.ArchiveEntries)
+	status, details, err := evaluateInstall(ctx, scope.requirements, current, cmd.ArchiveEntries)
 	if err != nil {
 		return fwmodel.Installation{}, err
 	}
@@ -36,7 +36,7 @@ func browserInstall(
 	}
 	now := cmd.NowMS
 	if current.Requirement.FileKind == "ARCHIVE" {
-		if err := scope.Archives.Put(ctx, current.Upload.BlobID, cmd.ArchiveEntries, now); err != nil {
+		if err := scope.archives.Put(ctx, current.Upload.BlobID, cmd.ArchiveEntries, now); err != nil {
 			return fwmodel.Installation{}, fmt.Errorf("record BIOS archive facts: %w", err)
 		}
 	}
@@ -50,18 +50,18 @@ type installSnapshot struct {
 
 func readInstallSnapshot(
 	ctx context.Context,
-	scope fwmodel.ReadScope,
+	scope readScope,
 	id, fileID string,
 	version int64,
 ) (installSnapshot, error) {
-	requirement, found, err := scope.Requirements.Get(ctx, id)
+	requirement, found, err := scope.requirements.Get(ctx, id)
 	if err != nil {
 		return installSnapshot{}, fmt.Errorf("read BIOS requirement: %w", err)
 	}
 	if !found || !requirement.Enabled || requirement.Version != version {
 		return installSnapshot{}, fwmodel.ErrInvalid
 	}
-	upload, found, err := scope.Uploads.Get(ctx, fileID)
+	upload, found, err := scope.uploads.Get(ctx, fileID)
 	if err != nil {
 		return installSnapshot{}, fmt.Errorf("read BIOS upload: %w", err)
 	}
@@ -71,7 +71,7 @@ func readInstallSnapshot(
 	return installSnapshot{Requirement: requirement, Upload: upload}, nil
 }
 
-func evaluateInstall(ctx context.Context, records fwmodel.RequirementRecords, snapshot installSnapshot,
+func evaluateInstall(ctx context.Context, records requirementReader, snapshot installSnapshot,
 	actual []importing.ArchiveEntry,
 ) (string, map[string]any, error) {
 	requirement, upload := snapshot.Requirement, snapshot.Upload
@@ -99,7 +99,7 @@ func evaluateInstall(ctx context.Context, records fwmodel.RequirementRecords, sn
 
 func expectedArchive(
 	ctx context.Context,
-	records fwmodel.RequirementRecords,
+	records requirementReader,
 	requirement fwmodel.Requirement,
 ) ([]firmware.ExpectedDATEntry, error) {
 	if requirement.ArchiveMembersJSON != nil {
@@ -140,7 +140,7 @@ func evaluateArchive(
 	return "MATCHED", details
 }
 
-func persistBrowserInstallation(ctx context.Context, scope fwmodel.WriteScope, snapshot installSnapshot, status string,
+func persistBrowserInstallation(ctx context.Context, scope writeScope, snapshot installSnapshot, status string,
 	details map[string]any, now int64,
 ) (fwmodel.Installation, error) {
 	id, err := uuid.NewV7()
@@ -156,17 +156,17 @@ func persistBrowserInstallation(ctx context.Context, scope fwmodel.WriteScope, s
 		return fwmodel.Installation{}, fmt.Errorf("encode BIOS findings: %w", err)
 	}
 	requirement, upload := snapshot.Requirement, snapshot.Upload
-	if err := supersedeInScope(ctx, scope.Retirements, requirement.ID, now); err != nil {
+	if err := supersedeInScope(ctx, scope.retirements, requirement.ID, now); err != nil {
 		return fwmodel.Installation{}, fmt.Errorf("retire BIOS: %w", err)
 	}
-	if err := scope.Installations.Create(ctx, fwmodel.InstallationWrite{
+	if err := scope.installations.Create(ctx, fwmodel.InstallationWrite{
 		ID: id.String(), RequirementID: requirement.ID, BlobID: upload.BlobID, Filename: upload.RelativePath,
 		MD5: upload.MD5, SHA1: upload.SHA1, SHA256: upload.SHA256, Size: upload.Size, Status: status,
 		RequirementVersion: requirement.Version, DetailsJSON: encoded, AtMS: now, SourceKind: "BROWSER_UPLOAD",
 	}); err != nil {
 		return fwmodel.Installation{}, fmt.Errorf("persist BIOS installation: %w", err)
 	}
-	if err := scope.Installations.Consume(ctx, fwmodel.Consumption{
+	if err := scope.installations.Consume(ctx, fwmodel.Consumption{
 		ID: consumption.String(), UploadID: upload.SessionID,
 		FileID: upload.ID, InstallationID: id.String(), AtMS: now,
 	}); err != nil {

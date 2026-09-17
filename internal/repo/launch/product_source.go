@@ -83,7 +83,8 @@ func productCreationOwner(
 		return true, nil
 	}
 	var valid bool
-	err := executor.QueryRowContext(ctx, `
+	err := executor.QueryRowContext(
+		ctx, `
 SELECT EXISTS(SELECT 1 FROM users WHERE id=? AND profile_id=? AND status='ENABLED')`,
 		command.ActorID, command.ProfileID,
 	).Scan(

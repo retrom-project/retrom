@@ -30,28 +30,30 @@ func (memory *linkMemory) List(_ context.Context, query model.LinkQuery) ([]mode
 	return []model.LinkRecord{memory.record}, memory.readErr
 }
 
-func (memory *linkMemory) CommitWrite(_ context.Context, work func(model.LinkScope) error) error {
-	if err := work(model.LinkScope{Read: memory, Write: memory}); err != nil {
-		return err
+func (memory *linkMemory) CommitRevokeLink(
+	_ context.Context, cmd model.RevokeLinkCommand,
+) error {
+	if memory.record.Link.Version != cmd.Version {
+		return model.ErrUserVersion
 	}
-	return memory.lateErr
-}
-
-func (memory *linkMemory) Replay(context.Context, model.AccountOperation) (model.AccountReplay, error) {
-	return model.AccountReplay{}, nil
-}
-
-func (memory *linkMemory) Revoke(_ context.Context, plan model.LinkRevocation) error {
+	if model.LinkState(memory.record.Link, cmd.Operation.Now) != "ACTIVE" {
+		return model.ErrAccountLinkNotActive
+	}
 	memory.writes++
-	memory.revocation = plan
+	memory.revocation = model.LinkRevocation{
+		LinkID: cmd.LinkID, ActorID: cmd.ActorID,
+		Version: cmd.Version, Now: cmd.Operation.Now,
+	}
+	action := "PASSWORD_RESET_REVOKED"
+	if memory.record.Link.Kind == "INVITATION" {
+		action = "INVITATION_REVOKED"
+	}
+	memory.audits = append(memory.audits, model.AccountAudit{Action: action})
+	if memory.lateErr != nil {
+		return memory.lateErr
+	}
 	return nil
 }
-
-func (memory *linkMemory) Audit(_ context.Context, audit model.AccountAudit) error {
-	memory.audits = append(memory.audits, audit)
-	return nil
-}
-func (memory *linkMemory) Remember(context.Context, model.AccountReceipt) error { return nil }
 
 type linkTokens struct{ valid bool }
 

@@ -78,17 +78,8 @@ func (service *Service) Create(ctx context.Context, request model.CreateRequest)
 			SizeBytes: declaration.SizeBytes, State: "PENDING", Parts: []int{},
 		})
 	}
-	err = service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
-		return scope.Sessions.Create(
-			ctx,
-			model.Registration{
-				Session: session,
-				ManifestDigest: hex.EncodeToString(
-					digest[:],
-				),
-				AtMS: now,
-			},
-		)
+	err = service.repository.CommitCreateSession(ctx, model.Registration{
+		Session: session, ManifestDigest: hex.EncodeToString(digest[:]), AtMS: now,
 	})
 	if err != nil {
 		return model.Session{}, fmt.Errorf("create upload: %w", err)
@@ -138,20 +129,8 @@ func (service *Service) PutPart(
 		Number: partNo, Offset: span.start, Size: written, SHA256: expected,
 		Path: filepath.ToSlash(filepath.Join(uploadID, fileID, strconv.Itoa(partNo)+"-"+expected)),
 	}}
-	err = service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
-		target, err := scope.Files.Target(ctx, key)
-		if err != nil {
-			return fmt.Errorf("recheck upload part target: %w", err)
-		}
-		if err := validatePartTarget(target, span.total, now); err != nil {
-			return err
-		}
-		if target.SessionState == "FAILED" {
-			if err := repairAllowed(ctx, scope, key, partNo); err != nil {
-				return err
-			}
-		}
-		return recordPart(ctx, scope, target, part)
+	err = service.repository.CommitRecordPart(ctx, model.RecordPartCommand{
+		Key: key, Part: part, TotalBytes: span.total, NowMS: now,
 	})
 	if err != nil {
 		return fmt.Errorf("record upload part: %w", err)
@@ -174,57 +153,6 @@ func validatePartTarget(target model.PartTarget, total, now int64) error {
 	return model.ErrInvalid
 }
 
-func recordPart(ctx context.Context, scope model.WriteScope, target model.PartTarget, part model.PartRecord) error {
-	inserted, err := scope.Parts.Put(ctx, part)
-	if err != nil {
-		return fmt.Errorf("write upload part: %w", err)
-	}
-	if !inserted {
-		existing, found, err := scope.Parts.Get(ctx, part.FileID, part.Part.Number)
-		if err != nil {
-			return fmt.Errorf("read upload part replay: %w", err)
-		}
-		if !found || existing.Part.SHA256 != part.Part.SHA256 ||
-			existing.Part.Offset != part.Part.Offset || existing.Part.Size != part.Part.Size {
-			return model.ErrInvalid
-		}
-		return nil
-	}
-	if err := scope.Files.AddReceived(
-		ctx,
-		model.FileProgress{
-			FileID: part.FileID,
-			Bytes:  part.Part.Size,
-			AtMS:   part.AtMS,
-		},
-	); err != nil {
-		return fmt.Errorf("advance upload file: %w", err)
-	}
-	if err := scope.Sessions.Advance(
-		ctx,
-		model.SessionProgress{
-			ID:              target.UploadID,
-			State:           "UPLOADING",
-			ExpectedVersion: target.SessionVersion,
-			AtMS:            part.AtMS,
-		},
-	); err != nil {
-		return fmt.Errorf("advance upload session: %w", err)
-	}
-	return nil
-}
-
-func repairAllowed(ctx context.Context, scope model.WriteScope, key model.FileKey, number int) error {
-	allowed, err := scope.Finalize.Repair(ctx, key, number)
-	if err != nil {
-		return fmt.Errorf("read upload repair authorization: %w", err)
-	}
-	if !allowed {
-		return model.ErrInvalid
-	}
-	return nil
-}
-
 func (service *Service) validateReceivingPart(ctx context.Context, key model.FileKey, total int64, number int) error {
 	target, err := service.repository.Target(ctx, key)
 	if err != nil {
@@ -236,9 +164,8 @@ func (service *Service) validateReceivingPart(ctx context.Context, key model.Fil
 	if target.SessionState != "FAILED" {
 		return nil
 	}
-	err = service.repository.CommitWrite(
-		ctx,
-		func(scope model.WriteScope) error { return repairAllowed(ctx, scope, key, number) },
-	)
-	return finalizationError("validate repair target", err)
+	if err := service.repository.CommitRepairPart(ctx, key, number); err != nil {
+		return fmt.Errorf("repair upload part: %w", err)
+	}
+	return nil
 }

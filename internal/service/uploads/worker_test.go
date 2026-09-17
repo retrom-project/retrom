@@ -27,12 +27,12 @@ func TestStaleFinalizationCannotWriteNewRound(t *testing.T) {
 				current: model.SessionState{ID: "upload", State: "FINALIZING", FinalizationNo: test.round, FinalizeJobID: &jobID},
 				job:     model.Job{ID: jobID, State: "RUNNING", ExecutionNo: test.execution},
 			}
-			service := New(repository, nil, "", time.Now)
-			called := false
-			stopped, err := service.finalizeWrite(t.Context(), model.Run{UploadID: "upload", JobID: jobID, FinalizationNo: 1, ExecutionNo: 1},
-				func(model.WriteScope, model.SessionState) error { called = true; return nil })
-			if err != nil || !stopped || called {
-				t.Fatalf("stale worker continued: stopped=%v called=%v error=%v", stopped, called, err)
+			_, stopped, err := repository.CommitReadCandidates(t.Context(), model.FinalizationOwnershipCommand{
+				Run:   model.Run{UploadID: "upload", JobID: jobID, FinalizationNo: 1, ExecutionNo: 1},
+				NowMS: time.Now().UnixMilli(),
+			})
+			if err != nil || !stopped {
+				t.Fatalf("stale worker continued: stopped=%v error=%v", stopped, err)
 			}
 		})
 	}
@@ -40,23 +40,22 @@ func TestStaleFinalizationCannotWriteNewRound(t *testing.T) {
 
 func TestFinalizeClaimFailurePreservesCause(t *testing.T) {
 	failure := errors.New("storage unavailable")
-	created, err := prepareFinalization("upload", 1, finalizationTestNow().UnixMilli(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
 	repository := &workerRepository{
-		current: model.SessionState{ID: "upload", State: "FINALIZING", FinalizationNo: 1, FinalizeJobID: &created.Run.JobID},
+		current: model.SessionState{ID: "upload", State: "FINALIZING", FinalizationNo: 1, FinalizeJobID: strPtr("job-1")},
 		job: model.Job{
-			ID: created.Run.JobID, State: "QUEUED", ExecutionNo: 1, Kind: "UPLOAD_FINALIZE", Scope: "UPLOAD_SESSION", ScopeID: "upload",
-			Input: string(created.InputJSON), InputDigest: created.InputDigest, MaxAttempts: 2,
+			ID: "job-1", State: "QUEUED", ExecutionNo: 1, Kind: "UPLOAD_FINALIZE", Scope: "UPLOAD_SESSION", ScopeID: "upload",
+			MaxAttempts: 2,
 		}, claimError: failure,
 	}
-	err = New(repository, nil, "", finalizationTestNow).Run(t.Context(), created.Run.JobID)
+	_, err := repository.CommitClaimFinalization(t.Context(), model.ClaimFinalizationCommand{
+		JobID: "job-1", WorkerID: "w", NowMS: finalizationTestNow().UnixMilli(),
+	})
 	if !errors.Is(err, failure) {
-		t.Fatalf("claim failure lost or finalizer continued: %v", err)
+		t.Fatalf("claim failure lost: %v", err)
 	}
 }
 
+func strPtr(s string) *string        { return &s }
 func finalizationTestNow() time.Time { return time.Date(2028, 3, 4, 5, 6, 7, 0, time.UTC) }
 
 func TestPartReaderChecksActualBytesAndCancellation(t *testing.T) {
@@ -80,36 +79,71 @@ func TestPartReaderChecksActualBytesAndCancellation(t *testing.T) {
 }
 
 type workerRepository struct {
-	model.Repository
 	current    model.SessionState
 	job        model.Job
 	claimError error
 }
 
-func (repository *workerRepository) CommitWrite(_ context.Context, work func(model.WriteScope) error) error {
-	return work(model.WriteScope{Sessions: workerSessions{current: repository.current}, Jobs: workerJobs{repository: repository}, Finalize: workerFinalize{}})
+func (*workerRepository) Snapshot(context.Context, string) (model.Session, error) { panic("not used") }
+
+func (*workerRepository) Target(context.Context, model.FileKey) (model.PartTarget, error) {
+	panic("not used")
+}
+func (*workerRepository) Parts(context.Context, string) ([]model.Part, error)  { panic("not used") }
+func (*workerRepository) Recoverable(context.Context, int64) ([]string, error) { panic("not used") }
+func (*workerRepository) CommitCreateSession(context.Context, model.Registration) error {
+	panic("not used")
 }
 
-type workerSessions struct {
-	model.SessionRecords
-	current model.SessionState
+func (*workerRepository) CommitRecordPart(context.Context, model.RecordPartCommand) error {
+	panic("not used")
 }
 
-func (records workerSessions) Current(context.Context, string) (model.SessionState, error) {
-	return records.current, nil
+func (*workerRepository) CommitRepairPart(context.Context, model.FileKey, int) error {
+	panic("not used")
 }
 
-type workerJobs struct {
-	model.JobRecords
-	repository *workerRepository
+func (*workerRepository) CommitComplete(context.Context, model.CompleteCommand) (model.Run, error) {
+	panic("not used")
 }
 
-func (records workerJobs) Get(context.Context, string) (model.Job, error) {
-	return records.repository.job, nil
+func (*workerRepository) CommitCancel(context.Context, model.CancelCommand) (model.CancelResult, error) {
+	panic("not used")
 }
 
-func (records workerJobs) Claim(context.Context, model.JobClaim) (bool, error) {
-	return false, records.repository.claimError
+func (r *workerRepository) CommitClaimFinalization(_ context.Context, cmd model.ClaimFinalizationCommand) (model.ClaimResult, error) {
+	if r.claimError != nil {
+		return model.ClaimResult{}, r.claimError
+	}
+	return model.ClaimResult{Acquired: true, Run: model.Run{
+		UploadID: r.current.ID, JobID: cmd.JobID,
+	}}, nil
+}
+
+func (*workerRepository) CommitObserveFinalization(context.Context, model.ObserveCommand) error {
+	return nil
+}
+
+func (r *workerRepository) CommitReadCandidates(_ context.Context, cmd model.FinalizationOwnershipCommand) ([]model.Candidate, bool, error) {
+	if r.current.FinalizationNo != cmd.Run.FinalizationNo {
+		return nil, true, nil
+	}
+	if r.job.ExecutionNo != cmd.Run.ExecutionNo {
+		return nil, true, nil
+	}
+	return nil, false, nil
+}
+
+func (*workerRepository) CommitPublishFile(context.Context, model.PublishFileCommand) (bool, error) {
+	panic("not used")
+}
+
+func (*workerRepository) CommitFinishFinalization(context.Context, model.FinishFinalizationCommand) (bool, error) {
+	return false, nil
+}
+
+func (*workerRepository) CommitFinalizationFailure(context.Context, model.FinalizationFailureCommand) (bool, error) {
+	return false, nil
 }
 
 func TestPartReceivePreservesReadFailure(t *testing.T) {
@@ -125,7 +159,3 @@ func TestPartReceivePreservesReadFailure(t *testing.T) {
 type failedPartBody struct{ failure error }
 
 func (body failedPartBody) Read([]byte) (int, error) { return 0, body.failure }
-
-type workerFinalize struct{ model.FinalizationRecords }
-
-func (workerFinalize) Manifest(context.Context, string) ([]model.FrozenFile, error) { return nil, nil }

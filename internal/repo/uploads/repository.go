@@ -21,33 +21,21 @@ type (
 )
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
-func (repository *Repository) CommitWrite(ctx context.Context, work func(service.WriteScope) error) error {
+
+func (repository *Repository) beginScope(ctx context.Context) (*sql.Tx, service.WriteScope, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("uploads/begin write: %w", err)
+		return nil, service.WriteScope{}, fmt.Errorf("uploads/begin write: %w", err)
 	}
-	defer dbexec.Rollback(tx)
 	scope := service.WriteScope{
 		Finalize: finalizationRecords{tx}, Leases: leaseRecords{tx},
-		Sessions: sessionRecords{
-			tx,
-		},
-		Files: fileRecords{
-			tx,
-		},
-		Parts: partRecords{
-			tx,
-		},
-		Jobs: jobRecords{
-			tx,
-		},
-		Blobs: blobRecords{
-			tx,
-		},
+		Sessions: sessionRecords{tx}, Files: fileRecords{tx},
+		Parts: partRecords{tx}, Jobs: jobRecords{tx}, Blobs: blobRecords{tx},
 	}
-	if err := work(scope); err != nil {
-		return err
-	}
+	return tx, scope, nil
+}
+
+func commitScope(tx *sql.Tx) error {
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("uploads/commit write: %w", err)
 	}

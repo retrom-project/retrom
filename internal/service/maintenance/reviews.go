@@ -66,7 +66,8 @@ func completeRestoredReview(
 		maximumYear = now.UTC().Year() + 1
 	}
 	_, additions, err := libraryimportservice.NewMetadataSeeder(nil, func() time.Time { return now }).SeedInScope(
-		ctx, scope.Metadata, review.ReservedItemID, metadata, maximumYear)
+		ctx, scope.Metadata, review.ReservedItemID, metadata, maximumYear,
+	)
 	if err != nil {
 		return fmt.Errorf("seed restored review metadata: %w", err)
 	}

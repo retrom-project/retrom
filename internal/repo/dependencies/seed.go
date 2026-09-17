@@ -245,3 +245,36 @@ WHERE provider_id=? AND target_id=? AND id<>? AND is_active=1
 	}
 	return nil
 }
+
+func (records datRecords) Activation(ctx context.Context, datID string) (service.ActivationState, error) {
+	var state service.ActivationState
+	var active int
+	if err := records.executor.QueryRowContext(ctx, `
+SELECT d.provider_id, d.target_id, d.parse_status, d.is_active
+FROM dat_versions d WHERE d.id=?
+`, datID).Scan(
+		&state.Target.ProviderID, &state.Target.TargetID, &state.ParseStatus, &active,
+	); err != nil {
+		return service.ActivationState{}, fmt.Errorf("dependencies/read DAT activation: %w", err)
+	}
+	state.Active = active != 0
+	return state, nil
+}
+
+func (records datRecords) Select(ctx context.Context, input service.DATSelection) error {
+	if _, err := records.executor.ExecContext(ctx, `
+UPDATE dat_versions
+SET is_active=1, activated_at_ms=?, version=version+1, updated_at_ms=?
+WHERE id=?
+`, input.AtMS, input.AtMS, input.ID); err != nil {
+		return fmt.Errorf("dependencies/select DAT: %w", err)
+	}
+	if _, err := records.executor.ExecContext(ctx, `
+UPDATE dat_versions
+SET is_active=0, version=version+1, updated_at_ms=?
+WHERE provider_id=? AND target_id=? AND id<>? AND is_active=1
+`, input.AtMS, input.Target.ProviderID, input.Target.TargetID, input.ID); err != nil {
+		return fmt.Errorf("dependencies/deactivate other DAT versions: %w", err)
+	}
+	return nil
+}

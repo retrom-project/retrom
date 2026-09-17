@@ -67,7 +67,8 @@ JOIN launch_content_files content ON content.launch_session_id=launch.id
 WHERE launch.id=? AND content.format_version='RETROM_MULTIDISC_M3U_V1'
 `, id).Scan(
 		&session.CredentialHash, &session.State, &session.HardExpiresAtMS,
-		&dimensions.PlatformKey, &dimensions.TargetKey, &dimensions.BundleDigest, &dimensions.DiscCount)
+		&dimensions.PlatformKey, &dimensions.TargetKey, &dimensions.BundleDigest, &dimensions.DiscCount,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.MultiDiscRecord{}, false, nil
 	}

@@ -29,7 +29,7 @@ func TestMediaJobFreezesAssetIdentityAndSource(t *testing.T) {
 	}
 	if input.Kind != "MEDIA_FETCH" || input.SchemaVersion != 1 || input.Scope.Type != "IMPORT_ITEM" || input.Scope.ID != "item" ||
 		input.Inputs.AssetID != "asset" || input.Inputs.RunID != "run" || input.Inputs.ResponseID != "response" ||
-		input.Inputs.SourceDigest != mediaSourceDigest(asset) || len(plan.InputDigest) != 64 || len(plan.Dedupe) != 64 {
+		input.Inputs.SourceDigest != model.MediaSourceDigest(asset) || len(plan.InputDigest) != 64 || len(plan.Dedupe) != 64 {
 		t.Fatalf("wrong media input: %+v", input)
 	}
 }

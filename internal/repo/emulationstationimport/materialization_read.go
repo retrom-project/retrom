@@ -33,7 +33,8 @@ func (records materialRecords) Source(
 	if result.BlobID != "" {
 		if err := records.executor.QueryRowContext(ctx,
 			`SELECT sha256,md5,sha1,crc32,size_bytes FROM blobs WHERE id=?`, result.BlobID).Scan(
-			&result.Blob.SHA256, &result.Blob.MD5, &result.Blob.SHA1, &result.Blob.CRC32, &result.Blob.Size); err != nil {
+			&result.Blob.SHA256, &result.Blob.MD5, &result.Blob.SHA1, &result.Blob.CRC32, &result.Blob.Size,
+		); err != nil {
 			return application.MaterialSnapshot{}, fmt.Errorf("read EmulationStation material blob: %w", err)
 		}
 	}
@@ -49,7 +50,8 @@ FROM emulationstation_import_item_files WHERE item_id=? AND ordinal=?`,
 		source.Key.ItemID,
 		source.Key.Ordinal,
 	).Scan(
-		&source.Path, &source.Size, &source.Facts, &result.State, &result.BlobID)
+		&source.Path, &source.Size, &source.Facts, &result.State, &result.BlobID,
+	)
 	if err != nil {
 		return fmt.Errorf("read source file: %w", err)
 	}

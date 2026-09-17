@@ -67,7 +67,8 @@ func logMultiDiscRuntime(
 	attributes ...any,
 ) {
 	base := make([]any, 0, 14+len(attributes))
-	base = append(base,
+	base = append(
+		base,
 		"event", multiDiscRuntimeEventName,
 		"requestId", requestID(ctx),
 		"launchId", launchID,

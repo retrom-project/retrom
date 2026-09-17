@@ -21,20 +21,77 @@ func (repository *LinkRepository) Current(ctx context.Context, id string) (accou
 	return (linkRecords{accountOperations{repository.database}}).Current(ctx, id)
 }
 
-func (repository *LinkRepository) CommitWrite(ctx context.Context, work func(accounts.LinkScope) error) error {
+func (repository *LinkRepository) CommitRevokeLink(
+	ctx context.Context, cmd accounts.RevokeLinkCommand,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin account link change: %w", err)
+		return fmt.Errorf("begin account link revocation: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := linkRecords{accountOperations{tx}}
-	if err := work(accounts.LinkScope{Read: records, Write: records}); err != nil {
+	replay, err := records.Replay(ctx, cmd.Operation)
+	if err != nil {
+		return fmt.Errorf("apply account link revocation: %w", err)
+	}
+	if replay.Found && replay.Digest != cmd.Operation.Digest {
+		return accounts.ErrIdempotencyReused
+	}
+	if replay.Found {
+		return nil
+	}
+	record, found, err := records.Current(ctx, cmd.LinkID)
+	if err != nil {
+		return fmt.Errorf("apply account link revocation: %w", err)
+	}
+	if !found {
+		return accounts.ErrAccountLinkNotActive
+	}
+	if record.Link.Version != cmd.Version {
+		return accounts.ErrUserVersion
+	}
+	if accounts.LinkState(record.Link, cmd.Operation.Now) != "ACTIVE" {
+		return accounts.ErrAccountLinkNotActive
+	}
+	if err := records.Revoke(ctx, accounts.LinkRevocation{
+		LinkID: cmd.LinkID, ActorID: cmd.ActorID,
+		Version: cmd.Version, Now: cmd.Operation.Now,
+	}); err != nil {
+		return fmt.Errorf("apply account link revocation: %w", err)
+	}
+	action := "PASSWORD_RESET_REVOKED"
+	if record.Link.Kind == "INVITATION" {
+		action = "INVITATION_REVOKED"
+	}
+	if err := records.writeRevocationAudit(
+		ctx, cmd.AuditID, cmd.ActorID, action, cmd.LinkID, cmd.Operation.Now,
+	); err != nil {
 		return err
 	}
+	if err := records.Remember(ctx, accounts.AccountReceipt{
+		Operation: cmd.Operation, Status: 204,
+		ExpiresAt: cmd.Operation.Now + 86400000,
+	}); err != nil {
+		return fmt.Errorf("apply account link revocation: %w", err)
+	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit account link change: %w", err)
+		return fmt.Errorf("commit account link revocation: %w", err)
 	}
 	return nil
+}
+
+func (records linkRecords) writeRevocationAudit(
+	ctx context.Context, auditID, actorID, action, linkID string, now int64,
+) error {
+	audit := accounts.AccountAudit{
+		ID: auditID, ActorID: actorID, Action: action,
+		ResourceType: "ACCOUNT_LINK", ResourceID: linkID, Now: now,
+	}
+	before := `{"state":"ACTIVE"}`
+	after := `{"state":"REVOKED"}`
+	audit.BeforeJSON = &before
+	audit.AfterJSON = &after
+	return records.Audit(ctx, audit)
 }
 
 const accountLinkProjection = `SELECT link.id,link.kind,link.invited_role,link.target_user_id,

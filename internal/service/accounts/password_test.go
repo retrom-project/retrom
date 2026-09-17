@@ -22,17 +22,31 @@ func (memory *passwordMemory) Current(context.Context, model.PasswordActor, int6
 	return memory.state, true, nil
 }
 
-func (memory *passwordMemory) CommitWrite(_ context.Context, work func(model.PasswordScope) error) error {
-	if err := work(model.PasswordScope{Read: memory, Write: memory}); err != nil {
-		return err
+func (memory *passwordMemory) CommitChangePassword(
+	_ context.Context, cmd model.ChangePasswordCommand,
+) (model.PasswordChangeResult, error) {
+	if !model.PasswordAuthorized(memory.state, cmd.Actor) ||
+		memory.state.Credential.PasswordHash != cmd.ExpectedHash {
+		return model.PasswordChangeResult{}, model.ErrAuthenticationNeeded
 	}
-	return memory.lateError
-}
-
-func (memory *passwordMemory) Rotate(_ context.Context, plan model.PasswordPlan) error {
-	memory.plan = plan
+	version := memory.state.Credential.SessionVersion + 1
+	memory.plan = model.PasswordPlan{
+		Actor:        cmd.Actor,
+		ExpectedHash: cmd.ExpectedHash,
+		NewHash:      cmd.NewHash,
+		AuditID:      cmd.AuditID,
+		Session:      cmd.Session,
+		Now:          cmd.NowMS,
+	}
 	memory.writeCalls++
-	return nil
+	if memory.lateError != nil {
+		return model.PasswordChangeResult{}, memory.lateError
+	}
+	return model.PasswordChangeResult{
+		User:      memory.state.Credential.User,
+		ProfileID: memory.state.Credential.ProfileID,
+		Version:   version,
+	}, nil
 }
 
 type passwordHasher struct {

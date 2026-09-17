@@ -15,19 +15,14 @@ func (service *Outcomes) CompleteItem(
 	candidate *EvaluatedCandidate,
 	code string,
 ) error {
-	plan, err := itemOutcome(unit, requirementID, state, candidate, code, service.now().UnixMilli())
+	plan, err := itemOutcome(
+		unit, requirementID, state, candidate, code,
+		service.now().UnixMilli(),
+	)
 	if err != nil {
 		return err
 	}
-	err = service.repository.CommitWrite(ctx, func(scope model.OutcomeScope) error {
-		if err := scope.Write.Lock(ctx, unit, plan.Now, model.RunningWorker); err != nil {
-			return fmt.Errorf("lock item outcome: %w", err)
-		}
-		if err := scope.Write.Item(ctx, plan); err != nil {
-			return fmt.Errorf("write item outcome: %w", err)
-		}
-		return nil
-	})
+	err = service.repository.CommitItemOutcome(ctx, plan)
 	if err != nil {
 		return fmt.Errorf("complete import item: %w", err)
 	}
@@ -41,16 +36,21 @@ func itemOutcome(
 	code string,
 	now int64,
 ) (model.ItemOutcome, error) {
-	plan := model.ItemOutcome{Unit: unit, RequirementID: requirementID, State: state, Code: code, Now: now}
+	plan := model.ItemOutcome{
+		Unit: unit, RequirementID: requirementID,
+		State: state, Code: code, Now: now,
+	}
 	if candidate != nil {
-		if candidate.Item.RequirementID != requirementID || candidate.Static == nil && candidate.DAT == nil {
+		if candidate.Item.RequirementID != requirementID ||
+			candidate.Static == nil && candidate.DAT == nil {
 			return model.ItemOutcome{}, model.ErrCatalogInvalid
 		}
 		_, method := SelectedStatus(candidate)
 		plan.Method = &method
 		details, err := json.Marshal(candidate.Details)
 		if err != nil {
-			return model.ItemOutcome{}, fmt.Errorf("encode item outcome evidence: %w", err)
+			return model.ItemOutcome{},
+				fmt.Errorf("encode item outcome evidence: %w", err)
 		}
 		plan.Details = details
 		id, candidateState := candidate.ID, candidate.State
@@ -59,9 +59,14 @@ func itemOutcome(
 		}
 		plan.CandidateID, plan.CandidateState = &id, &candidateState
 	}
-	event, err := json.Marshal(map[string]any{"schemaVersion": 1, "phase": "INSTALLING", "result": state})
+	event, err := json.Marshal(map[string]any{
+		"schemaVersion": 1,
+		"phase":         "INSTALLING",
+		"result":        state,
+	})
 	if err != nil {
-		return model.ItemOutcome{}, fmt.Errorf("encode item outcome event: %w", err)
+		return model.ItemOutcome{},
+			fmt.Errorf("encode item outcome event: %w", err)
 	}
 	plan.Event = event
 	return plan, nil

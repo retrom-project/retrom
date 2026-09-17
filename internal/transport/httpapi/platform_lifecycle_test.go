@@ -170,7 +170,8 @@ func TestPlatformInstanceOrderIsAtomicVersionedAndExact(t *testing.T) {
 	}
 	items := []orderItem{{ID: secondID, Version: 1}, {ID: firstID, Version: 1}}
 	func() {
-		rows, err := server.database.QueryContext(context.Background(),
+		rows, err := server.database.QueryContext(
+			context.Background(),
 			"SELECT id,version FROM platform_instances WHERE deleted_at_ms IS NULL ORDER BY sort_order,id",
 		)
 		testassert.False(t, err != nil, err)

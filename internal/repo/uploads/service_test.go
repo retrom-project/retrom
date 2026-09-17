@@ -99,7 +99,8 @@ func TestCreateRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 			testassert.False(t, err != nil, err)
 			defer func() { cleanup.Error("close", database.Close()) }()
 			blobs, _ := blobstore.Open(dataDir)
-			_, err = uploadsservice.New(New(database.SQL),
+			_, err = uploadsservice.New(
+				New(database.SQL),
 				blobs,
 				dataDir,
 				time.Now,

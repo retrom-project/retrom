@@ -141,7 +141,8 @@ func TestNetplayCreationRollsBackContentWriteFailure(t *testing.T) {
 	fixture := newNetplayLaunchFixture(t)
 	cause := errors.New("netplay frozen content unavailable")
 	var logicalName string
-	if err := fixture.database.QueryRowContext(t.Context(),
+	if err := fixture.database.QueryRowContext(
+		t.Context(),
 		`SELECT logical_name FROM game_files WHERE game_id=? AND role='CONTENT'`, fixture.request.GameID,
 	).Scan(&logicalName); err != nil {
 		t.Fatal(err)

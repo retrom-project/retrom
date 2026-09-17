@@ -35,7 +35,8 @@ func completeExecutionReviews(
 			return model.LeaseSnapshot{}, false, fmt.Errorf("decode interrupted EmulationStation review metadata: %w", err)
 		}
 		_, additions, err := libraryimportservice.NewMetadataSeeder(nil, clock).SeedInScope(
-			ctx, scope.Metadata, review.ReservedItemID, metadata, before.ReleaseYearMax)
+			ctx, scope.Metadata, review.ReservedItemID, metadata, before.ReleaseYearMax,
+		)
 		if err != nil {
 			return model.LeaseSnapshot{}, false, fmt.Errorf("seed interrupted EmulationStation review: %w", err)
 		}

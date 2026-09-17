@@ -27,73 +27,12 @@ func (service *AdministrationService) Delete(
 	if err != nil {
 		return false, err
 	}
-	var replayed bool
-	err = service.repository.CommitWrite(ctx, func(scope model.AdministrationScope) error {
-		replay, err := scope.Read.Replay(ctx, operation)
-		if err != nil {
-			return fmt.Errorf("apply account administration: %w", err)
-		}
-		if err := checkAccountReplay(replay, operation); err != nil {
-			return fmt.Errorf("apply account administration: %w", err)
-		}
-		if replay.Found {
-			replayed = true
-			return nil
-		}
-		before, found, err := scope.Read.Current(ctx, targetID, operation.Now)
-		if err != nil {
-			return fmt.Errorf("apply account administration: %w", err)
-		}
-		if err := validateManagedUser(before, found, version); err != nil {
-			return fmt.Errorf("apply account administration: %w", err)
-		}
-		if err := validateUserDeletion(before.User, actorID, confirmation); err != nil {
-			return fmt.Errorf("apply account administration: %w", err)
-		}
-		if removesEnabledAdmin(before.User, before.User.Role, "DELETED") {
-			if err := anotherAdmin(ctx, scope.Read, targetID); err != nil {
-				return fmt.Errorf("apply account administration: %w", err)
-			}
-		}
-		plan := model.AdministrationDeletion{
-			Before: before,
-			Security: model.UserSecurity{
-				Reason:       "USER_DELETED",
-				Sessions:     true,
-				CreatedLinks: true,
-				TargetLinks:  true,
-				Launches:     true,
-			},
-			ClearTestDefault: before.User.Username == "test",
-			Now:              operation.Now,
-		}
-		if err := scope.Write.Delete(ctx, plan); err != nil {
-			return fmt.Errorf("apply account administration: %w", err)
-		}
-		audit, err := newAccountAudit(
-			actorID,
-			"USER_DELETED",
-			"USER",
-			targetID,
-			map[string]any{
-				"role":    before.User.Role,
-				"status":  before.User.Status,
-				"version": before.User.Version,
-			},
-			map[string]any{
-				"role":    before.User.Role,
-				"status":  "DELETED",
-				"version": before.User.Version + 1,
-			},
-			operation.Now,
-		)
-		if err != nil {
-			return fmt.Errorf("apply account administration: %w", err)
-		}
-		if err := scope.Write.Audit(ctx, audit); err != nil {
-			return fmt.Errorf("apply account administration: %w", err)
-		}
-		return scope.Write.Remember(ctx, accountReceipt(operation, 204, nil))
+	replayed, err := service.repository.CommitDeleteUser(ctx, model.DeleteUserCommand{
+		Operation:    operation,
+		TargetID:     targetID,
+		Version:      version,
+		ActorID:      actorID,
+		Confirmation: confirmation,
 	})
 	if err != nil {
 		return false, fmt.Errorf("delete account security: %w", err)

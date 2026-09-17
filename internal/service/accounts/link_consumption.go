@@ -162,5 +162,5 @@ func (service *LinkConsumptionService) hashPassword(
 }
 
 func activeLink(record model.LinkRecord, found bool, kind string, now int64) bool {
-	return found && record.Link.Kind == kind && accountLinkState(record.Link, now) == "ACTIVE"
+	return found && record.Link.Kind == kind && model.LinkState(record.Link, now) == "ACTIVE"
 }

@@ -45,7 +45,8 @@ WHERE source.id=? AND source.import_id=?`, string(intent.Kind), intent.ItemID, i
 		&result.Result.Created.JobID,
 		&result.Result.Created.State,
 		&result.Result.Created.ItemCount,
-		&result.TargetPlatformInstanceID, &result.ContentMode, &result.ManifestDigest)
+		&result.TargetPlatformInstanceID, &result.ContentMode, &result.ManifestDigest,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.OwnedSourceLookup{}, false, application.ErrInvalid
 	}

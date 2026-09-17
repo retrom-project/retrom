@@ -28,7 +28,8 @@ func BindReviewBulkQueries(executor dbexec.Executor) *ReviewBulkQueries {
 // from reaching into the database for cursor fencing.
 func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (*string, error) {
 	var value sql.NullString
-	if err := repository.executor.QueryRowContext(ctx,
+	if err := repository.executor.QueryRowContext(
+		ctx,
 		`SELECT max(id) FROM import_items WHERE state='REVIEW_PENDING'`,
 	).Scan(&value); err != nil {
 		return nil, fmt.Errorf("query review item upper bound: %w", err)

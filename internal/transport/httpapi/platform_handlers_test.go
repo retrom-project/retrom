@@ -115,7 +115,8 @@ func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T
 	key := uuid.NewString()
 	apply := func(body string, idempotencyKey string) *httptest.ResponseRecorder {
 		t.Helper()
-		request := httptest.NewRequestWithContext(context.Background(),
+		request := httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodPost, "/api/v1/admin/platform-instances/recommendations/apply", strings.NewReader(body),
 		)
 		request.Header.Set("Content-Type", "application/json")

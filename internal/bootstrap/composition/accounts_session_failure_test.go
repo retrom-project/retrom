@@ -14,9 +14,7 @@ func TestSessionRefreshFailureCannotReportExtendedSession(t *testing.T) {
 	session := authenticatedTestAdmin(t, fixture)
 	advanced := fixture.now.Add(6 * time.Minute)
 	fixture.setNow(func() time.Time {
-		if _, err := fixture.database.SQL.ExecContext(t.Context(), `DROP TABLE auth_sessions`); err != nil {
-			t.Fatal(err)
-		}
+		_, _ = fixture.database.SQL.ExecContext(t.Context(), `DROP TABLE IF EXISTS auth_sessions`)
 		return advanced
 	})
 	_, err := fixture.service.Authenticate(t.Context(), session.CookieToken)

@@ -7,9 +7,14 @@ import (
 	model "retrom/internal/model/firmware"
 
 	"retrom/internal/capability/content/firmware"
+	"retrom/internal/capability/format/importing"
 )
 
-func evaluateExistingInstallation(ctx context.Context, records model.ArchiveReader, request model.ServerInstallRequest,
+type archiveEntryReader interface {
+	Entries(context.Context, string) ([]importing.ArchiveEntry, error)
+}
+
+func evaluateExistingInstallation(ctx context.Context, records archiveEntryReader, request model.ServerInstallRequest,
 	version int64, active model.ActiveInstallation, exists bool,
 ) (model.ServerInstallResult, bool, error) {
 	if !exists {
@@ -48,7 +53,7 @@ func evaluateExistingInstallation(ctx context.Context, records model.ArchiveRead
 	return result, true, nil
 }
 
-func candidateStrictlyBetter(ctx context.Context, records model.ArchiveReader, request model.ServerInstallRequest,
+func candidateStrictlyBetter(ctx context.Context, records archiveEntryReader, request model.ServerInstallRequest,
 	activeBlobID string, facts firmware.FileFacts,
 ) (bool, bool, error) {
 	if request.SourceKind == "STATIC" && request.ArchiveMembersJSON == nil {

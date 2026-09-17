@@ -1,6 +1,11 @@
 package serverimport
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var ErrOutcomeIncomplete = errors.New("SERVER_IMPORT_ITEMS_UNFINISHED")
 
 type WorkerAccess int
 
@@ -26,6 +31,7 @@ type ItemOutcome struct {
 	CandidateID, CandidateState *string
 	Now                         int64
 }
+
 type (
 	TerminalCounts struct {
 		Matched, Warning, Missing, NotFound                             int64
@@ -49,21 +55,31 @@ type AutomaticRetry struct {
 	AvailableAt, Now int64
 	Event            []byte
 }
-type OutcomeReader interface {
-	Budget(context.Context, Work) (RetryBudget, error)
-	Counts(context.Context, Work) (map[string]int64, error)
+
+type FinishCommand struct {
+	Unit Work
+	Now  int64
 }
-type OutcomeWriter interface {
-	Lock(context.Context, Work, int64, WorkerAccess) error
-	Item(context.Context, ItemOutcome) error
-	Final(context.Context, FinalOutcome) error
-	Retry(context.Context, AutomaticRetry) error
+
+type CancelOutcomeCommand struct {
+	Unit Work
+	Now  int64
 }
-type OutcomeScope struct {
-	Read  OutcomeReader
-	Write OutcomeWriter
+
+type FailCommand struct {
+	Unit Work
+	Code string
+	Now  int64
 }
+
+type FailResult struct {
+	RetryAt int64
+}
+
 type OutcomeRepository interface {
-	CommitWrite(context.Context, func(OutcomeScope) error) error
+	CommitItemOutcome(context.Context, ItemOutcome) error
+	CommitFinish(context.Context, FinishCommand) error
+	CommitCancelOutcome(context.Context, CancelOutcomeCommand) error
+	CommitFail(context.Context, FailCommand) (FailResult, error)
 	Recovery(context.Context, int64) (RecoveryWork, bool, error)
 }

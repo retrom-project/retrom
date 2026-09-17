@@ -165,7 +165,8 @@ func collectImportViolations(
 				Symbol: importPath,
 				Message: fmt.Sprintf(
 					"%s layer (%s) imports forbidden %s layer (%s)",
-					srcLayer, rel, depLayer, importPath),
+					srcLayer, rel, depLayer, importPath,
+				),
 			})
 		}
 	}
@@ -284,7 +285,8 @@ func checkStructForFuncFields(
 				Symbol: fmt.Sprintf("%s.%s", ts.Name.Name, fieldName),
 				Message: fmt.Sprintf(
 					"command/plan %s contains func field %s",
-					ts.Name.Name, fieldName),
+					ts.Name.Name, fieldName,
+				),
 			})
 		}
 	}
@@ -304,10 +306,12 @@ func checkFuncTypeForCallbacks(
 				File: rel,
 				Line: pos.Line,
 				Symbol: fmt.Sprintf(
-					"%s.%s (param %s)", typeName, methodName, p.name),
+					"%s.%s (param %s)", typeName, methodName, p.name,
+				),
 				Message: fmt.Sprintf(
 					"repository port %s.%s accepts func parameter",
-					typeName, methodName),
+					typeName, methodName,
+				),
 			})
 		}
 	}
@@ -685,7 +689,8 @@ func matchImpureCall(n ast.Node, localNames map[string]string) *Violation {
 				Symbol: fmt.Sprintf("%s.%s", ident.Name, sel.Sel.Name),
 				Message: fmt.Sprintf(
 					"model calls impure function %s.%s",
-					ident.Name, sel.Sel.Name),
+					ident.Name, sel.Sel.Name,
+				),
 			}
 		}
 	}

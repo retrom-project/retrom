@@ -8,7 +8,6 @@ import (
 
 	"retrom/internal/adapter/integration/payloadrelease"
 	"retrom/internal/adapter/metadata/hasheous"
-	"retrom/internal/model/metadatascrape"
 )
 
 func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
@@ -29,8 +28,8 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 		t.Fatal("deleted game downloaded media")
 		return hasheous.AssetData{}, nil
 	})
-	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, metadatascrape.ErrGameDeleted) {
-		t.Fatal(err)
+	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, context.Canceled) {
+		t.Fatalf("deleted game expected cancellation: %v", err)
 	}
 	snapshot := fixture.snapshot(t)
 	if snapshot.Job.State != "CANCELLED" || snapshot.Asset.Status != "CANCELLED" {

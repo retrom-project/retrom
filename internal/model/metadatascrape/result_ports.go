@@ -61,6 +61,21 @@ type ResultScope struct {
 	Read  ResultReader
 	Write ResultWriter
 }
+
+type RecordCommand struct {
+	Attempt   LookupAttempt
+	Blob      *blobstore.Metadata
+	Candidate *RecordCandidate
+	Now       int64
+}
+type RecordCandidate struct {
+	MetadataJSON, EvidenceJSON string
+	Value                      *hasheous.Candidate
+}
+type RecordResult struct {
+	Created bool
+}
+
 type ResultRepository interface {
-	CommitWrite(context.Context, func(ResultScope) error) error
+	CommitRecord(context.Context, RecordCommand) (RecordResult, error)
 }

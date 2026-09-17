@@ -118,7 +118,8 @@ func validLaunchCapabilities(value map[string]any) bool {
 	if !exactMap(
 		value,
 		"checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings", "netplayPort",
-		"pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume") {
+		"pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
+	) {
 		return false
 	}
 	for _, key := range []string{

@@ -264,7 +264,8 @@ func TestRPGMakerProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {
 func TestSelectArchivePrimary(t *testing.T) {
 	t.Parallel()
 	entries := make([]importing.ArchiveEntry, 0, 3)
-	entries = append(entries,
+	entries = append(
+		entries,
 		importing.ArchiveEntry{Ordinal: 0, NormalizedPath: "README.txt"},
 		importing.ArchiveEntry{Ordinal: 1, NormalizedPath: "folder/Game.NDS"},
 	)
@@ -287,7 +288,8 @@ func TestMegaDriveArchiveSelectsROMWithoutGuessingBetweenCandidates(t *testing.T
 	for _, name := range []string{"Game.SMD", "Game.BIN"} {
 		t.Run(name, func(t *testing.T) {
 			entries := make([]importing.ArchiveEntry, 0, 3)
-			entries = append(entries,
+			entries = append(
+				entries,
 				importing.ArchiveEntry{Ordinal: 0, NormalizedPath: "README.txt"},
 				importing.ArchiveEntry{Ordinal: 1, NormalizedPath: "folder/" + name},
 			)

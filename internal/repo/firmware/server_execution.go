@@ -1,12 +1,8 @@
 package firmware
 
-import (
-	"context"
+import "context"
 
-	"retrom/internal/model/firmware"
-)
-
-func (store writes) LockExecution(ctx context.Context, value firmware.ServerExecution) error {
+func (store writes) LockExecution(ctx context.Context, value serverExecution) error {
 	return changed(store.transaction.ExecContext(ctx, `UPDATE jobs SET version=version+1,updated_at_ms=?
 WHERE id=? AND kind='SERVER_BIOS_IMPORT' AND scope_type='SERVER_IMPORT' AND scope_id=?
 AND execution_no=? AND worker_id=? AND worker_id<>'' AND state='RUNNING' AND leased_until_ms>?

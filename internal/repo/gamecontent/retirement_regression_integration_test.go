@@ -22,7 +22,6 @@ import (
 	dependencypersistence "retrom/internal/repo/dependencies"
 	uploadpersistence "retrom/internal/repo/uploads"
 	dependencyservice "retrom/internal/service/dependencies"
-	"retrom/internal/service/gamecontent"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
@@ -122,7 +121,7 @@ func TestContentRetirementRejectsUnconfirmedMutation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = gamecontent.RetireInScope(t.Context(), BindRetirement(tx), fixture.gameID, fixture.variantID, time.Now().UnixMilli())
+			_, err = retireContent(t.Context(), BindRetirement(tx), fixture.gameID, fixture.variantID, time.Now().UnixMilli())
 			if err == nil {
 				err = tx.Commit()
 			} else {

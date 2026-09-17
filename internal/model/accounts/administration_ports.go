@@ -60,10 +60,35 @@ type AdministrationWriter interface {
 	Audit(context.Context, AccountAudit) error
 	Remember(context.Context, AccountReceipt) error
 }
+
+// UpdateUserCommand captures all inputs for updating a managed user account.
+type UpdateUserCommand struct {
+	Operation AccountOperation
+	TargetID  string
+	Version   int64
+	Patch     UserPatch
+}
+
+// UpdateUserResult carries the outcome of a user update.
+type UpdateUserResult struct {
+	User     AdminUser
+	Replayed bool
+}
+
+// DeleteUserCommand captures all inputs for deleting a managed user account.
+type DeleteUserCommand struct {
+	Operation    AccountOperation
+	TargetID     string
+	Version      int64
+	ActorID      string
+	Confirmation string
+}
+
 type AdministrationScope struct {
 	Read  AdministrationReader
 	Write AdministrationWriter
 }
 type AdministrationRepository interface {
-	CommitWrite(context.Context, func(AdministrationScope) error) error
+	CommitUpdateUser(context.Context, UpdateUserCommand) (UpdateUserResult, error)
+	CommitDeleteUser(context.Context, DeleteUserCommand) (bool, error)
 }

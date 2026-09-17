@@ -2,6 +2,9 @@ package dependencies
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -10,6 +13,8 @@ import (
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/runtime/runtimecatalog"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -28,33 +33,151 @@ func New(set *dependencies.Set, repository model.Repository) *Service {
 
 func (service *Service) Bootstrap(ctx context.Context, now time.Time) error {
 	preferred := preferredCoreVersions(service.set)
-	err := service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
-		for _, versionName := range service.set.Order {
-			targets, err := service.staticBIOSTargets(ctx, scope.Targets)
-			if err != nil {
-				return err
-			}
-			if err := bootstrapStaticBIOS(ctx, scope.BIOS, versionName, targets, now); err != nil {
-				return err
-			}
-			if err := service.bootstrapVersionDATs(
-				ctx,
-				scope,
-				versionName,
-				service.set.Versions[versionName],
-				targets,
-				preferred,
-				now,
-			); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	cmd, err := service.buildBootstrapCommand(preferred, now)
 	if err != nil {
+		return fmt.Errorf("prepare bootstrap definitions: %w", err)
+	}
+	if err := service.repository.CommitBootstrapDefinitions(ctx, cmd); err != nil {
 		return fmt.Errorf("bootstrap dependency definitions: %w", err)
 	}
 	return nil
+}
+
+func (service *Service) buildBootstrapCommand(
+	preferred map[string]string, now time.Time,
+) (model.BootstrapCommand, error) {
+	cmd := model.BootstrapCommand{NowMS: now.UnixMilli()}
+	for _, versionName := range service.set.Order {
+		biosEntries, err := service.buildBIOSEntries(versionName, now)
+		if err != nil {
+			return model.BootstrapCommand{}, err
+		}
+		cmd.BIOSEntries = append(cmd.BIOSEntries, biosEntries...)
+		datEntries, err := service.buildDATEntries(
+			versionName, service.set.Versions[versionName], preferred, now,
+		)
+		if err != nil {
+			return model.BootstrapCommand{}, err
+		}
+		cmd.DATEntries = append(cmd.DATEntries, datEntries...)
+	}
+	return cmd, nil
+}
+
+func (service *Service) buildBIOSEntries(
+	versionName string, now time.Time,
+) ([]model.BIOSRequirement, error) {
+	catalog, err := completeStaticBIOSCatalog()
+	if err != nil {
+		return nil, err
+	}
+	if err := validateBIOSActivationOptions(catalog); err != nil {
+		return nil, err
+	}
+	coreTargets := make(map[string]model.RuntimeTarget)
+	coreResolved := make(map[string]bool)
+	for _, req := range catalog {
+		if coreResolved[req.coreID] {
+			continue
+		}
+		coreResolved[req.coreID] = true
+		target, err := targetForCore(service.set.RuntimeCatalog, req.coreID)
+		if err != nil {
+			continue
+		}
+		coreTargets[req.coreID] = target
+	}
+	var entries []model.BIOSRequirement
+	for _, requirement := range catalog {
+		target, ok := coreTargets[requirement.coreID]
+		if !ok {
+			continue
+		}
+		if requirement.providerID != "" &&
+			(target.ProviderID != requirement.providerID || target.TargetID != requirement.targetID) {
+			return nil, fmt.Errorf("%w: firmware target %s", errBIOSOptions, requirement.coreID)
+		}
+		entries = append(entries, buildSingleBIOSRequirement(requirement, target, versionName, now))
+	}
+	return entries, nil
+}
+
+func buildSingleBIOSRequirement(
+	requirement staticBIOS, target model.RuntimeTarget, versionName string, now time.Time,
+) model.BIOSRequirement {
+	delivery := requirement.delivery
+	if delivery == "" {
+		delivery = "BIOS_BUNDLE"
+	}
+	canonical, _ := json.Marshal(
+		map[string]any{
+			"activationOptions": json.RawMessage(nullableJSON(requirement.options)),
+			"conditionCode":     requirement.condition,
+			"deliveryKind":      delivery,
+			"emulatorPath":      nullableStringValue(requirement.emulatorPath),
+			"logicalName":       requirement.logical,
+			"archiveMembers":    json.RawMessage(nullableJSON(requirement.members)),
+			"sourceDigest":      requirement.sourceDigest,
+			"md5":               requirement.md5,
+			"mode":              requirement.mode,
+			"sha256":            nullableStringValue(requirement.sha256),
+			"sizeBytes":         nullablePositive(requirement.size),
+		},
+	)
+	digest := sha256.Sum256(canonical)
+	id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
+		"retrom:bios:"+target.ProviderID+":"+target.TargetID+":"+requirement.logical,
+	)).String()
+	return model.BIOSRequirement{
+		ID: id, CoreID: requirement.coreID,
+		ProviderID: target.ProviderID, TargetID: target.TargetID,
+		LogicalName: requirement.logical, Mode: requirement.mode,
+		ConditionCode: requirement.condition,
+		Options:       nullableOptions(requirement.options),
+		Digest:        hex.EncodeToString(digest[:]),
+		SizeBytes:     nullablePositive(requirement.size),
+		MD5:           requirement.md5, SHA256: nullableStringValue(requirement.sha256),
+		SourceURL:   requirement.sourceURL,
+		VersionName: versionName, AtMS: now.UnixMilli(),
+		Delivery:       delivery,
+		EmulatorPath:   nullableStringValue(requirement.emulatorPath),
+		ArchiveMembers: nullableStringValue(requirement.members),
+	}
+}
+
+func (service *Service) buildDATEntries(
+	versionName string, version *dependencies.Version,
+	preferred map[string]string, now time.Time,
+) ([]model.DATBootstrapEntry, error) {
+	var entries []model.DATBootstrapEntry
+	for _, core := range version.Manifest.Cores {
+		if core.DAT == nil {
+			continue
+		}
+		target, err := targetForCore(service.set.RuntimeCatalog, core.CoreID)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, model.DATBootstrapEntry{
+			Registration: model.DATRegistration{
+				CoreID: core.CoreID, Target: target,
+				RelativePath: core.DAT.LocalPath, SHA256: core.DAT.SHA256,
+				AtMS: now.UnixMilli(),
+			},
+			Expected: model.CatalogStats{
+				MachineCount:              core.ParseStats.MachineCount,
+				ROMEntryCount:             core.ParseStats.ROMEntryCount,
+				DiskEntryCount:            core.ParseStats.DiskEntryCount,
+				BIOSSetCount:              core.ParseStats.BIOSSetCount,
+				DefaultBIOSSetCount:       core.ParseStats.DefaultBIOSSetCount,
+				ExplicitBIOSMachineCount:  core.ParseStats.ExplicitBIOSMachineCount,
+				BaseDependencyTargetCount: core.ParseStats.BaseDependencyTargetCount,
+				UnresolvedCloneofCount:    core.ParseStats.UnresolvedCloneofCount + core.ParseStats.UnresolvedRomofCount,
+			},
+			Preferred: preferred[core.CoreID] == versionName,
+		})
+	}
+	return entries, nil
 }
 
 func preferredCoreVersions(set *dependencies.Set) map[string]string {
@@ -94,95 +217,4 @@ func targetForCore(catalog runtimecatalog.Catalog, coreID string) (model.Runtime
 		)
 	}
 	return model.RuntimeTarget{ProviderID: selected.ProviderID, TargetID: selected.TargetID}, nil
-}
-
-func (service *Service) staticBIOSTargets(
-	ctx context.Context,
-	records model.TargetRecords,
-) (map[string]model.RuntimeTarget, error) {
-	catalog, err := completeStaticBIOSCatalog()
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[string]model.RuntimeTarget, len(catalog))
-	for _, requirement := range catalog {
-		if _, exists := result[requirement.coreID]; exists {
-			continue
-		}
-		target, err := service.seedTarget(ctx, records, requirement.coreID)
-		if err != nil {
-			return nil, err
-		}
-		result[requirement.coreID] = target
-	}
-	return result, nil
-}
-
-func (service *Service) seedTarget(
-	ctx context.Context,
-	records model.TargetRecords,
-	coreID string,
-) (model.RuntimeTarget, error) {
-	target, err := targetForCore(service.set.RuntimeCatalog, coreID)
-	if err != nil {
-		return model.RuntimeTarget{}, err
-	}
-	exists, err := records.Exists(ctx, target)
-	if err != nil {
-		return model.RuntimeTarget{}, fmt.Errorf("read runtime target: %w", err)
-	}
-	if !exists {
-		return model.RuntimeTarget{}, fmt.Errorf(
-			"%w: runtime target missing for core %s",
-			dependencies.ErrInvalid,
-			coreID,
-		)
-	}
-	return target, nil
-}
-
-func (service *Service) bootstrapVersionDATs(
-	ctx context.Context, scope model.WriteScope, versionName string, version *dependencies.Version,
-	targets map[string]model.RuntimeTarget, preferred map[string]string, now time.Time,
-) error {
-	for _, core := range version.Manifest.Cores {
-		if core.DAT == nil {
-			continue
-		}
-		target, exists := targets[core.CoreID]
-		if !exists {
-			var err error
-			target, err = service.seedTarget(ctx, scope.Targets, core.CoreID)
-			if err != nil {
-				return err
-			}
-			targets[core.CoreID] = target
-		}
-		expected := model.CatalogStats{
-			MachineCount: core.ParseStats.MachineCount, ROMEntryCount: core.ParseStats.ROMEntryCount,
-			DiskEntryCount: core.ParseStats.DiskEntryCount, BIOSSetCount: core.ParseStats.BIOSSetCount,
-			DefaultBIOSSetCount:       core.ParseStats.DefaultBIOSSetCount,
-			ExplicitBIOSMachineCount:  core.ParseStats.ExplicitBIOSMachineCount,
-			BaseDependencyTargetCount: core.ParseStats.BaseDependencyTargetCount,
-			UnresolvedCloneofCount:    core.ParseStats.UnresolvedCloneofCount + core.ParseStats.UnresolvedRomofCount,
-		}
-		registered, err := scope.DAT.Register(ctx, model.DATRegistration{
-			CoreID: core.CoreID, Target: target,
-			RelativePath: core.DAT.LocalPath, SHA256: core.DAT.SHA256, AtMS: now.UnixMilli(),
-		})
-		if err != nil {
-			return fmt.Errorf("register built-in DAT: %w", err)
-		}
-		if registered.ParseStatus == "READY" && registered.Stats != expected {
-			if err := scope.DAT.Reset(ctx, registered.ID, now.UnixMilli()); err != nil {
-				return fmt.Errorf("reset incomplete DAT index: %w", err)
-			}
-		}
-		if preferred[core.CoreID] == versionName {
-			if err := scope.DAT.Retire(ctx, target, registered.ID, now.UnixMilli()); err != nil {
-				return fmt.Errorf("retire superseded DAT: %w", err)
-			}
-		}
-	}
-	return nil
 }

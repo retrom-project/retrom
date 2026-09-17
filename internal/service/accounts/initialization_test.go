@@ -27,17 +27,16 @@ func (memory *initializationMemory) Credentials(context.Context) ([]model.Stored
 	return nil, nil
 }
 
-func (memory *initializationMemory) CommitWrite(_ context.Context, work func(model.InitializationScope) error) error {
-	if err := work(model.InitializationScope{Read: memory, Write: memory}); err != nil {
-		return err
+func (memory *initializationMemory) CommitBootstrap(_ context.Context, cmd model.BootstrapCommand) error {
+	if memory.state.State != "PENDING" {
+		return model.ErrInitializationDone
 	}
-	return memory.lateError
-}
-
-func (memory *initializationMemory) Bootstrap(_ context.Context, plan model.BootstrapPlan) error {
-	memory.plan = plan
+	if memory.state.Users != 0 || memory.state.Profiles != 0 {
+		return model.ErrInitializationState
+	}
+	memory.plan = cmd.Plan
 	memory.writes++
-	return nil
+	return memory.lateError
 }
 
 type setupProof struct{}

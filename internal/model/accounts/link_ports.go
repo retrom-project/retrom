@@ -61,6 +61,16 @@ type LinkWriter interface {
 	Audit(context.Context, AccountAudit) error
 	Remember(context.Context, AccountReceipt) error
 }
+
+// RevokeLinkCommand captures all inputs for revoking an account link.
+type RevokeLinkCommand struct {
+	LinkID    string
+	ActorID   string
+	Version   int64
+	AuditID   string
+	Operation AccountOperation
+}
+
 type LinkScope struct {
 	Read  LinkReader
 	Write LinkWriter
@@ -68,5 +78,5 @@ type LinkScope struct {
 type LinkRepository interface {
 	Current(context.Context, string) (LinkRecord, bool, error)
 	List(context.Context, LinkQuery) ([]LinkRecord, error)
-	CommitWrite(context.Context, func(LinkScope) error) error
+	CommitRevokeLink(context.Context, RevokeLinkCommand) error
 }

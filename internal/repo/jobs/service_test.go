@@ -25,7 +25,8 @@ func insertJob(t *testing.T, database *store.DB, id, kind, state string, retryab
 	if state == "FAILED" {
 		finished = now
 	}
-	_, err := database.SQL.ExecContext(context.Background(),
+	_, err := database.SQL.ExecContext(
+		context.Background(),
 		`
 INSERT INTO jobs(id,
 scope_type,

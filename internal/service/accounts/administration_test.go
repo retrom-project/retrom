@@ -21,48 +21,74 @@ type administrationMemory struct {
 	lateError error
 }
 
-func (memory *administrationMemory) CommitWrite(_ context.Context, work func(model.AdministrationScope) error) error {
-	if err := work(model.AdministrationScope{Read: memory, Write: memory}); err != nil {
-		return err
+func (memory *administrationMemory) CommitUpdateUser(
+	_ context.Context, cmd model.UpdateUserCommand,
+) (model.UpdateUserResult, error) {
+	if memory.replay.Found && memory.replay.Digest != cmd.Operation.Digest {
+		return model.UpdateUserResult{}, model.ErrIdempotencyReused
 	}
-	return memory.lateError
-}
-
-func (memory *administrationMemory) Current(context.Context, string, int64) (model.ManagedUser, bool, error) {
-	return memory.user, true, nil
-}
-
-func (memory *administrationMemory) AnotherEnabledAdmin(context.Context, string) (bool, error) {
-	return memory.another, nil
-}
-
-func (memory *administrationMemory) Replay(context.Context, model.AccountOperation) (model.AccountReplay, error) {
-	return memory.replay, nil
-}
-
-func (memory *administrationMemory) Update(_ context.Context, plan model.AdministrationUpdate) error {
-	memory.update = plan
+	if memory.replay.Found {
+		return model.UpdateUserResult{Replayed: true}, nil
+	}
+	if err := model.ValidateManagedUser(memory.user, true, cmd.Version); err != nil {
+		return model.UpdateUserResult{}, err
+	}
+	change, err := model.ResolveUserChange(
+		memory.user.User, cmd.Patch, cmd.Operation.PrincipalID == cmd.TargetID,
+	)
+	if err != nil {
+		return model.UpdateUserResult{}, err
+	}
+	if model.RemovesEnabledAdmin(memory.user.User, change.Role, change.Status) && !memory.another {
+		return model.UpdateUserResult{}, model.ErrLastAdmin
+	}
+	memory.update = model.AdministrationUpdate{Before: memory.user, Change: change, Now: cmd.Operation.Now}
 	memory.writes++
-	memory.user.User.Role = plan.Change.Role
-	memory.user.User.Status = plan.Change.Status
+	memory.user.User.Role = change.Role
+	memory.user.User.Status = change.Status
 	memory.user.User.Version++
-	return nil
+	if memory.lateError != nil {
+		return model.UpdateUserResult{}, memory.lateError
+	}
+	memory.audits = append(memory.audits, model.AccountAudit{Action: "USER_ROLE_CHANGED"})
+	memory.receipt = model.AccountReceipt{
+		Operation: cmd.Operation, Status: 200,
+		ExpiresAt: cmd.Operation.Now + 86400000,
+	}
+	return model.UpdateUserResult{User: memory.user.User}, nil
 }
 
-func (memory *administrationMemory) Delete(_ context.Context, plan model.AdministrationDeletion) error {
-	memory.deletion = plan
+func (memory *administrationMemory) CommitDeleteUser(
+	_ context.Context, cmd model.DeleteUserCommand,
+) (bool, error) {
+	if memory.replay.Found && memory.replay.Digest != cmd.Operation.Digest {
+		return false, model.ErrIdempotencyReused
+	}
+	if memory.replay.Found {
+		return true, nil
+	}
+	if err := model.ValidateManagedUser(memory.user, true, cmd.Version); err != nil {
+		return false, err
+	}
+	if err := model.ValidateUserDeletion(memory.user.User, cmd.ActorID, cmd.Confirmation); err != nil {
+		return false, err
+	}
+	if model.RemovesEnabledAdmin(memory.user.User, memory.user.User.Role, "DELETED") && !memory.another {
+		return false, model.ErrLastAdmin
+	}
+	memory.deletion = model.AdministrationDeletion{
+		Before: memory.user,
+		Security: model.UserSecurity{
+			Reason: "USER_DELETED", Sessions: true,
+			CreatedLinks: true, TargetLinks: true, Launches: true,
+		},
+		ClearTestDefault: memory.user.User.Username == "test",
+		Now:              cmd.Operation.Now,
+	}
 	memory.writes++
-	return nil
-}
-
-func (memory *administrationMemory) Audit(_ context.Context, audit model.AccountAudit) error {
-	memory.audits = append(memory.audits, audit)
-	return nil
-}
-
-func (memory *administrationMemory) Remember(_ context.Context, receipt model.AccountReceipt) error {
-	memory.receipt = receipt
-	return nil
+	memory.audits = append(memory.audits, model.AccountAudit{Action: "USER_DELETED"})
+	memory.receipt = model.AccountReceipt{Operation: cmd.Operation, Status: 204}
+	return false, memory.lateError
 }
 
 func administrationFixture() (*AdministrationService, *administrationMemory) {

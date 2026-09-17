@@ -11,11 +11,68 @@ import (
 
 var ErrDATJobNotClaimed = errors.New("DEPENDENCY_DAT_JOB_NOT_CLAIMABLE")
 
+//nolint:interfacebloat // named commands replace former CommitWrite callback
 type Repository interface {
-	CommitWrite(context.Context, func(WriteScope) error) error
 	TargetExists(context.Context, RuntimeTarget) (bool, error)
 	FindDAT(context.Context, DATLookup) (DATState, error)
+	CommitBootstrapDefinitions(context.Context, BootstrapCommand) error
+	CommitEnsureDATJob(context.Context, EnsureDATJobCommand) (string, error)
+	CommitClaimDAT(context.Context, ClaimDATCommand) error
+	CommitFailDAT(context.Context, FailDATCommand) error
+	CommitActivateDAT(context.Context, ActivateDATCommand) error
+	CommitPublishDAT(context.Context, PublishDATCommand) error
 }
+
+// BootstrapCommand carries pre-computed BIOS requirements and DAT registration
+// entries for the dependency bootstrap operation.
+type BootstrapCommand struct {
+	BIOSEntries []BIOSRequirement
+	DATEntries  []DATBootstrapEntry
+	NowMS       int64
+}
+
+// DATBootstrapEntry describes a single DAT version to register/reset/retire.
+type DATBootstrapEntry struct {
+	Registration DATRegistration
+	Expected     CatalogStats
+	Preferred    bool
+}
+
+// EnsureDATJobCommand finds an existing DAT job or creates a new one.
+type EnsureDATJobCommand struct {
+	DATID, DATSHA, ParserVersion string
+	DedupeKey                    string
+	JobID, ExecutionID           string
+	NowMS                        int64
+}
+
+// ClaimDATCommand claims a DAT job and marks the DAT as parsing.
+type ClaimDATCommand struct {
+	Claim   JobClaim
+	MarkDAT string
+}
+
+// FailDATCommand marks a DAT as failed and finishes its job.
+type FailDATCommand struct {
+	DATID  string
+	Finish JobFinish
+}
+
+// ActivateDATCommand activates a DAT and syncs its requirements.
+type ActivateDATCommand struct {
+	DATID   string
+	AuditID string
+	NowMS   int64
+}
+
+// PublishDATCommand publishes a DAT catalog, activates it, and finishes the job.
+type PublishDATCommand struct {
+	Publication CatalogPublication
+	Activation  ActivateDATCommand
+	Finish      JobFinish
+}
+
+// WriteScope is used internally by the repo layer for transaction-bound operations.
 type WriteScope struct {
 	Targets      TargetRecords
 	BIOS         BIOSRecords

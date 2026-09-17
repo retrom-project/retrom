@@ -186,7 +186,8 @@ WHERE g.status='PUBLISHED' AND pi.enabled=1 AND ps.profile_id=?
 ORDER BY ps.started_at_ms DESC,ps.id DESC LIMIT 1`, profileID, profileID, profileID).Scan(
 		&item.LaunchID, &item.GameID, &item.Title, &item.Description, &item.Platform.ID,
 		&item.Platform.Name, &item.PlatformInstance.ID, &item.PlatformInstance.Name,
-		&item.LastPlayedAtMS, &item.ActiveDurationMS, &item.SessionCount, &cover)
+		&item.LastPlayedAtMS, &item.ActiveDurationMS, &item.SessionCount, &cover,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.FeaturedGame{}, false, nil
 	}
@@ -212,7 +213,8 @@ JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility
 WHERE COALESCE(native.last_writer_launch_session_id,save.source_launch_session_id)=?
  AND save.profile_id=? AND save.deleted_at_ms IS NULL
 ORDER BY save.created_at_ms DESC,save.id DESC LIMIT 1`, item.LaunchID, profileID).Scan(
-		&save.SaveStateID, &save.CreatedAtMS, &save.ActiveDurationMS, &disc, &save.HasScreenshot)
+		&save.SaveStateID, &save.CreatedAtMS, &save.ActiveDurationMS, &disc, &save.HasScreenshot,
+	)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		item.LastSessionSave = nil

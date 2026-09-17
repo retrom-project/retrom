@@ -25,24 +25,9 @@ func (service *InitializationService) bootstrap(
 	if err != nil {
 		return model.Session{}, err
 	}
-	err = service.repository.CommitWrite(ctx, func(scope model.InitializationScope) error {
-		state, err := scope.Read.State(ctx)
-		if err != nil {
-			return fmt.Errorf("recheck initialization state: %w", err)
-		}
-		if state.State != "PENDING" {
-			return model.ErrInitializationDone
-		}
-		if state.Users != 0 || state.Profiles != 0 {
-			return model.ErrInitializationState
-		}
-		plan.Now = service.options.Now().UnixMilli()
-		plan.Session = material.Record(plan.UserID, 1, plan.Now)
-		if err := scope.Write.Bootstrap(ctx, plan); err != nil {
-			return fmt.Errorf("initialize account store: %w", err)
-		}
-		return nil
-	})
+	plan.Now = service.options.Now().UnixMilli()
+	plan.Session = material.Record(plan.UserID, 1, plan.Now)
+	err = service.repository.CommitBootstrap(ctx, model.BootstrapCommand{Plan: plan})
 	if err != nil {
 		return model.Session{}, fmt.Errorf("commit account initialization: %w", err)
 	}

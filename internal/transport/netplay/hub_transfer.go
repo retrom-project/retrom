@@ -298,7 +298,8 @@ func (session *realtimeSession) fail(ctx context.Context, reason, profileID stri
 		endErr = session.services.Termination.EndRoom(workContext, session.roomID, actor, reason, nil)
 	}
 	if endErr != nil {
-		slog.ErrorContext(workContext, "netplay terminal persistence failed",
+		slog.ErrorContext(
+			workContext, "netplay terminal persistence failed",
 			"roomId", session.roomID, "sessionId", session.sessionID, "reason", reason,
 		)
 	}

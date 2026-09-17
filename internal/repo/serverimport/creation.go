@@ -10,27 +10,61 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-type Creation struct{ database *sql.DB }
+type Creation struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
 func NewCreation(database *sql.DB) *Creation { return &Creation{database: database} }
-func (repository *Creation) WithCreate(ctx context.Context, work func(serverimport.CreationWriter) error) error {
+
+func (c *Creation) WithPreCommitHook(hook func() error) *Creation {
+	c.preCommitHook = hook
+	return c
+}
+
+func (repository *Creation) CommitCreate(
+	ctx context.Context, plan serverimport.CreationPlan,
+) (serverimport.Summary, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin import creation: %w", err)
+		return serverimport.Summary{},
+			fmt.Errorf("begin import creation: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(creationRecords{tx}); err != nil {
-		return err
+
+	records := creationRecords{tx}
+	active, err := records.Active(ctx, plan.Request.Kind)
+	if err != nil {
+		return serverimport.Summary{},
+			fmt.Errorf("check active imports: %w", err)
+	}
+	if active {
+		return serverimport.Summary{}, serverimport.ErrActive
+	}
+
+	result, err := records.Insert(ctx, plan)
+	if err != nil {
+		return serverimport.Summary{},
+			fmt.Errorf("persist import creation: %w", err)
+	}
+
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return serverimport.Summary{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit import creation: %w", err)
+		return serverimport.Summary{},
+			fmt.Errorf("commit import creation: %w", err)
 	}
-	return nil
+	return result, nil
 }
 
 type creationRecords struct{ executor dbexec.Executor }
 
-func (records creationRecords) Active(ctx context.Context, kind string) (bool, error) {
+func (records creationRecords) Active(
+	ctx context.Context, kind string,
+) (bool, error) {
 	var active bool
 	err := records.executor.QueryRowContext(ctx, `
 SELECT EXISTS(SELECT 1 FROM server_imports WHERE kind=? AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))
@@ -52,7 +86,9 @@ func (records creationRecords) Insert(
 		return serverimport.Summary{}, err
 	}
 	for _, item := range plan.Items {
-		if err := insertCatalogItem(ctx, records.executor, plan.ImportID, item, plan.Evidence.Now); err != nil {
+		if err := insertCatalogItem(
+			ctx, records.executor, plan.ImportID, item, plan.Evidence.Now,
+		); err != nil {
 			return serverimport.Summary{}, err
 		}
 	}
@@ -62,7 +98,9 @@ func (records creationRecords) Insert(
 	return getSummary(ctx, records.executor, plan.ImportID)
 }
 
-func (records creationRecords) insertJob(ctx context.Context, plan serverimport.CreationPlan) error {
+func (records creationRecords) insertJob(
+	ctx context.Context, plan serverimport.CreationPlan,
+) error {
 	if _, err := records.executor.ExecContext(
 		ctx,
 		`
@@ -73,9 +111,7 @@ VALUES(?,'SERVER_IMPORT',?,'SERVER_BIOS_IMPORT',?,1,?,1,'QUEUED',0,4,1,?,?,?)
 		plan.JobID,
 		plan.ImportID,
 		plan.DedupeKey,
-		string(
-			plan.Payload,
-		),
+		string(plan.Payload),
 		plan.Evidence.Now,
 		plan.Evidence.Now,
 		plan.Evidence.Now,
@@ -90,20 +126,26 @@ INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,crea
 	return nil
 }
 
-func (records creationRecords) insertImport(ctx context.Context, plan serverimport.CreationPlan) error {
+func (records creationRecords) insertImport(
+	ctx context.Context, plan serverimport.CreationPlan,
+) error {
 	result, err := recordstore.CreateServerImports(ctx, records.executor, `
 INSERT INTO server_imports(id,kind,root_id,root_label_snapshot,source_relative_path,root_config_digest,
 catalog_snapshot_digest,replace_if_better,state,catalog_item_count,job_id,created_by_user_id,
 version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,'QUEUED',?,?,?,1,?,?)
 ON CONFLICT(kind) WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED') DO NOTHING
-`, plan.ImportID, plan.Request.Kind, plan.Root.ID, plan.Root.Label, plan.Request.SourceRelativePath,
-		plan.Root.Digest, plan.CatalogDigest, plan.Request.ReplaceIfBetter, len(plan.Items), plan.JobID,
+`, plan.ImportID, plan.Request.Kind, plan.Root.ID, plan.Root.Label,
+		plan.Request.SourceRelativePath,
+		plan.Root.Digest, plan.CatalogDigest, plan.Request.ReplaceIfBetter,
+		len(plan.Items), plan.JobID,
 		plan.Evidence.ActorID, plan.Evidence.Now, plan.Evidence.Now)
 	return requireControlChange(result, err, serverimport.ErrActive)
 }
 
-func (records creationRecords) creationEvidence(ctx context.Context, plan serverimport.CreationPlan) error {
+func (records creationRecords) creationEvidence(
+	ctx context.Context, plan serverimport.CreationPlan,
+) error {
 	if _, err := records.executor.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
 VALUES(?,'SERVER_IMPORT',?,'QUEUED',?,?)
@@ -114,7 +156,8 @@ VALUES(?,'SERVER_IMPORT',?,'QUEUED',?,?)
 INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
 before_json,after_json,diff_json,request_id,created_at_ms)
 VALUES(?,'USER',?,NULL,'SERVER_IMPORT_CREATED','SERVER_IMPORT',?,NULL,?,NULL,NULL,?)
-`, plan.Evidence.AuditID, plan.Evidence.ActorID, plan.ImportID, string(plan.Audit), plan.Evidence.Now); err != nil {
+`, plan.Evidence.AuditID, plan.Evidence.ActorID, plan.ImportID,
+		string(plan.Audit), plan.Evidence.Now); err != nil {
 		return fmt.Errorf("create import audit: %w", err)
 	}
 	return nil

@@ -41,7 +41,8 @@ WHERE id='import'`); err != nil {
 	err := db.QueryRowContext(t.Context(), `SELECT review_pending_item_count,failed_item_count,
 (SELECT count(*) FROM review_events),(SELECT count(*) FROM job_events WHERE event_type='PROGRESS'),
 (SELECT count(*) FROM games) FROM pegasus_imports WHERE id='import'`).Scan(
-		&pending, &failed, &drafts, &progress, &games)
+		&pending, &failed, &drafts, &progress, &games,
+	)
 	if err != nil || pending != 205 || failed != 0 || drafts != 205 || progress != 205 || games != 0 || pages.Load() != 4 {
 		t.Fatalf("restore batches: pending=%d failed=%d drafts=%d progress=%d games=%d reads=%d err=%v",
 			pending, failed, drafts, progress, games, pages.Load(), err)

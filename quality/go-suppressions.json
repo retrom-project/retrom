@@ -57,7 +57,7 @@
     },
     {
       "path": "internal/repo/libraryimport/review_bulk_queries.go",
-      "line": 37,
+      "line": 38,
       "symbol": "func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (*string, error)",
       "linter": "nilnil",
       "reason": "An empty review queue has no upper-bound cursor and is represented by a nil value.",
@@ -129,7 +129,7 @@
     },
     {
       "path": "internal/service/importdiscard/policy.go",
-      "line": 13,
+      "line": 18,
       "symbol": "func legacyOwner",
       "linter": "unparam",
       "reason": "The id parameter is always 'source' in tests but the function signature mirrors the repo-layer sibling and the parameter is semantically meaningful.",
@@ -170,6 +170,60 @@
       "linter": "interfacebloat",
       "reason": "Platform instance repository groups related lifecycle and impact commands.",
       "invariant": "All platform instance commands share the same transactional boundary.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/model/dependencies/repository.go",
+      "line": 14,
+      "symbol": "type Repository interface",
+      "linter": "interfacebloat",
+      "reason": "Named commands replace former CommitWrite callback. Each command maps to a distinct DAT lifecycle operation.",
+      "invariant": "All dependency commands share the same repository and require their own transactional boundary.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/model/uploads/repository.go",
+      "line": 14,
+      "symbol": "type Repository interface",
+      "linter": "interfacebloat",
+      "reason": "Named commands replace former CommitWrite callback. Each command maps to a distinct upload lifecycle operation.",
+      "invariant": "All upload commands share the same repository and require their own transactional boundary.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/service/metadatascrape/results.go",
+      "line": 51,
+      "symbol": "func prepareCandidate",
+      "linter": "nilnil",
+      "reason": "Returning nil pointer with nil error signals absence of a candidate without introducing a sentinel error for a private helper.",
+      "invariant": "Callers must tolerate nil pointer as a valid non-error result.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/service/metadatascrape/results.go",
+      "line": 69,
+      "symbol": "func prepareRaw",
+      "linter": "nilnil",
+      "reason": "Returning nil pointer with nil error signals absence of raw response data without introducing a sentinel error for a private helper.",
+      "invariant": "Callers must tolerate nil pointer as a valid non-error result.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/repo/metadatascrape/results.go",
+      "line": 126,
+      "symbol": "func resultResponseExpiry",
+      "linter": "exhaustive",
+      "reason": "Only Hit and Miss outcomes have distinct expiry policies; all transient outcomes (rate-limited, timeout, network error, invalid response) share the same short default.",
+      "invariant": "Transient provider outcomes must not silently adopt a long cache expiry.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/model/gamecontent/repository.go",
+      "line": 10,
+      "symbol": "type Repository interface",
+      "linter": "interfacebloat",
+      "reason": "Named commands replace former WithRead/CommitWrite callbacks. Each command maps to a distinct content lifecycle operation.",
+      "invariant": "All gamecontent commands share the same repository and require their own transactional boundary.",
       "reviewAfter": "2027-09-17"
     }
   ]

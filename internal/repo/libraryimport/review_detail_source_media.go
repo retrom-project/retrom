@@ -65,7 +65,8 @@ FROM source
 		&result.HasCover,
 		&result.CoverWidthPX,
 		&result.CoverHeightPX,
-		&result.HasVideo)
+		&result.HasVideo,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewSourceMedia{}, false, nil
 	}

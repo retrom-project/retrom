@@ -25,11 +25,13 @@ func TestDATRankingPrefersCompleteArchiveWithWarnings(t *testing.T) {
 		{Name: "a.rom", SizeBytes: 1, CRC32: "a"},
 		{Name: "b.rom", SizeBytes: 1, CRC32: "b"},
 	}
-	partial := EvaluateDAT("machine.zip", expected,
+	partial := EvaluateDAT(
+		"machine.zip", expected,
 		FileFacts{RelativePath: "partial.zip", Basename: "machine.zip", SizeBytes: 10, SHA256: "a"},
 		[]importing.ArchiveEntry{{NormalizedPath: "a.rom", Size: 1, CRC32: "a"}},
 	)
-	warning := EvaluateDAT("machine.zip", expected,
+	warning := EvaluateDAT(
+		"machine.zip", expected,
 		FileFacts{RelativePath: "warning.zip", Basename: "machine.zip", SizeBytes: 8, SHA256: "b"},
 		[]importing.ArchiveEntry{
 			{NormalizedPath: "a.rom", Size: 1, CRC32: "wrong"},

@@ -348,7 +348,8 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 	testassert.Falsef(t, testassert.Any(func() bool { return foreignScreenshot.Code != http.StatusNotFound }, func() bool {
 		return !strings.Contains(foreignScreenshot.Body.String(), `"code":"SAVE_SCREENSHOT_NOT_FOUND"`)
 	}), "foreign screenshot = %d: %s", foreignScreenshot.Code, foreignScreenshot.Body.String())
-	foreignPatchRequest := httptest.NewRequestWithContext(context.Background(),
+	foreignPatchRequest := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPatch,
 		"/api/v1/saves/"+saveStateID,
 		strings.NewReader(`{"name":"Cross-account overwrite"}`),
@@ -365,7 +366,8 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 	testassert.Falsef(t, testassert.Any(func() bool { return foreignDelete.Code != http.StatusNotFound }, func() bool { return !strings.Contains(foreignDelete.Body.String(), `"code":"SAVE_STATE_NOT_FOUND"`) }), "foreign save delete = %d: %s", foreignDelete.Code, foreignDelete.Body.String())
 	var preservedName string
 	var preservedDeletedAt sql.NullInt64
-	if err := server.database.QueryRowContext(context.Background(),
+	if err := server.database.QueryRowContext(
+		context.Background(),
 		`SELECT name,deleted_at_ms FROM save_states WHERE id=?`,
 		saveStateID,
 	).Scan(&preservedName, &preservedDeletedAt); err != nil || preservedName != "入口存档" || preservedDeletedAt.Valid {
@@ -403,7 +405,8 @@ SELECT
 		return !strings.Contains(candidates.Body.String(), `"candidateAssetId":"`+candidateAssetID+`"`)
 	}, func() bool { return !strings.Contains(candidates.Body.String(), `"kind":"COVER"`) }), "game scrape candidates = %d: %s", candidates.Code, candidates.Body.String())
 	apply := httptest.NewRecorder()
-	applyRequest := httptest.NewRequestWithContext(context.Background(),
+	applyRequest := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost,
 		"/api/v1/admin/games/"+gameID+"/scrape-candidates/"+candidateID+"/apply",
 		strings.NewReader(
@@ -523,7 +526,8 @@ INSERT INTO games(
 		} `json:"facets"`
 	}
 	first := httptest.NewRecorder()
-	server.Handler().ServeHTTP(first, httptest.NewRequestWithContext(context.Background(),
+	server.Handler().ServeHTTP(first, httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodGet, "/api/v1/games?sort=ADDED_DESC&platformId=dos&limit=2", nil,
 	))
 	testassert.Falsef(t, first.Code != http.StatusOK, "first game page = %d %s", first.Code, first.Body.String())
@@ -534,7 +538,8 @@ INSERT INTO games(
 	testassert.Falsef(t, testassert.Any(func() bool { return len(firstPage.Items) != 2 }, func() bool { return firstPage.Items[0].GameID != gameIDs[2] }, func() bool { return firstPage.Items[1].GameID != gameIDs[1] }, func() bool { return firstPage.NextCursor == nil }, func() bool { return firstPage.FilteredCount != 3 }, func() bool { return firstPage.Facets.TotalCount != 3 }), "first page = %#v", firstPage)
 
 	second := httptest.NewRecorder()
-	server.Handler().ServeHTTP(second, httptest.NewRequestWithContext(context.Background(),
+	server.Handler().ServeHTTP(second, httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodGet,
 		"/api/v1/games?sort=ADDED_DESC&platformId=dos&limit=2&cursor="+url.QueryEscape(*firstPage.NextCursor),
 		nil,

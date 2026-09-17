@@ -10,52 +10,29 @@ import (
 
 	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	workerpersistence "retrom/internal/repo/metadatascrape"
-	metadatascrapeservice "retrom/internal/service/metadatascrape"
 )
 
 func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, runID, jobID, itemID string) {
 	t.Helper()
 	before := readInitialProgress(t, database, itemID)
-	claim := metadatascrapemodel.WorkerClaim{RunID: runID, JobID: jobID, WorkerID: "transaction-test", ExecutionNo: 1, Now: mediaFixtureNow().UnixMilli()}
-	claim.Deadline = claim.Now + 3600000
+
 	repository := workerpersistence.NewWorker(database)
+	workerpersistence.WithWorkerPreCommitHook(repository, func() error {
+		return context.Canceled
+	})
+
 	snapshot, readErr := repository.Run(t.Context(), runID)
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
-	claim.Version = snapshot.Version
-	claim.AttemptCount = snapshot.AttemptCount
-	err := repository.CommitWrite(t.Context(), func(scope metadatascrapemodel.WorkerScope) error {
-		claimed, err := scope.Leases.Claim(t.Context(), claim)
-		if err != nil {
-			return err
-		}
-		if !claimed {
-			t.Fatal("metadata execution not claimed")
-		}
-		foreign := claim
-		foreign.WorkerID = "foreign"
-		status, err := scope.Leases.Status(t.Context(), foreign, claim.Now)
-		if err != nil {
-			return err
-		}
-		if status.State != "" {
-			t.Fatal("foreign worker acquired status")
-		}
-		refreshed, err := scope.Leases.Refresh(t.Context(), claim, claim.Now+60000)
-		if err != nil {
-			return err
-		}
-		if refreshed {
-			t.Fatal("expired lease renewed")
-		}
-		if err := metadatascrapeservice.NewInitialReview(scope.Initial).Complete(t.Context(), runID, claim.Now); err != nil {
-			return err
-		}
-		if err := scope.Write.Finish(t.Context(), metadatascrapemodel.WorkerOutcome{Claim: claim, State: "SUCCEEDED", RunState: "COMPLETED", Now: claim.Now}); err != nil {
-			return err
-		}
-		return context.Canceled
+
+	_, err := repository.CommitSettle(t.Context(), metadatascrapemodel.WorkerSettleCommand{
+		Claim: metadatascrapemodel.WorkerClaim{
+			RunID: runID, JobID: jobID, WorkerID: "transaction-test",
+			ExecutionNo: 1, Version: snapshot.Version, AttemptCount: snapshot.AttemptCount,
+			Now: mediaFixtureNow().UnixMilli(), Deadline: mediaFixtureNow().UnixMilli() + 3600000,
+		},
+		Now: mediaFixtureNow().UnixMilli(),
 	})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("late metadata completion failure: %v", err)

@@ -42,7 +42,8 @@ func (repository *SessionControl) withControl(
 func (repository *SessionControl) CommitSetSessionState(
 	ctx context.Context, cmd netplay.SetSessionStateCommand,
 ) error {
-	return repository.withControl(ctx, cmd.RoomID, cmd.SessionID,
+	return repository.withControl(
+		ctx, cmd.RoomID, cmd.SessionID,
 		func(records sessionControlRecords, before netplay.SessionControlSnapshot) error {
 			if before.HostID != cmd.ActorID {
 				return netplay.ErrForbidden
@@ -79,7 +80,8 @@ func (repository *SessionControl) CommitSetSessionState(
 func (repository *SessionControl) CommitResync(
 	ctx context.Context, cmd netplay.ResyncCommand,
 ) error {
-	return repository.withControl(ctx, cmd.RoomID, cmd.SessionID,
+	return repository.withControl(
+		ctx, cmd.RoomID, cmd.SessionID,
 		func(records sessionControlRecords, before netplay.SessionControlSnapshot) error {
 			if !netplay.ValidResyncSource(cmd.Cause, before.State) {
 				return netplay.ErrRoomConflict
@@ -112,7 +114,8 @@ func (repository *SessionControl) CommitResync(
 func (repository *SessionControl) CommitRunning(
 	ctx context.Context, cmd netplay.RunningCommand,
 ) error {
-	return repository.withControl(ctx, cmd.RoomID, cmd.SessionID,
+	return repository.withControl(
+		ctx, cmd.RoomID, cmd.SessionID,
 		func(records sessionControlRecords, before netplay.SessionControlSnapshot) error {
 			if before.State != "SYNCHRONIZING" && before.State != "RESYNCHRONIZING" {
 				return netplay.ErrRoomConflict
@@ -149,7 +152,8 @@ func (repository *SessionControl) CommitRunning(
 func (repository *SessionControl) CommitDisconnected(
 	ctx context.Context, cmd netplay.DisconnectedCommand,
 ) error {
-	return repository.withControl(ctx, cmd.Identity.RoomID, cmd.Identity.SessionID,
+	return repository.withControl(
+		ctx, cmd.Identity.RoomID, cmd.Identity.SessionID,
 		func(records sessionControlRecords, before netplay.SessionControlSnapshot) error {
 			peer, err := netplay.ControlPeer(before, cmd.Identity)
 			if err != nil {
@@ -197,7 +201,8 @@ func (repository *SessionControl) CommitRuntimeReady(
 	ctx context.Context, cmd netplay.RuntimeReadyCommand,
 ) (bool, error) {
 	allReady := false
-	err := repository.withControl(ctx, cmd.Identity.RoomID, cmd.Identity.SessionID,
+	err := repository.withControl(
+		ctx, cmd.Identity.RoomID, cmd.Identity.SessionID,
 		func(records sessionControlRecords, before netplay.SessionControlSnapshot) error {
 			peer, err := netplay.ControlPeer(before, cmd.Identity)
 			if err != nil {

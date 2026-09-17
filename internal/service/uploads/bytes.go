@@ -54,27 +54,12 @@ func (service *Service) finalizeCandidate(ctx context.Context, run model.Run, fi
 	if err != nil {
 		return false, err
 	}
-	stopped, err := service.finalizeWrite(ctx, run, func(scope model.WriteScope, _ model.SessionState) error {
-		now := service.now().UnixMilli()
-		blobID, err := scope.Blobs.Ensure(ctx, metadata, now)
-		if err != nil {
-			return fmt.Errorf("register finalized upload: %w", err)
-		}
-		if err := scope.Files.Publish(
-			ctx,
-			model.FilePublication{
-				Run:    run,
-				FileID: file.ID,
-				BlobID: blobID,
-				AtMS:   now,
-			},
-		); err != nil {
-			return fmt.Errorf("publish upload file: %w", err)
-		}
-		return scope.Parts.DeleteForFile(ctx, file.ID)
+	now := service.now().UnixMilli()
+	stopped, err := service.repository.CommitPublishFile(ctx, model.PublishFileCommand{
+		Run: run, FileID: file.ID, Metadata: metadata, NowMS: now,
 	})
 	if err != nil {
-		return false, fmt.Errorf("%w: %w", errFinalizeIO, err)
+		return false, fmt.Errorf("%w: write upload finalization: %w", errFinalizeIO, err)
 	}
 	if !stopped {
 		cleanup.Error("remove finalized upload parts", service.cleanupUpload(ctx, run.UploadID, file.ID))

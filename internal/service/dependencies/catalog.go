@@ -14,6 +14,8 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/format/arcadedat"
 	"retrom/internal/foundation/cleanup"
+
+	"github.com/google/uuid"
 )
 
 func (service *Service) BootstrapCatalogs(ctx context.Context, now time.Time) error {
@@ -145,8 +147,13 @@ func (bootstrap *catalogBootstrap) targetForCore(coreID string) (model.RuntimeTa
 }
 
 func (bootstrap *catalogBootstrap) activateReady(datID string) {
-	err := bootstrap.repository.CommitWrite(bootstrap.ctx, func(scope model.WriteScope) error {
-		return activateBuiltInDAT(bootstrap.ctx, scope, datID, bootstrap.now)
+	auditID, err := uuid.NewV7()
+	if err != nil {
+		bootstrap.fail(fmt.Errorf("create activation audit ID: %w", err))
+		return
+	}
+	err = bootstrap.repository.CommitActivateDAT(bootstrap.ctx, model.ActivateDATCommand{
+		DATID: datID, AuditID: auditID.String(), NowMS: bootstrap.now.UnixMilli(),
 	})
 	if err != nil {
 		bootstrap.fail(fmt.Errorf("activate ready built-in DAT: %w", err))

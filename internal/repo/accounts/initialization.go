@@ -23,9 +23,8 @@ func (repository *InitializationRepository) State(ctx context.Context) (accounts
 	return (initializationRecords{repository.database}).State(ctx)
 }
 
-func (repository *InitializationRepository) CommitWrite(
-	ctx context.Context,
-	work func(accounts.InitializationScope) error,
+func (repository *InitializationRepository) CommitBootstrap(
+	ctx context.Context, cmd accounts.BootstrapCommand,
 ) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -33,8 +32,18 @@ func (repository *InitializationRepository) CommitWrite(
 	}
 	defer dbexec.Rollback(tx)
 	records := initializationRecords{tx}
-	if err := work(accounts.InitializationScope{Read: records, Write: records}); err != nil {
-		return err
+	state, err := records.State(ctx)
+	if err != nil {
+		return fmt.Errorf("recheck initialization state: %w", err)
+	}
+	if state.State != "PENDING" {
+		return accounts.ErrInitializationDone
+	}
+	if state.Users != 0 || state.Profiles != 0 {
+		return accounts.ErrInitializationState
+	}
+	if err := records.Bootstrap(ctx, cmd.Plan); err != nil {
+		return fmt.Errorf("initialize account store: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit account initialization: %w", err)

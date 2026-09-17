@@ -18,43 +18,15 @@ func (worker *Worker) settle(
 ) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
-	err := worker.repository.CommitWrite(ctx, func(scope model.WorkerScope) error {
-		now := worker.now().UnixMilli()
-		status, err := scope.Leases.Status(ctx, claim, now)
-		if err != nil {
-			return fmt.Errorf("read metadata completion ownership: %w", err)
-		}
-		if status.State == "" {
-			return nil
-		}
-		outcome := model.WorkerOutcome{Claim: claim, State: "SUCCEEDED", RunState: "COMPLETED", Count: count, Now: now}
-		initial := NewInitialReview(scope.Initial)
-		switch {
-		case status.State == "CANCEL_REQUESTED" || status.State == "CANCELLED":
-			outcome.State = "CANCELLED"
-			outcome.RunState = "CANCELLED"
-			err = initial.Cancel(ctx, claim.RunID, status.ParentCancelled, now)
-		case status.State != "RUNNING" && status.State != "QUEUED":
-			return nil
-		case cause != nil || status.Expired:
-			if cause == nil {
-				cause = context.DeadlineExceeded
-				code = "METADATA_EXECUTION_EXPIRED"
-			}
-			outcome.State = "FAILED"
-			outcome.RunState = "FAILED"
-			outcome.Code = code
-			err = initial.Fail(ctx, claim.RunID, code, now)
-		default:
-			err = initial.Complete(ctx, claim.RunID, now)
-		}
-		if err != nil {
-			return err
-		}
-		return scope.Write.Finish(ctx, outcome)
+	result, err := worker.repository.CommitSettle(ctx, model.WorkerSettleCommand{
+		Claim: claim, Count: count, Code: code,
+		Failed: cause != nil, Now: worker.now().UnixMilli(),
 	})
 	if err != nil {
 		return errors.Join(cause, fmt.Errorf("finish metadata execution: %w", err))
+	}
+	if result.Expired && cause == nil {
+		cause = context.DeadlineExceeded
 	}
 	return cause
 }

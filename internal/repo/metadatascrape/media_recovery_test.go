@@ -56,8 +56,8 @@ func TestMediaDeadlinePrecedesFutureAvailability(t *testing.T) {
 	if err != nil || len(ids) != 1 {
 		t.Fatalf("deadline discovery=%v/%v", ids, err)
 	}
-	if err := worker.Run(t.Context(), fixture.jobID); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("expiry cause=%v", err)
+	if err := worker.Run(t.Context(), fixture.jobID); err != nil {
+		t.Fatalf("terminal deadline should be committed: %v", err)
 	}
 	if snapshot := fixture.snapshot(t); snapshot.Job.State != "FAILED" || snapshot.Job.Attempt != 0 || snapshot.Charged != 0 {
 		t.Fatalf("deadline execution=%+v", snapshot)

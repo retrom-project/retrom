@@ -18,17 +18,18 @@ type Discovery struct {
 	now        func() time.Time
 }
 
-func NewDiscovery(repository model.DiscoveryRepository, now func() time.Time) *Discovery {
+func NewDiscovery(
+	repository model.DiscoveryRepository, now func() time.Time,
+) *Discovery {
 	return &Discovery{repository, now}
 }
 
-func (service *Discovery) Reset(ctx context.Context, unit model.Work) error {
-	err := service.repository.CommitWrite(ctx, func(records model.DiscoveryRecords) error {
-		if err := records.Reset(ctx, unit, service.now().UnixMilli()); err != nil {
-			return fmt.Errorf("reset import discovery: %w", err)
-		}
-		return nil
-	})
+func (service *Discovery) Reset(
+	ctx context.Context, unit model.Work,
+) error {
+	err := service.repository.CommitReset(
+		ctx, unit, service.now().UnixMilli(),
+	)
 	if err != nil {
 		return fmt.Errorf("reset import discovery transaction: %w", err)
 	}
@@ -45,12 +46,7 @@ func (service *Discovery) Persist(
 	if err != nil {
 		return err
 	}
-	err = service.repository.CommitWrite(ctx, func(records model.DiscoveryRecords) error {
-		if err := records.Persist(ctx, plan); err != nil {
-			return fmt.Errorf("persist import discovery: %w", err)
-		}
-		return nil
-	})
+	err = service.repository.CommitPersist(ctx, plan)
 	if err != nil {
 		return fmt.Errorf("commit import discovery: %w", err)
 	}
@@ -83,7 +79,9 @@ func discoveryPlan(
 	return plan, nil
 }
 
-func discoveryGroup(id string, candidates []*EvaluatedCandidate) (model.DiscoveryGroup, error) {
+func discoveryGroup(
+	id string, candidates []*EvaluatedCandidate,
+) (model.DiscoveryGroup, error) {
 	for _, candidate := range candidates {
 		if candidate == nil || candidate.Item.RequirementID != id {
 			return model.DiscoveryGroup{}, model.ErrCatalogInvalid
@@ -102,7 +100,8 @@ func discoveryGroup(id string, candidates []*EvaluatedCandidate) (model.Discover
 	for _, candidate := range candidates {
 		details, err := json.Marshal(candidate.Details)
 		if err != nil {
-			return model.DiscoveryGroup{}, fmt.Errorf("encode candidate evidence: %w", err)
+			return model.DiscoveryGroup{},
+				fmt.Errorf("encode candidate evidence: %w", err)
 		}
 		facts := firmware.FileFacts{
 			RelativePath: candidate.File.RelativePath,
@@ -136,7 +135,9 @@ func discoveryGroup(id string, candidates []*EvaluatedCandidate) (model.Discover
 	return result, nil
 }
 
-func notSelectedReason(candidate *EvaluatedCandidate, rank int64) *string {
+func notSelectedReason(
+	candidate *EvaluatedCandidate, rank int64,
+) *string {
 	var reason string
 	switch {
 	case candidate.State == "DUPLICATE_BYTES":

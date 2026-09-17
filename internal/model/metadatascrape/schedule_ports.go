@@ -78,8 +78,26 @@ type ScheduleScope struct {
 	Sources  ScheduleEvidenceReader
 	Writes   ScheduleWriter
 }
+
+type ReviewScheduleCommand struct {
+	ItemID, Provider string
+	Version          int64
+	Actor            authn.Actor
+	Now              int64
+}
+type GameScheduleCommand struct {
+	GameID  string
+	Version int64
+	Now     int64
+}
+type ScheduleResult struct {
+	RunID, JobID string
+	Noop         bool
+}
+
 type ScheduleRepository interface {
-	CommitWrite(context.Context, func(ScheduleScope) error) error
+	CommitReviewSchedule(context.Context, ReviewScheduleCommand) (ScheduleResult, error)
+	CommitGameSchedule(context.Context, GameScheduleCommand) (ScheduleResult, error)
 }
 type ScrapeDispatcher interface {
 	Dispatch(context.Context, string) bool

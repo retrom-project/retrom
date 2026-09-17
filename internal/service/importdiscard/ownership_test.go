@@ -11,7 +11,6 @@ import (
 )
 
 type memoryOwnership struct {
-	model.Ownership
 	candidates []model.Envelope
 	count      int64
 	fail       error
