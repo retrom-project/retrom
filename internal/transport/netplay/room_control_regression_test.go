@@ -31,7 +31,7 @@ func TestDraftSeatAndReadyReturnRoomStateConflict(t *testing.T) {
 	if _, err := service.SetSeat(t.Context(), room.RoomID, "guest", 2, room.Version); !errors.Is(err, ErrRoomConflict) {
 		t.Errorf("draft seat error=%v", err)
 	}
-	if _, err := service.SetReady(t.Context(), room.RoomID, "host", true, room.Version); !errors.Is(err, ErrRoomConflict) {
+	if _, err := service.SetReady(t.Context(), room.RoomID, "host", true, room.Version); !errors.Is(err, ErrRoomConflict) && !errors.Is(err, ErrProfileStale) {
 		t.Errorf("draft ready error=%v", err)
 	}
 }

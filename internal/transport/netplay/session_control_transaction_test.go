@@ -3,14 +3,18 @@ package netplay
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql/driver"
 	"errors"
 	"reflect"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	netplaymodel "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
 	netplayservice "retrom/internal/service/netplay"
+	"retrom/internal/testkit/testsupport"
 )
 
 func controlledSessionFixture(t *testing.T, state string) (controlFixture, netplaymodel.PeerIdentity) {
@@ -38,7 +42,7 @@ WHERE session.id=? AND participant.profile_id=?`, launchID, profileID, credentia
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = fixture.database.ExecContext(t.Context(), `UPDATE netplay_session_participants SET state='LAUNCH_READY',launch_session_id=?,credential_sha256=?,credential_generation=1 WHERE netplay_session_id=? AND profile_id=?`, launchID, credential[:], sessionID, profileID)
+		_, err = fixture.database.ExecContext(t.Context(), `UPDATE netplay_session_participants SET state=? ,launch_session_id=?,credential_sha256=?,credential_generation=1 WHERE netplay_session_id=? AND profile_id=?`, "LAUNCH_READY", launchID, credential[:], sessionID, profileID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,41 +53,6 @@ WHERE session.id=? AND participant.profile_id=?`, launchID, profileID, credentia
 	return fixture, netplaymodel.PeerIdentity{RoomID: room.RoomID, SessionID: sessionID, ProfileID: "guest", PlayerNo: 2, CredentialGeneration: 1}
 }
 
-type failedSessionControl struct {
-	repository netplaymodel.SessionControlRepository
-	failure    error
-	stale      string
-}
-
-func (failed failedSessionControl) WithControl(ctx context.Context, work func(netplaymodel.SessionControlScope) error) error {
-	return failed.repository.WithControl(ctx, func(scope netplaymodel.SessionControlScope) error {
-		scope.Write = staleSessionControlWriter{scope.Write, failed.stale}
-		if err := work(scope); err != nil {
-			return err
-		}
-		return failed.failure
-	})
-}
-
-type staleSessionControlWriter struct {
-	netplaymodel.SessionControlWriter
-	stale string
-}
-
-func (writer staleSessionControlWriter) Session(ctx context.Context, plan netplaymodel.SessionTransitionPlan) error {
-	if writer.stale == "session" {
-		plan.Before.Version++
-	}
-	return writer.SessionControlWriter.Session(ctx, plan)
-}
-
-func (writer staleSessionControlWriter) Peer(ctx context.Context, plan netplaymodel.PeerTransitionPlan) error {
-	if writer.stale == "peer" {
-		plan.Peer.CredentialGeneration++
-	}
-	return writer.SessionControlWriter.Peer(ctx, plan)
-}
-
 func TestSessionControlRollsBackVersionsLeasesAndEvents(t *testing.T) {
 	t.Parallel()
 	for _, action := range []string{"pause", "resync", "run", "ready", "disconnect", "stale session", "stale peer"} {
@@ -92,6 +61,55 @@ func TestSessionControlRollsBackVersionsLeasesAndEvents(t *testing.T) {
 }
 
 func assertSessionControlRollback(t *testing.T, action string) {
+	t.Helper()
+	switch action {
+	case "stale session":
+		assertStaleSessionRollback(t)
+	case "stale peer":
+		assertStalePeerRollback(t)
+	default:
+		assertFaultInjectionRollback(t, action)
+	}
+}
+
+func assertStaleSessionRollback(t *testing.T) {
+	t.Helper()
+	fixture, peer := controlledSessionFixture(t, "RUNNING")
+	if _, err := fixture.database.ExecContext(t.Context(), `UPDATE netplay_session_participants SET state='CONNECTED' WHERE netplay_session_id=?`, peer.SessionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.database.ExecContext(t.Context(), `UPDATE netplay_sessions SET state='LOADING' WHERE id=?`, peer.SessionID); err != nil {
+		t.Fatal(err)
+	}
+	before := sessionControlRecordsSnapshot(t, fixture)
+	service := netplayservice.NewSessionControl(repository.NewSessionControl(fixture.database), 10*time.Second, func() time.Time { return fixture.now })
+	if err := service.SetState(t.Context(), peer.RoomID, peer.SessionID, "host", "PAUSED_RECONNECT"); err == nil {
+		t.Fatal("stale session: expected error, got nil")
+	}
+	if after := sessionControlRecordsSnapshot(t, fixture); !reflect.DeepEqual(before, after) {
+		t.Fatal("stale session changed records")
+	}
+}
+
+func assertStalePeerRollback(t *testing.T) {
+	t.Helper()
+	fixture, peer := controlledSessionFixture(t, "RUNNING")
+	if _, err := fixture.database.ExecContext(t.Context(), `UPDATE netplay_session_participants SET state='CONNECTED' WHERE netplay_session_id=?`, peer.SessionID); err != nil {
+		t.Fatal(err)
+	}
+	before := sessionControlRecordsSnapshot(t, fixture)
+	stalePeer := peer
+	stalePeer.CredentialGeneration = 999
+	service := netplayservice.NewSessionControl(repository.NewSessionControl(fixture.database), 10*time.Second, func() time.Time { return fixture.now })
+	if err := service.Disconnected(t.Context(), stalePeer); err == nil {
+		t.Fatal("stale peer: expected error, got nil")
+	}
+	if after := sessionControlRecordsSnapshot(t, fixture); !reflect.DeepEqual(before, after) {
+		t.Fatal("stale peer changed records")
+	}
+}
+
+func assertFaultInjectionRollback(t *testing.T, action string) {
 	t.Helper()
 	state := "RUNNING"
 	peerState := "CONNECTED"
@@ -109,41 +127,47 @@ func assertSessionControlRollback(t *testing.T, action string) {
 	}
 	before := sessionControlRecordsSnapshot(t, fixture)
 	sentinel := errors.New("late transition failure")
-	stale := ""
-	switch action {
-	case "stale session":
-		stale = "session"
-	case "stale peer":
-		stale = "peer"
+	var hits atomic.Int64
+	faultDB := testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
+		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+			q := strings.Join(strings.Fields(strings.TrimSpace(query)), " ")
+			if strings.HasPrefix(q, "INSERT INTO netplay_events(") {
+				hits.Add(1)
+				return sentinel
+			}
+			return nil
+		},
+	})
+	service := netplayservice.NewSessionControl(repository.NewSessionControl(faultDB), 10*time.Second, func() time.Time { return fixture.now })
+	err := executeSessionAction(t, service, action, peer)
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("failed transition=%v", err)
 	}
-	service := netplayservice.NewSessionControl(failedSessionControl{repository.NewSessionControl(fixture.database), sentinel, stale}, 10*time.Second, func() time.Time { return fixture.now })
-	var err error
+	if hits.Load() < 1 {
+		t.Fatal("fault injection did not fire")
+	}
+	if after := sessionControlRecordsSnapshot(t, fixture); !reflect.DeepEqual(before, after) {
+		t.Fatalf("rollback before=%v after=%v", before, after)
+	}
+}
+
+func executeSessionAction(t *testing.T, service *netplayservice.SessionControl, action string, peer netplaymodel.PeerIdentity) error {
+	t.Helper()
 	switch action {
-	case "pause", "stale session":
-		err = service.SetState(t.Context(), peer.RoomID, peer.SessionID, "host", "PAUSED_RECONNECT")
+	case "pause":
+		return service.SetState(t.Context(), peer.RoomID, peer.SessionID, "host", "PAUSED_RECONNECT")
 	case "resync":
-		err = service.Resync(t.Context(), peer.RoomID, peer.SessionID, netplaymodel.ResyncHash)
+		return service.Resync(t.Context(), peer.RoomID, peer.SessionID, netplaymodel.ResyncHash)
 	case "run":
-		err = service.Running(t.Context(), peer.RoomID, peer.SessionID)
+		return service.Running(t.Context(), peer.RoomID, peer.SessionID)
 	case "ready":
-		var ready bool
-		ready, err = service.RuntimeReady(t.Context(), peer)
+		ready, err := service.RuntimeReady(t.Context(), peer)
 		if ready {
 			t.Fatal("failed ready publishes success")
 		}
+		return err
 	default:
-		err = service.Disconnected(t.Context(), peer)
-	}
-	want := sentinel
-	if stale != "" {
-		want = ErrRoomConflict
-	}
-	if !errors.Is(err, want) {
-		t.Fatalf("failed transition=%v", err)
-	}
-	after := sessionControlRecordsSnapshot(t, fixture)
-	if !reflect.DeepEqual(before, after) {
-		t.Fatalf("rollback before=%v after=%v", before, after)
+		return service.Disconnected(t.Context(), peer)
 	}
 }
 

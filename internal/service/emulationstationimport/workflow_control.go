@@ -37,7 +37,7 @@ func (service *WorkflowControl) Retry(
 		return model.Summary{}, fmt.Errorf("inspect EmulationStation retry: %w", err)
 	}
 	if err := model.ValidateRetryEligibility(before, version); err != nil {
-		return model.Summary{}, err
+		return model.Summary{}, fmt.Errorf("validate EmulationStation retry: %w", err)
 	}
 	if err := verifyFrozenSource(ctx, service.sources, before.Summary, before.FrozenSourceSnapshot); err != nil {
 		return model.Summary{}, err

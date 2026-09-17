@@ -6,11 +6,12 @@ import (
 
 	repository "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 )
 
 func (service *Service) workflowControl() *application.WorkflowControl {
 	return application.NewWorkflowControl(
-		repository.NewWorkflowControl(service.database),
+		repository.NewWorkflowControl(service.database, payloadreleaseservice.NewScheduler(nil)),
 		service.sources(),
 		service.now,
 	)

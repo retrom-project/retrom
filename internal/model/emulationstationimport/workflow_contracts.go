@@ -24,9 +24,9 @@ type WorkflowRepository interface {
 
 type CancelWorkflowCommand struct {
 	ID, Reason, ActorID, AuditID string
-	Version                       int64
-	NowMS                         int64
-	Job                           *CancelWorkflowJobInfo
+	Version                      int64
+	NowMS                        int64
+	Job                          *CancelWorkflowJobInfo
 }
 
 type CancelWorkflowJobInfo struct {

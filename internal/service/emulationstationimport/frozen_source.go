@@ -67,4 +67,3 @@ func validFrozenDigest(value string) bool {
 	}
 	return true
 }
-

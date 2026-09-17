@@ -17,10 +17,10 @@ type WorkflowRepository interface {
 
 type CancelWorkflowCommand struct {
 	ID, Reason, ActorID, AuditID string
-	Version                       int64
-	NowMS                         int64
-	ByJob                         bool
-	Kind, ScopeID                 string
+	Version                      int64
+	NowMS                        int64
+	ByJob                        bool
+	Kind, ScopeID                string
 }
 
 type RetryWorkflowCommand struct {

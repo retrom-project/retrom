@@ -5,6 +5,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	repository "retrom/internal/repo/pegasusimport"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 	application "retrom/internal/service/pegasusimport"
 )
 
@@ -13,7 +14,7 @@ func (service *Service) application() *application.Service {
 		Queries: service.queries(), Creation: application.NewCreation(repository.NewCreation(service.database), service.sources(), service.now),
 		Mappings:  application.NewMappings(repository.NewMappings(service.database), service.now),
 		Starter:   application.NewStarter(repository.NewStarter(service.database), service.sources(), service.now),
-		Control:   application.NewWorkflowControl(repository.NewWorkflowControl(service.database), service.now),
+		Control:   application.NewWorkflowControl(repository.NewWorkflowControl(service.database, payloadreleaseservice.NewScheduler(nil)), service.now),
 		Lifecycle: application.NewPlanLifecycle(repository.NewPlanLifecycle(service.database), service.now), Worker: service.backgroundWorker(),
 	})
 }

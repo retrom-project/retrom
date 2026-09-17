@@ -10,8 +10,8 @@ import (
 	"time"
 
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	payloadreleaseservice "retrom/internal/service/payloadrelease"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 )
 
 func testPayloadTerminator() PayloadTerminator {
