@@ -55,8 +55,7 @@ func (service *Service) runtimeTemplate() (*url.URL, string, bool) {
 }
 
 func activeSession(session RuntimeSession, now int64) bool {
-	return session.State == "ACTIVE" && session.HardExpiresAtMS > now &&
-		(session.ContentFormat == "RPG_MAKER_PROJECT" || session.ContentFormat == "TYRANOSCRIPT_PROJECT")
+	return ActiveSession(session, now)
 }
 
 func (service *Service) InspectBootstrap(ctx context.Context, launchID, origin string) (Access, error) {
@@ -91,29 +90,15 @@ func (service *Service) ConsumeTicket(ctx context.Context, launchID, origin, tic
 	credential := base64.RawURLEncoding.EncodeToString(raw)
 	issuedDigest := sha256.Sum256(raw)
 	now := service.now().UnixMilli()
-	var access Access
-	query := TicketQuery{LaunchID: launchID, Origin: origin, Digest: &digest}
-	err = service.repository.WithWrite(ctx, func(records Tickets) error {
-		bootstrap, err := records.Bootstrap(ctx, query)
-		if err != nil {
-			return fmt.Errorf("read isolated ticket: %w", err)
-		}
-		if bootstrap.Consumed || bootstrap.ExpiresAtMS <= now || !activeSession(bootstrap.Session, now) {
-			return ErrCredential
-		}
-		if err := records.Consume(ctx, query, now); err != nil {
-			return fmt.Errorf("consume isolated ticket: %w", err)
-		}
-		access = sessionAccess(bootstrap.Session, launchID, origin, bootstrap.Session.HardExpiresAtMS)
-		if err := records.Issue(ctx, CapabilityWrite{Access: access, Digest: issuedDigest, IssuedAtMS: now}); err != nil {
-			return fmt.Errorf("issue isolated capability: %w", err)
-		}
-		return nil
+	result, err := service.repository.ConsumeAndIssue(ctx, ConsumeAndIssueCommand{
+		Query:    TicketQuery{LaunchID: launchID, Origin: origin, Digest: &digest},
+		LaunchID: launchID, Origin: origin,
+		Digest: issuedDigest, NowMS: now,
 	})
 	if err != nil {
 		return "", Access{}, fmt.Errorf("isolated bootstrap: %w", err)
 	}
-	return credential, access, nil
+	return credential, result.Access, nil
 }
 
 func (service *Service) Authenticate(ctx context.Context, launchID, origin, credential string) (Access, error) {
