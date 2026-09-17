@@ -2318,6 +2318,38 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 本地输入记录支持发布前继续同一导入项；完整重跑需未导入该游戏的测试数据。
 成功样本不代表所有游戏兼容，虚拟标准手柄也不证明实体控制器的硬件采集。
 
+### ACC-BBKRPG-001：步步高 GAM 音频、标准输入与新会话即时恢复
+
+使用操作者显式提供的《伏魔记（有声版）》`.gam`，SHA-256 为
+`1065a3fe123f74341cf27464fd9cc06b444ad58c7f4c96ed67fa50c7d5c380f3`。
+此样本含游戏音乐；没有音乐数据的版本不能作为音频通过依据。
+BIOS 通过正式 BIOS 管理安装 `8.BIN` 与 `E.BIN`；二者必须匹配登记哈希。
+运行 `make acceptance-case CASE=ACC-BBKRPG-001`，驱动为
+`scripts/acceptance/bbkrpg_product.mjs`，硬超时 600 秒。变量为
+`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、
+`RETROM_CHROME_EXECUTABLE`、`RETROM_BBKRPG_ROM`、`RETROM_BBKRPG_BIOS_DIR`
+和 `RETROM_BBKRPG_CORE_SHA256`。驱动不下载或提交游戏，不读取默认私人目录；
+缺少输入必须报告 BLOCKED。
+
+完整流程覆盖普通上传/导入、审核 Preview、发布与 Product Launch；
+核对 Provider/Target、ROM/core SHA-256、bundle/module 身份。
+标准手柄确认须离开启动画面，方向键须改变主菜单选中项。
+在 B 状态创建正式存档，继续到不同的 C 状态，关闭原页面，
+在不同 Launch 恢复 B，立即检查菜单选中项一致；产品自动继续执行后，
+允许最多 20 次、间隔 100 ms 观察来对齐箭头闪烁相位，此时整幅 LCD 摘要必须一致，
+不得掩盖箭头或其他游戏像素。观察截图仅隐藏宿主暂停/提示覆盖层，存档前先暂停记录 B。
+恢复后键盘方向和标准手柄确认必须仍有效，并能进入新旅程。
+一次 gzip 解压后的 bytes 必须与保存时观察到的原生状态摘要、大小完全一致；
+截图附件、存档身份和 A/B/C/D 画面摘要写入 `bbkrpg-product.json`。
+不允许把空画面、仅页面启动、回到初始菜单或重新开局视为读档成功。
+审核预览和 Product Launch 必须观察到实际非零音频；通过宿主音量滑块、静音、
+取消静音及暂停/继续验证输出变化，恢复后的游戏仍须产生音频。新写入为
+`gam4980-state-v2-storage-v1`，包括核心的旋律相位；原有完整 v1 存档保留兼容读取。
+连续观测 5 秒，核心帧计数须达到至少 55 fps，并记录帧间隔分位数；
+该检查只证明测试设备上的当前片段，不能替代全部机型或关卡性能验证。
+音频为双通道旋律，外部词典语音未实现，硬件音色/音高/节奏未与实机校准。
+虚拟标准手柄不替代实体手柄验收；结果仅覆盖该样本及已观察到的流程。
+
 ### ACC-UZEBOX-001：Uzebox 单卡带产品验证
 
 使用操作者显式提供的官方 Arkanoid `.uze`，SHA-256 为

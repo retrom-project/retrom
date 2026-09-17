@@ -532,7 +532,7 @@ def _assert_subnet_available(subnet: str) -> None:
     identifiers = _run(["docker", "network", "ls", "--quiet"], "PFB_NETWORK_SUBNET_CONFLICT").split()
     if identifiers:
         for network in _run_json(["docker", "network", "inspect", *identifiers]):
-            for configuration in network.get("IPAM", {}).get("Config", []):
+            for configuration in network.get("IPAM", {}).get("Config") or []:
                 raw = configuration.get("Subnet")
                 try:
                     existing = ipaddress.ip_network(raw, strict=False) if isinstance(raw, str) else None

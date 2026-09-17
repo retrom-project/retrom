@@ -9,7 +9,7 @@ import (
 	"retrom/internal/capability/content/contentprofile"
 )
 
-const Version = 28
+const Version = 29
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -201,6 +201,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	},
 	{Key: "cavestory/nxengine", PlatformID: "cavestory", DefaultCoreID: "nxengine", Name: "洞窟物语", CatalogOrder: 620},
 	{Key: "uzebox/uzem", PlatformID: "uzebox", DefaultCoreID: "uzem", Name: "Uzebox 游戏", CatalogOrder: 630},
+	{Key: "bbkrpg/gam4980", PlatformID: "bbkrpg", DefaultCoreID: "gam4980", Name: "步步高 RPG 游戏", CatalogOrder: 640},
 
 	{
 		Key: "gamegear/genesis_plus_gx", PlatformID: "gamegear", DefaultCoreID: "genesis_plus_gx",

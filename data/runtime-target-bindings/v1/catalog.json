@@ -242,6 +242,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-gam4980",
+      "coreId": "gam4980",
+      "providerId": "emulatorjs",
+      "targetId": "gam4980",
+      "platformIds": [
+        "bbkrpg"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-gambatte",
       "coreId": "gambatte",
       "providerId": "emulatorjs",
@@ -1199,6 +1213,12 @@
         "enabled": true
       },
       {
+        "id": "bbkrpg",
+        "name": "步步高 RPG",
+        "sortOrder": 670,
+        "enabled": true
+      },
+      {
         "id": "butterscotch",
         "name": "GameMaker",
         "sortOrder": 78,
@@ -1665,6 +1685,11 @@
       {
         "id": "fuse",
         "name": "Fuse",
+        "enabled": true
+      },
+      {
+        "id": "gam4980",
+        "name": "GAM4980",
         "enabled": true
       },
       {
