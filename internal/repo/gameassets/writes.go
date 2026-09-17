@@ -165,4 +165,3 @@ func (scope writeScope) ScheduleConsumption(ctx context.Context, id string, now 
 	return nil
 }
 
-var _ application.WriteScope = writeScope{}

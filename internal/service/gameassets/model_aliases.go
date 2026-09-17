@@ -7,5 +7,4 @@ type (
 	ConsumptionRecord = model.ConsumptionRecord
 	Repository        = model.Repository
 	UploadedFile      = model.UploadedFile
-	WriteScope        = model.WriteScope
 )

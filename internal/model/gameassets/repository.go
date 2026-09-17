@@ -1,27 +1,54 @@
 package gameassets
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var (
+	ErrVersionConflict = errors.New("GAME_ASSET_VERSION_CONFLICT")
+	ErrAssetNotFound   = errors.New("GAME_ASSET_NOT_FOUND")
+	ErrUploadConsumed  = errors.New("GAME_ASSET_UPLOAD_CONSUMED")
+)
+
+// CreateCommand captures all inputs for an atomic asset creation.
+type CreateCommand struct {
+	GameID, UploadFileID    string
+	ExpectedVersion, NowMS  int64
+	Kind                    string
+	Ordinal                 int64
+	AssetID, ConsumptionID  string
+	Asset                   PreparedAsset
+}
+
+// DeleteCommand captures all inputs for an atomic asset deletion.
+type DeleteCommand struct {
+	GameID          string
+	Kind            string
+	ExpectedVersion int64
+	NowMS           int64
+}
+
+// DeleteResult carries the new version after deletion.
+type DeleteResult struct {
+	Version int64
+}
+
+// PreparedAsset holds CAS-validated upload metadata.
+type PreparedAsset struct {
+	UploadID, BlobID, Digest string
+	SizeBytes                int64
+	MediaType                string
+	WidthPX, HeightPX        *int64
+}
 
 // Repository owns the transaction boundary for game asset commands.
 type Repository interface {
 	Upload(context.Context, string) (UploadedFile, bool, error)
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitCreate(context.Context, CreateCommand) error
+	CommitDelete(context.Context, DeleteCommand) (DeleteResult, error)
 }
 
-// WriteScope contains the storage operations that must commit atomically with
-// a game asset replacement.
-//
-//nolint:interfacebloat // the asset mutation is one atomic transaction scope
-type WriteScope interface {
-	GameVersion(context.Context, string) (int64, error)
-	AssetExists(context.Context, string, string) (bool, error)
-	RemoveSlot(context.Context, string, string, int64) ([]string, error)
-	Create(context.Context, AssetRecord) error
-	ConsumeUpload(context.Context, ConsumptionRecord) error
-	UpdateGame(context.Context, string, int64, int64) (bool, error)
-	StageCandidates(context.Context, []string) error
-	ScheduleConsumption(context.Context, string, int64) error
-}
 
 type UploadedFile struct {
 	UploadID, BlobID, Digest string

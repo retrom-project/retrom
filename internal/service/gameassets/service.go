@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/mediaasset"
+	modelGameAssets "retrom/internal/model/gameassets"
 )
 
 // Prepare validates the completed upload and inspects its immutable CAS bytes.
@@ -71,8 +72,17 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 		WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
 		MediaType: request.Asset.MediaType, Version: request.ExpectedVersion + 1, CreatedAtMS: request.NowMS,
 	}
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		return service.createInScope(ctx, scope, request, assetID, consumptionID)
+	err = service.repository.CommitCreate(ctx, modelGameAssets.CreateCommand{
+		GameID: request.GameID, UploadFileID: request.UploadFileID,
+		ExpectedVersion: request.ExpectedVersion, NowMS: request.NowMS,
+		Kind: request.Kind, Ordinal: request.Ordinal,
+		AssetID: assetID, ConsumptionID: consumptionID,
+		Asset: modelGameAssets.PreparedAsset{
+			UploadID: request.Asset.UploadID, BlobID: request.Asset.BlobID,
+			Digest: request.Asset.Digest, SizeBytes: request.Asset.SizeBytes,
+			MediaType: request.Asset.MediaType,
+			WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
+		},
 	})
 	if err != nil {
 		return CreateResult{}, fmt.Errorf("create game asset: %w", err)
@@ -80,99 +90,19 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 	return result, nil
 }
 
-func (service *Service) createInScope(
-	ctx context.Context,
-	scope WriteScope,
-	request CreateRequest,
-	assetID, consumptionID string,
-) error {
-	version, err := scope.GameVersion(ctx, request.GameID)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrVersionConflict, err)
-	}
-	if version != request.ExpectedVersion {
-		return ErrVersionConflict
-	}
-	replaced, err := scope.RemoveSlot(ctx, request.GameID, request.Kind, request.Ordinal)
-	if err != nil {
-		return fmt.Errorf("remove replaced game asset: %w", err)
-	}
-	if err := scope.Create(ctx, AssetRecord{
-		ID: assetID, GameID: request.GameID, BlobID: request.Asset.BlobID, Kind: request.Kind,
-		Ordinal: request.Ordinal, WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
-		MediaType: request.Asset.MediaType, CreatedAtMS: request.NowMS,
-	}); err != nil {
-		return fmt.Errorf("create game asset: %w", err)
-	}
-	if err := scope.ConsumeUpload(ctx, ConsumptionRecord{
-		ID: consumptionID, UploadID: request.Asset.UploadID, UploadFileID: request.UploadFileID,
-		ConsumerID: assetID, CreatedAtMS: request.NowMS,
-	}); err != nil {
-		return fmt.Errorf("%w: %w", ErrUploadConsumed, err)
-	}
-	if err := updateGameAssetVersion(ctx, scope, request); err != nil {
-		return err
-	}
-	if err := scope.StageCandidates(ctx, replaced); err != nil {
-		return fmt.Errorf("stage replaced game assets: %w", err)
-	}
-	if err := scope.ScheduleConsumption(ctx, consumptionID, request.NowMS); err != nil {
-		return fmt.Errorf("schedule game asset upload release: %w", err)
-	}
-	return nil
-}
-
-func updateGameAssetVersion(ctx context.Context, scope WriteScope, request CreateRequest) error {
-	changed, err := scope.UpdateGame(ctx, request.GameID, request.ExpectedVersion, request.NowMS)
-	if err != nil {
-		return fmt.Errorf("update game asset version: %w", err)
-	}
-	if !changed {
-		return ErrVersionConflict
-	}
-	return nil
-}
-
 // Delete removes the video slot and stages its old payload atomically.
 func (service *Service) Delete(ctx context.Context, request DeleteRequest) (DeleteResult, error) {
 	if request.GameID == "" || request.Kind != "VIDEO" || request.ExpectedVersion < 1 {
 		return DeleteResult{}, ErrInvalid
 	}
-	var result DeleteResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
-		version, err := scope.GameVersion(ctx, request.GameID)
-		if err != nil {
-			return fmt.Errorf("%w: %w", ErrVersionConflict, err)
-		}
-		if version != request.ExpectedVersion {
-			return ErrVersionConflict
-		}
-		exists, err := scope.AssetExists(ctx, request.GameID, request.Kind)
-		if err != nil {
-			return fmt.Errorf("%w: %w", ErrAssetNotFound, err)
-		}
-		if !exists {
-			return ErrAssetNotFound
-		}
-		replaced, err := scope.RemoveSlot(ctx, request.GameID, request.Kind, 0)
-		if err != nil {
-			return fmt.Errorf("remove game asset: %w", err)
-		}
-		changed, err := scope.UpdateGame(ctx, request.GameID, request.ExpectedVersion, request.NowMS)
-		if err != nil {
-			return fmt.Errorf("update game asset version: %w", err)
-		}
-		if !changed {
-			return ErrVersionConflict
-		}
-		if err := scope.StageCandidates(ctx, replaced); err != nil {
-			return fmt.Errorf("stage deleted game assets: %w", err)
-		}
-		result.Version = request.ExpectedVersion + 1
-		return nil
-	})
+	modelResult, err := service.repository.CommitDelete(
+		ctx, modelGameAssets.DeleteCommand{
+			GameID: request.GameID, Kind: request.Kind,
+			ExpectedVersion: request.ExpectedVersion, NowMS: request.NowMS,
+		},
+	)
 	if err != nil {
 		return DeleteResult{}, fmt.Errorf("delete game asset: %w", err)
 	}
-	return result, nil
+	return DeleteResult{Version: modelResult.Version}, nil
 }
