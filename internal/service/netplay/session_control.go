@@ -68,7 +68,12 @@ func (service *SessionControl) SetState(ctx context.Context, roomID, sessionID, 
 			return writeSessionControl(
 				ctx,
 				scope.Write,
-				model.SessionTransitionPlan{Before: before, Target: target, Events: []model.SessionEvent{event}, Now: now},
+				model.SessionTransitionPlan{
+					Before: before,
+					Target: target,
+					Events: []model.SessionEvent{event},
+					Now:    now,
+				},
 			)
 		},
 	)
@@ -130,7 +135,10 @@ func (service *SessionControl) Running(ctx context.Context, roomID, sessionID st
 			if before.State == "RESYNCHRONIZING" {
 				events = append(
 					events,
-					model.SessionEvent{Type: "RESYNCED", Data: model.SessionEventData{SchemaVersion: 1, ResyncCount: &before.ResyncCount}},
+					model.SessionEvent{
+						Type: "RESYNCED",
+						Data: model.SessionEventData{SchemaVersion: 1, ResyncCount: &before.ResyncCount},
+					},
 				)
 			}
 			return writeSessionControl(
@@ -150,10 +158,17 @@ func (service *SessionControl) Running(ctx context.Context, roomID, sessionID st
 }
 
 func stateEvent(kind, from, to, reason string) model.SessionEvent {
-	return model.SessionEvent{Type: kind, Data: model.SessionEventData{SchemaVersion: 1, FromState: from, ToState: to, Reason: reason}}
+	return model.SessionEvent{
+		Type: kind,
+		Data: model.SessionEventData{SchemaVersion: 1, FromState: from, ToState: to, Reason: reason},
+	}
 }
 
-func writeSessionControl(ctx context.Context, writer model.SessionControlWriter, plan model.SessionTransitionPlan) error {
+func writeSessionControl(
+	ctx context.Context,
+	writer model.SessionControlWriter,
+	plan model.SessionTransitionPlan,
+) error {
 	if err := writer.Session(ctx, plan); err != nil {
 		return fmt.Errorf("netplay/write session transition: %w", err)
 	}

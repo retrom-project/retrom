@@ -27,7 +27,11 @@ func NewScheduler(newID func() (string, error)) *Scheduler {
 	return &Scheduler{newID: newID}
 }
 
-func (scheduler *Scheduler) Queue(ctx context.Context, scope application.SchedulingScope, request application.ScheduleRequest) (string, error) {
+func (scheduler *Scheduler) Queue(
+	ctx context.Context,
+	scope application.SchedulingScope,
+	request application.ScheduleRequest,
+) (string, error) {
 	if !application.ValidScheduleScope(request.Scope.Type) || request.Scope.ID == "" || request.ScopeVersion < 1 ||
 		!application.ValidReason(request.Reason) || request.NowMS < 0 {
 		return "", application.ErrScopeInvalid
@@ -105,7 +109,11 @@ func (scheduler *Scheduler) TerminalImport(
 }
 
 func (scheduler *Scheduler) scheduleOwner(
-	ctx context.Context, scope application.SchedulingScope, owner application.Owner, reason application.Reason, now int64,
+	ctx context.Context,
+	scope application.SchedulingScope,
+	owner application.Owner,
+	reason application.Reason,
+	now int64,
 ) (string, error) {
 	decision, err := application.DecideOwnerRelease(owner, reason)
 	if err != nil {
@@ -126,7 +134,11 @@ func (scheduler *Scheduler) scheduleOwner(
 	return id, nil
 }
 
-func readSchedulingOwner(ctx context.Context, scope application.SchedulingScope, ref application.Scope) (application.Owner, error) {
+func readSchedulingOwner(
+	ctx context.Context,
+	scope application.SchedulingScope,
+	ref application.Scope,
+) (application.Owner, error) {
 	if ref.ID == "" {
 		return application.Owner{}, application.ErrScopeInvalid
 	}
@@ -173,7 +185,11 @@ func (scheduler *Scheduler) TerminalSource(
 func (scheduler *Scheduler) linkSource(
 	ctx context.Context, scope application.SchedulingScope, owner application.Owner, now int64,
 ) (string, error) {
-	ordinary, err := readSchedulingOwner(ctx, scope, application.Scope{Type: application.ScopeImportItem, ID: owner.PublicID})
+	ordinary, err := readSchedulingOwner(
+		ctx,
+		scope,
+		application.Scope{Type: application.ScopeImportItem, ID: owner.PublicID},
+	)
 	if err != nil {
 		return "", err
 	}
@@ -234,7 +250,11 @@ func (scheduler *Scheduler) DeleteGame(
 	return jobID, nil
 }
 
-func (scheduler *Scheduler) Review(ctx context.Context, scope application.ReleaseScope, request application.ReviewRelease) error {
+func (scheduler *Scheduler) Review(
+	ctx context.Context,
+	scope application.ReleaseScope,
+	request application.ReviewRelease,
+) error {
 	if request.ItemID == "" || request.ImportID == "" || !application.ValidReason(request.Reason) || request.NowMS < 0 {
 		return application.ErrScopeInvalid
 	}
@@ -250,7 +270,12 @@ func (scheduler *Scheduler) Review(ctx context.Context, scope application.Releas
 	return nil
 }
 
-func (scheduler *Scheduler) boundSources(ctx context.Context, scope application.ReleaseScope, itemID string, now int64) error {
+func (scheduler *Scheduler) boundSources(
+	ctx context.Context,
+	scope application.ReleaseScope,
+	itemID string,
+	now int64,
+) error {
 	var cursor application.Scope
 	for {
 		sources, err := scope.Links.BoundSources(ctx, itemID, cursor, 200)
@@ -291,7 +316,8 @@ func (scheduler *Scheduler) TerminalSources(
 			if id <= cursor {
 				return application.ErrScopeInvalid
 			}
-			if _, err := scheduler.TerminalSource(ctx, scope.Scheduling, application.Scope{Type: batch.Type, ID: id}, now); err != nil {
+			target := application.Scope{Type: batch.Type, ID: id}
+			if _, err := scheduler.TerminalSource(ctx, scope.Scheduling, target, now); err != nil {
 				return err
 			}
 			cursor = id

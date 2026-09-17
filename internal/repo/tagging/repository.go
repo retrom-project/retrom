@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/foundation/cleanup"
 	"retrom/internal/model/tagging"
 	"retrom/internal/repo/dbexec"
 )
@@ -54,32 +53,5 @@ func ApplyReplacementPlan(ctx context.Context, executor dbexec.Executor, plan ta
 	if err := scope.Relations.TouchTags(ctx, plan.ActorUserID, touched, plan.NowMS); err != nil {
 		return fmt.Errorf("tagging: touch owner tags: %w", err)
 	}
-	return nil
-}
-
-// commitWrite runs work inside an IMMEDIATE transaction.
-// It is used internally by named command methods; not exposed in the model interface.
-func (repository *Repository) commitWrite(ctx context.Context, work func(tagging.WriteScope) error) error {
-	connection, err := repository.database.Conn(ctx)
-	if err != nil {
-		return fmt.Errorf("tagging: acquire connection: %w", err)
-	}
-	defer func() { cleanup.Error("close", connection.Close()) }()
-	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
-		return fmt.Errorf("tagging: begin immediate: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "ROLLBACK")
-		}
-	}()
-	if err := work(writeScope(connection)); err != nil {
-		return err
-	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return fmt.Errorf("tagging: commit: %w", err)
-	}
-	committed = true
 	return nil
 }

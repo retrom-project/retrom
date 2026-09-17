@@ -110,7 +110,8 @@ func (service *Retirements) LaunchBatch(ctx context.Context) (int, error) {
 			if end.Expire {
 				due = now
 			}
-			if err := scope.Launch.CompleteLaunch(ctx, model.RetirementCompletion{ID: before.ID, DueMS: due, NowMS: now}); err != nil {
+			completion := model.RetirementCompletion{ID: before.ID, DueMS: due, NowMS: now}
+			if err := scope.Launch.CompleteLaunch(ctx, completion); err != nil {
 				return fmt.Errorf("complete launch retirement: %w", err)
 			}
 		}

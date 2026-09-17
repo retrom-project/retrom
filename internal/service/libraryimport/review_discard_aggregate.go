@@ -9,7 +9,10 @@ import (
 	"retrom/internal/model/importprogress"
 )
 
-func projectReviewDiscardAggregate(before model.ReviewDiscardAggregate, now int64) (model.ReviewDiscardAggregateChange, error) {
+func projectReviewDiscardAggregate(
+	before model.ReviewDiscardAggregate,
+	now int64,
+) (model.ReviewDiscardAggregateChange, error) {
 	if before.Version < 1 || before.Version == math.MaxInt64 || before.Progress.Counts.ReviewPending < 1 {
 		return model.ReviewDiscardAggregateChange{}, model.ErrInvalid
 	}

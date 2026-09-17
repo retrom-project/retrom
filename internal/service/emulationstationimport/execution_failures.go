@@ -8,7 +8,11 @@ import (
 	model "retrom/internal/model/emulationstationimport"
 )
 
-func (service *ExecutionControl) Fail(ctx context.Context, unit model.Execution, failure model.ExecutionFailure) (string, error) {
+func (service *ExecutionControl) Fail(
+	ctx context.Context,
+	unit model.Execution,
+	failure model.ExecutionFailure,
+) (string, error) {
 	for {
 		state, more := "", false
 		err := service.repository.WithExecution(ctx, func(scope model.ExecutionScope) error {

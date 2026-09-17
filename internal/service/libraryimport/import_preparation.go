@@ -22,7 +22,10 @@ type ImportPreparation struct {
 }
 
 func NewImportPreparation(
-	facts model.ImportFactsReader, catalog model.ImportPreparationCatalog, blobs *blobstore.Store, options model.ImportPreparationOptions,
+	facts model.ImportFactsReader,
+	catalog model.ImportPreparationCatalog,
+	blobs *blobstore.Store,
+	options model.ImportPreparationOptions,
 ) *ImportPreparation {
 	return &ImportPreparation{
 		facts: facts, catalog: catalog, blobs: blobs, options: options, scummVMDetector: options.ScummVMDetector,
@@ -87,7 +90,12 @@ func (service *ImportPreparation) resolveRPGTarget(ctx context.Context, plan *mo
 	}
 	target := plan.Target
 	target.CoreID = detector.VirtualCoreID
-	resolved, err := ResolveImportBinding(ctx, service.facts, target, string(plan.Groups[0].RPGProfile.ExpectedGeneration))
+	resolved, err := ResolveImportBinding(
+		ctx,
+		service.facts,
+		target,
+		string(plan.Groups[0].RPGProfile.ExpectedGeneration),
+	)
 	if err != nil {
 		return fmt.Errorf("resolve prepared RPG target: %w", err)
 	}

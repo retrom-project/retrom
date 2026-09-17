@@ -39,7 +39,12 @@ func (service *Service) SetSeat(
 	return room, nil
 }
 
-func (service *Service) SetReady(ctx context.Context, roomID, actorID string, ready bool, version int64) (model.Room, error) {
+func (service *Service) SetReady(
+	ctx context.Context,
+	roomID, actorID string,
+	ready bool,
+	version int64,
+) (model.Room, error) {
 	room, err := service.components.Controls.SetReady(ctx, roomID, actorID, ready, version)
 	if err != nil {
 		return model.Room{}, applicationError("set ready", err)

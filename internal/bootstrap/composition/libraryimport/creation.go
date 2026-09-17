@@ -22,7 +22,11 @@ type CreationOptions struct {
 	MultiDiscEnabled bool
 }
 
-func NewCreations(database *sql.DB, now func() time.Time, options CreationOptions) *libraryimportservice.ImportCreations {
+func NewCreations(
+	database *sql.DB,
+	now func() time.Time,
+	options CreationOptions,
+) *libraryimportservice.ImportCreations {
 	return libraryimportservice.NewImportCreations(
 		repository.NewImportCreations(database), NewPreparation(database, options), options.Tags, options.Scraper,
 		libraryimportmodel.ImportCreationSettings{Now: now, MultiDiscEnabled: options.MultiDiscEnabled},

@@ -40,16 +40,25 @@ func (service *MultiDiscAttachments) Create(
 	principal, authenticated := authn.PrincipalFromContext(ctx)
 	if version < 1 || version == math.MaxInt64 || itemID == "" || request.UploadID == "" ||
 		!service.options.StorageAvailable || !authenticated || principal.UserID == "" {
-		return model.MultiDiscAttachmentCreated{}, multiDiscAttachmentError(model.MultiDiscAttachmentErrorInvalid, model.ErrInvalid)
+		return model.MultiDiscAttachmentCreated{}, multiDiscAttachmentError(
+			model.MultiDiscAttachmentErrorInvalid,
+			model.ErrInvalid,
+		)
 	}
 	write := model.MultiDiscAttachmentWrite{RequestVersion: version}
 	for _, destination := range []*string{&write.Input.AttachmentID, &write.JobID, &write.AuditID} {
 		id, err := service.newID()
 		if err != nil {
-			return model.MultiDiscAttachmentCreated{}, multiDiscAttachmentError(model.MultiDiscAttachmentErrorUnavailable, err)
+			return model.MultiDiscAttachmentCreated{}, multiDiscAttachmentError(
+				model.MultiDiscAttachmentErrorUnavailable,
+				err,
+			)
 		}
 		if id == "" {
-			return model.MultiDiscAttachmentCreated{}, multiDiscAttachmentError(model.MultiDiscAttachmentErrorUnavailable, model.ErrInvalid)
+			return model.MultiDiscAttachmentCreated{}, multiDiscAttachmentError(
+				model.MultiDiscAttachmentErrorUnavailable,
+				model.ErrInvalid,
+			)
 		}
 		*destination = id
 	}
@@ -101,14 +110,20 @@ func prepareMultiDiscInput(
 	}
 	capabilities := contentcapability.Resolve(admission.PlatformID, true, true, admission.Policy)
 	if capabilities.MultiDisc == nil {
-		return model.MultiDiscAttachmentInput{}, multiDiscAttachmentError(model.MultiDiscAttachmentErrorModeUnavailable, model.ErrInvalid)
+		return model.MultiDiscAttachmentInput{}, multiDiscAttachmentError(
+			model.MultiDiscAttachmentErrorModeUnavailable,
+			model.ErrInvalid,
+		)
 	}
 	entries, err := read.Entries(ctx, admission.SnapshotID)
 	if err != nil {
 		return model.MultiDiscAttachmentInput{}, fmt.Errorf("read multi-disc source entries: %w", err)
 	}
 	if !hasMissingDiscs(entries) {
-		return model.MultiDiscAttachmentInput{}, multiDiscAttachmentError(model.MultiDiscAttachmentErrorContentInvalid, model.ErrInvalid)
+		return model.MultiDiscAttachmentInput{}, multiDiscAttachmentError(
+			model.MultiDiscAttachmentErrorContentInvalid,
+			model.ErrInvalid,
+		)
 	}
 	digest, err := multidisc.ExpectedSetDigest(entries)
 	if err != nil {

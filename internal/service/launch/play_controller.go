@@ -19,7 +19,11 @@ type PlayController struct {
 	newID      func() (string, error)
 }
 
-func NewPlayController(repository model.PlayRepository, now func() time.Time, matches model.MatchCapability) *PlayController {
+func NewPlayController(
+	repository model.PlayRepository,
+	now func() time.Time,
+	matches model.MatchCapability,
+) *PlayController {
 	return &PlayController{repository: repository, policy: accessPolicy{now: now, matches: matches}, newID: newPlayID}
 }
 

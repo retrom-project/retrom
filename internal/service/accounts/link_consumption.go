@@ -16,7 +16,10 @@ type LinkConsumptionService struct {
 	options    model.LinkConsumptionOptions
 }
 
-func NewLinkConsumption(repository model.LinkConsumptionRepository, options model.LinkConsumptionOptions) *LinkConsumptionService {
+func NewLinkConsumption(
+	repository model.LinkConsumptionRepository,
+	options model.LinkConsumptionOptions,
+) *LinkConsumptionService {
 	return &LinkConsumptionService{repository, options}
 }
 

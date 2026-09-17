@@ -21,7 +21,9 @@ func (run *effectRun) game(ctx context.Context, before model.EffectOwner) error 
 	if err := run.consumePayload(ctx, payload, effectReason(before.Owner)); err != nil {
 		return err
 	}
-	if err := run.remove(ctx, before, model.EffectGameRuntime, model.EffectGameEvidence, model.EffectGameFiles); err != nil {
+	if err := run.remove(
+		ctx, before, model.EffectGameRuntime, model.EffectGameEvidence, model.EffectGameFiles,
+	); err != nil {
 		return err
 	}
 	if err := run.purgePayload(ctx, payload); err != nil {
@@ -41,7 +43,8 @@ func (run *effectRun) gameSource(ctx context.Context, link model.Scope) error {
 	if source.Owner.PublicID != "" {
 		return run.gameSource(ctx, model.Scope{Type: model.ScopeImportItem, ID: source.Owner.PublicID})
 	}
-	if !terminalEffectOwner(source.Owner) || source.Owner.PayloadState == "RETAINED" || source.Owner.ReleaseJobID == "" {
+	if !terminalEffectOwner(source.Owner) || source.Owner.PayloadState == "RETAINED" ||
+		source.Owner.ReleaseJobID == "" {
 		return effectFailure("PAYLOAD_RELEASE_SOURCE_NOT_TERMINAL", nil)
 	}
 	return run.release(ctx, source)
@@ -55,7 +58,9 @@ func (run *effectRun) item(ctx context.Context, before model.EffectOwner) error 
 	if err := run.consumePayload(ctx, payload, effectReason(before.Owner)); err != nil {
 		return err
 	}
-	if err := run.remove(ctx, before, model.EffectImportReview, model.EffectImportFiles, model.EffectImportEvidence); err != nil {
+	if err := run.remove(
+		ctx, before, model.EffectImportReview, model.EffectImportFiles, model.EffectImportEvidence,
+	); err != nil {
 		return err
 	}
 	links, err := run.scope.Read.Links(ctx, before.Owner.Scope)

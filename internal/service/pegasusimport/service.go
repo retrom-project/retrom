@@ -60,7 +60,11 @@ func (service *Service) Items(ctx context.Context, query model.ItemQuery) ([]mod
 	return service.dependencies.Queries.Items(ctx, query)
 }
 
-func (service *Service) Create(ctx context.Context, request model.CreateRequest, actorID string) (model.Summary, error) {
+func (service *Service) Create(
+	ctx context.Context,
+	request model.CreateRequest,
+	actorID string,
+) (model.Summary, error) {
 	result, err := service.dependencies.Creation.Create(ctx, request, actorID)
 	if err != nil {
 		return model.Summary{}, fmt.Errorf("create Pegasus import: %w", err)
@@ -69,7 +73,12 @@ func (service *Service) Create(ctx context.Context, request model.CreateRequest,
 	return result, nil
 }
 
-func (service *Service) StartImport(ctx context.Context, id string, version int64, actorID string) (model.Summary, error) {
+func (service *Service) StartImport(
+	ctx context.Context,
+	id string,
+	version int64,
+	actorID string,
+) (model.Summary, error) {
 	result, queued, err := service.dependencies.Starter.Start(ctx, id, version, actorID)
 	if err != nil {
 		return model.Summary{}, fmt.Errorf("start Pegasus import: %w", err)

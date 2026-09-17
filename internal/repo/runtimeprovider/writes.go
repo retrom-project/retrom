@@ -164,7 +164,12 @@ INSERT INTO runtime_binding_content_kinds(binding_id,content_kind) VALUES(?,?)
 	return nil
 }
 
-func writeCatalogState(ctx context.Context, transaction dbexec.Executor, candidate service.Projection, now int64) error {
+func writeCatalogState(
+	ctx context.Context,
+	transaction dbexec.Executor,
+	candidate service.Projection,
+	now int64,
+) error {
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_catalog_state(singleton,catalog_sha256,activated_at_ms)
 VALUES(1,?,?)

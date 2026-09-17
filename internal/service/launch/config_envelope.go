@@ -9,7 +9,11 @@ import (
 	"retrom/internal/capability/runtime/runtimelaunch"
 )
 
-func (service *ConfigIssuer) envelope(id string, snapshot model.ConfigSnapshot, ticket model.IsolationTicket) (Config, error) {
+func (service *ConfigIssuer) envelope(
+	id string,
+	snapshot model.ConfigSnapshot,
+	ticket model.IsolationTicket,
+) (Config, error) {
 	source := snapshot.Authority.Source
 	if service.runtimeBuilder == nil {
 		return Config{}, model.ErrCredential

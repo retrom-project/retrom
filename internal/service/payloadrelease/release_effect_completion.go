@@ -49,9 +49,14 @@ func (run *effectRun) finish(ctx context.Context, before model.EffectOwner) erro
 	return nil
 }
 
-func (run *effectRun) remove(ctx context.Context, before model.EffectOwner, groups ...model.EffectReferenceGroup) error {
+func (run *effectRun) remove(
+	ctx context.Context,
+	before model.EffectOwner,
+	groups ...model.EffectReferenceGroup,
+) error {
 	for _, group := range groups {
-		if err := run.scope.Write.Remove(ctx, model.EffectRemoval{Before: before, Group: group, NowMS: run.nowMS}); err != nil {
+		removal := model.EffectRemoval{Before: before, Group: group, NowMS: run.nowMS}
+		if err := run.scope.Write.Remove(ctx, removal); err != nil {
 			return fmt.Errorf("remove %s references: %w", group, err)
 		}
 	}

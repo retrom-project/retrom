@@ -14,7 +14,10 @@ type InitializationService struct {
 	options    model.InitializationOptions
 }
 
-func NewInitialization(repository model.InitializationRepository, options model.InitializationOptions) *InitializationService {
+func NewInitialization(
+	repository model.InitializationRepository,
+	options model.InitializationOptions,
+) *InitializationService {
 	return &InitializationService{repository: repository, options: options}
 }
 
@@ -74,7 +77,10 @@ func (service *InitializationService) ReadSetupCode(ctx context.Context) (string
 	return service.options.Credentials.SetupCode(), nil
 }
 
-func (service *InitializationService) Initialize(ctx context.Context, request model.InitializeRequest) (model.Session, error) {
+func (service *InitializationService) Initialize(
+	ctx context.Context,
+	request model.InitializeRequest,
+) (model.Session, error) {
 	if service.options.Mode != model.ModeRelease {
 		return model.Session{}, model.ErrInitializationDone
 	}

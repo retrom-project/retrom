@@ -16,7 +16,11 @@ func finalizationError(operation string, cause error) error {
 	return fmt.Errorf("%s: %w", operation, cause)
 }
 
-func currentFinalization(ctx context.Context, scope model.WriteScope, run model.Run) (model.SessionState, model.Job, bool, error) {
+func currentFinalization(
+	ctx context.Context,
+	scope model.WriteScope,
+	run model.Run,
+) (model.SessionState, model.Job, bool, error) {
 	current, err := scope.Sessions.Current(ctx, run.UploadID)
 	if err != nil {
 		return current, model.Job{}, false, finalizationError("read finalize owner", err)
@@ -62,7 +66,8 @@ func (service *Service) fail(parent context.Context, run model.Run, cause error)
 			return err
 		}
 		now := service.now().UnixMilli()
-		if !owned || job.State != "RUNNING" && job.State != "CANCEL_REQUESTED" || job.Lease <= now && job.Deadline > now {
+		if !owned || job.State != "RUNNING" && job.State != "CANCEL_REQUESTED" ||
+			job.Lease <= now && job.Deadline > now {
 			return nil
 		}
 		cancelled = job.State == "CANCEL_REQUESTED"
@@ -78,7 +83,13 @@ func (service *Service) fail(parent context.Context, run model.Run, cause error)
 }
 
 func persistFinalizationFailure(
-	ctx context.Context, scope model.WriteScope, current model.SessionState, job model.Job, run model.Run, cause error, now int64,
+	ctx context.Context,
+	scope model.WriteScope,
+	current model.SessionState,
+	job model.Job,
+	run model.Run,
+	cause error,
+	now int64,
 ) error {
 	code, retryable := finalizationFailure(cause, run.Deadline, now)
 	state := "FAILED"
@@ -97,7 +108,8 @@ func persistFinalizationFailure(
 	if err := scope.Sessions.Finish(ctx, finish); err != nil {
 		return finalizationError("fail upload session", err)
 	}
-	if err := scope.Files.FailPending(ctx, model.PendingFailure{UploadID: run.UploadID, Code: code, AtMS: now}); err != nil {
+	failure := model.PendingFailure{UploadID: run.UploadID, Code: code, AtMS: now}
+	if err := scope.Files.FailPending(ctx, failure); err != nil {
 		return finalizationError("fail pending upload files", err)
 	}
 	return finalizationError("fail finalize job", scope.Jobs.Finish(ctx, model.JobFinish{
@@ -138,7 +150,13 @@ func (service *Service) finalizeFiles(ctx context.Context, claim finalizationCla
 	return err
 }
 
-func finishFinalization(ctx context.Context, scope model.WriteScope, current model.SessionState, run model.Run, now int64) error {
+func finishFinalization(
+	ctx context.Context,
+	scope model.WriteScope,
+	current model.SessionState,
+	run model.Run,
+	now int64,
+) error {
 	count, err := scope.Finalize.Count(ctx, run.UploadID)
 	if err != nil {
 		return finalizationError("count unfinished upload files", err)

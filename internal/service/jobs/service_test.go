@@ -22,12 +22,12 @@ type memoryJobs struct {
 	opened             int
 }
 
-func (repository *memoryJobs) WithRead(_ context.Context, work func(model.ReadRecords) error) error {
+func (repository *memoryJobs) WithRead(_ context.Context, _ func(model.ReadRecords) error) error {
 	return nil
 }
 
 func (repository *memoryJobs) CommitCancel(
-	ctx context.Context, cmd model.CancelCommand,
+	_ context.Context, cmd model.CancelCommand,
 ) (model.CancelResult, error) {
 	repository.opened++
 	if repository.readErr != nil {
@@ -78,7 +78,7 @@ func (repository *memoryJobs) CommitCancel(
 }
 
 func (repository *memoryJobs) CommitRetry(
-	ctx context.Context, cmd model.RetryCommand,
+	_ context.Context, cmd model.RetryCommand,
 ) (model.Result, error) {
 	repository.opened++
 	if repository.readErr != nil {

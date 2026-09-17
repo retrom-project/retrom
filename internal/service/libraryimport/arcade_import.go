@@ -77,7 +77,10 @@ func arcadeEntryMatchesRequirement(entry importing.ArchiveEntry, requirement mod
 		(requirement.SHA1 == nil || strings.EqualFold(entry.SHA1, *requirement.SHA1))
 }
 
-func containsMergedArcadeEntries(entries map[string]importing.ArchiveEntry, requirements []model.ArcadeROMRequirement) bool {
+func containsMergedArcadeEntries(
+	entries map[string]importing.ArchiveEntry,
+	requirements []model.ArcadeROMRequirement,
+) bool {
 	rootEntries := make(map[string]importing.ArchiveEntry, len(entries))
 	nestedEntries := make(map[string][]importing.ArchiveEntry)
 	for entryPath, entry := range entries {

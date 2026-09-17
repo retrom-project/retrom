@@ -65,7 +65,11 @@ func (worker *ImportWorker) execute(ctx context.Context, work model.ImportWork) 
 	if err := worker.dependencies.Control.Progress(ctx, work.Execution, len(plan.Groups)); err != nil {
 		return fmt.Errorf("record prepared import: %w", err)
 	}
-	result, err := worker.dependencies.Creations.CommitPrepared(ctx, plan, model.ImportCreationOptions{Queued: &work.Execution})
+	result, err := worker.dependencies.Creations.CommitPrepared(
+		ctx,
+		plan,
+		model.ImportCreationOptions{Queued: &work.Execution},
+	)
 	if err != nil {
 		return fmt.Errorf("commit import execution: %w", err)
 	}

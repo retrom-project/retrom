@@ -135,7 +135,9 @@ func activeRestoredImport(state string) bool {
 
 func restoredReviewPreparation(review model.RestoredReview) ([]string, error) {
 	if review.Kind == "EMULATIONSTATION" {
-		states, err := emulationstationimportservice.ReviewPreparation(emulationstationimportmodel.ExecutionReview{State: review.State, Retryable: review.Retryable})
+		states, err := emulationstationimportservice.ReviewPreparation(
+			emulationstationimportmodel.ExecutionReview{State: review.State, Retryable: review.Retryable},
+		)
 		if err != nil {
 			return nil, fmt.Errorf("prepare restored EmulationStation review: %w", err)
 		}
@@ -153,7 +155,10 @@ func restoredReviewPreparation(review model.RestoredReview) ([]string, error) {
 	}
 }
 
-func restoredReviewWarnings(review model.RestoredReview, additions []libraryimportmodel.ServerMetadataWarning) (string, error) {
+func restoredReviewWarnings(
+	review model.RestoredReview,
+	additions []libraryimportmodel.ServerMetadataWarning,
+) (string, error) {
 	if review.Kind == "EMULATIONSTATION" {
 		warnings, err := emulationstationimportservice.AppendReviewMetadataWarnings(review.WarningsJSON, additions)
 		if err != nil {

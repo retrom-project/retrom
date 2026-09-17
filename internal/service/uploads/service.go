@@ -236,6 +236,9 @@ func (service *Service) validateReceivingPart(ctx context.Context, key model.Fil
 	if target.SessionState != "FAILED" {
 		return nil
 	}
-	err = service.repository.CommitWrite(ctx, func(scope model.WriteScope) error { return repairAllowed(ctx, scope, key, number) })
+	err = service.repository.CommitWrite(
+		ctx,
+		func(scope model.WriteScope) error { return repairAllowed(ctx, scope, key, number) },
+	)
 	return finalizationError("validate repair target", err)
 }

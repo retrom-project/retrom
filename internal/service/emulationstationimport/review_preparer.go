@@ -55,7 +55,11 @@ func reviewSourceIntent(unit model.Execution, item model.ExecutionItem) library.
 }
 
 // Resume checks permanent bindings before any source or CAS materialization.
-func (service *ReviewPreparer) Resume(ctx context.Context, unit model.Execution, item model.ExecutionItem) (bool, error) {
+func (service *ReviewPreparer) Resume(
+	ctx context.Context,
+	unit model.Execution,
+	item model.ExecutionItem,
+) (bool, error) {
 	result, found, err := service.dependencies.Sources.LookupOwnedServerSource(ctx, reviewSourceIntent(unit, item))
 	if err != nil {
 		return false, fmt.Errorf("lookup EmulationStation owned review: %w", err)
@@ -99,7 +103,10 @@ func (service *ReviewPreparer) files(
 ) ([]library.ServerSourceFile, error) {
 	result := make([]library.ServerSourceFile, 0, len(item.Files))
 	for _, file := range item.Files {
-		result = append(result, library.ServerSourceFile{RelativePath: file.Path, BlobID: file.BlobID, SizeBytes: file.Size})
+		result = append(
+			result,
+			library.ServerSourceFile{RelativePath: file.Path, BlobID: file.BlobID, SizeBytes: file.Size},
+		)
 	}
 	companions, err := service.dependencies.Companions.Files(ctx, unit, item)
 	if err != nil {

@@ -132,7 +132,9 @@ func projectMultiDiscSource(source model.MultiDiscSource) *model.ReviewMultiDisc
 	return result
 }
 
-func indexArcadeAttachments(attachments []model.ArcadeAttachment) (map[string]*model.ArcadeAttachment, *model.ArcadeAttachment) {
+func indexArcadeAttachments(
+	attachments []model.ArcadeAttachment,
+) (map[string]*model.ArcadeAttachment, *model.ArcadeAttachment) {
 	byMachine := make(map[string]*model.ArcadeAttachment)
 	var active *model.ArcadeAttachment
 	for i := range attachments {

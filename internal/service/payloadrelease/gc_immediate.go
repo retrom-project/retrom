@@ -53,7 +53,9 @@ func (service *GCScheduler) Immediate(ctx context.Context, actor string) (model.
 	return result, nil
 }
 
-func (service *GCScheduler) immediateChanges(facts []model.GCBlob) ([]model.GCBlob, []model.GCAdvance, model.ImmediateGCResult, error) {
+func (service *GCScheduler) immediateChanges(
+	facts []model.GCBlob,
+) ([]model.GCBlob, []model.GCAdvance, model.ImmediateGCResult, error) {
 	result := model.ImmediateGCResult{AcceptedAtMS: service.now().UnixMilli()}
 	var selected []model.GCBlob
 	var changes []model.GCAdvance

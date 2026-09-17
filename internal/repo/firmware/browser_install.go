@@ -12,7 +12,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func browserInstall(ctx context.Context, scope fwmodel.WriteScope, cmd fwmodel.BrowserInstallCommand) (fwmodel.Installation, error) {
+func browserInstall(
+	ctx context.Context,
+	scope fwmodel.WriteScope,
+	cmd fwmodel.BrowserInstallCommand,
+) (fwmodel.Installation, error) {
 	current, err := readInstallSnapshot(ctx, scope.ReadScope, cmd.RequirementID, cmd.FileID, cmd.Version)
 	if err != nil {
 		return fwmodel.Installation{}, err
@@ -44,7 +48,12 @@ type installSnapshot struct {
 	Upload      fwmodel.Upload
 }
 
-func readInstallSnapshot(ctx context.Context, scope fwmodel.ReadScope, id, fileID string, version int64) (installSnapshot, error) {
+func readInstallSnapshot(
+	ctx context.Context,
+	scope fwmodel.ReadScope,
+	id, fileID string,
+	version int64,
+) (installSnapshot, error) {
 	requirement, found, err := scope.Requirements.Get(ctx, id)
 	if err != nil {
 		return installSnapshot{}, fmt.Errorf("read BIOS requirement: %w", err)
@@ -88,7 +97,11 @@ func evaluateInstall(ctx context.Context, records fwmodel.RequirementRecords, sn
 	}, nil
 }
 
-func expectedArchive(ctx context.Context, records fwmodel.RequirementRecords, requirement fwmodel.Requirement) ([]firmware.ExpectedDATEntry, error) {
+func expectedArchive(
+	ctx context.Context,
+	records fwmodel.RequirementRecords,
+	requirement fwmodel.Requirement,
+) ([]firmware.ExpectedDATEntry, error) {
 	if requirement.ArchiveMembersJSON != nil {
 		entries, err := firmware.StaticArchiveExpectations(*requirement.ArchiveMembersJSON)
 		if err != nil {
@@ -103,7 +116,11 @@ func expectedArchive(ctx context.Context, records fwmodel.RequirementRecords, re
 	return entries, nil
 }
 
-func evaluateArchive(expected []firmware.ExpectedDATEntry, actual []importing.ArchiveEntry, strict bool) (string, map[string]any) {
+func evaluateArchive(
+	expected []firmware.ExpectedDATEntry,
+	actual []importing.ArchiveEntry,
+	strict bool,
+) (string, map[string]any) {
 	comparisons, missing, mismatched, warnings := firmware.CompareArchiveEntries(expected, actual)
 	details := map[string]any{
 		"schemaVersion":     1,

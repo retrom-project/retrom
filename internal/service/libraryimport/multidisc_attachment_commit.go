@@ -38,7 +38,10 @@ func (service *MultiDiscAttachmentCommits) CommitAccepted(
 	if !validMultiDiscAttachmentCommitRequest(request) {
 		return model.ErrInvalid
 	}
-	write := model.MultiDiscAttachmentCommitWrite{MultiDiscAttachmentCommitRequest: request, NowMS: service.now().UnixMilli()}
+	write := model.MultiDiscAttachmentCommitWrite{
+		MultiDiscAttachmentCommitRequest: request,
+		NowMS:                            service.now().UnixMilli(),
+	}
 	for _, target := range []*string{
 		&write.SourceSnapshotID, &write.ValidationID, &write.ConsumptionID, &write.EventID,
 	} {

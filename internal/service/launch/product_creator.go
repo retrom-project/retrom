@@ -42,7 +42,10 @@ type productAttempt struct {
 	resume  string
 }
 
-func (service *ProductCreator) Create(ctx context.Context, command model.ProductCreateCommand) (model.ProductReceipt, error) {
+func (service *ProductCreator) Create(
+	ctx context.Context,
+	command model.ProductCreateCommand,
+) (model.ProductReceipt, error) {
 	if !validProductRequest(command) {
 		return model.ProductReceipt{}, model.ErrBlocked
 	}
@@ -78,7 +81,10 @@ func (service *ProductCreator) Create(ctx context.Context, command model.Product
 	return model.ProductReceipt{}, model.ErrBlocked
 }
 
-func (service *ProductCreator) prepare(ctx context.Context, command model.ProductCreateCommand) (productPreparation, error) {
+func (service *ProductCreator) prepare(
+	ctx context.Context,
+	command model.ProductCreateCommand,
+) (productPreparation, error) {
 	snapshot, err := service.repository.Snapshot(ctx, command)
 	if err != nil {
 		return productPreparation{}, fmt.Errorf("read product snapshot: %w", err)

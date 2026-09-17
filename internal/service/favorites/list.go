@@ -42,7 +42,11 @@ func validateListOptions(options model.ListOptions) (model.ListOptions, error) {
 	return options, nil
 }
 
-func (service *Service) List(ctx context.Context, principal model.Principal, requested model.ListOptions) (model.ListResult, error) {
+func (service *Service) List(
+	ctx context.Context,
+	principal model.Principal,
+	requested model.ListOptions,
+) (model.ListResult, error) {
 	options, err := validateListOptions(requested)
 	if err != nil {
 		return model.ListResult{}, repositoryError("List", err)

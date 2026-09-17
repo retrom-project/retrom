@@ -17,7 +17,11 @@ import (
 	"retrom/internal/adapter/files/uploadfiles"
 )
 
-func (service *Service) assembleFile(ctx context.Context, file model.Candidate, parts []model.Part) (blobstore.Metadata, error) {
+func (service *Service) assembleFile(
+	ctx context.Context,
+	file model.Candidate,
+	parts []model.Part,
+) (blobstore.Metadata, error) {
 	sort.Slice(parts, func(i, j int) bool { return parts[i].Offset < parts[j].Offset })
 	var offset int64
 	for _, part := range parts {

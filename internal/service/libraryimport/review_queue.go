@@ -53,7 +53,10 @@ func (service *ReviewQueue) List(
 	if after != nil && (after.ItemID == "" || after.UpdatedAtMS < 0) {
 		return model.ReviewQueuePage{}, model.ErrReviewQuery
 	}
-	records, err := service.repository.List(ctx, model.ReviewQueueQuery{Filter: filter, After: after, Limit: filter.Limit + 1})
+	records, err := service.repository.List(
+		ctx,
+		model.ReviewQueueQuery{Filter: filter, After: after, Limit: filter.Limit + 1},
+	)
 	if err != nil {
 		return model.ReviewQueuePage{}, fmt.Errorf("read review queue: %w", err)
 	}

@@ -205,7 +205,8 @@ func finishUploadCancellation(ctx context.Context, scope model.WriteScope, run m
 	); err != nil {
 		return fmt.Errorf("persist upload transition: %w", err)
 	}
-	if err := scope.Files.FailPending(ctx, model.PendingFailure{UploadID: run.UploadID, Code: code, AtMS: now}); err != nil {
+	failure := model.PendingFailure{UploadID: run.UploadID, Code: code, AtMS: now}
+	if err := scope.Files.FailPending(ctx, failure); err != nil {
 		return fmt.Errorf("cancel unfinished upload files: %w", err)
 	}
 	return nil

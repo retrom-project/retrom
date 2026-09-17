@@ -85,7 +85,12 @@ func internalEnvelope(envelope importdiscard.Envelope) (bool, error) {
 	return envelope.Digest == hex.EncodeToString(sum[:]), nil
 }
 
-func discardSourceItems(ctx context.Context, scope importdiscard.WriteScope, key importdiscard.Key, nowMS int64) (bool, error) {
+func discardSourceItems(
+	ctx context.Context,
+	scope importdiscard.WriteScope,
+	key importdiscard.Key,
+	nowMS int64,
+) (bool, error) {
 	releases, err := scope.Sources.Releases(ctx, key)
 	if err != nil {
 		return false, failure("process discarded content", err)
@@ -111,7 +116,11 @@ func discardSourceItems(ctx context.Context, scope importdiscard.WriteScope, key
 	return true, nil
 }
 
-func requestDiscard(ctx context.Context, scope importdiscard.WriteScope, cmd importdiscard.RequestDiscardCommand) (importdiscard.Status, error) {
+func requestDiscard(
+	ctx context.Context,
+	scope importdiscard.WriteScope,
+	cmd importdiscard.RequestDiscardCommand,
+) (importdiscard.Status, error) {
 	current, err := discardStatus(ctx, scope.Reader, cmd.Key)
 	if err != nil {
 		return importdiscard.Status{}, failure("access discard status", err)
@@ -137,7 +146,11 @@ func requestDiscard(ctx context.Context, scope importdiscard.WriteScope, cmd imp
 	return importdiscard.Status{Kind: cmd.Key.Kind, ImportID: cmd.Key.ID, State: "REQUESTED"}, nil
 }
 
-func discardStatus(ctx context.Context, records importdiscard.Reader, key importdiscard.Key) (importdiscard.Status, error) {
+func discardStatus(
+	ctx context.Context,
+	records importdiscard.Reader,
+	key importdiscard.Key,
+) (importdiscard.Status, error) {
 	batch, err := records.Batch(ctx, key)
 	if err != nil {
 		return importdiscard.Status{}, failure("access discard status", err)

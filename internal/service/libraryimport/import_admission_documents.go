@@ -43,7 +43,10 @@ type admissionInputFacts struct {
 	ConfigDigest   string `json:"importConfigSnapshotDigest"`
 }
 
-func admissionDocuments(change model.ImportAdmissionChange, tags []tagging.Reference) (model.ImportAdmissionDocuments, error) {
+func admissionDocuments(
+	change model.ImportAdmissionChange,
+	tags []tagging.Reference,
+) (model.ImportAdmissionDocuments, error) {
 	var documents model.ImportAdmissionDocuments
 	var err error
 	documents.RequestJSON, documents.RequestDigest, err = encodeAdmissionDocument(

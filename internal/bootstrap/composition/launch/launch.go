@@ -18,7 +18,10 @@ func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func
 		repository.NewValidationWorker(database),
 		launchmodel.ValidationWorkerEnvironment{Now: now},
 	)
-	supervisor := launchservice.NewValidationSupervisor(worker, func(err error) { cleanup.Error("variant validation", err) })
+	supervisor := launchservice.NewValidationSupervisor(
+		worker,
+		func(err error) { cleanup.Error("variant validation", err) },
+	)
 	product := launchservice.NewProductCreator(
 		repository.NewProductCreation(database),
 		source,
@@ -48,8 +51,12 @@ func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func
 		Config: launchservice.NewConfigIssuer(repository.NewConfig(database), source, launchmodel.ConfigEnvironment{
 			Now: now, Matches: retromruntime.MatchesCapability, PublicOrigin: publicOrigin, SignIsolation: source.SignIsolation,
 		}),
-		Play:    launchservice.NewPlayController(repository.NewPlay(database), now, retromruntime.MatchesCapability),
-		Content: launchservice.NewContentAccess(repository.NewContentQueries(database), now, retromruntime.MatchesCapability),
+		Play: launchservice.NewPlayController(repository.NewPlay(database), now, retromruntime.MatchesCapability),
+		Content: launchservice.NewContentAccess(
+			repository.NewContentQueries(database),
+			now,
+			retromruntime.MatchesCapability,
+		),
 		Sessions: launchservice.NewSessionQueries(
 			repository.NewSessionQueries(database),
 			source,
@@ -57,7 +64,11 @@ func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func
 			retromruntime.MatchesCapability,
 		),
 		Projects: launchservice.NewProjectQueries(repository.NewConfig(database), now, retromruntime.MatchesCapability),
-		Indexes:  launchservice.NewProjectIndexes(repository.NewProjectIndexes(database), now, retromruntime.MatchesCapability),
+		Indexes: launchservice.NewProjectIndexes(
+			repository.NewProjectIndexes(database),
+			now,
+			retromruntime.MatchesCapability,
+		),
 		Screenshots: launchservice.NewScreenshotSaver(
 			repository.NewScreenshots(database),
 			source,

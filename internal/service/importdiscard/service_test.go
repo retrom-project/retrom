@@ -58,12 +58,12 @@ func (repository *memoryRepository) CommitDiscardSourceItems(context.Context, mo
 	return true, nil
 }
 
-func (repository *memoryRepository) CommitRequestDiscard(_ context.Context, cmd model.RequestDiscardCommand) (model.Status, error) {
+func (repository *memoryRepository) CommitRequestDiscard(ctx context.Context, cmd model.RequestDiscardCommand) (model.Status, error) {
 	repository.writeCount++
 	if repository.beforeWrite != nil {
 		repository.beforeWrite()
 	}
-	batch, err := repository.records.Batch(nil, cmd.Key)
+	batch, err := repository.records.Batch(ctx, cmd.Key)
 	if err != nil {
 		return model.Status{}, err
 	}

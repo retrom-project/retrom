@@ -11,7 +11,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func serverInstall(ctx context.Context, scope fwmodel.WriteScope, cmd fwmodel.ServerInstallCommand) (fwmodel.ServerInstallResult, error) {
+func serverInstall(
+	ctx context.Context,
+	scope fwmodel.WriteScope,
+	cmd fwmodel.ServerInstallCommand,
+) (fwmodel.ServerInstallResult, error) {
 	request := cmd.Request
 	if err := scope.Server.LockExecution(ctx, fwmodel.ServerExecution{
 		ImportID: request.ServerImportID, JobID: request.JobID, WorkerID: request.WorkerID,
@@ -38,7 +42,14 @@ func serverInstall(ctx context.Context, scope fwmodel.WriteScope, cmd fwmodel.Se
 		return fwmodel.ServerInstallResult{}, fmt.Errorf("read active server BIOS: %w", err)
 	}
 	var handled bool
-	result, handled, err := evaluateExistingInstallation(ctx, scope.ReadScope.Archives, request, requirement.Version, active, exists)
+	result, handled, err := evaluateExistingInstallation(
+		ctx,
+		scope.ReadScope.Archives,
+		request,
+		requirement.Version,
+		active,
+		exists,
+	)
 	if err != nil {
 		return fwmodel.ServerInstallResult{}, err
 	}
@@ -61,8 +72,13 @@ func matchesServerCatalog(requirement fwmodel.Requirement, request fwmodel.Serve
 		requirement.TargetID == request.TargetID
 }
 
-func evaluateExistingInstallation(ctx context.Context, records fwmodel.ArchiveReader, request fwmodel.ServerInstallRequest,
-	version int64, active fwmodel.ActiveInstallation, exists bool,
+func evaluateExistingInstallation(
+	ctx context.Context,
+	records fwmodel.ArchiveReader,
+	request fwmodel.ServerInstallRequest,
+	version int64,
+	active fwmodel.ActiveInstallation,
+	exists bool,
 ) (fwmodel.ServerInstallResult, bool, error) {
 	if !exists {
 		return fwmodel.ServerInstallResult{}, false, nil

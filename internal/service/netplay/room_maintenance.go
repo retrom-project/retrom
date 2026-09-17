@@ -51,7 +51,8 @@ func (service *RoomMaintenance) Expire(ctx context.Context) error {
 		return fmt.Errorf("netplay/read expired sessions: %w", err)
 	}
 	for _, candidate := range active {
-		if err := service.ender.EndExpired(ctx, candidate, cutoffs.Now); err != nil && !errors.Is(err, model.ErrRoomNotFound) {
+		if err := service.ender.EndExpired(ctx, candidate, cutoffs.Now); err != nil &&
+			!errors.Is(err, model.ErrRoomNotFound) {
 			return fmt.Errorf("netplay/end expired session: %w", err)
 		}
 	}

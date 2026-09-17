@@ -171,6 +171,15 @@
       "reason": "Stdout newline write failure is non-recoverable; the process exits naturally.",
       "invariant": "Trailing newline is best-effort output formatting.",
       "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/service/importdiscard/policy.go",
+      "line": 13,
+      "symbol": "func legacyOwner",
+      "linter": "unparam",
+      "reason": "The id parameter is always 'source' in tests but the function signature mirrors the repo-layer sibling and the parameter is semantically meaningful.",
+      "invariant": "The function signature must remain compatible with the repo-layer legacyOwner for consistency.",
+      "reviewAfter": "2027-09-17"
     }
   ]
 }

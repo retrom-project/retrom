@@ -20,7 +20,10 @@ func NewItemWork(repository model.ItemWorkRepository, now func() time.Time) *Ite
 	return &ItemWork{repository: repository, now: now}
 }
 
-func (service *ItemWork) Next(ctx context.Context, identity model.ExecutionIdentity) (model.ExecutionItem, bool, error) {
+func (service *ItemWork) Next(
+	ctx context.Context,
+	identity model.ExecutionIdentity,
+) (model.ExecutionItem, bool, error) {
 	var item model.ExecutionItem
 	found := false
 	err := service.repository.WithItemWork(ctx, func(scope model.ItemWorkScope) error {

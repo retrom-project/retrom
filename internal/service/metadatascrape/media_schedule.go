@@ -53,7 +53,12 @@ func mediaSourceDigest(asset model.CandidateAsset) string {
 	return hex.EncodeToString(source.Sum(nil))
 }
 
-func enqueueCandidateMedia(ctx context.Context, scope model.ResultScope, runID string, asset *model.CandidateAsset) error {
+func enqueueCandidateMedia(
+	ctx context.Context,
+	scope model.ResultScope,
+	runID string,
+	asset *model.CandidateAsset,
+) error {
 	subject, err := scope.Read.Subject(ctx, runID)
 	if err != nil {
 		return fmt.Errorf("read media owner: %w", err)

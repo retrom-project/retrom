@@ -132,7 +132,8 @@ func (worker *ImportWorker) Recover(parent context.Context) error {
 }
 
 func (worker *ImportWorker) report(ctx context.Context, err error) {
-	if err == nil || ctx.Err() != nil || errors.Is(err, model.ErrVersionConflict) || errors.Is(err, ErrImportWorkerClosed) {
+	if err == nil || ctx.Err() != nil || errors.Is(err, model.ErrVersionConflict) ||
+		errors.Is(err, ErrImportWorkerClosed) {
 		return
 	}
 	if worker.settings.Report != nil {

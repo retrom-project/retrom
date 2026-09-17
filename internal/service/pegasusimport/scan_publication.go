@@ -17,7 +17,11 @@ func NewScanPublication(repository model.ScanRepository, now func() time.Time) *
 	return &ScanPublication{repository: repository, now: now}
 }
 
-func (service *ScanPublication) Save(ctx context.Context, id model.ExecutionIdentity, projection model.ScanProjection) error {
+func (service *ScanPublication) Save(
+	ctx context.Context,
+	id model.ExecutionIdentity,
+	projection model.ScanProjection,
+) error {
 	if err := service.Headers(ctx, id, projection.Headers); err != nil {
 		return err
 	}
@@ -29,7 +33,11 @@ func (service *ScanPublication) Save(ctx context.Context, id model.ExecutionIden
 	return service.Finish(ctx, id, projection.Summary)
 }
 
-func (service *ScanPublication) Headers(ctx context.Context, id model.ExecutionIdentity, headers model.ScanHeaders) error {
+func (service *ScanPublication) Headers(
+	ctx context.Context,
+	id model.ExecutionIdentity,
+	headers model.ScanHeaders,
+) error {
 	if len(headers.Metadata) > model.MaxMetadataFiles {
 		return model.ErrScanLimit
 	}
@@ -51,7 +59,11 @@ func (service *ScanPublication) Headers(ctx context.Context, id model.ExecutionI
 	return nil
 }
 
-func (service *ScanPublication) headerBatch(ctx context.Context, id model.ExecutionIdentity, headers model.ScanHeaders) error {
+func (service *ScanPublication) headerBatch(
+	ctx context.Context,
+	id model.ExecutionIdentity,
+	headers model.ScanHeaders,
+) error {
 	return service.withOwner(ctx, id, func(scope model.ScanScope, owner model.ScanLease) error {
 		return scope.Write.Headers(ctx, owner, headers)
 	})
@@ -66,7 +78,11 @@ func (service *ScanPublication) Items(ctx context.Context, id model.ExecutionIde
 	})
 }
 
-func (service *ScanPublication) Finish(ctx context.Context, id model.ExecutionIdentity, summary model.ScanSummary) error {
+func (service *ScanPublication) Finish(
+	ctx context.Context,
+	id model.ExecutionIdentity,
+	summary model.ScanSummary,
+) error {
 	return service.withOwner(ctx, id, func(scope model.ScanScope, owner model.ScanLease) error {
 		actual, err := scope.Read.Shape(ctx, owner.Before.ImportID)
 		if err != nil {

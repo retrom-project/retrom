@@ -52,7 +52,10 @@ func (control *WorkerCancellationControl) Cancelled(ctx context.Context, id mode
 	return pending, nil
 }
 
-func (control *WorkerCancellationControl) CloseCancelled(ctx context.Context, id model.ExecutionIdentity) (bool, error) {
+func (control *WorkerCancellationControl) CloseCancelled(
+	ctx context.Context,
+	id model.ExecutionIdentity,
+) (bool, error) {
 	closed, err := control.settlement.Cancelled(ctx, id)
 	if err != nil {
 		return false, fmt.Errorf("settle Pegasus cancellation: %w", err)

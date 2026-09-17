@@ -201,7 +201,10 @@ func (service *ValidationWorker) settle(
 		if outcome.Status == "READY" {
 			state = "SUCCEEDED"
 		}
-		return scope.Jobs.Finish(ctx, model.ValidationTerminal{Claim: claim, State: state, Code: code, NowMS: now, Evaluated: true})
+		return scope.Jobs.Finish(
+			ctx,
+			model.ValidationTerminal{Claim: claim, State: state, Code: code, NowMS: now, Evaluated: true},
+		)
 	})
 	return validationStageError("settle validation transaction", err)
 }
@@ -288,7 +291,8 @@ func (service *ValidationWorker) recoverOne(ctx context.Context, id string) (boo
 		}
 		exhausted := validationExhausted(current, now)
 		if stale || exhausted {
-			if err := scope.Jobs.Recover(ctx, model.ValidationRecovery{Before: current, NowMS: now, Terminal: exhausted}); err != nil {
+			recovery := model.ValidationRecovery{Before: current, NowMS: now, Terminal: exhausted}
+			if err := scope.Jobs.Recover(ctx, recovery); err != nil {
 				return fmt.Errorf("recover validation execution: %w", err)
 			}
 		}

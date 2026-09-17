@@ -68,7 +68,10 @@ func BindCurrentGameStateDigest(baseDigest string, gameVersion int64, sourceMani
 	return hex.EncodeToString(digest[:])
 }
 
-func (service *ValidationScheduler) Queue(ctx context.Context, inputs model.ValidationInputs) (model.ValidationQueued, error) {
+func (service *ValidationScheduler) Queue(
+	ctx context.Context,
+	inputs model.ValidationInputs,
+) (model.ValidationQueued, error) {
 	dedupe := ValidationDedupeKey(inputs.GameVariantID, inputs.ValidationInputDigest)
 	previous, found, err := service.repository.Find(ctx, dedupe)
 	if err != nil {

@@ -37,7 +37,11 @@ func (service *Recovery) Recover(ctx context.Context) error {
 	return nil
 }
 
-func (service *Recovery) recoverInScope(ctx context.Context, scope model.RecoveryScope, candidate model.LeaseSnapshot) error {
+func (service *Recovery) recoverInScope(
+	ctx context.Context,
+	scope model.RecoveryScope,
+	candidate model.LeaseSnapshot,
+) error {
 	current, found, err := scope.Read.Current(ctx, candidate.JobID)
 	if err != nil {
 		return fmt.Errorf("read EmulationStation recovery candidate: %w", err)

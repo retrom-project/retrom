@@ -120,7 +120,11 @@ func (service *ExecutionControl) finishCancelledScope(
 	return nil
 }
 
-func currentExecution(ctx context.Context, reader model.ExecutionSnapshotReader, unit model.Execution) (model.LeaseSnapshot, error) {
+func currentExecution(
+	ctx context.Context,
+	reader model.ExecutionSnapshotReader,
+	unit model.Execution,
+) (model.LeaseSnapshot, error) {
 	before, found, err := reader.Current(ctx, unit.JobID)
 	if err != nil {
 		return model.LeaseSnapshot{}, fmt.Errorf("read current EmulationStation execution: %w", err)

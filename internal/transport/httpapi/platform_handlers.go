@@ -254,7 +254,14 @@ func (server *Server) reorderPlatformInstances(writer http.ResponseWriter, reque
 		RequestID: requestID,
 	}, items)
 	if errors.Is(err, platforminstancemodel.ErrOrderStale) {
-		writeError(writer, request, http.StatusConflict, "PLATFORM_INSTANCE_ORDER_STALE", "目录列表已变化，请刷新后重试", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"PLATFORM_INSTANCE_ORDER_STALE",
+			"目录列表已变化，请刷新后重试",
+			map[string]any{},
+		)
 		return
 	}
 	if errors.Is(err, platforminstancemodel.ErrVersionConflict) {
@@ -298,7 +305,12 @@ func (server *Server) patchPlatformInstance(writer http.ResponseWriter, request 
 	result, err := server.platformDirectories.Patch(request.Context(), platforminstanceservice.PlatformInstancePatch{
 		ID: request.PathValue("platformInstanceId"), ExpectedVersion: expected,
 		Name: body.Name, Description: body.Description, SortOrder: body.SortOrder, Enabled: body.Enabled,
-		Actor: platforminstancemodel.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
+		Actor: platforminstancemodel.AuditActor{
+			Kind:      actor.Kind,
+			UserID:    actor.UserID,
+			Label:     actor.Label,
+			RequestID: requestID,
+		},
 	})
 	if errors.Is(err, platforminstancemodel.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "PLATFORM_INSTANCE_NOT_FOUND", "平台目录不存在", map[string]any{})
@@ -338,7 +350,12 @@ func (server *Server) deletePlatformInstance(writer http.ResponseWriter, request
 	requestID, _ := request.Context().Value(requestIDKey).(string)
 	err = server.platformDirectories.Delete(request.Context(), platforminstanceservice.PlatformInstanceDelete{
 		ID: request.PathValue("platformInstanceId"), ExpectedVersion: expected,
-		Actor: platforminstancemodel.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
+		Actor: platforminstancemodel.AuditActor{
+			Kind:      actor.Kind,
+			UserID:    actor.UserID,
+			Label:     actor.Label,
+			RequestID: requestID,
+		},
 	})
 	if errors.Is(err, platforminstancemodel.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "PLATFORM_INSTANCE_NOT_FOUND", "平台目录不存在", map[string]any{})

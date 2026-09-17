@@ -50,7 +50,10 @@ func (worker *MediaWorker) claimInScope(
 	}
 	if snapshot.Job.State == "RUNNING" {
 		available := min(now+metadataRetryDelay(snapshot.Job.Attempt), snapshot.Job.Deadline)
-		return execution, mediaError("requeue expired media lease", scope.Leases.Requeue(ctx, execution.Claim, available))
+		return execution, mediaError(
+			"requeue expired media lease",
+			scope.Leases.Requeue(ctx, execution.Claim, available),
+		)
 	}
 	if snapshot.RunState == "RUNNING" || snapshot.Job.AvailableAt > now {
 		return execution, nil
@@ -61,7 +64,11 @@ func (worker *MediaWorker) claimInScope(
 	return execution, nil
 }
 
-func (execution *mediaExecution) prepare(ctx context.Context, scope model.MediaScope, snapshot model.MediaSnapshot) error {
+func (execution *mediaExecution) prepare(
+	ctx context.Context,
+	scope model.MediaScope,
+	snapshot model.MediaSnapshot,
+) error {
 	snapshot, err := freezeMediaOrder(ctx, scope, snapshot, execution.Claim.Now)
 	if err != nil {
 		return err
@@ -143,7 +150,12 @@ func mediaTerminalCause(snapshot model.MediaSnapshot, now int64) (string, error)
 	return "", nil
 }
 
-func freezeMediaOrder(ctx context.Context, scope model.MediaScope, snapshot model.MediaSnapshot, now int64) (model.MediaSnapshot, error) {
+func freezeMediaOrder(
+	ctx context.Context,
+	scope model.MediaScope,
+	snapshot model.MediaSnapshot,
+	now int64,
+) (model.MediaSnapshot, error) {
 	if snapshot.Frozen {
 		return snapshot, nil
 	}
@@ -159,7 +171,12 @@ func freezeMediaOrder(ctx context.Context, scope model.MediaScope, snapshot mode
 	return current, mediaError("read frozen media order", err)
 }
 
-func reconcileCancelledMedia(ctx context.Context, scope model.MediaScope, snapshot model.MediaSnapshot, now int64) error {
+func reconcileCancelledMedia(
+	ctx context.Context,
+	scope model.MediaScope,
+	snapshot model.MediaSnapshot,
+	now int64,
+) error {
 	asset := snapshot.Asset
 	if asset.ID == "" || asset.Status == "READY" || asset.Status == "CANCELLED" {
 		return nil

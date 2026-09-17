@@ -23,7 +23,12 @@ type Service struct {
 	wait       sync.WaitGroup
 }
 
-func New(repository model.Repository, importer model.ImportWorkflow, sources model.SourceWorkflow, now func() time.Time) *Service {
+func New(
+	repository model.Repository,
+	importer model.ImportWorkflow,
+	sources model.SourceWorkflow,
+	now func() time.Time,
+) *Service {
 	return &Service{repository: repository, importer: importer, sources: sources, now: now, stop: make(chan struct{})}
 }
 

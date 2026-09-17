@@ -76,7 +76,10 @@ func (service *ImportPreparation) prepareScummVMArchive(
 	}
 	project, err := fileset.NormalizeTree(input)
 	if err != nil {
-		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf("normalize ScummVM archive: %w", err)
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf(
+			"normalize ScummVM archive: %w",
+			err,
+		)
 	}
 	selected := archiveProjectEntries(project.Files, entryByOrdinal)
 	metadata, err := service.projectArchiveReadMetadata(ctx, file, selected, candidates)
@@ -96,7 +99,11 @@ func (service *ImportPreparation) prepareScummVMArchive(
 	return sourceDisposition(file), group, archive, err
 }
 
-func newScummVMGroup(sources []model.PreparedSource, snapshot scummvm.Snapshot, title string) (model.PreparedGroup, error) {
+func newScummVMGroup(
+	sources []model.PreparedSource,
+	snapshot scummvm.Snapshot,
+	title string,
+) (model.PreparedGroup, error) {
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {
 		return model.PreparedGroup{}, fmt.Errorf("encode ScummVM detection: %w", err)

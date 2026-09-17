@@ -47,7 +47,8 @@ func validFrozenEvidence(values []model.GamelistEvidence) bool {
 			continue
 		}
 		if value.SizeBytes > model.MaxSnapshotGamelistBytes || !validFrozenDigest(*value.ContentDigest) ||
-			value.ParseState != "VALID" && value.ParseState != "INVALID" || total > model.MaxSnapshotGamelistsBytes-value.SizeBytes {
+			value.ParseState != "VALID" &&
+				value.ParseState != "INVALID" || total > model.MaxSnapshotGamelistsBytes-value.SizeBytes {
 			return false
 		}
 		total += value.SizeBytes

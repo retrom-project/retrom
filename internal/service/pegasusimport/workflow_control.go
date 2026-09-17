@@ -25,7 +25,12 @@ func validWorkflowVersion(before model.WorkflowSnapshot, version int64) bool {
 		before.JobVersion > 0 && before.JobVersion < math.MaxInt64 && before.Execution > 0
 }
 
-func (service *WorkflowControl) Retry(ctx context.Context, id string, version int64, actorID string) (model.Summary, error) {
+func (service *WorkflowControl) Retry(
+	ctx context.Context,
+	id string,
+	version int64,
+	actorID string,
+) (model.Summary, error) {
 	var result model.Summary
 	err := service.repository.WithControl(ctx, func(scope model.WorkflowScope) error {
 		before, err := scope.Read.Current(ctx, id)
@@ -56,7 +61,8 @@ func (service *WorkflowControl) Retry(ctx context.Context, id string, version in
 }
 
 func canRetry(before model.WorkflowSnapshot, version int64) bool {
-	if !validWorkflowVersion(before, version) || before.Execution == math.MaxInt64 || before.Summary.ImportJobID == nil {
+	if !validWorkflowVersion(before, version) || before.Execution == math.MaxInt64 ||
+		before.Summary.ImportJobID == nil {
 		return false
 	}
 	if !before.Summary.Retryable || before.OtherActive || before.RetryableItems == 0 {

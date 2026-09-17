@@ -69,7 +69,11 @@ func classifyFrozenOpenError(err error) error {
 	}
 	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, serversource.ErrPathInvalid) ||
 		errors.Is(err, serversource.ErrSourceChanged) {
-		return fmt.Errorf("open changed EmulationStation frozen source: %w: %w", emulationstationimportmodel.ErrSourceChanged, err)
+		return fmt.Errorf(
+			"open changed EmulationStation frozen source: %w: %w",
+			emulationstationimportmodel.ErrSourceChanged,
+			err,
+		)
 	}
 	return fmt.Errorf("emulationstationimport/open frozen source: %w: %w", serversource.ErrRootUnavailable, err)
 }

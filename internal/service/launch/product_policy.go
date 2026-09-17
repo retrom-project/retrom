@@ -52,7 +52,10 @@ func validateProductSavedSelection(snapshot model.ProductSnapshot) error {
 
 type productDOSEntryChoice struct{ Path *string }
 
-func selectedProductDOS(command model.ProductCreateCommand, snapshot model.ProductSnapshot) (productDOSEntryChoice, error) {
+func selectedProductDOS(
+	command model.ProductCreateCommand,
+	snapshot model.ProductSnapshot,
+) (productDOSEntryChoice, error) {
 	entry := command.Request.DOSEntry
 	if snapshot.Save != nil && snapshot.Save.DOSEntry != nil {
 		entry = snapshot.Save.DOSEntry

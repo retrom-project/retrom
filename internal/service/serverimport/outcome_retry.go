@@ -41,7 +41,8 @@ func retryExecution(
 	if err != nil {
 		return 0, fmt.Errorf("encode automatic retry: %w", err)
 	}
-	if err := scope.Write.Retry(ctx, model.AutomaticRetry{Unit: unit, AvailableAt: at, Now: now, Event: event}); err != nil {
+	cmd := model.AutomaticRetry{Unit: unit, AvailableAt: at, Now: now, Event: event}
+	if err := scope.Write.Retry(ctx, cmd); err != nil {
 		return 0, fmt.Errorf("write automatic retry: %w", err)
 	}
 	return at, nil

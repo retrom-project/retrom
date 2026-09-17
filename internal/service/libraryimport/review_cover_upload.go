@@ -35,7 +35,10 @@ func newReviewCoverID() (string, error) {
 	return id.String(), nil
 }
 
-func (service *ReviewCoverUploads) Upload(ctx context.Context, request model.ReviewCoverRequest) (model.ReviewCoverResult, error) {
+func (service *ReviewCoverUploads) Upload(
+	ctx context.Context,
+	request model.ReviewCoverRequest,
+) (model.ReviewCoverResult, error) {
 	if request.Kind != "COVER" || request.ItemID == "" || request.UploadFileID == "" || request.ExpectedVersion < 1 {
 		return model.ReviewCoverResult{}, model.ErrReviewCoverUploadInvalid
 	}
@@ -71,7 +74,10 @@ func (service *ReviewCoverUploads) Upload(ctx context.Context, request model.Rev
 	return result, nil
 }
 
-func (service *ReviewCoverUploads) prepare(ctx context.Context, source model.ReviewCoverSource) (hasheous.AssetData, error) {
+func (service *ReviewCoverUploads) prepare(
+	ctx context.Context,
+	source model.ReviewCoverSource,
+) (hasheous.AssetData, error) {
 	if err := ctx.Err(); err != nil {
 		return hasheous.AssetData{}, fmt.Errorf("prepare review cover: %w", err)
 	}
@@ -139,7 +145,10 @@ func (service *ReviewCoverUploads) save(
 }
 
 func checkReviewCoverAuthority(
-	ctx context.Context, reader model.ReviewCoverReader, request model.ReviewCoverRequest, prepared model.ReviewCoverSource,
+	ctx context.Context,
+	reader model.ReviewCoverReader,
+	request model.ReviewCoverRequest,
+	prepared model.ReviewCoverSource,
 ) error {
 	current, found, err := reader.Source(ctx, request.UploadFileID)
 	if err != nil {

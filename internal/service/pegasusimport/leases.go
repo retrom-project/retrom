@@ -107,7 +107,10 @@ func (service *Leases) Renew(ctx context.Context, identity model.ExecutionIdenti
 		if now > math.MaxInt64-60000 {
 			return model.ErrInvalid
 		}
-		return records.Renew(ctx, model.LeaseRenewal{Before: before, NowMS: now, LeaseUntilMS: min(now+60000, before.DeadlineMS)})
+		return records.Renew(
+			ctx,
+			model.LeaseRenewal{Before: before, NowMS: now, LeaseUntilMS: min(now+60000, before.DeadlineMS)},
+		)
 	})
 	if err != nil {
 		return fmt.Errorf("renew Pegasus execution: %w", err)

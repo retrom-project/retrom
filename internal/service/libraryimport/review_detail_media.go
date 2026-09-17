@@ -9,7 +9,12 @@ import (
 	model "retrom/internal/model/libraryimport"
 )
 
-func readReviewMedia(ctx context.Context, scope model.ReviewReadScope, head model.ReviewHead, result *model.ReviewDetail) error {
+func readReviewMedia(
+	ctx context.Context,
+	scope model.ReviewReadScope,
+	head model.ReviewHead,
+	result *model.ReviewDetail,
+) error {
 	var err error
 	result.UploadedAssets, err = scope.Media.UploadedAssets(ctx, head.ItemID)
 	if err != nil {

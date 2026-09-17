@@ -28,7 +28,11 @@ func scheduleEvidence(ctx context.Context, scope model.ScheduleScope, plan model
 	return nil
 }
 
-func contentEvidence(ctx context.Context, reader model.ScheduleEvidenceReader, plan model.SchedulePlan) ([]model.HashEvidence, error) {
+func contentEvidence(
+	ctx context.Context,
+	reader model.ScheduleEvidenceReader,
+	plan model.SchedulePlan,
+) ([]model.HashEvidence, error) {
 	files, err := reader.Files(ctx, plan.Subject)
 	if err != nil {
 		return nil, fmt.Errorf("read content hash evidence: %w", err)
@@ -64,7 +68,11 @@ func contentEvidence(ctx context.Context, reader model.ScheduleEvidenceReader, p
 	return evidence, nil
 }
 
-func arcadeEvidence(ctx context.Context, reader model.ScheduleEvidenceReader, plan model.SchedulePlan) ([]model.HashEvidence, error) {
+func arcadeEvidence(
+	ctx context.Context,
+	reader model.ScheduleEvidenceReader,
+	plan model.SchedulePlan,
+) ([]model.HashEvidence, error) {
 	binding, found, err := reader.DAT(ctx, plan.Subject)
 	if err != nil {
 		return nil, fmt.Errorf("read arcade scrape DAT: %w", err)

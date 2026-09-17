@@ -18,7 +18,10 @@ type (
 
 func NewRecorder(database *sql.DB) *ResultRepository { return &ResultRepository{database: database} }
 
-func (repository *ResultRepository) CommitWrite(ctx context.Context, work func(metadatascrape.ResultScope) error) error {
+func (repository *ResultRepository) CommitWrite(
+	ctx context.Context,
+	work func(metadatascrape.ResultScope) error,
+) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin scrape result: %w", err)

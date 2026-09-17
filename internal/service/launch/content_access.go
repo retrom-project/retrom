@@ -20,7 +20,10 @@ func NewContentAccess(reader model.ContentReader, now func() time.Time, matches 
 	return &ContentAccess{reader: reader, policy: accessPolicy{now: now, matches: matches}}
 }
 
-func (service *ContentAccess) Content(ctx context.Context, id, capability, logicalName string) (model.ContentView, error) {
+func (service *ContentAccess) Content(
+	ctx context.Context,
+	id, capability, logicalName string,
+) (model.ContentView, error) {
 	record, found, err := service.reader.ProductContent(ctx, id, logicalName, false)
 	if err != nil {
 		return model.ContentView{}, fmt.Errorf("read launch content: %w", err)

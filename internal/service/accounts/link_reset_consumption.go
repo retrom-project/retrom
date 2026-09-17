@@ -40,7 +40,12 @@ func (service *LinkConsumptionService) CompleteReset(
 		if current.Target.Status == "ENABLED" {
 			record := prepared.session.Record(current.Target.User.UserID, current.Target.SessionVersion+1, now)
 			plan.Session = &record
-			session := prepared.session.View(current.Target.User, current.Target.ProfileID, current.Target.SessionVersion+1, now)
+			session := prepared.session.View(
+				current.Target.User,
+				current.Target.ProfileID,
+				current.Target.SessionVersion+1,
+				now,
+			)
 			result = model.PasswordResetResult{Session: &session, Status: "AUTHENTICATED"}
 		}
 		if err := scope.Write.Reset(ctx, plan); err != nil {
@@ -112,7 +117,12 @@ func (service *LinkConsumptionService) prepareReset(
 	return prepared, nil
 }
 
-func recheckReset(ctx context.Context, reader model.LinkConsumptionReader, before model.ResetState, now int64) (model.ResetState, error) {
+func recheckReset(
+	ctx context.Context,
+	reader model.LinkConsumptionReader,
+	before model.ResetState,
+	now int64,
+) (model.ResetState, error) {
 	link, found, err := reader.Current(ctx, before.Link.Link.AccountLinkID)
 	if err != nil {
 		return model.ResetState{}, fmt.Errorf("recheck password reset link: %w", err)

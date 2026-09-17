@@ -13,10 +13,16 @@ import (
 )
 
 type EmulationStationJobCanceller interface {
-	CancelJob(context.Context, emulationstationimportservice.JobCancellationRequest) (emulationstationimportservice.JobCancellationResult, bool, error)
+	CancelJob(
+		context.Context,
+		emulationstationimportservice.JobCancellationRequest,
+	) (emulationstationimportservice.JobCancellationResult, bool, error)
 }
 
-func WithEmulationStationJobCancellation(service *jobsservice.Service, source EmulationStationJobCanceller) *jobsservice.Service {
+func WithEmulationStationJobCancellation(
+	service *jobsservice.Service,
+	source EmulationStationJobCanceller,
+) *jobsservice.Service {
 	handler := emulationStationCancellation{source: source}
 	return service.WithDomainCancellation(map[string]jobsservice.DomainCanceller{
 		"SERVER_EMULATIONSTATION_SCAN": handler, "SERVER_EMULATIONSTATION_IMPORT": handler,
@@ -46,7 +52,9 @@ func (handler emulationStationCancellation) CancelJob(
 }
 
 func emulationStationCancellationError(err error) error {
-	if errors.Is(err, emulationstationimportmodel.ErrVersionConflict) || errors.Is(err, emulationstationimportmodel.ErrNotCancellable) || errors.Is(err, emulationstationimportmodel.ErrNotFound) {
+	if errors.Is(err, emulationstationimportmodel.ErrVersionConflict) ||
+		errors.Is(err, emulationstationimportmodel.ErrNotCancellable) ||
+		errors.Is(err, emulationstationimportmodel.ErrNotFound) {
 		return fmt.Errorf("%w: %w", jobsmodel.ErrConflict, err)
 	}
 	return fmt.Errorf("cancel EmulationStation domain job: %w", err)

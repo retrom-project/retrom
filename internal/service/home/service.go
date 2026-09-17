@@ -68,7 +68,11 @@ func (service *Service) Dashboard(ctx context.Context, profileID string) (model.
 	return result, nil
 }
 
-func (service *Service) RecentGames(ctx context.Context, profileID string, includeDeleted bool) ([]model.RecentGame, error) {
+func (service *Service) RecentGames(
+	ctx context.Context,
+	profileID string,
+	includeDeleted bool,
+) ([]model.RecentGame, error) {
 	games, err := service.repository.RecentGames(ctx, profileID, includeDeleted)
 	if err != nil {
 		return nil, fmt.Errorf("read recent games: %w", err)

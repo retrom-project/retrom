@@ -9,7 +9,13 @@ import (
 	model "retrom/internal/model/metadatascrape"
 )
 
-func (worker *Worker) settle(parent context.Context, claim model.WorkerClaim, count int, code string, cause error) error {
+func (worker *Worker) settle(
+	parent context.Context,
+	claim model.WorkerClaim,
+	count int,
+	code string,
+	cause error,
+) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
 	err := worker.repository.CommitWrite(ctx, func(scope model.WorkerScope) error {

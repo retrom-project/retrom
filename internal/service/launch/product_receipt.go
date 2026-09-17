@@ -34,7 +34,10 @@ func productReceipt(created model.Created, now int64) (model.ProductReceipt, err
 	}, nil
 }
 
-func (service *ProductCreator) replay(command model.ProductCreateCommand, receipt model.ProductReceipt) (model.ProductReceipt, error) {
+func (service *ProductCreator) replay(
+	command model.ProductCreateCommand,
+	receipt model.ProductReceipt,
+) (model.ProductReceipt, error) {
 	if subtle.ConstantTimeCompare([]byte(command.Digest), []byte(receipt.Digest)) != 1 {
 		return model.ProductReceipt{}, model.ErrIdempotencyKeyReused
 	}
