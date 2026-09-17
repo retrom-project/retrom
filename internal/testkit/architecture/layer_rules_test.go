@@ -186,7 +186,7 @@ func TestViolationSorting(t *testing.T) {
 	_ = result
 
 	// Verify sort order matches file→line→rule
-	if !(strings.Compare("a.go", "z.go") < 0) {
+	if strings.Compare("a.go", "z.go") >= 0 {
 		t.Error("expected a.go < z.go")
 	}
 }

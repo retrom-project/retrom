@@ -77,7 +77,7 @@ func (service *Creation) freezeCatalog(ctx context.Context) ([]model.CatalogItem
 	slices.SortFunc(items, func(a, b model.CatalogItem) int { return strings.Compare(a.RequirementID, b.RequirementID) })
 	encoded, err := model.CanonicalCatalogJSON(items)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("encode canonical catalog: %w", err)
 	}
 	digest := sha256.Sum256(encoded)
 	return items, hex.EncodeToString(digest[:]), nil

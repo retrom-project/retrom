@@ -117,7 +117,7 @@ func (run *reviewApprovalRun) prepareRPG() error {
 	}
 	dependencies, err := model.ResolveRPGReviewDependencies(profile)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve RPG review dependencies: %w", err)
 	}
 	if dependencies.Status != "READY" || dependencies.SnapshotJSON != run.head.DependencyJSON ||
 		profile.DependencySHA256 != dependencies.Digest {

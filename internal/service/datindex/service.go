@@ -27,7 +27,7 @@ func SyncRequirements(ctx context.Context, records model.Records, datID string, 
 		}
 		requirement, err := model.BuildRequirement(definition, datID, machine, entries, now.UnixMilli())
 		if err != nil {
-			return err
+			return fmt.Errorf("build DAT requirement: %w", err)
 		}
 		if err := records.UpsertRequirement(ctx, requirement); err != nil {
 			return fmt.Errorf("datindex/sync requirement: %w", err)

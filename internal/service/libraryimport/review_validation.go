@@ -34,7 +34,7 @@ func (service *ReviewValidation) Current(ctx context.Context, validationID strin
 	}
 	dependencies, err := model.ResolveRPGReviewDependencies(profile)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("resolve RPG review dependencies: %w", err)
 	}
 	return dependencies.SnapshotJSON == evidence.DependencyJSON && dependencies.Status == evidence.Status &&
 		dependencies.Code == evidence.CompatibilityCode && dependencies.Digest == profile.DependencySHA256, nil

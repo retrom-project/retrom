@@ -309,7 +309,7 @@ func (state *draftValidationState) resolveRPGDependencyState() (draftDependencyS
 	}
 	dependencies, err := application.ResolveRPGReviewDependencies(profile)
 	if err != nil {
-		return draftDependencyState{}, err
+		return draftDependencyState{}, fmt.Errorf("resolve RPG dependencies: %w", err)
 	}
 	state.rpgDependencyDigest = dependencies.Digest
 	return draftDependencyState{
