@@ -42,25 +42,31 @@ func (service *Service) Get(ctx context.Context, kind, id string) (model.Status,
 	}
 	var result model.Status
 	err := service.repository.WithRead(ctx, func(records model.Reader) error {
-		batch, err := records.Batch(ctx, key)
-		if err != nil {
-			return failure("access discard status", err)
-		}
-		result = model.Status{Kind: key.Kind, ImportID: key.ID, State: "UNAVAILABLE"}
-		disposition, found, err := records.Disposition(ctx, key)
-		if err != nil {
-			return failure("access discard status", err)
-		}
-		if batch.Started && batch.State != "SCANNING" && batch.State != "AWAITING_MAPPING" {
-			result.State = "AVAILABLE"
-		}
-		if found {
-			result.State = disposition.State
-			result.ErrorCode = disposition.ErrorCode
-		}
-		return nil
+		var err error
+		result, err = discardStatus(ctx, records, key)
+		return failure("access discard status", err)
 	})
 	return result, failure("access discard status", err)
+}
+
+func discardStatus(ctx context.Context, records model.Reader, key model.Key) (model.Status, error) {
+	batch, err := records.Batch(ctx, key)
+	if err != nil {
+		return model.Status{}, failure("access discard status", err)
+	}
+	result := model.Status{Kind: key.Kind, ImportID: key.ID, State: "UNAVAILABLE"}
+	if available(key.Kind, batch) {
+		result.State = "AVAILABLE"
+	}
+	disposition, found, err := records.Disposition(ctx, key)
+	if err != nil {
+		return model.Status{}, failure("access discard status", err)
+	}
+	if found {
+		result.State = disposition.State
+		result.ErrorCode = disposition.ErrorCode
+	}
+	return result, nil
 }
 
 func (service *Service) Request(ctx context.Context, kind, id, userID string) (model.Status, error) {
