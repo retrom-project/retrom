@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	application "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
-	application "retrom/internal/service/netplay"
 )
 
 func TestParticipantPreparationRecordRollsBackEventsAndLoading(t *testing.T) {

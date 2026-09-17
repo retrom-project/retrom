@@ -28,7 +28,8 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -66,14 +67,14 @@ VALUES(?,?,'bulk.review.admin','Bulk Review Admin','ADMIN','ENABLED',1,1)
 	ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: adminID, ProfileID: profileID, Role: "ADMIN"})
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploader := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	createImport := func(name, contents string) string {
 		t.Helper()
 		payload := []byte(contents)
-		upload, createErr := uploader.Create(ctx, uploads.CreateRequest{
+		upload, createErr := uploader.Create(ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{{
+			Files: []uploadsmodel.FileDeclaration{{
 				ClientFileID: "game", RelativePath: name, SizeBytes: int64(len(payload)),
 			}},
 		})

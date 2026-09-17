@@ -3,23 +3,24 @@ package favorites
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/favorites"
 	"testing"
 	"time"
 )
 
 type favoriteRepositoryStub struct {
-	Repository
-	games  FavoriteRecords
+	model.Repository
+	games  model.FavoriteRecords
 	writes int
 }
 
-func (repository *favoriteRepositoryStub) CommitWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *favoriteRepositoryStub) CommitWrite(_ context.Context, work func(model.WriteScope) error) error {
 	repository.writes++
-	return work(WriteScope{Games: repository.games})
+	return work(model.WriteScope{Games: repository.games})
 }
 
 type favoriteRecordsStub struct {
-	FavoriteRecords
+	model.FavoriteRecords
 	visible           bool
 	ensured           bool
 	profileID, gameID string
@@ -36,11 +37,11 @@ func (records *favoriteRecordsStub) Ensure(_ context.Context, profileID, gameID 
 	return nil
 }
 
-func (records *favoriteRecordsStub) State(_ context.Context, profileID, gameID string) (State, bool, error) {
+func (records *favoriteRecordsStub) State(_ context.Context, profileID, gameID string) (model.State, bool, error) {
 	if profileID != records.profileID || gameID != records.gameID {
-		return State{}, false, ErrInvariant
+		return model.State{}, false, model.ErrInvariant
 	}
-	return State{GameID: gameID, FavoritedAtMS: records.nowMS, FolderIDs: []string{}}, records.ensured, nil
+	return model.State{GameID: gameID, FavoritedAtMS: records.nowMS, FolderIDs: []string{}}, records.ensured, nil
 }
 
 func TestFavoriteRejectsInvalidAndInvisibleGamesBeforeWriting(t *testing.T) {
@@ -48,13 +49,13 @@ func TestFavoriteRejectsInvalidAndInvisibleGamesBeforeWriting(t *testing.T) {
 	records := &favoriteRecordsStub{}
 	repository := &favoriteRepositoryStub{games: records}
 	service := New(repository, func() time.Time { return time.UnixMilli(2000) })
-	if _, err := service.Favorite(t.Context(), Principal{ProfileID: "owner"}, "invalid"); !errors.Is(err, ErrInvalid) {
+	if _, err := service.Favorite(t.Context(), model.Principal{ProfileID: "owner"}, "invalid"); !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("invalid identity error = %v", err)
 	}
 	if repository.writes != 0 {
 		t.Fatal("invalid input reached repository")
 	}
-	if _, err := service.Favorite(t.Context(), Principal{ProfileID: "owner"}, favoriteBoundaryID('1', 1)); !errors.Is(err, ErrGameNotFound) {
+	if _, err := service.Favorite(t.Context(), model.Principal{ProfileID: "owner"}, favoriteBoundaryID('1', 1)); !errors.Is(err, model.ErrGameNotFound) {
 		t.Fatalf("hidden game error = %v", err)
 	}
 	if records.ensured || repository.writes != 1 {
@@ -68,7 +69,7 @@ func TestFavoriteUsesPrincipalAndClockWithinOneWriteScope(t *testing.T) {
 	repository := &favoriteRepositoryStub{games: records}
 	service := New(repository, func() time.Time { return time.UnixMilli(2000) })
 	gameID := favoriteBoundaryID('1', 1)
-	state, err := service.Favorite(t.Context(), Principal{ProfileID: "owner"}, gameID)
+	state, err := service.Favorite(t.Context(), model.Principal{ProfileID: "owner"}, gameID)
 	if err != nil {
 		t.Fatal(err)
 	}

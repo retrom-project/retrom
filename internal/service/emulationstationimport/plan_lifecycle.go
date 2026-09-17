@@ -4,32 +4,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type PlanLifecycle struct {
-	repository PlanLifecycleRepository
+	repository model.PlanLifecycleRepository
 	now        func() time.Time
 }
 
 func NewPlanLifecycle(
-	repository PlanLifecycleRepository,
+	repository model.PlanLifecycleRepository,
 	now func() time.Time,
 ) *PlanLifecycle {
 	return &PlanLifecycle{repository: repository, now: now}
 }
 
 func (service *PlanLifecycle) Delete(ctx context.Context, id string, version int64, actorID string) error {
-	err := service.repository.WithPlanWrite(ctx, func(records PlanRecords) error {
+	err := service.repository.WithPlanWrite(ctx, func(records model.PlanRecords) error {
 		before, err := records.Get(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read EmulationStation deletion plan: %w", err)
 		}
 		if before.Version != version || before.ImportJobID != nil ||
 			before.State != "AWAITING_MAPPING" && before.State != "EXPIRED" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		if actorID == "" {
 			actorID = before.CreatedBy.ID
@@ -40,7 +41,7 @@ func (service *PlanLifecycle) Delete(ctx context.Context, id string, version int
 		}
 		if err := records.Delete(
 			ctx,
-			PlanDeletion{Before: before, ActorID: actorID, AuditID: auditID.String(), NowMS: service.now().UnixMilli()},
+			model.PlanDeletion{Before: before, ActorID: actorID, AuditID: auditID.String(), NowMS: service.now().UnixMilli()},
 		); err != nil {
 			return fmt.Errorf(
 				"delete EmulationStation plan: %w",
@@ -69,10 +70,10 @@ func (service *PlanLifecycle) Expire(ctx context.Context) error {
 	return nil
 }
 
-func (service *PlanLifecycle) expireCandidate(ctx context.Context, candidate ExpiredPlan, now int64) error {
-	err := service.repository.WithPlanWrite(ctx, func(records PlanRecords) error {
+func (service *PlanLifecycle) expireCandidate(ctx context.Context, candidate model.ExpiredPlan, now int64) error {
+	err := service.repository.WithPlanWrite(ctx, func(records model.PlanRecords) error {
 		before, err := records.Get(ctx, candidate.ID)
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, model.ErrNotFound) {
 			return nil
 		}
 		if err != nil {
@@ -83,7 +84,7 @@ func (service *PlanLifecycle) expireCandidate(ctx context.Context, candidate Exp
 		}
 		if err := records.Expire(
 			ctx,
-			PlanExpiry{Before: before, NowMS: now},
+			model.PlanExpiry{Before: before, NowMS: now},
 		); err != nil {
 			return fmt.Errorf(
 				"expire EmulationStation plan: %w",

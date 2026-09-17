@@ -1,6 +1,7 @@
 package serverimport_test
 
 import (
+	model "retrom/internal/model/serverimport"
 	"context"
 	"errors"
 	"testing"
@@ -10,11 +11,11 @@ import (
 )
 
 type failingOutcomeRepository struct {
-	importservice.OutcomeRepository
+	model.OutcomeRepository
 }
 
-func (repository failingOutcomeRepository) CommitWrite(ctx context.Context, work func(importservice.OutcomeScope) error) error {
-	return repository.OutcomeRepository.CommitWrite(ctx, func(scope importservice.OutcomeScope) error {
+func (repository failingOutcomeRepository) CommitWrite(ctx context.Context, work func(model.OutcomeScope) error) error {
+	return repository.OutcomeRepository.CommitWrite(ctx, func(scope model.OutcomeScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}

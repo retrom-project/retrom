@@ -5,12 +5,13 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/blobstore"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
-func (service *Service) materialization() *application.Materialization {
-	return application.NewMaterialization(repository.NewMaterialization(service.database), service.now)
+func (service *Service) materialization() *pegasusimportservice.Materialization {
+	return pegasusimportservice.NewMaterialization(repository.NewMaterialization(service.database), service.now)
 }
 
 func (service *Service) recordCopiedFile(
@@ -20,8 +21,8 @@ func (service *Service) recordCopiedFile(
 	file executionFile,
 	metadata blobstore.Metadata,
 ) (string, error) {
-	result, err := service.materialization().Copy(ctx, unit.Identity(), application.MaterialSource{
-		Key:  application.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
+	result, err := service.materialization().Copy(ctx, unit.Identity(), pegasusimportmodel.MaterialSource{
+		Key:  pegasusimportmodel.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
 		Path: file.Path, Facts: file.Facts, Size: file.Size,
 	}, verifiedMaterial(metadata))
 	if err != nil {
@@ -40,7 +41,7 @@ func (service *Service) recordCopiedAsset(
 	result, err := service.materialization().Copy(
 		ctx,
 		unit.Identity(),
-		application.AssetMaterial(itemID, asset),
+		pegasusimportservice.AssetMaterial(itemID, asset),
 		verifiedMaterial(metadata),
 	)
 	if err != nil {
@@ -57,7 +58,7 @@ func (service *Service) closeAssetWarning(
 	code string,
 ) error {
 	if err := service.materialization().Warning(
-		ctx, unit.Identity(), application.AssetMaterial(itemID, asset), code,
+		ctx, unit.Identity(), pegasusimportservice.AssetMaterial(itemID, asset), code,
 	); err != nil {
 		return fmt.Errorf("pegasusimport/write asset warning: %w", err)
 	}

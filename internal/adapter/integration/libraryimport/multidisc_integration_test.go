@@ -37,9 +37,10 @@ import (
 	launchcomposition "retrom/internal/bootstrap/composition/launch"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
+	uploadsmodel "retrom/internal/model/uploads"
 	"retrom/internal/repo/store"
 	"retrom/internal/service/saves"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -59,14 +60,14 @@ func completeMultiDiscUpload(
 	files []multiDiscUploadFile,
 ) string {
 	t.Helper()
-	declarations := make([]uploads.FileDeclaration, 0, len(files))
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(files))
 	for index, file := range files {
-		declarations = append(declarations, uploads.FileDeclaration{
+		declarations = append(declarations, uploadsmodel.FileDeclaration{
 			ClientFileID: fmt.Sprintf("file-%d", index), RelativePath: file.path, SizeBytes: int64(len(file.contents)),
 		})
 	}
-	service := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := service.Create(ctx, uploads.CreateRequest{SourceType: sourceType, Files: declarations})
+	service := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	upload, err := service.Create(ctx, uploadsmodel.CreateRequest{SourceType: sourceType, Files: declarations})
 	testassert.False(t, err != nil, err)
 	for index, file := range files {
 		digest := sha256.Sum256(file.contents)

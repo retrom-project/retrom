@@ -6,22 +6,22 @@ import (
 	"database/sql/driver"
 	"errors"
 	"reflect"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/pegasusimport"
-	"retrom/internal/testkit/testsupport"
 )
 
 func TestScanCancellationRechecksOriginalJobVersionAndOwnership(t *testing.T) {
 	t.Parallel()
 	db, id, _ := publicationDatabase(t)
-	service := application.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
 	before := publicationRows(t, db)
 	if result, pending, err := service.CancelJob(
 		t.Context(),
-		application.JobCancellationRequest{
+		pegasusimportservice.JobCancellationRequest{
 			JobID:           id.JobID,
 			ScopeID:         id.ImportID,
 			Kind:            "SERVER_PEGASUS_SCAN",
@@ -31,7 +31,7 @@ func TestScanCancellationRechecksOriginalJobVersionAndOwnership(t *testing.T) {
 		},
 	); !errors.Is(
 		err,
-		application.ErrVersionConflict,
+		pegasusimportmodel.ErrVersionConflict,
 	) || pending || result.JobID != "" {
 		t.Fatalf("wrong Job version: %#v %v %v", result, pending, err)
 	}
@@ -40,7 +40,7 @@ func TestScanCancellationRechecksOriginalJobVersionAndOwnership(t *testing.T) {
 	}
 	if result, pending, err := service.CancelJob(
 		t.Context(),
-		application.JobCancellationRequest{
+		pegasusimportservice.JobCancellationRequest{
 			JobID:           id.JobID,
 			ScopeID:         id.ImportID,
 			Kind:            "SERVER_PEGASUS_SCAN",
@@ -65,10 +65,10 @@ leased_until_ms=NULL,heartbeat_at_ms=NULL WHERE id='job-0'`); err != nil {
 	cause := errors.New("scan cancellation audit unavailable")
 	deleted, audits := 0, 0
 	fault := cancellationAuditFault(t, db, id.ImportID, cause, &deleted, &audits)
-	service := application.NewWorkflowControl(NewWorkflowControl(fault), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(fault), func() time.Time { return time.UnixMilli(10) })
 	result, pending, err := service.CancelJob(
 		t.Context(),
-		application.JobCancellationRequest{
+		pegasusimportservice.JobCancellationRequest{
 			JobID:           id.JobID,
 			ScopeID:         id.ImportID,
 			Kind:            "SERVER_PEGASUS_SCAN",
@@ -91,7 +91,7 @@ func TestScanCancellationRepositoryRejectsReplacedParentAndJobSnapshot(t *testin
 		t.Run(change, func(t *testing.T) {
 			db, id, _ := publicationDatabase(t)
 			before := publicationRows(t, db)
-			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope application.WorkflowScope) error {
+			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope pegasusimportmodel.WorkflowScope) error {
 				current, err := scope.Read.CurrentJob(t.Context(), id.JobID)
 				if err != nil {
 					return err
@@ -104,12 +104,12 @@ func TestScanCancellationRepositoryRejectsReplacedParentAndJobSnapshot(t *testin
 				default:
 					current.Execution++
 				}
-				return scope.Write.Cancel(t.Context(), application.CancellationPlan{
+				return scope.Write.Cancel(t.Context(), pegasusimportmodel.CancellationPlan{
 					Before: current, State: "CANCEL_REQUESTED",
 					Pending: true, Reason: "Stop", ActorID: "actor", AuditID: "cancel-audit", NowMS: 10,
 				})
 			})
-			if !errors.Is(err, application.ErrNotCancellable) || !reflect.DeepEqual(before, publicationRows(t, db)) {
+			if !errors.Is(err, pegasusimportmodel.ErrNotCancellable) || !reflect.DeepEqual(before, publicationRows(t, db)) {
 				t.Fatalf("stale %s changed state: %v", change, err)
 			}
 		})

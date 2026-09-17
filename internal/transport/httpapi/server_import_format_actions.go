@@ -8,7 +8,8 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/tagging"
+	taggingmodel "retrom/internal/model/tagging"
+	taggingservice "retrom/internal/service/tagging"
 )
 
 type serverImportMappingFields struct {
@@ -62,7 +63,7 @@ func updateFormatImportMappings[Mapping, Summary any](
 	}
 	for _, mapping := range body.Mappings {
 		values := fields(mapping)
-		if _, err := tagging.ValidateIDs(values.tagIDs); err != nil {
+		if _, err := taggingservice.ValidateIDs(values.tagIDs); err != nil {
 			writeTagError(writer, request, err)
 			return
 		}
@@ -75,7 +76,7 @@ func updateFormatImportMappings[Mapping, Summary any](
 	}
 	summary, err := update(request.Context(), request.PathValue(pathParameter), version, body.Mappings)
 	if err != nil {
-		if errors.Is(err, tagging.ErrReferenceInvalid) || errors.Is(err, tagging.ErrAssignmentLimitExceeded) {
+		if errors.Is(err, taggingmodel.ErrReferenceInvalid) || errors.Is(err, taggingmodel.ErrAssignmentLimitExceeded) {
 			writeTagError(writer, request, err)
 			return
 		}

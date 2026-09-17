@@ -3,20 +3,21 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
 )
 
 type executionMemory struct {
-	before    LeaseSnapshot
-	finish    ExecutionFinish
+	before    model.LeaseSnapshot
+	finish    model.ExecutionFinish
 	terminal  int64
 	err       error
 	committed bool
 }
 
-func (memory *executionMemory) WithExecution(_ context.Context, run func(ExecutionScope) error) error {
-	if err := run(ExecutionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
+func (memory *executionMemory) WithExecution(_ context.Context, run func(model.ExecutionScope) error) error {
+	if err := run(model.ExecutionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	if memory.err != nil {
@@ -26,7 +27,7 @@ func (memory *executionMemory) WithExecution(_ context.Context, run func(Executi
 	return nil
 }
 
-func (memory *executionMemory) Current(context.Context, string) (LeaseSnapshot, bool, error) {
+func (memory *executionMemory) Current(context.Context, string) (model.LeaseSnapshot, bool, error) {
 	return memory.before, true, nil
 }
 
@@ -34,15 +35,15 @@ func (memory *executionMemory) TerminalCount(context.Context, string) (int64, er
 	return memory.terminal, nil
 }
 
-func (memory *executionMemory) Finish(_ context.Context, change ExecutionFinish) error {
+func (memory *executionMemory) Finish(_ context.Context, change model.ExecutionFinish) error {
 	memory.finish = change
 	return nil
 }
 
 func newExecutionMemory() *executionMemory {
 	started := int64(1000)
-	return &executionMemory{before: LeaseSnapshot{
-		Execution: Execution{
+	return &executionMemory{before: model.LeaseSnapshot{
+		Execution: model.Execution{
 			JobID: "job", ImportID: "plan", Kind: "SERVER_EMULATIONSTATION_SCAN", WorkerID: "owner",
 			ExecutionNo: 1, Attempt: 1, DeadlineAtMS: 300000, ReleaseYearMax: 2027,
 		},
@@ -57,7 +58,7 @@ func TestExecutionControlPreservesRetryBudgetAndCommit(t *testing.T) {
 	state, err := service.Fail(
 		t.Context(),
 		memory.before.Execution,
-		ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
+		model.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
 	)
 	if err != nil || state != "QUEUED" || !memory.committed || memory.finish.AvailableAtMS != 3000 ||
 		memory.finish.Before.DeadlineAtMS != 300000 || memory.finish.Before.ReleaseYearMax != 2027 {
@@ -68,7 +69,7 @@ func TestExecutionControlPreservesRetryBudgetAndCommit(t *testing.T) {
 	state, err = service.Fail(
 		t.Context(),
 		memory.before.Execution,
-		ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
+		model.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
 	)
 	if state != "" || !errors.Is(err, cause) {
 		t.Fatalf("uncommitted failure result=%s error=%v", state, err)
@@ -102,10 +103,10 @@ func TestExecutionControlRejectsLostAndExpiredCancellation(t *testing.T) {
 	}
 }
 
-func (memory *executionMemory) Reviews(context.Context, string, int) ([]ExecutionReview, error) {
+func (memory *executionMemory) Reviews(context.Context, string, int) ([]model.ExecutionReview, error) {
 	return nil, nil
 }
-func (memory *executionMemory) Fence(context.Context, LeaseSnapshot, int64) error { return nil }
-func (memory *executionMemory) CompleteReview(context.Context, ExecutionReviewCompletion) error {
+func (memory *executionMemory) Fence(context.Context, model.LeaseSnapshot, int64) error { return nil }
+func (memory *executionMemory) CompleteReview(context.Context, model.ExecutionReviewCompletion) error {
 	return nil
 }

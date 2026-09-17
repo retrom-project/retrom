@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
-func (service *Service) queries() *application.Queries {
-	return application.NewQueries(persistence.NewQueries(service.database), service.tags)
+func (service *Service) queries() *emulationstationimportservice.Queries {
+	return emulationstationimportservice.NewQueries(persistence.NewQueries(service.database), service.tags)
 }
 
 func (service *Service) Get(ctx context.Context, importID string) (Summary, error) {
@@ -26,7 +27,7 @@ func (service *Service) List(
 ) ([]Summary, error) {
 	values, err := service.queries().List(
 		ctx,
-		application.ListQuery{State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit},
+		emulationstationimportmodel.ListQuery{State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit},
 	)
 	return values, queryError(err)
 }
@@ -38,7 +39,7 @@ func (service *Service) Gamelists(
 ) ([]Gamelist, error) {
 	values, err := service.queries().Gamelists(
 		ctx,
-		application.GamelistQuery{ImportID: importID, ParseState: parseState, AfterPath: afterPath, Limit: limit},
+		emulationstationimportmodel.GamelistQuery{ImportID: importID, ParseState: parseState, AfterPath: afterPath, Limit: limit},
 	)
 	return values, queryError(err)
 }
@@ -50,7 +51,7 @@ func (service *Service) Collections(
 ) ([]Collection, error) {
 	values, err := service.queries().Collections(
 		ctx,
-		application.CollectionQuery{ImportID: importID, AfterPath: afterPath, AfterID: afterID, Limit: limit},
+		emulationstationimportmodel.CollectionQuery{ImportID: importID, AfterPath: afterPath, AfterID: afterID, Limit: limit},
 	)
 	return values, queryError(err)
 }
@@ -62,7 +63,7 @@ func (service *Service) Items(
 ) ([]Item, error) {
 	values, err := service.queries().Items(
 		ctx,
-		application.ItemQuery{
+		emulationstationimportmodel.ItemQuery{
 			ImportID:     importID,
 			Text:         query,
 			Outcome:      outcome,
@@ -77,7 +78,7 @@ func (service *Service) Items(
 }
 
 func mediaProjection(present bool, warnings []map[string]any, field string) string {
-	return application.ProjectMedia(present, warnings, field)
+	return emulationstationimportmodel.ProjectMedia(present, warnings, field)
 }
 
 func queryError(err error) error {

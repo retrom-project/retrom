@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"io"
+	model "retrom/internal/model/serverimport"
 	"sort"
 	"sync"
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/foundation/cleanup"
-	firmwareservice "retrom/internal/service/firmware"
+	firmwareservice "retrom/internal/model/firmware"
 )
 
 var ErrScanLimit = errors.New("SERVER_IMPORT_SCAN_LIMIT_EXCEEDED")
@@ -36,12 +37,12 @@ type FirmwareInstaller interface {
 }
 type Repositories struct {
 	Queries   QueryRepository
-	Creation  CreationRepository
-	Control   ControlRepository
+	Creation  model.CreationRepository
+	Control   model.ControlRepository
 	Recovery  RecoveryRepository
-	Discovery DiscoveryRepository
-	Leases    LeaseRepository
-	Outcomes  OutcomeRepository
+	Discovery model.DiscoveryRepository
+	Leases    model.LeaseRepository
+	Outcomes  model.OutcomeRepository
 }
 type Options struct {
 	Sources  []SourceRoot
@@ -169,4 +170,4 @@ func defaultScanLimits() scanLimits {
 	}
 }
 
-type catalogItem = CatalogItem
+type catalogItem = model.CatalogItem

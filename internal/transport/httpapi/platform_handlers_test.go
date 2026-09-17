@@ -23,7 +23,7 @@ import (
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/runtime/platformcatalog"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 	"retrom/internal/transport/netplay"

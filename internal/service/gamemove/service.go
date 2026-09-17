@@ -3,6 +3,7 @@ package gamemove
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/gamemove"
 
 	"retrom/internal/capability/content/corevalidation"
 
@@ -10,21 +11,21 @@ import (
 )
 
 type Service struct {
-	repository Repository
-	validation ValidationResolver
+	repository model.Repository
+	validation model.ValidationResolver
 }
 
-func New(repository Repository, validation ValidationResolver) *Service {
+func New(repository model.Repository, validation model.ValidationResolver) *Service {
 	return &Service{repository: repository, validation: validation}
 }
 
-func (service *Service) Preview(ctx context.Context, request PreviewRequest) (Impact, error) {
+func (service *Service) Preview(ctx context.Context, request model.PreviewRequest) (model.Impact, error) {
 	if request.GameID == "" || request.TargetPlatformInstanceID == "" || request.ExpectedVersion < 1 {
-		return Impact{}, ErrInvalid
+		return model.Impact{}, model.ErrInvalid
 	}
 	subject, err := service.repository.ImpactSubject(ctx, request.GameID, request.TargetPlatformInstanceID)
 	if err != nil {
-		return Impact{}, fmt.Errorf("read game move impact: %w", err)
+		return model.Impact{}, fmt.Errorf("read game move impact: %w", err)
 	}
 	if subject.GameID == "" {
 		subject.GameID = request.GameID
@@ -32,18 +33,18 @@ func (service *Service) Preview(ctx context.Context, request PreviewRequest) (Im
 	if subject.GameVersion != request.ExpectedVersion ||
 		subject.SourcePlatformInstanceID == subject.TargetPlatformInstanceID ||
 		subject.SourcePlatformID != subject.TargetPlatformID {
-		return Impact{}, ErrImpactStale
+		return model.Impact{}, model.ErrImpactStale
 	}
 	inputDigest, err := service.validationDigest(ctx, request.GameID, subject)
 	if err != nil {
-		return Impact{}, err
+		return model.Impact{}, err
 	}
 	status, code, err := service.variantStatus(ctx, request.GameID, subject)
 	if err != nil {
-		return Impact{}, err
+		return model.Impact{}, err
 	}
 	blockers := variantBlockers(status, code)
-	return Impact{
+	return model.Impact{
 		Action:                   "MOVE_GAME",
 		GameID:                   request.GameID,
 		GameVersion:              subject.GameVersion,
@@ -61,10 +62,10 @@ func (service *Service) Preview(ctx context.Context, request PreviewRequest) (Im
 }
 
 func (service *Service) validationDigest(
-	ctx context.Context, gameID string, subject ImpactSubject,
+	ctx context.Context, gameID string, subject model.ImpactSubject,
 ) (string, error) {
 	if service.validation == nil {
-		return "", ErrValidationUnavailable
+		return "", model.ErrValidationUnavailable
 	}
 	biosSnapshot, _, _, err := service.validation.ResolveBIOS(
 		ctx, subject.TargetProviderID, subject.TargetID, subject.ContentLogicalName,
@@ -82,9 +83,9 @@ func (service *Service) validationDigest(
 }
 
 func (service *Service) variantStatus(
-	ctx context.Context, gameID string, subject ImpactSubject,
+	ctx context.Context, gameID string, subject model.ImpactSubject,
 ) (string, string, error) {
-	variant, found, err := service.repository.Variant(ctx, VariantQuery{
+	variant, found, err := service.repository.Variant(ctx, model.VariantQuery{
 		GameID: gameID, CoreID: subject.TargetCoreID, ProviderID: subject.TargetProviderID,
 		TargetID: subject.TargetID, DATVersionID: subject.TargetDATVersionID,
 	})
@@ -104,16 +105,16 @@ func variantBlockers(status, code string) []string {
 	return []string{code}
 }
 
-func (service *Service) Move(ctx context.Context, request MoveRequest) (MoveResult, error) {
+func (service *Service) Move(ctx context.Context, request model.MoveRequest) (model.MoveResult, error) {
 	if request.GameID == "" || request.TargetPlatformInstanceID == "" || request.ExpectedVersion < 1 ||
 		request.NowMS < 0 || !validImpact(request) {
-		return MoveResult{}, ErrInvalid
+		return model.MoveResult{}, model.ErrInvalid
 	}
 	auditID, err := uuid.NewV7()
 	if err != nil {
-		return MoveResult{}, fmt.Errorf("create game move audit ID: %w", err)
+		return model.MoveResult{}, fmt.Errorf("create game move audit ID: %w", err)
 	}
-	err = service.repository.WithMove(ctx, func(scope MoveScope) error {
+	err = service.repository.WithMove(ctx, func(scope model.MoveScope) error {
 		changed, err := scope.UpdateGame(
 			ctx,
 			request.GameID,
@@ -125,9 +126,9 @@ func (service *Service) Move(ctx context.Context, request MoveRequest) (MoveResu
 			return fmt.Errorf("update moved game: %w", err)
 		}
 		if !changed {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
-		if err := scope.Audit(ctx, AuditEvent{
+		if err := scope.Audit(ctx, model.AuditEvent{
 			ID: auditID.String(), Action: "GAME_MOVED", ResourceType: "GAME", ResourceID: request.GameID,
 			Before: map[string]any{"platformInstanceId": request.Impact.SourcePlatformInstanceID},
 			After: map[string]any{
@@ -142,15 +143,15 @@ func (service *Service) Move(ctx context.Context, request MoveRequest) (MoveResu
 		return nil
 	})
 	if err != nil {
-		return MoveResult{}, fmt.Errorf("move game: %w", err)
+		return model.MoveResult{}, fmt.Errorf("move game: %w", err)
 	}
-	return MoveResult{
+	return model.MoveResult{
 		GameID: request.GameID, PlatformInstanceID: request.TargetPlatformInstanceID,
 		Version: request.ExpectedVersion + 1, UpdatedAtMS: request.NowMS,
 	}, nil
 }
 
-func validImpact(request MoveRequest) bool {
+func validImpact(request model.MoveRequest) bool {
 	impact := request.Impact
 	return impact.Action == "MOVE_GAME" && impact.GameID == request.GameID &&
 		impact.GameVersion == request.ExpectedVersion &&
@@ -160,7 +161,7 @@ func validImpact(request MoveRequest) bool {
 
 func (service *Service) QueuedJobState(ctx context.Context, jobID string) (string, error) {
 	if jobID == "" {
-		return "", ErrInvalid
+		return "", model.ErrInvalid
 	}
 	state, err := service.repository.QueuedJobState(ctx, jobID)
 	if err != nil {
@@ -169,23 +170,23 @@ func (service *Service) QueuedJobState(ctx context.Context, jobID string) (strin
 	return state, nil
 }
 
-func (service *Service) ScrapeCandidates(ctx context.Context, gameID string) (ScrapeCandidatesResult, error) {
+func (service *Service) ScrapeCandidates(ctx context.Context, gameID string) (model.ScrapeCandidatesResult, error) {
 	if gameID == "" {
-		return ScrapeCandidatesResult{}, ErrInvalid
+		return model.ScrapeCandidatesResult{}, model.ErrInvalid
 	}
 	runID, found, err := service.repository.LatestScrapeRun(ctx, gameID)
 	if err != nil {
-		return ScrapeCandidatesResult{}, fmt.Errorf("read game scrape run: %w", err)
+		return model.ScrapeCandidatesResult{}, fmt.Errorf("read game scrape run: %w", err)
 	}
 	if !found {
-		return ScrapeCandidatesResult{Items: []CandidateRecord{}}, nil
+		return model.ScrapeCandidatesResult{Items: []model.CandidateRecord{}}, nil
 	}
 	records, err := service.repository.ScrapeCandidates(ctx, runID)
 	if err != nil {
-		return ScrapeCandidatesResult{}, fmt.Errorf("read game scrape candidates: %w", err)
+		return model.ScrapeCandidatesResult{}, fmt.Errorf("read game scrape candidates: %w", err)
 	}
 	if records == nil {
-		records = []CandidateRecord{}
+		records = []model.CandidateRecord{}
 	}
-	return ScrapeCandidatesResult{RunID: &runID, Items: records}, nil
+	return model.ScrapeCandidatesResult{RunID: &runID, Items: records}, nil
 }

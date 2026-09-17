@@ -5,8 +5,9 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/foundation/cleanup"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func (service *Service) processItem(ctx context.Context, unit work, _ Root, item executionItem) error {
@@ -25,9 +26,9 @@ func (service *Service) copyExecutionFiles(ctx context.Context, unit work, _ Roo
 	return copied && err == nil
 }
 
-func fileMaterial(itemID string, file executionFile) application.MaterialSource {
-	return application.MaterialSource{
-		Key:   application.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
+func fileMaterial(itemID string, file executionFile) emulationstationimportmodel.MaterialSource {
+	return emulationstationimportmodel.MaterialSource{
+		Key:   emulationstationimportmodel.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
 		Path:  file.Path,
 		Facts: file.Facts,
 		Size:  file.Size,
@@ -45,5 +46,5 @@ func (service *Service) recordCopiedFile(
 }
 
 func (service *Service) finishImport(ctx context.Context, unit work) error {
-	return application.NewCompletion(persistence.NewCompletion(service.database), service.now).Finish(ctx, unit)
+	return emulationstationimportservice.NewCompletion(persistence.NewCompletion(service.database), service.now).Finish(ctx, unit)
 }

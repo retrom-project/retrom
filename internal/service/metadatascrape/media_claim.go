@@ -3,6 +3,7 @@ package metadatascrape
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/metadatascrape"
 	"time"
 
 	"retrom/internal/adapter/metadata/hasheous"
@@ -14,7 +15,7 @@ func (worker *MediaWorker) claim(ctx context.Context, id string) (mediaExecution
 		return mediaExecution{}, err
 	}
 	var execution mediaExecution
-	err = worker.repository.CommitWrite(ctx, func(scope MediaScope) error {
+	err = worker.repository.CommitWrite(ctx, func(scope model.MediaScope) error {
 		var err error
 		execution, err = worker.claimInScope(ctx, scope, id, workerID)
 		return err
@@ -23,14 +24,14 @@ func (worker *MediaWorker) claim(ctx context.Context, id string) (mediaExecution
 }
 
 func (worker *MediaWorker) claimInScope(
-	ctx context.Context, scope MediaScope, id, workerID string,
+	ctx context.Context, scope model.MediaScope, id, workerID string,
 ) (mediaExecution, error) {
 	snapshot, err := scope.Read.Snapshot(ctx, id)
 	if err != nil {
 		return mediaExecution{}, mediaError("read media claim", err)
 	}
 	now := worker.now().UnixMilli()
-	execution := mediaExecution{Claim: MediaClaim{
+	execution := mediaExecution{Claim: model.MediaClaim{
 		JobID: id, WorkerID: workerID, Execution: snapshot.Job.Execution,
 		Attempt: snapshot.Job.Attempt, Version: snapshot.Job.Version, Now: now, Deadline: snapshot.Job.Deadline,
 	}, Asset: snapshot.Asset}
@@ -59,7 +60,7 @@ func (worker *MediaWorker) claimInScope(
 	return execution, nil
 }
 
-func (execution *mediaExecution) prepare(ctx context.Context, scope MediaScope, snapshot MediaSnapshot) error {
+func (execution *mediaExecution) prepare(ctx context.Context, scope model.MediaScope, snapshot model.MediaSnapshot) error {
 	snapshot, err := freezeMediaOrder(ctx, scope, snapshot, execution.Claim.Now)
 	if err != nil {
 		return err
@@ -82,7 +83,7 @@ func (execution *mediaExecution) prepare(ctx context.Context, scope MediaScope, 
 		return nil
 	}
 	execution.Asset = snapshot.Asset
-	execution.Limit = min(hasheous.MaximumAssetReadBytes, MediaRunBudget-snapshot.Charged)
+	execution.Limit = min(hasheous.MaximumAssetReadBytes, model.MediaRunBudget-snapshot.Charged)
 	if execution.Limit <= 0 {
 		execution.Code = "ASSET_RUN_BUDGET_EXCEEDED"
 		execution.Cause = hasheous.ErrAssetReadLimit
@@ -96,7 +97,7 @@ func (execution *mediaExecution) prepare(ctx context.Context, scope MediaScope, 
 	return execution.acquire(ctx, scope)
 }
 
-func (execution *mediaExecution) acquire(ctx context.Context, scope MediaScope) error {
+func (execution *mediaExecution) acquire(ctx context.Context, scope model.MediaScope) error {
 	if err := scope.Leases.Claim(ctx, execution.Claim); err != nil {
 		return mediaError("claim media lease", err)
 	}
@@ -109,7 +110,7 @@ func (execution *mediaExecution) acquire(ctx context.Context, scope MediaScope) 
 	return nil
 }
 
-func mediaClaimable(job MediaJob, now int64) bool {
+func mediaClaimable(job model.MediaJob, now int64) bool {
 	switch job.State {
 	case "QUEUED":
 		return true
@@ -120,28 +121,28 @@ func mediaClaimable(job MediaJob, now int64) bool {
 	}
 }
 
-func mediaTerminalCause(snapshot MediaSnapshot, now int64) (string, error) {
+func mediaTerminalCause(snapshot model.MediaSnapshot, now int64) (string, error) {
 	job := snapshot.Job
 	switch {
 	case job.State == "CANCEL_REQUESTED":
 		return "MEDIA_CANCELLED", context.Canceled
 	case !mediaOwnerAvailable(snapshot):
-		return "MEDIA_OWNER_UNAVAILABLE", ErrGameDeleted
+		return "MEDIA_OWNER_UNAVAILABLE", model.ErrGameDeleted
 	case job.Deadline > 0 && job.Deadline <= now:
 		return "MEDIA_EXECUTION_EXPIRED", context.DeadlineExceeded
 	case job.Attempt >= job.MaxAttempts:
-		return "MEDIA_ATTEMPTS_EXHAUSTED", ErrAttemptsExhausted
+		return "MEDIA_ATTEMPTS_EXHAUSTED", model.ErrAttemptsExhausted
 	}
 	if err := validateMediaInput(snapshot); err != nil {
 		return "MEDIA_INPUT_INVALID", err
 	}
 	if snapshot.Asset.Status == "READY" || snapshot.Asset.Status == "CANCELLED" {
-		return "MEDIA_ASSET_STATE_INVALID", ErrAssetStateConflict
+		return "MEDIA_ASSET_STATE_INVALID", model.ErrAssetStateConflict
 	}
 	return "", nil
 }
 
-func freezeMediaOrder(ctx context.Context, scope MediaScope, snapshot MediaSnapshot, now int64) (MediaSnapshot, error) {
+func freezeMediaOrder(ctx context.Context, scope model.MediaScope, snapshot model.MediaSnapshot, now int64) (model.MediaSnapshot, error) {
 	if snapshot.Frozen {
 		return snapshot, nil
 	}
@@ -157,7 +158,7 @@ func freezeMediaOrder(ctx context.Context, scope MediaScope, snapshot MediaSnaps
 	return current, mediaError("read frozen media order", err)
 }
 
-func reconcileCancelledMedia(ctx context.Context, scope MediaScope, snapshot MediaSnapshot, now int64) error {
+func reconcileCancelledMedia(ctx context.Context, scope model.MediaScope, snapshot model.MediaSnapshot, now int64) error {
 	asset := snapshot.Asset
 	if asset.ID == "" || asset.Status == "READY" || asset.Status == "CANCELLED" {
 		return nil

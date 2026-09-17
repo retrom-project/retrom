@@ -16,16 +16,17 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/runtime/platformcatalog"
 	"retrom/internal/foundation/cleanup"
+	platforminstancemodel "retrom/internal/model/platforminstance"
 	platformpersistence "retrom/internal/repo/platforminstance"
 	"retrom/internal/repo/store"
-	"retrom/internal/service/platforminstance"
+	platforminstanceservice "retrom/internal/service/platforminstance"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
 
 const testUserID = "01980000-0000-7000-8000-000000009901"
 
-func newService(t *testing.T) (*platforminstance.Service, *sql.DB) {
+func newService(t *testing.T) (*platforminstanceservice.Service, *sql.DB) {
 	t.Helper()
 	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
 		return time.UnixMilli(1_786_000_000_000)
@@ -49,7 +50,7 @@ VALUES(?,'test-profile','directory-admin','Directory Admin','ADMIN','ENABLED',0,
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
-	service := platforminstance.New(platformpersistence.New(database.SQL), func() time.Time {
+	service := platforminstanceservice.New(platformpersistence.New(database.SQL), func() time.Time {
 		return time.UnixMilli(1_786_000_000_000)
 	})
 	if err := service.ValidateCatalog(t.Context()); err != nil {
@@ -58,8 +59,8 @@ VALUES(?,'test-profile','directory-admin','Directory Admin','ADMIN','ENABLED',0,
 	return service, database.SQL
 }
 
-func actor() platforminstance.AuditActor {
-	return platforminstance.AuditActor{Kind: "USER", UserID: testUserID, Label: nil, RequestID: "test-request"}
+func actor() platforminstancemodel.AuditActor {
+	return platforminstancemodel.AuditActor{Kind: "USER", UserID: testUserID, Label: nil, RequestID: "test-request"}
 }
 
 func TestApplyCreatesCatalogAtomicallyAndReplays(t *testing.T) {
@@ -74,7 +75,7 @@ func TestApplyCreatesCatalogAtomicallyAndReplays(t *testing.T) {
 	), "before summary = %#v", before.Summary)
 	response, err := service.Apply(t.Context(), actor(), testUserID, "11111111-1111-4111-8111-111111111111")
 	testassert.False(t, err != nil, err)
-	var result platforminstance.ApplyResult
+	var result platforminstancemodel.ApplyResult
 	if err := json.Unmarshal(response.Body, &result); err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +106,7 @@ SELECT (SELECT count(*) FROM platform_instances WHERE deleted_at_ms IS NULL),
 func TestCoveragePreservesEquivalentCustomizedDisabledAndDeletedChoices(t *testing.T) {
 	t.Parallel()
 	service, database := newService(t)
-	manual, err := service.Create(t.Context(), actor(), platforminstance.CreateInput{
+	manual, err := service.Create(t.Context(), actor(), platforminstancemodel.CreateInput{
 		PlatformID: "gba", DefaultCoreID: "mgba", Name: "我的 GBA", SortOrder: 50,
 	})
 	testassert.False(t, err != nil, err)
@@ -124,16 +125,16 @@ WHERE catalog_template_key='arcade/fbneo';
 	}
 	recommendations, err := service.Recommendations(t.Context())
 	testassert.False(t, err != nil, err)
-	states := make(map[string]platforminstance.Recommendation, len(recommendations.Items))
+	states := make(map[string]platforminstancemodel.Recommendation, len(recommendations.Items))
 	for _, item := range recommendations.Items {
 		states[item.TemplateKey] = item
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return states["gba/mgba"].State != platforminstance.StateCoveredByEquivalent }, func() bool { return states["gba/mgba"].PlatformInstanceID == nil }, func() bool { return *states["gba/mgba"].PlatformInstanceID != manual.ID }), "equivalent state = %#v", states["gba/mgba"])
-	testassert.Falsef(t, states["nes/fceumm"].State != platforminstance.StateCustomized, "custom state = %#v", states["nes/fceumm"])
-	testassert.Falsef(t, testassert.Any(func() bool { return states["snes/snes9x"].State != platforminstance.StateSuppressed }, func() bool { return states["arcade/fbneo"].State != platforminstance.StateSuppressed }), "suppressed states = snes:%#v arcade:%#v", states["snes/snes9x"], states["arcade/fbneo"])
+	testassert.Falsef(t, testassert.Any(func() bool { return states["gba/mgba"].State != platforminstancemodel.StateCoveredByEquivalent }, func() bool { return states["gba/mgba"].PlatformInstanceID == nil }, func() bool { return *states["gba/mgba"].PlatformInstanceID != manual.ID }), "equivalent state = %#v", states["gba/mgba"])
+	testassert.Falsef(t, states["nes/fceumm"].State != platforminstancemodel.StateCustomized, "custom state = %#v", states["nes/fceumm"])
+	testassert.Falsef(t, testassert.Any(func() bool { return states["snes/snes9x"].State != platforminstancemodel.StateSuppressed }, func() bool { return states["arcade/fbneo"].State != platforminstancemodel.StateSuppressed }), "suppressed states = snes:%#v arcade:%#v", states["snes/snes9x"], states["arcade/fbneo"])
 	second, err := service.Apply(t.Context(), actor(), testUserID, "33333333-3333-4333-8333-333333333333")
 	testassert.False(t, err != nil, err)
-	var result platforminstance.ApplyResult
+	var result platforminstancemodel.ApplyResult
 	if err := json.Unmarshal(second.Body, &result); err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +200,7 @@ func TestValidateCatalogFailsClosedOnDisabledRelationship(t *testing.T) {
 	if _, err := database.ExecContext(context.Background(), `UPDATE platform_cores SET enabled=0 WHERE platform_id='nes' AND core_id='fceumm'`); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.ValidateCatalog(t.Context()); !errors.Is(err, platforminstance.ErrCatalogInvalid) {
+	if err := service.ValidateCatalog(t.Context()); !errors.Is(err, platforminstancemodel.ErrCatalogInvalid) {
 		t.Fatalf("ValidateCatalog error = %v", err)
 	}
 }

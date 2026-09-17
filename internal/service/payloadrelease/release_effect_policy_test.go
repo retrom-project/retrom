@@ -1,15 +1,16 @@
 package payloadrelease
 
 import (
+	model "retrom/internal/model/payloadrelease"
 	"testing"
 )
 
 func TestReleaseEffectPolicyRejectsActiveOrChangedOwners(t *testing.T) {
-	scope := Scope{Type: ScopeImportItem, ID: "item"}
-	unit := Execution{Work: Work{ID: "release", Scope: scope}, Input: Input{Inputs: ScopeInputs{ScopeVersion: 7}}}
-	before := EffectOwner{
-		Found: true,
-		Owner: Owner{Scope: scope, State: "DISCARDED", PayloadState: "RELEASING", ReleaseJobID: "release", Version: 7},
+	scope := model.Scope{Type: model.ScopeImportItem, ID: "item"}
+	unit := model.Execution{Work: model.Work{ID: "release", Scope: scope}, Input: model.Input{Inputs: model.ScopeInputs{ScopeVersion: 7}}}
+	before := model.EffectOwner{
+		Found:       true,
+		Owner: model.Owner{Scope: scope, State: "DISCARDED", PayloadState: "RELEASING", ReleaseJobID: "release", Version: 7},
 	}
 	if err := validateEffectRoot(unit, before); err != nil {
 		t.Fatal(err)
@@ -34,7 +35,7 @@ func TestReleaseEffectPolicyRejectsActiveOrChangedOwners(t *testing.T) {
 }
 
 func TestReleaseEffectUploadEligibilityRequiresEveryReferenceGone(t *testing.T) {
-	candidate := EffectUpload{ID: "file", SessionID: "upload", BlobID: "blob", State: "COMPLETE", SessionState: "COMPLETE"}
+	candidate := model.EffectUpload{ID: "file", SessionID: "upload", BlobID: "blob", State: "COMPLETE", SessionState: "COMPLETE"}
 	if !eligibleEffectUpload(candidate) {
 		t.Fatal("unreferenced completed file rejected")
 	}

@@ -1,6 +1,7 @@
 package favorites
 
 import (
+	model "retrom/internal/model/favorites"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -16,7 +17,7 @@ func NormalizeFolderName(value string) (string, string, error) {
 	started := false
 	for _, character := range normalized {
 		if unicode.IsControl(character) {
-			return "", "", ErrInvalidFolderName
+			return "", "", model.ErrInvalidFolderName
 		}
 		if unicode.IsSpace(character) {
 			if started {
@@ -33,22 +34,22 @@ func NormalizeFolderName(value string) (string, string, error) {
 	}
 	display := builder.String()
 	if display == "" || utf8.RuneCountInString(display) > 40 || len([]byte(display)) > 160 {
-		return "", "", ErrInvalidFolderName
+		return "", "", model.ErrInvalidFolderName
 	}
 	return display, cases.Fold().String(display), nil
 }
 
 func validateUniqueIDs(values []string, maximum int) error {
 	if len(values) > maximum {
-		return ErrBatchTooLarge
+		return model.ErrBatchTooLarge
 	}
 	seen := make(map[string]struct{}, len(values))
 	for _, value := range values {
-		if !ValidID(value) {
-			return ErrInvalid
+		if !model.ValidID(value) {
+			return model.ErrInvalid
 		}
 		if _, exists := seen[value]; exists {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		seen[value] = struct{}{}
 	}

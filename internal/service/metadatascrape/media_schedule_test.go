@@ -2,6 +2,7 @@ package metadatascrape
 
 import (
 	"encoding/json"
+	model "retrom/internal/model/metadatascrape"
 	"testing"
 
 	"retrom/internal/adapter/metadata/hasheous"
@@ -10,18 +11,18 @@ import (
 )
 
 func TestMediaJobFreezesAssetIdentityAndSource(t *testing.T) {
-	asset := CandidateAsset{
+	asset := model.CandidateAsset{
 		ID: "asset", CandidateID: "candidate", ResponseID: "response", Now: 100,
 		Reference: hasheous.AssetRef{ProviderAssetID: "one", Path: "/api/v1/images/one", Kind: "COVER", Ordinal: 0},
 	}
-	plan, err := newMediaJob(Subject{Kind: "IMPORT_ITEM", ID: "item"}, "run", asset)
+	plan, err := newMediaJob(model.Subject{Kind: "IMPORT_ITEM", ID: "item"}, "run", asset)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id, err := uuid.Parse(plan.JobID); err != nil || id.Version() != 7 {
 		t.Fatalf("worker job identity=%v/%v", id, err)
 	}
-	var input MediaInputEnvelope
+	var input model.MediaInputEnvelope
 	if err := json.Unmarshal([]byte(plan.InputJSON), &input); err != nil {
 		t.Fatal(err)
 	}

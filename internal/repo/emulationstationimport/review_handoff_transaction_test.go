@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func TestReviewHandoffTransactionDoesNotCommitOnLateFailure(t *testing.T) {

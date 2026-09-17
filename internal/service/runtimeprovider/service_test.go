@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	model "retrom/internal/model/runtimeprovider"
 	"retrom/internal/capability/runtime/runtimebundle"
+	model "retrom/internal/model/runtimeprovider"
 )
 
 func TestRejectedVersionDoesNotWriteProjection(t *testing.T) {
@@ -16,8 +16,8 @@ func TestRejectedVersionDoesNotWriteProjection(t *testing.T) {
 		version, digest string
 		expected        error
 	}{
-		{"0.9.0", "b", ErrProviderDowngrade},
-		{"1.0.0", "b", ErrProviderVersionRebuilt},
+		{"0.9.0", "b", model.ErrProviderDowngrade},
+		{"1.0.0", "b", model.ErrProviderVersionRebuilt},
 	} {
 		repo := &reconciliationRepository{
 			reconcileErr: test.expected,
@@ -47,27 +47,27 @@ func TestUnchangedProjectionDoesNotInterruptSessions(t *testing.T) {
 
 func TestUnreadableCheckpointRejectsBeforeTermination(t *testing.T) {
 	repo := &reconciliationRepository{
-		reconcileErr: ErrProviderCheckpointUnreadable,
+		reconcileErr: model.ErrProviderCheckpointUnreadable,
 	}
 	candidate := businessCandidate("1.1.0", "b")
-	candidate.Providers[0].Targets = []TargetProjection{{Target: runtimebundle.Target{
+	candidate.Providers[0].Targets = []model.TargetProjection{{Target: runtimebundle.Target{
 		ID:         "target",
 		Checkpoint: &runtimebundle.Checkpoint{ReadFormats: []string{"current"}},
 	}}}
 	err := New(repo).Reconcile(t.Context(), candidate, time.UnixMilli(1000))
-	if !errors.Is(err, ErrProviderCheckpointUnreadable) {
+	if !errors.Is(err, model.ErrProviderCheckpointUnreadable) {
 		t.Fatalf("checkpoint protection lost: %v", err)
 	}
 }
 
 func TestReferencedTargetCannotBeRemoved(t *testing.T) {
 	repo := &reconciliationRepository{
-		reconcileErr: ErrProviderTargetReferenced,
+		reconcileErr: model.ErrProviderTargetReferenced,
 	}
 	err := New(repo).Reconcile(
 		t.Context(), businessCandidate("1.1.0", "b"), time.UnixMilli(1000),
 	)
-	if !errors.Is(err, ErrProviderTargetReferenced) {
+	if !errors.Is(err, model.ErrProviderTargetReferenced) {
 		t.Fatalf("reference protection lost: %v", err)
 	}
 }
@@ -94,10 +94,10 @@ func TestProjectionWriteFailurePreservesCause(t *testing.T) {
 	}
 }
 
-func businessCandidate(version, digest string) Projection {
-	return Projection{
+func businessCandidate(version, digest string) model.Projection {
+	return model.Projection{
 		CatalogSHA256: strings.Repeat("c", 64),
-		Providers: []ProviderProjection{{
+		Providers: []model.ProviderProjection{{
 			Active: runtimebundle.ActiveProvider{
 				ProviderID:      "provider",
 				ProviderVersion: version,

@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"time"
 
 	"retrom/internal/capability/engine/rpgmaker/detector"
@@ -33,9 +34,9 @@ func ImportFailure(cause error) (string, bool) {
 		{importing.ErrArchiveVolumeUnsupported, "ARCHIVE_VOLUME_UNSUPPORTED"},
 		{importing.ErrArchiveCasefoldCollision, "RPG_PATH_COLLISION"},
 		{importing.ErrNWJSExecutableInvalid, "ARCHIVE_UNSAFE"},
-		{ErrMultiDiscPlaylistMissing, "MULTI_DISC_PLAYLIST_MISSING"},
-		{ErrMultiDiscModeUnavailable, "MULTI_DISC_MODE_UNAVAILABLE"},
-		{ErrInvalid, "IMPORT_INPUT_INVALID"},
+		{model.ErrMultiDiscPlaylistMissing, "MULTI_DISC_PLAYLIST_MISSING"},
+		{model.ErrMultiDiscModeUnavailable, "MULTI_DISC_MODE_UNAVAILABLE"},
+		{model.ErrInvalid, "IMPORT_INPUT_INVALID"},
 	} {
 		if errors.Is(cause, candidate.err) {
 			return candidate.code, false

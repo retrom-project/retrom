@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
-	service "retrom/internal/service/dependencies"
+	service "retrom/internal/model/dependencies"
 
 	_ "modernc.org/sqlite"
 )

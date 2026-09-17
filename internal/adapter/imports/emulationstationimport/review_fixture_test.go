@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/integration/libraryimport"
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func (service *Service) attachLibraryResult(

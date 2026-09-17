@@ -93,7 +93,7 @@ func (repository *Repository) CommitCreate(
 		if err := scope.ConsumeUpload(ctx, application.ConsumptionRecord{
 			ID: cmd.ConsumptionID, UploadID: cmd.Asset.UploadID,
 			UploadFileID: cmd.UploadFileID,
-			ConsumerID: cmd.AssetID, CreatedAtMS: cmd.NowMS,
+			ConsumerID:   cmd.AssetID, CreatedAtMS: cmd.NowMS,
 		}); err != nil {
 			return fmt.Errorf("%w: %w", application.ErrUploadConsumed, err)
 		}

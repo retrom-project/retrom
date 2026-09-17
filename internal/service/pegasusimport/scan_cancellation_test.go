@@ -3,11 +3,12 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/pegasusimport"
 	"testing"
 	"time"
 )
 
-func (memory *workflowMemory) CurrentJob(context.Context, string) (WorkflowSnapshot, error) {
+func (memory *workflowMemory) CurrentJob(context.Context, string) (model.WorkflowSnapshot, error) {
 	return memory.before, memory.err
 }
 
@@ -31,7 +32,7 @@ func TestScanCancellationUsesOriginalJobVersionInDomainTransaction(t *testing.T)
 		},
 	); !errors.Is(
 		err,
-		ErrVersionConflict,
+		model.ErrVersionConflict,
 	) || pending || result.JobID != "" || memory.cancellation != nil {
 		t.Fatalf("used plan ETag instead of job ETag: %#v %v %v", result, pending, err)
 	}

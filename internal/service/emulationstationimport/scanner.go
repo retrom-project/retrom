@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 	"sort"
 
 	"retrom/internal/capability/content/multidisc"
@@ -57,12 +58,12 @@ func scannerID() (string, error) {
 
 type (
 	discoveredFile    = DiscoveredFile
-	scannedGamelist   = ScanGamelist
-	scannedCollection = ScanCollection
-	scannedItem       = ScanItem
-	scannedItemFile   = ScanItemFile
-	scannedAsset      = ScanAsset
-	scanResult        = ScanProjection
+	scannedGamelist   = model.ScanGamelist
+	scannedCollection = model.ScanCollection
+	scannedItem       = model.ScanItem
+	scannedItemFile   = model.ScanItemFile
+	scannedAsset      = model.ScanAsset
+	scanResult        = model.ScanProjection
 )
 
 func (service *Scanner) Scan(

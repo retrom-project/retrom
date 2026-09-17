@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/service/maintenance"
+	application "retrom/internal/model/maintenance"
 	"retrom/internal/testkit/testsupport"
 )
 

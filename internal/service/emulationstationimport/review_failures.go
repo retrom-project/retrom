@@ -5,19 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
-func reviewSourcePath(item ExecutionItem) string {
+func reviewSourcePath(item model.ExecutionItem) string {
 	if len(item.Files) == 0 {
 		return ""
 	}
 	return item.Files[0].Path
 }
 
-func (service *ReviewPreparer) failure(stage, operation string, cause error, path string) *FailureDetails {
-	details := &FailureDetails{
+func (service *ReviewPreparer) failure(stage, operation string, cause error, path string) *model.FailureDetails {
+	details := &model.FailureDetails{
 		SchemaVersion: 1, Stage: stage, Operation: operation,
 		CauseCode:       reviewCauseCode(cause, service.dependencies.Diagnostics),
 		TechnicalDetail: service.dependencies.Diagnostics.Sanitize(cause),
@@ -48,7 +49,7 @@ func reviewCauseCode(cause error, diagnostics FailureDiagnostics) string {
 	return "INTERNAL_OPERATION_FAILED"
 }
 
-func (service *ReviewPreparer) libraryFailure(cause error, files []library.ServerSourceFile) *FailureDetails {
+func (service *ReviewPreparer) libraryFailure(cause error, files []library.ServerSourceFile) *model.FailureDetails {
 	path := ""
 	if len(files) > 0 {
 		path = files[0].RelativePath

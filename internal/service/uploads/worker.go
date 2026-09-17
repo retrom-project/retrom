@@ -4,19 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/uploads"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type finalizationClaim struct {
-	Run                 Run
-	Input               FinalizationInput
+	Run                 model.Run
+	Input               model.FinalizationInput
 	Acquired, Cancelled bool
 	Cause               error
 }
 
-func matchesRun(current SessionState, run Run) bool {
+func matchesRun(current model.SessionState, run model.Run) bool {
 	return current.ID == run.UploadID && current.State == "FINALIZING" && current.FinalizeJobID != nil &&
 		*current.FinalizeJobID == run.JobID && current.FinalizationNo == run.FinalizationNo
 }
@@ -27,7 +28,7 @@ func (service *Service) claim(ctx context.Context, id string) (finalizationClaim
 		return finalizationClaim{}, fmt.Errorf("create upload worker ID: %w", err)
 	}
 	var claim finalizationClaim
-	err = service.repository.CommitWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
 		job, err := scope.Jobs.Get(ctx, id)
 		if err != nil {
 			return finalizationError("read upload authority", err)
@@ -42,7 +43,7 @@ func (service *Service) claim(ctx context.Context, id string) (finalizationClaim
 		if current.FinalizeJobID == nil || *current.FinalizeJobID != id || current.Consumed {
 			return nil
 		}
-		claim.Run = Run{
+		claim.Run = model.Run{
 			UploadID: current.ID, JobID: id, FinalizationNo: current.FinalizationNo, ExecutionNo: job.ExecutionNo,
 			WorkerID: worker.String(), Attempt: job.Attempt + 1, Deadline: job.Deadline,
 		}
@@ -60,7 +61,7 @@ func (service *Service) claim(ctx context.Context, id string) (finalizationClaim
 }
 
 func (service *Service) claimCurrent(
-	ctx context.Context, scope WriteScope, current SessionState, job Job, claim *finalizationClaim,
+	ctx context.Context, scope model.WriteScope, current model.SessionState, job model.Job, claim *finalizationClaim,
 ) error {
 	now := service.now().UnixMilli()
 	if job.State == "CANCELLED" && matchesRun(current, claim.Run) {
@@ -92,7 +93,7 @@ func (service *Service) claimCurrent(
 }
 
 func (claim *finalizationClaim) prepare(
-	ctx context.Context, scope WriteScope, current SessionState, job Job, now int64,
+	ctx context.Context, scope model.WriteScope, current model.SessionState, job model.Job, now int64,
 ) error {
 	claim.Input, claim.Cause = decodeFinalization(job)
 	if claim.Cause == nil && claim.Input.Inputs.FinalizationNo != current.FinalizationNo {
@@ -123,10 +124,10 @@ func (claim *finalizationClaim) prepare(
 }
 
 func (claim *finalizationClaim) acquire(
-	ctx context.Context, scope WriteScope, current SessionState, job Job, now int64,
+	ctx context.Context, scope model.WriteScope, current model.SessionState, job model.Job, now int64,
 ) error {
 	if current.State == "FAILED" {
-		progress := SessionProgress{ID: current.ID, State: "FINALIZING", ExpectedVersion: current.Version, AtMS: now}
+		progress := model.SessionProgress{ID: current.ID, State: "FINALIZING", ExpectedVersion: current.Version, AtMS: now}
 		if err := scope.Sessions.Advance(ctx, progress); err != nil {
 			return finalizationError("resume upload session", err)
 		}
@@ -134,7 +135,7 @@ func (claim *finalizationClaim) acquire(
 			return finalizationError("resume upload files", err)
 		}
 	}
-	input := JobClaim{Run: claim.Run, Version: job.Version, AtMS: now, EventJSON: finalizationEvent(claim.Run, "", nil)}
+	input := model.JobClaim{Run: claim.Run, Version: job.Version, AtMS: now, EventJSON: finalizationEvent(claim.Run, "", nil)}
 	claimed, err := scope.Jobs.Claim(ctx, input)
 	claim.Acquired = claimed
 	return finalizationError("claim finalize job", err)
@@ -163,7 +164,7 @@ func (service *Service) Run(parent context.Context, id string) error {
 	return nil
 }
 
-func (service *Service) monitor(ctx context.Context, cancel context.CancelCauseFunc, run Run, stopped chan<- struct{}) {
+func (service *Service) monitor(ctx context.Context, cancel context.CancelCauseFunc, run model.Run, stopped chan<- struct{}) {
 	defer close(stopped)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -175,7 +176,7 @@ func (service *Service) monitor(ctx context.Context, cancel context.CancelCauseF
 		case <-ticker.C:
 		}
 		now := service.now().UnixMilli()
-		err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
+		err := service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
 			job, err := scope.Jobs.Get(ctx, run.JobID)
 			if err != nil {
 				return finalizationError("observe upload job", err)
@@ -202,7 +203,7 @@ func (service *Service) monitor(ctx context.Context, cancel context.CancelCauseF
 }
 
 func (claim *finalizationClaim) reconcile(
-	ctx context.Context, scope WriteScope, current SessionState, job Job, now int64,
+	ctx context.Context, scope model.WriteScope, current model.SessionState, job model.Job, now int64,
 ) error {
 	input, err := decodeFinalization(job)
 	if err != nil {

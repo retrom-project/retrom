@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
 	"modernc.org/sqlite"

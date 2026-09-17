@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	application "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 
 	"modernc.org/sqlite"
 )

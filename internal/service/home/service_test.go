@@ -3,51 +3,52 @@ package home
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/home"
 	"strings"
 	"testing"
 
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/tagging"
 )
 
 type repositoryStub struct {
-	summary      Summary
+	summary      model.Summary
 	summaryErr   error
-	recentGames  []RecentGame
+	recentGames  []model.RecentGame
 	recentErr    error
-	recentSaves  []RecentSave
+	recentSaves  []model.RecentSave
 	savesErr     error
-	latestGames  []LatestGame
+	latestGames  []model.LatestGame
 	latestErr    error
-	featured     FeaturedGame
+	featured     model.FeaturedGame
 	featuredOK   bool
 	featuredErr  error
-	platforms    []Platform
+	platforms    []model.Platform
 	platformsErr error
 	include      bool
 }
 
-func (stub *repositoryStub) Summary(context.Context, string) (Summary, error) {
+func (stub *repositoryStub) Summary(context.Context, string) (model.Summary, error) {
 	return stub.summary, stub.summaryErr
 }
 
-func (stub *repositoryStub) RecentSaves(context.Context, string) ([]RecentSave, error) {
+func (stub *repositoryStub) RecentSaves(context.Context, string) ([]model.RecentSave, error) {
 	return stub.recentSaves, stub.savesErr
 }
 
-func (stub *repositoryStub) RecentGames(_ context.Context, _ string, includeDeleted bool) ([]RecentGame, error) {
+func (stub *repositoryStub) RecentGames(_ context.Context, _ string, includeDeleted bool) ([]model.RecentGame, error) {
 	stub.include = includeDeleted
 	return stub.recentGames, stub.recentErr
 }
 
-func (stub *repositoryStub) LatestGames(context.Context) ([]LatestGame, error) {
+func (stub *repositoryStub) LatestGames(context.Context) ([]model.LatestGame, error) {
 	return stub.latestGames, stub.latestErr
 }
 
-func (stub *repositoryStub) FeaturedGame(context.Context, string) (FeaturedGame, bool, error) {
+func (stub *repositoryStub) FeaturedGame(context.Context, string) (model.FeaturedGame, bool, error) {
 	return stub.featured, stub.featuredOK, stub.featuredErr
 }
 
-func (stub *repositoryStub) Platforms(context.Context, string) ([]Platform, error) {
+func (stub *repositoryStub) Platforms(context.Context, string) ([]model.Platform, error) {
 	return stub.platforms, stub.platformsErr
 }
 
@@ -63,7 +64,7 @@ func (stub *tagReaderStub) References(_ context.Context, ids []string) (map[stri
 }
 
 func TestDashboardSortsQuickPlatformsWithoutChangingCatalogOrder(t *testing.T) {
-	repository := &repositoryStub{platforms: []Platform{
+	repository := &repositoryStub{platforms: []model.Platform{
 		{ID: "z", Name: "Zulu", PlayCount: 2},
 		{ID: "b", Name: "Bravo", PlayCount: 4},
 		{ID: "a", Name: "Alpha", PlayCount: 4},
@@ -92,7 +93,7 @@ func TestDashboardSortsQuickPlatformsWithoutChangingCatalogOrder(t *testing.T) {
 }
 
 func TestRecentGamesProjectsEmptyTagsAndWrapsTagErrors(t *testing.T) {
-	repository := &repositoryStub{recentGames: []RecentGame{{GameID: "game"}}}
+	repository := &repositoryStub{recentGames: []model.RecentGame{{GameID: "game"}}}
 	tags := &tagReaderStub{references: map[string][]tagging.Reference{}}
 	games, err := New(repository, tags).RecentGames(context.Background(), "profile", true)
 	if err != nil {

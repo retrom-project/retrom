@@ -7,31 +7,32 @@ import (
 	"strings"
 	"testing"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
 	library "retrom/internal/service/libraryimport"
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
 type handoffTransactionFailure struct {
-	repository application.ReviewHandoffRepository
+	repository pegasusimportmodel.ReviewHandoffRepository
 	stage      string
 	cause      error
 }
 
-func (failure handoffTransactionFailure) WithReviewHandoff(ctx context.Context, work func(application.ReviewHandoffScope) error) error {
-	return failure.repository.WithReviewHandoff(ctx, func(scope application.ReviewHandoffScope) error {
+func (failure handoffTransactionFailure) WithReviewHandoff(ctx context.Context, work func(pegasusimportmodel.ReviewHandoffScope) error) error {
+	return failure.repository.WithReviewHandoff(ctx, func(scope pegasusimportmodel.ReviewHandoffScope) error {
 		scope.Records = handoffWriteFailure{ReviewHandoffRecords: scope.Records, stage: failure.stage, cause: failure.cause}
 		return work(scope)
 	})
 }
 
 type handoffWriteFailure struct {
-	application.ReviewHandoffRecords
+	pegasusimportmodel.ReviewHandoffRecords
 	stage string
 	cause error
 }
 
-func (failure handoffWriteFailure) FinishReviewHandoff(ctx context.Context, change application.ReviewHandoffChange) error {
+func (failure handoffWriteFailure) FinishReviewHandoff(ctx context.Context, change pegasusimportmodel.ReviewHandoffChange) error {
 	switch failure.stage {
 	case "item":
 		change.Before.Version++
@@ -69,8 +70,8 @@ func readHandoffState(t *testing.T, service *Service) handoffStoredState {
 	return result
 }
 
-func handoffRequest(unit work) application.ReviewHandoffRequest {
-	return application.ReviewHandoffRequest{ItemID: "item", ImportID: unit.ImportID, JobID: unit.JobID, LibraryJobID: "handoff-job", LibraryItemID: "handoff-item", ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt, WorkerID: unit.WorkerID}
+func handoffRequest(unit work) pegasusimportmodel.ReviewHandoffRequest {
+	return pegasusimportmodel.ReviewHandoffRequest{ItemID: "item", ImportID: unit.ImportID, JobID: unit.JobID, LibraryJobID: "handoff-job", LibraryItemID: "handoff-item", ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt, WorkerID: unit.WorkerID}
 }
 
 func TestReviewHandoffTransactionRollsBackEveryProjection(t *testing.T) {
@@ -82,7 +83,7 @@ func TestReviewHandoffTransactionRollsBackEveryProjection(t *testing.T) {
 			before := readHandoffState(t, service)
 			cause := errors.New("late handoff failure")
 			storage := handoffTransactionFailure{repository: repository.NewReviewHandoff(service.database), stage: stage, cause: cause}
-			handoff := application.NewReviewHandoff(storage, library.NewMetadataSeeder(nil, service.now), service.now)
+			handoff := pegasusimportservice.NewReviewHandoff(storage, library.NewMetadataSeeder(nil, service.now), service.now)
 			err := handoff.Complete(t.Context(), handoffRequest(unit))
 			if err == nil || stage == "late callback" && !errors.Is(err, cause) {
 				t.Fatalf("failed %s handoff: %v", stage, err)
@@ -100,7 +101,7 @@ func TestReviewHandoffCommitsMetadataWarningsCountsAndEventOnce(t *testing.T) {
 	metadata := `{"Title":"Changed","Developer":"` + strings.Repeat("开", 201) + `"}`
 	mustExecPegasusTest(t.Context(), t, service.database, `UPDATE pegasus_import_items SET metadata_json=?,warnings_json='[{"code":"SOURCE_WARNING","field":"file"}]' WHERE id='item'`, metadata)
 	before := readHandoffState(t, service)
-	handoff := application.NewReviewHandoff(repository.NewReviewHandoff(service.database), library.NewMetadataSeeder(nil, service.now), service.now)
+	handoff := pegasusimportservice.NewReviewHandoff(repository.NewReviewHandoff(service.database), library.NewMetadataSeeder(nil, service.now), service.now)
 	request := handoffRequest(unit)
 	if err := handoff.Complete(t.Context(), request); err != nil {
 		t.Fatal(err)

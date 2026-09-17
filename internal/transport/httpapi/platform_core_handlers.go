@@ -12,14 +12,15 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/platforminstance"
+	platforminstancemodel "retrom/internal/model/platforminstance"
+	platforminstanceservice "retrom/internal/service/platforminstance"
 )
 
-type coreImpact = platforminstance.CoreImpact
+type coreImpact = platforminstancemodel.CoreImpact
 
 func impactDigest(value any) string {
 	if impact, ok := value.(coreImpact); ok {
-		return platforminstance.ImpactDigest(impact)
+		return platforminstanceservice.ImpactDigest(impact)
 	}
 	encoded, _ := json.Marshal(value)
 	digest := sha256.Sum256(encoded)
@@ -33,10 +34,10 @@ func (server *Server) calculateCoreImpact(
 	expected int64,
 ) (coreImpact, map[string]int64, []map[string]any, error) {
 	result, err := server.platformDirectories.CoreImpact(request.Context(), instanceID, coreID, expected)
-	if errors.Is(err, platforminstance.ErrImpactStale) {
+	if errors.Is(err, platforminstancemodel.ErrImpactStale) {
 		return coreImpact{}, nil, nil, errStaleImpact
 	}
-	if errors.Is(err, platforminstance.ErrInvalidCore) {
+	if errors.Is(err, platforminstancemodel.ErrInvalidCore) {
 		return coreImpact{}, nil, nil, errInvalidCore
 	}
 	if err != nil {
@@ -237,13 +238,13 @@ func (server *Server) changeDefaultCore(writer http.ResponseWriter, request *htt
 	change, err := server.platformDirectories.ChangeDefaultCore(
 		request.Context(), request.PathValue("platformInstanceId"), body.CoreID, expected,
 		body.ImpactDigest, body.ConfirmBlocked,
-		platforminstance.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
+		platforminstancemodel.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
 	)
-	if errors.Is(err, platforminstance.ErrImpactStale) {
+	if errors.Is(err, platforminstancemodel.ErrImpactStale) {
 		writeError(writer, request, http.StatusConflict, "IMPACT_PREVIEW_STALE", "目录或影响输入已变化", map[string]any{})
 		return
 	}
-	if errors.Is(err, platforminstance.ErrDefaultCoreBlocked) {
+	if errors.Is(err, platforminstancemodel.ErrDefaultCoreBlocked) {
 		writeError(
 			writer,
 			request,
@@ -254,7 +255,7 @@ func (server *Server) changeDefaultCore(writer http.ResponseWriter, request *htt
 		)
 		return
 	}
-	if errors.Is(err, platforminstance.ErrVersionConflict) {
+	if errors.Is(err, platforminstancemodel.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "平台目录已被修改", map[string]any{})
 		return
 	}

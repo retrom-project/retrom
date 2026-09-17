@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"errors"
 	"math"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
 )
@@ -44,7 +45,7 @@ func TestRecoveryRejectsInvalidVersionAndBudgetIdentity(t *testing.T) {
 			}
 			memory.current = memory.candidate
 			err := NewRecovery(memory, func() time.Time { return time.UnixMilli(1000) }).Recover(t.Context())
-			if !errors.Is(err, ErrInvalid) || len(memory.changes) != 0 {
+			if !errors.Is(err, model.ErrInvalid) || len(memory.changes) != 0 {
 				t.Fatalf("invalid budget=%#v error=%v", memory.changes, err)
 			}
 		})

@@ -3,18 +3,19 @@ package libraryimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 	"slices"
 
 	"retrom/internal/capability/engine/rpgmaker/detector"
 )
 
-func ReadImportTarget(ctx context.Context, reader ImportFactsReader, id string) (ImportTarget, error) {
+func ReadImportTarget(ctx context.Context, reader model.ImportFactsReader, id string) (model.ImportTarget, error) {
 	target, found, err := reader.Target(ctx, id)
 	if err != nil {
-		return ImportTarget{}, fmt.Errorf("read import target: %w", err)
+		return model.ImportTarget{}, fmt.Errorf("read import target: %w", err)
 	}
 	if !found {
-		return ImportTarget{}, ErrInvalid
+		return model.ImportTarget{}, model.ErrInvalid
 	}
 	target.CoreID = target.DefaultCoreID
 	if target.PlatformID == "rpgmaker" && target.DefaultCoreID == detector.VirtualCoreID {
@@ -24,21 +25,21 @@ func ReadImportTarget(ctx context.Context, reader ImportFactsReader, id string) 
 }
 
 func ResolveImportBinding(
-	ctx context.Context, reader ImportFactsReader, target ImportTarget, generation string,
-) (ImportTarget, error) {
-	bindings, err := reader.Bindings(ctx, ImportBindingQuery{
+	ctx context.Context, reader model.ImportFactsReader, target model.ImportTarget, generation string,
+) (model.ImportTarget, error) {
+	bindings, err := reader.Bindings(ctx, model.ImportBindingQuery{
 		PlatformID: target.PlatformID, CoreID: target.CoreID, DetectorProfile: generation,
 	})
 	if err != nil {
-		return ImportTarget{}, fmt.Errorf("read import runtime bindings: %w", err)
+		return model.ImportTarget{}, fmt.Errorf("read import runtime bindings: %w", err)
 	}
 	if len(bindings) == 0 || len(bindings[0].Policy.SupportedContentKinds) == 0 {
-		return ImportTarget{}, ErrInvalid
+		return model.ImportTarget{}, model.ErrInvalid
 	}
 	return bindImportTarget(target, bindings[0]), nil
 }
 
-func bindImportTarget(target ImportTarget, binding ImportBinding) ImportTarget {
+func bindImportTarget(target model.ImportTarget, binding model.ImportBinding) model.ImportTarget {
 	target.BindingID, target.CoreID = binding.BindingID, binding.CoreID
 	target.ProviderID, target.TargetID = binding.ProviderID, binding.TargetID
 	target.DeliveryProfile, target.Policy = binding.DeliveryProfile, binding.Policy
@@ -46,32 +47,32 @@ func bindImportTarget(target ImportTarget, binding ImportBinding) ImportTarget {
 }
 
 func SnapshotImportTarget(
-	ctx context.Context, reader ImportFactsReader, target ImportTarget,
-) (ImportTargetSnapshot, ImportTarget, error) {
-	snapshot := ImportTargetSnapshot{
+	ctx context.Context, reader model.ImportFactsReader, target model.ImportTarget,
+) (model.ImportTargetSnapshot, model.ImportTarget, error) {
+	snapshot := model.ImportTargetSnapshot{
 		SchemaVersion: 1, DefaultCoreID: target.DefaultCoreID, PlatformID: target.PlatformID,
 		PlatformInstanceID: target.ID, PlatformInstanceVersion: target.Version,
 	}
 	if target.ProviderID != "" {
-		snapshot.Targets = []ImportTargetGuard{TargetImportGuard(target)}
+		snapshot.Targets = []model.ImportTargetGuard{TargetImportGuard(target)}
 		return snapshot, target, nil
 	}
 	if target.PlatformID != "rpgmaker" || target.DefaultCoreID != detector.VirtualCoreID {
-		return ImportTargetSnapshot{}, ImportTarget{}, ErrInvalid
+		return model.ImportTargetSnapshot{}, model.ImportTarget{}, model.ErrInvalid
 	}
-	bindings, err := reader.Bindings(ctx, ImportBindingQuery{PlatformID: "rpgmaker", CoreID: detector.VirtualCoreID})
+	bindings, err := reader.Bindings(ctx, model.ImportBindingQuery{PlatformID: "rpgmaker", CoreID: detector.VirtualCoreID})
 	if err != nil {
-		return ImportTargetSnapshot{}, ImportTarget{}, fmt.Errorf("read virtual import targets: %w", err)
+		return model.ImportTargetSnapshot{}, model.ImportTarget{}, fmt.Errorf("read virtual import targets: %w", err)
 	}
 	if len(bindings) != 7 {
-		return ImportTargetSnapshot{}, ImportTarget{}, ErrInvalid
+		return model.ImportTargetSnapshot{}, model.ImportTarget{}, model.ErrInvalid
 	}
 	for _, binding := range bindings {
-		snapshot.Targets = append(snapshot.Targets, ImportTargetGuard{
+		snapshot.Targets = append(snapshot.Targets, model.ImportTargetGuard{
 			ProviderID: binding.ProviderID, TargetID: binding.TargetID, CoreID: binding.CoreID,
 		})
 	}
-	slices.SortFunc(snapshot.Targets, func(left, right ImportTargetGuard) int {
+	slices.SortFunc(snapshot.Targets, func(left, right model.ImportTargetGuard) int {
 		if left.ProviderID < right.ProviderID {
 			return -1
 		}
@@ -92,6 +93,6 @@ func SnapshotImportTarget(
 	return snapshot, provisional, nil
 }
 
-func TargetImportGuard(target ImportTarget) ImportTargetGuard {
-	return ImportTargetGuard{ProviderID: target.ProviderID, TargetID: target.TargetID, CoreID: target.CoreID}
+func TargetImportGuard(target model.ImportTarget) model.ImportTargetGuard {
+	return model.ImportTargetGuard{ProviderID: target.ProviderID, TargetID: target.TargetID, CoreID: target.CoreID}
 }

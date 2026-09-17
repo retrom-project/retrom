@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	model "retrom/internal/model/gamecontent"
 	"time"
 )
 
@@ -15,24 +16,24 @@ const deleteReplayRetention = 24 * time.Hour
 // one repository transaction. The repository port includes every side effect
 // that must be atomic with the game state transition.
 func (service *Service) DeleteAdminGame(
-	ctx context.Context, request DeleteGameRequest,
-) (DeleteGameResult, error) {
+	ctx context.Context, request model.DeleteGameRequest,
+) (model.DeleteGameResult, error) {
 	if service.repository == nil || service.now == nil {
-		return DeleteGameResult{}, ErrInvalid
+		return model.DeleteGameResult{}, model.ErrInvalid
 	}
 	if err := validateDeleteGameRequest(request); err != nil {
-		return DeleteGameResult{}, err
+		return model.DeleteGameResult{}, err
 	}
 	now := request.NowMS
 	if now <= 0 {
 		now = service.now().UnixMilli()
 	}
-	var result DeleteGameResult
-	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
+	var result model.DeleteGameResult
+	err := service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
 		return service.deleteInScope(ctx, scope, request, now, &result)
 	})
 	if err != nil {
-		return DeleteGameResult{}, fmt.Errorf("delete admin game: %w", err)
+		return model.DeleteGameResult{}, fmt.Errorf("delete admin game: %w", err)
 	}
 	if result.PayloadReleaseQueued && service.payloadReleases != nil {
 		service.payloadReleases.Signal()
@@ -41,10 +42,10 @@ func (service *Service) DeleteAdminGame(
 }
 
 func (service *Service) deleteInScope(
-	ctx context.Context, scope WriteScope, request DeleteGameRequest, now int64, result *DeleteGameResult,
+	ctx context.Context, scope model.WriteScope, request model.DeleteGameRequest, now int64, result *model.DeleteGameResult,
 ) error {
 	if scope.GameDeletionReader == nil || scope.GameDeletionWriter == nil {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	replayed, err := readDeleteGameReplay(ctx, scope.GameDeletionReader, request, now, result)
 	if err != nil {
@@ -54,8 +55,8 @@ func (service *Service) deleteInScope(
 		return nil
 	}
 	state, err := scope.GameDeletionReader.LoadDeleteGameState(ctx, request.GameID)
-	if errors.Is(err, ErrDeleteGameNotFound) {
-		return ErrDeleteGameNotFound
+	if errors.Is(err, model.ErrDeleteGameNotFound) {
+		return model.ErrDeleteGameNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("load game deletion state: %w", err)
@@ -64,27 +65,27 @@ func (service *Service) deleteInScope(
 		return service.rememberExistingDelete(ctx, scope.GameDeletionWriter, request, state, now, result)
 	}
 	if state.Version != request.ExpectedVersion {
-		return ErrDeleteGameVersionConflict
+		return model.ErrDeleteGameVersionConflict
 	}
 	if request.ConfirmTitle != state.Title {
-		return ErrDeleteGameConfirmationMismatch
+		return model.ErrDeleteGameConfirmationMismatch
 	}
 	impact, err := scope.GameDeletionReader.DeleteGameImpact(ctx, request.GameID)
 	if err != nil {
 		return fmt.Errorf("read game deletion impact: %w", err)
 	}
 	if request.ImpactDigest != impact.ImpactDigest {
-		return ErrDeleteGameImpactStale
+		return model.ErrDeleteGameImpactStale
 	}
 	return service.persistNewDelete(ctx, scope.GameDeletionWriter, request, impact, now, result)
 }
 
 func readDeleteGameReplay(
 	ctx context.Context,
-	reader DeleteGameReader,
-	request DeleteGameRequest,
+	reader model.DeleteGameReader,
+	request model.DeleteGameRequest,
 	now int64,
-	result *DeleteGameResult,
+	result *model.DeleteGameResult,
 ) (bool, error) {
 	replay, found, err := reader.LoadDeleteGameReplay(ctx, request.PrincipalID, request.Key, now)
 	if err != nil {
@@ -97,23 +98,23 @@ func readDeleteGameReplay(
 	return found, nil
 }
 
-func validateDeleteGameRequest(request DeleteGameRequest) error {
+func validateDeleteGameRequest(request model.DeleteGameRequest) error {
 	if request.GameID == "" || request.PrincipalID == "" || request.Key == "" ||
 		request.RequestDigest == "" || request.ExpectedVersion < 1 || request.ImpactDigest == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return nil
 }
 
 func (service *Service) rememberExistingDelete(
 	ctx context.Context,
-	repository DeleteGameWriter,
-	request DeleteGameRequest,
-	state DeleteGameState,
+	repository model.DeleteGameWriter,
+	request model.DeleteGameRequest,
+	state model.DeleteGameState,
 	now int64,
-	result *DeleteGameResult,
+	result *model.DeleteGameResult,
 ) error {
-	response := DeleteGameResponse{
+	response := model.DeleteGameResponse{
 		GameID: request.GameID, Status: state.Status,
 		PayloadState: state.PayloadState, PayloadReleaseJobID: state.PayloadReleaseJobID,
 	}
@@ -133,11 +134,11 @@ func (service *Service) rememberExistingDelete(
 
 func (service *Service) persistNewDelete(
 	ctx context.Context,
-	repository DeleteGameWriter,
-	request DeleteGameRequest,
-	impact DeleteGameImpact,
+	repository model.DeleteGameWriter,
+	request model.DeleteGameRequest,
+	impact model.DeleteGameImpact,
 	now int64,
-	result *DeleteGameResult,
+	result *model.DeleteGameResult,
 ) error {
 	releaseJob, err := repository.ScheduleGameDeletion(ctx, request.GameID, request.ExpectedVersion, now)
 	if err != nil {
@@ -146,7 +147,7 @@ func (service *Service) persistNewDelete(
 	if err := repository.TransitionDeletedGameRuntime(ctx, request.GameID, now); err != nil {
 		return fmt.Errorf("transition deleted game runtime: %w", err)
 	}
-	if err := repository.RecordDeleteGameAudit(ctx, DeleteGameAudit{
+	if err := repository.RecordDeleteGameAudit(ctx, model.DeleteGameAudit{
 		GameID: request.GameID,
 		Actor:  request.Actor,
 		Before: map[string]any{"status": "PUBLISHED"},
@@ -158,7 +159,7 @@ func (service *Service) persistNewDelete(
 	}); err != nil {
 		return fmt.Errorf("record deleted game audit: %w", err)
 	}
-	response := DeleteGameResponse{
+	response := model.DeleteGameResponse{
 		GameID: request.GameID, Status: "DELETED", PayloadState: "RELEASING",
 		PayloadReleaseJobID: &releaseJob,
 	}
@@ -177,7 +178,7 @@ func (service *Service) persistNewDelete(
 	return nil
 }
 
-func encodeDeleteGameResponse(response DeleteGameResponse, etag string) ([]byte, string, error) {
+func encodeDeleteGameResponse(response model.DeleteGameResponse, etag string) ([]byte, string, error) {
 	body, err := json.Marshal(response)
 	if err != nil {
 		return nil, "", fmt.Errorf("encode deleted game response: %w", err)
@@ -196,14 +197,14 @@ func encodeDeleteGameResponse(response DeleteGameResponse, etag string) ([]byte,
 
 func storeDeleteGameReplay(
 	ctx context.Context,
-	repository DeleteGameWriter,
-	request DeleteGameRequest,
+	repository model.DeleteGameWriter,
+	request model.DeleteGameRequest,
 	status int,
 	headers string,
 	body []byte,
 	now int64,
 ) error {
-	if err := repository.StoreDeleteGameReplay(ctx, DeleteGameReplayWrite{
+	if err := repository.StoreDeleteGameReplay(ctx, model.DeleteGameReplayWrite{
 		PrincipalID: request.PrincipalID, Key: request.Key, RequestDigest: request.RequestDigest,
 		HTTPStatus: status, HeadersJSON: headers, Body: body,
 		CreatedAtMS: now, ExpiresAtMS: now + deleteReplayRetention.Milliseconds(),
@@ -213,7 +214,7 @@ func storeDeleteGameReplay(
 	return nil
 }
 
-func deleteGameAuditImpact(impact DeleteGameImpact) map[string]any {
+func deleteGameAuditImpact(impact model.DeleteGameImpact) map[string]any {
 	return map[string]any{
 		"registeredBytes":    impact.RegisteredBytes,
 		"exclusiveBytes":     impact.ExclusiveBytes,

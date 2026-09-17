@@ -5,12 +5,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	model "retrom/internal/model/maintenance"
 	"strings"
 	"testing"
 )
 
 func TestBundleManifestRejectsTrailingJSON(t *testing.T) {
-	lineage := Lineage{Version: 13, Digest: strings.Repeat("a", 64)}
+	lineage := model.Lineage{Version: 13, Digest: strings.Repeat("a", 64)}
 	manifest := Manifest{SchemaVersion: 2, DatabaseSchemaVersion: lineage.Version, MigrationLineageDigest: lineage.Digest}
 	data, err := json.Marshal(manifest)
 	if err != nil {
@@ -27,7 +28,7 @@ func TestBundleManifestRejectsTrailingJSON(t *testing.T) {
 				if err != nil {
 					t.Fatalf("valid trailing whitespace: %v", err)
 				}
-			} else if !errors.Is(err, ErrInvalidBundle) {
+			} else if !errors.Is(err, model.ErrInvalidBundle) {
 				t.Fatalf("trailing JSON accepted: %v", err)
 			}
 		})
@@ -35,14 +36,14 @@ func TestBundleManifestRejectsTrailingJSON(t *testing.T) {
 }
 
 func TestReferencedFilesRejectInvalidDigestsAndEscapingKeys(t *testing.T) {
-	for _, snapshot := range []Snapshot{
-		{Blobs: []Blob{{SHA256: "short", SizeBytes: 1}}},
-		{Blobs: []Blob{{SHA256: strings.Repeat("X", 64), SizeBytes: 1}}},
-		{Blobs: []Blob{{SHA256: strings.Repeat("a", 64), SizeBytes: -1}}},
-		{Parts: []UploadPart{{StorageKey: "../private", SHA256: strings.Repeat("a", 64), SizeBytes: 1}}},
-		{Parts: []UploadPart{{StorageKey: "tmp/uploads/nested", SHA256: strings.Repeat("a", 64), SizeBytes: 1}}},
+	for _, snapshot := range []model.Snapshot{
+		{Blobs: []model.Blob{{SHA256: "short", SizeBytes: 1}}},
+		{Blobs: []model.Blob{{SHA256: strings.Repeat("X", 64), SizeBytes: 1}}},
+		{Blobs: []model.Blob{{SHA256: strings.Repeat("a", 64), SizeBytes: -1}}},
+		{Parts: []model.UploadPart{{StorageKey: "../private", SHA256: strings.Repeat("a", 64), SizeBytes: 1}}},
+		{Parts: []model.UploadPart{{StorageKey: "tmp/uploads/nested", SHA256: strings.Repeat("a", 64), SizeBytes: 1}}},
 	} {
-		if _, err := referencedFiles(snapshot); !errors.Is(err, ErrInvalidBundle) {
+		if _, err := referencedFiles(snapshot); !errors.Is(err, model.ErrInvalidBundle) {
 			t.Fatalf("invalid references accepted: %+v %v", snapshot, err)
 		}
 	}

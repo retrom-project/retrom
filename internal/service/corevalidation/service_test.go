@@ -3,13 +3,14 @@ package corevalidation
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/corevalidation"
 	"testing"
 
 	"retrom/internal/capability/content/corevalidation"
 )
 
 type biosMemory struct {
-	records []BIOSRecord
+	records []model.BIOSRecord
 	reads   int
 }
 
@@ -17,7 +18,7 @@ func (memory *biosMemory) Catalog(context.Context, string, string) ([]corevalida
 	return nil, nil
 }
 
-func (memory *biosMemory) BIOS(context.Context, string, string) ([]BIOSRecord, error) {
+func (memory *biosMemory) BIOS(context.Context, string, string) ([]model.BIOSRecord, error) {
 	memory.reads++
 	return memory.records, nil
 }
@@ -37,7 +38,7 @@ func TestBIOSRulesRunWithoutDatabase(t *testing.T) {
 		{name: "missing entries advisory", mode: "REQUIRED", status: stringValue("MISSING_ENTRY"), blob: stringValue("blob"), want: "READY"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			memory := &biosMemory{records: []BIOSRecord{{Dependency: corevalidation.BIOSDependency{
+			memory := &biosMemory{records: []model.BIOSRecord{{Dependency: corevalidation.BIOSDependency{
 				BIOSCatalogEntry:   corevalidation.BIOSCatalogEntry{RequirementID: "bios", RequirementMode: test.mode},
 				InstallationStatus: test.status, BlobID: test.blob,
 			}}}}
@@ -51,7 +52,7 @@ func TestBIOSRulesRunWithoutDatabase(t *testing.T) {
 
 func TestInapplicableBIOSOptionsAreNotParsed(t *testing.T) {
 	t.Parallel()
-	memory := &biosMemory{records: []BIOSRecord{{Dependency: corevalidation.BIOSDependency{
+	memory := &biosMemory{records: []model.BIOSRecord{{Dependency: corevalidation.BIOSDependency{
 		BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{ConditionCode: stringValue("PCE_CD_CONTENT"), RequirementMode: "REQUIRED"},
 	}, ActivationOptions: stringValue("invalid-json")}}}
 	snapshot, status, _, err := New(memory).ResolveBIOS(t.Context(), "provider", "target", "cartridge.pce")

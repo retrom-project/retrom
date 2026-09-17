@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
 

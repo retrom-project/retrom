@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 

@@ -12,7 +12,8 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/integration/libraryimport"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
-	"retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -36,7 +37,7 @@ func (f *fixture) emulationStationSource(t *testing.T, file libraryimport.Server
 	service.Start()
 	t.Cleanup(service.Close)
 	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, service, f.now)
-	created, err := service.Create(f.ctx, emulationstationimport.CreateRequest{RootID: "games"}, adminID)
+	created, err := service.Create(f.ctx, emulationstationimportmodel.CreateRequest{RootID: "games"}, adminID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +46,7 @@ func (f *fixture) emulationStationSource(t *testing.T, file libraryimport.Server
 	if err != nil || len(collections) != 1 {
 		t.Fatalf("collections: %#v %v", collections, err)
 	}
-	mapped, err := service.UpdateMappings(f.ctx, created.ID, scanned.Version, []emulationstationimport.Mapping{{
+	mapped, err := service.UpdateMappings(f.ctx, created.ID, scanned.Version, []emulationstationimportmodel.Mapping{{
 		CollectionID: collections[0].ID, Action: "IMPORT", TagIDs: []string{}, PlatformInstanceID: testsupport.MustPlatformInstanceID(t, f.db, "nes/fceumm"),
 	}})
 	if err != nil {
@@ -62,7 +63,7 @@ func (f *fixture) emulationStationSource(t *testing.T, file libraryimport.Server
 	return created.ID, itemID
 }
 
-func waitForES(t *testing.T, f *fixture, service *emulationstationimport.Service, id string, states ...string) emulationstationimport.Summary {
+func waitForES(t *testing.T, f *fixture, service *emulationstationimportservice.Service, id string, states ...string) emulationstationimportmodel.Summary {
 	t.Helper()
 	// The product clock is fixed; only wait for the worker to finish its deterministic filesystem work.
 	for range 250 {
@@ -81,5 +82,5 @@ func waitForES(t *testing.T, f *fixture, service *emulationstationimport.Service
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("source worker did not finish within 2.5 seconds")
-	return emulationstationimport.Summary{}
+	return emulationstationimportmodel.Summary{}
 }

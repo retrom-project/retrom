@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	model "retrom/internal/model/maintenance"
 	"sort"
 	"strings"
 	"syscall"
@@ -20,7 +21,7 @@ import (
 	"retrom/internal/foundation/cleanup"
 )
 
-func validateBundle(root string, lineage Lineage) (Manifest, error) {
+func validateBundle(root string, lineage model.Lineage) (Manifest, error) {
 	manifest, err := loadBundleManifest(root, lineage)
 	if err != nil {
 		return Manifest{}, err
@@ -38,12 +39,12 @@ func validateBundle(root string, lineage Lineage) (Manifest, error) {
 	return manifest, nil
 }
 
-func loadBundleManifest(root string, lineage Lineage) (Manifest, error) {
+func loadBundleManifest(root string, lineage model.Lineage) (Manifest, error) {
 	contents, err := os.ReadFile(
 		filepath.Join(root, "backup.json"),
 	)
 	if err != nil || len(contents) > 16<<20 {
-		return Manifest{}, ErrInvalidBundle
+		return Manifest{}, model.ErrInvalidBundle
 	}
 	var manifest Manifest
 	decoder := json.NewDecoder(strings.NewReader(string(contents)))
@@ -53,10 +54,10 @@ func loadBundleManifest(root string, lineage Lineage) (Manifest, error) {
 		manifest.Counts.FileCount != int64(len(manifest.Files)) ||
 		manifest.Counts.DependencyVersionCount != int64(len(manifest.DependencyVersions)) ||
 		len(manifest.DependencyManifests) != len(manifest.DependencyVersions) {
-		return Manifest{}, ErrInvalidBundle
+		return Manifest{}, model.ErrInvalidBundle
 	}
 	if err := decoder.Decode(new(json.RawMessage)); !errors.Is(err, io.EOF) {
-		return Manifest{}, ErrInvalidBundle
+		return Manifest{}, model.ErrInvalidBundle
 	}
 	return manifest, nil
 }
@@ -76,14 +77,14 @@ func validateManifestFiles(manifest Manifest) (map[string]FileEntry, error) {
 	previous := ""
 	for _, entry := range manifest.Files {
 		if err := validateManifestEntry(entry, previous, manifest, seen, folded, &inventory); err != nil {
-			return nil, ErrInvalidBundle
+			return nil, model.ErrInvalidBundle
 		}
 		previous = entry.Path
 		expected[entry.Path] = entry
 	}
 	if inventory.databaseCount != 1 || inventory.launchKeys != 1 || inventory.netplayKeys != 1 ||
 		inventory.blobs != manifest.Counts.BlobCount || inventory.parts != manifest.Counts.UploadPartCount {
-		return nil, ErrInvalidBundle
+		return nil, model.ErrInvalidBundle
 	}
 	return expected, nil
 }
@@ -96,14 +97,14 @@ func validateManifestEntry(
 	inventory *manifestInventory,
 ) error {
 	if !safeManifestPath(entry.Path) || entry.Mode != "0600" || len(entry.SHA256) != 64 || entry.Path <= previous {
-		return ErrInvalidBundle
+		return model.ErrInvalidBundle
 	}
 	fold := asciiFold(entry.Path)
 	if _, duplicate := seen[entry.Path]; duplicate {
-		return ErrInvalidBundle
+		return model.ErrInvalidBundle
 	}
 	if _, duplicate := folded[fold]; duplicate {
-		return ErrInvalidBundle
+		return model.ErrInvalidBundle
 	}
 	seen[entry.Path], folded[fold] = struct{}{}, struct{}{}
 	return validateManifestEntryKind(entry, manifest, inventory)
@@ -129,7 +130,7 @@ func validateManifestEntryKind(entry FileEntry, manifest Manifest, inventory *ma
 	case "DEPENDENCY_MANIFEST", "DEPENDENCY_SHA256SUMS":
 		return requireManifestEntry(strings.HasPrefix(entry.Path, "dependencies/emulatorjs/"))
 	default:
-		return ErrInvalidBundle
+		return model.ErrInvalidBundle
 	}
 }
 
@@ -148,7 +149,7 @@ func validateSecretManifestEntry(entry FileEntry, expectedPath string) error {
 
 func requireManifestEntry(valid bool) error {
 	if !valid {
-		return ErrInvalidBundle
+		return model.ErrInvalidBundle
 	}
 	return nil
 }
@@ -164,16 +165,16 @@ func validateBundleTree(root string, expected map[string]FileEntry) error {
 			return fmt.Errorf("maintenance/bundle: %w", err)
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return ErrInvalidBundle
+			return model.ErrInvalidBundle
 		}
 		if item.IsDir() {
 			if info.Mode().Perm() != 0o700 {
-				return ErrInvalidBundle
+				return model.ErrInvalidBundle
 			}
 			return nil
 		}
 		if !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
-			return ErrInvalidBundle
+			return model.ErrInvalidBundle
 		}
 		relative, _ := filepath.Rel(root, path)
 		relative = filepath.ToSlash(relative)
@@ -183,16 +184,16 @@ func validateBundleTree(root string, expected map[string]FileEntry) error {
 		}
 		entry, ok := expected[relative]
 		if !ok {
-			return ErrInvalidBundle
+			return model.ErrInvalidBundle
 		}
 		digest, size, err := digestRegular(path)
 		if err != nil || digest != entry.SHA256 || size != entry.SizeBytes {
-			return ErrInvalidBundle
+			return model.ErrInvalidBundle
 		}
 		return nil
 	})
 	if err != nil || len(actual) != len(expected)+1 {
-		return ErrInvalidBundle
+		return model.ErrInvalidBundle
 	}
 	return nil
 }
@@ -202,7 +203,7 @@ func validateDependencyEvidence(manifest Manifest, expected map[string]FileEntry
 		if evidence.Version != manifest.DependencyVersions[index] ||
 			expected[evidence.ManifestPath].SHA256 != evidence.ManifestSHA256 ||
 			expected[evidence.SHA256SumsPath].SHA256 != evidence.SHA256SumsSHA256 {
-			return ErrInvalidBundle
+			return model.ErrInvalidBundle
 		}
 	}
 	return nil
@@ -298,7 +299,7 @@ func copyVerified(source, target, relative, kind, expected string) (FileEntry, e
 	closeErr := output.Close()
 	digest := hex.EncodeToString(hash.Sum(nil))
 	if copyErr != nil || syncErr != nil || closeErr != nil || expected != "" && digest != expected {
-		return FileEntry{}, ErrInvalidBundle
+		return FileEntry{}, model.ErrInvalidBundle
 	}
 	return FileEntry{Path: relative, Kind: kind, SizeBytes: size, SHA256: digest, Mode: "0600"}, nil
 }
@@ -306,7 +307,7 @@ func copyVerified(source, target, relative, kind, expected string) (FileEntry, e
 func openRegular(path string) (*os.File, error) {
 	info, err := os.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-		return nil, ErrInvalidBundle
+		return nil, model.ErrInvalidBundle
 	}
 	file, err := os.OpenFile(
 		path,
@@ -314,7 +315,7 @@ func openRegular(path string) (*os.File, error) {
 		0,
 	)
 	if err != nil {
-		return nil, ErrInvalidBundle
+		return nil, model.ErrInvalidBundle
 	}
 	return file, nil
 }

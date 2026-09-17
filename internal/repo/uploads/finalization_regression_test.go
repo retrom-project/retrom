@@ -12,13 +12,14 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
-	uploadservice "retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 )
 
 func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	entered, release := make(chan struct{}), make(chan struct{})
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobstore.Metadata, error) {
+	fixture.service = uploadsservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobstore.Metadata, error) {
 		close(entered)
 		<-release
 		return fixture.blobs.Put(reader)
@@ -48,7 +49,7 @@ func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 func TestFinalizationIOFailureAllowsSameJobRetry(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	failure := errors.New("temporary CAS write unavailable")
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(io.Reader) (blobstore.Metadata, error) {
+	fixture.service = uploadsservice.New(New(fixture.database), finalizationBlobs{put: func(io.Reader) (blobstore.Metadata, error) {
 		return blobstore.Metadata{}, failure
 	}}, fixture.root, finalizationNow)
 	job := fixture.complete(t, fixture.upload(t, []byte("bytes")))
@@ -64,7 +65,7 @@ func TestFinalizationIOFailureAllowsSameJobRetry(t *testing.T) {
 
 func TestFinalizationCorruptionRemovesOnlyFailedPart(t *testing.T) {
 	fixture := newFinalizationFixture(t)
-	data := append(bytes.Repeat([]byte{'x'}, int(uploadservice.PartSize)), []byte("bytes")...)
+	data := append(bytes.Repeat([]byte{'x'}, int(uploadsmodel.PartSize)), []byte("bytes")...)
 	session := fixture.upload(t, data)
 	var key string
 	if err := fixture.database.QueryRowContext(t.Context(), `SELECT storage_key FROM upload_parts WHERE upload_file_id=? AND part_no=1`, session.Files[0].ID).
@@ -81,7 +82,7 @@ func TestFinalizationCorruptionRemovesOnlyFailedPart(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := current.Files[0]
-	if !reflect.DeepEqual(file.Parts, []int{0}) || file.Received != uploadservice.PartSize {
+	if !reflect.DeepEqual(file.Parts, []int{0}) || file.Received != uploadsmodel.PartSize {
 		t.Fatalf("bad part still received or good part lost: parts=%v received=%d", file.Parts, file.Received)
 	}
 	fixture.put(t, current, 1, []byte("bytes"))

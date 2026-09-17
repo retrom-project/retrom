@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	repository "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/payloadrelease"
 )
 
 type ImmediateGCResult = application.ImmediateGCResult

@@ -3,15 +3,16 @@ package libraryimport
 import (
 	"encoding/json"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 	"time"
 )
 
-func esSourceOwnershipFixture() (SourceCreationIntent, SourceCreationSnapshot) {
+func esSourceOwnershipFixture() (model.SourceCreationIntent, model.SourceCreationSnapshot) {
 	intent, before := sourceOwnershipFixture()
-	intent.Kind = SourceOwnerEmulationStation
+	intent.Kind = model.SourceOwnerEmulationStation
 	before.Kind = intent.Kind
-	before.Frozen = SourceCreationFrozen{
+	before.Frozen = model.SourceCreationFrozen{
 		RootID: "root", RootDigest: "digest", RelativePath: "games", ActorUserID: "actor", TagSnapshotJSON: `[{"tagId":"a","name":"A"},{"tagId":"b","name":"B"}]`,
 		ContentKind: "SINGLE_FILE", CollectionID: "collection", MappingVersion: 1, MaxAttempts: 4, StartedAtMS: 1, ReleaseYearMax: 2033,
 	}
@@ -20,21 +21,21 @@ func esSourceOwnershipFixture() (SourceCreationIntent, SourceCreationSnapshot) {
 
 func TestOwnedSourceRequestUsesFrozenActorTagsAndContentMode(t *testing.T) {
 	_, before := esSourceOwnershipFixture()
-	request := OwnedServerSourceRequest{AssignedByUserID: "actor", TagIDs: []string{"b", "a"}, ContentMode: "STANDARD"}
+	request := model.OwnedServerSourceRequest{AssignedByUserID: "actor", TagIDs: []string{"b", "a"}, ContentMode: "STANDARD"}
 	if err := ValidateOwnedSourceRequest(before, request); err != nil {
 		t.Fatal(err)
 	}
-	cases := map[string]func(*OwnedServerSourceRequest){
-		"actor":        func(input *OwnedServerSourceRequest) { input.AssignedByUserID = "other" },
-		"missing tag":  func(input *OwnedServerSourceRequest) { input.TagIDs = []string{"a"} },
-		"repeated tag": func(input *OwnedServerSourceRequest) { input.TagIDs = []string{"a", "a", "b"} },
-		"mode":         func(input *OwnedServerSourceRequest) { input.ContentMode = "MULTI_DISC" },
+	cases := map[string]func(*model.OwnedServerSourceRequest){
+		"actor":        func(input *model.OwnedServerSourceRequest) { input.AssignedByUserID = "other" },
+		"missing tag":  func(input *model.OwnedServerSourceRequest) { input.TagIDs = []string{"a"} },
+		"repeated tag": func(input *model.OwnedServerSourceRequest) { input.TagIDs = []string{"a", "a", "b"} },
+		"mode":         func(input *model.OwnedServerSourceRequest) { input.ContentMode = "MULTI_DISC" },
 	}
 	for name, change := range cases {
 		t.Run(name, func(t *testing.T) {
 			input := request
 			change(&input)
-			if err := ValidateOwnedSourceRequest(before, input); !errors.Is(err, ErrInvalid) {
+			if err := ValidateOwnedSourceRequest(before, input); !errors.Is(err, model.ErrInvalid) {
 				t.Fatalf("err=%v", err)
 			}
 		})
@@ -49,21 +50,21 @@ func TestOwnedSourceRequestUsesFrozenActorTagsAndContentMode(t *testing.T) {
 func TestSourceOwnershipRechecksFrozenESPlanButAllowsLeaseRenewal(t *testing.T) {
 	intent, before := esSourceOwnershipFixture()
 	service := NewSourceOwnership(func() time.Time { return time.UnixMilli(10) })
-	fields := map[string]func(*SourceCreationFrozen){
-		"root":          func(frozen *SourceCreationFrozen) { frozen.RootID = "other" },
-		"digest":        func(frozen *SourceCreationFrozen) { frozen.RootDigest = "other" },
-		"relative path": func(frozen *SourceCreationFrozen) { frozen.RelativePath = "other" },
-		"actor":         func(frozen *SourceCreationFrozen) { frozen.ActorUserID = "other" },
-		"tags":          func(frozen *SourceCreationFrozen) { frozen.TagSnapshotJSON = "[]" },
-		"year":          func(frozen *SourceCreationFrozen) { frozen.ReleaseYearMax++ },
-		"mapping":       func(frozen *SourceCreationFrozen) { frozen.MappingVersion++ },
+	fields := map[string]func(*model.SourceCreationFrozen){
+		"root":          func(frozen *model.SourceCreationFrozen) { frozen.RootID = "other" },
+		"digest":        func(frozen *model.SourceCreationFrozen) { frozen.RootDigest = "other" },
+		"relative path": func(frozen *model.SourceCreationFrozen) { frozen.RelativePath = "other" },
+		"actor":         func(frozen *model.SourceCreationFrozen) { frozen.ActorUserID = "other" },
+		"tags":          func(frozen *model.SourceCreationFrozen) { frozen.TagSnapshotJSON = "[]" },
+		"year":          func(frozen *model.SourceCreationFrozen) { frozen.ReleaseYearMax++ },
+		"mapping":       func(frozen *model.SourceCreationFrozen) { frozen.MappingVersion++ },
 	}
 	for name, change := range fields {
 		t.Run(name, func(t *testing.T) {
 			after := before
 			change(&after.Frozen)
 			result, err := service.Revalidate(t.Context(), &sourceRecordsStub{snapshot: after}, intent, before, "target")
-			if !errors.Is(err, ErrVersionConflict) || result.ItemID != "" {
+			if !errors.Is(err, model.ErrVersionConflict) || result.ItemID != "" {
 				t.Fatalf("result=%+v err=%v", result, err)
 			}
 		})

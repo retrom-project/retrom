@@ -4,26 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 	"sort"
 )
 
 func CanonicalArcadeSnapshot(
 	ctx context.Context,
-	reader ArcadeRelationReader,
+	reader model.ArcadeRelationReader,
 	raw string,
 ) (ArcadeDraftSnapshot, error) {
 	snapshot, valid := ParseArcadeDraftSnapshot(raw)
 	if !valid {
-		return ArcadeDraftSnapshot{}, ErrInvalid
+		return ArcadeDraftSnapshot{}, model.ErrInvalid
 	}
 	nodes, cyclic, err := LoadArcadeClosure(ctx, reader, snapshot.DatVersionID, snapshot.Machine)
 	if err != nil {
 		return ArcadeDraftSnapshot{}, err
 	}
 	if cyclic {
-		return ArcadeDraftSnapshot{}, ErrInvalid
+		return ArcadeDraftSnapshot{}, model.ErrInvalid
 	}
-	byMachine := make(map[string]ArcadeClosureNode, len(nodes))
+	byMachine := make(map[string]model.ArcadeClosureNode, len(nodes))
 	for _, node := range nodes {
 		byMachine[node.Machine] = node
 	}
@@ -31,7 +32,7 @@ func CanonicalArcadeSnapshot(
 		dependency := &snapshot.Dependencies[index]
 		node, exists := byMachine[dependency.Machine]
 		if !exists || node.Kind != dependency.Kind {
-			return ArcadeDraftSnapshot{}, ErrInvalid
+			return ArcadeDraftSnapshot{}, model.ErrInvalid
 		}
 		dependency.RequiredBy = node.RequiredBy
 		dependency.Depth = node.Depth

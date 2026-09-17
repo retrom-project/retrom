@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/corevalidation"
 
 	"retrom/internal/capability/content/corevalidation"
 )
 
-type Service struct{ repository Repository }
+type Service struct{ repository model.Repository }
 
-func New(repository Repository) *Service { return &Service{repository: repository} }
+func New(repository model.Repository) *Service { return &Service{repository: repository} }
 
 func (service *Service) Catalog(
 	ctx context.Context,
@@ -39,7 +40,7 @@ func (service *Service) ResolveBIOS(
 
 // ResolveBIOSRecords evaluates a frozen catalog/installation snapshot without storage access.
 func ResolveBIOSRecords(
-	records []BIOSRecord,
+	records []model.BIOSRecord,
 	contentLogicalName string,
 ) (corevalidation.Snapshot, string, string, error) {
 	if contentLogicalName == "" {

@@ -2,6 +2,7 @@ package netplay
 
 import (
 	"context"
+	model "retrom/internal/model/netplay"
 )
 
 func (service *Service) ExpireRooms(ctx context.Context) error {
@@ -18,7 +19,7 @@ func (service *Service) Recover(ctx context.Context, reason string) error {
 	return nil
 }
 
-func (service *Service) Events(ctx context.Context, roomID string, after int64, limit int) ([]Event, error) {
+func (service *Service) Events(ctx context.Context, roomID string, after int64, limit int) ([]model.Event, error) {
 	events, err := service.components.Events.Events(ctx, roomID, after, limit)
 	if err != nil {
 		return nil, applicationError("read events", err)

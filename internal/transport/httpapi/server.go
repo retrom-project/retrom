@@ -45,11 +45,13 @@ import (
 	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/capability/runtime/runtimelaunch"
 	"retrom/internal/foundation/cursor"
+	accountsmodel "retrom/internal/model/accounts"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	favoritepersistence "retrom/internal/repo/favorites"
 	idempotencypersistence "retrom/internal/repo/idempotency"
 	mediapersistence "retrom/internal/repo/mediaaccess"
 	platformpersistence "retrom/internal/repo/platforminstance"
-	"retrom/internal/service/accounts"
+	accountsservice "retrom/internal/service/accounts"
 	biosservice "retrom/internal/service/bios"
 	catalogservice "retrom/internal/service/catalog"
 	diagnosticsservice "retrom/internal/service/diagnostics"
@@ -66,7 +68,7 @@ import (
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/jobs"
 	launchservice "retrom/internal/service/launch"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/mediaaccess"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/pegasusimport"
@@ -138,13 +140,13 @@ type Server struct {
 	rpgIsolation            *isolation.Service
 	favoriteService         *favorites.Service
 	tagService              *tagging.Service
-	reviewQueue             *libraryservice.ReviewQueue
-	reviewDetails           *libraryservice.ReviewDetails
-	reviewCoverUploads      *libraryservice.ReviewCoverUploads
-	reviewDiscards          *libraryservice.ReviewDiscards
-	reviewApprovals         *libraryservice.ReviewApprovals
-	reviewBulkQueries       *libraryservice.ReviewBulkQueries
-	importAdmissions        *libraryservice.ImportAdmissions
+	reviewQueue             *libraryimportservice.ReviewQueue
+	reviewDetails           *libraryimportservice.ReviewDetails
+	reviewCoverUploads      *libraryimportservice.ReviewCoverUploads
+	reviewDiscards          *libraryimportservice.ReviewDiscards
+	reviewApprovals         *libraryimportservice.ReviewApprovals
+	reviewBulkQueries       *libraryimportservice.ReviewBulkQueries
+	importAdmissions        *libraryimportservice.ImportAdmissions
 	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
@@ -159,7 +161,7 @@ type Server struct {
 	idempotencyQueueWaiters int
 	idempotencyQueueDrained *sync.Cond
 	authenticator           Authenticator
-	accounts                *accounts.Service
+	accounts                *accountsservice.Service
 	netplay                 *netplayservice.Service
 	diagnosticsService      *diagnosticsservice.Service
 	idempotencyService      *idempotencyservice.Service
@@ -214,7 +216,7 @@ func (server *Server) idempotencyRecords() *idempotencyservice.Service {
 }
 
 type Authenticator interface {
-	Authenticate(context.Context, string) (accounts.Session, error)
+	Authenticate(context.Context, string) (accountsmodel.Session, error)
 }
 
 func New(
@@ -224,7 +226,7 @@ func New(
 	blobs *blobstore.Store,
 	credentials *retromruntime.Credentials,
 	authenticator Authenticator,
-	accountService *accounts.Service,
+	accountService *accountsservice.Service,
 	now func() time.Time,
 	scummVMDetector ...*scummvm.Detector,
 ) *Server {
@@ -319,7 +321,7 @@ func New(
 	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now)
 	server.reviewBulkQueries = librarycomposition.NewReviewBulkQueries(database)
 	server.importAdmissions = composition.NewLibraryImportAdmissions(
-		database, importer, libraryservice.ImportAdmissionOptions{
+		database, importer, libraryimportmodel.ImportAdmissionOptions{
 			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
 		},
 	)

@@ -2,13 +2,14 @@ package saves
 
 import (
 	"encoding/json"
+	model "retrom/internal/model/saves"
 	"testing"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )
 
 func TestReviewCheckpointResultJSONUsesOpaqueProviderFormat(t *testing.T) {
-	result := ManualResult{
+	result := model.ManualResult{
 		ResourceKind:     "REVIEW_PREVIEW_CHECKPOINT",
 		PreviewID:        "01980000-0000-7000-8000-000000000001",
 		CheckpointFormat: "provider-checkpoint-v1",
@@ -22,7 +23,7 @@ func TestReviewCheckpointResultJSONUsesOpaqueProviderFormat(t *testing.T) {
 	if string(contents) != wanted {
 		t.Fatalf("validation checkpoint JSON=%s", contents)
 	}
-	var replayed ManualResult
+	var replayed model.ManualResult
 	if err := json.Unmarshal(contents, &replayed); err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +33,7 @@ func TestReviewCheckpointResultJSONUsesOpaqueProviderFormat(t *testing.T) {
 }
 
 func TestCheckpointMetadataAcceptsOnlyLaunchWriteFormat(t *testing.T) {
-	launch := Launch{Purpose: "PRODUCT", Checkpoint: runtimebundle.Checkpoint{WriteFormat: "opaque-v2"}}
+	launch := model.Launch{Purpose: "PRODUCT", Checkpoint: runtimebundle.Checkpoint{WriteFormat: "opaque-v2"}}
 	if !validMetadataForLaunch(manualMetadata{CheckpointFormat: "opaque-v2", Name: "slot"}, launch) {
 		t.Fatal("provider write format should be accepted without inspecting its payload")
 	}

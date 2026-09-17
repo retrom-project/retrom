@@ -4,20 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 	"sync"
 	"time"
 )
 
 type WorkerLeases interface {
-	Claim(context.Context) (Work, bool, error)
-	Renew(context.Context, ExecutionIdentity) error
+	Claim(context.Context) (model.Work, bool, error)
+	Renew(context.Context, model.ExecutionIdentity) error
 }
 type (
-	WorkerMaintenance  interface{ Maintain(context.Context) error }
-	WorkerExecutor     interface{ Execute(context.Context, Work) }
+	WorkerMaintenance interface{ Maintain(context.Context) error }
+	WorkerExecutor    interface {
+		Execute(context.Context, model.Work)
+	}
 	WorkerCancellation interface {
-		Cancelled(context.Context, ExecutionIdentity) (bool, error)
-		CloseCancelled(context.Context, ExecutionIdentity) (bool, error)
+		Cancelled(context.Context, model.ExecutionIdentity) (bool, error)
+		CloseCancelled(context.Context, model.ExecutionIdentity) (bool, error)
 	}
 )
 
@@ -128,7 +131,7 @@ func (worker *Worker) runMaintenance(ctx context.Context) {
 }
 
 func (worker *Worker) report(ctx context.Context, err error) {
-	if err == nil || ctx.Err() != nil || errors.Is(err, ErrVersionConflict) {
+	if err == nil || ctx.Err() != nil || errors.Is(err, model.ErrVersionConflict) {
 		return
 	}
 	if worker.dependencies.Report != nil {

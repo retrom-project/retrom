@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"retrom/internal/capability/runtime/runtimelaunch"
+	application "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 func configDraftFetch(t *testing.T, fixture reviewCheckpointFixture, created Created, preview bool) error {

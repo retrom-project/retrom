@@ -18,12 +18,13 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
+	uploadsmodel "retrom/internal/model/uploads"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	netplaypersistence "retrom/internal/repo/netplay"
 	uploadpersistence "retrom/internal/repo/uploads"
 	dependencyservice "retrom/internal/service/dependencies"
 	netplayservice "retrom/internal/service/netplay"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 	"retrom/internal/transport/netplay/profile"
 )
@@ -103,8 +104,8 @@ func publishNetplayROM(
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := uploads.New(uploadpersistence.New(database), blobs, dir, now)
-	upload, err := service.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{
+	service := uploadsservice.New(uploadpersistence.New(database), blobs, dir, now)
+	upload, err := service.Create(t.Context(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{
 		{ClientFileID: "game", RelativePath: "Netplay.nes", SizeBytes: int64(len(contents))},
 	}})
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	model "retrom/internal/model/emulationstationimport"
 	"time"
 )
 
@@ -15,7 +16,7 @@ var (
 
 // Run retains the persisted execution budget in the same clock domain as lease checks.
 // Monitors stop I/O; settlement independently rechecks the complete current authority.
-func (worker *Worker) Run(parent context.Context, unit Execution) {
+func (worker *Worker) Run(parent context.Context, unit model.Execution) {
 	if parent.Err() != nil {
 		return
 	}
@@ -25,7 +26,7 @@ func (worker *Worker) Run(parent context.Context, unit Execution) {
 		return
 	}
 	if remaining > math.MaxInt64/int64(time.Millisecond) {
-		worker.report(parent, ErrInvalid)
+		worker.report(parent, model.ErrInvalid)
 		return
 	}
 	bounded, cancelBudget := context.WithTimeoutCause(parent, time.Duration(remaining)*time.Millisecond, errWorkerDeadline)
@@ -50,7 +51,7 @@ func (worker *Worker) Run(parent context.Context, unit Execution) {
 	}
 }
 
-func (worker *Worker) checkExecution(ctx context.Context, unit Execution, cancel context.CancelCauseFunc) bool {
+func (worker *Worker) checkExecution(ctx context.Context, unit model.Execution, cancel context.CancelCauseFunc) bool {
 	state, err := worker.dependencies.Control.Observe(ctx, unit)
 	if err != nil {
 		worker.report(ctx, fmt.Errorf("observe EmulationStation execution owner: %w", err))
@@ -60,23 +61,23 @@ func (worker *Worker) checkExecution(ctx context.Context, unit Execution, cancel
 	return worker.observeState(ctx, state, cancel)
 }
 
-func (worker *Worker) observeState(ctx context.Context, state LeaseState, cancel context.CancelCauseFunc) bool {
+func (worker *Worker) observeState(ctx context.Context, state model.LeaseState, cancel context.CancelCauseFunc) bool {
 	switch state {
-	case LeaseActive:
+	case model.LeaseActive:
 		return ctx.Err() == nil
-	case LeaseCancelled:
+	case model.LeaseCancelled:
 		cancel(errWorkerCancellation)
-	case LeaseDeadline:
+	case model.LeaseDeadline:
 		cancel(errWorkerDeadline)
-	case LeaseLost:
-		cancel(ErrVersionConflict)
+	case model.LeaseLost:
+		cancel(model.ErrVersionConflict)
 	default:
-		cancel(ErrVersionConflict)
+		cancel(model.ErrVersionConflict)
 	}
 	return false
 }
 
-func (worker *Worker) monitor(ctx context.Context, unit Execution, cancel context.CancelCauseFunc) {
+func (worker *Worker) monitor(ctx context.Context, unit model.Execution, cancel context.CancelCauseFunc) {
 	poll := time.NewTicker(time.Second)
 	defer poll.Stop()
 	heartbeat := time.NewTicker(15 * time.Second)
@@ -100,7 +101,7 @@ func (worker *Worker) monitor(ctx context.Context, unit Execution, cancel contex
 	}
 }
 
-func (worker *Worker) renew(ctx context.Context, unit Execution, cancel context.CancelCauseFunc) bool {
+func (worker *Worker) renew(ctx context.Context, unit model.Execution, cancel context.CancelCauseFunc) bool {
 	state, err := worker.dependencies.Leases.Renew(ctx, unit)
 	if err != nil {
 		worker.report(ctx, fmt.Errorf("renew EmulationStation worker lease: %w", err))
@@ -110,7 +111,7 @@ func (worker *Worker) renew(ctx context.Context, unit Execution, cancel context.
 	return worker.observeState(ctx, state, cancel)
 }
 
-func (worker *Worker) finishCancellation(parent context.Context, unit Execution) {
+func (worker *Worker) finishCancellation(parent context.Context, unit model.Execution) {
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
 	defer cancel()
 	_, err := worker.dependencies.Control.CloseCancelled(cleanup, unit)
@@ -119,11 +120,11 @@ func (worker *Worker) finishCancellation(parent context.Context, unit Execution)
 	}
 }
 
-func (worker *Worker) finishDeadline(parent context.Context, unit Execution) {
+func (worker *Worker) finishDeadline(parent context.Context, unit model.Execution) {
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
 	defer cancel()
-	_, err := worker.dependencies.Control.Fail(cleanup, unit, ExecutionFailure{Code: "EMULATIONSTATION_EXECUTION_TIMEOUT"})
-	if errors.Is(err, ErrExpired) {
+	_, err := worker.dependencies.Control.Fail(cleanup, unit, model.ExecutionFailure{Code: "EMULATIONSTATION_EXECUTION_TIMEOUT"})
+	if errors.Is(err, model.ErrExpired) {
 		err = worker.dependencies.Maintenance.Maintain(cleanup)
 	}
 	if err != nil {

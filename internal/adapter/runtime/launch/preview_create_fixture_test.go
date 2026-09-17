@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
+	launchservice "retrom/internal/service/launch"
 )
 
 func (service *Service) CreateReviewPreview(
@@ -19,16 +20,16 @@ func (service *Service) CreateReviewPreview(
 	return result, nil
 }
 
-func (service *Service) previewCreator(repository application.PreviewCreationRepository) *application.PreviewCreator {
-	var provider application.PreviewProvider
+func (service *Service) previewCreator(repository launchmodel.PreviewCreationRepository) *launchservice.PreviewCreator {
+	var provider launchmodel.PreviewProvider
 	if service.runtimeBuilder != nil {
 		provider = service.runtimeBuilder
 	}
-	return application.NewPreviewCreator(repository, provider, application.PreviewEnvironment{
+	return launchservice.NewPreviewCreator(repository, provider, launchmodel.PreviewEnvironment{
 		Now: service.now, SignCapability: service.signPreviewCapability,
-		SignIsolation: func(id string) (application.IsolationTicket, error) {
+		SignIsolation: func(id string) (launchmodel.IsolationTicket, error) {
 			origin, ticket, hash, err := service.isolatedRuntimeTicket(id)
-			return application.IsolationTicket{Origin: origin, Ticket: ticket, Hash: hash}, err
+			return launchmodel.IsolationTicket{Origin: origin, Ticket: ticket, Hash: hash}, err
 		},
 	})
 }

@@ -1,6 +1,6 @@
 package pegasusimport
 
-import application "retrom/internal/service/pegasusimport"
+import application "retrom/internal/model/pegasusimport"
 
 var (
 	ErrNotFound        = application.ErrNotFound

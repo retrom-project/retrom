@@ -71,10 +71,10 @@ func (resolver *ReviewDraftValidationResolver) ResolveSelected(
 	ctx context.Context, request ReviewDraftSelectedValidationRequest,
 ) (application.ReviewValidationPlan, error) {
 	if request.ValidationID == "" {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	if resolver.selected == nil {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	state, err := resolver.load(ctx, request.ItemID, request.TargetPlatformInstanceID, request.DefaultDOSEntry)
 	if err != nil {
@@ -85,7 +85,7 @@ func (resolver *ReviewDraftValidationResolver) ResolveSelected(
 		return application.ReviewValidationPlan{}, fmt.Errorf("read selected review validation: %w", err)
 	}
 	if !found || !state.selectedRecordMatches(record) {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	state.setRecord(record)
 	dependencyState, err := state.resolveDependencyState()
@@ -94,7 +94,7 @@ func (resolver *ReviewDraftValidationResolver) ResolveSelected(
 	}
 	state.dependencyState = dependencyState
 	if state.sourceStatus != "READY" || !state.exactValidationCurrent() || !state.dependenciesCurrent() {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	return state.plan(record.ID), nil
 }
@@ -108,29 +108,29 @@ func (resolver *ReviewDraftValidationResolver) SelectScummVM(
 	}
 	if state.contentKind != scummvm.ContentKind || state.providerID != "retrom-runtime" ||
 		state.runtimeTargetID != "scummvm" {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	_, current, err := state.loadExact()
 	if err != nil {
 		return application.ReviewValidationPlan{}, err
 	}
 	if !current || state.sourceID == "" {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	snapshot, err := scummvm.ParseSnapshot(state.dependencySnapshot)
 	if err != nil || snapshot.Detection.SourceDigest != state.effectiveManifestDigest {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	selected, err := snapshot.Select(request.CandidateID)
 	if err != nil {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	if selected.SelectedCandidateID == snapshot.SelectedCandidateID {
 		return state.plan(state.sourceID), nil
 	}
 	encoded, err := json.Marshal(selected)
 	if err != nil {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	state.dependencySnapshot = string(encoded)
 	state.sourceStatus, state.compatibilityCode = selected.Status()
@@ -250,7 +250,7 @@ func (state *draftValidationState) dependenciesCurrent() bool {
 }
 
 func (state *draftValidationState) exactValidationCurrent() bool {
-	return PrepublishDigestMatches(state.sourceInputDigest, PrepublishDigestInput{
+	return application.PrepublishDigestMatches(state.sourceInputDigest, application.PrepublishDigestInput{
 		SchemaVersion: 1, SourceSnapshotID: state.effectiveSnapshotID,
 		SourceManifestDigest: state.sourceManifestDigest, ContentKind: state.contentKind,
 		TargetPlatformInstanceID: state.targetID, ProviderID: state.providerID,
@@ -285,7 +285,7 @@ func (state *draftValidationState) resolveDependencyState() (draftDependencyStat
 	if state.contentKind == scummvm.ContentKind {
 		snapshot, err := scummvm.ParseSnapshot(state.dependencySnapshot)
 		if err != nil || snapshot.Detection.SourceDigest != state.effectiveManifestDigest {
-			return draftDependencyState{}, ErrInvalid
+			return draftDependencyState{}, application.ErrInvalid
 		}
 		status, code := snapshot.Status()
 		return draftDependencyState{tracked: true, status: status, code: code, snapshotJSON: state.dependencySnapshot}, nil
@@ -307,7 +307,7 @@ func (state *draftValidationState) resolveRPGDependencyState() (draftDependencyS
 	if state.rpgOverride != nil {
 		profile.SelfContainedOverride = *state.rpgOverride
 	}
-	dependencies, err := ResolveRPGReviewDependencies(profile)
+	dependencies, err := application.ResolveRPGReviewDependencies(profile)
 	if err != nil {
 		return draftDependencyState{}, err
 	}
@@ -400,7 +400,7 @@ func (state *draftValidationState) newValidationPlan() (application.ReviewValida
 		PlatformInstanceVersion: state.platformVersion, CoreID: state.coreID,
 		ProviderID: state.providerID, TargetID: state.runtimeTargetID, DATVersionID: state.datID,
 		DefaultDOSEntry: state.dosEntry, SourceManifestDigest: state.effectiveManifestDigest,
-		SourceSnapshotID: state.effectiveSnapshotID, PrepublishInputDigest: PrepublishDigest(PrepublishDigestInput{
+		SourceSnapshotID: state.effectiveSnapshotID, PrepublishInputDigest: application.PrepublishDigest(application.PrepublishDigestInput{
 			SchemaVersion: 1, SourceSnapshotID: state.effectiveSnapshotID,
 			SourceManifestDigest: state.effectiveManifestDigest, ContentKind: state.contentKind,
 			TargetPlatformInstanceID: state.targetID, ProviderID: state.providerID, TargetID: state.runtimeTargetID,

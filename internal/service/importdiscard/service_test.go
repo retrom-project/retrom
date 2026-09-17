@@ -3,6 +3,7 @@ package importdiscard
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/importdiscard"
 	"testing"
 	"time"
 )
@@ -10,29 +11,29 @@ import (
 const batchID = "01980000-0000-7000-8000-000000009981"
 
 type memoryRecords struct {
-	Reader
-	batch       Batch
-	disposition *Disposition
-	requests    []Request
+	model.Reader
+	batch       model.Batch
+	disposition *model.Disposition
+	requests    []model.Request
 	fail        error
 }
 
-func (records *memoryRecords) Batch(context.Context, Key) (Batch, error) {
+func (records *memoryRecords) Batch(context.Context, model.Key) (model.Batch, error) {
 	return records.batch, records.fail
 }
 
-func (records *memoryRecords) Disposition(context.Context, Key) (Disposition, bool, error) {
+func (records *memoryRecords) Disposition(context.Context, model.Key) (model.Disposition, bool, error) {
 	if records.disposition == nil {
-		return Disposition{}, false, nil
+		return model.Disposition{}, false, nil
 	}
 	return *records.disposition, true, nil
 }
 
-func (records *memoryRecords) Request(_ context.Context, request Request) error {
+func (records *memoryRecords) Request(_ context.Context, request model.Request) error {
 	records.requests = append(records.requests, request)
 	return records.fail
 }
-func (records *memoryRecords) Progress(context.Context, Progress) error { return records.fail }
+func (records *memoryRecords) Progress(context.Context, model.Progress) error { return records.fail }
 
 type memoryRepository struct {
 	records               *memoryRecords
@@ -40,31 +41,31 @@ type memoryRepository struct {
 	readCount, writeCount int
 }
 
-func (repository *memoryRepository) WithRead(_ context.Context, work func(Reader) error) error {
+func (repository *memoryRepository) WithRead(_ context.Context, work func(model.Reader) error) error {
 	repository.readCount++
 	return work(repository.records)
 }
 
-func (repository *memoryRepository) CommitRecoverOwnership(context.Context, RecoverOwnershipCommand) error {
+func (repository *memoryRepository) CommitRecoverOwnership(context.Context, model.RecoverOwnershipCommand) error {
 	repository.writeCount++
 	return nil
 }
 
-func (repository *memoryRepository) CommitDiscardSourceItems(context.Context, DiscardSourceItemsCommand) (bool, error) {
+func (repository *memoryRepository) CommitDiscardSourceItems(context.Context, model.DiscardSourceItemsCommand) (bool, error) {
 	repository.writeCount++
 	return true, nil
 }
 
-func (repository *memoryRepository) CommitRequestDiscard(_ context.Context, cmd RequestDiscardCommand) (Status, error) {
+func (repository *memoryRepository) CommitRequestDiscard(_ context.Context, cmd model.RequestDiscardCommand) (model.Status, error) {
 	repository.writeCount++
 	if repository.beforeWrite != nil {
 		repository.beforeWrite()
 	}
 	batch, err := repository.records.Batch(nil, cmd.Key)
 	if err != nil {
-		return Status{}, err
+		return model.Status{}, err
 	}
-	result := Status{Kind: cmd.Key.Kind, ImportID: cmd.Key.ID, State: "UNAVAILABLE"}
+	result := model.Status{Kind: cmd.Key.Kind, ImportID: cmd.Key.ID, State: "UNAVAILABLE"}
 	if available(cmd.Key.Kind, batch) {
 		result.State = "AVAILABLE"
 	}
@@ -73,30 +74,30 @@ func (repository *memoryRepository) CommitRequestDiscard(_ context.Context, cmd 
 		result.ErrorCode = repository.records.disposition.ErrorCode
 	}
 	if result.State == "UNAVAILABLE" {
-		return Status{}, ErrInvalid
+		return model.Status{}, model.ErrInvalid
 	}
 	if result.State != "AVAILABLE" && result.State != "FAILED" {
 		return result, nil
 	}
 	if repository.records.fail != nil {
-		return Status{}, repository.records.fail
+		return model.Status{}, repository.records.fail
 	}
-	repository.records.requests = append(repository.records.requests, Request{Key: cmd.Key, UserID: cmd.UserID, AuditID: "test-audit", Now: cmd.NowMS})
-	return Status{Kind: cmd.Key.Kind, ImportID: cmd.Key.ID, State: "REQUESTED"}, nil
+	repository.records.requests = append(repository.records.requests, model.Request{Key: cmd.Key, UserID: cmd.UserID, AuditID: "test-audit", Now: cmd.NowMS})
+	return model.Status{Kind: cmd.Key.Kind, ImportID: cmd.Key.ID, State: "REQUESTED"}, nil
 }
 
-func (repository *memoryRepository) CommitProgress(context.Context, Progress) error {
+func (repository *memoryRepository) CommitProgress(context.Context, model.Progress) error {
 	repository.writeCount++
 	return repository.records.fail
 }
 
 func TestRequestUsesCurrentWriteSnapshotAndPreservesFailure(t *testing.T) {
-	records := &memoryRecords{batch: Batch{Started: true, State: "RUNNING"}}
+	records := &memoryRecords{batch: model.Batch{Started: true, State: "RUNNING"}}
 	repository := &memoryRepository{records: records, beforeWrite: func() {
-		records.batch = Batch{Started: true, State: "COMPLETED", ItemCounts: map[string]int64{"PUBLISHED": 1}}
+		records.batch = model.Batch{Started: true, State: "COMPLETED", ItemCounts: map[string]int64{"PUBLISHED": 1}}
 	}}
 	service := New(repository, nil, nil, func() time.Time { return time.UnixMilli(17) })
-	if _, err := service.Request(t.Context(), "IMPORT", batchID, "user"); !errors.Is(err, ErrInvalid) {
+	if _, err := service.Request(t.Context(), "IMPORT", batchID, "user"); !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("stale availability: %v", err)
 	}
 	if repository.readCount != 0 || repository.writeCount != 1 || len(records.requests) != 0 {
@@ -114,11 +115,11 @@ func TestExistingDispositionControlsRequestReplay(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			code := "IMPORT_BATCH_DISCARD_RELEASE_FAILED"
 			records := &memoryRecords{
-				batch: Batch{
+				batch: model.Batch{
 					Started: true,
 					State:   "COMPLETED",
 				},
-				disposition: &Disposition{
+				disposition: &model.Disposition{
 					State:     state,
 					ErrorCode: &code,
 				},
@@ -148,17 +149,17 @@ func TestExistingDispositionControlsRequestReplay(t *testing.T) {
 func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 	tests := []struct {
 		name, kind string
-		batch      Batch
+		batch      model.Batch
 		want       bool
 	}{
-		{"not started", "PEGASUS", Batch{State: "QUEUED"}, false},
-		{"scan", "PEGASUS", Batch{Started: true, State: "SCANNING"}, false},
-		{"mapping", "EMULATIONSTATION", Batch{Started: true, State: "AWAITING_MAPPING"}, false},
-		{"active import", "IMPORT", Batch{Started: true, State: "RUNNING"}, true},
+		{"not started", "PEGASUS", model.Batch{State: "QUEUED"}, false},
+		{"scan", "PEGASUS", model.Batch{Started: true, State: "SCANNING"}, false},
+		{"mapping", "EMULATIONSTATION", model.Batch{Started: true, State: "AWAITING_MAPPING"}, false},
+		{"active import", "IMPORT", model.Batch{Started: true, State: "RUNNING"}, true},
 		{
 			"retained rejections",
 			"IMPORT",
-			Batch{
+			model.Batch{
 				Started:          true,
 				State:            "COMPLETED",
 				Rejected:         2,
@@ -170,7 +171,7 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		{
 			"released rejections",
 			"IMPORT",
-			Batch{
+			model.Batch{
 				Started:          true,
 				State:            "COMPLETED",
 				Rejected:         2,
@@ -182,7 +183,7 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		{
 			"source decided",
 			"PEGASUS",
-			Batch{
+			model.Batch{
 				Started: true,
 				State:   "COMPLETED",
 				ItemCounts: map[string]int64{
@@ -196,7 +197,7 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		{
 			"source blocked",
 			"EMULATIONSTATION",
-			Batch{
+			model.Batch{
 				Started: true,
 				State:   "PARTIAL_FAILURE",
 				ItemCounts: map[string]int64{
@@ -208,7 +209,7 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		{
 			"import review",
 			"IMPORT",
-			Batch{
+			model.Batch{
 				Started: true,
 				State:   "REVIEW_PENDING",
 				ItemCounts: map[string]int64{
@@ -233,16 +234,16 @@ func TestProgressDoesNotMarkFailuresCompleted(t *testing.T) {
 		code string
 	}{
 		{errors.New("storage failed"), "IMPORT_BATCH_DISCARD_FAILED"},
-		{ErrReleaseFailed, "IMPORT_BATCH_DISCARD_RELEASE_FAILED"},
-		{ErrAmbiguousOwner, "IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS"},
+		{model.ErrReleaseFailed, "IMPORT_BATCH_DISCARD_RELEASE_FAILED"},
+		{model.ErrAmbiguousOwner, "IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS"},
 	}
 	for _, test := range tests {
-		result := progressFor(Key{Kind: "IMPORT", ID: batchID}, true, test.err, 17)
+		result := progressFor(model.Key{Kind: "IMPORT", ID: batchID}, true, test.err, 17)
 		if result.State != "FAILED" || result.CompletedAt != nil || result.ErrorCode == nil || *result.ErrorCode != test.code {
 			t.Fatalf("failure progress=%+v", result)
 		}
 	}
-	result := progressFor(Key{Kind: "IMPORT", ID: batchID}, true, nil, 17)
+	result := progressFor(model.Key{Kind: "IMPORT", ID: batchID}, true, nil, 17)
 	if result.State != "COMPLETED" || result.CompletedAt == nil || *result.CompletedAt != 17 {
 		t.Fatalf("completion=%+v", result)
 	}

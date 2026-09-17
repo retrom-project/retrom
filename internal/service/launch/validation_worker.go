@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	model "retrom/internal/model/launch"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,13 +17,13 @@ import (
 // ValidationWorker owns one complete attempt; evaluation uses a read snapshot and
 // every write is fenced by the execution, attempt and unique worker identity.
 type ValidationWorker struct {
-	repository  ValidationWorkerRepository
-	environment ValidationWorkerEnvironment
+	repository  model.ValidationWorkerRepository
+	environment model.ValidationWorkerEnvironment
 }
 
 func NewValidationWorker(
-	repository ValidationWorkerRepository,
-	environment ValidationWorkerEnvironment,
+	repository model.ValidationWorkerRepository,
+	environment model.ValidationWorkerEnvironment,
 ) *ValidationWorker {
 	if environment.Now == nil {
 		environment.Now = time.Now
@@ -31,7 +32,7 @@ func NewValidationWorker(
 		environment.NewID = newProductID
 	}
 	if environment.NewTicker == nil {
-		environment.NewTicker = func(period time.Duration) ValidationTicker {
+		environment.NewTicker = func(period time.Duration) model.ValidationTicker {
 			return validationRealTicker{time.NewTicker(period)}
 		}
 	}
@@ -68,7 +69,7 @@ func (service *ValidationWorker) Run(ctx context.Context, id string) error {
 	defer stopEvaluation(context.Canceled)
 	monitor := service.monitor(evaluation, claim, stopEvaluation)
 	facts, err := service.repository.Facts(evaluation, claim.Snapshot.Inputs)
-	var outcome ValidationOutcome
+	var outcome model.ValidationOutcome
 	if err == nil {
 		outcome, err = EvaluateValidation(claim.Snapshot.Inputs, facts)
 	}
@@ -82,10 +83,10 @@ func (service *ValidationWorker) Run(ctx context.Context, id string) error {
 	return nil
 }
 
-func (service *ValidationWorker) claim(ctx context.Context, id string) (ValidationClaim, bool, error) {
-	var claim ValidationClaim
+func (service *ValidationWorker) claim(ctx context.Context, id string) (model.ValidationClaim, bool, error) {
+	var claim model.ValidationClaim
 	claimed := false
-	err := service.repository.WithWorker(ctx, func(scope ValidationWorkerScope) error {
+	err := service.repository.WithWorker(ctx, func(scope model.ValidationWorkerScope) error {
 		work, found, err := scope.Jobs.Read(ctx, id)
 		if err != nil {
 			return validationStageError("validation operation", err)
@@ -95,7 +96,7 @@ func (service *ValidationWorker) claim(ctx context.Context, id string) (Validati
 			return nil
 		}
 		if validationExhausted(work, now) {
-			return scope.Jobs.Recover(ctx, ValidationRecovery{Before: work, NowMS: now, Terminal: true})
+			return scope.Jobs.Recover(ctx, model.ValidationRecovery{Before: work, NowMS: now, Terminal: true})
 		}
 		plan, err := service.claimPlan(work, now)
 		if err != nil {
@@ -118,14 +119,14 @@ func (service *ValidationWorker) claim(ctx context.Context, id string) (Validati
 
 // Decode only after claiming, so corrupt input can settle the owned attempt.
 // Preserve the parser's concrete error together with the stable input category.
-func decodeWorkerSnapshot(claim *ValidationClaim) error {
+func decodeWorkerSnapshot(claim *model.ValidationClaim) error {
 	if err := json.Unmarshal([]byte(claim.Job.SnapshotJSON), &claim.Snapshot); err != nil {
 		return fmt.Errorf("%w: decode validation snapshot: %w", ErrValidationInput, err)
 	}
 	return validateWorkerSnapshot(*claim)
 }
 
-func validateWorkerSnapshot(claim ValidationClaim) error {
+func validateWorkerSnapshot(claim model.ValidationClaim) error {
 	work, snapshot := claim.Job, claim.Snapshot
 	digest := sha256.Sum256([]byte(work.SnapshotJSON))
 	if snapshot.SchemaVersion != 1 || snapshot.Kind != "VARIANT_VALIDATE" || work.ScopeType != "GAME_VARIANT" ||
@@ -141,19 +142,19 @@ func validateWorkerSnapshot(claim ValidationClaim) error {
 	return validationStageError("validation operation", err)
 }
 
-func ownsValidationWork(current ValidationWork, claim ValidationClaim, now int64) bool {
+func ownsValidationWork(current model.ValidationWork, claim model.ValidationClaim, now int64) bool {
 	return validationOwnerError(current, claim, now) == nil
 }
 
-func validationOwnerError(current ValidationWork, claim ValidationClaim, now int64) error {
+func validationOwnerError(current model.ValidationWork, claim model.ValidationClaim, now int64) error {
 	if !sameValidationAttempt(current, claim.Job) {
-		return ErrValidationOwnership
+		return model.ErrValidationOwnership
 	}
 	if current.LeaseMS == nil || current.DeadlineMS == nil || claim.Job.DeadlineMS == nil {
 		return ErrValidationInput
 	}
 	if !equalValidationTime(current.StartedMS, claim.Job.StartedMS) || *current.DeadlineMS != *claim.Job.DeadlineMS {
-		return ErrValidationOwnership
+		return model.ErrValidationOwnership
 	}
 	if *current.DeadlineMS <= now {
 		return context.DeadlineExceeded
@@ -166,18 +167,18 @@ func validationOwnerError(current ValidationWork, claim ValidationClaim, now int
 
 func (service *ValidationWorker) settle(
 	ctx context.Context,
-	claim ValidationClaim,
-	before ValidationFacts,
-	outcome ValidationOutcome,
+	claim model.ValidationClaim,
+	before model.ValidationFacts,
+	outcome model.ValidationOutcome,
 ) error {
-	err := service.repository.WithWorker(ctx, func(scope ValidationWorkerScope) error {
+	err := service.repository.WithWorker(ctx, func(scope model.ValidationWorkerScope) error {
 		current, found, err := scope.Jobs.Read(ctx, claim.Job.ID)
 		if err != nil {
 			return validationStageError("validation operation", err)
 		}
 		now := service.environment.Now().UnixMilli()
 		if !found {
-			return ErrValidationOwnership
+			return model.ErrValidationOwnership
 		}
 		if err := validationOwnerError(current, claim, now); err != nil {
 			return err
@@ -191,7 +192,7 @@ func (service *ValidationWorker) settle(
 		}
 		if err = scope.Variants.Apply(
 			ctx,
-			ValidationVariantWrite{Inputs: claim.Snapshot.Inputs, Outcome: outcome, NowMS: now},
+			model.ValidationVariantWrite{Inputs: claim.Snapshot.Inputs, Outcome: outcome, NowMS: now},
 		); err != nil {
 			return validationStageError("validation operation", err)
 		}
@@ -199,18 +200,18 @@ func (service *ValidationWorker) settle(
 		if outcome.Status == "READY" {
 			state = "SUCCEEDED"
 		}
-		return scope.Jobs.Finish(ctx, ValidationTerminal{Claim: claim, State: state, Code: code, NowMS: now, Evaluated: true})
+		return scope.Jobs.Finish(ctx, model.ValidationTerminal{Claim: claim, State: state, Code: code, NowMS: now, Evaluated: true})
 	})
 	return validationStageError("settle validation transaction", err)
 }
 
-func (service *ValidationWorker) fail(parent context.Context, claim ValidationClaim, cause error) error {
-	if errors.Is(cause, ErrValidationOwnership) {
+func (service *ValidationWorker) fail(parent context.Context, claim model.ValidationClaim, cause error) error {
+	if errors.Is(cause, model.ErrValidationOwnership) {
 		return cause
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
-	err := service.repository.WithWorker(ctx, func(scope ValidationWorkerScope) error {
+	err := service.repository.WithWorker(ctx, func(scope model.ValidationWorkerScope) error {
 		current, found, err := scope.Jobs.Read(ctx, claim.Job.ID)
 		if err != nil {
 			return validationStageError("validation operation", err)
@@ -228,7 +229,7 @@ func (service *ValidationWorker) fail(parent context.Context, claim ValidationCl
 		}
 		return scope.Jobs.Finish(
 			ctx,
-			ValidationTerminal{
+			model.ValidationTerminal{
 				Claim:     claim,
 				State:     state,
 				Code:      code,
@@ -240,7 +241,7 @@ func (service *ValidationWorker) fail(parent context.Context, claim ValidationCl
 	return errors.Join(cause, err)
 }
 
-func sameValidationAttempt(current, expected ValidationWork) bool {
+func sameValidationAttempt(current, expected model.ValidationWork) bool {
 	return current.Kind == expected.Kind &&
 		current.State == "RUNNING" &&
 		current.ID == expected.ID &&
@@ -271,7 +272,7 @@ func (service *ValidationWorker) Recover(ctx context.Context) ([]string, error) 
 
 func (service *ValidationWorker) recoverOne(ctx context.Context, id string) (bool, error) {
 	queued := false
-	err := service.repository.WithWorker(ctx, func(scope ValidationWorkerScope) error {
+	err := service.repository.WithWorker(ctx, func(scope model.ValidationWorkerScope) error {
 		current, found, err := scope.Jobs.Read(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read recovery execution: %w", err)
@@ -286,7 +287,7 @@ func (service *ValidationWorker) recoverOne(ctx context.Context, id string) (boo
 		}
 		exhausted := validationExhausted(current, now)
 		if stale || exhausted {
-			if err := scope.Jobs.Recover(ctx, ValidationRecovery{Before: current, NowMS: now, Terminal: exhausted}); err != nil {
+			if err := scope.Jobs.Recover(ctx, model.ValidationRecovery{Before: current, NowMS: now, Terminal: exhausted}); err != nil {
 				return fmt.Errorf("recover validation execution: %w", err)
 			}
 		}
@@ -296,17 +297,17 @@ func (service *ValidationWorker) recoverOne(ctx context.Context, id string) (boo
 	return queued, validationStageError("recover validation transaction", err)
 }
 
-func validationExhausted(work ValidationWork, now int64) bool {
+func validationExhausted(work model.ValidationWork, now int64) bool {
 	return work.Attempt >= work.MaxAttempts || work.DeadlineMS != nil && *work.DeadlineMS <= now
 }
 
-func (service *ValidationWorker) claimPlan(work ValidationWork, now int64) (ValidationClaimWrite, error) {
+func (service *ValidationWorker) claimPlan(work model.ValidationWork, now int64) (model.ValidationClaimWrite, error) {
 	if work.Version == math.MaxInt64 || now < 0 || now > math.MaxInt64-int64(validationBudget/time.Millisecond) {
-		return ValidationClaimWrite{}, ErrValidationInput
+		return model.ValidationClaimWrite{}, ErrValidationInput
 	}
 	worker, err := checkedValidationWorkerID(service.environment.NewID)
 	if err != nil {
-		return ValidationClaimWrite{}, err
+		return model.ValidationClaimWrite{}, err
 	}
 	started, deadline := now, now+int64(validationBudget/time.Millisecond)
 	if work.StartedMS != nil {
@@ -315,7 +316,7 @@ func (service *ValidationWorker) claimPlan(work ValidationWork, now int64) (Vali
 	if work.DeadlineMS != nil {
 		deadline = *work.DeadlineMS
 	}
-	return ValidationClaimWrite{
+	return model.ValidationClaimWrite{
 		Before: work, WorkerID: worker, NowMS: now, StartedMS: started, DeadlineMS: deadline,
 		LeaseMS: min(now+int64(validationLease/time.Millisecond), deadline),
 	}, nil

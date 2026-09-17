@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"encoding/json"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func legacyNullable[T any](value *T) any {

@@ -1,9 +1,12 @@
 package pegasusimport
 
-import application "retrom/internal/service/pegasusimport"
+import (
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
+)
 
 type (
-	scanResult      = application.ScanResult
-	scannedMetadata = application.ScanMetadata
-	scannedItem     = application.ScanItem
+	scanResult      = pegasusimportservice.ScanResult
+	scannedMetadata = pegasusimportmodel.ScanMetadata
+	scannedItem     = pegasusimportmodel.ScanItem
 )

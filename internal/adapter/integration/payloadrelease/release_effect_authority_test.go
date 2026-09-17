@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/testkit/testsupport"
 )
 

@@ -3,6 +3,7 @@ package gamecontent
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/gamecontent"
 	"slices"
 
 	"retrom/internal/capability/content/corevalidation"
@@ -12,12 +13,12 @@ import (
 
 func (service *Service) publish(
 	ctx context.Context,
-	claim Claim,
-	snapshot JobSnapshot,
-	prepared PreparedReplacement,
+	claim model.Claim,
+	snapshot model.JobSnapshot,
+	prepared model.PreparedReplacement,
 ) error {
 	now := service.now().UnixMilli()
-	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
 		binding, err := publicationBinding(ctx, scope, claim, snapshot, prepared, now)
 		if err != nil {
 			return err
@@ -32,7 +33,7 @@ func (service *Service) publish(
 		}
 		if err := scope.ContentWriter.Publish(
 			ctx,
-			Publication{
+			model.Publication{
 				JobID:                  claim.JobID,
 				Snapshot:               snapshot,
 				Prepared:               prepared,
@@ -45,7 +46,7 @@ func (service *Service) publish(
 		if err := service.gc.StageInScope(ctx, scope.Retirements.GC, impact.CandidateBlobIDs); err != nil {
 			return fmt.Errorf("stage replaced blob candidates: %w", err)
 		}
-		if err := scope.Jobs.Succeed(ctx, Outcome{
+		if err := scope.Jobs.Succeed(ctx, model.Outcome{
 			Claim: claim, GameID: snapshot.GameID, ManifestDigest: prepared.ManifestDigest,
 			VariantID: snapshot.VariantID, RetiredSaveCount: impact.SaveStateCount, Now: now,
 		}); err != nil {
@@ -67,10 +68,10 @@ func (service *Service) publish(
 
 func replacementDependencies(
 	ctx context.Context,
-	scope WriteScope,
-	snapshot JobSnapshot,
-	prepared PreparedReplacement,
-	binding Binding,
+	scope model.WriteScope,
+	snapshot model.JobSnapshot,
+	prepared model.PreparedReplacement,
+	binding model.Binding,
 ) ([]byte, error) {
 	if prepared.RPGMaker != nil {
 		return []byte(binding.DependencySnapshotJSON), nil
@@ -107,36 +108,36 @@ func replacementDependencies(
 
 func publicationBinding(
 	ctx context.Context,
-	scope WriteScope,
-	claim Claim,
-	snapshot JobSnapshot,
-	prepared PreparedReplacement,
+	scope model.WriteScope,
+	claim model.Claim,
+	snapshot model.JobSnapshot,
+	prepared model.PreparedReplacement,
 	now int64,
-) (Binding, error) {
+) (model.Binding, error) {
 	current, err := scope.Leases.Current(ctx, claim, now)
 	if err != nil {
-		return Binding{}, fmt.Errorf("check replacement ownership: %w", err)
+		return model.Binding{}, fmt.Errorf("check replacement ownership: %w", err)
 	}
 	if !current {
-		return Binding{}, ErrExecutionLost
+		return model.Binding{}, model.ErrExecutionLost
 	}
 	binding, err := scope.Content.Binding(ctx, snapshot.GameID)
 	if err != nil {
-		return Binding{}, fmt.Errorf("check current replacement binding: %w", err)
+		return model.Binding{}, fmt.Errorf("check current replacement binding: %w", err)
 	}
 	if !replacementBindingMatchesSnapshot(binding, snapshot) ||
 		pointerText(binding.DATID) != pointerText(snapshot.DATVersionID) {
-		return Binding{}, &replacementValidationError{code: "GAME_CONTENT_CHANGED"}
+		return model.Binding{}, &replacementValidationError{code: "GAME_CONTENT_CHANGED"}
 	}
 	identity, err := scope.Content.Identity(ctx, snapshot.GameID)
 	if err != nil {
-		return Binding{}, fmt.Errorf("read current replacement identity: %w", err)
+		return model.Binding{}, fmt.Errorf("read current replacement identity: %w", err)
 	}
 	if prepared.ContentKind == multidisc.ContentKind {
-		identity = slices.DeleteFunc(identity, func(file IdentityFile) bool { return file.Role != "DISC" })
+		identity = slices.DeleteFunc(identity, func(file model.IdentityFile) bool { return file.Role != "DISC" })
 	}
 	if slices.Equal(identity, preparedContentIdentity(prepared)) {
-		return Binding{}, &replacementValidationError{code: "GAME_CONTENT_UNCHANGED"}
+		return model.Binding{}, &replacementValidationError{code: "GAME_CONTENT_UNCHANGED"}
 	}
 	return binding, nil
 }

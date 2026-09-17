@@ -5,37 +5,38 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	model "retrom/internal/model/libraryimport"
 	"strings"
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/engine/scummvm"
-	"retrom/internal/service/importprogress"
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/importprogress"
+	"retrom/internal/model/tagging"
 )
 
 type reviewApprovalRun struct {
 	ctx                        context.Context
 	service                    *ReviewApprovals
-	scope                      ReviewApprovalScope
-	request                    ReviewApprovalRequest
-	head                       ReviewApprovalHead
-	metadata                   ApprovalMetadata
-	origin                     ApprovalOrigin
-	assets                     []ApprovalAsset
+	scope                      model.ReviewApprovalScope
+	request                    model.ReviewApprovalRequest
+	head                       model.ReviewApprovalHead
+	metadata                   model.ApprovalMetadata
+	origin                     model.ApprovalOrigin
+	assets                     []model.ApprovalAsset
 	screenshotIDs              []string
 	gameID, variantID, eventID string
 	now                        int64
 	screenshotOverride         bool
 	runtimeDependencyJSON      string
-	rpgProfile                 RPGReviewProfile
-	rpgDependencies            RPGReviewDependencies
-	publication                ApprovalPublication
+	rpgProfile                 model.RPGReviewProfile
+	rpgDependencies            model.RPGReviewDependencies
+	publication                model.ApprovalPublication
 	publishedTags              []tagging.Reference
-	duplicateGames             []DuplicateGame
+	duplicateGames             []model.DuplicateGame
 }
 
-func (run *reviewApprovalRun) result() ReviewApproved {
-	return ReviewApproved{GameID: run.gameID, EventID: run.eventID, Status: "PUBLISHED"}
+func (run *reviewApprovalRun) result() model.ReviewApproved {
+	return model.ReviewApproved{GameID: run.gameID, EventID: run.eventID, Status: "PUBLISHED"}
 }
 
 func (run *reviewApprovalRun) load() error {
@@ -45,11 +46,11 @@ func (run *reviewApprovalRun) load() error {
 	}
 	if !found || head.State != "REVIEW_PENDING" || head.DraftVersion != run.request.ExpectedVersion ||
 		head.SourceBusy {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if bulk := run.request.Bulk; bulk != nil && (head.ValidationStatus != "READY" ||
 		head.ValidationID != bulk.ValidationID || head.SourceSnapshotID != bulk.SourceSnapshotID) {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	run.head = head
 	return nil
@@ -57,14 +58,14 @@ func (run *reviewApprovalRun) load() error {
 
 func (run *reviewApprovalRun) prepare() error {
 	if !run.head.Policy.Supports(run.head.ContentKind) {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if err := json.Unmarshal([]byte(run.head.MetadataJSON), &run.metadata); err != nil {
 		return fmt.Errorf("decode approval metadata: %w", err)
 	}
 	run.metadata.Title = strings.TrimSpace(run.metadata.Title)
 	if run.metadata.Title == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	for _, step := range []func() error{run.prepareValidation, run.prepareOrigin, run.prepareAssets} {
 		if err := step(); err != nil {
@@ -84,7 +85,7 @@ func (run *reviewApprovalRun) prepareValidation() error {
 		return fmt.Errorf("read current approval validation: %w", err)
 	}
 	if !current {
-		return fmt.Errorf("approval validation is no longer current: %w", ErrInvalid)
+		return fmt.Errorf("approval validation is no longer current: %w", model.ErrInvalid)
 	}
 	run.runtimeDependencyJSON = run.head.DependencyJSON
 	if run.head.PlatformID == "rpgmaker" {
@@ -95,7 +96,7 @@ func (run *reviewApprovalRun) prepareValidation() error {
 	}
 	run.screenshotOverride = run.head.ValidationStatus != "READY" && run.head.ScreenshotID != nil
 	if !run.screenshotOverride {
-		return ValidateApprovalDependencies(run.ctx, run.scope.Dependencies, ApprovalDependencyInput{
+		return ValidateApprovalDependencies(run.ctx, run.scope.Dependencies, model.ApprovalDependencyInput{
 			SnapshotID: run.head.SourceSnapshotID, ValidationID: run.head.ValidationID,
 			PlatformID: run.head.PlatformID,
 			ProviderID: run.head.ProviderID, TargetID: run.head.TargetID, Policy: run.head.Policy,
@@ -111,15 +112,15 @@ func (run *reviewApprovalRun) prepareRPG() error {
 		return fmt.Errorf("read approval RPG profile: %w", err)
 	}
 	if !found {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
-	dependencies, err := ResolveRPGReviewDependencies(profile)
+	dependencies, err := model.ResolveRPGReviewDependencies(profile)
 	if err != nil {
 		return err
 	}
 	if dependencies.Status != "READY" || dependencies.SnapshotJSON != run.head.DependencyJSON ||
 		profile.DependencySHA256 != dependencies.Digest {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	run.rpgProfile, run.rpgDependencies = profile, dependencies
 	return nil
@@ -131,10 +132,10 @@ func (run *reviewApprovalRun) prepareScummVM() error {
 		return fmt.Errorf("decode approval ScummVM snapshot: %w", err)
 	}
 	if run.head.ValidationStatus != "READY" || snapshot.Detection.SourceDigest != run.head.SourceManifestDigest {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if _, err := snapshot.Selected(); err != nil {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return nil
 }
@@ -164,7 +165,7 @@ func (run *reviewApprovalRun) prepareScreenshotOverride() error {
 func (run *reviewApprovalRun) projectAggregate() error {
 	if run.head.ParentVersion < 1 || run.head.ParentVersion == math.MaxInt64 ||
 		run.head.Progress.Counts.ReviewPending < 1 {
-		return fmt.Errorf("approval parent cannot transition: %w", ErrInvalid)
+		return fmt.Errorf("approval parent cannot transition: %w", model.ErrInvalid)
 	}
 	progress := run.head.Progress
 	progress.Started = true
@@ -173,7 +174,7 @@ func (run *reviewApprovalRun) projectAggregate() error {
 	if err != nil {
 		return fmt.Errorf("project approved import progress: %w", err)
 	}
-	run.publication = ApprovalPublication{
+	run.publication = model.ApprovalPublication{
 		ItemID: run.request.ItemID, ImportID: run.head.ImportID, SnapshotID: run.head.SourceSnapshotID,
 		PlatformInstanceID: run.head.PlatformInstanceID, ExpectedDraftVersion: run.head.DraftVersion,
 		ExpectedParentVersion: run.head.ParentVersion, ExpectedPending: run.head.Progress.Counts.ReviewPending,
@@ -201,7 +202,7 @@ func (run *reviewApprovalRun) allocateIDs() error {
 }
 
 func (run *reviewApprovalRun) claimDuplicates() error {
-	duplicates := NewContentDuplicates(run.scope.Duplicates)
+	duplicates := model.NewContentDuplicates(run.scope.Duplicates)
 	digest, err := duplicates.Identity(run.ctx, run.request.ItemID)
 	if err != nil {
 		return fmt.Errorf("read approval content identity: %w", err)
@@ -216,10 +217,10 @@ func (run *reviewApprovalRun) claimDuplicates() error {
 	decision := run.request.Decision
 	if len(run.duplicateGames) > 0 && (decision.DuplicatePolicy != "ALLOW_NEW" ||
 		!SameApprovalDuplicateIDs(run.duplicateGames, decision.AcknowledgedGameIDs)) {
-		return &DuplicateConflict{ContentIdentityDigest: digest, Games: run.duplicateGames}
+		return &model.DuplicateConflict{ContentIdentityDigest: digest, Games: run.duplicateGames}
 	}
 	if len(run.duplicateGames) == 0 && decision.DuplicatePolicy != "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return nil
 }

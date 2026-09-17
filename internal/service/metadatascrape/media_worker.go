@@ -5,20 +5,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 	"time"
 
 	"retrom/internal/adapter/metadata/hasheous"
 )
 
 type MediaWorker struct {
-	repository MediaRepository
-	provider   MediaProvider
-	blobs      AssetBlobs
+	repository model.MediaRepository
+	provider   model.MediaProvider
+	blobs      model.AssetBlobs
 	now        func() time.Time
 }
 type mediaExecution struct {
-	Claim    MediaClaim
-	Asset    MediaAsset
+	Claim    model.MediaClaim
+	Asset    model.MediaAsset
 	Limit    int64
 	Acquired bool
 	Code     string
@@ -26,7 +27,7 @@ type mediaExecution struct {
 }
 
 func NewMediaWorker(
-	repository MediaRepository, provider MediaProvider, blobs AssetBlobs, now func() time.Time,
+	repository model.MediaRepository, provider model.MediaProvider, blobs model.AssetBlobs, now func() time.Time,
 ) *MediaWorker {
 	return &MediaWorker{repository: repository, provider: provider, blobs: blobs, now: now}
 }
@@ -45,7 +46,7 @@ func (worker *MediaWorker) Run(parent context.Context, id string) error {
 		return nil
 	}
 	if execution.Claim.Terminal {
-		return worker.settle(parent, execution, AssetPublication{}, execution.Code, execution.Cause)
+		return worker.settle(parent, execution, model.AssetPublication{}, execution.Code, execution.Cause)
 	}
 	remaining := time.Duration(execution.Claim.Deadline-worker.now().UnixMilli()) * time.Millisecond
 	ctx, timeout := context.WithTimeout(parent, remaining)
@@ -62,24 +63,24 @@ func (worker *MediaWorker) Run(parent context.Context, id string) error {
 	return worker.settle(parent, execution, publication, code, cause)
 }
 
-func (worker *MediaWorker) fetch(ctx context.Context, execution mediaExecution) (AssetPublication, string, error) {
+func (worker *MediaWorker) fetch(ctx context.Context, execution mediaExecution) (model.AssetPublication, string, error) {
 	var data hasheous.AssetData
 	cause := context.Cause(ctx)
 	if cause == nil {
 		data, cause = worker.provider.FetchAssetBounded(ctx, execution.Asset.Reference, execution.Limit)
 	}
 	if err := worker.account(ctx, execution, data.ReceivedBytes); err != nil {
-		return AssetPublication{}, "MEDIA_ACCOUNT_FAILED", errors.Join(cause, err)
+		return model.AssetPublication{}, "MEDIA_ACCOUNT_FAILED", errors.Join(cause, err)
 	}
 	cause = errors.Join(cause, context.Cause(ctx))
 	if cause != nil {
-		return AssetPublication{}, mediaErrorCode(cause), cause
+		return model.AssetPublication{}, mediaErrorCode(cause), cause
 	}
 	blob, err := worker.blobs.Put(bytes.NewReader(data.Bytes))
 	if err != nil {
-		return AssetPublication{}, "MEDIA_BLOB_FAILED", fmt.Errorf("store media bytes: %w", err)
+		return model.AssetPublication{}, "MEDIA_BLOB_FAILED", fmt.Errorf("store media bytes: %w", err)
 	}
-	publication := AssetPublication{
+	publication := model.AssetPublication{
 		ID: execution.Asset.ID, Blob: blob, MediaType: data.MediaType,
 		Width: data.Width, Height: data.Height,
 	}
@@ -95,17 +96,17 @@ func mediaErrorCode(cause error) string {
 
 func (worker *MediaWorker) account(parent context.Context, execution mediaExecution, received int64) error {
 	if received < 0 || received > execution.Limit {
-		return ErrMediaBudget
+		return model.ErrMediaBudget
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
-	err := worker.repository.CommitWrite(ctx, func(scope MediaScope) error {
+	err := worker.repository.CommitWrite(ctx, func(scope model.MediaScope) error {
 		snapshot, err := scope.Read.Snapshot(ctx, execution.Claim.JobID)
 		if err != nil {
 			return mediaError("read media byte owner", err)
 		}
 		if !mediaOwned(snapshot, execution.Claim) || snapshot.Asset.Reserved != execution.Limit {
-			return ErrExecutionLost
+			return model.ErrExecutionLost
 		}
 		if err := validateMediaInput(snapshot); err != nil {
 			return err

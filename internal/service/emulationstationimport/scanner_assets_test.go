@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 
 	"retrom/internal/adapter/files/mediaasset"
@@ -17,7 +18,7 @@ func TestScannerAssetFailuresKeepWarningPolicyExceptCancellation(t *testing.T) {
 			state string
 		}{
 			{name: "read", cause: ErrScanReadFailed, state: "READ_FAILED"},
-			{name: "changed", cause: ErrSourceChanged, state: "SOURCE_CHANGED"},
+			{name: "changed", cause: model.ErrSourceChanged, state: "SOURCE_CHANGED"},
 			{name: "invalid", cause: errors.New("invalid media"), state: "INVALID"},
 			{name: "cancel", cause: context.Canceled},
 			{name: "too large", cause: mediaasset.ErrVideoTooLarge, state: "TOO_LARGE"},

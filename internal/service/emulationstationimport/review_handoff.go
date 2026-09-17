@@ -4,27 +4,28 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 	"time"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 type ReviewHandoff struct {
-	repository ReviewHandoffRepository
-	metadata   ReviewMetadataSeeder
+	repository model.ReviewHandoffRepository
+	metadata   model.ReviewMetadataSeeder
 	now        func() time.Time
 }
 
 func NewReviewHandoff(
-	repository ReviewHandoffRepository,
-	metadata ReviewMetadataSeeder,
+	repository model.ReviewHandoffRepository,
+	metadata model.ReviewMetadataSeeder,
 	now func() time.Time,
 ) *ReviewHandoff {
 	return &ReviewHandoff{repository: repository, metadata: metadata, now: now}
 }
 
-func (service *ReviewHandoff) Complete(ctx context.Context, request ReviewHandoffRequest) error {
-	err := service.repository.WithReviewHandoff(ctx, func(scope ReviewHandoffScope) error {
+func (service *ReviewHandoff) Complete(ctx context.Context, request model.ReviewHandoffRequest) error {
+	err := service.repository.WithReviewHandoff(ctx, func(scope model.ReviewHandoffScope) error {
 		before, err := currentExecution(ctx, scope.Read, request.Execution)
 		if err != nil {
 			return err
@@ -38,13 +39,13 @@ func (service *ReviewHandoff) Complete(ctx context.Context, request ReviewHandof
 			return fmt.Errorf("read EmulationStation review reservation: %w", err)
 		}
 		if !found || !matchesReviewHandoff(review, request) {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if review.State == "REVIEW_PENDING" {
 			return nil
 		}
 		if review.State != "COPYING" && review.State != "VALIDATING" {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		preparation, err := reviewPreparation(review)
 		if err != nil {
@@ -53,7 +54,7 @@ func (service *ReviewHandoff) Complete(ctx context.Context, request ReviewHandof
 		return service.complete(
 			ctx,
 			scope,
-			ExecutionReviewCompletion{Before: before, Review: review, Preparation: preparation, NowMS: now},
+			model.ExecutionReviewCompletion{Before: before, Review: review, Preparation: preparation, NowMS: now},
 		)
 	})
 	if err != nil {
@@ -62,7 +63,7 @@ func (service *ReviewHandoff) Complete(ctx context.Context, request ReviewHandof
 	return nil
 }
 
-func matchesReviewHandoff(review ExecutionReview, request ReviewHandoffRequest) bool {
+func matchesReviewHandoff(review model.ExecutionReview, request model.ReviewHandoffRequest) bool {
 	if !validItemVersion(review.Version) || review.ItemID != request.ItemID ||
 		request.LibraryJobID == "" || request.LibraryItemID == "" ||
 		review.ReservedJobID != request.LibraryJobID || review.ReservedItemID != request.LibraryItemID {
@@ -76,8 +77,8 @@ func matchesReviewHandoff(review ExecutionReview, request ReviewHandoffRequest) 
 
 func (service *ReviewHandoff) complete(
 	ctx context.Context,
-	scope ReviewHandoffScope,
-	change ExecutionReviewCompletion,
+	scope model.ReviewHandoffScope,
+	change model.ExecutionReviewCompletion,
 ) error {
 	if err := scope.Write.Fence(ctx, change.Before, change.NowMS); err != nil {
 		return fmt.Errorf("fence EmulationStation metadata handoff: %w", err)

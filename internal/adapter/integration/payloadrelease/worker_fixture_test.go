@@ -3,9 +3,9 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 	"time"
-
-	application "retrom/internal/service/payloadrelease"
 )
 
 func (service *Service) claim(ctx context.Context) (claimedJob, bool, error) {
@@ -16,11 +16,11 @@ func (service *Service) claim(ctx context.Context) (claimedJob, bool, error) {
 	if !found {
 		return claimedJob{}, false, nil
 	}
-	input, err := application.DecodeWork(work)
+	input, err := payloadreleaseservice.DecodeWork(work)
 	if err != nil {
 		return claimedJob{}, false, fmt.Errorf("decode claimed release: %w", err)
 	}
-	return claimedWork(application.Execution{Work: work, Input: input}), true, nil
+	return claimedWork(payloadreleasemodel.Execution{Work: work, Input: input}), true, nil
 }
 
 func (service *Service) finish(ctx context.Context, job claimedJob, executionErr error) error {
@@ -29,4 +29,4 @@ func (service *Service) finish(ctx context.Context, job claimedJob, executionErr
 	}
 	return nil
 }
-func releaseRetryDelay(attempt int64) time.Duration { return application.RetryDelay(attempt) }
+func releaseRetryDelay(attempt int64) time.Duration { return payloadreleaseservice.RetryDelay(attempt) }

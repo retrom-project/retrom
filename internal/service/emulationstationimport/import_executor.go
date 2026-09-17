@@ -4,33 +4,34 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 )
 
 var ErrExecutionCancelled = errors.New("EmulationStation execution cancelled")
 
 type ImportItems interface {
-	Next(context.Context, Execution) (ExecutionItem, bool, error)
-	Finish(context.Context, Execution, string, ItemOutcome) error
+	Next(context.Context, model.Execution) (model.ExecutionItem, bool, error)
+	Finish(context.Context, model.Execution, string, model.ItemOutcome) error
 }
 type ImportMaterials interface {
-	Copy(context.Context, Execution, MaterialSource, VerifiedBlob) (string, error)
-	Warning(context.Context, Execution, MaterialSource, string) error
-	SetPhase(context.Context, Execution, string) error
+	Copy(context.Context, model.Execution, model.MaterialSource, model.VerifiedBlob) (string, error)
+	Warning(context.Context, model.Execution, model.MaterialSource, string) error
+	SetPhase(context.Context, model.Execution, string) error
 }
 type ImportSources interface {
-	CopyFile(context.Context, Execution, ExecutionFile) (VerifiedBlob, error)
-	CopyAsset(context.Context, Execution, ExecutionAsset) (VerifiedBlob, bool, error)
+	CopyFile(context.Context, model.Execution, model.ExecutionFile) (model.VerifiedBlob, error)
+	CopyAsset(context.Context, model.Execution, model.ExecutionAsset) (model.VerifiedBlob, bool, error)
 }
 type ImportReviews interface {
-	Resume(context.Context, Execution, ExecutionItem) (bool, error)
-	Create(context.Context, Execution, ExecutionItem) error
+	Resume(context.Context, model.Execution, model.ExecutionItem) (bool, error)
+	Create(context.Context, model.Execution, model.ExecutionItem) error
 }
 type ImportControl interface {
-	Observe(context.Context, Execution) (LeaseState, error)
-	CloseCancelled(context.Context, Execution) (bool, error)
+	Observe(context.Context, model.Execution) (model.LeaseState, error)
+	CloseCancelled(context.Context, model.Execution) (bool, error)
 }
 type ImportCompletion interface {
-	Finish(context.Context, Execution) error
+	Finish(context.Context, model.Execution) error
 }
 type FailureDiagnostics interface {
 	Sanitize(error) string
@@ -51,7 +52,7 @@ func NewImportExecutor(dependencies ImportExecutorDependencies) *ImportExecutor 
 	return &ImportExecutor{dependencies: dependencies}
 }
 
-func (executor *ImportExecutor) Execute(ctx context.Context, unit Execution) error {
+func (executor *ImportExecutor) Execute(ctx context.Context, unit model.Execution) error {
 	for {
 		if err := ctx.Err(); err != nil {
 			return fmt.Errorf("stop EmulationStation import: %w", err)
@@ -79,7 +80,7 @@ func (executor *ImportExecutor) Execute(ctx context.Context, unit Execution) err
 	}
 }
 
-func (executor *ImportExecutor) Process(ctx context.Context, unit Execution, item ExecutionItem) error {
+func (executor *ImportExecutor) Process(ctx context.Context, unit model.Execution, item model.ExecutionItem) error {
 	if err := executor.dependencies.Materials.SetPhase(ctx, unit, "COPYING_CONTENT"); err != nil {
 		return fmt.Errorf("set EmulationStation copying phase: %w", err)
 	}
@@ -106,22 +107,22 @@ func (executor *ImportExecutor) Process(ctx context.Context, unit Execution, ite
 	return nil
 }
 
-func (executor *ImportExecutor) check(ctx context.Context, unit Execution) error {
+func (executor *ImportExecutor) check(ctx context.Context, unit model.Execution) error {
 	state, err := executor.dependencies.Control.Observe(ctx, unit)
 	if err != nil {
 		return fmt.Errorf("observe EmulationStation import owner: %w", err)
 	}
 	switch state {
-	case LeaseActive:
+	case model.LeaseActive:
 		return nil
-	case LeaseCancelled:
+	case model.LeaseCancelled:
 		return ErrExecutionCancelled
-	case LeaseLost:
-		return ErrVersionConflict
-	case LeaseDeadline:
-		return ErrExpired
+	case model.LeaseLost:
+		return model.ErrVersionConflict
+	case model.LeaseDeadline:
+		return model.ErrExpired
 	default:
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 }
 
@@ -133,8 +134,8 @@ func importStopCause(ctx context.Context, err error) error {
 		context.Canceled,
 		context.DeadlineExceeded,
 		ErrExecutionCancelled,
-		ErrVersionConflict,
-		ErrExpired,
+		model.ErrVersionConflict,
+		model.ErrExpired,
 	} {
 		if errors.Is(err, stop) {
 			return err

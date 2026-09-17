@@ -24,7 +24,8 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/adapter/files/blobstore"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -47,7 +48,7 @@ func TestProjectReviewArchiveFormatRequiresValidatedTyranoScriptExecutableContex
 		if value, ok := test.stored.(string); ok {
 			storedFormat = &value
 		}
-		actualFormat := libraryservice.ProjectReviewArchiveFormat(test.contentKind, test.name, storedFormat)
+		actualFormat := libraryimportservice.ProjectReviewArchiveFormat(test.contentKind, test.name, storedFormat)
 		var actual any
 		if actualFormat != nil {
 			actual = *actualFormat
@@ -65,7 +66,7 @@ func TestReviewListRejectsMultipleSourceBatchFilters(t *testing.T) {
 		"importJobId":              {"01980000-0000-7000-8000-000000000001"},
 		"emulationStationImportId": {"01980000-0000-7000-8000-000000000002"},
 	}
-	_, err := libraryservice.NormalizeReviewQueueFilter(libraryservice.ReviewQueueFilter{
+	_, err := libraryimportservice.NormalizeReviewQueueFilter(libraryimportmodel.ReviewQueueFilter{
 		ImportJobID: values.Get("importJobId"), EmulationStationImportID: values.Get("emulationStationImportId"),
 	})
 	testassert.Truef(t, errors.Is(err, errInvalidReviewQuery), "error = %v", err)

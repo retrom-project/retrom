@@ -3,12 +3,13 @@ package launch
 import (
 	"context"
 
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
+	launchservice "retrom/internal/service/launch"
 )
 
-func (service *Service) validationWorker() *application.ValidationWorker {
-	return application.NewValidationWorker(persistence.NewValidationWorker(service.database), application.ValidationWorkerEnvironment{Now: service.now})
+func (service *Service) validationWorker() *launchservice.ValidationWorker {
+	return launchservice.NewValidationWorker(persistence.NewValidationWorker(service.database), launchmodel.ValidationWorkerEnvironment{Now: service.now})
 }
 
 func (service *Service) resumeValidationJob(ctx context.Context, id string) {

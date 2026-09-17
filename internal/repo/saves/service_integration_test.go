@@ -16,12 +16,11 @@ import (
 	"net/http"
 	"net/textproto"
 	"path/filepath"
+	savesservice "retrom/internal/service/saves"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
-
-	saveservice "retrom/internal/service/saves"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -40,6 +39,7 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
+	savesmodel "retrom/internal/model/saves"
 	"retrom/internal/repo/sessionstore"
 	"retrom/internal/repo/store"
 	"retrom/internal/testkit/testassert"
@@ -50,7 +50,7 @@ type saveFixture struct {
 	ctx         context.Context
 	database    *store.DB
 	blobs       *blobstore.Store
-	saves       *saveservice.Service
+	saves       *savesservice.Service
 	gameID      string
 	now         *time.Time
 	credentials *retromruntime.Credentials
@@ -224,7 +224,7 @@ NULL,
 		ctx:         ctx,
 		database:    database,
 		blobs:       blobs,
-		saves:       saveservice.New(New(database.SQL), blobs, clock),
+		saves:       savesservice.New(New(database.SQL), blobs, clock),
 		gameID:      gameID,
 		now:         &now,
 		credentials: credentials,
@@ -283,7 +283,7 @@ WHERE game.id=?
 	}
 }
 
-func manualRequest(t *testing.T, name string, state, screenshot []byte) saveservice.ManualUpload {
+func manualRequest(t *testing.T, name string, state, screenshot []byte) savesservice.ManualUpload {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -306,14 +306,14 @@ func manualRequest(t *testing.T, name string, state, screenshot []byte) saveserv
 	request, err := http.NewRequest(http.MethodPost, "/", &body)
 	testassert.False(t, err != nil, err)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	return saveservice.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
+	return savesservice.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
 }
 
-func validationRequest(t *testing.T, payload []byte) saveservice.ManualUpload {
+func validationRequest(t *testing.T, payload []byte) savesservice.ManualUpload {
 	return validationRequestMetadata(t, `{"checkpointFormat":"test-checkpoint-v1"}`, payload)
 }
 
-func validationRequestMetadata(t *testing.T, metadataJSON string, payload []byte) saveservice.ManualUpload {
+func validationRequestMetadata(t *testing.T, metadataJSON string, payload []byte) savesservice.ManualUpload {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -329,7 +329,7 @@ func validationRequestMetadata(t *testing.T, metadataJSON string, payload []byte
 	request, err := http.NewRequest(http.MethodPost, "/", &body)
 	testassert.False(t, err != nil, err)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	return saveservice.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
+	return savesservice.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
 }
 
 func makeTextHeader(name, filename, mediaType string) textproto.MIMEHeader {
@@ -390,7 +390,7 @@ WHERE s.id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replay.SaveStateID != result.SaveStateID }), "manual replay = %#v, replayed=%v, error=%v", replay, replayed, err)
 	if _, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(), manualRequest(t, "空状态", nil, screenshot)); !errors.Is(
 		err,
-		saveservice.ErrCheckpointInvalid,
+		savesmodel.ErrCheckpointInvalid,
 	) {
 		t.Fatalf("empty state error = %v", err)
 	}
@@ -513,7 +513,7 @@ UPDATE save_states SET checkpoint_format='unreadable-checkpoint-v1' WHERE id=?
 	}
 	if _, err := fixture.saves.StateDigest(
 		fixture.ctx, restored.LaunchID, restored.Capability,
-	); !errors.Is(err, saveservice.ErrCheckpointIncompatible) {
+	); !errors.Is(err, savesmodel.ErrCheckpointIncompatible) {
 		t.Fatalf("binding drift error=%v", err)
 	}
 }
@@ -523,7 +523,7 @@ func TestCheckpointRejectsDuplicateMetadataKeys(t *testing.T) {
 	created := fixture.createLaunch(t)
 	_, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(),
 		validationRequestMetadata(t, `{"checkpointFormat":"test-checkpoint-v1","checkpointFormat":"test-checkpoint-v1"}`, []byte("state")))
-	if !errors.Is(err, saveservice.ErrInvalid) {
+	if !errors.Is(err, savesmodel.ErrInvalid) {
 		t.Fatalf("duplicate metadata key: %v", err)
 	}
 }

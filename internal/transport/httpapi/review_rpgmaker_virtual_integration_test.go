@@ -22,7 +22,7 @@ import (
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	"retrom/internal/service/uploads"
+	"retrom/internal/model/uploads"
 	"retrom/internal/testkit/testassert"
 )
 

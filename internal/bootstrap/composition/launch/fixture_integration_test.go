@@ -21,11 +21,12 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	composition "retrom/internal/bootstrap/composition/launch"
 	"retrom/internal/foundation/cleanup"
+	uploadsmodel "retrom/internal/model/uploads"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	uploadpersistence "retrom/internal/repo/uploads"
 	dependencyservice "retrom/internal/service/dependencies"
 	application "retrom/internal/service/launch"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -96,8 +97,8 @@ func uploadAssemblyROM(t *testing.T, database *sql.DB, blobs *blobstore.Store, d
 	if err != nil {
 		t.Fatal(err)
 	}
-	uploader := uploads.New(uploadpersistence.New(database), blobs, dir, now)
-	upload, err := uploader.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "game", RelativePath: "Assembly.nes", SizeBytes: int64(len(contents))}}})
+	uploader := uploadsservice.New(uploadpersistence.New(database), blobs, dir, now)
+	upload, err := uploader.Create(t.Context(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{ClientFileID: "game", RelativePath: "Assembly.nes", SizeBytes: int64(len(contents))}}})
 	if err != nil {
 		t.Fatal(err)
 	}

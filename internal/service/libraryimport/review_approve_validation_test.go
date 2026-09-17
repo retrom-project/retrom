@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 
 	"retrom/internal/capability/content/contentcapability"
@@ -11,19 +12,19 @@ import (
 )
 
 type approvalValidationStub struct {
-	ReviewValidationReader
-	evidence ReviewValidationEvidence
+	model.ReviewValidationReader
+	evidence model.ReviewValidationEvidence
 	cause    error
 }
 
-func (stub approvalValidationStub) Evidence(context.Context, string) (ReviewValidationEvidence, error) {
+func (stub approvalValidationStub) Evidence(context.Context, string) (model.ReviewValidationEvidence, error) {
 	return stub.evidence, stub.cause
 }
 
-func approvalCurrentEvidence() ReviewValidationEvidence {
-	value := ReviewValidationEvidence{SourceSnapshotID: "snapshot", DraftSnapshotID: "snapshot", PlatformInstanceID: "platform", DraftPlatformInstanceID: "platform", CoreID: "core", CurrentCoreID: "core", ProviderID: "provider", TargetID: "target", ManifestDigest: "manifest", SnapshotManifestDigest: "manifest", ContentKind: "SINGLE_FILE", ContentPolicy: contentcapability.NewPolicy("SINGLE_FILE"), Status: "BLOCKED", CompatibilityCode: "BIOS_MISSING", DependencyJSON: `{"schemaVersion":1,"kind":"STATIC","bios":[]}`}
+func approvalCurrentEvidence() model.ReviewValidationEvidence {
+	value := model.ReviewValidationEvidence{SourceSnapshotID: "snapshot", DraftSnapshotID: "snapshot", PlatformInstanceID: "platform", DraftPlatformInstanceID: "platform", CoreID: "core", CurrentCoreID: "core", ProviderID: "provider", TargetID: "target", ManifestDigest: "manifest", SnapshotManifestDigest: "manifest", ContentKind: "SINGLE_FILE", ContentPolicy: contentcapability.NewPolicy("SINGLE_FILE"), Status: "BLOCKED", CompatibilityCode: "BIOS_MISSING", DependencyJSON: `{"schemaVersion":1,"kind":"STATIC","bios":[]}`}
 	input, _ := value.CurrentInput()
-	value.InputDigest = PrepublishDigest(input)
+	value.InputDigest = model.PrepublishDigest(input)
 	return value
 }
 
@@ -35,10 +36,10 @@ func TestReviewApprovalScreenshotStillRequiresCurrentValidation(t *testing.T) {
 		if stale {
 			reader.evidence.InputDigest = "stale"
 		}
-		run := reviewApprovalRun{ctx: t.Context(), scope: ReviewApprovalScope{Validation: reader}, head: ReviewApprovalHead{ValidationID: "validation", ValidationStatus: "BLOCKED", ScreenshotID: &screenshot, DependencyJSON: evidence.DependencyJSON}}
+		run := reviewApprovalRun{ctx: t.Context(), scope: model.ReviewApprovalScope{Validation: reader}, head: model.ReviewApprovalHead{ValidationID: "validation", ValidationStatus: "BLOCKED", ScreenshotID: &screenshot, DependencyJSON: evidence.DependencyJSON}}
 		err := run.prepareValidation()
 		if stale {
-			if !errors.Is(err, ErrInvalid) {
+			if !errors.Is(err, model.ErrInvalid) {
 				t.Fatalf("stale screenshot error=%v", err)
 			}
 		} else if err != nil || !run.screenshotOverride || run.runtimeDependencyJSON != evidence.DependencyJSON {
@@ -49,7 +50,7 @@ func TestReviewApprovalScreenshotStillRequiresCurrentValidation(t *testing.T) {
 
 func TestReviewApprovalCurrentValidationPreservesFailure(t *testing.T) {
 	cause := errors.New("current validation read failed")
-	run := reviewApprovalRun{ctx: t.Context(), scope: ReviewApprovalScope{Validation: approvalValidationStub{cause: cause}}}
+	run := reviewApprovalRun{ctx: t.Context(), scope: model.ReviewApprovalScope{Validation: approvalValidationStub{cause: cause}}}
 	if err := run.prepareValidation(); !errors.Is(err, cause) {
 		t.Fatal(err)
 	}
@@ -67,7 +68,7 @@ func TestReviewApprovalScreenshotDropsOnlyUnavailableExternalBIOS(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	run := reviewApprovalRun{head: ReviewApprovalHead{DependencyJSON: string(encoded)}}
+	run := reviewApprovalRun{head: model.ReviewApprovalHead{DependencyJSON: string(encoded)}}
 	if err := run.prepareScreenshotOverride(); err != nil {
 		t.Fatal(err)
 	}
@@ -77,14 +78,14 @@ func TestReviewApprovalScreenshotDropsOnlyUnavailableExternalBIOS(t *testing.T) 
 	}
 }
 
-func validApprovalDisc(ordinal int, size int64) ApprovalDisc {
+func validApprovalDisc(ordinal int, size int64) model.ApprovalDisc {
 	blob, name, index := "blob", "disc.chd", int64(ordinal)
-	return ApprovalDisc{Ordinal: ordinal, State: "PRESENT", LogicalName: name, BlobID: &blob, SourceBlobID: &blob, SourceLogicalName: &name, SourceOrdinal: &index, SizeBytes: &size}
+	return model.ApprovalDisc{Ordinal: ordinal, State: "PRESENT", LogicalName: name, BlobID: &blob, SourceBlobID: &blob, SourceLogicalName: &name, SourceOrdinal: &index, SizeBytes: &size}
 }
 
 func TestReviewApprovalDiscIdentityAndOverflow(t *testing.T) {
 	valid := validApprovalDisc(0, 8)
-	if total, err := approvalDiscTotal([]ApprovalDisc{valid, validApprovalDisc(1, 8)}); err != nil || total != 16 {
+	if total, err := approvalDiscTotal([]model.ApprovalDisc{valid, validApprovalDisc(1, 8)}); err != nil || total != 16 {
 		t.Fatalf("total=%d err=%v", total, err)
 	}
 	for _, name := range []string{"ordinal", "missing", "source ordinal", "source blob", "blob", "name", "size"} {
@@ -107,19 +108,19 @@ func TestReviewApprovalDiscIdentityAndOverflow(t *testing.T) {
 			case "size":
 				disc.SizeBytes = nil
 			}
-			if total, err := approvalDiscTotal([]ApprovalDisc{disc}); !errors.Is(err, ErrInvalid) || total != 0 {
+			if total, err := approvalDiscTotal([]model.ApprovalDisc{disc}); !errors.Is(err, model.ErrInvalid) || total != 0 {
 				t.Fatalf("total=%d err=%v", total, err)
 			}
 		})
 	}
-	if total, err := approvalDiscTotal([]ApprovalDisc{validApprovalDisc(0, math.MaxInt64), validApprovalDisc(1, 8)}); !errors.Is(err, ErrInvalid) || total != 0 {
+	if total, err := approvalDiscTotal([]model.ApprovalDisc{validApprovalDisc(0, math.MaxInt64), validApprovalDisc(1, 8)}); !errors.Is(err, model.ErrInvalid) || total != 0 {
 		t.Fatalf("overflow total=%d err=%v", total, err)
 	}
 }
 
 func TestReviewApprovalArcadeUsesDefaultBIOSAndExactRequiredROMs(t *testing.T) {
 	selected, other := "selected", "other"
-	requirements := ApprovalArcadeRequirements{DefaultBIOS: &selected, ROMs: []ApprovalArcadeROM{
+	requirements := model.ApprovalArcadeRequirements{DefaultBIOS: &selected, ROMs: []model.ApprovalArcadeROM{
 		{Name: "main", Status: "GOOD"},
 		{Name: "undumped", Status: "NODUMP"},
 		{Name: "bios", Status: "GOOD", BIOSName: &selected},

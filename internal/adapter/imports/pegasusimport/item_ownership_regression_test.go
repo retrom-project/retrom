@@ -4,8 +4,9 @@ import (
 	"errors"
 	"testing"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
 func TestReviewHandoffRejectsReplacedWorker(t *testing.T) {
@@ -23,8 +24,8 @@ func TestItemCompletionRejectsReplacedWorker(t *testing.T) {
 	t.Parallel()
 	service, unit, item := handoffFixture(t)
 	mustExecPegasusTest(t.Context(), t, service.database, `UPDATE jobs SET worker_id='new-worker' WHERE id='work'`)
-	err := application.NewItemWork(repository.NewItemWork(service.database), service.now).Finish(
-		t.Context(), unit.Identity(), item.ID, application.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true},
+	err := pegasusimportservice.NewItemWork(repository.NewItemWork(service.database), service.now).Finish(
+		t.Context(), unit.Identity(), item.ID, pegasusimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true},
 	)
 	if !errors.Is(err, ErrVersionConflict) {
 		t.Fatalf("replaced worker outcome error=%v", err)

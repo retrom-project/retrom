@@ -3,22 +3,23 @@ package libraryimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 	"strings"
 	"unicode/utf8"
 )
 
 func (service *ImportExecutions) CancelJob(
 	ctx context.Context,
-	request ImportJobCancellation,
-) (ImportCancellationResult, error) {
+	request model.ImportJobCancellation,
+) (model.ImportCancellationResult, error) {
 	request, err := normalizeImportCancellation(request)
 	if err != nil {
-		return ImportCancellationResult{}, err
+		return model.ImportCancellationResult{}, err
 	}
-	var result ImportCancellationResult
+	var result model.ImportCancellationResult
 	err = service.repository.WithExecution(
 		ctx,
-		func(scope ImportExecutionScope) error {
+		func(scope model.ImportExecutionScope) error {
 			before, found, err := scope.Records.Current(ctx, request.JobID)
 			if err != nil {
 				return fmt.Errorf("read import cancellation: %w", err)
@@ -27,7 +28,7 @@ func (service *ImportExecutions) CancelJob(
 				before.Creation.JobVersion != request.ExpectedVersion ||
 				!before.Cancellable ||
 				!importCancellable(before) {
-				return ErrVersionConflict
+				return model.ErrVersionConflict
 			}
 			now := service.now().UnixMilli()
 			change, err := importCancellationProjection(before, request.Reason, now)
@@ -43,7 +44,7 @@ func (service *ImportExecutions) CancelJob(
 					return err
 				}
 			}
-			result = ImportCancellationResult{
+			result = model.ImportCancellationResult{
 				JobID:       request.JobID,
 				State:       change.Job.State,
 				ExecutionNo: before.Creation.Execution.ExecutionNo,
@@ -54,18 +55,18 @@ func (service *ImportExecutions) CancelJob(
 		},
 	)
 	if err != nil {
-		return ImportCancellationResult{}, fmt.Errorf("cancel import job: %w", err)
+		return model.ImportCancellationResult{}, fmt.Errorf("cancel import job: %w", err)
 	}
 	return result, nil
 }
 
-func importCancellable(before ImportWorkerSnapshot) bool {
+func importCancellable(before model.ImportWorkerSnapshot) bool {
 	state := before.Creation.JobState
 	return state == "QUEUED" || state == "RUNNING" || state == "FAILED" && before.Retryable != nil && *before.Retryable
 }
 
 func (service *ImportExecutions) SyncCancellation(ctx context.Context, id string) error {
-	err := service.repository.WithExecution(ctx, func(scope ImportExecutionScope) error {
+	err := service.repository.WithExecution(ctx, func(scope model.ImportExecutionScope) error {
 		before, found, err := scope.Records.Current(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read cancelled import: %w", err)
@@ -83,8 +84,8 @@ func (service *ImportExecutions) SyncCancellation(ctx context.Context, id string
 
 func (service *ImportExecutions) syncCancelled(
 	ctx context.Context,
-	scope ImportExecutionScope,
-	before ImportWorkerSnapshot,
+	scope model.ImportExecutionScope,
+	before model.ImportWorkerSnapshot,
 	now int64,
 ) error {
 	if before.Creation.ImportState != "CANCELLED" {
@@ -102,13 +103,13 @@ func (service *ImportExecutions) syncCancelled(
 }
 
 func importCancellationProjection(
-	before ImportWorkerSnapshot,
+	before model.ImportWorkerSnapshot,
 	reason string,
 	now int64,
-) (ImportWorkerTransition, error) {
+) (model.ImportWorkerTransition, error) {
 	change, err := importCancelledTransition(before, reason, now)
 	if err != nil {
-		return ImportWorkerTransition{}, err
+		return model.ImportWorkerTransition{}, err
 	}
 	if before.Creation.JobState == "RUNNING" {
 		change.Job.Execution = before.Creation.Execution
@@ -126,17 +127,17 @@ func importCancellationProjection(
 		map[string]any{"state": change.Job.State, "reason": reason},
 	)
 	if err != nil {
-		return ImportWorkerTransition{}, err
+		return model.ImportWorkerTransition{}, err
 	}
 	change.Event = &event
 	return change, nil
 }
 
-func normalizeImportCancellation(request ImportJobCancellation) (ImportJobCancellation, error) {
+func normalizeImportCancellation(request model.ImportJobCancellation) (model.ImportJobCancellation, error) {
 	request.Reason = strings.TrimSpace(request.Reason)
 	if request.JobID == "" || request.ImportID == "" || request.ExpectedVersion < 1 || request.Reason == "" ||
 		utf8.RuneCountInString(request.Reason) > 500 {
-		return ImportJobCancellation{}, ErrInvalid
+		return model.ImportJobCancellation{}, model.ErrInvalid
 	}
 	return request, nil
 }

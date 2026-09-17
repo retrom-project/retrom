@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
-	accountservice "retrom/internal/service/accounts"
+	accountservice "retrom/internal/model/accounts"
 	"retrom/internal/testkit/testassert"
 
 	"github.com/google/uuid"

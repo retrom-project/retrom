@@ -66,6 +66,7 @@ type RoomControlScope struct {
 	Eligibility EligibilityRepository
 	BIOS        validation.Repository
 }
+
 // MutationCommand captures the validated room mutation envelope.
 type MutationCommand struct {
 	RoomID, ActorID string

@@ -3,27 +3,28 @@ package readiness
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/readiness"
 	"testing"
 )
 
 type repositoryStub struct {
-	status Status
+	status model.Status
 	err    error
 }
 
-func (stub repositoryStub) Check(context.Context) (Status, error) {
+func (stub repositoryStub) Check(context.Context) (model.Status, error) {
 	return stub.status, stub.err
 }
 
 func TestReasonMapsDependencyStates(t *testing.T) {
 	tests := []struct {
 		name   string
-		status Status
+		status model.Status
 		want   string
 	}{
 		{name: "ready", want: ""},
-		{name: "indexing", status: Status{Missing: 2}, want: "DEPENDENCY_INDEXING"},
-		{name: "parse failed", status: Status{Missing: 2, Failed: 1}, want: "DEPENDENCY_DAT_PARSE_FAILED"},
+		{name: "indexing", status: model.Status{Missing: 2}, want: "DEPENDENCY_INDEXING"},
+		{name: "parse failed", status: model.Status{Missing: 2, Failed: 1}, want: "DEPENDENCY_DAT_PARSE_FAILED"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

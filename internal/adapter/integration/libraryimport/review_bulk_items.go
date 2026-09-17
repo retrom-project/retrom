@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
 // ListReviewBulkItems is retained as a compatibility facade while the typed
@@ -17,11 +18,11 @@ func (service *Service) ListReviewBulkItems(
 	bulkID, outcome, cursor string,
 	limit int,
 ) (ReviewBulkItemPage, error) {
-	page, err := libraryservice.NewReviewBulkQueries(
+	page, err := libraryimportservice.NewReviewBulkQueries(
 		librarypersistence.BindReviewBulkQueries(service.database),
 	).Items(ctx, bulkID, outcome, cursor, limit)
 	if err != nil {
-		if errors.Is(err, libraryservice.ErrReviewBulkQuery) {
+		if errors.Is(err, libraryimportmodel.ErrReviewBulkQuery) {
 			return ReviewBulkItemPage{}, ErrReviewBulkConflict
 		}
 		return ReviewBulkItemPage{}, fmt.Errorf("libraryimport/review bulk items: %w", err)

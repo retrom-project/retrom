@@ -3,7 +3,7 @@ package platforminstance_test
 import (
 	"testing"
 
-	"retrom/internal/service/platforminstance"
+	"retrom/internal/model/platforminstance"
 )
 
 func TestPlayDirectoriesRequireManualCreation(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
-	accountservice "retrom/internal/service/accounts"
+	accountservice "retrom/internal/model/accounts"
 	"retrom/internal/testkit/testassert"
 
 	"github.com/google/uuid"

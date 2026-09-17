@@ -10,7 +10,7 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/mediaasset"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/launch"
+	application "retrom/internal/model/launch"
 )
 
 type screenshotImages struct{ blobs *blobstore.Store }

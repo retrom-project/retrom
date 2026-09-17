@@ -42,7 +42,6 @@ type Repository interface {
 	CommitRetry(context.Context, RetryCommand) (Result, error)
 }
 
-
 type Job struct {
 	Kind, ScopeType, ScopeID, State string
 	Cancellable, Retryable          bool

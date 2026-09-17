@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func TestOwnedESSourceRejectsChangedFrozenRequest(t *testing.T) {

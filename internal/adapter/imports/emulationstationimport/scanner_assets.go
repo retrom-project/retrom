@@ -9,44 +9,45 @@ import (
 	"retrom/internal/adapter/files/mediaasset"
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func (source scannerSource) Asset(
 	ctx context.Context,
-	file application.DiscoveredFile,
+	file emulationstationimportservice.DiscoveredFile,
 	kind string,
-) (application.ScanAssetInspection, error) {
+) (emulationstationimportservice.ScanAssetInspection, error) {
 	if err := ctx.Err(); err != nil {
-		return application.ScanAssetInspection{}, fmt.Errorf("inspect EmulationStation scan media: %w", err)
+		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf("inspect EmulationStation scan media: %w", err)
 	}
 	release, err := serversource.AcquireReader(ctx)
 	if err != nil {
-		return application.ScanAssetInspection{}, fmt.Errorf(
-			"acquire EmulationStation media reader: %w: %w", application.ErrScanReadFailed, err)
+		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf(
+			"acquire EmulationStation media reader: %w: %w", emulationstationimportservice.ErrScanReadFailed, err)
 	}
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(source.root.path, source.selectedPath, file.Path)
 	if err != nil {
-		return application.ScanAssetInspection{}, fmt.Errorf(
-			"open EmulationStation scan media: %w: %w", application.ErrSourceChanged, err)
+		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf(
+			"open EmulationStation scan media: %w: %w", emulationstationimportmodel.ErrSourceChanged, err)
 	}
 	defer func() { cleanup.Error("close", handle.Close()) }()
 	if before.Size() != file.Size || serversource.FactsDigest(before) != file.Facts {
-		return application.ScanAssetInspection{}, application.ErrSourceChanged
+		return emulationstationimportservice.ScanAssetInspection{}, emulationstationimportmodel.ErrSourceChanged
 	}
 	result, inspectErr := inspectScanAsset(ctx, handle, file.Size, kind)
 	after, statErr := handle.Stat()
 	if err := ctx.Err(); err != nil {
-		return application.ScanAssetInspection{}, fmt.Errorf(
+		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf(
 			"stop EmulationStation media inspection: %w", errors.Join(err, inspectErr, statErr))
 	}
 	if inspectErr != nil || statErr != nil {
-		return application.ScanAssetInspection{}, fmt.Errorf(
+		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf(
 			"inspect EmulationStation frozen media: %w", errors.Join(inspectErr, statErr))
 	}
 	if !serversource.SameFileFacts(before, after) {
-		return application.ScanAssetInspection{Changed: true}, nil
+		return emulationstationimportservice.ScanAssetInspection{Changed: true}, nil
 	}
 	return result, nil
 }
@@ -56,22 +57,22 @@ func inspectScanAsset(
 	handle io.ReadSeeker,
 	size int64,
 	kind string,
-) (application.ScanAssetInspection, error) {
+) (emulationstationimportservice.ScanAssetInspection, error) {
 	reader := scanReadSeeker{contextReader: contextReader{ctx: ctx, reader: handle}, seeker: handle}
 	if kind == "COVER" {
 		image, err := mediaasset.InspectImage(&reader, size)
 		if err != nil {
-			return application.ScanAssetInspection{}, fmt.Errorf("inspect EmulationStation cover: %w", err)
+			return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf("inspect EmulationStation cover: %w", err)
 		}
-		return application.ScanAssetInspection{
+		return emulationstationimportservice.ScanAssetInspection{
 			MediaType: image.MediaType, Width: &image.WidthPX, Height: &image.HeightPX,
 		}, nil
 	}
 	mediaType, err := mediaasset.InspectVideo(&reader, size)
 	if err != nil {
-		return application.ScanAssetInspection{}, fmt.Errorf("inspect EmulationStation video: %w", err)
+		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf("inspect EmulationStation video: %w", err)
 	}
-	return application.ScanAssetInspection{MediaType: mediaType}, nil
+	return emulationstationimportservice.ScanAssetInspection{MediaType: mediaType}, nil
 }
 
 type scanReadSeeker struct {

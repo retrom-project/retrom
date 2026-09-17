@@ -10,11 +10,12 @@ import (
 	validationpersistence "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
 	librarypersistence "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/content/multidisc"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func prepareStaticBIOSDependencies(
@@ -23,17 +24,17 @@ func prepareStaticBIOSDependencies(
 	providerID, targetID, platformID string,
 	groups []preparedGroup,
 ) error {
-	if err := application.PrepareCreationStaticBIOS(ctx, validationpersistence.New(transaction),
-		application.ImportTarget{ProviderID: providerID, TargetID: targetID, PlatformID: platformID}, groups); err != nil {
+	if err := libraryimportservice.PrepareCreationStaticBIOS(ctx, validationpersistence.New(transaction),
+		libraryimportmodel.ImportTarget{ProviderID: providerID, TargetID: targetID, PlatformID: platformID}, groups); err != nil {
 		return fmt.Errorf("prepare static BIOS: %w", err)
 	}
 	return nil
 }
 
 type (
-	Approved         = application.ReviewApproved
-	ApprovalDecision = application.ReviewApprovalDecision
-	ExternalAsset    = application.ApprovalExternalAsset
+	Approved         = libraryimportmodel.ReviewApproved
+	ApprovalDecision = libraryimportmodel.ReviewApprovalDecision
+	ExternalAsset    = libraryimportmodel.ApprovalExternalAsset
 )
 
 func (service *Service) validateCurrentApprovalDependencySnapshot(
@@ -41,8 +42,8 @@ func (service *Service) validateCurrentApprovalDependencySnapshot(
 	targetID string,
 	policy contentcapability.Policy, contentKind, frozenJSON string,
 ) error {
-	err := application.ValidateApprovalDependencies(ctx,
-		librarypersistence.BindApprovalDependencies(transaction), application.ApprovalDependencyInput{
+	err := libraryimportservice.ValidateApprovalDependencies(ctx,
+		librarypersistence.BindApprovalDependencies(transaction), libraryimportmodel.ApprovalDependencyInput{
 			SnapshotID: sourceSnapshotID, ValidationID: validationID, PlatformID: platformID,
 			ProviderID: providerID, TargetID: targetID,
 			Policy: policy, ContentKind: contentKind, DependencyJSON: frozenJSON,

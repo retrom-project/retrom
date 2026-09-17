@@ -4,27 +4,28 @@ import (
 	"context"
 	"fmt"
 	"math"
+	model "retrom/internal/model/pegasusimport"
 	"time"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 func prepareRecoveryReview(
 	ctx context.Context,
-	metadata ReviewMetadataSeeder,
+	metadata model.ReviewMetadataSeeder,
 	scope library.MetadataScope,
-	execution ExecutionSnapshot,
-	review ReviewHandoffSnapshot,
+	execution model.ExecutionSnapshot,
+	review model.ReviewHandoffSnapshot,
 	now time.Time,
-) (RecoveryReviewChange, error) {
+) (model.RecoveryReviewChange, error) {
 	if review.Identity.JobID != execution.JobID || review.Identity.ImportID != execution.ImportID ||
 		review.Identity.ExecutionNo != execution.ExecutionNo || review.Identity.Attempt != execution.Attempt ||
 		review.Identity.LibraryItemID == "" || review.Identity.LibraryJobID == "" ||
 		review.Version < 1 || review.Version == math.MaxInt64 {
-		return RecoveryReviewChange{}, ErrVersionConflict
+		return model.RecoveryReviewChange{}, model.ErrVersionConflict
 	}
 	if review.State != "PENDING" && review.State != "COPYING" && review.State != "VALIDATING" {
-		return RecoveryReviewChange{}, ErrVersionConflict
+		return model.RecoveryReviewChange{}, model.ErrVersionConflict
 	}
 	_, warnings, err := metadata.SeedInScope(
 		ctx,
@@ -34,9 +35,9 @@ func prepareRecoveryReview(
 		now.UTC().Year()+1,
 	)
 	if err != nil {
-		return RecoveryReviewChange{}, fmt.Errorf("seed recovered Pegasus review: %w", err)
+		return model.RecoveryReviewChange{}, fmt.Errorf("seed recovered Pegasus review: %w", err)
 	}
-	return RecoveryReviewChange{Execution: execution, Handoff: ReviewHandoffChange{
+	return model.RecoveryReviewChange{Execution: execution, Handoff: model.ReviewHandoffChange{
 		Before: review, Warnings: mergeReviewMetadataWarnings(review.Warnings, warnings), NowMS: now.UnixMilli(),
 	}}, nil
 }

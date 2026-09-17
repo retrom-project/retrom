@@ -36,13 +36,13 @@ func NewReviewDrafts(repository ReviewDraftPatchRepository, options ...ReviewDra
 }
 
 func (service *ReviewDrafts) Patch(
-	ctx context.Context, itemID string, expectedVersion int64, patch DraftPatch,
-) (DraftResult, error) {
-	if err := ValidateDraftPatch(patch); err != nil {
-		return DraftResult{}, err
+	ctx context.Context, itemID string, expectedVersion int64, patch application.DraftPatch,
+) (application.DraftResult, error) {
+	if err := application.ValidateDraftPatch(patch); err != nil {
+		return application.DraftResult{}, err
 	}
 	if service == nil || service.repository == nil {
-		return DraftResult{}, ErrInvalid
+		return application.DraftResult{}, application.ErrInvalid
 	}
 	now := service.now()
 	actor := authn.ActorFromContext(ctx, "release-setup")
@@ -50,15 +50,15 @@ func (service *ReviewDrafts) Patch(
 		ItemID: itemID, ExpectedVersion: expectedVersion, TagIDs: patch.TagIDs,
 	})
 	if err != nil {
-		return DraftResult{}, fmt.Errorf("load review draft patch snapshot: %w", err)
+		return application.DraftResult{}, fmt.Errorf("load review draft patch snapshot: %w", err)
 	}
 	plan, err := service.buildPatchPlan(ctx, itemID, expectedVersion, patch, snapshot, actor, now)
 	if err != nil {
-		return DraftResult{}, err
+		return application.DraftResult{}, err
 	}
 	result, err := service.repository.CommitPatch(ctx, plan)
 	if err != nil {
-		return DraftResult{}, fmt.Errorf("patch review draft: %w", err)
+		return application.DraftResult{}, fmt.Errorf("patch review draft: %w", err)
 	}
 	return result, nil
 }
@@ -67,7 +67,7 @@ func (service *ReviewDrafts) buildPatchPlan(
 	ctx context.Context,
 	itemID string,
 	expectedVersion int64,
-	patch DraftPatch,
+	patch application.DraftPatch,
 	snapshot application.ReviewDraftPatchSnapshot,
 	actor authn.Actor,
 	now time.Time,
@@ -119,7 +119,7 @@ func (service *ReviewDrafts) buildPatchPlan(
 }
 
 func patchedTargetAndDOS(
-	snapshot application.ReviewDraftPatchSnapshot, patch DraftPatch,
+	snapshot application.ReviewDraftPatchSnapshot, patch application.DraftPatch,
 ) (string, *string) {
 	targetID := snapshot.TargetID
 	if patch.TargetPlatformInstanceID != nil {
@@ -137,19 +137,19 @@ func (service *ReviewDrafts) resolveValidationPlan(
 	itemID string,
 	targetID string,
 	dosEntry *string,
-	patch DraftPatch,
+	patch application.DraftPatch,
 	snapshot application.ReviewDraftPatchSnapshot,
 ) (application.ReviewValidationPlan, error) {
 	if service.validation == nil {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	if patch.SelectedValidationID != nil && *patch.SelectedValidationID == "" {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	// RPG validation is derived from the project profile and requested
 	// resource policy. An explicit validation ID would bypass that derivation.
 	if snapshot.IsRPG && patch.SelectedValidationID != nil {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	var (
 		plan application.ReviewValidationPlan
@@ -162,7 +162,7 @@ func (service *ReviewDrafts) resolveValidationPlan(
 		// describe the draft's current selection; it must not replace the new
 		// candidate plan after resolution.
 		if patch.SelectedValidationID != nil && *patch.SelectedValidationID != snapshot.ValidationID {
-			return application.ReviewValidationPlan{}, ErrInvalid
+			return application.ReviewValidationPlan{}, application.ErrInvalid
 		}
 		plan, err = service.validation.SelectScummVM(ctx, ReviewDraftScummVMRequest{
 			ItemID: itemID, TargetPlatformInstanceID: targetID, DefaultDOSEntry: dosEntry,
@@ -185,13 +185,13 @@ func (service *ReviewDrafts) resolveValidationPlan(
 	return plan, nil
 }
 
-func applyCandidatePatch(plan *application.ReviewDraftWritePlan, patch DraftPatch) {
+func applyCandidatePatch(plan *application.ReviewDraftWritePlan, patch application.DraftPatch) {
 	if present, value := patch.SelectedCandidateID.Optional(); present {
 		plan.CandidateID = copyString(value)
 	}
 }
 
-func applyAssetPatch(plan *application.ReviewDraftWritePlan, patch DraftPatch) {
+func applyAssetPatch(plan *application.ReviewDraftWritePlan, patch application.DraftPatch) {
 	if patch.SelectedAssets == nil {
 		return
 	}

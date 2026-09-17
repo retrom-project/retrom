@@ -3,8 +3,8 @@ package libraryimport
 import (
 	"context"
 
+	libraryservice "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type queuedJobRun struct {

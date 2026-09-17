@@ -8,30 +8,31 @@ import (
 	"time"
 
 	"retrom/internal/capability/format/emulationstationmeta"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
-func scanDatabase(t *testing.T) (*sql.DB, application.Execution, application.ScanProjection) {
+func scanDatabase(t *testing.T) (*sql.DB, emulationstationimportmodel.Execution, emulationstationimportmodel.ScanProjection) {
 	t.Helper()
 	db, _ := leaseDatabase(t, false)
 	if _, err := db.ExecContext(t.Context(), `INSERT INTO content_kinds(id) VALUES('SINGLE_FILE')`); err != nil {
 		t.Fatal(err)
 	}
-	unit, found, err := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
+	unit, found, err := emulationstationimportservice.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
 	if err != nil || !found {
 		t.Fatalf("claim=%v %v", found, err)
 	}
-	projection := application.ScanProjection{
+	projection := emulationstationimportmodel.ScanProjection{
 		SnapshotDigest: planDigest, EstimatedBytes: 16,
-		Gamelists:   []application.ScanGamelist{{Path: "gamelist.xml", Size: 128, Digest: planDigest, Facts: planDigest, State: "VALID", Document: emulationstationmeta.Document{Games: []emulationstationmeta.Game{{}}}}},
-		Collections: []application.ScanCollection{{ID: "collection", GamelistPath: "gamelist.xml", DisplayName: "Collection", GameCount: 1, ExtensionSummaryJSON: "[]"}},
-		Items:       []application.ScanItem{{ID: "item", CollectionID: "collection", GamelistPath: "gamelist.xml", GameOrdinal: 1, SourceKey: planDigest, Title: "Game", SourceFlagsJSON: `{"hidden":false,"adult":false,"kidGame":false}`, DiscoveryState: "READY", ContentKind: "SINGLE_FILE", MetadataJSON: `{"schemaVersion":1,"title":"Game","description":"","developer":"","publisher":"","genre":"","players":null,"releaseYear":null}`, WarningsJSON: "[]", SourceManifestJSON: `{"schemaVersion":1,"contentKind":"SINGLE_FILE","files":[{"ordinal":0,"declaredKind":"FILE","relativePath":"game.nes","sizeBytes":16,"sourceFactsDigest":"` + planDigest + `"}]}`, SourceManifestDigest: planDigest, Files: []application.ScanItemFile{{Ordinal: 0, Kind: "FILE", Path: "game.nes", Size: 16, Facts: planDigest}}, Assets: []application.ScanAsset{{Kind: "COVER", Method: "EXPLICIT_IMAGE", Path: "cover.png", State: "MISSING"}}}},
+		Gamelists:   []emulationstationimportmodel.ScanGamelist{{Path: "gamelist.xml", Size: 128, Digest: planDigest, Facts: planDigest, State: "VALID", Document: emulationstationmeta.Document{Games: []emulationstationmeta.Game{{}}}}},
+		Collections: []emulationstationimportmodel.ScanCollection{{ID: "collection", GamelistPath: "gamelist.xml", DisplayName: "Collection", GameCount: 1, ExtensionSummaryJSON: "[]"}},
+		Items:       []emulationstationimportmodel.ScanItem{{ID: "item", CollectionID: "collection", GamelistPath: "gamelist.xml", GameOrdinal: 1, SourceKey: planDigest, Title: "Game", SourceFlagsJSON: `{"hidden":false,"adult":false,"kidGame":false}`, DiscoveryState: "READY", ContentKind: "SINGLE_FILE", MetadataJSON: `{"schemaVersion":1,"title":"Game","description":"","developer":"","publisher":"","genre":"","players":null,"releaseYear":null}`, WarningsJSON: "[]", SourceManifestJSON: `{"schemaVersion":1,"contentKind":"SINGLE_FILE","files":[{"ordinal":0,"declaredKind":"FILE","relativePath":"game.nes","sizeBytes":16,"sourceFactsDigest":"` + planDigest + `"}]}`, SourceManifestDigest: planDigest, Files: []emulationstationimportmodel.ScanItemFile{{Ordinal: 0, Kind: "FILE", Path: "game.nes", Size: 16, Facts: planDigest}}, Assets: []emulationstationimportmodel.ScanAsset{{Kind: "COVER", Method: "EXPLICIT_IMAGE", Path: "cover.png", State: "MISSING"}}}},
 	}
 	return db, unit, projection
 }
 
-func scanService(db *sql.DB) *application.ScanPublication {
-	return application.NewScanPublication(NewScanPublication(db), func() time.Time { return time.UnixMilli(1001) })
+func scanService(db *sql.DB) *emulationstationimportservice.ScanPublication {
+	return emulationstationimportservice.NewScanPublication(NewScanPublication(db), func() time.Time { return time.UnixMilli(1001) })
 }
 
 func TestScanPublicationCommitsCompleteFrozenProjection(t *testing.T) {
@@ -89,9 +90,9 @@ func TestRejectedScanHeadersAndCountersCommitTogether(t *testing.T) {
 	assertClearedScan(t, db, unit, false)
 }
 
-func expandScanItems(value application.ScanProjection, count int) application.ScanProjection {
+func expandScanItems(value emulationstationimportmodel.ScanProjection, count int) emulationstationimportmodel.ScanProjection {
 	item := value.Items[0]
-	value.Items = make([]application.ScanItem, count)
+	value.Items = make([]emulationstationimportmodel.ScanItem, count)
 	for index := range value.Items {
 		value.Items[index] = item
 		value.Items[index].ID = fmt.Sprintf("item-%04d", index)

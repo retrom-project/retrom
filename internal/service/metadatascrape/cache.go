@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	model "retrom/internal/model/metadatascrape"
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -16,14 +17,14 @@ type LookupProvider interface {
 	RestoreCached(hasheous.ContentHashes, hasheous.ProviderOutcome, int, []byte) (hasheous.LookupResult, error)
 }
 type LookupService struct {
-	records  CacheReader
+	records  model.CacheReader
 	blobs    *blobstore.Store
 	provider LookupProvider
 	now      func() time.Time
 }
 
 func NewLookup(
-	records CacheReader,
+	records model.CacheReader,
 	blobs *blobstore.Store,
 	provider LookupProvider,
 	now func() time.Time,
@@ -35,15 +36,15 @@ func (service *LookupService) Lookup(
 	ctx context.Context,
 	hashes hasheous.ContentHashes,
 	bypassCache bool,
-) (ResolvedLookup, error) {
+) (model.ResolvedLookup, error) {
 	digest, err := hasheous.RequestDigest(hashes)
 	if err != nil {
-		return ResolvedLookup{}, fmt.Errorf("digest metadata request: %w", err)
+		return model.ResolvedLookup{}, fmt.Errorf("digest metadata request: %w", err)
 	}
 	if !bypassCache {
 		cached, found, err := service.cached(ctx, digest, hashes)
 		if err != nil {
-			return ResolvedLookup{}, err
+			return model.ResolvedLookup{}, err
 		}
 		if found {
 			return cached, nil
@@ -51,32 +52,32 @@ func (service *LookupService) Lookup(
 	}
 	result, err := service.provider.LookupByHash(ctx, hashes)
 	if err != nil {
-		return ResolvedLookup{}, fmt.Errorf("look up metadata by hash: %w", err)
+		return model.ResolvedLookup{}, fmt.Errorf("look up metadata by hash: %w", err)
 	}
-	return ResolvedLookup{Result: result}, nil
+	return model.ResolvedLookup{Result: result}, nil
 }
 
 func (service *LookupService) cached(
 	ctx context.Context,
 	digest string,
 	hashes hasheous.ContentHashes,
-) (ResolvedLookup, bool, error) {
+) (model.ResolvedLookup, bool, error) {
 	entry, found, err := service.records.Cached(ctx, digest, service.now().UnixMilli())
 	if err != nil {
-		return ResolvedLookup{}, false, fmt.Errorf("read metadata cache: %w", err)
+		return model.ResolvedLookup{}, false, fmt.Errorf("read metadata cache: %w", err)
 	}
 	if !found {
-		return ResolvedLookup{}, false, nil
+		return model.ResolvedLookup{}, false, nil
 	}
 	raw := service.readCachedResponse(entry.RawSHA256)
 	if entry.Outcome != hasheous.OutcomeMiss && len(raw) == 0 {
-		return ResolvedLookup{}, false, nil
+		return model.ResolvedLookup{}, false, nil
 	}
 	result, err := service.provider.RestoreCached(hashes, entry.Outcome, entry.HTTPStatus, raw)
 	if err == nil {
-		return ResolvedLookup{Result: result, CachedResponseID: entry.ID}, true, nil
+		return model.ResolvedLookup{Result: result, CachedResponseID: entry.ID}, true, nil
 	}
-	return ResolvedLookup{}, false, nil
+	return model.ResolvedLookup{}, false, nil
 }
 
 func (service *LookupService) readCachedResponse(digest string) []byte {

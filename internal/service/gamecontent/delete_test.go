@@ -3,52 +3,53 @@ package gamecontent
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/gamecontent"
 	"strings"
 	"testing"
 	"time"
 )
 
 type deleteGameTestRepository struct {
-	state         DeleteGameState
-	impact        DeleteGameImpact
-	replay        DeleteGameReplay
+	state         model.DeleteGameState
+	impact        model.DeleteGameImpact
+	replay        model.DeleteGameReplay
 	findReplay    bool
 	stateReads    int
 	impactReads   int
 	scheduleCalls int
 	runtimeCalls  int
 	auditCalls    int
-	replayWrites  []DeleteGameReplayWrite
+	replayWrites  []model.DeleteGameReplayWrite
 }
 
 func (repository *deleteGameTestRepository) WithRead(
-	_ context.Context, _ func(ReadScope) error,
+	_ context.Context, _ func(model.ReadScope) error,
 ) error {
 	return nil
 }
 
 func (repository *deleteGameTestRepository) CommitWrite(
-	_ context.Context, work func(WriteScope) error,
+	_ context.Context, work func(model.WriteScope) error,
 ) error {
-	return work(WriteScope{GameDeletionReader: repository, GameDeletionWriter: repository})
+	return work(model.WriteScope{GameDeletionReader: repository, GameDeletionWriter: repository})
 }
 
 func (repository *deleteGameTestRepository) LoadDeleteGameState(
 	_ context.Context, _ string,
-) (DeleteGameState, error) {
+) (model.DeleteGameState, error) {
 	repository.stateReads++
 	return repository.state, nil
 }
 
 func (repository *deleteGameTestRepository) LoadDeleteGameReplay(
 	_ context.Context, _, _ string, _ int64,
-) (DeleteGameReplay, bool, error) {
+) (model.DeleteGameReplay, bool, error) {
 	return repository.replay, repository.findReplay, nil
 }
 
 func (repository *deleteGameTestRepository) DeleteGameImpact(
 	_ context.Context, _ string,
-) (DeleteGameImpact, error) {
+) (model.DeleteGameImpact, error) {
 	repository.impactReads++
 	return repository.impact, nil
 }
@@ -68,14 +69,14 @@ func (repository *deleteGameTestRepository) TransitionDeletedGameRuntime(
 }
 
 func (repository *deleteGameTestRepository) RecordDeleteGameAudit(
-	_ context.Context, _ DeleteGameAudit,
+	_ context.Context, _ model.DeleteGameAudit,
 ) error {
 	repository.auditCalls++
 	return nil
 }
 
 func (repository *deleteGameTestRepository) StoreDeleteGameReplay(
-	_ context.Context, replay DeleteGameReplayWrite,
+	_ context.Context, replay model.DeleteGameReplayWrite,
 ) error {
 	repository.replayWrites = append(repository.replayWrites, replay)
 	return nil
@@ -85,8 +86,8 @@ type deleteGameTestSignal struct{ calls int }
 
 func (signal *deleteGameTestSignal) Signal() { signal.calls++ }
 
-func validDeleteGameRequest() DeleteGameRequest {
-	return DeleteGameRequest{
+func validDeleteGameRequest() model.DeleteGameRequest {
+	return model.DeleteGameRequest{
 		GameID: "game", PrincipalID: "principal", Key: "key", RequestDigest: "digest",
 		ConfirmTitle: "Fixture", ImpactDigest: "impact", ExpectedVersion: 1, NowMS: 100,
 	}
@@ -94,8 +95,8 @@ func validDeleteGameRequest() DeleteGameRequest {
 
 func TestDeleteAdminGamePersistsAtomicWorkflowAndSignalsRelease(t *testing.T) {
 	repository := &deleteGameTestRepository{
-		state:  DeleteGameState{Title: "Fixture", Status: "PUBLISHED", Version: 1},
-		impact: DeleteGameImpact{ImpactDigest: "impact", RegisteredBytes: "42", SourceKinds: []string{"USER_UPLOAD"}},
+		state:  model.DeleteGameState{Title: "Fixture", Status: "PUBLISHED", Version: 1},
+		impact: model.DeleteGameImpact{ImpactDigest: "impact", RegisteredBytes: "42", SourceKinds: []string{"USER_UPLOAD"}},
 	}
 	signal := &deleteGameTestSignal{}
 	service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithPayloadRelease(signal)
@@ -109,7 +110,7 @@ func TestDeleteAdminGamePersistsAtomicWorkflowAndSignalsRelease(t *testing.T) {
 	assertFreshDeleteReplay(t, repository.replayWrites[0])
 }
 
-func assertFreshDeleteResult(t *testing.T, result DeleteGameResult) {
+func assertFreshDeleteResult(t *testing.T, result model.DeleteGameResult) {
 	t.Helper()
 	if result.HTTPStatus != 202 || result.ETag != `"v2"` || result.Replayed || !result.PayloadReleaseQueued {
 		t.Fatalf("unexpected delete result: %+v", result)
@@ -129,7 +130,7 @@ func assertFreshDeleteCalls(t *testing.T, repository *deleteGameTestRepository, 
 	}
 }
 
-func assertFreshDeleteReplay(t *testing.T, replay DeleteGameReplayWrite) {
+func assertFreshDeleteReplay(t *testing.T, replay model.DeleteGameReplayWrite) {
 	t.Helper()
 	if replay.HTTPStatus != 202 || replay.ExpiresAtMS != 86_400_100 {
 		t.Fatalf("stored delete replay = %+v", replay)
@@ -138,15 +139,15 @@ func assertFreshDeleteReplay(t *testing.T, replay DeleteGameReplayWrite) {
 
 func TestDeleteAdminGameRejectsStaleConfirmationBeforeSideEffects(t *testing.T) {
 	repository := &deleteGameTestRepository{
-		state:  DeleteGameState{Title: "Fixture", Status: "PUBLISHED", Version: 1},
-		impact: DeleteGameImpact{ImpactDigest: "impact"},
+		state:  model.DeleteGameState{Title: "Fixture", Status: "PUBLISHED", Version: 1},
+		impact: model.DeleteGameImpact{ImpactDigest: "impact"},
 	}
 	service := New(repository, time.Now)
 	request := validDeleteGameRequest()
 	request.ConfirmTitle = "Other"
 
 	_, err := service.DeleteAdminGame(t.Context(), request)
-	if !errors.Is(err, ErrDeleteGameConfirmationMismatch) {
+	if !errors.Is(err, model.ErrDeleteGameConfirmationMismatch) {
 		t.Fatalf("error = %v", err)
 	}
 	if repository.impactReads != 0 || repository.scheduleCalls != 0 || repository.runtimeCalls != 0 ||
@@ -158,7 +159,7 @@ func TestDeleteAdminGameRejectsStaleConfirmationBeforeSideEffects(t *testing.T) 
 func TestDeleteAdminGameReplaysDurableResponseBeforeReadingGame(t *testing.T) {
 	repository := &deleteGameTestRepository{
 		findReplay: true,
-		replay: DeleteGameReplay{
+		replay: model.DeleteGameReplay{
 			RequestDigest: "digest", HTTPStatus: 202, HeadersJSON: `{"ETag":"v2"}`, Body: []byte(`{}\n`),
 		},
 	}

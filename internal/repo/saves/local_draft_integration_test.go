@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	saveservice "retrom/internal/service/saves"
+	saveservice "retrom/internal/model/saves"
 
 	"retrom/internal/repo/recordstore"
 

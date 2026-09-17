@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/accounts"
 	"time"
 )
 
 type AdministrationService struct {
-	repository AdministrationRepository
+	repository model.AdministrationRepository
 	now        func() time.Time
 }
 
-func NewAdministration(repository AdministrationRepository, now func() time.Time) *AdministrationService {
+func NewAdministration(repository model.AdministrationRepository, now func() time.Time) *AdministrationService {
 	return &AdministrationService{repository, now}
 }
 
@@ -20,9 +21,9 @@ func (service *AdministrationService) Update(
 	ctx context.Context,
 	actorID, targetID string,
 	version int64,
-	patch UserPatch,
+	patch model.UserPatch,
 	key string,
-) (AdminUser, bool, error) {
+) (model.AdminUser, bool, error) {
 	operation, err := newAccountOperation(
 		"patchAdminUser",
 		actorID,
@@ -37,11 +38,11 @@ func (service *AdministrationService) Update(
 		service.now().UnixMilli(),
 	)
 	if err != nil {
-		return AdminUser{}, false, err
+		return model.AdminUser{}, false, err
 	}
-	var after AdminUser
+	var after model.AdminUser
 	var replayed bool
-	err = service.repository.CommitWrite(ctx, func(scope AdministrationScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope model.AdministrationScope) error {
 		replay, err := scope.Read.Replay(ctx, operation)
 		if err != nil {
 			return fmt.Errorf("apply account administration: %w", err)
@@ -69,27 +70,27 @@ func (service *AdministrationService) Update(
 		return scope.Write.Remember(ctx, accountReceipt(operation, 200, body))
 	})
 	if err != nil {
-		return AdminUser{}, false, fmt.Errorf("update account security: %w", err)
+		return model.AdminUser{}, false, fmt.Errorf("update account security: %w", err)
 	}
 	return after, replayed, nil
 }
 
-func anotherAdmin(ctx context.Context, reader AdministrationReader, targetID string) error {
+func anotherAdmin(ctx context.Context, reader model.AdministrationReader, targetID string) error {
 	exists, err := reader.AnotherEnabledAdmin(ctx, targetID)
 	if err != nil {
 		return fmt.Errorf("check remaining enabled administrator: %w", err)
 	}
 	if !exists {
-		return ErrLastAdmin
+		return model.ErrLastAdmin
 	}
 	return nil
 }
 
 func auditUserChange(
 	ctx context.Context,
-	writer AdministrationWriter,
-	operation AccountOperation,
-	before, after AdminUser,
+	writer model.AdministrationWriter,
+	operation model.AccountOperation,
+	before, after model.AdminUser,
 ) error {
 	if before.Role != after.Role {
 		audit, err := newAccountAudit(
@@ -146,48 +147,48 @@ func auditUserChange(
 
 func updateManagedUser(
 	ctx context.Context,
-	scope AdministrationScope,
-	operation AccountOperation,
+	scope model.AdministrationScope,
+	operation model.AccountOperation,
 	targetID string,
 	version int64,
-	patch UserPatch,
-) (AdminUser, error) {
+	patch model.UserPatch,
+) (model.AdminUser, error) {
 	before, found, err := scope.Read.Current(ctx, targetID, operation.Now)
 	if err != nil {
-		return AdminUser{}, fmt.Errorf("apply account change: %w", err)
+		return model.AdminUser{}, fmt.Errorf("apply account change: %w", err)
 	}
 	if err := validateManagedUser(before, found, version); err != nil {
-		return AdminUser{}, fmt.Errorf("apply account change: %w", err)
+		return model.AdminUser{}, fmt.Errorf("apply account change: %w", err)
 	}
 	change, err := resolveUserChange(before.User, patch, operation.PrincipalID == targetID)
 	if err != nil {
-		return AdminUser{}, fmt.Errorf("apply account change: %w", err)
+		return model.AdminUser{}, fmt.Errorf("apply account change: %w", err)
 	}
 	if removesEnabledAdmin(before.User, change.Role, change.Status) {
 		if err := anotherAdmin(ctx, scope.Read, targetID); err != nil {
-			return AdminUser{}, fmt.Errorf("apply account change: %w", err)
+			return model.AdminUser{}, fmt.Errorf("apply account change: %w", err)
 		}
 	}
 	if err := scope.Write.Update(
 		ctx,
-		AdministrationUpdate{
+		model.AdministrationUpdate{
 			Before: before,
 			Change: change,
 			Now:    operation.Now,
 		},
 	); err != nil {
-		return AdminUser{}, fmt.Errorf("apply account change: %w", err)
+		return model.AdminUser{}, fmt.Errorf("apply account change: %w", err)
 	}
 	current, found, err := scope.Read.Current(ctx, targetID, operation.Now)
 	if err != nil {
-		return AdminUser{}, fmt.Errorf("apply account change: %w", err)
+		return model.AdminUser{}, fmt.Errorf("apply account change: %w", err)
 	}
 	if !found {
-		return AdminUser{}, ErrUserNotFound
+		return model.AdminUser{}, model.ErrUserNotFound
 	}
 	after := presentAdminUser(current.User)
 	if err := auditUserChange(ctx, scope.Write, operation, before.User, after); err != nil {
-		return AdminUser{}, fmt.Errorf("apply account change: %w", err)
+		return model.AdminUser{}, fmt.Errorf("apply account change: %w", err)
 	}
 	return after, nil
 }

@@ -3,6 +3,7 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 	"strings"
 	"unicode/utf8"
 
@@ -28,7 +29,7 @@ func (service *WorkflowControl) Cancel(
 	id string,
 	version int64,
 	reason, actorID string,
-) (Summary, bool, error) {
+) (model.Summary, bool, error) {
 	after, pending, err := service.cancel(
 		ctx,
 		cancellationRequest{ID: id, Version: version, Reason: reason, ActorID: actorID},
@@ -60,14 +61,14 @@ func (service *WorkflowControl) CancelJob(
 func (service *WorkflowControl) cancel(
 	ctx context.Context,
 	request cancellationRequest,
-) (WorkflowSnapshot, bool, error) {
+) (model.WorkflowSnapshot, bool, error) {
 	request.Reason = strings.TrimSpace(request.Reason)
 	if request.Reason == "" || utf8.RuneCountInString(request.Reason) > 500 {
-		return WorkflowSnapshot{}, false, ErrNotCancellable
+		return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
 	}
-	var result WorkflowSnapshot
+	var result model.WorkflowSnapshot
 	var pending bool
-	err := service.repository.WithControl(ctx, func(scope WorkflowScope) error {
+	err := service.repository.WithControl(ctx, func(scope model.WorkflowScope) error {
 		before, err := readCancellation(ctx, scope.Read, request)
 		if err != nil {
 			return err
@@ -92,17 +93,17 @@ func (service *WorkflowControl) cancel(
 		return nil
 	})
 	if err != nil {
-		return WorkflowSnapshot{}, false, fmt.Errorf("finish Pegasus cancellation: %w", err)
+		return model.WorkflowSnapshot{}, false, fmt.Errorf("finish Pegasus cancellation: %w", err)
 	}
 	return result, pending, nil
 }
 
 func readCancellation(
 	ctx context.Context,
-	reader WorkflowReader,
+	reader model.WorkflowReader,
 	request cancellationRequest,
-) (WorkflowSnapshot, error) {
-	var before WorkflowSnapshot
+) (model.WorkflowSnapshot, error) {
+	var before model.WorkflowSnapshot
 	var err error
 	if request.ByJob {
 		before, err = reader.CurrentJob(ctx, request.ID)
@@ -110,33 +111,33 @@ func readCancellation(
 		before, err = reader.Current(ctx, request.ID)
 	}
 	if err != nil {
-		return WorkflowSnapshot{}, fmt.Errorf("read Pegasus cancellation: %w", err)
+		return model.WorkflowSnapshot{}, fmt.Errorf("read Pegasus cancellation: %w", err)
 	}
 	version := request.Version
 	if request.ByJob {
 		if !matchesCancellationJob(before, request) {
-			return WorkflowSnapshot{}, ErrNotCancellable
+			return model.WorkflowSnapshot{}, model.ErrNotCancellable
 		}
 		if request.Version != before.JobVersion || request.Version < 1 {
-			return WorkflowSnapshot{}, ErrVersionConflict
+			return model.WorkflowSnapshot{}, model.ErrVersionConflict
 		}
 		version = before.Summary.Version
 	}
 	if !canCancel(before, version) {
-		return WorkflowSnapshot{}, ErrNotCancellable
+		return model.WorkflowSnapshot{}, model.ErrNotCancellable
 	}
 	return before, nil
 }
 
 func (service *WorkflowControl) cancellationPlan(
-	before WorkflowSnapshot,
+	before model.WorkflowSnapshot,
 	request cancellationRequest,
-) (CancellationPlan, error) {
+) (model.CancellationPlan, error) {
 	auditID, err := uuid.NewV7()
 	if err != nil {
-		return CancellationPlan{}, fmt.Errorf("generate Pegasus cancellation audit: %w", err)
+		return model.CancellationPlan{}, fmt.Errorf("generate Pegasus cancellation audit: %w", err)
 	}
-	plan := CancellationPlan{
+	plan := model.CancellationPlan{
 		Before: before, Reason: request.Reason, ActorID: request.ActorID, AuditID: auditID.String(),
 		NowMS: service.now().UnixMilli(), State: "CANCELLED",
 		Pending: before.JobState == "RUNNING" || before.Summary.State == "RUNNING",
@@ -149,7 +150,7 @@ func (service *WorkflowControl) cancellationPlan(
 	return plan, nil
 }
 
-func canCancel(before WorkflowSnapshot, version int64) bool {
+func canCancel(before model.WorkflowSnapshot, version int64) bool {
 	if !validWorkflowVersion(before, version) || (before.JobState != "QUEUED" && before.JobState != "RUNNING") {
 		return false
 	}
@@ -159,7 +160,7 @@ func canCancel(before WorkflowSnapshot, version int64) bool {
 	return before.Summary.State == "QUEUED" || before.Summary.State == "RUNNING"
 }
 
-func matchesCancellationJob(before WorkflowSnapshot, request cancellationRequest) bool {
+func matchesCancellationJob(before model.WorkflowSnapshot, request cancellationRequest) bool {
 	if before.Summary.ID != request.ScopeID {
 		return false
 	}

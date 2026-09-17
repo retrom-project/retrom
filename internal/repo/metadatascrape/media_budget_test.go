@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/model/metadatascrape"
 	jobpersistence "retrom/internal/repo/jobs"
 	"retrom/internal/service/jobs"
-	"retrom/internal/service/metadatascrape"
 )
 
 func TestMediaFailedBytesRemainChargedAcrossManualRetry(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 	"retrom/internal/testkit/testsupport"
 )
 

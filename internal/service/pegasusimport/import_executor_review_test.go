@@ -2,10 +2,11 @@ package pegasusimport
 
 import (
 	"errors"
+	model "retrom/internal/model/pegasusimport"
 	"strings"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 func TestImportExecutorRetainsBoundReviewIdentityWhenHandoffFails(t *testing.T) {
@@ -19,7 +20,7 @@ func TestImportExecutorRetainsBoundReviewIdentityWhenHandoffFails(t *testing.T) 
 	handoff := &preparationOutcomes{failure: failure}
 	fixture, executor := newImportExecutorFixture()
 	executor.dependencies.Reviews = NewReviewPreparation(source, transitions, handoff)
-	if err := executor.Process(t.Context(), Work{}, fixture.items[0]); err != nil {
+	if err := executor.Process(t.Context(), model.Work{}, fixture.items[0]); err != nil {
 		t.Fatal(err)
 	}
 	if !transitions.resumed || handoff.handoffs != 1 || len(fixture.outcomes) != 1 {

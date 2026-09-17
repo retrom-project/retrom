@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 	"time"
 
@@ -13,29 +14,29 @@ import (
 )
 
 type admissionMemory struct {
-	upload                             ImportUpload
-	target                             ImportTarget
-	files                              []ImportFile
-	bindings                           []ImportBinding
+	upload                             model.ImportUpload
+	target                             model.ImportTarget
+	files                              []model.ImportFile
+	bindings                           []model.ImportBinding
 	readError, writeError, commitError error
-	change                             ImportAdmissionChange
+	change                             model.ImportAdmissionChange
 	events                             []string
 }
 
-func admissionServiceFixture() (*ImportAdmissions, *admissionMemory, ImportRequest) {
+func admissionServiceFixture() (*ImportAdmissions, *admissionMemory, model.ImportRequest) {
 	memory := &admissionMemory{
-		upload:   ImportUpload{ID: "upload", Purpose: "GENERAL", SourceType: "FILES", State: "COMPLETE", Version: 3, FileCount: 1, ManifestDigest: "manifest"},
-		target:   ImportTarget{ID: "platform", PlatformID: "nes", DefaultCoreID: "core", Version: 2},
-		files:    []ImportFile{{ID: "file", Path: "game.nes", BlobID: "blob", SHA256: "digest", Size: 32}},
-		bindings: []ImportBinding{{BindingID: "binding", CoreID: "core", ProviderID: "provider", TargetID: "target", Policy: contentcapability.NewPolicy("SINGLE_FILE")}},
+		upload:   model.ImportUpload{ID: "upload", Purpose: "GENERAL", SourceType: "FILES", State: "COMPLETE", Version: 3, FileCount: 1, ManifestDigest: "manifest"},
+		target:   model.ImportTarget{ID: "platform", PlatformID: "nes", DefaultCoreID: "core", Version: 2},
+		files:    []model.ImportFile{{ID: "file", Path: "game.nes", BlobID: "blob", SHA256: "digest", Size: 32}},
+		bindings: []model.ImportBinding{{BindingID: "binding", CoreID: "core", ProviderID: "provider", TargetID: "target", Policy: contentcapability.NewPolicy("SINGLE_FILE")}},
 	}
-	service := NewImportAdmissions(memory, memory, nil, ImportAdmissionOptions{Now: func() time.Time { return time.UnixMilli(500) }})
-	return service, memory, ImportRequest{UploadID: "upload", TargetPlatformInstanceID: "platform", MetadataProvider: "NONE"}
+	service := NewImportAdmissions(memory, memory, nil, model.ImportAdmissionOptions{Now: func() time.Time { return time.UnixMilli(500) }})
+	return service, memory, model.ImportRequest{UploadID: "upload", TargetPlatformInstanceID: "platform", MetadataProvider: "NONE"}
 }
 
-func (memory *admissionMemory) WithAdmission(_ context.Context, work func(ImportAdmissionScope) error) error {
+func (memory *admissionMemory) WithAdmission(_ context.Context, work func(model.ImportAdmissionScope) error) error {
 	memory.events = append(memory.events, "begin")
-	if err := work(ImportAdmissionScope{Facts: memory, Writer: memory}); err != nil {
+	if err := work(model.ImportAdmissionScope{Facts: memory, Writer: memory}); err != nil {
 		return err
 	}
 	if memory.commitError != nil {
@@ -45,23 +46,23 @@ func (memory *admissionMemory) WithAdmission(_ context.Context, work func(Import
 	return nil
 }
 
-func (memory *admissionMemory) Upload(context.Context, string) (ImportUpload, bool, error) {
+func (memory *admissionMemory) Upload(context.Context, string) (model.ImportUpload, bool, error) {
 	return memory.upload, memory.upload.ID != "", memory.readError
 }
 
-func (memory *admissionMemory) Target(context.Context, string) (ImportTarget, bool, error) {
+func (memory *admissionMemory) Target(context.Context, string) (model.ImportTarget, bool, error) {
 	return memory.target, memory.target.ID != "", memory.readError
 }
 
-func (memory *admissionMemory) Files(context.Context, string) ([]ImportFile, error) {
+func (memory *admissionMemory) Files(context.Context, string) ([]model.ImportFile, error) {
 	return memory.files, memory.readError
 }
 
-func (memory *admissionMemory) Bindings(context.Context, ImportBindingQuery) ([]ImportBinding, error) {
+func (memory *admissionMemory) Bindings(context.Context, model.ImportBindingQuery) ([]model.ImportBinding, error) {
 	return memory.bindings, memory.readError
 }
 
-func (memory *admissionMemory) Create(_ context.Context, change ImportAdmissionChange) error {
+func (memory *admissionMemory) Create(_ context.Context, change model.ImportAdmissionChange) error {
 	memory.events = append(memory.events, "write")
 	memory.change = change
 	return memory.writeError
@@ -88,9 +89,9 @@ func TestImportAdmissionFreezesInputAndNotifiesAfterCommit(t *testing.T) {
 	assertAdmissionDocuments(t, change, result, request)
 }
 
-func assertAdmissionDocuments(t *testing.T, change ImportAdmissionChange, result ServerCreated, request ImportRequest) {
+func assertAdmissionDocuments(t *testing.T, change model.ImportAdmissionChange, result model.ServerCreated, request model.ImportRequest) {
 	t.Helper()
-	var frozen QueuedImportRequest
+	var frozen model.QueuedImportRequest
 	if err := json.Unmarshal([]byte(change.Documents.RequestJSON), &frozen); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +123,7 @@ func TestImportAdmissionFailuresClearResultAndNeverNotify(t *testing.T) {
 				memory.commitError = cause
 			}
 			result, err := service.Queue(t.Context(), request)
-			if !errors.Is(err, cause) || result != (ServerCreated{}) {
+			if !errors.Is(err, cause) || result != (model.ServerCreated{}) {
 				t.Fatalf("result=%+v err=%v", result, err)
 			}
 			for _, event := range memory.events {
@@ -150,7 +151,7 @@ func TestImportAdmissionIdentityFailurePrecedesAllWrites(t *testing.T) {
 				return fmt.Sprint(calls), nil
 			}
 			result, err := service.Queue(t.Context(), request)
-			if !errors.Is(err, cause) || result != (ServerCreated{}) || calls != failed || !reflect.DeepEqual(memory.events, []string{"begin"}) {
+			if !errors.Is(err, cause) || result != (model.ServerCreated{}) || calls != failed || !reflect.DeepEqual(memory.events, []string{"begin"}) {
 				t.Fatalf("result=%+v err=%v calls=%d events=%v", result, err, calls, memory.events)
 			}
 		})
@@ -177,7 +178,7 @@ func TestImportAdmissionRejectsUnavailableFacts(t *testing.T) {
 			service, memory, request := admissionServiceFixture()
 			test.prepare(memory)
 			result, err := service.Queue(t.Context(), request)
-			if !errors.Is(err, ErrInvalid) || result != (ServerCreated{}) || !reflect.DeepEqual(memory.events, []string{"begin"}) {
+			if !errors.Is(err, model.ErrInvalid) || result != (model.ServerCreated{}) || !reflect.DeepEqual(memory.events, []string{"begin"}) {
 				t.Fatalf("result=%+v err=%v events=%v", result, err, memory.events)
 			}
 		})
@@ -201,9 +202,9 @@ func TestImportAdmissionDigestRejectsMalformedOrAlteredSnapshots(t *testing.T) {
 
 func TestImportAdmissionTypedAPI(t *testing.T) {
 	t.Parallel()
-	service := NewImportAdmissions(nil, nil, nil, ImportAdmissionOptions{})
-	result, err := service.Queue(t.Context(), ImportRequest{})
-	if !errors.Is(err, ErrInvalid) || result != (ServerCreated{}) {
+	service := NewImportAdmissions(nil, nil, nil, model.ImportAdmissionOptions{})
+	result, err := service.Queue(t.Context(), model.ImportRequest{})
+	if !errors.Is(err, model.ErrInvalid) || result != (model.ServerCreated{}) {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
 }

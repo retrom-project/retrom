@@ -3,26 +3,27 @@ package bios
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/bios"
 )
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 }
 
-func New(repository Repository) *Service {
+func New(repository model.Repository) *Service {
 	return &Service{repository: repository}
 }
 
-func (service *Service) List(ctx context.Context, request ListRequest) (ListResult, error) {
+func (service *Service) List(ctx context.Context, request model.ListRequest) (model.ListResult, error) {
 	if service.repository == nil || !validListRequest(request) {
-		return ListResult{}, ErrInvalid
+		return model.ListResult{}, model.ErrInvalid
 	}
 
 	fetch := request
 	fetch.Limit++
 	result, err := service.repository.List(ctx, fetch)
 	if err != nil {
-		return ListResult{}, fmt.Errorf("list BIOS catalog: %w", err)
+		return model.ListResult{}, fmt.Errorf("list BIOS catalog: %w", err)
 	}
 	if len(result.Items) <= request.Limit {
 		return result, nil
@@ -30,19 +31,19 @@ func (service *Service) List(ctx context.Context, request ListRequest) (ListResu
 
 	last := result.Items[request.Limit-1]
 	result.Items = result.Items[:request.Limit]
-	result.NextCursor = &Cursor{
+	result.NextCursor = &model.Cursor{
 		SortValues: []string{last.CoreName, last.LogicalName},
 		ID:         last.ID,
 	}
 	return result, nil
 }
 
-func validListRequest(request ListRequest) bool {
-	if request.Scope != ScopeRequiredByLibrary && request.Scope != ScopeFullCatalog {
+func validListRequest(request model.ListRequest) bool {
+	if request.Scope != model.ScopeRequiredByLibrary && request.Scope != model.ScopeFullCatalog {
 		return false
 	}
-	if request.Quick != QuickAll && request.Quick != QuickAttention &&
-		request.Quick != QuickRequired && request.Quick != QuickOptional {
+	if request.Quick != model.QuickAll && request.Quick != model.QuickAttention &&
+		request.Quick != model.QuickRequired && request.Quick != model.QuickOptional {
 		return false
 	}
 	if request.Status != "" && !validStatus(request.Status) {
@@ -60,6 +61,6 @@ func validStatus(status string) bool {
 	}
 }
 
-func validCursor(cursor *Cursor) bool {
+func validCursor(cursor *model.Cursor) bool {
 	return cursor == nil || (len(cursor.SortValues) == 2 && cursor.ID != "")
 }

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	composition "retrom/internal/bootstrap/composition/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func applicationMultiDiscAttachmentFile(file attachedMultiDiscFile) application.MultiDiscAttachmentFile {

@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/composition"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 

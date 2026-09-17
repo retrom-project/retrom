@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	model "retrom/internal/model/launch"
 	"sync"
 	"testing"
 	"time"
@@ -15,19 +16,19 @@ import (
 
 type validationTestRepository struct {
 	mutex                               sync.Mutex
-	work                                ValidationWork
-	facts                               ValidationFacts
-	terminal                            ValidationTerminal
+	work                                model.ValidationWork
+	facts                               model.ValidationFacts
+	terminal                            model.ValidationTerminal
 	events                              []string
 	variants                            int
-	readFacts                           func(context.Context) (ValidationFacts, error)
+	readFacts                           func(context.Context) (model.ValidationFacts, error)
 	finishError, claimError, renewError error
 	renewals                            int
 }
 
 type validationTestScope struct{ repository *validationTestRepository }
 
-func (repository *validationTestRepository) WithWorker(ctx context.Context, operation func(ValidationWorkerScope) error) error {
+func (repository *validationTestRepository) WithWorker(ctx context.Context, operation func(model.ValidationWorkerScope) error) error {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -35,7 +36,7 @@ func (repository *validationTestRepository) WithWorker(ctx context.Context, oper
 	}
 	work, terminal, variants, count := repository.work, repository.terminal, repository.variants, len(repository.events)
 	scope := validationTestScope{repository}
-	if err := operation(ValidationWorkerScope{Jobs: scope, Facts: scope, Variants: scope}); err != nil {
+	if err := operation(model.ValidationWorkerScope{Jobs: scope, Facts: scope, Variants: scope}); err != nil {
 		repository.work, repository.terminal, repository.variants = work, terminal, variants
 		repository.events = repository.events[:count]
 		return err
@@ -43,7 +44,7 @@ func (repository *validationTestRepository) WithWorker(ctx context.Context, oper
 	return nil
 }
 
-func (repository *validationTestRepository) Facts(ctx context.Context, _ ValidationInputs) (ValidationFacts, error) {
+func (repository *validationTestRepository) Facts(ctx context.Context, _ model.ValidationInputs) (model.ValidationFacts, error) {
 	if repository.readFacts != nil {
 		return repository.readFacts(ctx)
 	}
@@ -54,15 +55,15 @@ func (repository *validationTestRepository) Candidates(context.Context, int64) (
 	return []string{repository.work.ID}, nil
 }
 
-func (scope validationTestScope) Read(context.Context, string) (ValidationWork, bool, error) {
+func (scope validationTestScope) Read(context.Context, string) (model.ValidationWork, bool, error) {
 	return scope.repository.work, true, nil
 }
 
-func (scope validationTestScope) Facts(context.Context, ValidationInputs) (ValidationFacts, error) {
+func (scope validationTestScope) Facts(context.Context, model.ValidationInputs) (model.ValidationFacts, error) {
 	return scope.repository.facts, nil
 }
 
-func (scope validationTestScope) Claim(_ context.Context, plan ValidationClaimWrite) error {
+func (scope validationTestScope) Claim(_ context.Context, plan model.ValidationClaimWrite) error {
 	repository := scope.repository
 	if repository.claimError != nil {
 		return repository.claimError
@@ -76,7 +77,7 @@ func (scope validationTestScope) Claim(_ context.Context, plan ValidationClaimWr
 	return nil
 }
 
-func (scope validationTestScope) Renew(_ context.Context, _ ValidationClaim, _ int64, lease int64) error {
+func (scope validationTestScope) Renew(_ context.Context, _ model.ValidationClaim, _ int64, lease int64) error {
 	repository := scope.repository
 	if repository.renewError != nil {
 		return repository.renewError
@@ -87,7 +88,7 @@ func (scope validationTestScope) Renew(_ context.Context, _ ValidationClaim, _ i
 	return nil
 }
 
-func (scope validationTestScope) Finish(_ context.Context, plan ValidationTerminal) error {
+func (scope validationTestScope) Finish(_ context.Context, plan model.ValidationTerminal) error {
 	repository := scope.repository
 	repository.terminal = plan
 	repository.work.State = plan.State
@@ -99,7 +100,7 @@ func (scope validationTestScope) Finish(_ context.Context, plan ValidationTermin
 	return nil
 }
 
-func (scope validationTestScope) Recover(_ context.Context, plan ValidationRecovery) error {
+func (scope validationTestScope) Recover(_ context.Context, plan model.ValidationRecovery) error {
 	repository := scope.repository
 	repository.work.Version++
 	if plan.Terminal {
@@ -113,7 +114,7 @@ func (scope validationTestScope) Recover(_ context.Context, plan ValidationRecov
 	return nil
 }
 
-func (scope validationTestScope) Apply(context.Context, ValidationVariantWrite) error {
+func (scope validationTestScope) Apply(context.Context, model.ValidationVariantWrite) error {
 	scope.repository.variants++
 	return nil
 }
@@ -128,25 +129,25 @@ func (ticker *validationTestTicker) Stop()                   { close(ticker.stop
 
 func newValidationTestWorker(t *testing.T) (*ValidationWorker, *validationTestRepository, *validationTestTicker) {
 	t.Helper()
-	source := ProductSource{
+	source := model.ProductSource{
 		GameID: "game", VariantID: "variant", GameVersion: 1, SourceManifestDigest: "manifest", CoreID: "gambatte",
 		ProviderID: "retrom-runtime", TargetID: "gambatte", ContentKind: "SINGLE_FILE", PlatformID: "gbc", ValidationLogicalName: "game.gb",
 		ContentPolicy: contentcapability.NewPolicy("SINGLE_FILE"),
 	}
-	facts := ValidationFacts{Found: true, BindingFound: true, RelationshipEnabled: true, Content: ProductSnapshot{Found: true, Source: source}}
+	facts := model.ValidationFacts{Found: true, BindingFound: true, RelationshipEnabled: true, Content: model.ProductSnapshot{Found: true, Source: source}}
 	inputs, err := ProductValidationInputs(facts.Content, source.VariantID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot := ValidationSnapshot{SchemaVersion: 1, Kind: "VARIANT_VALIDATE", Scope: ValidationScope{Type: "GAME_VARIANT", ID: "variant"}, ExecutionID: "01980000-0000-7000-8000-000000000002", Inputs: inputs}
+	snapshot := model.ValidationSnapshot{SchemaVersion: 1, Kind: "VARIANT_VALIDATE", Scope: model.ValidationScope{Type: "GAME_VARIANT", ID: "variant"}, ExecutionID: "01980000-0000-7000-8000-000000000002", Inputs: inputs}
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(encoded)
-	repository := &validationTestRepository{facts: facts, work: ValidationWork{ID: "job", Kind: "VARIANT_VALIDATE", ScopeType: "GAME_VARIANT", ScopeID: "variant", State: "QUEUED", Version: 1, ExecutionNo: 1, MaxAttempts: 2, SnapshotJSON: string(encoded), InputDigest: hex.EncodeToString(digest[:])}}
+	repository := &validationTestRepository{facts: facts, work: model.ValidationWork{ID: "job", Kind: "VARIANT_VALIDATE", ScopeType: "GAME_VARIANT", ScopeID: "variant", State: "QUEUED", Version: 1, ExecutionNo: 1, MaxAttempts: 2, SnapshotJSON: string(encoded), InputDigest: hex.EncodeToString(digest[:])}}
 	ticker := &validationTestTicker{ticks: make(chan time.Time), stopped: make(chan struct{})}
-	worker := NewValidationWorker(repository, ValidationWorkerEnvironment{Now: func() time.Time { return time.UnixMilli(1_000_000) }, NewID: func() (string, error) { return "01980000-0000-7000-8000-000000000003", nil }, NewTicker: func(time.Duration) ValidationTicker { return ticker }})
+	worker := NewValidationWorker(repository, model.ValidationWorkerEnvironment{Now: func() time.Time { return time.UnixMilli(1_000_000) }, NewID: func() (string, error) { return "01980000-0000-7000-8000-000000000003", nil }, NewTicker: func(time.Duration) model.ValidationTicker { return ticker }})
 	return worker, repository, ticker
 }
 

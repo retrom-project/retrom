@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 	"strings"
 
 	"retrom/internal/capability/format/pegasusmeta"
@@ -40,7 +41,7 @@ func (service *Scanner) projectMetadata(ctx context.Context,
 	}
 	for gameIndex := range document.OrphanGames {
 		if len(result.Items) >= maxGames {
-			return ErrScanLimit
+			return model.ErrScanLimit
 		}
 		item, err := service.scanGame(
 			ctx, metadata.Path, "", -1, nil,
@@ -80,7 +81,7 @@ func (service *Scanner) projectCollection(
 	}
 	for gameIndex := range collection.Games {
 		if len(result.Items) >= maxGames {
-			return ErrScanLimit
+			return model.ErrScanLimit
 		}
 		game := collection.Games[gameIndex]
 		if invalid && game.BlockedCode == "" {

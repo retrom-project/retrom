@@ -10,21 +10,21 @@ import (
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
 
+	accountsmodel "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
-
-	accountservice "retrom/internal/service/accounts"
+	accountsservice "retrom/internal/service/accounts"
 )
 
 type failingConsumptionRepository struct {
-	repository accountservice.LinkConsumptionRepository
+	repository accountsmodel.LinkConsumptionRepository
 }
 
-func (repository failingConsumptionRepository) ResetState(ctx context.Context, id string) (accountservice.ResetState, bool, error) {
+func (repository failingConsumptionRepository) ResetState(ctx context.Context, id string) (accountsmodel.ResetState, bool, error) {
 	return repository.repository.ResetState(ctx, id)
 }
 
-func (repository failingConsumptionRepository) WithConsumptionWrite(ctx context.Context, work func(accountservice.LinkConsumptionScope) error) error {
-	return repository.repository.WithConsumptionWrite(ctx, func(scope accountservice.LinkConsumptionScope) error {
+func (repository failingConsumptionRepository) WithConsumptionWrite(ctx context.Context, work func(accountsmodel.LinkConsumptionScope) error) error {
+	return repository.repository.WithConsumptionWrite(ctx, func(scope accountsmodel.LinkConsumptionScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -32,9 +32,9 @@ func (repository failingConsumptionRepository) WithConsumptionWrite(ctx context.
 	})
 }
 
-func failingConsumptionService(fixture accountFixture) *accountservice.LinkConsumptionService {
-	return accountservice.NewLinkConsumption(failingConsumptionRepository{accountpersistence.NewLinks(fixture.database.SQL)}, accountservice.LinkConsumptionOptions{
-		Tokens: fixture.credentials, Hasher: authn.NewPasswordHasher(), Blocklist: authn.EmptyBlocklist{}, Mint: func() (accountservice.SessionMaterial, error) { return accountservice.MintSession(rand.Reader) }, Now: func() time.Time { return *fixture.now },
+func failingConsumptionService(fixture accountFixture) *accountsservice.LinkConsumptionService {
+	return accountsservice.NewLinkConsumption(failingConsumptionRepository{accountpersistence.NewLinks(fixture.database.SQL)}, accountsmodel.LinkConsumptionOptions{
+		Tokens: fixture.credentials, Hasher: authn.NewPasswordHasher(), Blocklist: authn.EmptyBlocklist{}, Mint: func() (accountsmodel.SessionMaterial, error) { return accountsservice.MintSession(rand.Reader) }, Now: func() time.Time { return *fixture.now },
 	})
 }
 
@@ -49,7 +49,7 @@ func TestInvitationConsumptionLateFailureRollsBackIdentityAndAudit(t *testing.T)
 	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT count(*) FROM auth_sessions`).Scan(&beforeSessions); err != nil {
 		t.Fatal(err)
 	}
-	result, err := failingConsumptionService(fixture).AcceptInvitation(t.Context(), accountservice.AcceptInvitationRequest{Token: link.CapabilityToken, Username: "alice", DisplayName: "Alice", Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword})
+	result, err := failingConsumptionService(fixture).AcceptInvitation(t.Context(), accountsmodel.AcceptInvitationRequest{Token: link.CapabilityToken, Username: "alice", DisplayName: "Alice", Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword})
 	if !errors.Is(err, context.Canceled) || result.CookieToken != "" {
 		t.Fatalf("late invitation: %+v %v", result, err)
 	}
@@ -72,7 +72,7 @@ func TestPasswordResetConsumptionLateFailureRollsBackCredentialAndAudit(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := failingConsumptionService(fixture).CompleteReset(t.Context(), accountservice.CompletePasswordResetRequest{Token: link.CapabilityToken, Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword})
+	result, err := failingConsumptionService(fixture).CompleteReset(t.Context(), accountsmodel.CompletePasswordResetRequest{Token: link.CapabilityToken, Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword})
 	if !errors.Is(err, context.Canceled) || result.Session != nil {
 		t.Fatalf("late reset: %+v %v", result, err)
 	}

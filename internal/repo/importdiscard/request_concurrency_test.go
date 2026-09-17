@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/bootstrap/composition"
-	"retrom/internal/service/importdiscard"
+	"retrom/internal/model/importdiscard"
 )
 
 func TestDiscardRequestRechecksPublishedBatchBeforeWriting(t *testing.T) {

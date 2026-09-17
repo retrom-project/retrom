@@ -13,7 +13,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/accounts"
+	"retrom/internal/model/accounts"
 )
 
 func (server *Server) accountLinkURL(path, fragment, token string) string {

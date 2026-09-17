@@ -3,17 +3,17 @@ package pegasusimport
 import (
 	"database/sql"
 	"errors"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/pegasusimport"
 )
 
 func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 	t.Parallel()
 	database := pendingScanCapacityDatabase(t)
 	repository := NewCreation(database)
-	if err := repository.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	if err := repository.WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 		count, err := writer.PendingPlans(t.Context())
 		if err != nil {
 			return err
@@ -25,14 +25,14 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	control := application.NewWorkflowControl(NewWorkflowControl(database), func() time.Time { return time.UnixMilli(10) })
-	if _, pending, err := control.CancelJob(t.Context(), application.JobCancellationRequest{
+	control := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(database), func() time.Time { return time.UnixMilli(10) })
+	if _, pending, err := control.CancelJob(t.Context(), pegasusimportservice.JobCancellationRequest{
 		JobID: "job-1", ScopeID: "import-1", Kind: "SERVER_PEGASUS_SCAN", ExpectedVersion: 1,
 		Reason: "Stop queued scan", ActorID: "actor",
 	}); err != nil || pending {
 		t.Fatalf("close queued scan: pending=%v err=%v", pending, err)
 	}
-	if err := repository.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	if err := repository.WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 		count, err := writer.PendingPlans(t.Context())
 		if err != nil {
 			return err
@@ -51,11 +51,11 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 func TestCreationFinalInsertCannotBypassPendingScanCapacity(t *testing.T) {
 	t.Parallel()
 	database := pendingScanCapacityDatabase(t)
-	err := NewCreation(database).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	err := NewCreation(database).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 		_, err := writer.Insert(t.Context(), creationPlan(20))
 		return err
 	})
-	if !errors.Is(err, application.ErrActive) {
+	if !errors.Is(err, pegasusimportmodel.ErrActive) {
 		t.Fatalf("21st unstarted plan accepted while scan cancellation is pending: %v", err)
 	}
 	assertScanCapacityCounts(t, database, 20, 1)
@@ -66,7 +66,7 @@ func pendingScanCapacityDatabase(t *testing.T) *sql.DB {
 	database := creationDatabase(t)
 	repository := NewCreation(database)
 	for index := range 20 {
-		if err := repository.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+		if err := repository.WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 			_, err := writer.Insert(t.Context(), creationPlan(index))
 			return err
 		}); err != nil {
@@ -78,8 +78,8 @@ UPDATE jobs SET state='RUNNING',attempt_count=1,worker_id='scanner',leased_until
 heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadline_at_ms=100 WHERE id='job-0'`); err != nil {
 		t.Fatal(err)
 	}
-	control := application.NewWorkflowControl(NewWorkflowControl(database), func() time.Time { return time.UnixMilli(10) })
-	if _, pending, err := control.CancelJob(t.Context(), application.JobCancellationRequest{
+	control := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(database), func() time.Time { return time.UnixMilli(10) })
+	if _, pending, err := control.CancelJob(t.Context(), pegasusimportservice.JobCancellationRequest{
 		JobID: "job-0", ScopeID: "import-0", Kind: "SERVER_PEGASUS_SCAN", ExpectedVersion: 1,
 		Reason: "Stop running scan", ActorID: "actor",
 	}); err != nil || !pending {

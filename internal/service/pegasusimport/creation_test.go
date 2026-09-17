@@ -3,6 +3,7 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/pegasusimport"
 	"testing"
 	"time"
 )
@@ -11,20 +12,20 @@ type creationMemory struct {
 	count          int
 	err, commitErr error
 	inserted       bool
-	plan           CreationPlan
+	plan           model.CreationPlan
 }
 
-func (m *creationMemory) WithCreate(_ context.Context, work func(CreationWriter) error) error {
+func (m *creationMemory) WithCreate(_ context.Context, work func(model.CreationWriter) error) error {
 	if err := work(m); err != nil {
 		return err
 	}
 	return m.commitErr
 }
 func (m *creationMemory) PendingPlans(context.Context) (int, error) { return m.count, m.err }
-func (m *creationMemory) Insert(_ context.Context, plan CreationPlan) (Summary, error) {
+func (m *creationMemory) Insert(_ context.Context, plan model.CreationPlan) (model.Summary, error) {
 	m.inserted = true
 	m.plan = plan
-	return Summary{ID: plan.ImportID}, m.err
+	return model.Summary{ID: plan.ImportID}, m.err
 }
 
 type creationSource struct {
@@ -32,9 +33,9 @@ type creationSource struct {
 	root, path string
 }
 
-func (s *creationSource) Select(_ context.Context, root, path string) (SelectedRoot, error) {
+func (s *creationSource) Select(_ context.Context, root, path string) (model.SelectedRoot, error) {
 	s.root, s.path = root, path
-	return SelectedRoot{ID: root, Label: "Games", Digest: "digest"}, s.err
+	return model.SelectedRoot{ID: root, Label: "Games", Digest: "digest"}, s.err
 }
 
 func TestCreationFreezesSourceAndSevenDayPlan(t *testing.T) {
@@ -42,7 +43,7 @@ func TestCreationFreezesSourceAndSevenDayPlan(t *testing.T) {
 	repo := &creationMemory{}
 	source := &creationSource{}
 	now := time.UnixMilli(123)
-	value, err := NewCreation(repo, source, func() time.Time { return now }).Create(t.Context(), CreateRequest{RootID: "games", SourceRelativePath: "Roms"}, "actor")
+	value, err := NewCreation(repo, source, func() time.Time { return now }).Create(t.Context(), model.CreateRequest{RootID: "games", SourceRelativePath: "Roms"}, "actor")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,8 +68,8 @@ func TestCreationFreezesSourceAndSevenDayPlan(t *testing.T) {
 func TestCreationRejectsCapacityWithinWriteScope(t *testing.T) {
 	t.Parallel()
 	repo := &creationMemory{count: 20}
-	value, err := NewCreation(repo, &creationSource{}, time.Now).Create(t.Context(), CreateRequest{}, "actor")
-	if !errors.Is(err, ErrActive) || value.ID != "" || repo.inserted {
+	value, err := NewCreation(repo, &creationSource{}, time.Now).Create(t.Context(), model.CreateRequest{}, "actor")
+	if !errors.Is(err, model.ErrActive) || value.ID != "" || repo.inserted {
 		t.Fatalf("capacity: %#v, %v, inserted=%v", value, err, repo.inserted)
 	}
 }
@@ -89,7 +90,7 @@ func TestCreationFailureReturnsNoPartialPlan(t *testing.T) {
 			case "commit":
 				repo.commitErr = cause
 			}
-			value, err := NewCreation(repo, source, time.Now).Create(t.Context(), CreateRequest{}, "actor")
+			value, err := NewCreation(repo, source, time.Now).Create(t.Context(), model.CreateRequest{}, "actor")
 			if !errors.Is(err, cause) || value.ID != "" {
 				t.Fatalf("failed creation: %#v, %v", value, err)
 			}

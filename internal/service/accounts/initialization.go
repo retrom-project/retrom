@@ -3,21 +3,22 @@ package accounts
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/accounts"
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
 )
 
 type InitializationService struct {
-	repository InitializationRepository
-	options    InitializationOptions
+	repository model.InitializationRepository
+	options    model.InitializationOptions
 }
 
-func NewInitialization(repository InitializationRepository, options InitializationOptions) *InitializationService {
+func NewInitialization(repository model.InitializationRepository, options model.InitializationOptions) *InitializationService {
 	return &InitializationService{repository: repository, options: options}
 }
 
-func (service *InitializationService) State(ctx context.Context) (InitializationState, error) {
+func (service *InitializationService) State(ctx context.Context) (model.InitializationState, error) {
 	state, err := service.repository.State(ctx)
 	if err != nil {
 		return state, fmt.Errorf("read instance initialization: %w", err)
@@ -32,7 +33,7 @@ func (service *InitializationService) Start(ctx context.Context) error {
 	}
 	if state.State == "PENDING" {
 		if state.Users != 0 || state.Profiles != 0 {
-			return ErrInitializationState
+			return model.ErrInitializationState
 		}
 		if service.options.Mode == config.ModeTest {
 			_, err := service.bootstrap(ctx, "test", "test", "test", "TEST_DEFAULT")
@@ -41,10 +42,10 @@ func (service *InitializationService) Start(ctx context.Context) error {
 		return nil
 	}
 	if state.State != "COMPLETED" || state.EnabledAdmins == 0 || state.OrphanProfiles != 0 {
-		return ErrInitializationState
+		return model.ErrInitializationState
 	}
 	if service.options.Mode == config.ModeRelease && state.TestDefault {
-		return ErrTestCredential
+		return model.ErrTestCredential
 	}
 	return service.validateCredentials(ctx)
 }
@@ -68,25 +69,25 @@ func (service *InitializationService) ReadSetupCode(ctx context.Context) (string
 		return "", err
 	}
 	if state.State != "PENDING" || state.Users != 0 || state.Profiles != 0 {
-		return "", ErrInitializationDone
+		return "", model.ErrInitializationDone
 	}
 	return service.options.Credentials.SetupCode(), nil
 }
 
-func (service *InitializationService) Initialize(ctx context.Context, request InitializeRequest) (Session, error) {
+func (service *InitializationService) Initialize(ctx context.Context, request model.InitializeRequest) (model.Session, error) {
 	if service.options.Mode != config.ModeRelease {
-		return Session{}, ErrInitializationDone
+		return model.Session{}, model.ErrInitializationDone
 	}
 	if !service.options.Credentials.MatchesSetupCode(request.SetupCode) {
-		return Session{}, ErrInitializationProof
+		return model.Session{}, model.ErrInitializationProof
 	}
 	username, err := authn.NormalizeUsername(request.Username)
 	if err != nil {
-		return Session{}, fmt.Errorf("normalize initial username: %w", err)
+		return model.Session{}, fmt.Errorf("normalize initial username: %w", err)
 	}
 	display, err := authn.NormalizeDisplayName(request.DisplayName)
 	if err != nil {
-		return Session{}, fmt.Errorf("normalize initial display name: %w", err)
+		return model.Session{}, fmt.Errorf("normalize initial display name: %w", err)
 	}
 	password, err := authn.ValidatePassword(
 		request.Password,
@@ -96,7 +97,7 @@ func (service *InitializationService) Initialize(ctx context.Context, request In
 		service.options.Blocklist,
 	)
 	if err != nil {
-		return Session{}, fmt.Errorf("validate initial password: %w", err)
+		return model.Session{}, fmt.Errorf("validate initial password: %w", err)
 	}
 	return service.bootstrap(ctx, username, display, password, "RELEASE_SETUP")
 }

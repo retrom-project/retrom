@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	model "retrom/internal/model/metadatascrape"
 	"sort"
 	"strings"
 )
 
-func scheduleEvidence(ctx context.Context, scope ScheduleScope, plan SchedulePlan, platform string) error {
-	var evidence []HashEvidence
+func scheduleEvidence(ctx context.Context, scope model.ScheduleScope, plan model.SchedulePlan, platform string) error {
+	var evidence []model.HashEvidence
 	var err error
 	if platform == "arcade" {
 		evidence, err = arcadeEvidence(ctx, scope.Sources, plan)
@@ -26,12 +27,12 @@ func scheduleEvidence(ctx context.Context, scope ScheduleScope, plan SchedulePla
 	return nil
 }
 
-func contentEvidence(ctx context.Context, reader ScheduleEvidenceReader, plan SchedulePlan) ([]HashEvidence, error) {
+func contentEvidence(ctx context.Context, reader model.ScheduleEvidenceReader, plan model.SchedulePlan) ([]model.HashEvidence, error) {
 	files, err := reader.Files(ctx, plan.Subject)
 	if err != nil {
 		return nil, fmt.Errorf("read content hash evidence: %w", err)
 	}
-	evidence := make([]HashEvidence, 0, len(files))
+	evidence := make([]model.HashEvidence, 0, len(files))
 	for _, file := range files {
 		if strings.EqualFold(filepath.Ext(file.Name), ".zip") && file.ArchiveBlobID == nil {
 			continue
@@ -40,7 +41,7 @@ func contentEvidence(ctx context.Context, reader ScheduleEvidenceReader, plan Sc
 		if err != nil {
 			return nil, err
 		}
-		item := HashEvidence{
+		item := model.HashEvidence{
 			ID:      id,
 			RunID:   plan.RunID,
 			Profile: "RAW_FILE",
@@ -62,7 +63,7 @@ func contentEvidence(ctx context.Context, reader ScheduleEvidenceReader, plan Sc
 	return evidence, nil
 }
 
-func arcadeEvidence(ctx context.Context, reader ScheduleEvidenceReader, plan SchedulePlan) ([]HashEvidence, error) {
+func arcadeEvidence(ctx context.Context, reader model.ScheduleEvidenceReader, plan model.SchedulePlan) ([]model.HashEvidence, error) {
 	binding, found, err := reader.DAT(ctx, plan.Subject)
 	if err != nil {
 		return nil, fmt.Errorf("read arcade scrape DAT: %w", err)
@@ -74,7 +75,7 @@ func arcadeEvidence(ctx context.Context, reader ScheduleEvidenceReader, plan Sch
 		Machine string `json:"machine"`
 	}
 	if err := json.Unmarshal([]byte(binding.SnapshotJSON), &snapshot); err != nil || snapshot.Machine == "" {
-		return nil, ErrArcadeSnapshotInvalid
+		return nil, model.ErrArcadeSnapshotInvalid
 	}
 	entries, err := reader.Arcade(ctx, plan.Subject, binding.ID, snapshot.Machine)
 	if err != nil {
@@ -83,7 +84,7 @@ func arcadeEvidence(ctx context.Context, reader ScheduleEvidenceReader, plan Sch
 	return selectArcadeEvidence(entries, plan)
 }
 
-func selectArcadeEvidence(entries []ArcadeEvidence, plan SchedulePlan) ([]HashEvidence, error) {
+func selectArcadeEvidence(entries []model.ArcadeEvidence, plan model.SchedulePlan) ([]model.HashEvidence, error) {
 	sort.Slice(entries, func(left, right int) bool {
 		if (entries[left].SHA1 != nil) != (entries[right].SHA1 != nil) {
 			return entries[left].SHA1 != nil
@@ -94,7 +95,7 @@ func selectArcadeEvidence(entries []ArcadeEvidence, plan SchedulePlan) ([]HashEv
 		return entries[left].Name < entries[right].Name
 	})
 	seen := make(map[string]struct{}, len(entries))
-	evidence := make([]HashEvidence, 0, 8)
+	evidence := make([]model.HashEvidence, 0, 8)
 	for _, entry := range entries {
 		key := textValue(entry.CRC32) + "\x00" + textValue(entry.SHA1)
 		if _, duplicate := seen[key]; duplicate {
@@ -105,9 +106,9 @@ func selectArcadeEvidence(entries []ArcadeEvidence, plan SchedulePlan) ([]HashEv
 		if err != nil {
 			return nil, err
 		}
-		evidence = append(evidence, HashEvidence{
+		evidence = append(evidence, model.HashEvidence{
 			ID: id, RunID: plan.RunID, Profile: "ARCADE_DAT_ENTRIES", ArchiveBlobID: &entry.ArchiveBlobID,
-			ArchiveOrdinal: &entry.Ordinal, Hashes: Hashes{
+			ArchiveOrdinal: &entry.Ordinal, Hashes: model.Hashes{
 				CRC32: entry.CRC32,
 				SHA1:  entry.SHA1,
 			}, Order: len(

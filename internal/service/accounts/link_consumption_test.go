@@ -3,40 +3,41 @@ package accounts
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/accounts"
 	"testing"
 	"time"
 )
 
 type consumptionMemory struct {
-	state                           ResetState
+	state                           model.ResetState
 	present, exists, inWrite        bool
 	transactions, snapshots, writes int
 	readErr, lateErr                error
-	invitation                      InvitationAcceptance
-	reset                           ResetConsumption
-	audits                          []AccountAudit
+	invitation                      model.InvitationAcceptance
+	reset                           model.ResetConsumption
+	audits                          []model.AccountAudit
 }
 
-func (memory *consumptionMemory) ResetState(context.Context, string) (ResetState, bool, error) {
+func (memory *consumptionMemory) ResetState(context.Context, string) (model.ResetState, bool, error) {
 	memory.snapshots++
 	return memory.state, memory.present, memory.readErr
 }
 
-func (memory *consumptionMemory) WithConsumptionWrite(_ context.Context, work func(LinkConsumptionScope) error) error {
+func (memory *consumptionMemory) WithConsumptionWrite(_ context.Context, work func(model.LinkConsumptionScope) error) error {
 	memory.transactions++
 	memory.inWrite = true
 	defer func() { memory.inWrite = false }()
-	if err := work(LinkConsumptionScope{Read: memory, Write: memory}); err != nil {
+	if err := work(model.LinkConsumptionScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.lateErr
 }
 
-func (memory *consumptionMemory) Current(context.Context, string) (LinkRecord, bool, error) {
+func (memory *consumptionMemory) Current(context.Context, string) (model.LinkRecord, bool, error) {
 	return memory.state.Link, memory.present, memory.readErr
 }
 
-func (memory *consumptionMemory) Target(context.Context, string) (LinkTarget, bool, error) {
+func (memory *consumptionMemory) Target(context.Context, string) (model.LinkTarget, bool, error) {
 	return memory.state.Target, memory.present, memory.readErr
 }
 
@@ -44,19 +45,19 @@ func (memory *consumptionMemory) UsernameExists(context.Context, string) (bool, 
 	return memory.exists, memory.readErr
 }
 
-func (memory *consumptionMemory) Accept(_ context.Context, plan InvitationAcceptance) error {
+func (memory *consumptionMemory) Accept(_ context.Context, plan model.InvitationAcceptance) error {
 	memory.writes++
 	memory.invitation = plan
 	return nil
 }
 
-func (memory *consumptionMemory) Reset(_ context.Context, plan ResetConsumption) error {
+func (memory *consumptionMemory) Reset(_ context.Context, plan model.ResetConsumption) error {
 	memory.writes++
 	memory.reset = plan
 	return nil
 }
 
-func (memory *consumptionMemory) Audit(_ context.Context, audit AccountAudit) error {
+func (memory *consumptionMemory) Audit(_ context.Context, audit model.AccountAudit) error {
 	memory.audits = append(memory.audits, audit)
 	return nil
 }
@@ -85,23 +86,25 @@ func (*consumptionHasher) Verify(context.Context, string, string) (bool, error) 
 func consumptionFixture() (*LinkConsumptionService, *consumptionMemory, *consumptionHasher) {
 	target := "target"
 	role := "USER"
-	memory := &consumptionMemory{present: true, state: ResetState{
-		Link:   LinkRecord{Link: AccountLink{AccountLinkID: "link", Kind: "PASSWORD_RESET", Role: &role, TargetUserID: &target, Version: 2, ExpiresAtMS: 200}},
-		Target: LinkTarget{User: User{UserID: target, Username: "alice", DisplayName: "Alice", Role: "USER"}, ProfileID: "profile", Status: "ENABLED", Version: 3, SessionVersion: 4},
+	memory := &consumptionMemory{present: true, state: model.ResetState{
+		Link:   model.LinkRecord{Link: model.AccountLink{AccountLinkID: "link", Kind: "PASSWORD_RESET", Role: &role, TargetUserID: &target, Version: 2, ExpiresAtMS: 200}},
+		Target: model.LinkTarget{User: model.User{UserID: target, Username: "alice", DisplayName: "Alice", Role: "USER"}, ProfileID: "profile", Status: "ENABLED", Version: 3, SessionVersion: 4},
 	}}
 	hasher := &consumptionHasher{inWrite: &memory.inWrite}
-	service := NewLinkConsumption(memory, LinkConsumptionOptions{Tokens: linkTokens{true}, Hasher: hasher, Now: func() time.Time { return time.UnixMilli(100) }, Mint: func() (SessionMaterial, error) { return SessionMaterial{ID: "session", Token: "token"}, nil }})
+	service := NewLinkConsumption(memory, model.LinkConsumptionOptions{Tokens: linkTokens{true}, Hasher: hasher, Now: func() time.Time { return time.UnixMilli(100) }, Mint: func() (model.SessionMaterial, error) {
+		return model.SessionMaterial{ID: "session", Token: "token"}, nil
+	}})
 	return service, memory, hasher
 }
 
 const consumptionPassword = "q8!brilliant violet rivers"
 
-func resetConsumptionRequest() CompletePasswordResetRequest {
-	return CompletePasswordResetRequest{Token: "capability", Password: consumptionPassword, PasswordConfirmation: consumptionPassword}
+func resetConsumptionRequest() model.CompletePasswordResetRequest {
+	return model.CompletePasswordResetRequest{Token: "capability", Password: consumptionPassword, PasswordConfirmation: consumptionPassword}
 }
 
-func invitationConsumptionRequest() AcceptInvitationRequest {
-	return AcceptInvitationRequest{Token: "capability", Username: "bob", DisplayName: " Bob ", Password: consumptionPassword, PasswordConfirmation: consumptionPassword}
+func invitationConsumptionRequest() model.AcceptInvitationRequest {
+	return model.AcceptInvitationRequest{Token: "capability", Username: "bob", DisplayName: " Bob ", Password: consumptionPassword, PasswordConfirmation: consumptionPassword}
 }
 
 func TestResetConsumptionRechecksConcurrentChangesAfterHash(t *testing.T) {
@@ -121,7 +124,7 @@ func TestResetConsumptionRechecksConcurrentChangesAfterHash(t *testing.T) {
 			service, memory, hasher := consumptionFixture()
 			hasher.onHash = func() { test.change(memory) }
 			result, err := service.CompleteReset(t.Context(), resetConsumptionRequest())
-			if !errors.Is(err, ErrAccountLinkUnavailable) || result.Session != nil || memory.writes != 0 || hasher.calls != 1 {
+			if !errors.Is(err, model.ErrAccountLinkUnavailable) || result.Session != nil || memory.writes != 0 || hasher.calls != 1 {
 				t.Fatalf("concurrent reset: %+v %v writes=%d", result, err, memory.writes)
 			}
 		})
@@ -131,9 +134,9 @@ func TestResetConsumptionRechecksConcurrentChangesAfterHash(t *testing.T) {
 func TestResetConsumptionDisabledAccountGetsNoSession(t *testing.T) {
 	service, memory, _ := consumptionFixture()
 	memory.state.Target.Status = "DISABLED"
-	service.options.Mint = func() (SessionMaterial, error) {
+	service.options.Mint = func() (model.SessionMaterial, error) {
 		t.Fatal("disabled reset minted session")
-		return SessionMaterial{}, nil
+		return model.SessionMaterial{}, nil
 	}
 	result, err := service.CompleteReset(t.Context(), resetConsumptionRequest())
 	if err != nil || result.Session != nil || result.Status != "PASSWORD_CHANGED_ACCOUNT_DISABLED" || memory.reset.Session != nil || memory.writes != 1 {
@@ -181,7 +184,7 @@ func TestInvitationConsumptionNormalizesAndChecksUsernameBeforeWriting(t *testin
 	memory.state.Link.Link.Kind = "INVITATION"
 	memory.exists = true
 	_, err := service.AcceptInvitation(t.Context(), invitationConsumptionRequest())
-	if !errors.Is(err, ErrUsernameUnavailable) || memory.writes != 0 {
+	if !errors.Is(err, model.ErrUsernameUnavailable) || memory.writes != 0 {
 		t.Fatalf("duplicate invitation: %v", err)
 	}
 	memory.exists = false
@@ -202,7 +205,7 @@ func TestConsumptionRejectsInvalidTokenWithoutHashOrDatabase(t *testing.T) {
 	service.options.Tokens = linkTokens{}
 	_, resetErr := service.CompleteReset(t.Context(), resetConsumptionRequest())
 	_, inviteErr := service.AcceptInvitation(t.Context(), invitationConsumptionRequest())
-	if !errors.Is(resetErr, ErrAccountLinkUnavailable) || !errors.Is(inviteErr, ErrAccountLinkUnavailable) || memory.snapshots != 0 || memory.transactions != 0 || hasher.calls != 0 {
+	if !errors.Is(resetErr, model.ErrAccountLinkUnavailable) || !errors.Is(inviteErr, model.ErrAccountLinkUnavailable) || memory.snapshots != 0 || memory.transactions != 0 || hasher.calls != 0 {
 		t.Fatalf("invalid capability reached dependencies: %v %v", resetErr, inviteErr)
 	}
 }

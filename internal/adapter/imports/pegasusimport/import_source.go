@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/blobstore"
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 type importSource struct {

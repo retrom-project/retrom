@@ -8,21 +8,22 @@ import (
 	"sync/atomic"
 	"testing"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	library "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
 type handoffCallbackFailure struct {
-	application.ReviewHandoffRepository
+	emulationstationimportmodel.ReviewHandoffRepository
 }
 
 func (repository handoffCallbackFailure) WithReviewHandoff(
 	ctx context.Context,
-	run func(application.ReviewHandoffScope) error,
+	run func(emulationstationimportmodel.ReviewHandoffScope) error,
 ) error {
-	return repository.ReviewHandoffRepository.WithReviewHandoff(ctx, func(scope application.ReviewHandoffScope) error {
+	return repository.ReviewHandoffRepository.WithReviewHandoff(ctx, func(scope emulationstationimportmodel.ReviewHandoffScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}
@@ -35,14 +36,14 @@ func TestESReviewHandoffLateCallbackRollsBackAllWrites(t *testing.T) {
 	_, unit := startLifecycleImport(t, fixture, "", "nes")
 	item, ordinary := reserveExecutionReview(t, fixture, unit)
 	before := executionReviewSnapshot(t, fixture, unit, ordinary.Items[0].ItemID)
-	service := application.NewReviewHandoff(
+	service := emulationstationimportservice.NewReviewHandoff(
 		handoffCallbackFailure{persistence.NewReviewHandoff(fixture.database)},
 		library.NewMetadataSeeder(nil, fixture.service.now),
 		fixture.service.now,
 	)
 	err := service.Complete(
 		fixture.context,
-		application.ReviewHandoffRequest{Execution: unit, ItemID: item.ID, LibraryJobID: ordinary.Created.ImportJobID, LibraryItemID: ordinary.Items[0].ItemID},
+		emulationstationimportmodel.ReviewHandoffRequest{Execution: unit, ItemID: item.ID, LibraryJobID: ordinary.Created.ImportJobID, LibraryItemID: ordinary.Items[0].ItemID},
 	)
 	if !errors.Is(err, errExecutionReviewFault) {
 		t.Fatalf("callback cause=%v", err)

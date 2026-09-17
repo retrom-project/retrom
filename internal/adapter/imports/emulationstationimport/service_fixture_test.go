@@ -9,8 +9,7 @@ import (
 	"time"
 
 	persistence "retrom/internal/repo/emulationstationimport"
-
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 
 	tagpersistence "retrom/internal/repo/tagging"
 
@@ -18,24 +17,25 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/integration/libraryimport"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/service/tagging"
 )
 
 var (
-	ErrNotFound             = application.ErrNotFound
-	ErrGamelistAbsent       = application.ErrGamelistAbsent
-	ErrNoValidGamelist      = application.ErrNoValidGamelist
-	ErrScanLimit            = application.ErrScanLimit
-	ErrMapping              = application.ErrMapping
-	ErrVersionConflict      = application.ErrVersionConflict
-	ErrNoSelection          = application.ErrNoSelection
-	ErrSourceChanged        = application.ErrSourceChanged
-	ErrMappingTargetChanged = application.ErrMappingTargetChanged
-	ErrExpired              = application.ErrExpired
-	ErrActive               = application.ErrActive
-	ErrInvalid              = application.ErrInvalid
-	ErrNotCancellable       = application.ErrNotCancellable
-	ErrNotRetryable         = application.ErrNotRetryable
+	ErrNotFound             = emulationstationimportmodel.ErrNotFound
+	ErrGamelistAbsent       = emulationstationimportservice.ErrGamelistAbsent
+	ErrNoValidGamelist      = emulationstationimportservice.ErrNoValidGamelist
+	ErrScanLimit            = emulationstationimportservice.ErrScanLimit
+	ErrMapping              = emulationstationimportmodel.ErrMapping
+	ErrVersionConflict      = emulationstationimportmodel.ErrVersionConflict
+	ErrNoSelection          = emulationstationimportmodel.ErrNoSelection
+	ErrSourceChanged        = emulationstationimportmodel.ErrSourceChanged
+	ErrMappingTargetChanged = emulationstationimportmodel.ErrMappingTargetChanged
+	ErrExpired              = emulationstationimportmodel.ErrExpired
+	ErrActive               = emulationstationimportmodel.ErrActive
+	ErrInvalid              = emulationstationimportmodel.ErrInvalid
+	ErrNotCancellable       = emulationstationimportmodel.ErrNotCancellable
+	ErrNotRetryable         = emulationstationimportmodel.ErrNotRetryable
 	errItemStateChanged     = errors.New("item state changed")
 )
 
@@ -46,7 +46,7 @@ type Service struct {
 	roots    map[string]Root
 	now      func() time.Time
 	tags     *tagging.Service
-	worker   *application.Worker
+	worker   *emulationstationimportservice.Worker
 }
 
 func New(
@@ -84,16 +84,16 @@ func (service *Service) signal() {
 }
 
 func (service *Service) recoverWork(ctx context.Context) error {
-	if err := application.NewRecovery(persistence.NewRecovery(service.database), service.now).Recover(ctx); err != nil {
+	if err := emulationstationimportservice.NewRecovery(persistence.NewRecovery(service.database), service.now).Recover(ctx); err != nil {
 		return fmt.Errorf("recover EmulationStation work: %w", err)
 	}
 	return nil
 }
 
-type work = application.Execution
+type work = emulationstationimportmodel.Execution
 
 func (service *Service) claim(ctx context.Context) (work, bool, error) {
-	unit, found, err := application.NewLeases(persistence.NewLeases(service.database), service.now).Claim(ctx)
+	unit, found, err := emulationstationimportservice.NewLeases(persistence.NewLeases(service.database), service.now).Claim(ctx)
 	if err != nil {
 		return work{}, false, fmt.Errorf("claim EmulationStation work: %w", err)
 	}

@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	composition "retrom/internal/bootstrap/composition/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
-func (service *Service) importCreations() *application.ImportCreations {
+func (service *Service) importCreations() *libraryimportservice.ImportCreations {
 	return composition.NewCreations(service.database, service.now, service.creationDependencies())
 }
 
@@ -32,9 +33,9 @@ func (service *Service) create(
 	if len(options) > 1 {
 		return Created{}, ErrInvalid
 	}
-	intent := application.ImportCreationOptions{}
+	intent := libraryimportmodel.ImportCreationOptions{}
 	if reconfiguration != nil {
-		intent.Reconfiguration = &application.ImportReconfiguration{
+		intent.Reconfiguration = &libraryimportmodel.ImportReconfiguration{
 			ImportID: reconfiguration.sourceImportJobID,
 			Version:  reconfiguration.sourceVersion,
 			FileIDs:  reconfiguration.sourceFileIDs,
@@ -45,7 +46,7 @@ func (service *Service) create(
 		intent.ReviewHandoffKind = options[0].reviewHandoffKind
 		binding = options[0].sourceCreation
 		if binding != nil {
-			intent.Source = &application.OwnedImportCreation{Intent: binding.intent, Before: binding.before}
+			intent.Source = &libraryimportmodel.OwnedImportCreation{Intent: binding.intent, Before: binding.before}
 		}
 	}
 	result, err := service.importCreations().Create(ctx, request, intent)

@@ -10,9 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 
-	application "retrom/internal/service/pegasusimport"
+	"github.com/google/uuid"
 )
 
 func TestWorkflowRetryRollsBackStaleIdentityAuditAndLateFailure(t *testing.T) {
@@ -23,12 +24,12 @@ func TestWorkflowRetryRollsBackStaleIdentityAuditAndLateFailure(t *testing.T) {
 			db := workflowDatabase(t)
 			beforeRows := workflowRows(t, db)
 			cause := errors.New("late workflow failure")
-			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope application.WorkflowScope) error {
+			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope pegasusimportmodel.WorkflowScope) error {
 				before, err := scope.Read.Current(t.Context(), "import-0")
 				if err != nil {
 					return err
 				}
-				plan := application.RetryPlan{Before: before, Execution: 2, ExecutionID: "execution-2", AuditID: "audit-2", ActorID: "actor", NowMS: 10}
+				plan := pegasusimportmodel.RetryPlan{Before: before, Execution: 2, ExecutionID: "execution-2", AuditID: "audit-2", ActorID: "actor", NowMS: 10}
 				switch failure {
 				case "job_version":
 					plan.Before.JobVersion++
@@ -66,13 +67,13 @@ func TestWorkflowCancellationRollsBackStaleIdentityAndReleaseScheduling(t *testi
 			prepareQueuedCancellation(t, db)
 			beforeRows := workflowRows(t, db)
 			cause := errors.New("late cancellation failure")
-			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope application.WorkflowScope) error {
+			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope pegasusimportmodel.WorkflowScope) error {
 				before, err := scope.Read.Current(t.Context(), "import-0")
 				if err != nil {
 					return err
 				}
 				completed := int64(10)
-				plan := application.CancellationPlan{Before: before, State: "CANCELLED", CompletedAtMS: &completed, Reason: "Stop", ActorID: "actor", AuditID: "cancel-audit", NowMS: 10}
+				plan := pegasusimportmodel.CancellationPlan{Before: before, State: "CANCELLED", CompletedAtMS: &completed, Reason: "Stop", ActorID: "actor", AuditID: "cancel-audit", NowMS: 10}
 				switch failure {
 				case "job_version":
 					plan.Before.JobVersion++
@@ -102,7 +103,7 @@ func TestWorkflowCancellationRollsBackStaleIdentityAndReleaseScheduling(t *testi
 func TestWorkflowRetryPreservesFrozenInputsAndOnlyRestartsRetryableItems(t *testing.T) {
 	t.Parallel()
 	db := workflowDatabase(t)
-	service := application.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
 	result, err := service.Retry(t.Context(), "import-0", 1, "actor")
 	if err != nil {
 		t.Fatal(err)
@@ -113,7 +114,7 @@ func TestWorkflowRetryPreservesFrozenInputsAndOnlyRestartsRetryableItems(t *test
 	assertRetriedItems(t, db)
 	assertNewManualExecution(t, db)
 	before := workflowRows(t, db)
-	if _, err := service.Retry(t.Context(), "import-0", 2, "actor"); !errors.Is(err, application.ErrNotRetryable) {
+	if _, err := service.Retry(t.Context(), "import-0", 2, "actor"); !errors.Is(err, pegasusimportmodel.ErrNotRetryable) {
 		t.Fatalf("active execution retried: %v", err)
 	}
 	if !reflect.DeepEqual(workflowRows(t, db), before) {
@@ -185,7 +186,7 @@ func TestQueuedCancellationKeepsReviewItemsAndSchedulesTerminalPayloads(t *testi
 	t.Parallel()
 	db := workflowDatabase(t)
 	prepareQueuedCancellation(t, db)
-	service := application.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
 	result, pending, err := service.Cancel(t.Context(), "import-0", 1, "Stop", "actor")
 	if err != nil {
 		t.Fatal(err)

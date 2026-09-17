@@ -2,6 +2,7 @@ package launch
 
 import (
 	"fmt"
+	model "retrom/internal/model/launch"
 	"strings"
 
 	"retrom/internal/capability/runtime/runtimebundle"
@@ -9,7 +10,7 @@ import (
 	"retrom/internal/capability/runtime/runtimeoptions"
 )
 
-func providerWarnings(source ConfigSource) []string {
+func providerWarnings(source model.ConfigSource) []string {
 	warnings := make([]string, 0, 2)
 	if strings.Contains(source.DependencyJSON, `"installationStatus":"HASH_WARNING"`) {
 		warnings = append(warnings, "BIOS_HASH_WARNING")
@@ -26,7 +27,7 @@ func providerWarnings(source ConfigSource) []string {
 
 func providerTargetOptions(
 	schema runtimebundle.TargetOptionsSchema,
-	source ConfigSource,
+	source model.ConfigSource,
 ) (map[string]any, error) {
 	selected, registered := runtimecatalog.Strategy(source.DetectorProfile)
 	if !registered {

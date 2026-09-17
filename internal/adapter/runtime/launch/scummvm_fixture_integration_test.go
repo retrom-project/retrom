@@ -28,7 +28,8 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -123,8 +124,8 @@ func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store
 		t.Fatal(err)
 	}
 	contents := body.Bytes()
-	service := uploads.New(uploadpersistence.New(database), blobs, dir, now)
-	upload, err := service.Create(ctx, uploads.CreateRequest{Purpose: "PROJECT", SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "game", RelativePath: "scummvm.zip", SizeBytes: int64(len(contents))}}})
+	service := uploadsservice.New(uploadpersistence.New(database), blobs, dir, now)
+	upload, err := service.Create(ctx, uploadsmodel.CreateRequest{Purpose: "PROJECT", SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{ClientFileID: "game", RelativePath: "scummvm.zip", SizeBytes: int64(len(contents))}}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,30 +4,31 @@ import (
 	"context"
 	"errors"
 	"math"
+	model "retrom/internal/model/pegasusimport"
 	"strings"
 	"testing"
 	"time"
 )
 
 type workflowMemory struct {
-	before                   WorkflowSnapshot
+	before                   model.WorkflowSnapshot
 	err, writeErr, commitErr error
-	cancellation             *CancellationPlan
-	retry                    *RetryPlan
+	cancellation             *model.CancellationPlan
+	retry                    *model.RetryPlan
 }
 
-func (m *workflowMemory) WithControl(_ context.Context, work func(WorkflowScope) error) error {
-	if err := work(WorkflowScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
+func (m *workflowMemory) WithControl(_ context.Context, work func(model.WorkflowScope) error) error {
+	if err := work(model.WorkflowScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
 		return err
 	}
 	return m.commitErr
 }
 
-func (m *workflowMemory) Current(context.Context, string) (WorkflowSnapshot, error) {
+func (m *workflowMemory) Current(context.Context, string) (model.WorkflowSnapshot, error) {
 	return m.before, m.err
 }
 
-func (m *workflowMemory) Cancel(_ context.Context, plan CancellationPlan) error {
+func (m *workflowMemory) Cancel(_ context.Context, plan model.CancellationPlan) error {
 	m.cancellation = &plan
 	m.before.Summary.State = plan.State
 	m.before.JobState = plan.State
@@ -35,7 +36,7 @@ func (m *workflowMemory) Cancel(_ context.Context, plan CancellationPlan) error 
 	return m.writeErr
 }
 
-func (m *workflowMemory) Retry(_ context.Context, plan RetryPlan) error {
+func (m *workflowMemory) Retry(_ context.Context, plan model.RetryPlan) error {
 	m.retry = &plan
 	m.before.Summary.State = "QUEUED"
 	return m.writeErr
@@ -44,8 +45,8 @@ func (m *workflowMemory) Retry(_ context.Context, plan RetryPlan) error {
 func workflowFixture() *workflowMemory {
 	job := "job"
 	return &workflowMemory{
-		before: WorkflowSnapshot{
-			Summary:        Summary{ID: "import", Version: 4, State: "PARTIAL_FAILURE", Retryable: true, ImportJobID: &job},
+		before: model.WorkflowSnapshot{
+			Summary:  model.Summary{ID: "import", Version: 4, State: "PARTIAL_FAILURE", Retryable: true, ImportJobID: &job},
 			JobState:       "SUCCEEDED",
 			JobVersion:     3,
 			Execution:      1,
@@ -93,7 +94,7 @@ func TestWorkflowRetryRejectsStaleBusyAndExhaustedIdentity(t *testing.T) {
 				m.before.JobState = "RUNNING"
 			}
 			value, err := NewWorkflowControl(m, time.Now).Retry(t.Context(), "import", 4, "actor")
-			if !errors.Is(err, ErrNotRetryable) || value.ID != "" || m.retry != nil {
+			if !errors.Is(err, model.ErrNotRetryable) || value.ID != "" || m.retry != nil {
 				t.Fatalf("invalid retry: %#v, %v", value, err)
 			}
 		})
@@ -140,7 +141,7 @@ func TestWorkflowCancellationRejectsInvalidReason(t *testing.T) {
 	for _, reason := range []string{" ", strings.Repeat("停", 501)} {
 		m := workflowFixture()
 		_, _, err := NewWorkflowControl(m, time.Now).Cancel(t.Context(), "import", 4, reason, "actor")
-		if !errors.Is(err, ErrNotCancellable) || m.cancellation != nil {
+		if !errors.Is(err, model.ErrNotCancellable) || m.cancellation != nil {
 			t.Fatalf("invalid reason: %v", err)
 		}
 	}
@@ -187,7 +188,7 @@ func TestWorkflowCancellationPreservesFailuresAndRejectsStaleState(t *testing.T)
 			case "commit":
 				m.commitErr = cause
 			default:
-				want = ErrNotCancellable
+				want = model.ErrNotCancellable
 				invalidateCancellation(m, phase)
 			}
 			value, pending, err := NewWorkflowControl(m, time.Now).Cancel(t.Context(), "import", 4, "Stop", "actor")

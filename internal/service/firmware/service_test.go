@@ -3,6 +3,7 @@ package firmware
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/firmware"
 	"testing"
 	"time"
 
@@ -25,8 +26,8 @@ func TestInstallRechecksSourceBeforePublishing(t *testing.T) {
 			memory := installFixture()
 			test.change(memory)
 			_, err := New(memory, time.Now).WithPayloadRelease(memory).Install(t.Context(), "requirement", 1,
-				InstallRequest{UploadFileID: "file"})
-			if !errors.Is(err, ErrInvalid) || memory.created != nil || memory.consumption != nil || memory.retired || memory.signals != 0 {
+				model.InstallRequest{UploadFileID: "file"})
+			if !errors.Is(err, model.ErrInvalid) || memory.created != nil || memory.consumption != nil || memory.retired || memory.signals != 0 {
 				t.Fatalf("changed source published: memory=%+v error=%v", memory, err)
 			}
 		})
@@ -38,7 +39,7 @@ func TestInstallRecordsWarningAndSignalsAfterCommit(t *testing.T) {
 	expected := "expected"
 	memory.initial.SHA256, memory.current.SHA256 = &expected, &expected
 	result, err := New(memory, func() time.Time { return time.UnixMilli(1234) }).WithPayloadRelease(memory).
-		Install(t.Context(), "requirement", 1, InstallRequest{UploadFileID: "file"})
+		Install(t.Context(), "requirement", 1, model.InstallRequest{UploadFileID: "file"})
 	if err != nil || result.Status != "HASH_WARNING" || !result.Active || result.CreatedAtMS != 1234 {
 		t.Fatalf("installation=%+v error=%v", result, err)
 	}
@@ -80,53 +81,53 @@ func TestStaticArchivesRejectAliasesWhileDATRemainsAdvisory(t *testing.T) {
 }
 
 type installMemory struct {
-	Repository
-	InstallationWriter
-	initial, current               Requirement
-	upload, currentUpload          Upload
-	created                        *InstallationWrite
-	consumption                    *Consumption
+	model.Repository
+	model.InstallationWriter
+	initial, current               model.Requirement
+	upload, currentUpload          model.Upload
+	created                        *model.InstallationWrite
+	consumption                    *model.Consumption
 	retired                        bool
 	signals                        int
 	insideWrite, signalInsideWrite bool
 }
 
 func installFixture() *installMemory {
-	requirement := Requirement{ID: "requirement", Enabled: true, Version: 1, FileKind: "RAW", SourceKind: "STATIC"}
-	upload := Upload{ID: "file", SessionID: "upload", State: "COMPLETE", BlobID: "blob", SHA256: "digest"}
+	requirement := model.Requirement{ID: "requirement", Enabled: true, Version: 1, FileKind: "RAW", SourceKind: "STATIC"}
+	upload := model.Upload{ID: "file", SessionID: "upload", State: "COMPLETE", BlobID: "blob", SHA256: "digest"}
 	return &installMemory{initial: requirement, current: requirement, upload: upload, currentUpload: upload}
 }
 
-func (memory *installMemory) WithRead(_ context.Context, work func(ReadScope) error) error {
-	return work(ReadScope{Requirements: requirementMemory{value: memory.initial}, Uploads: uploadMemory{memory.upload}})
+func (memory *installMemory) WithRead(_ context.Context, work func(model.ReadScope) error) error {
+	return work(model.ReadScope{Requirements: requirementMemory{value: memory.initial}, Uploads: uploadMemory{memory.upload}})
 }
 
-func (memory *installMemory) CommitBrowserInstall(_ context.Context, cmd BrowserInstallCommand) (Installation, error) {
+func (memory *installMemory) CommitBrowserInstall(_ context.Context, cmd model.BrowserInstallCommand) (model.Installation, error) {
 	memory.insideWrite = true
 	defer func() { memory.insideWrite = false }()
 	if memory.current.SourceKind != cmd.PreparedSourceKind ||
 		memory.current.FileKind != cmd.PreparedFileKind ||
 		memory.currentUpload.BlobID != cmd.PreparedBlobID ||
 		memory.currentUpload.SHA256 != cmd.PreparedSHA256 {
-		return Installation{}, ErrInvalid
+		return model.Installation{}, model.ErrInvalid
 	}
 	if !memory.current.Enabled || memory.current.Version != cmd.Version {
-		return Installation{}, ErrInvalid
+		return model.Installation{}, model.ErrInvalid
 	}
 	if memory.currentUpload.State != "COMPLETE" {
-		return Installation{}, ErrInvalid
+		return model.Installation{}, model.ErrInvalid
 	}
 	memory.retired = true
 	id := "generated-id"
-	memory.created = &InstallationWrite{
+	memory.created = &model.InstallationWrite{
 		ID: id, RequirementID: cmd.RequirementID, BlobID: memory.currentUpload.BlobID,
 		Filename: memory.currentUpload.RelativePath,
-		MD5: memory.currentUpload.MD5, SHA1: memory.currentUpload.SHA1,
+		MD5:      memory.currentUpload.MD5, SHA1: memory.currentUpload.SHA1,
 		SHA256: memory.currentUpload.SHA256, Size: memory.currentUpload.Size,
 		Status: "MATCHED", RequirementVersion: memory.current.Version,
 		AtMS: cmd.NowMS, SourceKind: "BROWSER_UPLOAD",
 	}
-	memory.consumption = &Consumption{
+	memory.consumption = &model.Consumption{
 		ID: "consumption-id", UploadID: memory.currentUpload.SessionID,
 		FileID: memory.currentUpload.ID, InstallationID: id, AtMS: cmd.NowMS,
 	}
@@ -137,27 +138,27 @@ func (memory *installMemory) CommitBrowserInstall(_ context.Context, cmd Browser
 		(memory.current.SHA1 != nil && *memory.current.SHA1 != memory.currentUpload.SHA1) {
 		status = "HASH_WARNING"
 	}
-	return Installation{
+	return model.Installation{
 		InstallationID: id, RequirementID: cmd.RequirementID, Status: status, Active: true,
 		ValidatedRequirementVersion: memory.current.Version, CreatedAtMS: cmd.NowMS,
 	}, nil
 }
 
-func (memory *installMemory) CommitServerInstall(context.Context, ServerInstallCommand) (ServerInstallResult, error) {
-	return ServerInstallResult{}, nil
+func (memory *installMemory) CommitServerInstall(context.Context, model.ServerInstallCommand) (model.ServerInstallResult, error) {
+	return model.ServerInstallResult{}, nil
 }
 
-func (memory *installMemory) Create(_ context.Context, value InstallationWrite) error {
+func (memory *installMemory) Create(_ context.Context, value model.InstallationWrite) error {
 	memory.created = &value
 	return nil
 }
 
-func (memory *installMemory) Consume(_ context.Context, value Consumption) error {
+func (memory *installMemory) Consume(_ context.Context, value model.Consumption) error {
 	memory.consumption = &value
 	return nil
 }
 
-func (memory *installMemory) Deactivate(context.Context, SupersededInstallation, int64) error {
+func (memory *installMemory) Deactivate(context.Context, model.SupersededInstallation, int64) error {
 	memory.retired = true
 	return nil
 }
@@ -168,21 +169,21 @@ func (memory *installMemory) Signal() {
 }
 
 type requirementMemory struct {
-	RequirementRecords
-	value Requirement
+	model.RequirementRecords
+	value model.Requirement
 }
 
-func (records requirementMemory) Get(context.Context, string) (Requirement, bool, error) {
+func (records requirementMemory) Get(context.Context, string) (model.Requirement, bool, error) {
 	return records.value, true, nil
 }
 
-type uploadMemory struct{ value Upload }
+type uploadMemory struct{ value model.Upload }
 
-func (records uploadMemory) Get(context.Context, string) (Upload, bool, error) {
+func (records uploadMemory) Get(context.Context, string) (model.Upload, bool, error) {
 	return records.value, true, nil
 }
 
-func (memory *installMemory) Current(context.Context, string) (SupersededInstallation, bool, error) {
-	return SupersededInstallation{ID: "old", RequirementID: "requirement", BlobID: "blob", Version: 1}, true, nil
+func (memory *installMemory) Current(context.Context, string) (model.SupersededInstallation, bool, error) {
+	return model.SupersededInstallation{ID: "old", RequirementID: "requirement", BlobID: "blob", Version: 1}, true, nil
 }
 func (memory *installMemory) Consumption(context.Context, string) (string, error) { return "", nil }

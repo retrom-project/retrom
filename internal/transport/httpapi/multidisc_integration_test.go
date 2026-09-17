@@ -25,7 +25,7 @@ import (
 
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/runtime/launch"
-	"retrom/internal/service/uploads"
+	"retrom/internal/model/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )

@@ -12,7 +12,7 @@ import (
 
 	"retrom/internal/bootstrap/composition"
 	"retrom/internal/capability/security/authn"
-	gamemove "retrom/internal/service/gamemove"
+	gamemove "retrom/internal/model/gamemove"
 )
 
 type gameMoveImpact = gamemove.Impact

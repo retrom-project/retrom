@@ -38,7 +38,6 @@ type Access struct {
 	Expires       int64
 }
 
-
 type RuntimeSession struct {
 	Profile, ContentFormat, State string
 	Preview                       bool

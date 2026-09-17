@@ -3,7 +3,7 @@ package composition
 import (
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
 

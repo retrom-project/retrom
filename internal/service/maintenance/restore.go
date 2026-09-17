@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	model "retrom/internal/model/maintenance"
 	"strings"
 
 	"retrom/internal/adapter/runtime/dependencies"
@@ -19,7 +20,7 @@ func (service *Service) Restore(
 	if !filepath.IsAbs(input) || !filepath.IsAbs(output) || filepath.Clean(input) != input ||
 		filepath.Clean(output) != output ||
 		exists(output) {
-		return Manifest{}, ErrInvalidBundle
+		return Manifest{}, model.ErrInvalidBundle
 	}
 	lineage, err := service.repository.CurrentLineage()
 	if err != nil {

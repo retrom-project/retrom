@@ -3,21 +3,22 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
 )
 
 type leaseMemory struct {
-	snapshot LeaseSnapshot
+	snapshot model.LeaseSnapshot
 	found    bool
-	claim    *ClaimLease
-	renew    *RenewLease
+	claim    *model.ClaimLease
+	renew    *model.RenewLease
 	failure  error
 	stage    string
 }
 
-func (memory *leaseMemory) WithLease(_ context.Context, work func(LeaseScope) error) error {
-	if err := work(LeaseScope{Read: memory, Write: memory}); err != nil {
+func (memory *leaseMemory) WithLease(_ context.Context, work func(model.LeaseScope) error) error {
+	if err := work(model.LeaseScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	if memory.stage == "commit" {
@@ -26,18 +27,18 @@ func (memory *leaseMemory) WithLease(_ context.Context, work func(LeaseScope) er
 	return nil
 }
 
-func (memory *leaseMemory) Next(context.Context, int64) (LeaseSnapshot, bool, error) {
+func (memory *leaseMemory) Next(context.Context, int64) (model.LeaseSnapshot, bool, error) {
 	if memory.stage == "read" {
-		return LeaseSnapshot{}, false, memory.failure
+		return model.LeaseSnapshot{}, false, memory.failure
 	}
 	return memory.snapshot, memory.found, nil
 }
 
-func (memory *leaseMemory) Current(ctx context.Context, _ string) (LeaseSnapshot, bool, error) {
+func (memory *leaseMemory) Current(ctx context.Context, _ string) (model.LeaseSnapshot, bool, error) {
 	return memory.Next(ctx, 0)
 }
 
-func (memory *leaseMemory) Claim(_ context.Context, plan ClaimLease) error {
+func (memory *leaseMemory) Claim(_ context.Context, plan model.ClaimLease) error {
 	if memory.stage == "write" {
 		return memory.failure
 	}
@@ -45,7 +46,7 @@ func (memory *leaseMemory) Claim(_ context.Context, plan ClaimLease) error {
 	return nil
 }
 
-func (memory *leaseMemory) Renew(_ context.Context, plan RenewLease) error {
+func (memory *leaseMemory) Renew(_ context.Context, plan model.RenewLease) error {
 	if memory.stage == "write" {
 		return memory.failure
 	}
@@ -54,7 +55,7 @@ func (memory *leaseMemory) Renew(_ context.Context, plan RenewLease) error {
 }
 
 func leaseFixture() *leaseMemory {
-	return &leaseMemory{found: true, snapshot: LeaseSnapshot{Execution: Execution{JobID: "job", ImportID: "import", Kind: "SERVER_EMULATIONSTATION_SCAN", RootID: "root", RootDigest: "digest", CreatedByUserID: "actor", ExecutionNo: 1, ReleaseYearMax: 2027}, JobState: "QUEUED", ImportState: "SCANNING", JobVersion: 1, ImportVersion: 1, MaxAttempts: 4}}
+	return &leaseMemory{found: true, snapshot: model.LeaseSnapshot{Execution: model.Execution{JobID: "job", ImportID: "import", Kind: "SERVER_EMULATIONSTATION_SCAN", RootID: "root", RootDigest: "digest", CreatedByUserID: "actor", ExecutionNo: 1, ReleaseYearMax: 2027}, JobState: "QUEUED", ImportState: "SCANNING", JobVersion: 1, ImportVersion: 1, MaxAttempts: 4}}
 }
 
 func TestLeasesClaimFreezesBudgetAndUniqueAttemptOwner(t *testing.T) {
@@ -92,7 +93,7 @@ func TestLeasesRenewRejectsReplacedExpiredAndDeadlineOwners(t *testing.T) {
 			memory.snapshot.DeadlineAtMS = 2000
 			memory.snapshot.LeaseUntilMS = 1500
 			unit := memory.snapshot.Execution
-			want := LeaseLost
+			want := model.LeaseLost
 			switch kind {
 			case "replaced":
 				memory.snapshot.WorkerID = "other"
@@ -101,11 +102,11 @@ func TestLeasesRenewRejectsReplacedExpiredAndDeadlineOwners(t *testing.T) {
 			case "deadline":
 				memory.snapshot.DeadlineAtMS = 1000
 				unit.DeadlineAtMS = 1000
-				want = LeaseDeadline
+				want = model.LeaseDeadline
 			case "cancelled":
 				memory.snapshot.JobState = "CANCEL_REQUESTED"
 				memory.snapshot.ImportState = "CANCEL_REQUESTED"
-				want = LeaseCancelled
+				want = model.LeaseCancelled
 			}
 			state, err := NewLeases(memory, func() time.Time { return time.UnixMilli(1000) }).Renew(t.Context(), unit)
 			if err != nil || state != want || memory.renew != nil {

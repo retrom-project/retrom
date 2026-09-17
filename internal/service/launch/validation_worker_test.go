@@ -2,6 +2,7 @@ package launch
 
 import (
 	"errors"
+	model "retrom/internal/model/launch"
 	"testing"
 )
 
@@ -18,7 +19,7 @@ func TestValidationWorkerIdentityIsChecked(t *testing.T) {
 }
 
 func TestValidationWorkerCannotUseExpiredOrDifferentAuthority(t *testing.T) {
-	claim := ValidationClaim{Job: ValidationWork{ID: "job", ExecutionNo: 1, Attempt: 1, WorkerID: "worker", InputDigest: "digest"}}
+	claim := model.ValidationClaim{Job: model.ValidationWork{ID: "job", ExecutionNo: 1, Attempt: 1, WorkerID: "worker", InputDigest: "digest"}}
 	deadline, lease := int64(100), int64(90)
 	claim.Job.DeadlineMS = &deadline
 	current := claim.Job

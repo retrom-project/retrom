@@ -3,10 +3,11 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/pegasusimport"
 	"testing"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	payload "retrom/internal/model/payloadrelease"
 )
 
 type payloadLinksMemory struct {
@@ -33,7 +34,7 @@ type completionPayloadMemory struct {
 	committed bool
 }
 
-func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(CompletionRecords) error) error {
+func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(model.CompletionRecords) error) error {
 	if err := run(memory); err != nil {
 		return err
 	}

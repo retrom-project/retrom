@@ -4,26 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 )
 
-func (service *ImportExecutions) owned(ctx context.Context, execution QueuedImportExecution, deadline bool,
-	operation func(ImportExecutionScope, ImportWorkerSnapshot, int64) error,
+func (service *ImportExecutions) owned(ctx context.Context, execution model.QueuedImportExecution, deadline bool,
+	operation func(model.ImportExecutionScope, model.ImportWorkerSnapshot, int64) error,
 ) error {
-	err := service.repository.WithExecution(ctx, func(scope ImportExecutionScope) error {
+	err := service.repository.WithExecution(ctx, func(scope model.ImportExecutionScope) error {
 		before, found, err := scope.Records.Current(ctx, execution.JobID)
 		if err != nil {
 			return fmt.Errorf("read import execution: %w", err)
 		}
 		now := service.now().UnixMilli()
 		if !found || !ImportExecutionCurrent(execution, before.Creation, now) {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if err := operation(scope, before, now); err != nil {
 			return err
 		}
 		finished := service.now().UnixMilli()
 		if before.Creation.LeaseUntilMS <= finished || deadline && execution.DeadlineMS <= finished {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		return nil
 	})
@@ -33,13 +34,13 @@ func (service *ImportExecutions) owned(ctx context.Context, execution QueuedImpo
 	return nil
 }
 
-func (service *ImportExecutions) Renew(ctx context.Context, execution QueuedImportExecution) (bool, error) {
+func (service *ImportExecutions) Renew(ctx context.Context, execution model.QueuedImportExecution) (bool, error) {
 	cancelled := false
 	err := service.owned(
 		ctx,
 		execution,
 		true,
-		func(scope ImportExecutionScope, before ImportWorkerSnapshot, now int64) error {
+		func(scope model.ImportExecutionScope, before model.ImportWorkerSnapshot, now int64) error {
 			if before.Creation.JobState == "CANCEL_REQUESTED" {
 				cancelled = true
 				return nil
@@ -50,7 +51,7 @@ func (service *ImportExecutions) Renew(ctx context.Context, execution QueuedImpo
 			change := importTransition(before, now)
 			change.Parent = nil
 			change.RequireLiveLease = true
-			change.Job.LeaseUntilMS = importMoment(min(now+ImportExecutionLease.Milliseconds(), execution.DeadlineMS))
+			change.Job.LeaseUntilMS = importMoment(min(now+model.ImportExecutionLease.Milliseconds(), execution.DeadlineMS))
 			change.Job.HeartbeatAtMS = importMoment(now)
 			if err := scope.Records.Transition(ctx, change); err != nil {
 				return fmt.Errorf("renew import lease: %w", err)
@@ -66,19 +67,19 @@ func (service *ImportExecutions) Renew(ctx context.Context, execution QueuedImpo
 
 func (service *ImportExecutions) Progress(
 	ctx context.Context,
-	execution QueuedImportExecution,
+	execution model.QueuedImportExecution,
 	itemCount int,
 ) error {
 	if itemCount < 0 {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return service.owned(
 		ctx,
 		execution,
 		true,
-		func(scope ImportExecutionScope, before ImportWorkerSnapshot, now int64) error {
+		func(scope model.ImportExecutionScope, before model.ImportWorkerSnapshot, now int64) error {
 			if before.Creation.JobState != "RUNNING" || execution.DeadlineMS <= now {
-				return ErrVersionConflict
+				return model.ErrVersionConflict
 			}
 			event, err := importWorkerEvent(execution, "PROGRESS", now, map[string]any{
 				"phase": "PERSISTING", "completedUnits": itemCount, "totalUnits": itemCount, "unit": "ITEM",
@@ -98,15 +99,15 @@ func (service *ImportExecutions) Progress(
 	)
 }
 
-func (service *ImportExecutions) Fail(ctx context.Context, execution QueuedImportExecution, cause error) error {
+func (service *ImportExecutions) Fail(ctx context.Context, execution model.QueuedImportExecution, cause error) error {
 	if cause == nil {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return service.owned(
 		ctx,
 		execution,
 		false,
-		func(scope ImportExecutionScope, before ImportWorkerSnapshot, now int64) error {
+		func(scope model.ImportExecutionScope, before model.ImportWorkerSnapshot, now int64) error {
 			change, release, err := importFailureProjection(before, cause, now)
 			if err != nil {
 				return err
@@ -124,10 +125,10 @@ func (service *ImportExecutions) Fail(ctx context.Context, execution QueuedImpor
 }
 
 func importFailureProjection(
-	before ImportWorkerSnapshot,
+	before model.ImportWorkerSnapshot,
 	cause error,
 	now int64,
-) (ImportWorkerTransition, bool, error) {
+) (model.ImportWorkerTransition, bool, error) {
 	if before.Creation.JobState == "CANCEL_REQUESTED" {
 		change, err := importCancelledTransition(before, "任务已取消", now)
 		return change, true, err

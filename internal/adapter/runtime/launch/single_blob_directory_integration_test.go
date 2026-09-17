@@ -7,16 +7,17 @@ import (
 	"testing"
 	"time"
 
+	platforminstancemodel "retrom/internal/model/platforminstance"
 	platformpersistence "retrom/internal/repo/platforminstance"
-	"retrom/internal/service/platforminstance"
+	platforminstanceservice "retrom/internal/service/platforminstance"
 )
 
 func createSingleBlobDirectory(t *testing.T, database *sql.DB, input singleBlobCase, actorID string) string {
 	t.Helper()
-	service := platforminstance.New(platformpersistence.New(database), time.Now)
-	directory, err := service.Create(t.Context(), platforminstance.AuditActor{
+	service := platforminstanceservice.New(platformpersistence.New(database), time.Now)
+	directory, err := service.Create(t.Context(), platforminstancemodel.AuditActor{
 		Kind: "USER", UserID: actorID, RequestID: "single-blob-directory",
-	}, platforminstance.CreateInput{
+	}, platforminstancemodel.CreateInput{
 		PlatformID: input.platform, DefaultCoreID: input.core, Name: "手动游戏目录", SortOrder: 500,
 	})
 	if err != nil {

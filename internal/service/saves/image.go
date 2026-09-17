@@ -2,6 +2,7 @@ package saves
 
 import (
 	"image"
+	model "retrom/internal/model/saves"
 
 	// Register the JPEG and PNG decoders used for save-state screenshots.
 	_ "image/jpeg"
@@ -16,23 +17,23 @@ import (
 func validateScreenshot(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return "", ErrInvalid
+		return "", model.ErrInvalid
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()
 	header := make([]byte, 512)
 	read, _ := io.ReadFull(file, header)
 	mediaType := http.DetectContentType(header[:read])
 	if mediaType != "image/png" && mediaType != "image/jpeg" && mediaType != "image/webp" {
-		return "", ErrInvalid
+		return "", model.ErrInvalid
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return "", ErrInvalid
+		return "", model.ErrInvalid
 	}
 	configuration, _, err := image.DecodeConfig(file)
 	if err != nil || configuration.Width <= 0 || configuration.Height <= 0 ||
 		int64(configuration.Width)*int64(configuration.Height) > maxPixels {
 		if mediaType != "image/webp" || !validWebPDimensions(path) {
-			return "", ErrInvalid
+			return "", model.ErrInvalid
 		}
 	}
 	return mediaType, nil

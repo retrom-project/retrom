@@ -3,12 +3,12 @@ package emulationstationimport
 import (
 	"database/sql"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
-
-	application "retrom/internal/service/emulationstationimport"
 )
 
-func stagedCancellation(t *testing.T, running bool) (*sql.DB, application.Summary, application.LeaseSnapshot) {
+func stagedCancellation(t *testing.T, running bool) (*sql.DB, emulationstationimportmodel.Summary, emulationstationimportmodel.LeaseSnapshot) {
 	t.Helper()
 	db, unit, value := scanDatabase(t)
 	service := scanService(db)
@@ -37,7 +37,7 @@ func TestScanCancellationReturnsJobFactsFromSameCommit(t *testing.T) {
 			t.Parallel()
 			db, summary, before := stagedCancellation(t, running)
 			inputs := planTable(t, db, "job_input_snapshots")
-			result, pending, err := scanCancellationService(db).CancelJob(t.Context(), application.JobCancellationRequest{JobID: before.JobID, ScopeID: summary.ID, Kind: before.Kind, ExpectedVersion: before.JobVersion, ActorID: "actor", Reason: " Stop "})
+			result, pending, err := scanCancellationService(db).CancelJob(t.Context(), emulationstationimportservice.JobCancellationRequest{JobID: before.JobID, ScopeID: summary.ID, Kind: before.Kind, ExpectedVersion: before.JobVersion, ActorID: "actor", Reason: " Stop "})
 			if err != nil || pending != running {
 				t.Fatalf("result=%#v pending=%v err=%v", result, pending, err)
 			}
@@ -53,7 +53,7 @@ func TestScanCancellationReturnsJobFactsFromSameCommit(t *testing.T) {
 			}
 			assertScanCancellationProjection(t, db, summary.ID, before, running)
 			rows := planRows(t, db)
-			if _, _, err := scanCancellationService(db).CancelJob(t.Context(), application.JobCancellationRequest{JobID: before.JobID, ScopeID: summary.ID, Kind: before.Kind, ExpectedVersion: after.JobVersion, ActorID: "actor", Reason: "Stop again"}); err == nil {
+			if _, _, err := scanCancellationService(db).CancelJob(t.Context(), emulationstationimportservice.JobCancellationRequest{JobID: before.JobID, ScopeID: summary.ID, Kind: before.Kind, ExpectedVersion: after.JobVersion, ActorID: "actor", Reason: "Stop again"}); err == nil {
 				t.Fatal("cancel replay accepted")
 			}
 			if !reflect.DeepEqual(rows, planRows(t, db)) {
@@ -63,7 +63,7 @@ func TestScanCancellationReturnsJobFactsFromSameCommit(t *testing.T) {
 	}
 }
 
-func assertScanCancellationProjection(t *testing.T, db *sql.DB, id string, before application.LeaseSnapshot, running bool) {
+func assertScanCancellationProjection(t *testing.T, db *sql.DB, id string, before emulationstationimportmodel.LeaseSnapshot, running bool) {
 	t.Helper()
 	var state, reason, actor string
 	var items, events, payloads, counts int64
@@ -88,7 +88,7 @@ media_warning_count+discovered_cover_count+discovered_video_count FROM emulation
 	assertScanCancellationLease(t, db, before, running)
 }
 
-func assertScanCancellationLease(t *testing.T, db *sql.DB, before application.LeaseSnapshot, running bool) {
+func assertScanCancellationLease(t *testing.T, db *sql.DB, before emulationstationimportmodel.LeaseSnapshot, running bool) {
 	t.Helper()
 	after := readLease(t, db, before.JobID)
 	if running && (after.WorkerID != before.WorkerID || after.LeaseUntilMS != before.LeaseUntilMS) {

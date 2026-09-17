@@ -6,15 +6,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 	"slices"
 
 	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/model/importprogress"
 	validation "retrom/internal/service/corevalidation"
-	"retrom/internal/service/importprogress"
 	"retrom/internal/service/payloadrelease"
 )
 
-func (run *creationCommit) prepareHeader(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) prepareHeader(ctx context.Context, scope model.ImportCreationScope) error {
 	header := &run.header
 	header.Plan = run.plan
 	for _, disposition := range run.plan.Dispositions {
@@ -90,7 +91,7 @@ func creationProgress(
 	return projection, counts.Running, counts.ReviewPending, nil
 }
 
-func (run *creationCommit) complete(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) complete(ctx context.Context, scope model.ImportCreationScope) error {
 	state := run.header.State
 	if run.duplicates > 0 {
 		projection, running, pending, err := creationProgress(
@@ -108,7 +109,7 @@ func (run *creationCommit) complete(ctx context.Context, scope ImportCreationSco
 				files++
 			}
 		}
-		change := CreationAggregate{
+		change := model.CreationAggregate{
 			ImportID:        run.header.ImportID,
 			ExpectedVersion: run.parentVersion,
 			ExpectedPending: run.header.Pending,
@@ -132,7 +133,7 @@ func (run *creationCommit) complete(ctx context.Context, scope ImportCreationSco
 	if run.header.Queued != nil {
 		if err := scope.Finish.FinishJob(
 			ctx,
-			CreationJobFinish{Before: *run.header.Queued, NowMS: run.service.settings.Now().UnixMilli()},
+			model.CreationJobFinish{Before: *run.header.Queued, NowMS: run.service.settings.Now().UnixMilli()},
 		); err != nil {
 			return creationError("complete", err)
 		}
@@ -143,7 +144,7 @@ func (run *creationCommit) complete(ctx context.Context, scope ImportCreationSco
 	if err := run.resolveReconfiguration(ctx, scope); err != nil {
 		return creationError("complete", err)
 	}
-	run.result.Created = ServerCreated{
+	run.result.Created = model.ServerCreated{
 		ImportJobID: run.header.ImportID,
 		JobID:       run.header.JobID,
 		State:       state,
@@ -152,7 +153,7 @@ func (run *creationCommit) complete(ctx context.Context, scope ImportCreationSco
 	return nil
 }
 
-func (run *creationCommit) successEvent(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) successEvent(ctx context.Context, scope model.ImportCreationScope) error {
 	code := "NOT_APPLICABLE"
 	if run.plan.ContentMode == contentcapability.ModeMultiDisc {
 		switch {
@@ -177,7 +178,7 @@ func (run *creationCommit) successEvent(ctx context.Context, scope ImportCreatio
 	}
 	return creationError("success event", scope.Reviews.Events(
 		ctx,
-		[]CreationEvent{
+		[]model.CreationEvent{
 			{
 				JobID:     run.header.JobID,
 				ScopeType: "IMPORT_GROUP",
@@ -190,7 +191,7 @@ func (run *creationCommit) successEvent(ctx context.Context, scope ImportCreatio
 	))
 }
 
-func (run *creationCommit) resolveReconfiguration(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) resolveReconfiguration(ctx context.Context, scope model.ImportCreationScope) error {
 	request := run.options.Reconfiguration
 	if request == nil {
 		return nil
@@ -200,16 +201,16 @@ func (run *creationCommit) resolveReconfiguration(ctx context.Context, scope Imp
 		return fmt.Errorf("read reconfiguration authority: %w", err)
 	}
 	if before.Version != request.Version || before.Progress.State != "PARTIAL_FAILURE" || len(request.FileIDs) == 0 {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	ids := slices.Clone(request.FileIDs)
 	slices.Sort(ids)
 	if len(slices.Compact(ids)) != len(ids) {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	for _, id := range ids {
 		if !slices.Contains(before.Files, id) {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 	}
 	after := before.Progress
@@ -218,7 +219,7 @@ func (run *creationCommit) resolveReconfiguration(ctx context.Context, scope Imp
 	if err != nil {
 		return creationError("resolve reconfiguration", err)
 	}
-	change := CreationFileResolution{
+	change := model.CreationFileResolution{
 		Before:        before,
 		ReplacementID: run.header.ImportID,
 		FileIDs:       ids,

@@ -2,6 +2,7 @@ package payloadrelease
 
 import (
 	"context"
+	model "retrom/internal/model/payloadrelease"
 	"sync"
 	"time"
 )
@@ -20,8 +21,8 @@ type WorkerOptions struct {
 }
 
 type Worker struct {
-	repository      WorkerRepository
-	executor        WorkExecutor
+	repository      model.WorkerRepository
+	executor        model.WorkExecutor
 	now             func() time.Time
 	newID           func() (string, error)
 	report          func(error)

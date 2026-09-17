@@ -81,7 +81,7 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 			UploadID: request.Asset.UploadID, BlobID: request.Asset.BlobID,
 			Digest: request.Asset.Digest, SizeBytes: request.Asset.SizeBytes,
 			MediaType: request.Asset.MediaType,
-			WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
+			WidthPX:   request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
 		},
 	})
 	if err != nil {

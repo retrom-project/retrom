@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -28,11 +29,11 @@ func TestESExpiredReviewRecoveryRollsBackMetadataAndOwnership(t *testing.T) {
 			var hits atomic.Int64
 			hook := executionReviewFaultHook(statement, item.ID, unit.JobID, imported.Items[0].ItemID, &hits)
 			faultDB := testsupport.OpenSQLFaultDatabase(t, fixture.database, recoveryReviewHooks(statement, item.ID, hook, &hits))
-			var repository application.RecoveryRepository = persistence.NewRecovery(faultDB)
+			var repository emulationstationimportmodel.RecoveryRepository = persistence.NewRecovery(faultDB)
 			if statement == "callback" {
 				repository = recoveryReviewCallback{repository}
 			}
-			err := application.NewRecovery(repository, fixture.service.now).Recover(fixture.context)
+			err := emulationstationimportservice.NewRecovery(repository, fixture.service.now).Recover(fixture.context)
 			want := errExecutionReviewFault
 			if statement == "zero rows" {
 				want = nil
@@ -50,10 +51,12 @@ func TestESExpiredReviewRecoveryRollsBackMetadataAndOwnership(t *testing.T) {
 	}
 }
 
-type recoveryReviewCallback struct{ application.RecoveryRepository }
+type recoveryReviewCallback struct {
+	emulationstationimportmodel.RecoveryRepository
+}
 
-func (repository recoveryReviewCallback) WithRecovery(ctx context.Context, run func(application.RecoveryScope) error) error {
-	return repository.RecoveryRepository.WithRecovery(ctx, func(scope application.RecoveryScope) error {
+func (repository recoveryReviewCallback) WithRecovery(ctx context.Context, run func(emulationstationimportmodel.RecoveryScope) error) error {
+	return repository.RecoveryRepository.WithRecovery(ctx, func(scope emulationstationimportmodel.RecoveryScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}

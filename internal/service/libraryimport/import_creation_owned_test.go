@@ -1,19 +1,22 @@
 package libraryimport
 
-import "testing"
+import (
+	model "retrom/internal/model/libraryimport"
+	"testing"
+)
 
 func TestOwnedSourcePlanRetainsCompanionInsideSelectedGroup(t *testing.T) {
 	t.Parallel()
-	group := PreparedGroup{
-		Sources: []PreparedSource{
-			{Role: "CONTENT", File: ImportFile{Path: "child.zip"}},
-			{Role: "COMPANION", File: ImportFile{Path: "parent.zip"}},
+	group := model.PreparedGroup{
+		Sources: []model.PreparedSource{
+			{Role: "CONTENT", File: model.ImportFile{Path: "child.zip"}},
+			{Role: "COMPANION", File: model.ImportFile{Path: "parent.zip"}},
 		},
 	}
-	plan := PreparedImport{Target: ImportTarget{Version: 1}, Groups: []PreparedGroup{group}}
-	source := &OwnedImportCreation{
-		Intent: SourceCreationIntent{Kind: SourceOwnerPegasus, PrimaryPaths: []string{"child.zip"}},
-		Before: SourceCreationSnapshot{TargetVersion: 1},
+	plan := model.PreparedImport{Target: model.ImportTarget{Version: 1}, Groups: []model.PreparedGroup{group}}
+	source := &model.OwnedImportCreation{
+		Intent: model.SourceCreationIntent{Kind: model.SourceOwnerPegasus, PrimaryPaths: []string{"child.zip"}},
+		Before: model.SourceCreationSnapshot{TargetVersion: 1},
 	}
 	if err := validateOwnedImportPlan(plan, source); err != nil {
 		t.Fatal(err)

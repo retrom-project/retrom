@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
-	gamemetadata "retrom/internal/service/gamemetadata"
+	gamemetadatamodel "retrom/internal/model/gamemetadata"
+	gamemetadataservice "retrom/internal/service/gamemetadata"
 )
 
 type applyCandidateRequest struct {
-	Fields         []string                    `json:"fields"`
-	SelectedAssets gamemetadata.SelectedAssets `json:"selectedAssets"`
+	Fields         []string                         `json:"fields"`
+	SelectedAssets gamemetadatamodel.SelectedAssets `json:"selectedAssets"`
 }
 
 // Candidate freshness, metadata changes, selected media replacement, and optimistic locking share one transaction.
@@ -24,29 +24,29 @@ func (server *Server) applyGameScrapeCandidate(writer http.ResponseWriter, reque
 		return
 	}
 	var body applyCandidateRequest
-	if decodeJSON(writer, request, &body, 32<<10) != nil || !gamemetadata.ValidCandidateFields(body.Fields) {
+	if decodeJSON(writer, request, &body, 32<<10) != nil || !gamemetadataservice.ValidCandidateFields(body.Fields) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "候选采用字段无效", map[string]any{})
 		return
 	}
 	result, err := server.gameMetadata.ApplyCandidate(
-		request.Context(), gamemetadata.ApplyCandidateRequest{
+		request.Context(), gamemetadatamodel.ApplyCandidateRequest{
 			GameID: request.PathValue("gameId"), CandidateID: request.PathValue("candidateId"),
 			ExpectedVersion: expected, Fields: body.Fields, SelectedAssets: body.SelectedAssets,
 		},
 	)
-	if errors.Is(err, gamemetadata.ErrCandidateStale) {
+	if errors.Is(err, gamemetadatamodel.ErrCandidateStale) {
 		writeError(writer, request, http.StatusConflict, "SCRAPE_CANDIDATE_STALE", "候选不是当前内容的最新批次", map[string]any{})
 		return
 	}
-	if errors.Is(err, gamemetadata.ErrCandidateMetadata) {
+	if errors.Is(err, gamemetadatamodel.ErrCandidateMetadata) {
 		server.databaseError(writer, request, errCandidateMetadata)
 		return
 	}
-	if errors.Is(err, gamemetadata.ErrMetadataInvalid) {
+	if errors.Is(err, gamemetadatamodel.ErrMetadataInvalid) {
 		writeError(writer, request, http.StatusUnprocessableEntity, "SCRAPE_METADATA_INVALID", "候选元数据无效", map[string]any{})
 		return
 	}
-	if errors.Is(err, gamemetadata.ErrCandidateAsset) {
+	if errors.Is(err, gamemetadatamodel.ErrCandidateAsset) {
 		writeError(
 			writer,
 			request,
@@ -57,11 +57,11 @@ func (server *Server) applyGameScrapeCandidate(writer http.ResponseWriter, reque
 		)
 		return
 	}
-	if errors.Is(err, gamemetadata.ErrVersionConflict) {
+	if errors.Is(err, gamemetadatamodel.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	if errors.Is(err, gamemetadata.ErrInvalid) {
+	if errors.Is(err, gamemetadatamodel.ErrInvalid) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "候选采用字段无效", map[string]any{})
 		return
 	}

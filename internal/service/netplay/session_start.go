@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/netplay"
 	"time"
 
 	validation "retrom/internal/service/corevalidation"
@@ -12,36 +13,36 @@ import (
 )
 
 type SessionStart struct {
-	repository SessionStartRepository
+	repository model.SessionStartRepository
 	registry   *profile.Registry
 	now        func() time.Time
 	newID      func() (string, error)
 }
 
 func NewSessionStart(
-	repository SessionStartRepository,
+	repository model.SessionStartRepository,
 	registry *profile.Registry,
 	now func() time.Time,
 ) *SessionStart {
 	return &SessionStart{repository: repository, registry: registry, now: now, newID: roomUUID}
 }
 
-func (service *SessionStart) Start(ctx context.Context, roomID, hostID string, version int64) (Room, error) {
+func (service *SessionStart) Start(ctx context.Context, roomID, hostID string, version int64) (model.Room, error) {
 	now := service.now().UnixMilli()
-	var result Room
-	err := service.repository.WithStart(ctx, func(scope SessionStartScope) error {
+	var result model.Room
+	err := service.repository.WithStart(ctx, func(scope model.SessionStartScope) error {
 		before, err := scope.Read.Current(ctx, roomID, hostID)
 		if err != nil {
 			return fmt.Errorf("netplay/start room snapshot: %w", err)
 		}
 		if before.HostID != hostID {
-			return ErrForbidden
+			return model.ErrForbidden
 		}
 		if before.Version != version {
-			return ErrPrecondition
+			return model.ErrPrecondition
 		}
-		if before.State != RoomStateWaiting {
-			return ErrRoomConflict
+		if before.State != model.RoomStateWaiting {
+			return model.ErrRoomConflict
 		}
 		frozen, err := service.lockedProfile(ctx, scope, before.Selection)
 		if err != nil {
@@ -62,82 +63,82 @@ func (service *SessionStart) Start(ctx context.Context, roomID, hostID string, v
 		return nil
 	})
 	if err != nil {
-		return Room{}, fmt.Errorf("netplay/start: %w", err)
+		return model.Room{}, fmt.Errorf("netplay/start: %w", err)
 	}
 	return roomForViewer(result, hostID, now), nil
 }
 
 func (service *SessionStart) lockedProfile(
 	ctx context.Context,
-	scope SessionStartScope,
-	selected *RoomSelection,
-) (FrozenRoomProfile, error) {
+	scope model.SessionStartScope,
+	selected *model.RoomSelection,
+) (model.FrozenRoomProfile, error) {
 	if selected == nil {
-		return FrozenRoomProfile{}, ErrProfileStale
+		return model.FrozenRoomProfile{}, model.ErrProfileStale
 	}
 	eligibility := NewEligibility(scope.Eligibility, service.registry, nil, validation.New(scope.BIOS))
 	candidates, err := eligibility.Profiles(ctx, selected.GameID)
 	if err != nil {
-		return FrozenRoomProfile{}, fmt.Errorf("netplay/start eligibility: %w", err)
+		return model.FrozenRoomProfile{}, fmt.Errorf("netplay/start eligibility: %w", err)
 	}
 	for _, candidate := range candidates {
 		if candidate.Manifest.ID != selected.ProfileID || candidate.VariantID != selected.VariantID {
 			continue
 		}
 		frozen, err := freezeRoomProfile(service.registry, selected.GameID, candidate)
-		if errors.Is(err, ErrInvalidProfile) {
-			return FrozenRoomProfile{}, ErrProfileStale
+		if errors.Is(err, model.ErrInvalidProfile) {
+			return model.FrozenRoomProfile{}, model.ErrProfileStale
 		}
 		if err != nil {
-			return FrozenRoomProfile{}, err
+			return model.FrozenRoomProfile{}, err
 		}
 		if frozen.Selection != *selected {
-			return FrozenRoomProfile{}, ErrProfileStale
+			return model.FrozenRoomProfile{}, model.ErrProfileStale
 		}
 		return frozen, nil
 	}
-	return FrozenRoomProfile{}, ErrProfileStale
+	return model.FrozenRoomProfile{}, model.ErrProfileStale
 }
 
-func startSeatMask(before RoomControlSnapshot) (int, error) {
+func startSeatMask(before model.RoomControlSnapshot) (int, error) {
 	if before.Selection == nil || len(before.Occupants) < 2 || len(before.Occupants) > before.Selection.MaxPlayers {
-		return 0, ErrRoomNotReady
+		return 0, model.ErrRoomNotReady
 	}
 	mask := 0
 	for _, member := range before.Occupants {
 		if !member.Ready || member.LeftAtMS != nil || member.PlayerNo < 1 || member.PlayerNo > before.Selection.MaxPlayers {
-			return 0, ErrRoomNotReady
+			return 0, model.ErrRoomNotReady
 		}
 		bit := 1 << (member.PlayerNo - 1)
 		if mask&bit != 0 {
-			return 0, ErrRoomNotReady
+			return 0, model.ErrRoomNotReady
 		}
 		if member.PlayerNo == 1 && (member.Role != "HOST" || member.ProfileID != before.HostID) {
-			return 0, ErrRoomNotReady
+			return 0, model.ErrRoomNotReady
 		}
 		mask |= bit
 	}
 	if mask&1 == 0 {
-		return 0, ErrRoomNotReady
+		return 0, model.ErrRoomNotReady
 	}
 	return mask, nil
 }
 
 func (service *SessionStart) plan(
 	ctx context.Context,
-	scope SessionStartScope,
-	before RoomControlSnapshot,
-	frozen FrozenRoomProfile,
+	scope model.SessionStartScope,
+	before model.RoomControlSnapshot,
+	frozen model.FrozenRoomProfile,
 	mask int,
 	now int64,
-) (SessionStartPlan, error) {
+) (model.SessionStartPlan, error) {
 	sessionNo, err := scope.Write.NextNumber(ctx, before.RoomID)
 	if err != nil {
-		return SessionStartPlan{}, fmt.Errorf("netplay/session number: %w", err)
+		return model.SessionStartPlan{}, fmt.Errorf("netplay/session number: %w", err)
 	}
 	id, err := service.newID()
 	if err != nil {
-		return SessionStartPlan{}, fmt.Errorf("netplay/session identity: %w", err)
+		return model.SessionStartPlan{}, fmt.Errorf("netplay/session identity: %w", err)
 	}
 	data, err := json.Marshal(struct {
 		SchemaVersion    int `json:"schemaVersion"`
@@ -145,16 +146,16 @@ func (service *SessionStart) plan(
 		OccupiedSeatMask int `json:"occupiedSeatMask"`
 	}{1, len(before.Occupants), mask})
 	if err != nil {
-		return SessionStartPlan{}, fmt.Errorf("netplay/start event: %w", err)
+		return model.SessionStartPlan{}, fmt.Errorf("netplay/start event: %w", err)
 	}
-	return SessionStartPlan{
-		Before:    before,
-		SessionID: id,
-		SessionNo: sessionNo,
-		Profile:   frozen,
-		Members:   before.Occupants,
-		SeatMask:  mask,
-		Now:       now,
-		Event:     data,
+	return model.SessionStartPlan{
+		Before:      before,
+		SessionID:   id,
+		SessionNo:   sessionNo,
+		Profile:     frozen,
+		Members:     before.Occupants,
+		SeatMask:    mask,
+		Now:         now,
+		Event: data,
 	}, nil
 }

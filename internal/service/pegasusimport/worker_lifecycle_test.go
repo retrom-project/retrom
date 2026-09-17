@@ -3,6 +3,7 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/pegasusimport"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -15,18 +16,18 @@ type workerFixture struct {
 	ownerLost                                                       atomic.Bool
 	renewError, closeError                                          error
 	checkError                                                      error
-	run                                                             func(context.Context, Work)
+	run                                                             func(context.Context, model.Work)
 	maintain                                                        func(context.Context) error
 	settle                                                          func(context.Context) error
 	reports                                                         chan error
 }
 
-func (f *workerFixture) Claim(context.Context) (Work, bool, error) {
+func (f *workerFixture) Claim(context.Context) (model.Work, bool, error) {
 	count := f.claimCount.Add(1)
-	return Work{JobID: "job", ImportID: "plan", WorkerID: "owner", ExecutionNo: 1, Attempt: 1}, count == 1, nil
+	return model.Work{JobID: "job", ImportID: "plan", WorkerID: "owner", ExecutionNo: 1, Attempt: 1}, count == 1, nil
 }
 
-func (f *workerFixture) Renew(context.Context, ExecutionIdentity) error {
+func (f *workerFixture) Renew(context.Context, model.ExecutionIdentity) error {
 	f.renewCount.Add(1)
 	return f.renewError
 }
@@ -39,19 +40,19 @@ func (f *workerFixture) Maintain(ctx context.Context) error {
 	return nil
 }
 
-func (f *workerFixture) Execute(ctx context.Context, unit Work) {
+func (f *workerFixture) Execute(ctx context.Context, unit model.Work) {
 	f.executeCount.Add(1)
 	f.run(ctx, unit)
 }
 
-func (f *workerFixture) Cancelled(context.Context, ExecutionIdentity) (bool, error) {
+func (f *workerFixture) Cancelled(context.Context, model.ExecutionIdentity) (bool, error) {
 	if f.ownerLost.Load() {
-		return false, ErrVersionConflict
+		return false, model.ErrVersionConflict
 	}
 	return f.cancelRequested.Load(), f.checkError
 }
 
-func (f *workerFixture) CloseCancelled(ctx context.Context, _ ExecutionIdentity) (bool, error) {
+func (f *workerFixture) CloseCancelled(ctx context.Context, _ model.ExecutionIdentity) (bool, error) {
 	if ctx.Err() != nil {
 		return false, ctx.Err()
 	}
@@ -64,7 +65,7 @@ func (f *workerFixture) CloseCancelled(ctx context.Context, _ ExecutionIdentity)
 
 func newWorkerFixture() (*Worker, *workerFixture) {
 	f := &workerFixture{reports: make(chan error, 20)}
-	f.run = func(ctx context.Context, _ Work) { <-ctx.Done() }
+	f.run = func(ctx context.Context, _ model.Work) { <-ctx.Done() }
 	worker := NewWorker(WorkerDependencies{
 		Leases: f, Maintenance: f, Executor: f, Cancellation: f,
 		Report: func(err error) { f.reports <- err },
@@ -76,7 +77,7 @@ func TestWorkerStartIsIdempotentAndCloseJoinsExecution(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		worker, f := newWorkerFixture()
 		release := make(chan struct{})
-		f.run = func(ctx context.Context, _ Work) { <-ctx.Done(); <-release }
+		f.run = func(ctx context.Context, _ model.Work) { <-ctx.Done(); <-release }
 		worker.Start()
 		worker.Start()
 		synctest.Wait()
@@ -190,7 +191,7 @@ func TestWorkerDeadlineAndHeartbeatUseOriginalExecutionLifetime(t *testing.T) {
 		worker, f := newWorkerFixture()
 		done := make(chan struct{})
 		go func() {
-			worker.Run(context.Background(), Work{DeadlineAtMS: time.Now().Add(17 * time.Second).UnixMilli()})
+			worker.Run(context.Background(), model.Work{DeadlineAtMS: time.Now().Add(17 * time.Second).UnixMilli()})
 			close(done)
 		}()
 		synctest.Wait()
@@ -233,7 +234,7 @@ func TestWorkerLeaseFailureStopsAndJoinsExecution(t *testing.T) {
 		cause := errors.New("lease write failed")
 		f.renewError = cause
 		done := make(chan struct{})
-		go func() { worker.Run(context.Background(), Work{}); close(done) }()
+		go func() { worker.Run(context.Background(), model.Work{}); close(done) }()
 		synctest.Wait()
 		time.Sleep(15 * time.Second)
 		synctest.Wait()
@@ -258,7 +259,7 @@ func TestWorkerCancellationSettlementFailureIsReported(t *testing.T) {
 		cause := errors.New("cancellation commit failed")
 		f.closeError = cause
 		f.cancelRequested.Store(true)
-		worker.Run(context.Background(), Work{})
+		worker.Run(context.Background(), model.Work{})
 		if f.executeCount.Load() != 0 || f.closeCount.Load() != 1 {
 			t.Fatal("already cancelled execution ran")
 		}
@@ -278,7 +279,7 @@ func TestWorkerCancellationCleanupTimeoutIsReported(t *testing.T) {
 		worker, f := newWorkerFixture()
 		f.cancelRequested.Store(true)
 		f.settle = func(ctx context.Context) error { <-ctx.Done(); return ctx.Err() }
-		worker.Run(context.Background(), Work{})
+		worker.Run(context.Background(), model.Work{})
 		select {
 		case err := <-f.reports:
 			if !errors.Is(err, context.DeadlineExceeded) {

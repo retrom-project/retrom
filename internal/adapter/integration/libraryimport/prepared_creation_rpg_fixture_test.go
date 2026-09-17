@@ -15,8 +15,9 @@ import (
 	"time"
 
 	"retrom/internal/capability/engine/rpgmaker/materializer"
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -29,14 +30,14 @@ func preparedRPGFixture(t *testing.T) (*Service, CreateRequest, string) {
 	t.Helper()
 	database, blobs, dataDir := openImportGroupFixture(t, t.Context())
 	files := preparedPublicRPGFiles(t, "rpgxp")
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	declarations := make([]uploads.FileDeclaration, 0, len(files))
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(files))
 	for index, file := range files {
-		declarations = append(declarations, uploads.FileDeclaration{
+		declarations = append(declarations, uploadsmodel.FileDeclaration{
 			ClientFileID: fmt.Sprint(index), RelativePath: "project/" + file.path, SizeBytes: int64(len(file.contents)),
 		})
 	}
-	upload, err := uploadService.Create(t.Context(), uploads.CreateRequest{Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations})
+	upload, err := uploadService.Create(t.Context(), uploadsmodel.CreateRequest{Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,10 +90,10 @@ func preparedPublicRPGFiles(t *testing.T, generation string) []preparedRPGFile {
 	return result
 }
 
-func putPreparedRPGFile(t *testing.T, service *uploads.Service, uploadID, fileID string, contents []byte) {
+func putPreparedRPGFile(t *testing.T, service *uploadsservice.Service, uploadID, fileID string, contents []byte) {
 	t.Helper()
-	for start, part := 0, 0; start < len(contents); start, part = start+int(uploads.PartSize), part+1 {
-		end := min(start+int(uploads.PartSize), len(contents))
+	for start, part := 0, 0; start < len(contents); start, part = start+int(uploadsmodel.PartSize), part+1 {
+		end := min(start+int(uploadsmodel.PartSize), len(contents))
 		digest := sha256.Sum256(contents[start:end])
 		if err := service.PutPart(t.Context(), uploadID, fileID, part,
 			fmt.Sprintf("bytes %d-%d/%d", start, end-1, len(contents)),

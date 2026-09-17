@@ -4,17 +4,18 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 type reviewPreparerMemory struct {
 	result                                                              library.ServerImportResult
 	request                                                             library.OwnedServerSourceRequest
 	intent                                                              library.SourceCreationIntent
-	handoff                                                             ReviewHandoffRequest
-	outcome                                                             ItemOutcome
+	handoff                                                             model.ReviewHandoffRequest
+	outcome                                                             model.ItemOutcome
 	found                                                               bool
 	lookupErr, createErr, finishErr, handoffErr, companionErr, phaseErr error
 	calls                                                               []string
@@ -40,31 +41,31 @@ func (memory *reviewPreparerMemory) CreateOwnedServerSource(
 
 func (memory *reviewPreparerMemory) Files(
 	context.Context,
-	Execution,
-	ExecutionItem,
+	model.Execution,
+	model.ExecutionItem,
 ) ([]library.ServerSourceFile, error) {
 	memory.calls = append(memory.calls, "companions")
 	return []library.ServerSourceFile{{RelativePath: "parent.zip", BlobID: "parent", SizeBytes: 2}}, memory.companionErr
 }
 
-func (memory *reviewPreparerMemory) Resume(context.Context, Execution, string, string, string) error {
+func (memory *reviewPreparerMemory) Resume(context.Context, model.Execution, string, string, string) error {
 	memory.calls = append(memory.calls, "resume")
 	return nil
 }
 
-func (memory *reviewPreparerMemory) Finish(_ context.Context, _ Execution, _ string, outcome ItemOutcome) error {
+func (memory *reviewPreparerMemory) Finish(_ context.Context, _ model.Execution, _ string, outcome model.ItemOutcome) error {
 	memory.calls = append(memory.calls, "finish")
 	memory.outcome = outcome
 	return memory.finishErr
 }
 
-func (memory *reviewPreparerMemory) Complete(_ context.Context, request ReviewHandoffRequest) error {
+func (memory *reviewPreparerMemory) Complete(_ context.Context, request model.ReviewHandoffRequest) error {
 	memory.calls = append(memory.calls, "handoff")
 	memory.handoff = request
 	return memory.handoffErr
 }
 
-func (memory *reviewPreparerMemory) SetPhase(_ context.Context, _ Execution, phase string) error {
+func (memory *reviewPreparerMemory) SetPhase(_ context.Context, _ model.Execution, phase string) error {
 	memory.calls = append(memory.calls, phase)
 	return memory.phaseErr
 }
@@ -82,8 +83,8 @@ func (memory *reviewPreparerMemory) service() *ReviewPreparer {
 	)
 }
 
-func reviewPreparerInputs() (Execution, ExecutionItem) {
-	return Execution{
+func reviewPreparerInputs() (model.Execution, model.ExecutionItem) {
+	return model.Execution{
 			JobID:           "job",
 			ImportID:        "import",
 			WorkerID:        "worker",
@@ -91,13 +92,13 @@ func reviewPreparerInputs() (Execution, ExecutionItem) {
 			Attempt:         2,
 			CreatedByUserID: "actor",
 			ReleaseYearMax:  2027,
-		}, ExecutionItem{
+		}, model.ExecutionItem{
 			ID:               "source",
 			MetadataJSON:     `{"title":"Frozen"}`,
 			TargetPlatformID: "catalog",
 			ContentKind:      "STANDARD",
 			TagIDs:           []string{"tag"},
-			Files:            []ExecutionFile{{Path: "game.nes", BlobID: "primary", Size: 5}},
+			Files:            []model.ExecutionFile{{Path: "game.nes", BlobID: "primary", Size: 5}},
 		}
 }
 
@@ -155,8 +156,8 @@ func TestReviewPreparerReturnsOwnershipAndLookupCauses(t *testing.T) {
 				memory.createErr = library.ErrVersionConflict
 				expected = library.ErrVersionConflict
 			case "handoff-owner":
-				memory.handoffErr = ErrVersionConflict
-				expected = ErrVersionConflict
+				memory.handoffErr = model.ErrVersionConflict
+				expected = model.ErrVersionConflict
 			case "phase":
 				memory.phaseErr = cause
 			}

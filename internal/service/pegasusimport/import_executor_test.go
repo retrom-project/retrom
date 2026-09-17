@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	model "retrom/internal/model/pegasusimport"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 func TestImportExecutorPreservesFailedOutcomeCauseAndStopsClaiming(t *testing.T) {
@@ -14,7 +15,7 @@ func TestImportExecutorPreservesFailedOutcomeCauseAndStopsClaiming(t *testing.T)
 	fake, executor := newImportExecutorFixture()
 	copyFailure, finishFailure := errors.New("source unavailable"), errors.New("outcome unavailable")
 	fake.failures["copy:game.gba"], fake.failures["finish"] = copyFailure, finishFailure
-	err := executor.Execute(t.Context(), Work{})
+	err := executor.Execute(t.Context(), model.Work{})
 	if !errors.Is(err, copyFailure) || !errors.Is(err, finishFailure) || fake.claims != 1 {
 		t.Fatalf("lost failure or continued: error=%v claims=%d events=%v", err, fake.claims, fake.events)
 	}
@@ -27,7 +28,7 @@ func TestImportExecutorReplaysReviewBeforeAnySourceAccess(t *testing.T) {
 	t.Parallel()
 	fake, executor := newImportExecutorFixture()
 	fake.resumed = true
-	if err := executor.Process(t.Context(), Work{}, fake.items[0]); err != nil {
+	if err := executor.Process(t.Context(), model.Work{}, fake.items[0]); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(fake.events, []string{"resume"}) {
@@ -38,7 +39,7 @@ func TestImportExecutorReplaysReviewBeforeAnySourceAccess(t *testing.T) {
 func TestImportExecutorCopiesAndBindsBeforeCreatingReview(t *testing.T) {
 	t.Parallel()
 	fake, executor := newImportExecutorFixture()
-	if err := executor.Execute(t.Context(), Work{}); err != nil {
+	if err := executor.Execute(t.Context(), model.Work{}); err != nil {
 		t.Fatal(err)
 	}
 	expected := []string{
@@ -55,11 +56,11 @@ func TestImportExecutorCopiesAndBindsBeforeCreatingReview(t *testing.T) {
 
 func TestImportExecutorLostOwnershipCannotBecomeItemFailure(t *testing.T) {
 	t.Parallel()
-	for _, cause := range []error{ErrVersionConflict, library.ErrVersionConflict, context.Canceled, context.DeadlineExceeded} {
+	for _, cause := range []error{model.ErrVersionConflict, library.ErrVersionConflict, context.Canceled, context.DeadlineExceeded} {
 		t.Run(cause.Error(), func(t *testing.T) {
 			fake, executor := newImportExecutorFixture()
 			fake.failures["resume"] = cause
-			err := executor.Execute(t.Context(), Work{})
+			err := executor.Execute(t.Context(), model.Work{})
 			if !errors.Is(err, cause) || fake.claims != 1 || len(fake.outcomes) != 0 {
 				t.Fatalf("ownership loss attempted settlement: err=%v claims=%d outcomes=%v", err, fake.claims, fake.outcomes)
 			}
@@ -72,7 +73,7 @@ func TestImportExecutorCancelledContextNeverTouchesRepositories(t *testing.T) {
 	fake, executor := newImportExecutorFixture()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := executor.Execute(ctx, Work{}); !errors.Is(err, context.Canceled) || len(fake.events) != 0 {
+	if err := executor.Execute(ctx, model.Work{}); !errors.Is(err, context.Canceled) || len(fake.events) != 0 {
 		t.Fatalf("cancelled work proceeded: err=%v events=%v", err, fake.events)
 	}
 }
@@ -86,11 +87,11 @@ func TestImportExecutorMediaWarningsPreservePlayableSource(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			fake, executor := newImportExecutorFixture()
-			fake.items[0].Assets = []ExecutionAsset{{Kind: "COVER", Path: "cover.png", Size: 4}}
+			fake.items[0].Assets = []model.ExecutionAsset{{Kind: "COVER", Path: "cover.png", Size: 4}}
 			if changed {
-				fake.failures["media:cover.png"] = ErrSourceChanged
+				fake.failures["media:cover.png"] = model.ErrSourceChanged
 			}
-			if err := executor.Execute(t.Context(), Work{}); err != nil {
+			if err := executor.Execute(t.Context(), model.Work{}); err != nil {
 				t.Fatal(err)
 			}
 			code := "PEGASUS_IMAGE_INVALID"
@@ -109,10 +110,10 @@ func TestImportExecutorStorageFailureCannotCreateReview(t *testing.T) {
 	for _, step := range []string{"bind:game.gba", "warning:cover.png", "bind:cover.png", "phase:VALIDATING"} {
 		t.Run(step, func(t *testing.T) {
 			fake, executor := newImportExecutorFixture()
-			fake.items[0].Assets = []ExecutionAsset{{Kind: "COVER", Path: "cover.png", Size: 4}}
+			fake.items[0].Assets = []model.ExecutionAsset{{Kind: "COVER", Path: "cover.png", Size: 4}}
 			fake.validMedia = step != "warning:cover.png"
 			fake.failures[step] = errors.New("write unavailable")
-			if err := executor.Execute(t.Context(), Work{}); err != nil {
+			if err := executor.Execute(t.Context(), model.Work{}); err != nil {
 				t.Fatal(err)
 			}
 			if len(fake.outcomes) != 1 || fake.outcomes[0].State != "COMMIT_FAILED" || len(fake.reviewFiles) != 0 {
@@ -126,7 +127,7 @@ func TestImportExecutorCancellationAfterCopyClosesCurrentItem(t *testing.T) {
 	t.Parallel()
 	fake, executor := newImportExecutorFixture()
 	fake.cancelled = true
-	if err := executor.Process(t.Context(), Work{}, fake.items[0]); err != nil {
+	if err := executor.Process(t.Context(), model.Work{}, fake.items[0]); err != nil {
 		t.Fatal(err)
 	}
 	if len(fake.outcomes) != 1 || fake.outcomes[0].State != "CANCELLED" || len(fake.reviewFiles) != 0 {
@@ -140,12 +141,12 @@ func TestImportExecutorCompanionsUseBoundIdentities(t *testing.T) {
 	item := fake.items[0]
 	item.TargetPlatformKind = "arcade"
 	item.Files[0].Path = "child.zip"
-	fake.companions = []CompanionCandidate{
-		{ItemID: "parent", File: ExecutionFile{Path: "parent.zip", Size: 4}},
-		{ItemID: "changed", File: ExecutionFile{Path: "changed.zip", Size: 4}},
+	fake.companions = []model.CompanionCandidate{
+		{ItemID: "parent", File: model.ExecutionFile{Path: "parent.zip", Size: 4}},
+		{ItemID: "changed", File: model.ExecutionFile{Path: "changed.zip", Size: 4}},
 	}
-	fake.failures["copy:changed.zip"] = ErrSourceChanged
-	if err := executor.Process(t.Context(), Work{}, item); err != nil {
+	fake.failures["copy:changed.zip"] = model.ErrSourceChanged
+	if err := executor.Process(t.Context(), model.Work{}, item); err != nil {
 		t.Fatal(err)
 	}
 	if len(fake.reviewFiles) != 2 || fake.reviewFiles[1].BlobID != "companion:parent.zip" || len(fake.outcomes) != 0 {
@@ -157,7 +158,7 @@ func TestImportExecutorLibraryFailureKeepsInputLimitDiagnostics(t *testing.T) {
 	t.Parallel()
 	fake, executor := newImportExecutorFixture()
 	fake.failures["review"] = library.ErrInvalid
-	if err := executor.Process(t.Context(), Work{}, fake.items[0]); err != nil {
+	if err := executor.Process(t.Context(), model.Work{}, fake.items[0]); err != nil {
 		t.Fatal(err)
 	}
 	if len(fake.outcomes) != 1 {

@@ -6,12 +6,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"testing"
-
-	uploadservice "retrom/internal/service/uploads"
-	"retrom/internal/testkit/testsupport"
 )
 
 type finalizationCountError struct {
@@ -42,8 +42,8 @@ func TestFinalizationBrokenPartCountFailureRollsBackRepairAndFailure(t *testing.
 		}
 		return result, nil
 	}})
-	err := uploadservice.New(New(database), fixture.blobs, fixture.root, finalizationNow).Run(t.Context(), job)
-	var broken *uploadservice.BrokenPart
+	err := uploadsservice.New(New(database), fixture.blobs, fixture.root, finalizationNow).Run(t.Context(), job)
+	var broken *uploadsmodel.BrokenPart
 	if !errors.Is(err, cause) || !errors.As(err, &broken) || hits.Load() != 1 {
 		t.Fatalf("failure cause/count: %v %d", err, hits.Load())
 	}

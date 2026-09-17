@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/accounts"
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
@@ -28,7 +29,7 @@ type Service struct {
 type Context struct {
 	InstanceState            string
 	Mode                     config.Mode
-	Session                  *Session
+	Session                  *model.Session
 	TestDefaultAccountActive bool
 }
 
@@ -38,18 +39,18 @@ func (service *Service) Start(ctx context.Context) error {
 	return service.modules.Initialization.Start(ctx)
 }
 
-func (service *Service) Initialize(ctx context.Context, request InitializeRequest) (Session, error) {
+func (service *Service) Initialize(ctx context.Context, request model.InitializeRequest) (model.Session, error) {
 	return service.modules.Initialization.Initialize(ctx, request)
 }
 
-func (service *Service) Login(ctx context.Context, username, password string) (Session, error) {
+func (service *Service) Login(ctx context.Context, username, password string) (model.Session, error) {
 	return service.modules.Authentication.Login(ctx, username, password)
 }
 
-func (service *Service) Authenticate(ctx context.Context, token string) (Session, error) {
+func (service *Service) Authenticate(ctx context.Context, token string) (model.Session, error) {
 	result, err := service.modules.Authentication.Authenticate(ctx, token)
 	if err != nil {
-		return Session{}, fmt.Errorf("authenticate session: %w", err)
+		return model.Session{}, fmt.Errorf("authenticate session: %w", err)
 	}
 	return result, nil
 }
@@ -62,10 +63,10 @@ func (service *Service) ChangePassword(
 	ctx context.Context,
 	principal authn.Principal,
 	current, password, confirmation string,
-) (Session, error) {
+) (model.Session, error) {
 	return service.modules.Passwords.Change(
 		ctx,
-		PasswordActor{
+		model.PasswordActor{
 			UserID:         principal.UserID,
 			SessionID:      principal.SessionID,
 			SessionVersion: principal.SessionVersion,
@@ -93,7 +94,7 @@ func (service *Service) Context(ctx context.Context, cookie string) (Context, er
 	session, err := service.Authenticate(ctx, cookie)
 	if err == nil {
 		result.Session = &session
-	} else if !errors.Is(err, ErrAuthenticationNeeded) {
+	} else if !errors.Is(err, model.ErrAuthenticationNeeded) {
 		return Context{}, fmt.Errorf("read authentication context: %w", err)
 	}
 	return result, nil

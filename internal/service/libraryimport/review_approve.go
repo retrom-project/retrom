@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,14 +12,14 @@ import (
 )
 
 type ReviewApprovals struct {
-	repository ReviewApprovalRepository
+	repository model.ReviewApprovalRepository
 	tags       *tagging.Service
 	now        func() time.Time
 	newID      func() (string, error)
 }
 
 func NewReviewApprovals(
-	repository ReviewApprovalRepository, tags *tagging.Service, now func() time.Time,
+	repository model.ReviewApprovalRepository, tags *tagging.Service, now func() time.Time,
 ) *ReviewApprovals {
 	return &ReviewApprovals{repository: repository, tags: tags, now: now, newID: newReviewApprovalID}
 }
@@ -32,36 +33,36 @@ func newReviewApprovalID() (string, error) {
 }
 
 func (service *ReviewApprovals) Approve(
-	ctx context.Context, request ReviewApprovalRequest,
-) (ReviewApproved, error) {
+	ctx context.Context, request model.ReviewApprovalRequest,
+) (model.ReviewApproved, error) {
 	request, err := normalizeReviewApproval(request)
 	if err != nil {
-		return ReviewApproved{}, err
+		return model.ReviewApproved{}, err
 	}
-	var result ReviewApproved
-	err = service.repository.WithApproval(ctx, func(scope ReviewApprovalScope) error {
+	var result model.ReviewApproved
+	err = service.repository.WithApproval(ctx, func(scope model.ReviewApprovalScope) error {
 		var approvalErr error
 		result, approvalErr = service.ApproveInScope(ctx, scope, request)
 		return approvalErr
 	})
 	if err != nil {
-		return ReviewApproved{}, fmt.Errorf("commit review approval: %w", err)
+		return model.ReviewApproved{}, fmt.Errorf("commit review approval: %w", err)
 	}
 	return result, nil
 }
 
 // ApproveInScope publishes through the caller's transaction. The result is durable only after its commit.
 func (service *ReviewApprovals) ApproveInScope(
-	ctx context.Context, scope ReviewApprovalScope, request ReviewApprovalRequest,
-) (ReviewApproved, error) {
+	ctx context.Context, scope model.ReviewApprovalScope, request model.ReviewApprovalRequest,
+) (model.ReviewApproved, error) {
 	request, err := normalizeReviewApproval(request)
 	if err != nil {
-		return ReviewApproved{}, err
+		return model.ReviewApproved{}, err
 	}
 	run := reviewApprovalRun{ctx: ctx, service: service, scope: scope, request: request}
 	for _, step := range []func() error{run.load, run.prepare, run.claimDuplicates, run.publish} {
 		if err := step(); err != nil {
-			return ReviewApproved{}, err
+			return model.ReviewApproved{}, err
 		}
 	}
 	return run.result(), nil

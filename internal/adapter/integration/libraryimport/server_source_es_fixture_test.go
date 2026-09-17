@@ -6,8 +6,8 @@ import (
 	"bytes"
 	"testing"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
-	application "retrom/internal/service/libraryimport"
 )
 
 func ownedESSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServerSourceRequest) {

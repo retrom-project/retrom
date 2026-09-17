@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
-	accountservice "retrom/internal/service/accounts"
+	accountservice "retrom/internal/model/accounts"
 )
 
 func TestUserDirectoryRejectsIncompleteCursor(t *testing.T) {

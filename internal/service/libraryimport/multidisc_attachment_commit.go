@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 	"time"
 
 	"retrom/internal/capability/content/corevalidation"
@@ -14,7 +15,7 @@ import (
 )
 
 func NewMultiDiscAttachmentCommits(
-	repository MultiDiscAttachmentCommitRepository, now func() time.Time,
+	repository model.MultiDiscAttachmentCommitRepository, now func() time.Time,
 ) *MultiDiscAttachmentCommits {
 	if now == nil {
 		now = time.Now
@@ -31,12 +32,12 @@ func newMultiDiscAttachmentID() (string, error) {
 }
 
 func (service *MultiDiscAttachmentCommits) CommitAccepted(
-	ctx context.Context, request MultiDiscAttachmentCommitRequest,
+	ctx context.Context, request model.MultiDiscAttachmentCommitRequest,
 ) error {
 	if !validMultiDiscAttachmentCommitRequest(request) {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
-	write := MultiDiscAttachmentCommitWrite{MultiDiscAttachmentCommitRequest: request, NowMS: service.now().UnixMilli()}
+	write := model.MultiDiscAttachmentCommitWrite{MultiDiscAttachmentCommitRequest: request, NowMS: service.now().UnixMilli()}
 	for _, target := range []*string{
 		&write.SourceSnapshotID, &write.ValidationID, &write.ConsumptionID, &write.EventID,
 	} {
@@ -46,7 +47,7 @@ func (service *MultiDiscAttachmentCommits) CommitAccepted(
 		}
 		*target = id
 	}
-	if err := service.repository.WithCommit(ctx, func(scope MultiDiscAttachmentCommitScope) error {
+	if err := service.repository.WithCommit(ctx, func(scope model.MultiDiscAttachmentCommitScope) error {
 		validation, err := service.resolveValidation(ctx, scope, request)
 		if err != nil {
 			return err
@@ -59,27 +60,27 @@ func (service *MultiDiscAttachmentCommits) CommitAccepted(
 	return nil
 }
 
-func validMultiDiscAttachmentCommitRequest(request MultiDiscAttachmentCommitRequest) bool {
-	return ValidMultiDiscAttachmentInput(request.Input) && request.JobID != "" && request.WorkerID != "" &&
+func validMultiDiscAttachmentCommitRequest(request model.MultiDiscAttachmentCommitRequest) bool {
+	return model.ValidMultiDiscAttachmentInput(request.Input) && request.JobID != "" && request.WorkerID != "" &&
 		len(request.BaseFiles) > 0 && len(request.ResultEntries) >= multidisc.MinDiscs &&
 		request.ResultManifestJSON != "" && len(request.ResultManifestDigest) == 64 &&
 		request.CanonicalPlaylist.SHA256 != ""
 }
 
 func (service *MultiDiscAttachmentCommits) resolveValidation(
-	ctx context.Context, scope MultiDiscAttachmentCommitScope, request MultiDiscAttachmentCommitRequest,
-) (MultiDiscAttachmentValidation, error) {
+	ctx context.Context, scope model.MultiDiscAttachmentCommitScope, request model.MultiDiscAttachmentCommitRequest,
+) (model.MultiDiscAttachmentValidation, error) {
 	if len(request.ResultEntries) < multidisc.MinDiscs {
-		return MultiDiscAttachmentValidation{}, ErrInvalid
+		return model.MultiDiscAttachmentValidation{}, model.ErrInvalid
 	}
 	first := request.ResultEntries[0].File.LogicalName
 	records, err := scope.BIOS(ctx, request.Input.ProviderID, request.Input.TargetID)
 	if err != nil {
-		return MultiDiscAttachmentValidation{}, fmt.Errorf("resolve multi-disc BIOS: %w", err)
+		return model.MultiDiscAttachmentValidation{}, fmt.Errorf("resolve multi-disc BIOS: %w", err)
 	}
 	snapshot, status, code, err := validationservice.ResolveBIOSRecords(records, first)
 	if err != nil {
-		return MultiDiscAttachmentValidation{}, fmt.Errorf("resolve multi-disc BIOS records: %w", err)
+		return model.MultiDiscAttachmentValidation{}, fmt.Errorf("resolve multi-disc BIOS records: %w", err)
 	}
 	snapshot.MultiDisc = &corevalidation.MultiDiscSnapshot{
 		ContentKind: corevalidation.MultiDiscContentKind, ParserVersion: corevalidation.MultiDiscParserVersion,
@@ -92,18 +93,18 @@ func (service *MultiDiscAttachmentCommits) resolveValidation(
 	}
 	encoded, err := snapshot.JSON()
 	if err != nil {
-		return MultiDiscAttachmentValidation{}, fmt.Errorf("encode multi-disc dependency snapshot: %w", err)
+		return model.MultiDiscAttachmentValidation{}, fmt.Errorf("encode multi-disc dependency snapshot: %w", err)
 	}
-	files := make([]PreparedValidationFile, 0, len(snapshot.BIOS))
+	files := make([]model.PreparedValidationFile, 0, len(snapshot.BIOS))
 	for _, dependency := range snapshot.BIOS {
 		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
-			files = append(files, PreparedValidationFile{
+			files = append(files, model.PreparedValidationFile{
 				Role: "BIOS_BUNDLE", LogicalName: dependency.LogicalName,
 				BlobID: *dependency.BlobID, SortOrder: len(files),
 			})
 		}
 	}
-	return MultiDiscAttachmentValidation{
+	return model.MultiDiscAttachmentValidation{
 		Status: status, CompatibilityCode: code,
 		DependencySnapshotJSON: string(encoded), Files: files,
 	}, nil

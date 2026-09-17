@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
+	accountsservice "retrom/internal/service/accounts"
 )
 
 type newAccountCredentialRequest struct {
@@ -56,7 +57,7 @@ func (server *Server) authInitialize(writer http.ResponseWriter, request *http.R
 	if !decodeNewAccountCredential(writer, request, &body, "初始化请求无效") {
 		return
 	}
-	session, err := server.accounts.InitializeRateLimited(request.Context(), accounts.InitializeRequest{
+	session, err := server.accounts.InitializeRateLimited(request.Context(), accountsmodel.InitializeRequest{
 		SetupCode: body.SetupCode, Username: body.Username, DisplayName: body.DisplayName,
 		Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
 	}, server.authenticationClientIP(request))
@@ -71,7 +72,7 @@ func (server *Server) writeAuthenticatedSession(
 	writer http.ResponseWriter,
 	request *http.Request,
 	status int,
-	session accounts.Session,
+	session accountsmodel.Session,
 ) {
 	contextView, err := server.accounts.Context(request.Context(), session.CookieToken)
 	if err != nil {
@@ -121,7 +122,7 @@ func (server *Server) revokeLogoutSession(writer http.ResponseWriter, request *h
 	if err != nil {
 		return true
 	}
-	if !accounts.MatchesCSRF(token, request.Header.Get("X-Retrom-Csrf")) {
+	if !accountsmodel.MatchesCSRF(token, request.Header.Get("X-Retrom-Csrf")) {
 		writeError(writer, request, http.StatusForbidden, "CSRF_VALIDATION_FAILED", "请求验证失败", map[string]any{})
 		return false
 	}
@@ -157,7 +158,7 @@ func (server *Server) authChangePassword(writer http.ResponseWriter, request *ht
 	server.writeAuthenticatedSession(writer, request, http.StatusOK, session)
 }
 
-func (server *Server) writeAuthContext(writer http.ResponseWriter, status int, contextView accounts.Context) {
+func (server *Server) writeAuthContext(writer http.ResponseWriter, status int, contextView accountsservice.Context) {
 	authenticationState := "UNAUTHENTICATED"
 	var user any
 	var csrf any
@@ -190,22 +191,22 @@ func (server *Server) writeAccountError(writer http.ResponseWriter, request *htt
 	}
 	var password *authn.PasswordError
 	switch {
-	case errors.Is(err, accounts.ErrRateLimited):
-		writer.Header().Set("Retry-After", strconv.Itoa(accounts.RateLimitRetryAfter(err)))
+	case errors.Is(err, accountsmodel.ErrRateLimited):
+		writer.Header().Set("Retry-After", strconv.Itoa(accountsservice.RateLimitRetryAfter(err)))
 		writeError(writer, request, http.StatusTooManyRequests, "AUTH_RATE_LIMITED", "认证请求过于频繁", map[string]any{})
-	case errors.Is(err, accounts.ErrAuthentication):
+	case errors.Is(err, accountsmodel.ErrAuthentication):
 		writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "用户名或密码不正确", map[string]any{})
-	case errors.Is(err, accounts.ErrInitializationProof):
+	case errors.Is(err, accountsmodel.ErrInitializationProof):
 		writeError(writer, request, http.StatusUnauthorized, "INITIALIZATION_PROOF_INVALID", "初始化码无效", map[string]any{})
-	case errors.Is(err, accounts.ErrInitializationDone):
+	case errors.Is(err, accountsmodel.ErrInitializationDone):
 		writeError(writer, request, http.StatusConflict, "INITIALIZATION_ALREADY_COMPLETED", "实例已完成初始化", map[string]any{})
-	case errors.Is(err, accounts.ErrAccountLinkUnavailable):
+	case errors.Is(err, accountsmodel.ErrAccountLinkUnavailable):
 		writeError(writer, request, http.StatusNotFound, "ACCOUNT_LINK_UNAVAILABLE", "账号链接不可用", map[string]any{})
-	case errors.Is(err, accounts.ErrUsernameUnavailable):
+	case errors.Is(err, accountsmodel.ErrUsernameUnavailable):
 		writeError(writer, request, http.StatusConflict, "USERNAME_UNAVAILABLE", "用户名不可用", map[string]any{})
-	case errors.Is(err, accounts.ErrUserNotFound):
+	case errors.Is(err, accountsmodel.ErrUserNotFound):
 		writeError(writer, request, http.StatusNotFound, "USER_NOT_FOUND", "用户不存在", map[string]any{})
-	case errors.Is(err, accounts.ErrIdempotencyReused):
+	case errors.Is(err, accountsmodel.ErrIdempotencyReused):
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
 	case errors.As(err, &password):
 		writeError(
@@ -235,7 +236,7 @@ func (server *Server) authCookieName() string {
 	return "retrom_session"
 }
 
-func (server *Server) setAuthCookie(writer http.ResponseWriter, session accounts.Session) {
+func (server *Server) setAuthCookie(writer http.ResponseWriter, session accountsmodel.Session) {
 	maximumAge := int((session.AbsoluteExpiresAtMS - server.now().UTC().UnixMilli()) / 1000)
 	if maximumAge < 1 {
 		maximumAge = int((24 * time.Hour).Seconds())

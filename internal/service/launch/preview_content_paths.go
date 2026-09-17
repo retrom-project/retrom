@@ -2,6 +2,7 @@ package launch
 
 import (
 	"path"
+	model "retrom/internal/model/launch"
 	"strings"
 
 	"retrom/internal/capability/content/corevalidation"
@@ -10,20 +11,20 @@ import (
 
 func reviewPreviewExternalFiles(
 	dependencySnapshot string,
-	files []PreviewFile,
-) ([]PreviewFile, error) {
+	files []model.PreviewFile,
+) ([]model.PreviewFile, error) {
 	snapshot, err := corevalidation.ParseSnapshot(dependencySnapshot)
 	if err != nil {
-		return nil, ErrReviewPreviewUnavailable
+		return nil, model.ErrReviewPreviewUnavailable
 	}
 	for _, dependency := range snapshot.BIOS {
 		if !availableReviewPreviewExternal(dependency) {
 			continue
 		}
 		if len(files) >= 16 || !validPreviewLogicalName(dependency.LogicalName) {
-			return nil, ErrReviewPreviewUnavailable
+			return nil, model.ErrReviewPreviewUnavailable
 		}
-		files = append(files, PreviewFile{
+		files = append(files, model.PreviewFile{
 			Role: "EXTERNAL_FILE", LogicalName: dependency.LogicalName, BlobID: *dependency.BlobID,
 			VirtualPath: dependency.EmulatorPath, SortOrder: len(files),
 		})
@@ -44,7 +45,7 @@ func validPreviewLogicalName(value string) bool {
 		!strings.Contains(value, `\`) && !strings.ContainsRune(value, 0)
 }
 
-func validPreviewFileSet(contentName string, files []PreviewFile) bool {
+func validPreviewFileSet(contentName string, files []model.PreviewFile) bool {
 	seenNames := map[string]struct{}{importing.ASCIICaseFold(contentName): {}}
 	seenPaths := make(map[string]struct{})
 	for _, file := range files {

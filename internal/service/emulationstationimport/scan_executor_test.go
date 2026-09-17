@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 )
 
@@ -14,13 +15,13 @@ type scanExecutionMemory struct {
 	resets                                             int
 }
 
-func (memory *scanExecutionMemory) ForScan(Execution) (ScannerSource, error) {
+func (memory *scanExecutionMemory) ForScan(model.Execution) (ScannerSource, error) {
 	return memory.source, nil
 }
 
 func (memory *scanExecutionMemory) Reset(
 	context.Context,
-	Execution,
+	model.Execution,
 ) error {
 	memory.calls = append(memory.calls, "reset")
 	memory.resets++
@@ -32,8 +33,8 @@ func (memory *scanExecutionMemory) Reset(
 
 func (memory *scanExecutionMemory) Rejected(
 	context.Context,
-	Execution,
-	ScanProjection,
+	model.Execution,
+	model.ScanProjection,
 ) error {
 	memory.calls = append(memory.calls, "rejected")
 	return memory.rejectErr
@@ -41,8 +42,8 @@ func (memory *scanExecutionMemory) Rejected(
 
 func (memory *scanExecutionMemory) Publish(
 	context.Context,
-	Execution,
-	ScanProjection,
+	model.Execution,
+	model.ScanProjection,
 ) error {
 	memory.calls = append(memory.calls, "publish")
 	return memory.publishErr
@@ -62,7 +63,7 @@ func TestScanExecutorPublishesNormalAndIsolatedInvalidEvidence(t *testing.T) {
 				if invalid {
 					memory.source.data["gamelist.xml"] = []byte("<gameList>")
 				}
-				err := memory.executor().Execute(t.Context(), Execution{ReleaseYearMax: 2027})
+				err := memory.executor().Execute(t.Context(), model.Execution{ReleaseYearMax: 2027})
 				expected := []string{"reset", "publish"}
 				if invalid {
 					expected[1] = "rejected"
@@ -83,7 +84,7 @@ func TestScanExecutorPublishesNormalAndIsolatedInvalidEvidence(t *testing.T) {
 func TestScanExecutorRetainsPublicationAndCleanupCauses(t *testing.T) {
 	first, second := errors.New("publication failed"), errors.New("cleanup failed")
 	memory := &scanExecutionMemory{source: newScannerMemory(), publishErr: first, errorAfterPublish: second}
-	err := memory.executor().Execute(t.Context(), Execution{ReleaseYearMax: 2027})
+	err := memory.executor().Execute(t.Context(), model.Execution{ReleaseYearMax: 2027})
 	if !errors.Is(
 		err,
 		first,
@@ -103,9 +104,9 @@ func TestScanExecutorRetainsPublicationAndCleanupCauses(t *testing.T) {
 }
 
 func TestScanExecutorNeverClearsReplacementPublication(t *testing.T) {
-	memory := &scanExecutionMemory{source: newScannerMemory(), publishErr: ErrVersionConflict}
-	err := memory.executor().Execute(t.Context(), Execution{ReleaseYearMax: 2027})
-	if !errors.Is(err, ErrVersionConflict) || memory.resets != 1 {
+	memory := &scanExecutionMemory{source: newScannerMemory(), publishErr: model.ErrVersionConflict}
+	err := memory.executor().Execute(t.Context(), model.Execution{ReleaseYearMax: 2027})
+	if !errors.Is(err, model.ErrVersionConflict) || memory.resets != 1 {
 		t.Fatalf("resets=%d error=%v", memory.resets, err)
 	}
 }

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
-	application "retrom/internal/service/libraryimport"
 )
 
 func ownedSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServerSourceRequest) {

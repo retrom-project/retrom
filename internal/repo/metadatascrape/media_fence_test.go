@@ -10,7 +10,8 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/metadata/hasheous"
-	"retrom/internal/service/metadatascrape"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+	metadatascrapeservice "retrom/internal/service/metadatascrape"
 )
 
 func TestMediaFinalOwnerChangeCannotPublish(t *testing.T) {
@@ -58,10 +59,10 @@ func TestMediaMalformedSnapshotFailsWithOriginalCause(t *testing.T) {
 	fixture := newMediaFixture(t)
 	recoveryExec(t, fixture.database, `UPDATE job_input_snapshots SET input_json='{',input_digest=? WHERE job_id=?`,
 		fmt.Sprintf("%x", sha256.Sum256([]byte("{"))), fixture.jobID)
-	worker := metadatascrape.NewMediaWorker(NewMedia(fixture.database), nil, nil, fixture.clock)
+	worker := metadatascrapeservice.NewMediaWorker(NewMedia(fixture.database), nil, nil, fixture.clock)
 	err := worker.Run(t.Context(), fixture.jobID)
 	var syntax *json.SyntaxError
-	if !errors.Is(err, metadatascrape.ErrMediaInput) || !errors.As(err, &syntax) {
+	if !errors.Is(err, metadatascrapemodel.ErrMediaInput) || !errors.As(err, &syntax) {
 		t.Fatalf("invalid input cause=%v", err)
 	}
 	snapshot := fixture.snapshot(t)

@@ -3,12 +3,13 @@ package launch
 import (
 	"bytes"
 	"errors"
+	model "retrom/internal/model/launch"
 	"testing"
 )
 
 func TestProductCreatorRechecksReceiptBeforeFinalAuthority(t *testing.T) {
 	creator, repository, _, command := productFixture(t)
-	winner, err := productReceipt(Created{LaunchID: validationFixtureID, PlayURL: "/play/" + validationFixtureID, Warnings: []string{}}, 1000)
+	winner, err := productReceipt(model.Created{LaunchID: validationFixtureID, PlayURL: "/play/" + validationFixtureID, Warnings: []string{}}, 1000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,9 +24,9 @@ func TestProductCreatorRechecksReceiptBeforeFinalAuthority(t *testing.T) {
 
 func TestProductCreatorReplayRejectsDifferentSemanticRequest(t *testing.T) {
 	creator, repository, _, command := productFixture(t)
-	repository.receipt = &ProductReceipt{Digest: "other"}
+	repository.receipt = &model.ProductReceipt{Digest: "other"}
 	result, err := creator.Create(t.Context(), command)
-	if !errors.Is(err, ErrIdempotencyKeyReused) || result.Created.LaunchID != "" || repository.loads != 0 {
+	if !errors.Is(err, model.ErrIdempotencyKeyReused) || result.Created.LaunchID != "" || repository.loads != 0 {
 		t.Fatalf("launch=%q error=%v loads=%d", result.Created.LaunchID, err, repository.loads)
 	}
 }
@@ -51,7 +52,7 @@ func TestProductCreatorReadyValidationReentersPreparation(t *testing.T) {
 	creator, repository, _, command := productFixture(t)
 	repository.before.Source.VariantStatus = "BLOCKED"
 	repository.jobs.found = true
-	repository.jobs.current = ValidationJob{ID: validationFixtureID, State: "SUCCEEDED", ExecutionNo: 1, Version: 2}
+	repository.jobs.current = model.ValidationJob{ID: validationFixtureID, State: "SUCCEEDED", ExecutionNo: 1, Version: 2}
 	repository.afterCommit = func() { repository.before = repository.current }
 	result, err := creator.Create(t.Context(), command)
 	if err != nil || result.Status != 201 || repository.transactions != 2 || repository.loads != 2 || len(repository.writes) != 1 || len(repository.receipts) != 1 || len(repository.jobs.writes) != 0 {

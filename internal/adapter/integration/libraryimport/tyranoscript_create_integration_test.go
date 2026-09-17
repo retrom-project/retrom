@@ -22,7 +22,8 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -60,10 +61,10 @@ func testCreateTyranoScriptInputReachesTrialRequiredReview(t *testing.T, inputNa
 	if err != nil {
 		t.Fatal(err)
 	}
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "tyranoscript", RelativePath: inputName, SizeBytes: int64(len(input)),
 		}},
 	})

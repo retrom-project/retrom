@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	application "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
-	application "retrom/internal/service/netplay"
 )
 
 type controlFixture struct {

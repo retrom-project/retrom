@@ -30,8 +30,9 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
+	uploadsmodel "retrom/internal/model/uploads"
 	"retrom/internal/service/isolation"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -237,10 +238,10 @@ func createTyranoScriptReviewItem(
 ) (string, *libraryimport.Service) {
 	t.Helper()
 	archive := tyranoScriptReviewArchive(t)
-	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	uploadService := uploadsservice.New(uploadpersistence.New(database), blobs, dataDir, now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "tyrano", RelativePath: "tyrano-review.zip", SizeBytes: int64(len(archive)),
 		}},
 	})

@@ -5,59 +5,60 @@ import (
 	"errors"
 	"math"
 	"reflect"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	model "retrom/internal/model/pegasusimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 	"testing"
 	"time"
-
-	library "retrom/internal/service/libraryimport"
 )
 
 type handoffMemory struct {
-	before                                                          ReviewHandoffSnapshot
-	change                                                          ReviewHandoffChange
-	draft                                                           library.MetadataDraft
-	seeded                                                          library.MetadataChange
+	before                                                          model.ReviewHandoffSnapshot
+	change                                                          model.ReviewHandoffChange
+	draft                                                           libraryimportmodel.MetadataDraft
+	seeded                                                          libraryimportmodel.MetadataChange
 	readErr, metadataReadErr, metadataSaveErr, finishErr, commitErr error
 	writes, seeds                                                   int
 }
 
-func (memory *handoffMemory) WithReviewHandoff(_ context.Context, work func(ReviewHandoffScope) error) error {
-	if err := work(ReviewHandoffScope{Records: memory, Metadata: memory}); err != nil {
+func (memory *handoffMemory) WithReviewHandoff(_ context.Context, work func(model.ReviewHandoffScope) error) error {
+	if err := work(model.ReviewHandoffScope{Records: memory, Metadata: memory}); err != nil {
 		return err
 	}
 	return memory.commitErr
 }
 
-func (memory *handoffMemory) CurrentReviewHandoff(context.Context, string) (ReviewHandoffSnapshot, error) {
+func (memory *handoffMemory) CurrentReviewHandoff(context.Context, string) (model.ReviewHandoffSnapshot, error) {
 	return memory.before, memory.readErr
 }
 
-func (memory *handoffMemory) FinishReviewHandoff(_ context.Context, change ReviewHandoffChange) error {
+func (memory *handoffMemory) FinishReviewHandoff(_ context.Context, change model.ReviewHandoffChange) error {
 	memory.change = change
 	memory.writes++
 	return memory.finishErr
 }
 
-func (memory *handoffMemory) CurrentMetadata(context.Context, string) (library.MetadataDraft, error) {
+func (memory *handoffMemory) CurrentMetadata(context.Context, string) (libraryimportmodel.MetadataDraft, error) {
 	return memory.draft, memory.metadataReadErr
 }
 
-func (memory *handoffMemory) SaveMetadata(_ context.Context, change library.MetadataChange) error {
+func (memory *handoffMemory) SaveMetadata(_ context.Context, change libraryimportmodel.MetadataChange) error {
 	memory.seeded = change
 	memory.seeds++
 	return memory.metadataSaveErr
 }
 func handoffClock() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
 func readyHandoffMemory() *handoffMemory {
-	return &handoffMemory{before: ReviewHandoffSnapshot{
-		Identity: ReviewHandoffRequest{ItemID: "item", ImportID: "import", JobID: "job", LibraryJobID: "library-job", LibraryItemID: "library-item", ExecutionNo: 2, Attempt: 3, WorkerID: "worker"},
+	return &handoffMemory{before: model.ReviewHandoffSnapshot{
+		Identity: model.ReviewHandoffRequest{ItemID: "item", ImportID: "import", JobID: "job", LibraryJobID: "library-job", LibraryItemID: "library-item", ExecutionNo: 2, Attempt: 3, WorkerID: "worker"},
 		State:    "VALIDATING", ImportState: "RUNNING", JobState: "RUNNING", Version: 4, ImportVersion: 8,
 		LeaseUntilMS: handoffClock().UnixMilli() + 60_000, DeadlineMS: handoffClock().UnixMilli() + 120_000,
-		Metadata: library.ServerMetadata{Title: "Frozen title"}, Warnings: []map[string]any{{"code": "SOURCE_WARNING", "field": "file"}},
-	}, draft: library.MetadataDraft{Version: 1, MetadataJSON: `{"title":"Original"}`}}
+		Metadata: libraryimportmodel.ServerMetadata{Title: "Frozen title"}, Warnings: []map[string]any{{"code": "SOURCE_WARNING", "field": "file"}},
+	}, draft: libraryimportmodel.MetadataDraft{Version: 1, MetadataJSON: `{"title":"Original"}`}}
 }
 
 func newHandoffMemoryService(memory *handoffMemory) *ReviewHandoff {
-	return NewReviewHandoff(memory, library.NewMetadataSeeder(nil, handoffClock), handoffClock)
+	return NewReviewHandoff(memory, libraryimportservice.NewMetadataSeeder(nil, handoffClock), handoffClock)
 }
 
 func TestReviewHandoffSeedsFrozenMetadataInTheSameScope(t *testing.T) {
@@ -87,14 +88,14 @@ func TestReviewHandoffRejectsStaleSourceAndExecutionBeforeSeeding(t *testing.T) 
 			request := memory.before.Identity
 			invalidateHandoffMemory(memory, &request, name)
 			err := newHandoffMemoryService(memory).Complete(t.Context(), request)
-			if !errors.Is(err, ErrVersionConflict) || memory.seeds != 0 || memory.writes != 0 {
+			if !errors.Is(err, model.ErrVersionConflict) || memory.seeds != 0 || memory.writes != 0 {
 				t.Fatalf("invalid %s seeded review: %v writes=%d seeds=%d", name, err, memory.writes, memory.seeds)
 			}
 		})
 	}
 }
 
-func invalidateHandoffMemory(memory *handoffMemory, request *ReviewHandoffRequest, name string) {
+func invalidateHandoffMemory(memory *handoffMemory, request *model.ReviewHandoffRequest, name string) {
 	switch name {
 	case "execution":
 		request.ExecutionNo++

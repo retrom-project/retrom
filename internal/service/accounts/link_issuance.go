@@ -4,30 +4,31 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/accounts"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type LinkIssuanceService struct {
-	repository LinkIssueRepository
-	tokens     LinkIssuer
+	repository model.LinkIssueRepository
+	tokens     model.LinkIssuer
 	now        func() time.Time
 }
 
-func NewLinkIssuance(repository LinkIssueRepository, tokens LinkIssuer, now func() time.Time) *LinkIssuanceService {
+func NewLinkIssuance(repository model.LinkIssueRepository, tokens model.LinkIssuer, now func() time.Time) *LinkIssuanceService {
 	return &LinkIssuanceService{repository, tokens, now}
 }
 
 func (service *LinkIssuanceService) Invitation(
 	ctx context.Context,
-	actor LinkCreator,
+	actor model.LinkCreator,
 	role string,
 	confirmed bool,
 	key string,
-) (AccountLink, bool, error) {
+) (model.AccountLink, bool, error) {
 	if role != "USER" && role != "ADMIN" || (role == "ADMIN") != confirmed {
-		return AccountLink{}, false, ErrRoleConfirmation
+		return model.AccountLink{}, false, model.ErrRoleConfirmation
 	}
 	operation, err := newAccountOperation(
 		"postAdminInvitation",
@@ -40,25 +41,25 @@ func (service *LinkIssuanceService) Invitation(
 		service.now().UnixMilli(),
 	)
 	if err != nil {
-		return AccountLink{}, false, err
+		return model.AccountLink{}, false, err
 	}
-	return service.issue(ctx, operation, func(_ LinkIssueScope) (LinkIssuePlan, error) {
+	return service.issue(ctx, operation, func(_ model.LinkIssueScope) (model.LinkIssuePlan, error) {
 		link, err := newAccountLink(actor, "INVITATION", operation.Now)
 		if err != nil {
-			return LinkIssuePlan{}, err
+			return model.LinkIssuePlan{}, err
 		}
 		link.Role = &role
-		return LinkIssuePlan{Link: link}, nil
+		return model.LinkIssuePlan{Link: link}, nil
 	})
 }
 
 func (service *LinkIssuanceService) PasswordReset(
 	ctx context.Context,
-	actor LinkCreator,
+	actor model.LinkCreator,
 	targetID string,
 	version int64,
 	key string,
-) (AccountLink, bool, error) {
+) (model.AccountLink, bool, error) {
 	operation, err := newAccountOperation(
 		"postAdminUserPasswordResetLink",
 		actor.UserID,
@@ -70,45 +71,45 @@ func (service *LinkIssuanceService) PasswordReset(
 		service.now().UnixMilli(),
 	)
 	if err != nil {
-		return AccountLink{}, false, err
+		return model.AccountLink{}, false, err
 	}
-	return service.issue(ctx, operation, func(scope LinkIssueScope) (LinkIssuePlan, error) {
+	return service.issue(ctx, operation, func(scope model.LinkIssueScope) (model.LinkIssuePlan, error) {
 		target, found, err := scope.Read.Target(ctx, targetID)
 		if err != nil {
-			return LinkIssuePlan{}, fmt.Errorf("read password reset target: %w", err)
+			return model.LinkIssuePlan{}, fmt.Errorf("read password reset target: %w", err)
 		}
 		if err := validateLinkTarget(target, found, version); err != nil {
-			return LinkIssuePlan{}, err
+			return model.LinkIssuePlan{}, err
 		}
 		link, err := newAccountLink(actor, "PASSWORD_RESET", operation.Now)
 		if err != nil {
-			return LinkIssuePlan{}, err
+			return model.LinkIssuePlan{}, err
 		}
 		link.TargetUserID = &targetID
 		link.TargetVersion = target.Version + 1
-		return LinkIssuePlan{Link: link, Target: &target, RevokePrevious: true}, nil
+		return model.LinkIssuePlan{Link: link, Target: &target, RevokePrevious: true}, nil
 	})
 }
 
-func validateLinkTarget(target LinkTarget, found bool, version int64) error {
+func validateLinkTarget(target model.LinkTarget, found bool, version int64) error {
 	if !found {
-		return ErrUserNotFound
+		return model.ErrUserNotFound
 	}
 	if target.Status == "DELETED" {
-		return ErrUserDeleted
+		return model.ErrUserDeleted
 	}
 	if target.Version != version {
-		return ErrUserVersion
+		return model.ErrUserVersion
 	}
 	return nil
 }
 
-func newAccountLink(actor LinkCreator, kind string, now int64) (AccountLink, error) {
+func newAccountLink(actor model.LinkCreator, kind string, now int64) (model.AccountLink, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return AccountLink{}, fmt.Errorf("create account link identity: %w", err)
+		return model.AccountLink{}, fmt.Errorf("create account link identity: %w", err)
 	}
-	return AccountLink{
+	return model.AccountLink{
 		AccountLinkID: id.String(),
 		Kind:          kind,
 		CreatedBy:     &actor,
@@ -123,12 +124,12 @@ func newAccountLink(actor LinkCreator, kind string, now int64) (AccountLink, err
 
 func (service *LinkIssuanceService) issue(
 	ctx context.Context,
-	operation AccountOperation,
-	prepare func(LinkIssueScope) (LinkIssuePlan, error),
-) (AccountLink, bool, error) {
-	var result AccountLink
+	operation model.AccountOperation,
+	prepare func(model.LinkIssueScope) (model.LinkIssuePlan, error),
+) (model.AccountLink, bool, error) {
+	var result model.AccountLink
 	var replayed bool
-	err := service.repository.WithIssueWrite(ctx, func(scope LinkIssueScope) error {
+	err := service.repository.WithIssueWrite(ctx, func(scope model.LinkIssueScope) error {
 		replay, err := scope.Read.Replay(ctx, operation)
 		if err != nil {
 			return fmt.Errorf("read account link replay: %w", err)
@@ -164,17 +165,17 @@ func (service *LinkIssuanceService) issue(
 		return nil
 	})
 	if err != nil {
-		return AccountLink{}, false, fmt.Errorf("commit account link issuance: %w", err)
+		return model.AccountLink{}, false, fmt.Errorf("commit account link issuance: %w", err)
 	}
 	id, err := uuid.Parse(result.AccountLinkID)
 	if err != nil {
-		return AccountLink{}, false, fmt.Errorf("read issued link identity: %w", err)
+		return model.AccountLink{}, false, fmt.Errorf("read issued link identity: %w", err)
 	}
 	result.CapabilityToken = service.tokens.AccountLinkToken(result.Kind, id)
 	return result, replayed, nil
 }
 
-func auditLinkIssuance(ctx context.Context, writer LinkIssueWriter, plan LinkIssuePlan) error {
+func auditLinkIssuance(ctx context.Context, writer model.LinkIssueWriter, plan model.LinkIssuePlan) error {
 	link := plan.Link
 	action := "INVITATION_CREATED"
 	after := map[string]any{"kind": "INVITATION", "role": link.Role, "expiresAtMs": link.ExpiresAtMS}

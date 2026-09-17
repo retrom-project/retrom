@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 func TestInterruptedReviewKeepsExistingOmittedWarningCount(t *testing.T) {

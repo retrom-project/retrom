@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 
 	"retrom/internal/adapter/files/mediaasset"
 	"retrom/internal/capability/format/emulationstationmeta"
@@ -93,7 +94,7 @@ func scanAssetFailure(kind string, err error) (string, string) {
 	switch {
 	case errors.Is(err, ErrScanReadFailed):
 		return "READ_FAILED", "EMULATIONSTATION_MEDIA_READ_FAILED"
-	case errors.Is(err, ErrSourceChanged):
+	case errors.Is(err, model.ErrSourceChanged):
 		return "SOURCE_CHANGED", "EMULATIONSTATION_SOURCE_CHANGED"
 	case kind == "COVER":
 		return "INVALID", "EMULATIONSTATION_IMAGE_INVALID"

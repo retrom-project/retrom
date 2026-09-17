@@ -19,10 +19,10 @@ import (
 	validationpersistence "retrom/internal/repo/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
+	launchservice "retrom/internal/model/launch"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
 	launchpersistence "retrom/internal/repo/launch"
-	launchservice "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
 

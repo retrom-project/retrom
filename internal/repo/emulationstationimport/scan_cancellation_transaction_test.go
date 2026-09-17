@@ -3,16 +3,16 @@ package emulationstationimport
 import (
 	"database/sql"
 	"errors"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
 )
 
-func insertScanPlan(t *testing.T, db *sql.DB, index int) application.Summary {
+func insertScanPlan(t *testing.T, db *sql.DB, index int) emulationstationimportmodel.Summary {
 	t.Helper()
-	var summary application.Summary
-	err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	var summary emulationstationimportmodel.Summary
+	err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
 		var err error
 		summary, err = writer.Insert(t.Context(), creationPlan(index))
 		return err
@@ -23,15 +23,15 @@ func insertScanPlan(t *testing.T, db *sql.DB, index int) application.Summary {
 	return summary
 }
 
-func scanCancellationService(db *sql.DB) *application.WorkflowControl {
-	return application.NewWorkflowControl(NewWorkflowControl(db), nil, func() time.Time { return time.UnixMilli(1001) })
+func scanCancellationService(db *sql.DB) *emulationstationimportservice.WorkflowControl {
+	return emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), nil, func() time.Time { return time.UnixMilli(1001) })
 }
 
 func TestRunningScanCancellationDoesNotCompeteWithActiveImport(t *testing.T) {
 	t.Parallel()
 	db, active := workflowDatabase(t, false)
 	scan := insertScanPlan(t, db, 1)
-	unit, found, err := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
+	unit, found, err := emulationstationimportservice.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
 	if err != nil || !found || unit.JobID != scan.ScanJobID {
 		t.Fatalf("claim=%#v found=%v err=%v", unit, found, err)
 	}
@@ -82,7 +82,7 @@ func assertPendingScanCapacity(t *testing.T, stage string) {
 	for index := 1; index < 20; index++ {
 		insertScanPlan(t, db, index)
 	}
-	err = NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	err = NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
 		if stage == "read" {
 			count, err := writer.PendingPlans(t.Context())
 			if err != nil {
@@ -96,7 +96,7 @@ func assertPendingScanCapacity(t *testing.T, stage string) {
 		_, err := writer.Insert(t.Context(), creationPlan(20))
 		return err
 	})
-	if stage == "insert" && !errors.Is(err, application.ErrActive) {
+	if stage == "insert" && !errors.Is(err, emulationstationimportmodel.ErrActive) {
 		t.Fatalf("capacity cause=%v", err)
 	}
 	if stage == "read" && err != nil {
@@ -107,7 +107,7 @@ func assertPendingScanCapacity(t *testing.T, stage string) {
 func assertPendingScanAllowsExecution(t *testing.T, retry bool) {
 	t.Helper()
 	var db *sql.DB
-	var summary application.Summary
+	var summary emulationstationimportmodel.Summary
 	if retry {
 		db, summary = workflowDatabase(t, true)
 	} else {
@@ -119,7 +119,7 @@ func assertPendingScanAllowsExecution(t *testing.T, retry bool) {
 		}
 	}
 	pendingScan := insertScanPlan(t, db, 1)
-	unit, found, err := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
+	unit, found, err := emulationstationimportservice.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
 	if err != nil || !found || unit.JobID != pendingScan.ScanJobID {
 		t.Fatalf("claim=%#v found=%v err=%v", unit, found, err)
 	}
@@ -131,9 +131,9 @@ func assertPendingScanAllowsExecution(t *testing.T, retry bool) {
 		t.Fatalf("cancel pending=%v err=%v", pending, err)
 	}
 	if retry {
-		_, err = application.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(1002) }).Retry(t.Context(), summary.ID, summary.Version, mappingActor)
+		_, err = emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(1002) }).Retry(t.Context(), summary.ID, summary.Version, mappingActor)
 	} else {
-		_, _, err = application.NewStarter(NewStarter(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(1002) }).Start(t.Context(), summary.ID, summary.Version, mappingActor)
+		_, _, err = emulationstationimportservice.NewStarter(NewStarter(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(1002) }).Start(t.Context(), summary.ID, summary.Version, mappingActor)
 	}
 	if err != nil {
 		t.Fatalf("scan cancellation blocked new execution: %v", err)

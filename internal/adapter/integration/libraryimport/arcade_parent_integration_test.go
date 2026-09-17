@@ -27,7 +27,8 @@ import (
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/foundation/legacychecksum"
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -70,7 +71,7 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
@@ -129,7 +130,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	childZIP := arcadeZIP(t, "a.bin", []byte("child"))
 	parentZIP := arcadeZIP(t, "b.bin", []byte("parent"))
 	rootZIP := arcadeZIPEntries(t, map[string][]byte{
@@ -339,13 +340,13 @@ func uploadCompleteFile(
 	t *testing.T,
 	ctx context.Context,
 	database *sql.DB,
-	service *uploads.Service,
+	service *uploadsservice.Service,
 	name string,
 	contents []byte,
 ) completedUpload {
 	t.Helper()
-	upload, err := service.Create(ctx, uploads.CreateRequest{
-		SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "fixture", RelativePath: name, SizeBytes: int64(len(contents))}},
+	upload, err := service.Create(ctx, uploadsmodel.CreateRequest{
+		SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{ClientFileID: "fixture", RelativePath: name, SizeBytes: int64(len(contents))}},
 	})
 	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(contents)

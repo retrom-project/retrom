@@ -8,7 +8,8 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 type scannerSource struct {
@@ -16,7 +17,7 @@ type scannerSource struct {
 	selectedPath string
 }
 
-func (source scannerSource) Discover(ctx context.Context, visit func(application.DiscoveredFile) error) error {
+func (source scannerSource) Discover(ctx context.Context, visit func(emulationstationimportservice.DiscoveredFile) error) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("discover EmulationStation source: %w", err)
 	}
@@ -34,7 +35,7 @@ func (source scannerSource) Discover(ctx context.Context, visit func(application
 		return visit(entry)
 	})
 	if errors.Is(err, serversource.ErrScanLimit) {
-		return fmt.Errorf("EmulationStation discovery limit: %w: %w", application.ErrScanLimit, err)
+		return fmt.Errorf("EmulationStation discovery limit: %w: %w", emulationstationimportservice.ErrScanLimit, err)
 	}
 	if err != nil {
 		return fmt.Errorf("walk EmulationStation source: %w", err)
@@ -42,22 +43,22 @@ func (source scannerSource) Discover(ctx context.Context, visit func(application
 	return nil
 }
 
-func discoverScanFile(ctx context.Context, candidate serversource.File) (application.DiscoveredFile, error) {
+func discoverScanFile(ctx context.Context, candidate serversource.File) (emulationstationimportservice.DiscoveredFile, error) {
 	release, err := serversource.AcquireReader(ctx)
 	if err != nil {
-		return application.DiscoveredFile{}, fmt.Errorf("acquire EmulationStation discovery reader: %w", err)
+		return emulationstationimportservice.DiscoveredFile{}, fmt.Errorf("acquire EmulationStation discovery reader: %w", err)
 	}
 	defer release()
 	handle, info, err := serversource.OpenFile(candidate)
 	if err != nil {
-		return application.DiscoveredFile{}, fmt.Errorf(
+		return emulationstationimportservice.DiscoveredFile{}, fmt.Errorf(
 			"open EmulationStation discovered source: %w: %w",
 			serversource.ErrRootUnavailable,
 			err,
 		)
 	}
 	defer func() { cleanup.Error("close", handle.Close()) }()
-	return application.DiscoveredFile{
+	return emulationstationimportservice.DiscoveredFile{
 		Path:  candidate.RelativePath,
 		Name:  candidate.Basename,
 		Size:  info.Size(),
@@ -65,12 +66,12 @@ func discoverScanFile(ctx context.Context, candidate serversource.File) (applica
 	}, nil
 }
 
-func (source scannerSource) Read(ctx context.Context, file application.DiscoveredFile, maximum int64) ([]byte, error) {
+func (source scannerSource) Read(ctx context.Context, file emulationstationimportservice.DiscoveredFile, maximum int64) ([]byte, error) {
 	contents, err := readFrozenFile(ctx, source.root, source.selectedPath, file, maximum)
 	return contents, err
 }
 
-func (source scannerSource) Disc(ctx context.Context, file application.DiscoveredFile) ([]byte, error) {
+func (source scannerSource) Disc(ctx context.Context, file emulationstationimportservice.DiscoveredFile) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("inspect EmulationStation disc: %w", err)
 	}
@@ -81,11 +82,11 @@ func (source scannerSource) Disc(ctx context.Context, file application.Discovere
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(source.root.path, source.selectedPath, file.Path)
 	if err != nil {
-		return nil, fmt.Errorf("open EmulationStation disc: %w: %w", application.ErrSourceChanged, err)
+		return nil, fmt.Errorf("open EmulationStation disc: %w: %w", emulationstationimportmodel.ErrSourceChanged, err)
 	}
 	defer func() { cleanup.Error("close", handle.Close()) }()
 	if before.Size() != file.Size || serversource.FactsDigest(before) != file.Facts {
-		return nil, application.ErrSourceChanged
+		return nil, emulationstationimportmodel.ErrSourceChanged
 	}
 	header := make([]byte, 8)
 	_, readErr := io.ReadFull(&contextReader{ctx: ctx, reader: handle}, header)
@@ -93,12 +94,12 @@ func (source scannerSource) Disc(ctx context.Context, file application.Discovere
 	if readErr != nil || statErr != nil {
 		return nil, fmt.Errorf(
 			"read EmulationStation disc header: %w: %w",
-			application.ErrSourceChanged,
+			emulationstationimportmodel.ErrSourceChanged,
 			errors.Join(readErr, statErr),
 		)
 	}
 	if !serversource.SameFileFacts(before, after) {
-		return nil, application.ErrSourceChanged
+		return nil, emulationstationimportmodel.ErrSourceChanged
 	}
 	return header, nil
 }

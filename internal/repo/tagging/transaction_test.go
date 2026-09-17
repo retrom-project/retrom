@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/tagging"
 	tagpersistence "retrom/internal/repo/tagging"
-	"retrom/internal/service/tagging"
 )
 
 func TestBoundRelationsRollbackWithOuterTransaction(t *testing.T) {

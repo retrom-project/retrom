@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
 

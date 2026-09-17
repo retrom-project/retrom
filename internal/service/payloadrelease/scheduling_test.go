@@ -8,20 +8,21 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	model "retrom/internal/model/payloadrelease"
 	"testing"
 )
 
 type scheduleMemory struct {
-	owners                       map[Scope]Owner
+	owners                       map[model.Scope]model.Owner
 	pending                      int64
-	consumption                  Consumption
+	consumption                  model.Consumption
 	readErr, createErr, beginErr error
-	jobs                         []ScheduledJob
-	changes                      []OwnerRelease
-	reads                        []Scope
+	jobs                         []model.ScheduledJob
+	changes                      []model.OwnerRelease
+	reads                        []model.Scope
 }
 
-func (records *scheduleMemory) Owner(_ context.Context, ref Scope) (Owner, error) {
+func (records *scheduleMemory) Owner(_ context.Context, ref model.Scope) (model.Owner, error) {
 	records.reads = append(records.reads, ref)
 	return records.owners[ref], records.readErr
 }
@@ -30,24 +31,24 @@ func (records *scheduleMemory) PendingChildren(context.Context, string) (int64, 
 	return records.pending, records.readErr
 }
 
-func (records *scheduleMemory) Consumption(context.Context, string) (Consumption, error) {
+func (records *scheduleMemory) Consumption(context.Context, string) (model.Consumption, error) {
 	return records.consumption, records.readErr
 }
 
-func (records *scheduleMemory) CreateJob(_ context.Context, job ScheduledJob) error {
+func (records *scheduleMemory) CreateJob(_ context.Context, job model.ScheduledJob) error {
 	records.jobs = append(records.jobs, job)
 	return records.createErr
 }
 
-func (records *scheduleMemory) BeginRelease(_ context.Context, change OwnerRelease) error {
+func (records *scheduleMemory) BeginRelease(_ context.Context, change model.OwnerRelease) error {
 	records.changes = append(records.changes, change)
 	return records.beginErr
 }
 
-func scheduleRequest() ScheduleRequest {
-	return ScheduleRequest{
-		Scope: Scope{Type: ScopeImportItem, ID: "item"}, ScopeVersion: 2,
-		Reason: ReasonImportPublished, NowMS: 10,
+func scheduleRequest() model.ScheduleRequest {
+	return model.ScheduleRequest{
+		Scope: model.Scope{Type: model.ScopeImportItem, ID: "item"}, ScopeVersion: 2,
+		Reason: model.ReasonImportPublished, NowMS: 10,
 	}
 }
 
@@ -65,13 +66,13 @@ func TestSchedulerFreezesCheckedIdentitiesAndCanonicalInput(t *testing.T) {
 		t.Fatalf("schedule=%q/%v jobs=%+v", id, err, records.jobs)
 	}
 	job := records.jobs[0]
-	var input Input
+	var input model.Input
 	if err := json.Unmarshal([]byte(job.InputJSON), &input); err != nil {
 		t.Fatal(err)
 	}
-	expected := Input{
+	expected := model.Input{
 		SchemaVersion: 1, Kind: "PAYLOAD_RELEASE", Scope: request.Scope, ExecutionID: "identity-2",
-		Inputs: ScopeInputs{ScopeVersion: 2, Reason: ReasonImportPublished},
+		Inputs: model.ScopeInputs{ScopeVersion: 2, Reason: model.ReasonImportPublished},
 	}
 	digest := sha256.Sum256([]byte(job.InputJSON))
 	dedupe := sha256.Sum256([]byte("retrom-job-dedupe-v1\x00PAYLOAD_RELEASE\x00IMPORT_ITEM\x00item"))
@@ -101,7 +102,7 @@ func TestSchedulerIdentityFailuresCannotWrite(t *testing.T) {
 				})
 				records := &scheduleMemory{}
 				id, err := scheduler.Queue(t.Context(), records, scheduleRequest())
-				if id != "" || !errors.Is(err, ErrScheduleIDInvalid) || (!empty && !errors.Is(err, cause)) ||
+				if id != "" || !errors.Is(err, model.ErrScheduleIDInvalid) || (!empty && !errors.Is(err, cause)) ||
 					calls != failAt || len(records.jobs) != 0 || len(records.changes) != 0 {
 					t.Fatalf("identity failure wrote or lost cause: %q/%v calls=%d records=%+v", id, err, calls, records)
 				}
@@ -112,13 +113,13 @@ func TestSchedulerIdentityFailuresCannotWrite(t *testing.T) {
 
 func TestSchedulerRejectsInvalidRequestsBeforeIdentityOrStorage(t *testing.T) {
 	t.Parallel()
-	for name, change := range map[string]func(*ScheduleRequest){
-		"blob":    func(value *ScheduleRequest) { value.Scope.Type = ScopeBlob },
-		"unknown": func(value *ScheduleRequest) { value.Scope.Type = "UNKNOWN" },
-		"empty":   func(value *ScheduleRequest) { value.Scope.ID = "" },
-		"version": func(value *ScheduleRequest) { value.ScopeVersion = 0 },
-		"reason":  func(value *ScheduleRequest) { value.Reason = "UNKNOWN" },
-		"clock":   func(value *ScheduleRequest) { value.NowMS = -1 },
+	for name, change := range map[string]func(*model.ScheduleRequest){
+		"blob":    func(value *model.ScheduleRequest) { value.Scope.Type = model.ScopeBlob },
+		"unknown": func(value *model.ScheduleRequest) { value.Scope.Type = "UNKNOWN" },
+		"empty":   func(value *model.ScheduleRequest) { value.Scope.ID = "" },
+		"version": func(value *model.ScheduleRequest) { value.ScopeVersion = 0 },
+		"reason":  func(value *model.ScheduleRequest) { value.Reason = "UNKNOWN" },
+		"clock":   func(value *model.ScheduleRequest) { value.NowMS = -1 },
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -128,7 +129,7 @@ func TestSchedulerRejectsInvalidRequestsBeforeIdentityOrStorage(t *testing.T) {
 			scheduler := NewScheduler(func() (string, error) { called = true; return "id", nil })
 			records := &scheduleMemory{}
 			id, err := scheduler.Queue(t.Context(), records, request)
-			if id != "" || !errors.Is(err, ErrScopeInvalid) || called || len(records.jobs) != 0 {
+			if id != "" || !errors.Is(err, model.ErrScopeInvalid) || called || len(records.jobs) != 0 {
 				t.Fatalf("invalid request entered storage: %q/%v called=%t records=%+v", id, err, called, records)
 			}
 		})
@@ -138,12 +139,12 @@ func TestSchedulerRejectsInvalidRequestsBeforeIdentityOrStorage(t *testing.T) {
 func TestSchedulerDoesNotExposeIdentityAfterStorageFailure(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("transaction write failed")
-	ref := Scope{Type: ScopeImportItem, ID: "item"}
-	owner := Owner{Scope: ref, State: "PUBLISHED", PayloadState: "RETAINED", Version: 7}
+	ref := model.Scope{Type: model.ScopeImportItem, ID: "item"}
+	owner := model.Owner{Scope: ref, State: "PUBLISHED", PayloadState: "RETAINED", Version: 7}
 	for _, phase := range []string{"read", "job", "owner"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
-			records := &scheduleMemory{owners: map[Scope]Owner{ref: owner}}
+			records := &scheduleMemory{owners: map[model.Scope]model.Owner{ref: owner}}
 			switch phase {
 			case "read":
 				records.readErr = cause
@@ -152,7 +153,7 @@ func TestSchedulerDoesNotExposeIdentityAfterStorageFailure(t *testing.T) {
 			case "owner":
 				records.beginErr = cause
 			}
-			id, err := NewScheduler(scheduleIDs()).TerminalItem(t.Context(), records, ref.ID, ReasonImportPublished, 10)
+			id, err := NewScheduler(scheduleIDs()).TerminalItem(t.Context(), records, ref.ID, model.ReasonImportPublished, 10)
 			if id != "" || !errors.Is(err, cause) {
 				t.Fatalf("failed transaction exposed identity or lost cause: %q/%v", id, err)
 			}

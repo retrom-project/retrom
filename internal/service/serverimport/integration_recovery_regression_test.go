@@ -3,6 +3,7 @@ package serverimport_test
 import (
 	"context"
 	"database/sql"
+	model "retrom/internal/model/serverimport"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 func TestCandidateRecoveryRejectsBrokenEvaluationEvidence(t *testing.T) {
 	service, database, _ := archiveImportFixture(t)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +28,7 @@ func TestCandidateRecoveryRejectsBrokenEvaluationEvidence(t *testing.T) {
 func TestCandidateRecoveryReleasesRowsBeforeLoadingDAT(t *testing.T) {
 	service, database, _ := archiveImportFixture(t)
 	seedRecoveryDAT(t, database)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}

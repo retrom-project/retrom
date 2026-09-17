@@ -25,7 +25,8 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -174,16 +175,16 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploader := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	contents := []byte("duplicate-content-identity-fixture")
 	platformInstanceID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 
 	createImport := func(name string) (Created, string) {
 		t.Helper()
-		upload, createErr := uploader.Create(ctx, uploads.CreateRequest{
+		upload, createErr := uploader.Create(ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{{
+			Files: []uploadsmodel.FileDeclaration{{
 				ClientFileID: "game", RelativePath: name, SizeBytes: int64(len(contents)),
 			}},
 		})
@@ -295,8 +296,8 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 		"wrong-platform.iso": []byte("raw-psp-content"),
 		".DS_Store":          []byte("sidecar"),
 	}
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	declarations := make([]uploads.FileDeclaration, 0, len(files))
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(files))
 	paths := make([]string, 0, len(files))
 	for path := range files {
 		paths = append(paths, path)
@@ -306,12 +307,12 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 		contents := files[path]
 		declarations = append(
 			declarations,
-			uploads.FileDeclaration{ClientFileID: path, RelativePath: path, SizeBytes: int64(len(contents))},
+			uploadsmodel.FileDeclaration{ClientFileID: path, RelativePath: path, SizeBytes: int64(len(contents))},
 		)
 	}
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "FILES", Files: declarations})
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{SourceType: "FILES", Files: declarations})
 	testassert.False(t, err != nil, err)
-	fileByPath := make(map[string]uploads.File, len(upload.Files))
+	fileByPath := make(map[string]uploadsmodel.File, len(upload.Files))
 	for _, file := range upload.Files {
 		fileByPath[file.RelativePath] = file
 	}

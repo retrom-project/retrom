@@ -12,13 +12,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	gamecontentservice "retrom/internal/service/gamecontent"
 	"runtime"
 	"slices"
 	"strconv"
 	"testing"
 	"time"
-
-	"retrom/internal/service/gamecontent"
 
 	uploadpersistence "retrom/internal/repo/uploads"
 
@@ -35,7 +34,9 @@ import (
 	"retrom/internal/adapter/integration/payloadrelease"
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	gamecontentmodel "retrom/internal/model/gamecontent"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -56,7 +57,7 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	rpg2000 := rpgMakerFixtureFiles(t, filepath.Join(repositoryRoot, "testdata/public-roms/rpgmaker-smoke/rpg2000"))
 	initialUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2000)
 	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
@@ -80,7 +81,7 @@ SELECT id,version FROM games WHERE id=?
 	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releases.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
+	service := gamecontentservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load RPG replacement binding: %v", bindingErr)
 	} else if binding.RPGGeneration != "RPG2000" {
@@ -190,7 +191,7 @@ func completeRPGMakerDirectoryUpload(
 	database interface {
 		QueryRowContext(context.Context, string, ...any) *sql.Row
 	},
-	service *uploads.Service,
+	service *uploadsservice.Service,
 	contents map[string][]byte,
 ) string {
 	t.Helper()
@@ -199,14 +200,14 @@ func completeRPGMakerDirectoryUpload(
 		paths = append(paths, name)
 	}
 	slices.Sort(paths)
-	declarations := make([]uploads.FileDeclaration, 0, len(paths))
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(paths))
 	for index, name := range paths {
-		declarations = append(declarations, uploads.FileDeclaration{
+		declarations = append(declarations, uploadsmodel.FileDeclaration{
 			ClientFileID: fmt.Sprintf("rpg-file-%d", index), RelativePath: name,
 			SizeBytes: int64(len(contents[name])),
 		})
 	}
-	session, err := service.Create(ctx, uploads.CreateRequest{
+	session, err := service.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations,
 	})
 	testassert.False(t, err != nil, err)
@@ -286,7 +287,7 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.gba", []byte("original"))
 	gbaID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 	createdImport, err := libraryimport.New(database.SQL, time.Now).
@@ -315,7 +316,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService).WithGCStager(releaseService)
+	service := gamecontentservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService).WithGCStager(releaseService)
 	saveID, launchID, savePayloads := seedReplacementSave(
 		t, ctx, database.SQL, blobs, published.GameID,
 	)
@@ -354,7 +355,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replayedSchedule.JobID != scheduled.JobID }), "idempotent replay = %#v, replayed=%v, error=%v", replayedSchedule, replayed, err)
 	if _, _, err := service.ScheduleIdempotent(ctx, published.GameID, replacementUpload, initialVersion, idempotencyKey, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"); !errors.Is(
 		err,
-		gamecontent.ErrIdempotencyKeyReused,
+		gamecontentmodel.ErrIdempotencyKeyReused,
 	) {
 		t.Fatalf("idempotency conflict error = %v", err)
 	}
@@ -442,7 +443,7 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	installSaturnBIOS(t, ctx, database.SQL, blobs)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.chd", fakeReplacementCHD("original"))
 	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
 	saturnID := testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause")
@@ -476,7 +477,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).
+	service := gamecontentservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).
 		WithPayloadRelease(releaseService).WithGCStager(releaseService).WithMultiDiscImportEnabled(true)
 	scheduled, err := service.ScheduleMode(
 		ctx, published.GameID, replacementUpload, "MULTI_DISC", gameVersion,
@@ -579,7 +580,7 @@ func completeDirectoryUpload(
 	database interface {
 		QueryRowContext(context.Context, string, ...any) *sql.Row
 	},
-	service *uploads.Service,
+	service *uploadsservice.Service,
 	contents map[string][]byte,
 ) string {
 	t.Helper()
@@ -588,14 +589,14 @@ func completeDirectoryUpload(
 		paths = append(paths, name)
 	}
 	slices.Sort(paths)
-	declarations := make([]uploads.FileDeclaration, 0, len(paths))
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(paths))
 	for index, name := range paths {
-		declarations = append(declarations, uploads.FileDeclaration{
+		declarations = append(declarations, uploadsmodel.FileDeclaration{
 			ClientFileID: fmt.Sprintf("file-%d", index), RelativePath: name,
 			SizeBytes: int64(len(contents[name])),
 		})
 	}
-	session, err := service.Create(ctx, uploads.CreateRequest{SourceType: "DIRECTORY", Files: declarations})
+	session, err := service.Create(ctx, uploadsmodel.CreateRequest{SourceType: "DIRECTORY", Files: declarations})
 	testassert.False(t, err != nil, err)
 	for index, name := range paths {
 		value := contents[name]
@@ -618,14 +619,14 @@ func completeDirectoryUpload(
 
 func completeUpload(t *testing.T, ctx context.Context, database interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, service *uploads.Service, name string, contents []byte,
+}, service *uploadsservice.Service, name string, contents []byte,
 ) string {
 	t.Helper()
 	session, err := service.Create(
 		ctx,
-		uploads.CreateRequest{
+		uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "file", RelativePath: name, SizeBytes: int64(len(contents))},
 			},
 		},

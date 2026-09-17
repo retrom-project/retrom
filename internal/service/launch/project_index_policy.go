@@ -2,6 +2,7 @@ package launch
 
 import (
 	"fmt"
+	model "retrom/internal/model/launch"
 
 	butterscotch "retrom/internal/capability/engine/butterscotch/detector"
 	kirikiri "retrom/internal/capability/engine/kirikiri/detector"
@@ -41,10 +42,10 @@ func projectIndexPolicyFor(format, raw string) (projectIndexPolicy, error) {
 		err = validateScummVMIndex(raw)
 		policy.allowEmpty, policy.firstIsMarker = true, true
 	default:
-		return projectIndexPolicy{}, ErrProjectIndexUnavailable
+		return projectIndexPolicy{}, model.ErrProjectIndexUnavailable
 	}
 	if err != nil {
-		return projectIndexPolicy{}, fmt.Errorf("%w: project profile: %w", ErrCredential, err)
+		return projectIndexPolicy{}, fmt.Errorf("%w: project profile: %w", model.ErrCredential, err)
 	}
 	return policy, nil
 }

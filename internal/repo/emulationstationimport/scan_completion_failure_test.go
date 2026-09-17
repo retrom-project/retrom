@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testkit/testsupport"
 )
 
 type scanCompletionFailure struct {
@@ -20,8 +20,8 @@ type scanCompletionFailure struct {
 	commit bool
 }
 
-func (repository scanCompletionFailure) WithScan(ctx context.Context, work func(application.ScanScope) error) error {
-	return repository.ScanPublication.WithScan(ctx, func(scope application.ScanScope) error {
+func (repository scanCompletionFailure) WithScan(ctx context.Context, work func(emulationstationimportmodel.ScanScope) error) error {
+	return repository.ScanPublication.WithScan(ctx, func(scope emulationstationimportmodel.ScanScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -51,7 +51,7 @@ func TestScanFinalCallbackAndCommitFailuresRollBack(t *testing.T) {
 				db, unit, value := scanDatabase(t)
 				prepareScanOperation(t, db, unit, value, operation)
 				before := planRows(t, db)
-				service := application.NewScanPublication(scanCompletionFailure{ScanPublication: NewScanPublication(db), commit: commit}, func() time.Time { return time.UnixMilli(1001) })
+				service := emulationstationimportservice.NewScanPublication(scanCompletionFailure{ScanPublication: NewScanPublication(db), commit: commit}, func() time.Time { return time.UnixMilli(1001) })
 				err := runScanOperation(t.Context(), service, unit, value, operation)
 				if err == nil {
 					t.Fatal("late failure committed")

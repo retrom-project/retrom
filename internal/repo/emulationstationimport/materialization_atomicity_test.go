@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
+	"retrom/internal/testkit/testsupport"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testkit/testsupport"
 )
 
 func TestMaterializationSQLAndAffectedFailuresRollback(t *testing.T) {
@@ -48,11 +48,11 @@ func TestMaterializationSQLAndAffectedFailuresRollback(t *testing.T) {
 
 func runMaterialOperation(
 	ctx context.Context,
-	service *application.Materialization,
+	service *emulationstationimportservice.Materialization,
 	operation string,
-	unit application.Execution,
-	source application.MaterialSource,
-	blob application.VerifiedBlob,
+	unit emulationstationimportmodel.Execution,
+	source emulationstationimportmodel.MaterialSource,
+	blob emulationstationimportmodel.VerifiedBlob,
 ) error {
 	switch operation {
 	case "warning":
@@ -72,9 +72,9 @@ type materialLateFailure struct {
 
 func (repository materialLateFailure) WithMaterialization(
 	ctx context.Context,
-	run func(application.MaterialScope) error,
+	run func(emulationstationimportmodel.MaterialScope) error,
 ) error {
-	return repository.Materialization.WithMaterialization(ctx, func(scope application.MaterialScope) error {
+	return repository.Materialization.WithMaterialization(ctx, func(scope emulationstationimportmodel.MaterialScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func TestMaterializationCommitFailureRollsBackWritesAndResponse(t *testing.T) {
 			t.Parallel()
 			db, unit, source, blob := materialDatabase(t)
 			before := planRows(t, db)
-			service := application.NewMaterialization(
+			service := emulationstationimportservice.NewMaterialization(
 				materialLateFailure{Materialization: NewMaterialization(db), commit: commit},
 				func() time.Time { return time.UnixMilli(1100) },
 			)

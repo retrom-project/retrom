@@ -5,9 +5,11 @@ import (
 	"testing"
 	"time"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	maintenancemodel "retrom/internal/model/maintenance"
 	library "retrom/internal/repo/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
-	application "retrom/internal/service/maintenance"
+	libraryimportservice "retrom/internal/service/libraryimport"
+	maintenanceservice "retrom/internal/service/maintenance"
 )
 
 func restoredEmulationStationReview(t *testing.T, attached, seeded bool) (*sql.DB, string) {
@@ -69,9 +71,9 @@ SET library_import_job_id='handoff-job',library_import_item_id='handoff-item' WH
 
 func seedRestoredReview(t *testing.T, db *sql.DB) {
 	t.Helper()
-	_, _, err := libraryservice.NewMetadataSeeder(library.NewMetadata(db), func() time.Time {
+	_, _, err := libraryimportservice.NewMetadataSeeder(library.NewMetadata(db), func() time.Time {
 		return time.UnixMilli(2)
-	}).Seed(t.Context(), "handoff-item", libraryservice.ServerMetadata{Title: "Restored title"}, 1971)
+	}).Seed(t.Context(), "handoff-item", libraryimportmodel.ServerMetadata{Title: "Restored title"}, 1971)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,8 +85,8 @@ func TestRestoreRetainsReservedEmulationStationReviews(t *testing.T) {
 		t.Run(window, func(t *testing.T) {
 			t.Parallel()
 			db, path := restoredEmulationStationReview(t, window != "reserved", window == "seeded")
-			err := New().WithRestore(t.Context(), path, func(records application.RestoreRecords) error {
-				if err := application.CompleteRestoredReviews(t.Context(), records.Imports().Reviews, time.UnixMilli(10)); err != nil {
+			err := New().WithRestore(t.Context(), path, func(records maintenancemodel.RestoreRecords) error {
+				if err := maintenanceservice.CompleteRestoredReviews(t.Context(), records.Imports().Reviews, time.UnixMilli(10)); err != nil {
 					return err
 				}
 				_, err := records.StopExternalImports(t.Context(), 10)

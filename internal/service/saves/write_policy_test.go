@@ -3,14 +3,15 @@ package saves
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/saves"
 	"testing"
 	"time"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )
 
-func writableLaunch() Launch {
-	return Launch{
+func writableLaunch() model.Launch {
+	return model.Launch{
 		PrincipalID: "user", ProfileID: "profile", Purpose: "PRODUCT", GameID: "game",
 		State: "ACTIVE", HardExpiresAtMS: 200, GameStatus: "PUBLISHED", CredentialHash: []byte("credential"),
 		Checkpoint:         runtimebundle.Checkpoint{WriteFormat: "opaque-v1", MaxBytes: 100, Semantics: "GAME_SAVE"},
@@ -21,18 +22,18 @@ func writableLaunch() Launch {
 func TestCheckpointWriteRevalidatesCurrentAuthority(t *testing.T) {
 	for _, test := range []struct {
 		name   string
-		change func(*Launch)
+		change func(*model.Launch)
 		want   error
 	}{
-		{"active", func(*Launch) {}, nil},
-		{"expired", func(value *Launch) { value.HardExpiresAtMS = 100 }, ErrCredential},
-		{"revoked", func(value *Launch) { value.State = "REVOKED" }, ErrCredential},
-		{"deleted game", func(value *Launch) { value.GameStatus = "DELETED" }, ErrCredential},
-		{"owner changed", func(value *Launch) { value.PrincipalID = "other" }, ErrCredential},
-		{"profile changed", func(value *Launch) { value.ProfileID = "other" }, ErrCredential},
-		{"credential rotated", func(value *Launch) { value.CredentialHash = []byte("rotated") }, ErrCredential},
-		{"format changed", func(value *Launch) { value.Checkpoint.WriteFormat = "opaque-v2" }, ErrCredential},
-		{"maximum reduced", func(value *Launch) { value.Checkpoint.MaxBytes = 9 }, ErrTooLarge},
+		{"active", func(*model.Launch) {}, nil},
+		{"expired", func(value *model.Launch) { value.HardExpiresAtMS = 100 }, model.ErrCredential},
+		{"revoked", func(value *model.Launch) { value.State = "REVOKED" }, model.ErrCredential},
+		{"deleted game", func(value *model.Launch) { value.GameStatus = "DELETED" }, model.ErrCredential},
+		{"owner changed", func(value *model.Launch) { value.PrincipalID = "other" }, model.ErrCredential},
+		{"profile changed", func(value *model.Launch) { value.ProfileID = "other" }, model.ErrCredential},
+		{"credential rotated", func(value *model.Launch) { value.CredentialHash = []byte("rotated") }, model.ErrCredential},
+		{"format changed", func(value *model.Launch) { value.Checkpoint.WriteFormat = "opaque-v2" }, model.ErrCredential},
+		{"maximum reduced", func(value *model.Launch) { value.Checkpoint.MaxBytes = 9 }, model.ErrTooLarge},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			expected, current := writableLaunch(), writableLaunch()
@@ -80,7 +81,7 @@ func TestRestoreUsesProviderFormatsAndSizeBounds(t *testing.T) {
 		{"opaque-v1", 101, false},
 		{"opaque-v0", 50, false},
 	} {
-		restore := Restore{Format: test.format, Size: test.size, Checkpoint: runtimebundle.Checkpoint{
+		restore := model.Restore{Format: test.format, Size: test.size, Checkpoint: runtimebundle.Checkpoint{
 			MaxBytes: 100, ReadFormats: []string{"opaque-v1"},
 		}}
 		if validRestore(restore) != test.valid {
@@ -103,19 +104,19 @@ func TestCheckpointReadErrorsRetainCause(t *testing.T) {
 }
 
 type policyLaunchReader struct {
-	value Launch
+	value model.Launch
 	err   error
 }
 
-func (reader policyLaunchReader) LoadLaunch(context.Context, string) (Launch, error) {
+func (reader policyLaunchReader) LoadLaunch(context.Context, string) (model.Launch, error) {
 	return reader.value, reader.err
 }
 
 type policyRepository struct {
-	Repository
+	model.Repository
 	err error
 }
 
-func (repository policyRepository) LoadLaunch(context.Context, string) (Launch, error) {
-	return Launch{}, repository.err
+func (repository policyRepository) LoadLaunch(context.Context, string) (model.Launch, error) {
+	return model.Launch{}, repository.err
 }

@@ -1,6 +1,7 @@
 package serverimport_test
 
 import (
+	model "retrom/internal/model/serverimport"
 	"context"
 	"errors"
 	"testing"
@@ -10,11 +11,11 @@ import (
 )
 
 type failingDiscoveryRepository struct {
-	importservice.DiscoveryRepository
+	model.DiscoveryRepository
 }
 
-func (repository failingDiscoveryRepository) CommitWrite(ctx context.Context, work func(importservice.DiscoveryRecords) error) error {
-	return repository.DiscoveryRepository.CommitWrite(ctx, func(records importservice.DiscoveryRecords) error {
+func (repository failingDiscoveryRepository) CommitWrite(ctx context.Context, work func(model.DiscoveryRecords) error) error {
+	return repository.DiscoveryRepository.CommitWrite(ctx, func(records model.DiscoveryRecords) error {
 		if err := work(records); err != nil {
 			return err
 		}

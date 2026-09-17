@@ -1,6 +1,6 @@
 package libraryimport
 
-import "retrom/internal/service/libraryimport"
+import "retrom/internal/model/libraryimport"
 
 // These small fixtures keep policy assertions close to their tests after the
 // production validation workflow moved into service/libraryimport. They are

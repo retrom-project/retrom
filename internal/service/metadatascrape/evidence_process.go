@@ -3,6 +3,7 @@ package metadatascrape
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 	"time"
 
 	"retrom/internal/adapter/metadata/hasheous"
@@ -17,8 +18,8 @@ func hashString(value *string) string {
 
 func (processor *EvidenceProcessor) processScrapeEvidence(
 	ctx context.Context,
-	claim WorkerClaim,
-	evidence EvidenceProgress,
+	claim model.WorkerClaim,
+	evidence model.EvidenceProgress,
 	bypassCache bool,
 ) (int, string, error) {
 	candidateCount := evidence.CandidateCount
@@ -39,8 +40,8 @@ func (processor *EvidenceProcessor) processScrapeEvidence(
 
 func (processor *EvidenceProcessor) processEvidenceItem(
 	ctx context.Context,
-	claim WorkerClaim,
-	item WorkerEvidence,
+	claim model.WorkerClaim,
+	item model.WorkerEvidence,
 	bypassCache, allowCandidate bool,
 ) (bool, string, error) {
 	hashes := hasheous.ContentHashes{
@@ -61,7 +62,7 @@ func (processor *EvidenceProcessor) processEvidenceItem(
 		}
 		created, err := processor.results.Record(
 			ctx,
-			LookupAttempt{
+			model.LookupAttempt{
 				Claim:          claim,
 				EvidenceID:     item.ID,
 				Lookup:         resolved,
@@ -98,6 +99,6 @@ func waitRetry(ctx context.Context, delay time.Duration) error {
 	}
 }
 
-func evidenceTerminal(item WorkerEvidence) bool {
+func evidenceTerminal(item model.WorkerEvidence) bool {
 	return item.Attempts > 0 && (item.LastSource == "CACHE" || !retryableOutcome(item.LastOutcome) || item.Attempts >= 3)
 }

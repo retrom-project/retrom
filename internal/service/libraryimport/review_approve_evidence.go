@@ -3,9 +3,10 @@ package libraryimport
 import (
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/tagging"
 )
 
 type approvalBeforeEvidence struct {
@@ -32,8 +33,8 @@ type approvalDiffEvidence struct {
 	AcknowledgedGameIDs       []string            `json:"acknowledgedGameIds,omitempty"`
 }
 
-func (run *reviewApprovalRun) evidence() (ApprovalEvent, error) {
-	event := ApprovalEvent{
+func (run *reviewApprovalRun) evidence() (model.ApprovalEvent, error) {
+	event := model.ApprovalEvent{
 		ID: run.eventID, ItemID: run.request.ItemID,
 		Reason: run.request.Decision.Reason, NowMS: run.now,
 	}
@@ -46,7 +47,7 @@ func (run *reviewApprovalRun) evidence() (ApprovalEvent, error) {
 		MediaSelection: media, DefaultDOS: run.head.DraftDOS, Tags: run.publishedTags,
 	}
 	if err := encodeApprovalEvidence(before, &event.BeforeJSON); err != nil {
-		return ApprovalEvent{}, err
+		return model.ApprovalEvent{}, err
 	}
 	after := struct {
 		SchemaVersion int                 `json:"schemaVersion"`
@@ -55,10 +56,10 @@ func (run *reviewApprovalRun) evidence() (ApprovalEvent, error) {
 		Tags          []tagging.Reference `json:"tags"`
 	}{2, run.gameID, run.variantID, run.publishedTags}
 	if err := encodeApprovalEvidence(after, &event.AfterJSON); err != nil {
-		return ApprovalEvent{}, err
+		return model.ApprovalEvent{}, err
 	}
 	if err := encodeApprovalEvidence(run.diffEvidence(media), &event.DiffJSON); err != nil {
-		return ApprovalEvent{}, err
+		return model.ApprovalEvent{}, err
 	}
 	config := struct {
 		SchemaVersion             int    `json:"schemaVersion"`
@@ -66,14 +67,14 @@ func (run *reviewApprovalRun) evidence() (ApprovalEvent, error) {
 		RuntimeScreenshotOverride bool   `json:"runtimeScreenshotOverride"`
 	}{2, "READY", run.screenshotOverride}
 	if err := encodeApprovalEvidence(config, &event.ConfigJSON); err != nil {
-		return ApprovalEvent{}, err
+		return model.ApprovalEvent{}, err
 	}
 	dat := struct {
 		SchemaVersion int  `json:"schemaVersion"`
 		Matched       bool `json:"datMatched"`
 	}{2, run.head.DATID != nil}
 	if err := encodeApprovalEvidence(dat, &event.DATJSON); err != nil {
-		return ApprovalEvent{}, err
+		return model.ApprovalEvent{}, err
 	}
 	provider := struct {
 		SchemaVersion int     `json:"schemaVersion"`
@@ -81,7 +82,7 @@ func (run *reviewApprovalRun) evidence() (ApprovalEvent, error) {
 		Selected      bool    `json:"candidateSelected"`
 	}{2, run.head.CandidateID, run.head.CandidateID != nil}
 	if err := encodeApprovalEvidence(provider, &event.ProviderJSON); err != nil {
-		return ApprovalEvent{}, err
+		return model.ApprovalEvent{}, err
 	}
 	event.ActorKind = "SYSTEM"
 	label := "release-setup"

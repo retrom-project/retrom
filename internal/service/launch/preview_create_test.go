@@ -3,13 +3,14 @@ package launch
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/launch"
 	"testing"
 )
 
 func TestPreviewCreatorRejectsMissingIdentityBeforeStorage(t *testing.T) {
-	creator := NewPreviewCreator(nil, nil, PreviewEnvironment{})
-	result, err := creator.Create(t.Context(), ReviewPreviewRequest{})
-	if !errors.Is(err, ErrReviewPreviewUnavailable) || result.PreviewID != "" {
+	creator := NewPreviewCreator(nil, nil, model.PreviewEnvironment{})
+	result, err := creator.Create(t.Context(), model.ReviewPreviewRequest{})
+	if !errors.Is(err, model.ErrReviewPreviewUnavailable) || result.PreviewID != "" {
 		t.Fatalf("invalid creation identity: id=%q error=%v", result.PreviewID, err)
 	}
 }
@@ -28,7 +29,7 @@ func TestPreviewCreatorFreezesReceiptOnlyAfterCommit(t *testing.T) {
 	cause := errors.New("commit failed")
 	repository.commitErr = cause
 	result, err := creator.Create(t.Context(), request)
-	if !errors.Is(err, cause) || result != (ReviewPreviewCreated{}) {
+	if !errors.Is(err, cause) || result != (model.ReviewPreviewCreated{}) {
 		t.Fatalf("failed commit returned receipt: id=%q error=%v", result.PreviewID, err)
 	}
 }
@@ -56,7 +57,7 @@ func TestPreviewCreatorKeepsStorageAndCancellationCauses(t *testing.T) {
 			repository.restore = previewFixtureRestore(repository)
 			test.configure(repository, context.Canceled)
 			result, err := creator.Create(t.Context(), request)
-			if !errors.Is(err, context.Canceled) || result != (ReviewPreviewCreated{}) || len(repository.writes) != test.writes {
+			if !errors.Is(err, context.Canceled) || result != (model.ReviewPreviewCreated{}) || len(repository.writes) != test.writes {
 				t.Fatalf("cause/receipt boundary: id=%q writes=%d error=%v", result.PreviewID, len(repository.writes), err)
 			}
 		})
@@ -70,24 +71,24 @@ func TestPreviewCreatorRejectsPreparationBeforeTransaction(t *testing.T) {
 		configure func(*PreviewCreator, *previewTestRepository, *previewTestProvider)
 		cause     error
 	}{
-		{"missing source", func(_ *PreviewCreator, r *previewTestRepository, _ *previewTestProvider) { r.missingSnapshot = true }, ErrReviewPreviewUnavailable},
-		{"missing provider", func(_ *PreviewCreator, _ *previewTestRepository, p *previewTestProvider) { p.absent = true }, ErrReviewPreviewUnavailable},
+		{"missing source", func(_ *PreviewCreator, r *previewTestRepository, _ *previewTestProvider) { r.missingSnapshot = true }, model.ErrReviewPreviewUnavailable},
+		{"missing provider", func(_ *PreviewCreator, _ *previewTestRepository, p *previewTestProvider) { p.absent = true }, model.ErrReviewPreviewUnavailable},
 		{"bundle drift", func(_ *PreviewCreator, r *previewTestRepository, _ *previewTestProvider) {
 			r.snapshot.Source.BundleSHA256 = "new"
-		}, ErrReviewPreviewUnavailable},
-		{"game undeclared", func(_ *PreviewCreator, _ *previewTestRepository, p *previewTestProvider) { p.target.Inputs = nil }, ErrReviewPreviewUnavailable},
+		}, model.ErrReviewPreviewUnavailable},
+		{"game undeclared", func(_ *PreviewCreator, _ *previewTestRepository, p *previewTestProvider) { p.target.Inputs = nil }, model.ErrReviewPreviewUnavailable},
 		{"threads", func(_ *PreviewCreator, _ *previewTestRepository, p *previewTestProvider) {
 			p.target.Capabilities.RequiresThreads = true
-		}, ErrBlocked},
+		}, model.ErrBlocked},
 		{"missing game", func(_ *PreviewCreator, r *previewTestRepository, _ *previewTestProvider) {
 			r.snapshot.SourceFiles = nil
-		}, ErrReviewPreviewUnavailable},
+		}, model.ErrReviewPreviewUnavailable},
 		{"identity error", func(c *PreviewCreator, _ *previewTestRepository, _ *previewTestProvider) {
 			c.environment.NewID = func() (string, error) { return "", context.Canceled }
 		}, context.Canceled},
 		{"invalid identity", func(c *PreviewCreator, _ *previewTestRepository, _ *previewTestProvider) {
 			c.environment.NewID = func() (string, error) { return "not-an-id", nil }
-		}, ErrReviewPreviewUnavailable},
+		}, model.ErrReviewPreviewUnavailable},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

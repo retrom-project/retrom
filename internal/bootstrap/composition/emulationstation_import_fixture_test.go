@@ -15,9 +15,10 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	dependencyrepository "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -26,7 +27,7 @@ const esCompositionActor = "01980000-0000-7000-8000-000000001398"
 type esCompositionFixture struct {
 	ctx      context.Context
 	database *sql.DB
-	service  *application.Service
+	service  *emulationstationimportservice.Service
 	now      time.Time
 }
 
@@ -86,7 +87,7 @@ func writeESCompositionSource(t *testing.T) string {
 	return source
 }
 
-func (fixture esCompositionFixture) await(t *testing.T, id, state string) application.Summary {
+func (fixture esCompositionFixture) await(t *testing.T, id, state string) emulationstationimportmodel.Summary {
 	t.Helper()
 	for range 250 {
 		result, err := fixture.service.Get(fixture.ctx, id)
@@ -102,5 +103,5 @@ func (fixture esCompositionFixture) await(t *testing.T, id, state string) applic
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("ES worker did not reach %s within 2.5 seconds", state)
-	return application.Summary{}
+	return emulationstationimportmodel.Summary{}
 }

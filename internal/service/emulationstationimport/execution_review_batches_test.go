@@ -3,10 +3,11 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 type executionReviewMemory struct {
@@ -14,9 +15,9 @@ type executionReviewMemory struct {
 	remaining, completed, transactions, maxBatch int
 }
 
-func (memory *executionReviewMemory) WithExecution(_ context.Context, run func(ExecutionScope) error) error {
+func (memory *executionReviewMemory) WithExecution(_ context.Context, run func(model.ExecutionScope) error) error {
 	before := memory.completed
-	if err := run(ExecutionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory, Metadata: memory}); err != nil {
+	if err := run(model.ExecutionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory, Metadata: memory}); err != nil {
 		return err
 	}
 	memory.transactions++
@@ -24,10 +25,10 @@ func (memory *executionReviewMemory) WithExecution(_ context.Context, run func(E
 	return nil
 }
 
-func (memory *executionReviewMemory) Reviews(context.Context, string, int) ([]ExecutionReview, error) {
-	result := make([]ExecutionReview, min(101, memory.remaining))
+func (memory *executionReviewMemory) Reviews(context.Context, string, int) ([]model.ExecutionReview, error) {
+	result := make([]model.ExecutionReview, min(101, memory.remaining))
 	for index := range result {
-		result[index] = ExecutionReview{
+		result[index] = model.ExecutionReview{
 			ItemID: fmt.Sprint(memory.completed + index), State: "VALIDATING", ReservedItemID: "ordinary", ReservedJobID: "library",
 			Version: 1, MetadataJSON: `{"title":"Game"}`, WarningsJSON: "[]",
 		}
@@ -35,7 +36,7 @@ func (memory *executionReviewMemory) Reviews(context.Context, string, int) ([]Ex
 	return result, nil
 }
 
-func (memory *executionReviewMemory) CompleteReview(context.Context, ExecutionReviewCompletion) error {
+func (memory *executionReviewMemory) CompleteReview(context.Context, model.ExecutionReviewCompletion) error {
 	memory.remaining--
 	memory.completed++
 	memory.before.ImportVersion++

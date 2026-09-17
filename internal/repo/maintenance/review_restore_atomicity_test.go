@@ -11,8 +11,9 @@ import (
 	"testing"
 	"time"
 
+	maintenancemodel "retrom/internal/model/maintenance"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/maintenance"
+	maintenanceservice "retrom/internal/service/maintenance"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -169,19 +170,19 @@ func runReviewRestoreTransaction(ctx context.Context, db *sql.DB) error {
 	if _, err := records.RevokeAccess(ctx, 10); err != nil {
 		return err
 	}
-	if err := application.CompleteRestoredReviews(ctx, records.Reviews(), time.UnixMilli(10)); err != nil {
+	if err := maintenanceservice.CompleteRestoredReviews(ctx, records.Reviews(), time.UnixMilli(10)); err != nil {
 		return err
 	}
 	if _, err := records.StopExternalImports(ctx, 10); err != nil {
 		return err
 	}
-	if err := application.ScheduleRestoredPayloads(ctx, records.Imports().Payloads, 10); err != nil {
+	if err := maintenanceservice.ScheduleRestoredPayloads(ctx, records.Imports().Payloads, 10); err != nil {
 		return err
 	}
 	if err := records.StopBulkApprovals(ctx, 10); err != nil {
 		return err
 	}
-	if err := records.Audit(ctx, application.FenceAudit{ID: "restore-audit", Now: 10}); err != nil {
+	if err := records.Audit(ctx, maintenancemodel.FenceAudit{ID: "restore-audit", Now: 10}); err != nil {
 		return err
 	}
 	return tx.Commit()

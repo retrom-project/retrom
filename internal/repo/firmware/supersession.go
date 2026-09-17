@@ -11,7 +11,6 @@ import (
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	payloadreleaseservice "retrom/internal/service/payloadrelease"
 )
 
 type supersessionRecords struct{ executor dbexec.Executor }
@@ -84,7 +83,7 @@ func supersedeInScope(ctx context.Context, scope firmware.SupersessionScope, req
 	if consumptionID == "" {
 		return nil
 	}
-	if _, err := payloadreleaseservice.NewScheduler(nil).Consumption(ctx, scope.Payload, consumptionID, now); err != nil {
+	if _, err := payloadrelease.NewScheduler(nil).Consumption(ctx, scope.Payload, consumptionID, now); err != nil {
 		return fmt.Errorf("schedule superseded BIOS consumption: %w", err)
 	}
 	return nil

@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"context"
+	model "retrom/internal/model/accounts"
 
 	"retrom/internal/capability/security/authn"
 )
@@ -12,10 +13,10 @@ func (service *Service) CreateInvitation(
 	role string,
 	confirmed bool,
 	key string,
-) (AccountLink, bool, error) {
+) (model.AccountLink, bool, error) {
 	return service.modules.Issuance.Invitation(
 		ctx,
-		LinkCreator{
+		model.LinkCreator{
 			UserID:   principal.UserID,
 			Username: principal.Username,
 		},
@@ -31,10 +32,10 @@ func (service *Service) CreatePasswordReset(
 	targetID string,
 	version int64,
 	key string,
-) (AccountLink, bool, error) {
+) (model.AccountLink, bool, error) {
 	return service.modules.Issuance.PasswordReset(
 		ctx,
-		LinkCreator{
+		model.LinkCreator{
 			UserID:   principal.UserID,
 			Username: principal.Username,
 		},
@@ -44,18 +45,18 @@ func (service *Service) CreatePasswordReset(
 	)
 }
 
-func (service *Service) InspectAccountLink(ctx context.Context, kind, token string) (LinkInspection, error) {
+func (service *Service) InspectAccountLink(ctx context.Context, kind, token string) (model.LinkInspection, error) {
 	return service.modules.Links.Inspect(ctx, kind, token)
 }
 
-func (service *Service) AcceptInvitation(ctx context.Context, request AcceptInvitationRequest) (Session, error) {
+func (service *Service) AcceptInvitation(ctx context.Context, request model.AcceptInvitationRequest) (model.Session, error) {
 	return service.modules.Consumption.AcceptInvitation(ctx, request)
 }
 
 func (service *Service) CompletePasswordReset(
 	ctx context.Context,
-	request CompletePasswordResetRequest,
-) (PasswordResetResult, error) {
+	request model.CompletePasswordResetRequest,
+) (model.PasswordResetResult, error) {
 	return service.modules.Consumption.CompleteReset(ctx, request)
 }
 
@@ -69,6 +70,6 @@ func (service *Service) RevokeAccountLink(
 	return service.modules.Links.Revoke(ctx, principal.UserID, id, version, key)
 }
 
-func (service *Service) ListAccountLinks(ctx context.Context, filter LinkListFilter) ([]AccountLink, error) {
+func (service *Service) ListAccountLinks(ctx context.Context, filter model.LinkListFilter) ([]model.AccountLink, error) {
 	return service.modules.Links.List(ctx, filter)
 }

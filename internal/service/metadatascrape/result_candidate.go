@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 )
 
 func recordCandidate(
 	ctx context.Context,
-	scope ResultScope,
-	attempt LookupAttempt,
+	scope model.ResultScope,
+	attempt model.LookupAttempt,
 	prepared preparedCandidate,
 	responseID, attemptID string,
 	now int64,
@@ -18,7 +19,7 @@ func recordCandidate(
 	if err != nil {
 		return false, err
 	}
-	candidate, err := scope.Write.Candidate(ctx, CandidateRecord{
+	candidate, err := scope.Write.Candidate(ctx, model.CandidateRecord{
 		ID: id, RunID: attempt.Claim.RunID, ResponseID: responseID,
 		ProviderGameID: prepared.value.ProviderGameID,
 		MetadataJSON:   prepared.metadata, EvidenceJSON: prepared.evidence, Now: now,
@@ -36,7 +37,7 @@ func recordCandidate(
 	}
 	if err := scope.Write.Hit(
 		ctx,
-		CandidateHit{
+		model.CandidateHit{
 			CandidateID: candidate.ID,
 			AttemptID:   attemptID,
 			HashesJSON:  encoded,
@@ -48,7 +49,7 @@ func recordCandidate(
 	if !candidate.Created {
 		return false, nil
 	}
-	assets := make([]CandidateAsset, 0, len(prepared.value.Assets))
+	assets := make([]model.CandidateAsset, 0, len(prepared.value.Assets))
 	for _, asset := range prepared.value.Assets {
 		id, err := scheduleID()
 		if err != nil {
@@ -56,7 +57,7 @@ func recordCandidate(
 		}
 		assets = append(
 			assets,
-			CandidateAsset{
+			model.CandidateAsset{
 				ID:          id,
 				CandidateID: candidate.ID,
 				ResponseID:  responseID,
@@ -76,7 +77,7 @@ func recordCandidate(
 	return true, nil
 }
 
-func matchedHashes(hashes Hashes) (string, error) {
+func matchedHashes(hashes model.Hashes) (string, error) {
 	matched := make(map[string]string, 4)
 	for name, value := range map[string]*string{
 		"crc32":  hashes.CRC32,

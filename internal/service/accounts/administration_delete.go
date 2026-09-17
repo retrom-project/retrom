@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/accounts"
 )
 
 func (service *AdministrationService) Delete(
@@ -26,7 +27,7 @@ func (service *AdministrationService) Delete(
 		return false, err
 	}
 	var replayed bool
-	err = service.repository.CommitWrite(ctx, func(scope AdministrationScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope model.AdministrationScope) error {
 		replay, err := scope.Read.Replay(ctx, operation)
 		if err != nil {
 			return fmt.Errorf("apply account administration: %w", err)
@@ -53,9 +54,9 @@ func (service *AdministrationService) Delete(
 				return fmt.Errorf("apply account administration: %w", err)
 			}
 		}
-		plan := AdministrationDeletion{
+		plan := model.AdministrationDeletion{
 			Before: before,
-			Security: UserSecurity{
+			Security: model.UserSecurity{
 				Reason:       "USER_DELETED",
 				Sessions:     true,
 				CreatedLinks: true,

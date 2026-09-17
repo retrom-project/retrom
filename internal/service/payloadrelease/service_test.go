@@ -3,6 +3,7 @@ package payloadrelease
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/payloadrelease"
 	"testing"
 	"time"
 )
@@ -12,7 +13,7 @@ type initializationFixture struct {
 	pages              int
 }
 
-func (fixture *initializationFixture) WithLifecycle(ctx context.Context, run func(LifecycleReader) error) error {
+func (fixture *initializationFixture) WithLifecycle(ctx context.Context, run func(model.LifecycleReader) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -22,16 +23,16 @@ func (fixture *initializationFixture) WithLifecycle(ctx context.Context, run fun
 	return fixture.commitErr
 }
 
-func (*initializationFixture) BlobEdges(context.Context) ([]BlobEdge, error) {
+func (*initializationFixture) BlobEdges(context.Context) ([]model.BlobEdge, error) {
 	edges := OwnershipRegistry()
-	result := make([]BlobEdge, 0, len(edges))
+	result := make([]model.BlobEdge, 0, len(edges))
 	for _, edge := range edges {
-		result = append(result, BlobEdge{Table: edge.Table, Column: edge.Column})
+		result = append(result, model.BlobEdge{Table: edge.Table, Column: edge.Column})
 	}
 	return result, nil
 }
 
-func (fixture *initializationFixture) Owners(context.Context, Scope, int) ([]LifecycleOwner, error) {
+func (fixture *initializationFixture) Owners(context.Context, model.Scope, int) ([]model.LifecycleOwner, error) {
 	fixture.pages++
 	return nil, fixture.readErr
 }
@@ -65,7 +66,7 @@ func TestPayloadServiceCloseBeforeStartPreventsWork(t *testing.T) {
 	service.Close()
 	service.Start()
 	did, err := service.RunOnce(t.Context())
-	if did || !errors.Is(err, ErrWorkerClosed) {
+	if did || !errors.Is(err, model.ErrWorkerClosed) {
 		t.Fatalf("closed facade accepted work: %t %v", did, err)
 	}
 }

@@ -17,7 +17,7 @@ import (
 	"time"
 
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
+	launchservice "retrom/internal/service/launch"
 
 	uploadpersistence "retrom/internal/repo/uploads"
 
@@ -32,7 +32,9 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	launchmodel "retrom/internal/model/launch"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -56,13 +58,13 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	files := []uploads.FileDeclaration{
+	files := []uploadsmodel.FileDeclaration{
 		{ClientFileID: "exe", RelativePath: "DOOM/DOOM.EXE", SizeBytes: 3},
 		{ClientFileID: "wad", RelativePath: "DOOM/DATA.WAD", SizeBytes: 3},
 		{ClientFileID: "unsafe", RelativePath: "DOOM/SETUP%.BAT", SizeBytes: 3},
 	}
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "DIRECTORY", Files: files})
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{SourceType: "DIRECTORY", Files: files})
 	testassert.False(t, err != nil, err)
 	for index, body := range [][]byte{[]byte("exe"), []byte("wad"), []byte("bat")} {
 		digest := sha256.Sum256(body)
@@ -224,14 +226,14 @@ WHERE variant.game_id=?
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	inputs := application.ValidationInputs{
+	inputs := launchmodel.ValidationInputs{
 		GameVariantID: variantID, GameID: "missing-game", GameVersion: gameVersion,
 		SourceManifestDigest: strings.Repeat("a", 64), ProviderID: providerID, TargetID: targetID,
 		ContentPolicy:         contentcapability.NewPolicy("SINGLE_FILE"),
 		ValidationInputDigest: strings.Repeat("0", 64), BIOSDependencyDigest: strings.Repeat("0", 64),
 	}
-	invalid, err := application.NewValidationScheduler(persistence.NewValidationJobs(transaction),
-		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+	invalid, err := launchservice.NewValidationScheduler(persistence.NewValidationJobs(transaction),
+		launchmodel.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
 	invalidJobID := invalid.JobID
 	if err != nil {
 		_ = transaction.Rollback()
@@ -250,8 +252,8 @@ WHERE variant.game_id=?
 	retryTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer dbexec.Rollback(retryTx)
-	retried, err := application.NewValidationScheduler(persistence.NewValidationJobs(retryTx),
-		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+	retried, err := launchservice.NewValidationScheduler(persistence.NewValidationJobs(retryTx),
+		launchmodel.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
 	retriedJobID, queued := retried.JobID, retried.Queued
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !queued }, func() bool { return retriedJobID != invalidJobID }), "automatic validation retry = %s/%t, error=%v", retriedJobID, queued, err)
 	if err := retryTx.Commit(); err != nil {

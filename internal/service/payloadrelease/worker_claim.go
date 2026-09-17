@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math"
+	model "retrom/internal/model/payloadrelease"
 	"time"
 )
 
-func NewWorker(repository WorkerRepository, executor WorkExecutor, options WorkerOptions) *Worker {
+func NewWorker(repository model.WorkerRepository, executor model.WorkExecutor, options WorkerOptions) *Worker {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
@@ -21,9 +22,9 @@ func NewWorker(repository WorkerRepository, executor WorkExecutor, options Worke
 	}
 }
 
-func (worker *Worker) Claim(ctx context.Context) (Work, bool, error) {
-	var claimed Work
-	err := worker.repository.WithWorker(ctx, func(scope WorkerScope) error {
+func (worker *Worker) Claim(ctx context.Context) (model.Work, bool, error) {
+	var claimed model.Work
+	err := worker.repository.WithWorker(ctx, func(scope model.WorkerScope) error {
 		now := worker.now().UnixMilli()
 		before, found, err := scope.Read.Next(ctx, now)
 		if err != nil {
@@ -33,7 +34,7 @@ func (worker *Worker) Claim(ctx context.Context) (Work, bool, error) {
 			return nil
 		}
 		if before.State != "QUEUED" || before.AvailableMS > now || !validWork(before) {
-			return ErrExecutionLost
+			return model.ErrExecutionLost
 		}
 		if failure := executionBudgetFailure(before, now); failure != nil {
 			return worker.settle(ctx, scope, before, failure, now)
@@ -43,7 +44,7 @@ func (worker *Worker) Claim(ctx context.Context) (Work, bool, error) {
 			return fmt.Errorf("create payload worker identity: %w", err)
 		}
 		if id == "" {
-			return ErrScheduleIDInvalid
+			return model.ErrScheduleIDInvalid
 		}
 		after := before
 		after.State = "RUNNING"
@@ -51,14 +52,14 @@ func (worker *Worker) Claim(ctx context.Context) (Work, bool, error) {
 		after.Attempt++
 		after.Version++
 		if !after.Started.Set {
-			after.Started = WorkTime{Set: true, Value: now}
+			after.Started = model.WorkTime{Set: true, Value: now}
 		}
 		if !after.Deadline.Set {
-			after.Deadline = WorkTime{Set: true, Value: after.Started.Value + ExecutionTimeout.Milliseconds()}
+			after.Deadline = model.WorkTime{Set: true, Value: after.Started.Value + ExecutionTimeout.Milliseconds()}
 		}
-		after.Lease = WorkTime{Set: true, Value: min(now+workerLease.Milliseconds(), after.Deadline.Value)}
-		after.Heartbeat = WorkTime{Set: true, Value: now}
-		change := WorkChange{
+		after.Lease = model.WorkTime{Set: true, Value: min(now+workerLease.Milliseconds(), after.Deadline.Value)}
+		after.Heartbeat = model.WorkTime{Set: true, Value: now}
+		change := model.WorkChange{
 			Before: before, After: after, NowMS: now, EventType: "STARTED",
 			EventJSON: fmt.Sprintf(`{"schemaVersion":1,"executionNo":%d,"attempt":%d}`, after.ExecutionNo, after.Attempt),
 		}
@@ -69,28 +70,28 @@ func (worker *Worker) Claim(ctx context.Context) (Work, bool, error) {
 		return nil
 	})
 	if err != nil {
-		return Work{}, false, fmt.Errorf("claim payload worker: %w", err)
+		return model.Work{}, false, fmt.Errorf("claim payload worker: %w", err)
 	}
 	return claimed, claimed.ID != "", nil
 }
 
-func validWork(work Work) bool {
+func validWork(work model.Work) bool {
 	return work.ID != "" && work.Scope.ID != "" && (work.Kind == "PAYLOAD_RELEASE" || work.Kind == "BLOB_GC") &&
 		work.ExecutionNo > 0 && work.Attempt >= 0 && work.MaxAttempts > 0 && work.Version > 0 && work.Version < math.MaxInt64
 }
 
-func executionBudgetFailure(work Work, now int64) error {
+func executionBudgetFailure(work model.Work, now int64) error {
 	if work.Deadline.Set && work.Deadline.Value <= now {
-		return ErrExecutionTimeout
+		return model.ErrExecutionTimeout
 	}
 	if work.Attempt >= work.MaxAttempts {
-		return ErrAttemptsExhausted
+		return model.ErrAttemptsExhausted
 	}
 	return nil
 }
 
 func (worker *Worker) Recover(ctx context.Context) error {
-	err := worker.repository.WithWorker(ctx, func(scope WorkerScope) error {
+	err := worker.repository.WithWorker(ctx, func(scope model.WorkerScope) error {
 		now := worker.now().UnixMilli()
 		pending, err := scope.Read.Interrupted(ctx, now, 100)
 		if err != nil {
@@ -105,7 +106,7 @@ func (worker *Worker) Recover(ctx context.Context) error {
 			}
 			cause := executionBudgetFailure(before, now)
 			if cause == nil {
-				cause = ErrExecutionLost
+				cause = model.ErrExecutionLost
 			}
 			if err := worker.settle(ctx, scope, before, cause, now); err != nil {
 				return err

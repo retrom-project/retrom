@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/favorites"
-	homeservice "retrom/internal/service/home"
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/favorites"
+	homeservice "retrom/internal/model/home"
+	"retrom/internal/model/tagging"
 )
 
 type recentGameProjection struct {

@@ -2,6 +2,7 @@ package emulationstationimport
 
 import (
 	"context"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
 )
@@ -11,13 +12,13 @@ type recoveryReviewMemory struct {
 	applied int
 }
 
-func (memory *recoveryReviewMemory) Expired(context.Context, int64, int) ([]LeaseSnapshot, error) {
-	return []LeaseSnapshot{memory.before}, nil
+func (memory *recoveryReviewMemory) Expired(context.Context, int64, int) ([]model.LeaseSnapshot, error) {
+	return []model.LeaseSnapshot{memory.before}, nil
 }
 
-func (memory *recoveryReviewMemory) WithRecovery(_ context.Context, run func(RecoveryScope) error) error {
+func (memory *recoveryReviewMemory) WithRecovery(_ context.Context, run func(model.RecoveryScope) error) error {
 	before := memory.completed
-	if err := run(RecoveryScope{Payload: emptyPayloadScope(), Read: memory, Write: memory, Metadata: memory}); err != nil {
+	if err := run(model.RecoveryScope{Payload: emptyPayloadScope(), Read: memory, Write: memory, Metadata: memory}); err != nil {
 		return err
 	}
 	memory.transactions++
@@ -25,7 +26,7 @@ func (memory *recoveryReviewMemory) WithRecovery(_ context.Context, run func(Rec
 	return nil
 }
 
-func (memory *recoveryReviewMemory) Apply(_ context.Context, change RecoveryChange) error {
+func (memory *recoveryReviewMemory) Apply(_ context.Context, change model.RecoveryChange) error {
 	memory.applied++
 	memory.before.JobState, memory.before.ImportState = change.JobState, change.ImportState
 	return nil

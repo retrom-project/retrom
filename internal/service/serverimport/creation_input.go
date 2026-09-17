@@ -5,23 +5,24 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/serverimport"
 
 	"github.com/google/uuid"
 )
 
 func newCreationPlan(
-	request CreateRequest,
+	request model.CreateRequest,
 	actorID string,
-	root RootSelection,
-	items []CatalogItem,
+	root model.RootSelection,
+	items []model.CatalogItem,
 	digest string,
 	now int64,
-) (CreationPlan, error) {
+) (model.CreationPlan, error) {
 	var ids [3]string
 	for index := range ids {
 		id, err := uuid.NewV7()
 		if err != nil {
-			return CreationPlan{}, fmt.Errorf("create import identity: %w", err)
+			return model.CreationPlan{}, fmt.Errorf("create import identity: %w", err)
 		}
 		ids[index] = id.String()
 	}
@@ -34,15 +35,15 @@ func newCreationPlan(
 		},
 	})
 	if err != nil {
-		return CreationPlan{}, fmt.Errorf("encode import input: %w", err)
+		return model.CreationPlan{}, fmt.Errorf("encode import input: %w", err)
 	}
 	evidence, err := newControlEvidence(actorID, now, []byte(`{"schemaVersion":1}`))
 	if err != nil {
-		return CreationPlan{}, err
+		return model.CreationPlan{}, err
 	}
 	inputDigest := sha256.Sum256(input)
 	dedupe := sha256.Sum256([]byte(ids[0]))
-	return CreationPlan{
+	return model.CreationPlan{
 		ImportID: ids[0], JobID: ids[1], DedupeKey: hex.EncodeToString(dedupe[:]),
 		Request: request, Root: root, Items: items, CatalogDigest: digest,
 		Input: input, InputDigest: hex.EncodeToString(inputDigest[:]),

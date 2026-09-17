@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/model/libraryimport"
 )
 
 func parseReviewBulkScope(request *http.Request) (libraryimport.ReviewBulkScope, error) {

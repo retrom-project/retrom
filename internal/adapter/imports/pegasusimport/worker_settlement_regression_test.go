@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 func TestWorkerFailureCannotCloseReplacedExecution(t *testing.T) {

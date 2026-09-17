@@ -7,17 +7,18 @@ import (
 	"testing"
 	"time"
 
+	netplaymodel "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
-	application "retrom/internal/service/netplay"
+	netplayservice "retrom/internal/service/netplay"
 )
 
 type failedRoomMaintenance struct {
-	application.MaintenanceRepository
+	netplaymodel.MaintenanceRepository
 	failure error
 }
 
-func (wrapper failedRoomMaintenance) WithMaintenance(ctx context.Context, work func(application.MaintenanceWriter) error) error {
-	return wrapper.MaintenanceRepository.WithMaintenance(ctx, func(writer application.MaintenanceWriter) error {
+func (wrapper failedRoomMaintenance) WithMaintenance(ctx context.Context, work func(netplaymodel.MaintenanceWriter) error) error {
+	return wrapper.MaintenanceRepository.WithMaintenance(ctx, func(writer netplaymodel.MaintenanceWriter) error {
 		if err := work(writer); err != nil {
 			return err
 		}
@@ -36,7 +37,7 @@ SELECT 'play-'||profile_id,id,profile_id,game_id,?,?,0,0,'ACTIVE',1,?,? FROM lau
 	}
 	before := maintenanceRecoverySnapshot(t, fixture)
 	sentinel := errors.New("late recovery failure")
-	service := application.NewRoomMaintenance(failedRoomMaintenance{repository.NewRoomMaintenance(fixture.database), sentinel}, nil, func() time.Time { return fixture.now })
+	service := netplayservice.NewRoomMaintenance(failedRoomMaintenance{repository.NewRoomMaintenance(fixture.database), sentinel}, nil, func() time.Time { return fixture.now })
 	if err := service.Recover(t.Context(), "SERVER_RESTARTED"); !errors.Is(err, sentinel) {
 		t.Fatalf("recovery failure=%v", err)
 	}
@@ -76,15 +77,15 @@ func TestPassiveRoomExpiryFencesVersionsAndRollsBackEvent(t *testing.T) {
 	fixture := newControlFixture(t)
 	now := fixture.now.Add(2 * time.Hour)
 	repo := repository.NewRoomMaintenance(fixture.database)
-	candidates, err := repo.Passive(t.Context(), application.ExpiryCutoffs{Now: now.UnixMilli(), Limit: 100})
+	candidates, err := repo.Passive(t.Context(), netplaymodel.ExpiryCutoffs{Now: now.UnixMilli(), Limit: 100})
 	if err != nil || len(candidates) != 1 {
 		t.Fatalf("candidates=%v error=%v", candidates, err)
 	}
 	before := roomExitRecordsSnapshot(t, fixture)
 	candidate := candidates[0]
 	candidate.Version++
-	err = repo.WithMaintenance(t.Context(), func(writer application.MaintenanceWriter) error {
-		return writer.Expire(t.Context(), application.ExpiryPlan{Before: candidate, Now: now.UnixMilli()})
+	err = repo.WithMaintenance(t.Context(), func(writer netplaymodel.MaintenanceWriter) error {
+		return writer.Expire(t.Context(), netplaymodel.ExpiryPlan{Before: candidate, Now: now.UnixMilli()})
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -94,8 +95,8 @@ func TestPassiveRoomExpiryFencesVersionsAndRollsBackEvent(t *testing.T) {
 	}
 	sentinel := errors.New("late expiry failure")
 	wrapper := failedRoomMaintenance{repo, sentinel}
-	err = wrapper.WithMaintenance(t.Context(), func(writer application.MaintenanceWriter) error {
-		return writer.Expire(t.Context(), application.ExpiryPlan{Before: candidates[0], Now: now.UnixMilli()})
+	err = wrapper.WithMaintenance(t.Context(), func(writer netplaymodel.MaintenanceWriter) error {
+		return writer.Expire(t.Context(), netplaymodel.ExpiryPlan{Before: candidates[0], Now: now.UnixMilli()})
 	})
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("expiry failure=%v", err)
@@ -110,14 +111,14 @@ func TestActiveRoomExpirySkipsReplacedVersions(t *testing.T) {
 	fixture, peer := controlledSessionFixture(t, "PREPARING")
 	now := fixture.now.Add(3 * time.Minute)
 	repo := repository.NewRoomMaintenance(fixture.database)
-	candidates, err := repo.Active(t.Context(), application.ExpiryCutoffs{StartingBefore: now.Add(-2 * time.Minute).UnixMilli(), RunningBefore: now.Add(-8 * time.Hour).UnixMilli(), Limit: 100})
+	candidates, err := repo.Active(t.Context(), netplaymodel.ExpiryCutoffs{StartingBefore: now.Add(-2 * time.Minute).UnixMilli(), RunningBefore: now.Add(-8 * time.Hour).UnixMilli(), Limit: 100})
 	if err != nil || len(candidates) != 1 {
 		t.Fatalf("active=%v error=%v", candidates, err)
 	}
 	before := roomExitRecordsSnapshot(t, fixture)
 	candidate := candidates[0]
 	candidate.Version--
-	exit := application.NewRoomExit(repository.NewRoomExit(fixture.database), time.Hour, func() time.Time { return now })
+	exit := netplayservice.NewRoomExit(repository.NewRoomExit(fixture.database), time.Hour, func() time.Time { return now })
 	if err := exit.EndExpired(t.Context(), candidate, now.UnixMilli()); err != nil {
 		t.Fatal(err)
 	}

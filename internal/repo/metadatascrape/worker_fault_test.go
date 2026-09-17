@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+	metadatascrapeservice "retrom/internal/service/metadatascrape"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"testing"
-
-	"retrom/internal/service/metadatascrape"
-	"retrom/internal/testkit/testsupport"
 )
 
 func TestMetadataRecoveredLeaseAndRetryEventRollbackTogether(t *testing.T) {
@@ -25,11 +25,11 @@ func TestMetadataRecoveredLeaseAndRetryEventRollbackTogether(t *testing.T) {
 		}
 		return nil
 	}})
-	processor := recoveryProcess(func(context.Context, metadatascrape.WorkerClaim, string) (int, string, error) {
+	processor := recoveryProcess(func(context.Context, metadatascrapemodel.WorkerClaim, string) (int, string, error) {
 		t.Fatal("failed recovery processed")
 		return 0, "", nil
 	})
-	err := metadatascrape.NewWorker(NewWorker(fault), processor, recoveryNow).Run(t.Context(), "run")
+	err := metadatascrapeservice.NewWorker(NewWorker(fault), processor, recoveryNow).Run(t.Context(), "run")
 	if !errors.Is(err, cause) || hits != 1 {
 		t.Fatalf("recovery error=%v hits=%d", err, hits)
 	}
@@ -54,7 +54,7 @@ func TestMetadataRecoveryScanPreservesStorageCause(t *testing.T) {
 		}
 		return nil
 	}})
-	_, err := metadatascrape.NewWorker(NewWorker(fault), nil, recoveryNow).Recover(t.Context())
+	_, err := metadatascrapeservice.NewWorker(NewWorker(fault), nil, recoveryNow).Recover(t.Context())
 	if !errors.Is(err, cause) || hits != 1 {
 		t.Fatalf("scan error=%v hits=%d", err, hits)
 	}

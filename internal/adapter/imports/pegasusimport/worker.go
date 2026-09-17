@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 type (

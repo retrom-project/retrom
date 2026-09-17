@@ -5,12 +5,13 @@ import (
 	"database/sql/driver"
 	"errors"
 	"reflect"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"testing"
 	"time"
 
-	application "retrom/internal/service/pegasusimport"
-	"retrom/internal/testkit/testsupport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 
 	"modernc.org/sqlite"
 )
@@ -45,12 +46,12 @@ func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *tes
 				},
 			)
 			before := materialRows(t, db)
-			service := application.NewMaterialization(NewMaterialization(fault), func() time.Time { return time.UnixMilli(10) })
+			service := pegasusimportservice.NewMaterialization(NewMaterialization(fault), func() time.Time { return time.UnixMilli(10) })
 			source := readMaterialSource(t, NewMaterialization(db), key)
 			id, err := service.Copy(t.Context(), materialIdentity(), source, blob)
 			expected := cause
 			if mode == "zero" {
-				expected = application.ErrVersionConflict
+				expected = pegasusimportmodel.ErrVersionConflict
 			}
 			if !errors.Is(err, expected) || id != "" || writes != 1 {
 				t.Fatalf("mode=%s id=%s err=%v writes=%d", mode, id, err, writes)
@@ -62,8 +63,8 @@ func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *tes
 	}
 }
 
-func materialIdentity() application.ExecutionIdentity {
-	return application.ExecutionIdentity{
+func materialIdentity() pegasusimportmodel.ExecutionIdentity {
+	return pegasusimportmodel.ExecutionIdentity{
 		JobID:       "work",
 		ImportID:    "import-0",
 		WorkerID:    "old-worker",
@@ -72,10 +73,10 @@ func materialIdentity() application.ExecutionIdentity {
 	}
 }
 
-func readMaterialSource(t *testing.T, repo *Materialization, key application.MaterialKey) application.MaterialSource {
+func readMaterialSource(t *testing.T, repo *Materialization, key pegasusimportmodel.MaterialKey) pegasusimportmodel.MaterialSource {
 	t.Helper()
-	var source application.MaterialSource
-	if err := repo.WithMaterialization(t.Context(), func(scope application.MaterialScope) error {
+	var source pegasusimportmodel.MaterialSource
+	if err := repo.WithMaterialization(t.Context(), func(scope pegasusimportmodel.MaterialScope) error {
 		before, err := scope.Read.Source(t.Context(), key)
 		source = before.Source
 		return err
@@ -89,15 +90,15 @@ type materialCommitFailure struct{ repository *Materialization }
 
 func (repository materialCommitFailure) WithMaterialization(
 	ctx context.Context,
-	work func(application.MaterialScope) error,
+	work func(pegasusimportmodel.MaterialScope) error,
 ) error {
-	return repository.repository.WithMaterialization(ctx, func(scope application.MaterialScope) error {
+	return repository.repository.WithMaterialization(ctx, func(scope pegasusimportmodel.MaterialScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
 		records, ok := scope.Read.(materialRecords)
 		if !ok {
-			return application.ErrInvalid
+			return pegasusimportmodel.ErrInvalid
 		}
 		tx := records.tx
 		if _, err := tx.ExecContext(
@@ -116,7 +117,7 @@ func TestMaterializationCommitFailureDiscardsResponseAndCatalog(t *testing.T) {
 	db, key, blob := materialDatabase(t)
 	before := materialRows(t, db)
 	source := readMaterialSource(t, NewMaterialization(db), key)
-	service := application.NewMaterialization(
+	service := pegasusimportservice.NewMaterialization(
 		materialCommitFailure{NewMaterialization(db)},
 		func() time.Time { return time.UnixMilli(10) },
 	)
@@ -146,7 +147,7 @@ func TestMaterializationPhaseFencesEveryExecutionField(t *testing.T) {
 		t.Run(field, func(t *testing.T) {
 			db, _, _ := materialDatabase(t)
 			before := materialRows(t, db)
-			err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope application.MaterialScope) error {
+			err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope pegasusimportmodel.MaterialScope) error {
 				current, err := scope.Read.Execution(t.Context(), "work")
 				if err != nil {
 					return err
@@ -156,9 +157,9 @@ func TestMaterializationPhaseFencesEveryExecutionField(t *testing.T) {
 				} else {
 					invalidateRecovery(&current.Execution, field)
 				}
-				return scope.Write.Phase(t.Context(), application.PhaseChange{Before: current, Phase: "VALIDATING", NowMS: 10})
+				return scope.Write.Phase(t.Context(), pegasusimportmodel.PhaseChange{Before: current, Phase: "VALIDATING", NowMS: 10})
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 				t.Fatalf("%s err=%v", field, err)
 			}
 			if !reflect.DeepEqual(before, materialRows(t, db)) {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/service/importdiscard"
+	"retrom/internal/model/importdiscard"
 
 	"github.com/google/uuid"
 

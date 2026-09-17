@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 func workerSettlementDatabase(t *testing.T, cancel bool) *sql.DB {

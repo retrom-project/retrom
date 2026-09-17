@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/accounts"
 	"time"
 
 	"retrom/internal/capability/security/authn"
@@ -11,41 +12,41 @@ import (
 )
 
 type PasswordService struct {
-	repository PasswordRepository
-	hasher     PasswordHasher
+	repository model.PasswordRepository
+	hasher     model.PasswordHasher
 	blocklist  authn.Blocklist
-	mint       SessionMinter
+	mint       model.SessionMinter
 	now        func() time.Time
 }
 
 func NewPasswords(
-	repository PasswordRepository,
-	hasher PasswordHasher,
+	repository model.PasswordRepository,
+	hasher model.PasswordHasher,
 	blocklist authn.Blocklist,
-	mint SessionMinter,
+	mint model.SessionMinter,
 	now func() time.Time,
 ) *PasswordService {
 	return &PasswordService{repository: repository, hasher: hasher, blocklist: blocklist, mint: mint, now: now}
 }
 
 type preparedPassword struct {
-	state   PasswordState
+	state   model.PasswordState
 	newHash string
-	session SessionMaterial
+	session model.SessionMaterial
 	auditID string
 }
 
 func (service *PasswordService) Change(
 	ctx context.Context,
-	actor PasswordActor,
+	actor model.PasswordActor,
 	current, password, confirmation string,
-) (Session, error) {
+) (model.Session, error) {
 	prepared, err := service.prepare(ctx, actor, current, password, confirmation)
 	if err != nil {
-		return Session{}, err
+		return model.Session{}, err
 	}
-	var result Session
-	err = service.repository.CommitWrite(ctx, func(scope PasswordScope) error {
+	var result model.Session
+	err = service.repository.CommitWrite(ctx, func(scope model.PasswordScope) error {
 		now := service.now().UnixMilli()
 		state, found, err := scope.Read.Current(ctx, actor, now)
 		if err != nil {
@@ -55,10 +56,10 @@ func (service *PasswordService) Change(
 			state,
 			actor,
 		) || state.Credential.PasswordHash != prepared.state.Credential.PasswordHash {
-			return ErrAuthenticationNeeded
+			return model.ErrAuthenticationNeeded
 		}
 		version := state.Credential.SessionVersion + 1
-		plan := PasswordPlan{
+		plan := model.PasswordPlan{
 			Actor:        actor,
 			ExpectedHash: prepared.state.Credential.PasswordHash, NewHash: prepared.newHash, AuditID: prepared.auditID,
 			Session: prepared.session.Record(
@@ -80,33 +81,33 @@ func (service *PasswordService) Change(
 		return nil
 	})
 	if err != nil {
-		return Session{}, fmt.Errorf("commit password change: %w", err)
+		return model.Session{}, fmt.Errorf("commit password change: %w", err)
 	}
 	return result, nil
 }
 
 func (service *PasswordService) prepare(
 	ctx context.Context,
-	actor PasswordActor,
+	actor model.PasswordActor,
 	current, password, confirmation string,
 ) (preparedPassword, error) {
 	normalized, err := authn.NormalizeLoginPassword(current)
 	if err != nil {
-		return preparedPassword{}, ErrAuthentication
+		return preparedPassword{}, model.ErrAuthentication
 	}
 	state, found, err := service.repository.Current(ctx, actor, service.now().UnixMilli())
 	if err != nil {
 		return preparedPassword{}, fmt.Errorf("read password authorization: %w", err)
 	}
 	if !found || !passwordAuthorized(state, actor) {
-		return preparedPassword{}, ErrAuthenticationNeeded
+		return preparedPassword{}, model.ErrAuthenticationNeeded
 	}
 	verified, err := service.hasher.Verify(ctx, normalized, state.Credential.PasswordHash)
 	if err != nil {
 		return preparedPassword{}, fmt.Errorf("verify current password: %w", err)
 	}
 	if !verified {
-		return preparedPassword{}, ErrAuthentication
+		return preparedPassword{}, model.ErrAuthentication
 	}
 	validated, err := authn.ValidatePassword(
 		password,
@@ -133,7 +134,7 @@ func (service *PasswordService) prepare(
 	return preparedPassword{state: state, newHash: hash, session: material, auditID: auditID.String()}, nil
 }
 
-func passwordAuthorized(state PasswordState, actor PasswordActor) bool {
+func passwordAuthorized(state model.PasswordState, actor model.PasswordActor) bool {
 	return state.SessionCurrent && state.Credential.Status == "ENABLED" &&
 		state.Credential.SessionVersion == actor.SessionVersion
 }

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 func scanPublicationFixture(t *testing.T) (*Service, work, scanResult) {

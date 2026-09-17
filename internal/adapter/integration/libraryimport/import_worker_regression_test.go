@@ -9,16 +9,17 @@ import (
 	"strings"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
 func workerAuthorityFixture(t *testing.T) (*Service, queuedCreationWork) {
 	t.Helper()
 	service, plan := preparedCommitFixture(t)
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-		application.ImportAdmissionOptions{Now: service.now})
+	admissions := libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+		libraryimportmodel.ImportAdmissionOptions{Now: service.now})
 	created, err := admissions.Queue(t.Context(), plan.Request)
 	if err != nil {
 		t.Fatal(err)
@@ -93,8 +94,8 @@ func TestImportWorkerClaimPreservesRowsAffectedCause(t *testing.T) {
 			table,
 			func(t *testing.T) {
 				service, plan := preparedCommitFixture(t)
-				admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-					application.ImportAdmissionOptions{Now: service.now})
+				admissions := libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+					libraryimportmodel.ImportAdmissionOptions{Now: service.now})
 				created, err := admissions.Queue(t.Context(), plan.Request)
 				if err != nil {
 					t.Fatal(err)
@@ -137,8 +138,8 @@ func TestImportWorkerClaimPreservesRowsAffectedCause(t *testing.T) {
 
 func TestImportWorkerClaimRejectsExpiredExecutionBudget(t *testing.T) {
 	service, plan := preparedCommitFixture(t)
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-		application.ImportAdmissionOptions{Now: service.now})
+	admissions := libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+		libraryimportmodel.ImportAdmissionOptions{Now: service.now})
 	created, err := admissions.Queue(t.Context(), plan.Request)
 	if err != nil {
 		t.Fatal(err)

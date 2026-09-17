@@ -16,11 +16,12 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/metadata/hasheous"
 	"retrom/internal/bootstrap/config"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	maintenancepersistence "retrom/internal/repo/maintenance"
 	mediatapersistence "retrom/internal/repo/metadatascrape"
 	"retrom/internal/repo/store"
 	"retrom/internal/service/maintenance"
-	"retrom/internal/service/metadatascrape"
+	metadatascrapeservice "retrom/internal/service/metadatascrape"
 )
 
 func TestMediaBackupRestorePreservesBudgetAndOriginalExecution(t *testing.T) {
@@ -74,7 +75,7 @@ func TestMediaBackupRestorePreservesBudgetAndOriginalExecution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	worker := metadatascrape.NewMediaWorker(mediatapersistence.NewMedia(database.SQL), restoredMediaSource{}, blobs, func() time.Time { return clock })
+	worker := metadatascrapeservice.NewMediaWorker(mediatapersistence.NewMedia(database.SQL), restoredMediaSource{}, blobs, func() time.Time { return clock })
 	if err := worker.Run(t.Context(), id); err != nil {
 		t.Fatal(err)
 	}
@@ -101,10 +102,10 @@ func mediaRestoreSQL(t *testing.T, database *sql.DB, query string, args ...any) 
 	}
 }
 
-func restoredMediaSnapshot(t *testing.T, database *sql.DB, id string) metadatascrape.MediaSnapshot {
+func restoredMediaSnapshot(t *testing.T, database *sql.DB, id string) metadatascrapemodel.MediaSnapshot {
 	t.Helper()
-	var snapshot metadatascrape.MediaSnapshot
-	err := mediatapersistence.NewMedia(database).CommitWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
+	var snapshot metadatascrapemodel.MediaSnapshot
+	err := mediatapersistence.NewMedia(database).CommitWrite(t.Context(), func(scope metadatascrapemodel.MediaScope) error {
 		var err error
 		snapshot, err = scope.Read.Snapshot(t.Context(), id)
 		return err

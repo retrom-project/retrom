@@ -3,12 +3,13 @@ package netplay
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/netplay"
 )
 
-type RoomEvents struct{ repository RoomEventsRepository }
+type RoomEvents struct{ repository model.RoomEventsRepository }
 
-func NewRoomEvents(repository RoomEventsRepository) *RoomEvents { return &RoomEvents{repository} }
-func (service *RoomEvents) Events(ctx context.Context, roomID string, after int64, limit int) ([]Event, error) {
+func NewRoomEvents(repository model.RoomEventsRepository) *RoomEvents { return &RoomEvents{repository} }
+func (service *RoomEvents) Events(ctx context.Context, roomID string, after int64, limit int) ([]model.Event, error) {
 	if limit < 1 || limit > 100 {
 		limit = 100
 	}
@@ -20,7 +21,7 @@ func (service *RoomEvents) Events(ctx context.Context, roomID string, after int6
 		return nil, fmt.Errorf("netplay/read events: %w", err)
 	}
 	if !page.Exists {
-		return nil, ErrRoomNotFound
+		return nil, model.ErrRoomNotFound
 	}
 	return page.Events, nil
 }

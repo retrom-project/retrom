@@ -2,13 +2,14 @@ package libraryimport
 
 import (
 	"context"
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/contentcapability"
 )
 
 func (service *ImportPreparation) prepareContent(
 	ctx context.Context,
-	plan *PreparedImport,
+	plan *model.PreparedImport,
 ) error {
 	var err error
 	capabilities := contentcapability.Resolve(
@@ -19,7 +20,7 @@ func (service *ImportPreparation) prepareContent(
 		plan.Dispositions, plan.Groups, err = service.PrepareMultiDiscFiles(plan.Files, *capabilities.MultiDisc)
 	case contentcapability.ModeRPGMakerProject:
 		if plan.Target.PlatformID != "rpgmaker" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareRPGMakerProject(
 			ctx, plan.SourceType, plan.Files, plan.Target.DefaultCoreID,
@@ -33,54 +34,54 @@ func (service *ImportPreparation) prepareContent(
 			ctx, plan.Target.PlatformID, plan.SourceType, plan.Files, plan.DATVersionID,
 		)
 	default:
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return err
 }
 
-func (service *ImportPreparation) prepareEngineProject(ctx context.Context, plan *PreparedImport) error {
+func (service *ImportPreparation) prepareEngineProject(ctx context.Context, plan *model.PreparedImport) error {
 	var err error
 	switch plan.ContentMode {
 	case contentcapability.ModeONSProject:
 		if plan.Target.PlatformID != "ons" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareONSProject(
 			ctx, plan.SourceType, plan.Files,
 		)
 	case contentcapability.ModeKiriKiriProject:
 		if plan.Target.PlatformID != "kirikiri" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareKiriKiriProject(
 			ctx, plan.SourceType, plan.Files,
 		)
 	case contentcapability.ModeNXEngineProject:
 		if plan.Target.PlatformID != "cavestory" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareNXEngineProject(ctx, plan.SourceType, plan.Files)
 	case contentcapability.ModeButterscotchProject:
 		if plan.Target.PlatformID != "butterscotch" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareButterscotchProject(
 			ctx, plan.SourceType, plan.Files,
 		)
 	case contentcapability.ModeTyranoScriptProject:
 		if plan.Target.PlatformID != "tyranoscript" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareTyranoScriptProject(
 			ctx, plan.SourceType, plan.Files,
 		)
 	case contentcapability.ModeScummVMProject:
 		if plan.Target.PlatformID != "scummvm" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareScummVMProject(ctx, plan.SourceType, plan.Files)
 	default:
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return err
 }

@@ -6,41 +6,42 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 	"strconv"
 )
 
-func newMediaJob(scope Subject, runID string, asset CandidateAsset) (MediaJobPlan, error) {
+func newMediaJob(scope model.Subject, runID string, asset model.CandidateAsset) (model.MediaJobPlan, error) {
 	jobID, err := scheduleID()
 	if err != nil {
-		return MediaJobPlan{}, err
+		return model.MediaJobPlan{}, err
 	}
 	executionID, err := scheduleID()
 	if err != nil {
-		return MediaJobPlan{}, err
+		return model.MediaJobPlan{}, err
 	}
-	envelope := MediaInputEnvelope{
-		SchemaVersion: 1, Kind: "MEDIA_FETCH", Scope: MediaInputScope{Type: scope.Kind, ID: scope.ID},
-		ExecutionID: executionID, Inputs: MediaInput{
+	envelope := model.MediaInputEnvelope{
+		SchemaVersion: 1, Kind: "MEDIA_FETCH", Scope: model.MediaInputScope{Type: scope.Kind, ID: scope.ID},
+		ExecutionID: executionID, Inputs: model.MediaInput{
 			AssetID: asset.ID, RunID: runID, ResponseID: asset.ResponseID, SourceDigest: mediaSourceDigest(asset),
 		},
 	}
 	input, err := json.Marshal(envelope)
 	if err != nil {
-		return MediaJobPlan{}, fmt.Errorf("encode media execution input: %w", err)
+		return model.MediaJobPlan{}, fmt.Errorf("encode media execution input: %w", err)
 	}
 	canonical, err := json.Marshal(map[string]string{"candidateAssetId": asset.ID})
 	if err != nil {
-		return MediaJobPlan{}, fmt.Errorf("encode media job identity: %w", err)
+		return model.MediaJobPlan{}, fmt.Errorf("encode media job identity: %w", err)
 	}
 	digest := sha256.Sum256(input)
 	dedupe := sha256.Sum256(append([]byte("retrom-job-dedupe-v1\x00MEDIA_FETCH\x00"), canonical...))
-	return MediaJobPlan{
+	return model.MediaJobPlan{
 		JobID: jobID, RunID: runID, AssetID: asset.ID, Scope: scope, Now: asset.Now,
 		InputJSON: string(input), InputDigest: hex.EncodeToString(digest[:]), Dedupe: hex.EncodeToString(dedupe[:]),
 	}, nil
 }
 
-func mediaSourceDigest(asset CandidateAsset) string {
+func mediaSourceDigest(asset model.CandidateAsset) string {
 	source := sha256.New()
 	for _, field := range []string{
 		asset.ID, asset.CandidateID, asset.ResponseID, asset.Reference.ProviderAssetID,
@@ -51,7 +52,7 @@ func mediaSourceDigest(asset CandidateAsset) string {
 	return hex.EncodeToString(source.Sum(nil))
 }
 
-func enqueueCandidateMedia(ctx context.Context, scope ResultScope, runID string, asset *CandidateAsset) error {
+func enqueueCandidateMedia(ctx context.Context, scope model.ResultScope, runID string, asset *model.CandidateAsset) error {
 	subject, err := scope.Read.Subject(ctx, runID)
 	if err != nil {
 		return fmt.Errorf("read media owner: %w", err)

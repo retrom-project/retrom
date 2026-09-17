@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 )
 
@@ -14,22 +15,22 @@ func TestCreationQueuedDocumentsUseCanonicalDefaultMode(t *testing.T) {
 			plan := creationPreparedInput()
 			request := plan.Request
 			request.ContentMode = mode
-			target := ImportTargetSnapshot{
+			target := model.ImportTargetSnapshot{
 				SchemaVersion: 1, PlatformInstanceID: plan.Target.ID, PlatformInstanceVersion: plan.Target.Version,
 				PlatformID: plan.Target.PlatformID, DefaultCoreID: plan.Target.DefaultCoreID,
-				Targets: []ImportTargetGuard{TargetImportGuard(plan.Target)},
+				Targets: []model.ImportTargetGuard{TargetImportGuard(plan.Target)},
 			}
-			current := CreationQueuedSnapshot{}
-			current.RequestJSON, current.RequestDigest = creationTestDocument(t, QueuedImportRequest{
+			current := model.CreationQueuedSnapshot{}
+			current.RequestJSON, current.RequestDigest = creationTestDocument(t, model.QueuedImportRequest{
 				SchemaVersion: 1, Request: request,
 			})
 			current.TargetJSON, current.TargetDigest = creationTestDocument(t, target)
-			run := creationCommit{plan: plan, options: ImportCreationOptions{
-				Queued: &QueuedImportExecution{Target: target},
+			run := creationCommit{plan: plan, options: model.ImportCreationOptions{
+				Queued: &model.QueuedImportExecution{Target: target},
 			}}
 			err := run.checkQueuedDocuments(current)
 			if mode == "MULTI_DISC" {
-				if !errors.Is(err, ErrVersionConflict) {
+				if !errors.Is(err, model.ErrVersionConflict) {
 					t.Fatalf("changed mode accepted: %v", err)
 				}
 			} else if err != nil {

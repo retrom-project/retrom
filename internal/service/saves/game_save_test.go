@@ -3,6 +3,7 @@ package saves
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/saves"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ func TestGameSaveRejectsChangedSlotBeforePublishing(t *testing.T) {
 			test.change(memory)
 			_, err := New(nil, nil, time.Now).persistProductCheckpoint(t.Context(), memory.scope(), "launch",
 				writableLaunch(), parsedGameSave("new"), "payload", 100)
-			if !errors.Is(err, ErrSyncConflict) || memory.updated != nil || memory.boundVersion != 0 || memory.images != 0 {
+			if !errors.Is(err, model.ErrSyncConflict) || memory.updated != nil || memory.boundVersion != 0 || memory.images != 0 {
 				t.Fatalf("changed slot published: memory=%+v error=%v", memory, err)
 			}
 		})
@@ -50,7 +51,7 @@ func TestGameSaveDeduplicatesPayloadAndPreservesUserMetadata(t *testing.T) {
 	}
 }
 
-func assertGameSaveAdvanced(t *testing.T, result ManualResult, memory *gameSaveMemory) {
+func assertGameSaveAdvanced(t *testing.T, result model.ManualResult, memory *gameSaveMemory) {
 	t.Helper()
 	if result.Version != 21 || memory.boundVersion != 8 || memory.updated == nil ||
 		memory.updated.ExpectedDataVersion != 7 || result.ActiveDurationMS != 120 || memory.images != 1 {
@@ -66,12 +67,12 @@ func parsedGameSave(digest string) parsedManual {
 }
 
 type gameSaveMemory struct {
-	GameSaveRecords
-	CheckpointRecords
-	BlobRecords
-	binding      GameSaveBinding
-	saved        StoredSave
-	updated      *SaveUpdate
+	model.GameSaveRecords
+	model.CheckpointRecords
+	model.BlobRecords
+	binding      model.GameSaveBinding
+	saved        model.StoredSave
+	updated      *model.SaveUpdate
 	boundVersion int64
 	images       int
 }
@@ -79,27 +80,27 @@ type gameSaveMemory struct {
 func gameSaveFixture() *gameSaveMemory {
 	id := "save"
 	return &gameSaveMemory{
-		binding: GameSaveBinding{ID: &id, ExpectedVersion: 7},
-		saved: StoredSave{
+		binding: model.GameSaveBinding{ID: &id, ExpectedVersion: 7},
+		saved: model.StoredSave{
 			ProfileID: "profile", GameID: "game", Format: "opaque-v1", Digest: "old", DataVersion: 7,
-			Result: ManualResult{SaveStateID: id, Name: "user name", CreatedAtMS: 10, Version: 20},
+			Result: model.ManualResult{SaveStateID: id, Name: "user name", CreatedAtMS: 10, Version: 20},
 		},
 	}
 }
 
-func (memory *gameSaveMemory) scope() WriteScope {
-	return WriteScope{GameSaves: memory, Checkpoints: memory, Blobs: memory}
+func (memory *gameSaveMemory) scope() model.WriteScope {
+	return model.WriteScope{GameSaves: memory, Checkpoints: memory, Blobs: memory}
 }
 
-func (memory *gameSaveMemory) Binding(context.Context, string) (GameSaveBinding, bool, error) {
+func (memory *gameSaveMemory) Binding(context.Context, string) (model.GameSaveBinding, bool, error) {
 	return memory.binding, true, nil
 }
 
-func (memory *gameSaveMemory) Saved(context.Context, string) (StoredSave, bool, error) {
+func (memory *gameSaveMemory) Saved(context.Context, string) (model.StoredSave, bool, error) {
 	return memory.saved, true, nil
 }
 
-func (memory *gameSaveMemory) UpdateSave(_ context.Context, update SaveUpdate) error {
+func (memory *gameSaveMemory) UpdateSave(_ context.Context, update model.SaveUpdate) error {
 	memory.updated = &update
 	return nil
 }
@@ -114,6 +115,6 @@ func (memory *gameSaveMemory) Ensure(context.Context, blobstore.Metadata, string
 	return "image", nil
 }
 
-func (memory *gameSaveMemory) Duration(context.Context, string) (Duration, error) {
-	return Duration{ActiveMS: 20, InitialMS: 100}, nil
+func (memory *gameSaveMemory) Duration(context.Context, string) (model.Duration, error) {
+	return model.Duration{ActiveMS: 20, InitialMS: 100}, nil
 }

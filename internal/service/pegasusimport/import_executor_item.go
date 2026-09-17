@@ -4,18 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 	"slices"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 type importItemRun struct {
 	executor *ImportExecutor
-	unit     Work
-	item     ExecutionItem
+	unit     model.Work
+	item     model.ExecutionItem
 }
 
-func (executor *ImportExecutor) Process(ctx context.Context, unit Work, item ExecutionItem) error {
+func (executor *ImportExecutor) Process(ctx context.Context, unit model.Work, item model.ExecutionItem) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("stop Pegasus item processing: %w", err)
 	}
@@ -42,7 +43,7 @@ func (executor *ImportExecutor) Process(ctx context.Context, unit Work, item Exe
 		return run.failure(ctx, "STORAGE", "READ_CANCELLATION", err, firstSourcePath(item))
 	}
 	if cancelled {
-		return run.finish(ctx, nil, ItemOutcome{State: "CANCELLED", Code: "CANCELLED"})
+		return run.finish(ctx, nil, model.ItemOutcome{State: "CANCELLED", Code: "CANCELLED"})
 	}
 	return run.prepareReview(ctx)
 }
@@ -56,7 +57,7 @@ func (run *importItemRun) prepareReview(ctx context.Context) error {
 		return run.failure(ctx, "STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(run.item))
 	}
 	if err := run.executor.dependencies.Reviews.Create(ctx, run.unit, run.item, files); err != nil {
-		return run.finish(ctx, err, ItemOutcome{
+		return run.finish(ctx, err, model.ItemOutcome{
 			State: "COMMIT_FAILED", Code: "PEGASUS_LIBRARY_IMPORT_FAILED", Retryable: true,
 			Failure: LibraryFailureDetails(run.executor.dependencies.Diagnostics, err, files),
 		})
@@ -65,13 +66,13 @@ func (run *importItemRun) prepareReview(ctx context.Context) error {
 }
 
 func (run *importItemRun) failure(ctx context.Context, stage, operation string, err error, path string) error {
-	return run.finish(ctx, err, ItemOutcome{
+	return run.finish(ctx, err, model.ItemOutcome{
 		State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true,
 		Failure: DescribeFailure(run.executor.dependencies.Diagnostics, stage, operation, err, path),
 	})
 }
 
-func (run *importItemRun) finish(ctx context.Context, cause error, outcome ItemOutcome) error {
+func (run *importItemRun) finish(ctx context.Context, cause error, outcome model.ItemOutcome) error {
 	if stop := importStopCause(ctx, cause); stop != nil {
 		return fmt.Errorf("stop Pegasus item: %w", stop)
 	}
@@ -85,14 +86,14 @@ func importStopCause(ctx context.Context, err error) error {
 	if ctx.Err() != nil {
 		return errors.Join(err, ctx.Err())
 	}
-	if errors.Is(err, ErrVersionConflict) || errors.Is(err, library.ErrVersionConflict) ||
+	if errors.Is(err, model.ErrVersionConflict) || errors.Is(err, library.ErrVersionConflict) ||
 		errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
 	return nil
 }
 
-func firstSourcePath(item ExecutionItem) string {
+func firstSourcePath(item model.ExecutionItem) string {
 	if len(item.Files) == 0 {
 		return ""
 	}

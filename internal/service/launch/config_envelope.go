@@ -2,20 +2,21 @@ package launch
 
 import (
 	"fmt"
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/capability/runtime/runtimelaunch"
 )
 
-func (service *ConfigIssuer) envelope(id string, snapshot ConfigSnapshot, ticket IsolationTicket) (Config, error) {
+func (service *ConfigIssuer) envelope(id string, snapshot model.ConfigSnapshot, ticket model.IsolationTicket) (Config, error) {
 	source := snapshot.Authority.Source
 	if service.runtimeBuilder == nil {
-		return Config{}, ErrCredential
+		return Config{}, model.ErrCredential
 	}
 	target, exists := service.runtimeBuilder.Target(source.ProviderID, source.TargetID)
 	bundle, bundleExists := service.runtimeBuilder.BundleSHA256(source.ProviderID, source.TargetID)
 	if !exists || !bundleExists || bundle != source.BundleDigest {
-		return Config{}, ErrCredential
+		return Config{}, model.ErrCredential
 	}
 	resources, err := providerResources(snapshot, target, ticket)
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
+	idempotencymodel "retrom/internal/model/idempotency"
 	idempotencyservice "retrom/internal/service/idempotency"
 )
 
@@ -162,7 +163,7 @@ func (server *Server) storeBufferedIdempotencyResponse(
 	copy(responseBody, response.body.Bytes())
 	if err := records.Store(
 		ctx, operationID, key, principalID,
-		idempotencyservice.Receipt{
+		idempotencymodel.Receipt{
 			RequestDigest: digest,
 			HTTPStatus:    response.status,
 			HeadersJSON:   string(encodedHeaders),

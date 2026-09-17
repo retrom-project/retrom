@@ -9,12 +9,13 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
 var (
-	ErrSourceChanged = application.ErrSourceChanged
-	ErrScanLimit     = application.ErrScanLimit
+	ErrSourceChanged = pegasusimportmodel.ErrSourceChanged
+	ErrScanLimit     = pegasusimportmodel.ErrScanLimit
 )
 
 type Root struct {
@@ -45,18 +46,18 @@ func NewSources(
 	return &Sources{blobs: blobs, roots: roots}
 }
 
-func (service *Sources) Select(ctx context.Context, rootID, path string) (application.SelectedRoot, error) {
+func (service *Sources) Select(ctx context.Context, rootID, path string) (pegasusimportmodel.SelectedRoot, error) {
 	if err := ctx.Err(); err != nil {
-		return application.SelectedRoot{}, fmt.Errorf("select Pegasus source: %w", err)
+		return pegasusimportmodel.SelectedRoot{}, fmt.Errorf("select Pegasus source: %w", err)
 	}
-	root, err := service.validateCreateRequest(application.CreateRequest{RootID: rootID, SourceRelativePath: path})
+	root, err := service.validateCreateRequest(pegasusimportmodel.CreateRequest{RootID: rootID, SourceRelativePath: path})
 	if err != nil {
-		return application.SelectedRoot{}, err
+		return pegasusimportmodel.SelectedRoot{}, err
 	}
-	return application.SelectedRoot{ID: root.ID, Label: root.Label, Digest: root.digest}, nil
+	return pegasusimportmodel.SelectedRoot{ID: root.ID, Label: root.Label, Digest: root.digest}, nil
 }
 
-func (service *Sources) validateCreateRequest(request application.CreateRequest) (Root, error) {
+func (service *Sources) validateCreateRequest(request pegasusimportmodel.CreateRequest) (Root, error) {
 	if err := serversource.ValidateRootID(request.RootID); err != nil {
 		return Root{}, fmt.Errorf("pegasusimport/validate root ID: %w", err)
 	}
@@ -75,7 +76,7 @@ func (service *Sources) validateCreateRequest(request application.CreateRequest)
 	return root, nil
 }
 
-func (service *Sources) OpenScan(unit application.Work) (application.ScannerSource, error) {
+func (service *Sources) OpenScan(unit pegasusimportmodel.Work) (pegasusimportservice.ScannerSource, error) {
 	root, err := service.workRoot(unit)
 	if err != nil {
 		return nil, err
@@ -83,7 +84,7 @@ func (service *Sources) OpenScan(unit application.Work) (application.ScannerSour
 	return scanSource{root: root, selectedPath: unit.RelativePath, acquire: service.acquireSourceReader}, nil
 }
 
-func (service *Sources) OpenImport(unit application.Work) (application.ImportSources, error) {
+func (service *Sources) OpenImport(unit pegasusimportmodel.Work) (pegasusimportservice.ImportSources, error) {
 	root, err := service.workRoot(unit)
 	if err != nil {
 		return nil, err
@@ -91,10 +92,10 @@ func (service *Sources) OpenImport(unit application.Work) (application.ImportSou
 	return importSource{service: service, root: root}, nil
 }
 
-func (service *Sources) workRoot(unit application.Work) (Root, error) {
+func (service *Sources) workRoot(unit pegasusimportmodel.Work) (Root, error) {
 	root, ok := service.roots[unit.RootID]
 	if !ok || root.digest != unit.RootDigest {
-		return Root{}, application.ErrRootChanged
+		return Root{}, pegasusimportservice.ErrRootChanged
 	}
 	return root, nil
 }

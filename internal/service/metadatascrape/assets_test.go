@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	model "retrom/internal/model/metadatascrape"
 	"testing"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -45,7 +46,7 @@ func TestAssetBudgetPreventsDownloadOrPublication(t *testing.T) {
 		consumed int64
 		calls    int
 	}{
-		{"already exhausted", MediaRunBudget, 0}, {"crosses budget", MediaRunBudget - 1, 1},
+		{"already exhausted", model.MediaRunBudget, 0}, {"crosses budget", model.MediaRunBudget - 1, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			memory, err := newMediaMemory()

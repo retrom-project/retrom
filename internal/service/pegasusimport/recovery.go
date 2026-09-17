@@ -5,16 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	model "retrom/internal/model/pegasusimport"
 	"time"
 )
 
 type Recovery struct {
-	repository RecoveryRepository
-	metadata   ReviewMetadataSeeder
+	repository model.RecoveryRepository
+	metadata   model.ReviewMetadataSeeder
 	now        func() time.Time
 }
 
-func NewRecovery(repository RecoveryRepository, metadata ReviewMetadataSeeder, now func() time.Time) *Recovery {
+func NewRecovery(repository model.RecoveryRepository, metadata model.ReviewMetadataSeeder, now func() time.Time) *Recovery {
 	return &Recovery{repository: repository, metadata: metadata, now: now}
 }
 
@@ -24,10 +25,10 @@ func (service *Recovery) Recover(ctx context.Context) error {
 		return fmt.Errorf("list expired Pegasus executions: %w", err)
 	}
 	for _, candidate := range candidates {
-		err := service.repository.WithRecovery(ctx, func(scope RecoveryScope) error {
+		err := service.repository.WithRecovery(ctx, func(scope model.RecoveryScope) error {
 			return service.recoverExecution(ctx, scope, candidate)
 		})
-		if errors.Is(err, ErrVersionConflict) {
+		if errors.Is(err, model.ErrVersionConflict) {
 			continue
 		}
 		if err != nil {
@@ -37,16 +38,16 @@ func (service *Recovery) Recover(ctx context.Context) error {
 	return nil
 }
 
-func (service *Recovery) recoverExecution(ctx context.Context, scope RecoveryScope, candidate RecoverySnapshot) error {
+func (service *Recovery) recoverExecution(ctx context.Context, scope model.RecoveryScope, candidate model.RecoverySnapshot) error {
 	before, err := scope.Records.Current(ctx, candidate.JobID)
-	if errors.Is(err, ErrNotFound) {
+	if errors.Is(err, model.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("read Pegasus recovery candidate: %w", err)
 	}
 	if before != candidate {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	now := service.now()
 	if _, err := planRecovery(before, now.UnixMilli()); err != nil {
@@ -88,7 +89,7 @@ func (service *Recovery) recoverExecution(ctx context.Context, scope RecoverySco
 }
 
 func (service *Recovery) recoverReview(
-	ctx context.Context, scope RecoveryScope, execution RecoverySnapshot, review ReviewHandoffSnapshot, now time.Time,
+	ctx context.Context, scope model.RecoveryScope, execution model.RecoverySnapshot, review model.ReviewHandoffSnapshot, now time.Time,
 ) error {
 	change, err := prepareRecoveryReview(ctx, service.metadata, scope.Metadata, execution, review, now)
 	if err != nil {
@@ -101,21 +102,21 @@ func (service *Recovery) recoverReview(
 	return nil
 }
 
-func planRecovery(before RecoverySnapshot, now int64) (RecoveryChange, error) {
+func planRecovery(before model.RecoverySnapshot, now int64) (model.RecoveryChange, error) {
 	if before.LeaseUntilMS > now {
-		return RecoveryChange{}, ErrVersionConflict
+		return model.RecoveryChange{}, model.ErrVersionConflict
 	}
 	if !validRecoveryExecution(before) {
-		return RecoveryChange{}, fmt.Errorf("invalid expired Pegasus execution: %w", ErrInvalid)
+		return model.RecoveryChange{}, fmt.Errorf("invalid expired Pegasus execution: %w", model.ErrInvalid)
 	}
-	change := RecoveryChange{
+	change := model.RecoveryChange{
 		Before: before, JobState: "QUEUED", ImportState: "QUEUED",
 		ItemState: "PENDING", Event: "RETRY_SCHEDULED", NowMS: now,
 	}
 	if before.Kind == "SERVER_PEGASUS_SCAN" {
 		change.ImportState = "SCANNING"
 	} else if before.Kind != "SERVER_PEGASUS_IMPORT" {
-		return RecoveryChange{}, ErrInvalid
+		return model.RecoveryChange{}, model.ErrInvalid
 	}
 	if before.JobState == "CANCEL_REQUESTED" && before.ImportState == "CANCEL_REQUESTED" {
 		change.JobState, change.ImportState = "CANCELLED", "CANCELLED"
@@ -123,7 +124,7 @@ func planRecovery(before RecoverySnapshot, now int64) (RecoveryChange, error) {
 		return change, nil
 	}
 	if (before.JobState != "RUNNING" && before.JobState != "QUEUED") || !recoveryParentActive(before) {
-		return RecoveryChange{}, ErrVersionConflict
+		return model.RecoveryChange{}, model.ErrVersionConflict
 	}
 	if before.DeadlineMS <= now {
 		change.Code = "PEGASUS_EXECUTION_TIMEOUT"
@@ -131,7 +132,7 @@ func planRecovery(before RecoverySnapshot, now int64) (RecoveryChange, error) {
 		change.Code = "PEGASUS_WORKER_ATTEMPTS_EXHAUSTED"
 	}
 	if before.JobState == "QUEUED" && change.Code == "" {
-		return RecoveryChange{}, ErrVersionConflict
+		return model.RecoveryChange{}, model.ErrVersionConflict
 	}
 	if change.Code != "" {
 		change.ItemCode = change.Code
@@ -140,14 +141,14 @@ func planRecovery(before RecoverySnapshot, now int64) (RecoveryChange, error) {
 	return change, nil
 }
 
-func recoveryParentActive(before RecoverySnapshot) bool {
+func recoveryParentActive(before model.RecoverySnapshot) bool {
 	if before.Kind == "SERVER_PEGASUS_SCAN" {
 		return before.ImportState == "SCANNING"
 	}
 	return before.ImportState == "RUNNING" || before.ImportState == "QUEUED"
 }
 
-func validRecoveryExecution(before RecoverySnapshot) bool {
+func validRecoveryExecution(before model.RecoverySnapshot) bool {
 	validLease := before.LeaseUntilMS > 0
 	if before.JobState == "QUEUED" {
 		validLease = before.LeaseUntilMS == 0 && before.WorkerID == ""
@@ -158,15 +159,15 @@ func validRecoveryExecution(before RecoverySnapshot) bool {
 		before.ImportVersion < math.MaxInt64-1
 }
 
-func currentRecovery(ctx context.Context, records RecoveryRecords, before RecoverySnapshot) (RecoverySnapshot, error) {
+func currentRecovery(ctx context.Context, records model.RecoveryRecords, before model.RecoverySnapshot) (model.RecoverySnapshot, error) {
 	current, err := records.Current(ctx, before.JobID)
 	if err != nil {
-		return RecoverySnapshot{}, fmt.Errorf("reread Pegasus recovery execution: %w", err)
+		return model.RecoverySnapshot{}, fmt.Errorf("reread Pegasus recovery execution: %w", err)
 	}
 	expected := before
 	expected.ImportVersion = current.ImportVersion
 	if expected != current {
-		return RecoverySnapshot{}, ErrVersionConflict
+		return model.RecoverySnapshot{}, model.ErrVersionConflict
 	}
 	return current, nil
 }

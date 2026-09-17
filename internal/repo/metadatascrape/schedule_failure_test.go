@@ -7,8 +7,9 @@ import (
 	"time"
 
 	metadatapersistence "retrom/internal/repo/metadatascrape"
-	"retrom/internal/service/metadatascrape"
+	metadatascrapeservice "retrom/internal/service/metadatascrape"
 
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -25,8 +26,8 @@ func TestScheduleStorageFailureIsNotVersionConflict(t *testing.T) {
 	if _, err := database.SQL.ExecContext(t.Context(), `DROP TABLE games`); err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = metadatascrape.New(metadatapersistence.NewScheduler(database.SQL), nil, time.Now).ScheduleGame(t.Context(), "game", 1)
-	if err == nil || errors.Is(err, metadatascrape.ErrGameVersionConflict) {
+	_, _, err = metadatascrapeservice.New(metadatapersistence.NewScheduler(database.SQL), nil, time.Now).ScheduleGame(t.Context(), "game", 1)
+	if err == nil || errors.Is(err, metadatascrapemodel.ErrGameVersionConflict) {
 		t.Fatalf("storage failure mapped to version conflict: %v", err)
 	}
 }

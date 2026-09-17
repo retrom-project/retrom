@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/service/isolation"
+	"retrom/internal/model/isolation"
 )
 
 const tyranoScriptBootstrapDocument = `<!doctype html>

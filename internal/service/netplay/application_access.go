@@ -2,11 +2,12 @@ package netplay
 
 import (
 	"context"
+	model "retrom/internal/model/netplay"
 
-	launch "retrom/internal/service/launch"
+	launch "retrom/internal/model/launch"
 )
 
-func (service *Service) Games(ctx context.Context, profileID, availability string) ([]GameSummary, error) {
+func (service *Service) Games(ctx context.Context, profileID, availability string) ([]model.GameSummary, error) {
 	items, err := service.components.Eligibility.Games(ctx, profileID, availability)
 	if err != nil {
 		return nil, applicationError("games", err)
@@ -16,7 +17,7 @@ func (service *Service) Games(ctx context.Context, profileID, availability strin
 
 func (service *Service) GamePage(
 	ctx context.Context, profileID, availability, title, gameID string, limit int,
-) ([]GameSummary, bool, error) {
+) ([]model.GameSummary, bool, error) {
 	items, more, err := service.components.Eligibility.GamePage(ctx, profileID, availability, title, gameID, limit)
 	if err != nil {
 		return nil, false, applicationError("game page", err)
@@ -27,10 +28,10 @@ func (service *Service) GamePage(
 func (service *Service) AuthenticateSocket(
 	ctx context.Context,
 	roomID, profileID, encoded string,
-) (SocketParticipant, error) {
+) (model.SocketParticipant, error) {
 	peer, err := service.components.Access.Authenticate(ctx, roomID, profileID, encoded)
 	if err != nil {
-		return SocketParticipant{}, applicationError("authenticate socket", err)
+		return model.SocketParticipant{}, applicationError("authenticate socket", err)
 	}
 	return peer, nil
 }
@@ -45,14 +46,14 @@ func (service *Service) ParticipantCapability(ctx context.Context, sessionID, pr
 
 func (service *Service) CreateParticipantLaunch(
 	ctx context.Context,
-	launcher NetplayLauncher,
+	launcher model.NetplayLauncher,
 	roomID, sessionID, profileID string,
 	capabilities launch.Capabilities,
-) (ParticipantLaunchResult, error) {
+) (model.ParticipantLaunchResult, error) {
 	result, err := service.components.Preparation.Launch(
 		ctx,
 		launcher,
-		PreparationRequest{
+		model.PreparationRequest{
 			RoomID:       roomID,
 			SessionID:    sessionID,
 			ProfileID:    profileID,
@@ -60,7 +61,7 @@ func (service *Service) CreateParticipantLaunch(
 		},
 	)
 	if err != nil {
-		return ParticipantLaunchResult{}, applicationError("prepare participant", err)
+		return model.ParticipantLaunchResult{}, applicationError("prepare participant", err)
 	}
 	return result, nil
 }

@@ -8,9 +8,9 @@ import (
 	"errors"
 	"testing"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
 )
 
 type approvalMutatingReader struct {

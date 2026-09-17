@@ -3,13 +3,14 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 )
 
-func (service *Materialization) SetPhase(ctx context.Context, unit Execution, phase string) error {
+func (service *Materialization) SetPhase(ctx context.Context, unit model.Execution, phase string) error {
 	if phase != "COPYING_CONTENT" && phase != "VALIDATING" && phase != "PREPARING_REVIEWS" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
-	err := service.repository.WithMaterialization(ctx, func(scope MaterialScope) error {
+	err := service.repository.WithMaterialization(ctx, func(scope model.MaterialScope) error {
 		before, err := scope.Read.Execution(ctx, unit.JobID)
 		if err != nil {
 			return fmt.Errorf("read EmulationStation phase: %w", err)
@@ -21,7 +22,7 @@ func (service *Materialization) SetPhase(ctx context.Context, unit Execution, ph
 		if before.Phase == phase {
 			return nil
 		}
-		return scope.Write.Phase(ctx, PhaseChange{Before: before, Phase: phase, NowMS: now})
+		return scope.Write.Phase(ctx, model.PhaseChange{Before: before, Phase: phase, NowMS: now})
 	})
 	if err != nil {
 		return fmt.Errorf("set EmulationStation phase: %w", err)

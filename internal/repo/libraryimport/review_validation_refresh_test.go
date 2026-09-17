@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"retrom/internal/capability/content/corevalidation"
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 

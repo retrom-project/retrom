@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/accounts"
 
 	"retrom/internal/capability/security/authn"
 
@@ -10,52 +11,52 @@ import (
 )
 
 type LinkConsumptionService struct {
-	repository LinkConsumptionRepository
-	options    LinkConsumptionOptions
+	repository model.LinkConsumptionRepository
+	options    model.LinkConsumptionOptions
 }
 
-func NewLinkConsumption(repository LinkConsumptionRepository, options LinkConsumptionOptions) *LinkConsumptionService {
+func NewLinkConsumption(repository model.LinkConsumptionRepository, options model.LinkConsumptionOptions) *LinkConsumptionService {
 	return &LinkConsumptionService{repository, options}
 }
 
 type preparedInvitation struct {
 	linkID                  string
-	user                    User
+	user                    model.User
 	profileID, passwordHash string
-	session                 SessionMaterial
+	session                 model.SessionMaterial
 }
 
 func (service *LinkConsumptionService) AcceptInvitation(
 	ctx context.Context,
-	request AcceptInvitationRequest,
-) (Session, error) {
+	request model.AcceptInvitationRequest,
+) (model.Session, error) {
 	prepared, err := service.prepareInvitation(ctx, request)
 	if err != nil {
-		return Session{}, err
+		return model.Session{}, err
 	}
-	var session Session
-	err = service.repository.WithConsumptionWrite(ctx, func(scope LinkConsumptionScope) error {
+	var session model.Session
+	err = service.repository.WithConsumptionWrite(ctx, func(scope model.LinkConsumptionScope) error {
 		now := service.options.Now().UnixMilli()
 		link, found, err := scope.Read.Current(ctx, prepared.linkID)
 		if err != nil {
 			return fmt.Errorf("read invitation: %w", err)
 		}
 		if !activeLink(link, found, "INVITATION", now) || link.Link.Role == nil {
-			return ErrAccountLinkUnavailable
+			return model.ErrAccountLinkUnavailable
 		}
 		exists, err := scope.Read.UsernameExists(ctx, prepared.user.Username)
 		if err != nil {
 			return fmt.Errorf("check invited username: %w", err)
 		}
 		if exists {
-			return ErrUsernameUnavailable
+			return model.ErrUsernameUnavailable
 		}
 		user := prepared.user
 		user.Role = *link.Link.Role
-		plan := InvitationAcceptance{
+		plan := model.InvitationAcceptance{
 			LinkID:       prepared.linkID,
 			LinkVersion:  link.Link.Version,
-			User:         user,
+			User:   user,
 			ProfileID:    prepared.profileID,
 			PasswordHash: prepared.passwordHash,
 			Session: prepared.session.Record(
@@ -91,18 +92,18 @@ func (service *LinkConsumptionService) AcceptInvitation(
 		return nil
 	})
 	if err != nil {
-		return Session{}, fmt.Errorf("commit invitation consumption: %w", err)
+		return model.Session{}, fmt.Errorf("commit invitation consumption: %w", err)
 	}
 	return session, nil
 }
 
 func (service *LinkConsumptionService) prepareInvitation(
 	ctx context.Context,
-	request AcceptInvitationRequest,
+	request model.AcceptInvitationRequest,
 ) (preparedInvitation, error) {
 	id, valid := service.options.Tokens.ParseAccountLinkToken("INVITATION", request.Token)
 	if !valid {
-		return preparedInvitation{}, ErrAccountLinkUnavailable
+		return preparedInvitation{}, model.ErrAccountLinkUnavailable
 	}
 	username, err := authn.NormalizeUsername(request.Username)
 	if err != nil {
@@ -130,7 +131,7 @@ func (service *LinkConsumptionService) prepareInvitation(
 	}
 	return preparedInvitation{
 		linkID: id.String(),
-		user: User{
+		user: model.User{
 			UserID:      userID.String(),
 			Username:    username,
 			DisplayName: display,
@@ -156,6 +157,6 @@ func (service *LinkConsumptionService) hashPassword(
 	return hash, nil
 }
 
-func activeLink(record LinkRecord, found bool, kind string, now int64) bool {
+func activeLink(record model.LinkRecord, found bool, kind string, now int64) bool {
 	return found && record.Link.Kind == kind && accountLinkState(record.Link, now) == "ACTIVE"
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 	"sort"
 
 	"retrom/internal/capability/format/pegasusmeta"
@@ -44,18 +45,18 @@ func scannerID() (string, error) {
 
 type (
 	discoveredFile    = DiscoveredFile
-	scannedMetadata   = ScanMetadata
-	scannedCollection = ScanCollection
-	scannedItem       = ScanItem
-	scannedItemFile   = ScanFile
-	scannedAsset      = ScanAsset
+	scannedMetadata   = model.ScanMetadata
+	scannedCollection = model.ScanCollection
+	scannedItem       = model.ScanItem
+	scannedItemFile   = model.ScanFile
+	scannedAsset      = model.ScanAsset
 	scanResult        = ScanResult
 )
 
 type ScanResult struct {
-	Metadata                                                []ScanMetadata
-	Collections                                             []ScanCollection
-	Items                                                   []ScanItem
+	Metadata                                                []model.ScanMetadata
+	Collections                                             []model.ScanCollection
+	Items                                                   []model.ScanItem
 	SnapshotDigest                                          string
 	EstimatedBytes                                          int64
 	InvalidMetadata, Blocked, MediaWarnings, Covers, Videos int64
@@ -71,7 +72,7 @@ func (service *Scanner) Scan(ctx context.Context) (ScanResult, error) {
 		return ScanResult{}, fmt.Errorf("discover Pegasus source: %w", err)
 	}
 	if len(result.Metadata) == 0 {
-		return ScanResult{}, ErrMetadataAbsent
+		return ScanResult{}, model.ErrMetadataAbsent
 	}
 	index.sort()
 	sort.Slice(result.Metadata, func(a, b int) bool { return result.Metadata[a].Path < result.Metadata[b].Path })
@@ -84,7 +85,7 @@ func (service *Scanner) Scan(ctx context.Context) (ScanResult, error) {
 		}
 	}
 	if result.EstimatedBytes > 2<<40 {
-		return ScanResult{}, ErrScanLimit
+		return ScanResult{}, model.ErrScanLimit
 	}
 	evidence := make([]map[string]any, 0, len(result.Metadata))
 	for _, metadata := range result.Metadata {
@@ -119,10 +120,10 @@ func (index *scanIndex) visit(file DiscoveredFile) error {
 	if file.Name != "metadata.pegasus.txt" {
 		return nil
 	}
-	if len(index.result.Metadata) >= MaxMetadataFiles {
-		return ErrScanLimit
+	if len(index.result.Metadata) >= model.MaxMetadataFiles {
+		return model.ErrScanLimit
 	}
-	metadata := ScanMetadata{Path: file.Path, Size: file.Size, Facts: file.Facts, State: "VALID"}
+	metadata := model.ScanMetadata{Path: file.Path, Size: file.Size, Facts: file.Facts, State: "VALID"}
 	if file.Size > pegasusmeta.MaxMetadataBytes {
 		metadata.State, metadata.ErrorCode = "INVALID", pegasusmeta.ErrTooLarge.Error()
 		index.result.InvalidMetadata++

@@ -2,6 +2,7 @@ package serverimport_test
 
 import (
 	"math"
+	model "retrom/internal/model/serverimport"
 	"testing"
 
 	"retrom/internal/capability/content/firmware"
@@ -41,7 +42,7 @@ func TestRepeatedItemOutcomeDoesNotAppendDuplicateEvent(t *testing.T) {
 
 func TestGenericJobCancellationPreservesCompletedImportCounts(t *testing.T) {
 	legacy, database, _ := archiveImportFixture(t)
-	created, err := legacy.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := legacy.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}

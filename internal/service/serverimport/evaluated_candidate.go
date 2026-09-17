@@ -1,6 +1,7 @@
 package serverimport
 
 import (
+	model "retrom/internal/model/serverimport"
 	"sort"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -11,7 +12,7 @@ import (
 
 type EvaluatedCandidate struct {
 	ID                 string
-	Item               CatalogItem
+	Item               model.CatalogItem
 	File               serversource.File
 	Association        string
 	Metadata           blobstore.Metadata

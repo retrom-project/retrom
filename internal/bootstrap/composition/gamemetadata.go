@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"time"
 
+	payloadservice "retrom/internal/model/payloadrelease"
 	repository "retrom/internal/repo/gamemetadata"
 	application "retrom/internal/service/gamemetadata"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 // NewGameMetadata wires the game metadata application service to its

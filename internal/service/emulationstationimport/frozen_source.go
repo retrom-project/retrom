@@ -3,23 +3,24 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func verifyFrozenSource(
 	ctx context.Context,
-	sources FrozenSources,
-	summary Summary,
-	before FrozenSourceSnapshot,
+	sources model.FrozenSources,
+	summary model.Summary,
+	before model.FrozenSourceSnapshot,
 ) error {
 	if before.SourceSnapshotDigest == "" || !validFrozenEvidence(before.Gamelists) {
-		return ErrSourceChanged
+		return model.ErrSourceChanged
 	}
 	root, err := sources.Select(ctx, summary.Root.ID, summary.SourceRelativePath)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrSourceChanged, err)
+		return fmt.Errorf("%w: %w", model.ErrSourceChanged, err)
 	}
 	if root.ID != summary.Root.ID || root.Digest != before.RootConfigDigest {
-		return ErrSourceChanged
+		return model.ErrSourceChanged
 	}
 	if err := sources.VerifyGamelists(
 		ctx, root.ID, summary.SourceRelativePath, before.Gamelists,
@@ -29,8 +30,8 @@ func verifyFrozenSource(
 	return nil
 }
 
-func validFrozenEvidence(values []GamelistEvidence) bool {
-	if len(values) == 0 || len(values) > MaxSnapshotGamelists {
+func validFrozenEvidence(values []model.GamelistEvidence) bool {
+	if len(values) == 0 || len(values) > model.MaxSnapshotGamelists {
 		return false
 	}
 	var total int64
@@ -39,13 +40,13 @@ func validFrozenEvidence(values []GamelistEvidence) bool {
 			return false
 		}
 		if value.ContentDigest == nil {
-			if value.ParseState != "INVALID" || value.SizeBytes <= MaxSnapshotGamelistBytes {
+			if value.ParseState != "INVALID" || value.SizeBytes <= model.MaxSnapshotGamelistBytes {
 				return false
 			}
 			continue
 		}
-		if value.SizeBytes > MaxSnapshotGamelistBytes || !validFrozenDigest(*value.ContentDigest) ||
-			value.ParseState != "VALID" && value.ParseState != "INVALID" || total > MaxSnapshotGamelistsBytes-value.SizeBytes {
+		if value.SizeBytes > model.MaxSnapshotGamelistBytes || !validFrozenDigest(*value.ContentDigest) ||
+			value.ParseState != "VALID" && value.ParseState != "INVALID" || total > model.MaxSnapshotGamelistsBytes-value.SizeBytes {
 			return false
 		}
 		total += value.SizeBytes
@@ -65,7 +66,7 @@ func validFrozenDigest(value string) bool {
 	return true
 }
 
-func sameFrozenSource(beforeSummary, currentSummary Summary, before, current FrozenSourceSnapshot) bool {
+func sameFrozenSource(beforeSummary, currentSummary model.Summary, before, current model.FrozenSourceSnapshot) bool {
 	if before.RootConfigDigest != current.RootConfigDigest ||
 		before.SourceSnapshotDigest != current.SourceSnapshotDigest ||
 		before.ReleaseYearMax != current.ReleaseYearMax || beforeSummary.Root.ID != currentSummary.Root.ID ||

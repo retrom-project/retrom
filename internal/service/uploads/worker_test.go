@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	model "retrom/internal/model/uploads"
 	"strings"
 	"testing"
 	"time"
@@ -22,13 +23,13 @@ func TestStaleFinalizationCannotWriteNewRound(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			repository := &workerRepository{
-				current: SessionState{ID: "upload", State: "FINALIZING", FinalizationNo: test.round, FinalizeJobID: &jobID},
-				job:     Job{ID: jobID, State: "RUNNING", ExecutionNo: test.execution},
+				current: model.SessionState{ID: "upload", State: "FINALIZING", FinalizationNo: test.round, FinalizeJobID: &jobID},
+				job:     model.Job{ID: jobID, State: "RUNNING", ExecutionNo: test.execution},
 			}
 			service := New(repository, nil, "", time.Now)
 			called := false
-			stopped, err := service.finalizeWrite(t.Context(), Run{UploadID: "upload", JobID: jobID, FinalizationNo: 1, ExecutionNo: 1},
-				func(WriteScope, SessionState) error { called = true; return nil })
+			stopped, err := service.finalizeWrite(t.Context(), model.Run{UploadID: "upload", JobID: jobID, FinalizationNo: 1, ExecutionNo: 1},
+				func(model.WriteScope, model.SessionState) error { called = true; return nil })
 			if err != nil || !stopped || called {
 				t.Fatalf("stale worker continued: stopped=%v called=%v error=%v", stopped, called, err)
 			}
@@ -43,8 +44,8 @@ func TestFinalizeClaimFailurePreservesCause(t *testing.T) {
 		t.Fatal(err)
 	}
 	repository := &workerRepository{
-		current: SessionState{ID: "upload", State: "FINALIZING", FinalizationNo: 1, FinalizeJobID: &created.Run.JobID},
-		job: Job{
+		current: model.SessionState{ID: "upload", State: "FINALIZING", FinalizationNo: 1, FinalizeJobID: &created.Run.JobID},
+		job: model.Job{
 			ID: created.Run.JobID, State: "QUEUED", ExecutionNo: 1, Kind: "UPLOAD_FINALIZE", Scope: "UPLOAD_SESSION", ScopeID: "upload",
 			Input: string(created.InputJSON), InputDigest: created.InputDigest, MaxAttempts: 2,
 		}, claimError: failure,
@@ -62,7 +63,7 @@ func TestPartReaderChecksActualBytesAndCancellation(t *testing.T) {
 	for _, data := range []string{"bytes", "shorter", "byte", "wrong"} {
 		reader := &partReader{
 			ctx: t.Context(), reader: strings.NewReader(data), hash: sha256.New(),
-			expected: Part{Size: 5, SHA256: hex.EncodeToString(sum[:])},
+			expected: model.Part{Size: 5, SHA256: hex.EncodeToString(sum[:])},
 		}
 		_, err := io.ReadAll(reader)
 		if (err == nil) != (data == "bytes") || err != nil && !errors.Is(err, errPartCorrupt) {
@@ -78,35 +79,35 @@ func TestPartReaderChecksActualBytesAndCancellation(t *testing.T) {
 }
 
 type workerRepository struct {
-	Repository
-	current    SessionState
-	job        Job
+	model.Repository
+	current    model.SessionState
+	job        model.Job
 	claimError error
 }
 
-func (repository *workerRepository) CommitWrite(_ context.Context, work func(WriteScope) error) error {
-	return work(WriteScope{Sessions: workerSessions{current: repository.current}, Jobs: workerJobs{repository: repository}, Finalize: workerFinalize{}})
+func (repository *workerRepository) CommitWrite(_ context.Context, work func(model.WriteScope) error) error {
+	return work(model.WriteScope{Sessions: workerSessions{current: repository.current}, Jobs: workerJobs{repository: repository}, Finalize: workerFinalize{}})
 }
 
 type workerSessions struct {
-	SessionRecords
-	current SessionState
+	model.SessionRecords
+	current model.SessionState
 }
 
-func (records workerSessions) Current(context.Context, string) (SessionState, error) {
+func (records workerSessions) Current(context.Context, string) (model.SessionState, error) {
 	return records.current, nil
 }
 
 type workerJobs struct {
-	JobRecords
+	model.JobRecords
 	repository *workerRepository
 }
 
-func (records workerJobs) Get(context.Context, string) (Job, error) {
+func (records workerJobs) Get(context.Context, string) (model.Job, error) {
 	return records.repository.job, nil
 }
 
-func (records workerJobs) Claim(context.Context, JobClaim) (bool, error) {
+func (records workerJobs) Claim(context.Context, model.JobClaim) (bool, error) {
 	return false, records.repository.claimError
 }
 
@@ -115,7 +116,7 @@ func TestPartReceivePreservesReadFailure(t *testing.T) {
 	service := New(nil, nil, t.TempDir(), time.Now)
 	_, err := service.stageUploadPart("upload", "file", 0, byteRange{start: 0, end: 4, total: 5},
 		strings.Repeat("a", 64), failedPartBody{failure: failure})
-	if !errors.Is(err, failure) || !errors.Is(err, ErrInvalid) {
+	if !errors.Is(err, failure) || !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("receive failure lost: %v", err)
 	}
 }
@@ -124,6 +125,6 @@ type failedPartBody struct{ failure error }
 
 func (body failedPartBody) Read([]byte) (int, error) { return 0, body.failure }
 
-type workerFinalize struct{ FinalizationRecords }
+type workerFinalize struct{ model.FinalizationRecords }
 
-func (workerFinalize) Manifest(context.Context, string) ([]FrozenFile, error) { return nil, nil }
+func (workerFinalize) Manifest(context.Context, string) ([]model.FrozenFile, error) { return nil, nil }

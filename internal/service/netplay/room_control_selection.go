@@ -4,28 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/netplay"
 )
 
 func (service *RoomControl) SelectGame(
 	ctx context.Context,
 	roomID, actorID, gameID, profileID string,
 	version int64,
-) (Room, error) {
+) (model.Room, error) {
 	request := roomMutation{
 		roomID:   roomID,
 		actorID:  actorID,
 		version:  version,
 		hostOnly: true,
-		states:   []string{RoomStateDraft, RoomStateWaiting},
+		states:   []string{model.RoomStateDraft, model.RoomStateWaiting},
 	}
-	return service.mutate(ctx, request, func(scope RoomControlScope, before RoomControlSnapshot, now int64) error {
+	return service.mutate(ctx, request, func(scope model.RoomControlScope, before model.RoomControlSnapshot, now int64) error {
 		selection, err := service.selection(ctx, scope, gameID, profileID)
 		if err != nil {
 			return err
 		}
 		for _, member := range before.Occupants {
 			if member.PlayerNo > selection.MaxPlayers {
-				return ErrInvalidSeat
+				return model.ErrInvalidSeat
 			}
 		}
 		data, err := json.Marshal(struct {
@@ -38,10 +39,10 @@ func (service *RoomControl) SelectGame(
 		player := 1
 		err = scope.Write.Select(
 			ctx,
-			RoomSelectionPlan{
+			model.RoomSelectionPlan{
 				Before:    before,
 				Selection: selection,
-				Evidence: RoomControlEvidence{
+				Evidence: model.RoomControlEvidence{
 					ActorID:     actorID,
 					Type:        "GAME_SELECTED",
 					PlayerNo:    &player,
@@ -58,21 +59,21 @@ func (service *RoomControl) SelectGame(
 	})
 }
 
-func (service *RoomControl) ClearGame(ctx context.Context, roomID, actorID string, version int64) (Room, error) {
+func (service *RoomControl) ClearGame(ctx context.Context, roomID, actorID string, version int64) (model.Room, error) {
 	request := roomMutation{
 		roomID:   roomID,
 		actorID:  actorID,
 		version:  version,
 		hostOnly: true,
-		states:   []string{RoomStateWaiting},
+		states:   []string{model.RoomStateWaiting},
 	}
-	return service.mutate(ctx, request, func(scope RoomControlScope, before RoomControlSnapshot, now int64) error {
+	return service.mutate(ctx, request, func(scope model.RoomControlScope, before model.RoomControlSnapshot, now int64) error {
 		player := 1
 		err := scope.Write.Clear(
 			ctx,
-			RoomClearPlan{
+			model.RoomClearPlan{
 				Before: before,
-				Evidence: RoomControlEvidence{
+				Evidence: model.RoomControlEvidence{
 					ActorID:     actorID,
 					Type:        "GAME_CLEARED",
 					PlayerNo:    &player,

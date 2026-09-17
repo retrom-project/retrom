@@ -3,43 +3,44 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/pegasusimport"
 	"testing"
 	"time"
 )
 
 type leaseFake struct {
-	candidate LeaseCandidate
-	current   ExecutionSnapshot
-	claimed   *LeaseClaim
+	candidate model.LeaseCandidate
+	current   model.ExecutionSnapshot
+	claimed   *model.LeaseClaim
 	renewed   bool
 	failure   error
 }
 
-func (fake *leaseFake) WithLease(_ context.Context, run func(LeaseRecords) error) error {
+func (fake *leaseFake) WithLease(_ context.Context, run func(model.LeaseRecords) error) error {
 	return run(fake)
 }
 
-func (fake *leaseFake) Next(context.Context, int64) (LeaseCandidate, bool, error) {
+func (fake *leaseFake) Next(context.Context, int64) (model.LeaseCandidate, bool, error) {
 	return fake.candidate, true, fake.failure
 }
 
-func (fake *leaseFake) Claim(_ context.Context, change LeaseClaim) error {
+func (fake *leaseFake) Claim(_ context.Context, change model.LeaseClaim) error {
 	fake.claimed = &change
 	return fake.failure
 }
 
-func (fake *leaseFake) Current(context.Context, string) (ExecutionSnapshot, error) {
+func (fake *leaseFake) Current(context.Context, string) (model.ExecutionSnapshot, error) {
 	return fake.current, fake.failure
 }
 
-func (fake *leaseFake) Renew(context.Context, LeaseRenewal) error {
+func (fake *leaseFake) Renew(context.Context, model.LeaseRenewal) error {
 	fake.renewed = true
 	return fake.failure
 }
 
-func leaseCandidate() LeaseCandidate {
-	return LeaseCandidate{
-		Work:       Work{JobID: "job", ImportID: "import", Kind: "SERVER_PEGASUS_IMPORT", ExecutionNo: 1},
+func leaseCandidate() model.LeaseCandidate {
+	return model.LeaseCandidate{
+		Work: model.Work{JobID: "job", ImportID: "import", Kind: "SERVER_PEGASUS_IMPORT", ExecutionNo: 1},
 		JobVersion: 1, ImportVersion: 1, ImportState: "QUEUED", MaxAttempts: 4,
 	}
 }
@@ -87,10 +88,10 @@ func TestLeaseRejectsInvalidQueueWithoutWriting(t *testing.T) {
 
 func TestLeaseRenewalFencesOwnerAndDeadline(t *testing.T) {
 	t.Parallel()
-	identity := ExecutionIdentity{JobID: "job", ImportID: "import", WorkerID: "owner", ExecutionNo: 2, Attempt: 3}
+	identity := model.ExecutionIdentity{JobID: "job", ImportID: "import", WorkerID: "owner", ExecutionNo: 2, Attempt: 3}
 	for _, name := range []string{"valid", "canceling", "worker", "execution", "attempt", "lease", "deadline", "parent"} {
 		t.Run(name, func(t *testing.T) {
-			fake := &leaseFake{current: ExecutionSnapshot{
+			fake := &leaseFake{current: model.ExecutionSnapshot{
 				JobID: "job", ImportID: "import", WorkerID: "owner", Kind: "SERVER_PEGASUS_IMPORT",
 				JobState: "RUNNING", ImportState: "RUNNING", ExecutionNo: 2, Attempt: 3, JobVersion: 1, ImportVersion: 1, LeaseUntilMS: 50, DeadlineMS: 100,
 			}}

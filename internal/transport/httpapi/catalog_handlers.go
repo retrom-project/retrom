@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"net/url"
 
-	catalogservice "retrom/internal/service/catalog"
+	catalogservice "retrom/internal/model/catalog"
 )
 
 func (server *Server) platforms(writer http.ResponseWriter, request *http.Request) {

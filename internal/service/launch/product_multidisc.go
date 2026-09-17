@@ -4,33 +4,34 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/content/multidisc"
 )
 
-func productMultiDiscContent(snapshot ProductSnapshot) (ProductContent, error) {
+func productMultiDiscContent(snapshot model.ProductSnapshot) (model.ProductContent, error) {
 	locked, err := corevalidation.ParseSnapshot(snapshot.Source.DependencySnapshot)
 	if err != nil || locked.MultiDisc == nil || len(locked.MultiDisc.MissingEntries) != 0 {
-		return ProductContent{}, ErrBlocked
+		return model.ProductContent{}, model.ErrBlocked
 	}
 	playlist, found := productFile(snapshot.VariantFiles, "MULTI_DISC_PLAYLIST", "playlist.m3u")
 	if !found {
-		return ProductContent{}, ErrBlocked
+		return model.ProductContent{}, model.ErrBlocked
 	}
 	discs, canonical, err := productDiscs(snapshot.GameFiles)
 	if err != nil {
-		return ProductContent{}, err
+		return model.ProductContent{}, err
 	}
 	if !validProductMultiDiscEvidence(locked.MultiDisc, discs, canonical, playlist) {
-		return ProductContent{}, ErrBlocked
+		return model.ProductContent{}, model.ErrBlocked
 	}
-	checks := []ProductBlobCheck{{Digest: playlist.Digest, SizeBytes: playlist.SizeBytes, Exact: canonical}}
+	checks := []model.ProductBlobCheck{{Digest: playlist.Digest, SizeBytes: playlist.SizeBytes, Exact: canonical}}
 	for _, disc := range discs {
-		checks = append(checks, ProductBlobCheck{Digest: disc.Digest, SizeBytes: disc.SizeBytes})
+		checks = append(checks, model.ProductBlobCheck{Digest: disc.Digest, SizeBytes: disc.SizeBytes})
 	}
-	return ProductContent{
-		Files: []ProductContentFile{
+	return model.ProductContent{
+		Files: []model.ProductContentFile{
 			{BlobID: playlist.BlobID, LogicalName: "playlist.m3u", Format: "RETROM_MULTIDISC_M3U_V1"},
 		},
 		Discs:  discs,
@@ -38,8 +39,8 @@ func productMultiDiscContent(snapshot ProductSnapshot) (ProductContent, error) {
 	}, nil
 }
 
-func productDiscs(files []ProductFile) ([]ProductDisc, []byte, error) {
-	discs := make([]ProductDisc, 0, multidisc.MaxDiscs)
+func productDiscs(files []model.ProductFile) ([]model.ProductDisc, []byte, error) {
+	discs := make([]model.ProductDisc, 0, multidisc.MaxDiscs)
 	canonical := make([]byte, 0, multidisc.MaxDiscs*13)
 	var total int64
 	for _, file := range files {
@@ -48,12 +49,12 @@ func productDiscs(files []ProductFile) ([]ProductDisc, []byte, error) {
 		}
 		index := len(discs)
 		if file.SortOrder != index || file.SizeBytes < 8 || file.SizeBytes > 1_073_741_824-total {
-			return nil, nil, ErrBlocked
+			return nil, nil, model.ErrBlocked
 		}
 		name := fmt.Sprintf("disc-%03d.chd", index+1)
 		discs = append(
 			discs,
-			ProductDisc{
+			model.ProductDisc{
 				Index:       index,
 				BlobID:      file.BlobID,
 				Digest:      file.Digest,
@@ -71,9 +72,9 @@ func productDiscs(files []ProductFile) ([]ProductDisc, []byte, error) {
 
 func validProductMultiDiscEvidence(
 	snapshot *corevalidation.MultiDiscSnapshot,
-	discs []ProductDisc,
+	discs []model.ProductDisc,
 	canonical []byte,
-	playlist ProductFile,
+	playlist model.ProductFile,
 ) bool {
 	hash := sha256.Sum256(canonical)
 	digest := hex.EncodeToString(hash[:])

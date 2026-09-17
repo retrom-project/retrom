@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	application "retrom/internal/model/payloadrelease"
 	persistence "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/payloadrelease"
 )
 
 func collectIDs(ctx context.Context, transaction *sql.Tx, query string, args ...any) ([]string, error) {

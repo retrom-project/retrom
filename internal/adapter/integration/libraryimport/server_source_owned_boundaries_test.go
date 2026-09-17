@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
-	application "retrom/internal/service/libraryimport"
 )
 
 func TestOwnedSourceKeepsAllDuplicateMatchesInOneBoundItem(t *testing.T) {

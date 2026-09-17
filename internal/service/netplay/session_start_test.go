@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	model "retrom/internal/model/netplay"
 	"strings"
 	"testing"
 	"time"
@@ -12,13 +13,13 @@ import (
 type sessionStartMemory struct {
 	room                                        *roomControlMemory
 	number                                      int
-	plan                                        SessionStartPlan
+	plan                                        model.SessionStartPlan
 	inserts                                     int
 	numberFailure, insertFailure, commitFailure error
 }
 
-func (memory *sessionStartMemory) WithStart(_ context.Context, work func(SessionStartScope) error) error {
-	err := work(SessionStartScope{Read: memory.room, Write: memory, Eligibility: memory.room.eligibility, BIOS: memory.room.bios})
+func (memory *sessionStartMemory) WithStart(_ context.Context, work func(model.SessionStartScope) error) error {
+	err := work(model.SessionStartScope{Read: memory.room, Write: memory, Eligibility: memory.room.eligibility, BIOS: memory.room.bios})
 	if err != nil {
 		return err
 	}
@@ -29,7 +30,7 @@ func (memory *sessionStartMemory) NextNumber(context.Context, string) (int, erro
 	return memory.number, memory.numberFailure
 }
 
-func (memory *sessionStartMemory) Insert(_ context.Context, plan SessionStartPlan) (Room, error) {
+func (memory *sessionStartMemory) Insert(_ context.Context, plan model.SessionStartPlan) (model.Room, error) {
 	memory.plan = plan
 	memory.inserts++
 	return memory.room.result, memory.insertFailure
@@ -38,8 +39,8 @@ func (memory *sessionStartMemory) Insert(_ context.Context, plan SessionStartPla
 func sessionStartFixture(t *testing.T) (*SessionStart, *sessionStartMemory, *eligibilityMemory) {
 	t.Helper()
 	control, room, eligibility := controlSelectionFixture(t)
-	room.before.Occupants = []SeatMember{{ID: "host-member", ProfileID: "host", Role: "HOST", PlayerNo: 1, Ready: true}, {ID: "guest-member", ProfileID: "guest", Role: "GUEST", PlayerNo: 2, Ready: true}}
-	room.result = Room{RoomID: "room", State: RoomStateStarting, Version: 5, CurrentSession: &SessionSummary{SessionID: "session", SessionNo: 2, State: "PREPARING"}}
+	room.before.Occupants = []model.SeatMember{{ID: "host-member", ProfileID: "host", Role: "HOST", PlayerNo: 1, Ready: true}, {ID: "guest-member", ProfileID: "guest", Role: "GUEST", PlayerNo: 2, Ready: true}}
+	room.result = model.Room{RoomID: "room", State: model.RoomStateStarting, Version: 5, CurrentSession: &model.SessionSummary{SessionID: "session", SessionNo: 2, State: "PREPARING"}}
 	memory := &sessionStartMemory{room: room, number: 2}
 	service := NewSessionStart(memory, control.registry, func() time.Time { return time.UnixMilli(1_786_000_000_000) })
 	service.newID = func() (string, error) { return "session", nil }
@@ -100,7 +101,7 @@ func TestSessionStartRevalidatesLockedContentInTransaction(t *testing.T) {
 	service, memory, eligibility := sessionStartFixture(t)
 	eligibility.rows["game"][0].SourceManifestDigest = strings.Repeat("c", 64)
 	_, err := service.Start(t.Context(), "room", "host", 4)
-	if !errors.Is(err, ErrProfileStale) || memory.inserts != 0 {
+	if !errors.Is(err, model.ErrProfileStale) || memory.inserts != 0 {
 		t.Fatalf("changed content error=%v writes=%d", err, memory.inserts)
 	}
 }
@@ -111,7 +112,7 @@ func TestSessionStartRequiresHostVersionAndWaitingState(t *testing.T) {
 		actor, state string
 		version      int64
 		want         error
-	}{{"guest", RoomStateWaiting, 4, ErrForbidden}, {"host", RoomStateWaiting, 3, ErrPrecondition}, {"host", RoomStateDraft, 4, ErrRoomConflict}} {
+	}{{"guest", model.RoomStateWaiting, 4, model.ErrForbidden}, {"host", model.RoomStateWaiting, 3, model.ErrPrecondition}, {"host", model.RoomStateDraft, 4, model.ErrRoomConflict}} {
 		service, memory, _ := sessionStartFixture(t)
 		memory.room.before.State = test.state
 		_, err := service.Start(t.Context(), "room", test.actor, test.version)
@@ -141,9 +142,9 @@ func TestSessionStartSeatMaskRequiresReadyHostAndUniqueBoundedSeats(t *testing.T
 		{name: "wrong host", players: []int{1, 2}, guestHost: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			before := RoomControlSnapshot{HostID: "host", Selection: &RoomSelection{MaxPlayers: 4}}
+			before := model.RoomControlSnapshot{HostID: "host", Selection: &model.RoomSelection{MaxPlayers: 4}}
 			for _, player := range test.players {
-				member := SeatMember{ProfileID: "guest", Role: "GUEST", PlayerNo: player, Ready: !test.unready}
+				member := model.SeatMember{ProfileID: "guest", Role: "GUEST", PlayerNo: player, Ready: !test.unready}
 				if player == 1 && !test.guestHost {
 					member.Role = "HOST"
 					member.ProfileID = "host"
@@ -152,7 +153,7 @@ func TestSessionStartSeatMaskRequiresReadyHostAndUniqueBoundedSeats(t *testing.T
 			}
 			mask, err := startSeatMask(before)
 			if test.want == 0 {
-				if !errors.Is(err, ErrRoomNotReady) || mask != 0 {
+				if !errors.Is(err, model.ErrRoomNotReady) || mask != 0 {
 					t.Fatalf("invalid seats mask=%d error=%v", mask, err)
 				}
 			} else if err != nil || mask != test.want {

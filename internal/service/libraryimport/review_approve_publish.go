@@ -3,12 +3,13 @@ package libraryimport
 import (
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 	"strings"
-
-	"retrom/internal/service/payloadrelease"
 
 	"retrom/internal/capability/content/gametitle"
 	"retrom/internal/capability/security/authn"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 )
 
 func (run *reviewApprovalRun) publish() error {
@@ -18,7 +19,7 @@ func (run *reviewApprovalRun) publish() error {
 		}
 	}
 	if run.request.Bulk != nil {
-		if err := run.scope.Bulk.RecordPublished(run.ctx, BulkPublication{
+		if err := run.scope.Bulk.RecordPublished(run.ctx, model.BulkPublication{
 			Intent: *run.request.Bulk, ItemID: run.request.ItemID, Result: run.result(), NowMS: run.now,
 			ReviewVersion: run.request.ExpectedVersion, LeasedUntilMS: run.now + 60_000,
 		}); err != nil {
@@ -29,7 +30,7 @@ func (run *reviewApprovalRun) publish() error {
 }
 
 func (run *reviewApprovalRun) publishGame() error {
-	if err := run.scope.Games.CreateGame(run.ctx, ApprovalGame{
+	if err := run.scope.Games.CreateGame(run.ctx, model.ApprovalGame{
 		ID: run.gameID, PlatformInstanceID: run.head.PlatformInstanceID,
 		TitleInitial: gametitle.Initial(run.metadata.Title), SearchText: strings.ToLower(run.metadata.Title),
 		SourceKind: run.origin.Kind, SourceRefID: run.origin.RefID, ContentKind: run.head.ContentKind,
@@ -61,15 +62,15 @@ func (run *reviewApprovalRun) publishGame() error {
 	return nil
 }
 
-func (run *reviewApprovalRun) contentCopy() ApprovalContentCopy {
-	return ApprovalContentCopy{
+func (run *reviewApprovalRun) contentCopy() model.ApprovalContentCopy {
+	return model.ApprovalContentCopy{
 		GameID: run.gameID, ItemID: run.request.ItemID, SnapshotID: run.head.SourceSnapshotID,
 		DraftID: run.head.DraftID, NowMS: run.now,
 	}
 }
 
 func (run *reviewApprovalRun) publishVariant() error {
-	variant := ApprovalVariant{
+	variant := model.ApprovalVariant{
 		ID: run.variantID, GameID: run.gameID, CoreID: run.head.CoreID, ProviderID: run.head.ProviderID,
 		TargetID: run.head.TargetID, DATID: run.head.DATID, DefaultDOS: run.head.ValidationDOS,
 		CompatibilityCode: "READY", DependencyJSON: run.runtimeDependencyJSON, NowMS: run.now,
@@ -90,7 +91,7 @@ func (run *reviewApprovalRun) publishVariant() error {
 	if err := run.scope.Variants.CreateVariant(run.ctx, variant); err != nil {
 		return fmt.Errorf("publish game variant: %w", err)
 	}
-	if err := run.scope.Variants.CopyValidationFiles(run.ctx, ApprovalValidationCopy{
+	if err := run.scope.Variants.CopyValidationFiles(run.ctx, model.ApprovalValidationCopy{
 		VariantID: run.variantID, ValidationID: run.head.ValidationID,
 	}); err != nil {
 		return fmt.Errorf("publish variant files: %w", err)
@@ -99,7 +100,7 @@ func (run *reviewApprovalRun) publishVariant() error {
 		return err
 	}
 	if run.head.PlatformID == "rpgmaker" {
-		if err := run.scope.Variants.CreateRPGVariant(run.ctx, ApprovalRPGVariant{
+		if err := run.scope.Variants.CreateRPGVariant(run.ctx, model.ApprovalRPGVariant{
 			VariantID: run.variantID, Generation: run.rpgProfile.Generation,
 			DependencyDigest: run.rpgDependencies.Digest,
 		}); err != nil {
@@ -124,13 +125,13 @@ func (run *reviewApprovalRun) publishDependencies() error {
 	}
 	for _, dependency := range snapshot.Dependencies {
 		if run.head.DATID == nil || (dependency.Kind != "PARENT" && dependency.Kind != "BIOS_OR_BASE") {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		entries, err := json.Marshal(dependency.RequiredEntries)
 		if err != nil {
 			return fmt.Errorf("encode published dependency entries: %w", err)
 		}
-		if err := run.scope.Variants.CreateDependency(run.ctx, ApprovalVariantDependency{
+		if err := run.scope.Variants.CreateDependency(run.ctx, model.ApprovalVariantDependency{
 			VariantID: run.variantID, Kind: dependency.Kind, Machine: dependency.Machine,
 			DATID:               *run.head.DATID,
 			RequiredEntriesJSON: string(entries), State: dependency.State, NowMS: run.now,
@@ -152,18 +153,18 @@ func (run *reviewApprovalRun) publishDecision() error {
 	if err := run.scope.Decisions.PublishItem(run.ctx, run.publication); err != nil {
 		return fmt.Errorf("publish review and aggregate: %w", err)
 	}
-	if err := run.scope.Decisions.TransitionOwner(run.ctx, ReviewOwnerTransition{
-		ItemID: run.request.ItemID, State: ReviewOwnerPublished, GameID: &run.gameID, NowMS: run.now,
+	if err := run.scope.Decisions.TransitionOwner(run.ctx, model.ReviewOwnerTransition{
+		ItemID: run.request.ItemID, State: model.ReviewOwnerPublished, GameID: &run.gameID, NowMS: run.now,
 	}); err != nil {
 		return fmt.Errorf("publish review source owner: %w", err)
 	}
-	if err := payloadrelease.NewScheduler(nil).Review(
+	if err := payloadreleaseservice.NewScheduler(nil).Review(
 		run.ctx,
 		run.scope.Payload,
-		payloadrelease.ReviewRelease{
+		payloadreleasemodel.ReviewRelease{
 			ItemID:   run.request.ItemID,
 			ImportID: run.head.ImportID,
-			Reason:   payloadrelease.ReasonImportPublished,
+			Reason:   payloadreleasemodel.ReasonImportPublished,
 			NowMS:    run.now,
 		},
 	); err != nil {

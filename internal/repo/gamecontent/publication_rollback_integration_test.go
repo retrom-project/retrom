@@ -10,22 +10,23 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/payloadrelease"
-	"retrom/internal/service/gamecontent"
+	gamecontentmodel "retrom/internal/model/gamecontent"
+	gamecontentservice "retrom/internal/service/gamecontent"
 	"retrom/internal/service/uploads"
 )
 
-type failingPublicationRepository struct{ gamecontent.Repository }
+type failingPublicationRepository struct{ gamecontentmodel.Repository }
 
-func (repository failingPublicationRepository) WithWrite(ctx context.Context, work func(gamecontent.WriteScope) error) error {
-	return repository.Repository.CommitWrite(ctx, func(scope gamecontent.WriteScope) error {
+func (repository failingPublicationRepository) WithWrite(ctx context.Context, work func(gamecontentmodel.WriteScope) error) error {
+	return repository.Repository.CommitWrite(ctx, func(scope gamecontentmodel.WriteScope) error {
 		scope.ContentWriter = failingPublicationWriter{scope.ContentWriter}
 		return work(scope)
 	})
 }
 
-type failingPublicationWriter struct{ gamecontent.ContentWriter }
+type failingPublicationWriter struct{ gamecontentmodel.ContentWriter }
 
-func (writer failingPublicationWriter) Publish(ctx context.Context, value gamecontent.Publication) error {
+func (writer failingPublicationWriter) Publish(ctx context.Context, value gamecontentmodel.Publication) error {
 	if err := writer.ContentWriter.Publish(ctx, value); err != nil {
 		return err
 	}
@@ -38,7 +39,7 @@ func assertLatePublicationRollback(t *testing.T, database *sql.DB, blobs *blobst
 	t.Helper()
 	upload := completeUpload(t, t.Context(), database, uploadService, "rollback.gba", []byte("late failure content"))
 	repository := failingPublicationRepository{New(database)}
-	service := gamecontent.New(repository, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
+	service := gamecontentservice.New(repository, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
 	result, err := service.Schedule(t.Context(), gameID, upload, version)
 	if err != nil {
 		t.Fatal(err)

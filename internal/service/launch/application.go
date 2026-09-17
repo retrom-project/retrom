@@ -1,6 +1,9 @@
 package launch
 
-import "context"
+import (
+	"context"
+	model "retrom/internal/model/launch"
+)
 
 // ServiceDependencies contains complete use cases assembled at process startup.
 type ServiceDependencies struct {
@@ -26,8 +29,8 @@ func (service *Service) ResumeValidationJob(ctx context.Context, id string) {
 }
 func (service *Service) ResumeQueuedValidationJobs() { service.dependencies.Validation.Recover() }
 
-func (service *Service) EnsureVariantForMove(ctx context.Context, gameID, coreID string) (Created, error) {
-	return service.dependencies.Product.EnsureVariant(ctx, gameID, coreID, Capabilities{
+func (service *Service) EnsureVariantForMove(ctx context.Context, gameID, coreID string) (model.Created, error) {
+	return service.dependencies.Product.EnsureVariant(ctx, gameID, coreID, model.Capabilities{
 		SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
 	})
 }

@@ -11,7 +11,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	gamelistservice "retrom/internal/service/gamelist"
+	gamelistservice "retrom/internal/model/gamelist"
 	"retrom/internal/service/tagging"
 )
 

@@ -13,7 +13,7 @@ import (
 	"retrom/internal/adapter/runtime/launch"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/accounts"
+	"retrom/internal/model/accounts"
 	"retrom/internal/transport/netplay"
 
 	"github.com/coder/websocket"

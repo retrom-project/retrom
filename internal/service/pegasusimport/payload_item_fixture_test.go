@@ -3,7 +3,7 @@ package pegasusimport
 import (
 	"context"
 
-	payload "retrom/internal/service/payloadrelease"
+	payload "retrom/internal/model/payloadrelease"
 )
 
 type payloadItemMemory struct{ memory *itemWorkFake }

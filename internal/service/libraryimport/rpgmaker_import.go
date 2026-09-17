@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	model "retrom/internal/model/libraryimport"
 	"sort"
 	"strings"
 
@@ -39,38 +40,38 @@ func (index rpgProjectIndex) Open(logicalPath string) (io.ReadCloser, error) {
 func (service *ImportPreparation) PrepareRPGMakerProject(
 	ctx context.Context,
 	sourceType string,
-	files []ImportFile,
+	files []model.ImportFile,
 	coreID string,
-) ([]PreparedDisposition, []PreparedGroup, []PreparedArchive, error) {
+) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
 	if service.blobs == nil {
-		return nil, nil, nil, ErrInvalid
+		return nil, nil, nil, model.ErrInvalid
 	}
 	if sourceType == "DIRECTORY" {
 		dispositions, group, err := service.prepareRPGMakerDirectory(files, coreID)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		return dispositions, []PreparedGroup{group}, nil, nil
+		return dispositions, []model.PreparedGroup{group}, nil, nil
 	}
 	if sourceType != "FILES" || len(files) != 1 {
-		return nil, nil, nil, ErrInvalid
+		return nil, nil, nil, model.ErrInvalid
 	}
 	disposition, group, archive, err := service.prepareRPGMakerArchive(ctx, files[0], coreID)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return []PreparedDisposition{disposition}, []PreparedGroup{group}, []PreparedArchive{archive}, nil
+	return []model.PreparedDisposition{disposition}, []model.PreparedGroup{group}, []model.PreparedArchive{archive}, nil
 }
 
 func (service *ImportPreparation) prepareRPGMakerDirectory(
-	files []ImportFile,
+	files []model.ImportFile,
 	coreID string,
-) ([]PreparedDisposition, PreparedGroup, error) {
+) ([]model.PreparedDisposition, model.PreparedGroup, error) {
 	input := make([]fileset.SourceFile, 0, len(files))
 	for index, file := range files {
 		nestedFormat, err := service.rpgMakerNestedArchiveFormat(file)
 		if err != nil {
-			return nil, PreparedGroup{}, err
+			return nil, model.PreparedGroup{}, err
 		}
 		input = append(input, fileset.SourceFile{
 			Path: file.Path, SizeBytes: file.Size, SourceIndex: index,
@@ -79,7 +80,7 @@ func (service *ImportPreparation) prepareRPGMakerDirectory(
 	}
 	project, err := fileset.NormalizeProject(input)
 	if err != nil {
-		return nil, PreparedGroup{}, fmt.Errorf("normalize RPG Maker directory: %w", err)
+		return nil, model.PreparedGroup{}, fmt.Errorf("normalize RPG Maker directory: %w", err)
 	}
 	index := rpgProjectIndex{paths: make(map[string]string, len(project.Files))}
 	for _, file := range project.Files {
@@ -89,7 +90,7 @@ func (service *ImportPreparation) prepareRPGMakerDirectory(
 	}
 	profile, err := detector.Detect(coreID, index)
 	if err != nil {
-		return nil, PreparedGroup{}, fmt.Errorf("detect RPG Maker directory: %w", err)
+		return nil, model.PreparedGroup{}, fmt.Errorf("detect RPG Maker directory: %w", err)
 	}
 	projectFiles, sessionState := fileset.ExcludeSessionState(profile.ExpectedGeneration, project.Files)
 	included := make(map[int]fileset.SourceFile, len(projectFiles))
@@ -102,8 +103,8 @@ func (service *ImportPreparation) prepareRPGMakerDirectory(
 			sessionStateIndices[file.SourceIndex] = struct{}{}
 		}
 	}
-	dispositions := make([]PreparedDisposition, 0, len(files))
-	sources := make([]PreparedSource, 0, len(projectFiles))
+	dispositions := make([]model.PreparedDisposition, 0, len(files))
+	sources := make([]model.PreparedSource, 0, len(projectFiles))
 	for sourceIndex, source := range files {
 		file, exists := included[sourceIndex]
 		if !exists {
@@ -111,13 +112,13 @@ func (service *ImportPreparation) prepareRPGMakerDirectory(
 			if _, isSessionState := sessionStateIndices[sourceIndex]; isSessionState {
 				reason = "RPG_SESSION_STATE_EXCLUDED"
 			}
-			dispositions = append(dispositions, PreparedDisposition{
+			dispositions = append(dispositions, model.PreparedDisposition{
 				File: source, Disposition: "IGNORED", Reason: reason,
 			})
 			continue
 		}
 		dispositions = append(dispositions, sourceDisposition(source))
-		sources = append(sources, PreparedSource{File: source, Role: "PROJECT_FILE", LogicalName: file.Path})
+		sources = append(sources, model.PreparedSource{File: source, Role: "PROJECT_FILE", LogicalName: file.Path})
 	}
 	sortPreparedSources(sources)
 	removed := append([]string(nil), project.RemovedNoise...)
@@ -129,16 +130,16 @@ func (service *ImportPreparation) prepareRPGMakerDirectory(
 
 func (service *ImportPreparation) prepareRPGMakerArchive(
 	ctx context.Context,
-	file ImportFile,
+	file model.ImportFile,
 	coreID string,
-) (PreparedDisposition, PreparedGroup, PreparedArchive, error) {
+) (model.PreparedDisposition, model.PreparedGroup, model.PreparedArchive, error) {
 	archiveFormat, reason := profileArchiveFormat(file.Path)
 	if reason != "" {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, ErrInvalid
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, model.ErrInvalid
 	}
 	entries, candidates, err := service.scanProjectArchive(ctx, file, archiveFormat)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
 	defer discardProjectArchiveCandidates(candidates)
 	input := make([]fileset.SourceFile, 0, len(entries))
@@ -152,7 +153,7 @@ func (service *ImportPreparation) prepareRPGMakerArchive(
 	}
 	project, err := fileset.NormalizeProject(input)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, fmt.Errorf(
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf(
 			"normalize RPG Maker archive: %w", err,
 		)
 	}
@@ -162,7 +163,7 @@ func (service *ImportPreparation) prepareRPGMakerArchive(
 	}
 	readMetadata, err := service.projectArchiveReadMetadata(ctx, file, projectEntries, candidates)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
 	index := rpgProjectIndex{paths: make(map[string]string, len(project.Files))}
 	for _, projectFile := range project.Files {
@@ -172,15 +173,15 @@ func (service *ImportPreparation) prepareRPGMakerArchive(
 	}
 	profile, err := detector.Detect(coreID, index)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, fmt.Errorf(
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf(
 			"detect RPG Maker archive: %w", err,
 		)
 	}
 	projectFiles, sessionState := fileset.ExcludeSessionState(profile.ExpectedGeneration, project.Files)
-	sources := make([]PreparedSource, 0, len(projectFiles))
+	sources := make([]model.PreparedSource, 0, len(projectFiles))
 	for _, projectFile := range projectFiles {
 		ordinal := projectFile.SourceIndex
-		sources = append(sources, PreparedSource{
+		sources = append(sources, model.PreparedSource{
 			File: file, Role: "PROJECT_FILE", LogicalName: projectFile.Path,
 			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
 		})
@@ -188,35 +189,35 @@ func (service *ImportPreparation) prepareRPGMakerArchive(
 	selectedEntries := projectEntriesForFiles(projectFiles, entryByOrdinal)
 	materialized, err := projectArchiveMaterialization(selectedEntries, candidates, readMetadata)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
 	sortPreparedSources(sources)
 	removed := append([]string(nil), project.RemovedNoise...)
 	removed = append(removed, sessionState...)
 	return sourceDisposition(file), newRPGMakerGroup(
 			sources, profile, project.Root, removed, file.Path,
-		), PreparedArchive{
+		), model.PreparedArchive{
 			BlobID: file.BlobID, Entries: entries, Materialized: materialized,
 		}, nil
 }
 
 func newRPGMakerGroup(
-	sources []PreparedSource,
+	sources []model.PreparedSource,
 	profile detector.Profile,
 	root string,
 	removed []string,
 	titleSource string,
-) PreparedGroup {
+) model.PreparedGroup {
 	profileCopy := profile
 	sort.Strings(removed)
-	return PreparedGroup{
+	return model.PreparedGroup{
 		Sources: sources, ContentKind: string(contentprofile.ContentKindRPGMakerProject),
 		TitleSource: titleSource, TitleSourceExplicit: true, RPGProfile: &profileCopy,
 		RPGProjectRoot: root, RPGRemovedFiles: removed,
 	}
 }
 
-func RpgMakerDirectoryTitle(files []ImportFile) string {
+func RpgMakerDirectoryTitle(files []model.ImportFile) string {
 	if len(files) == 0 {
 		return ""
 	}
@@ -244,7 +245,7 @@ func projectEntriesForFiles(
 	return entries
 }
 
-func sortPreparedSources(sources []PreparedSource) {
+func sortPreparedSources(sources []model.PreparedSource) {
 	sort.Slice(sources, func(left, right int) bool {
 		return sources[left].LogicalName < sources[right].LogicalName
 	})

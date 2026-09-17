@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func (server *Server) reviewCandidateAssets(

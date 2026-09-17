@@ -2,25 +2,25 @@ package launch
 
 import (
 	"fmt"
-
-	application "retrom/internal/service/launch"
+	launchmodel "retrom/internal/model/launch"
+	launchservice "retrom/internal/service/launch"
 )
 
 const (
 	rpgProjectFormat         = "RPG_MAKER_PROJECT"
 	rpgEasyIndexName         = "__retrom__/index.json"
-	rpgMKXPArchiveName       = application.MKXPArchiveName
-	rpgMKXPArchivePublicName = application.MKXPArchivePublicName
+	rpgMKXPArchiveName       = launchservice.MKXPArchiveName
+	rpgMKXPArchivePublicName = launchservice.MKXPArchivePublicName
 )
 
 type rpgLockedFile struct{ blobID, logicalName, role string }
 
 func makeRPGContentPlan(files []rpgLockedFile, required string, native bool) (launchContentPlan, error) {
-	inputs := make([]application.PreviewFile, 0, len(files))
+	inputs := make([]launchmodel.PreviewFile, 0, len(files))
 	for _, file := range files {
-		inputs = append(inputs, application.PreviewFile{BlobID: file.blobID, LogicalName: file.logicalName, Role: file.role})
+		inputs = append(inputs, launchmodel.PreviewFile{BlobID: file.blobID, LogicalName: file.logicalName, Role: file.role})
 	}
-	prepared, err := application.RPGContentFiles(inputs, required, native)
+	prepared, err := launchservice.RPGContentFiles(inputs, required, native)
 	if err != nil {
 		return launchContentPlan{}, fmt.Errorf("RPG content files: %w", err)
 	}

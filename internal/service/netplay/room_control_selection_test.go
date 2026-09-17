@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	model "retrom/internal/model/netplay"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +13,7 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/runtime/runtimecatalog"
-	validation "retrom/internal/service/corevalidation"
+	validation "retrom/internal/model/corevalidation"
 	"retrom/internal/transport/netplay/profile"
 )
 
@@ -55,15 +56,15 @@ func controlSelectionFixture(t *testing.T) (*RoomControl, *roomControlMemory, *e
 	if !ok {
 		t.Fatal("missing registered profile")
 	}
-	row := EligibilityRow{VariantID: "variant", CoreID: "fceumm", ProviderID: "emulatorjs", TargetID: "fceumm", PlatformID: "nes", ContentKind: "SINGLE_FILE", LogicalName: "game.nes", BundleSHA256: strings.Repeat("a", 64), SourceManifestDigest: strings.Repeat("b", 64), DependencyJSON: `{"schemaVersion":1,"kind":"STATIC","bios":[]}`}
+	row := model.EligibilityRow{VariantID: "variant", CoreID: "fceumm", ProviderID: "emulatorjs", TargetID: "fceumm", PlatformID: "nes", ContentKind: "SINGLE_FILE", LogicalName: "game.nes", BundleSHA256: strings.Repeat("a", 64), SourceManifestDigest: strings.Repeat("b", 64), DependencyJSON: `{"schemaVersion":1,"kind":"STATIC","bios":[]}`}
 	_, digest, err := registry.CanonicalProfile(profile.CanonicalProfileInput{ManifestProfile: selected, BundleSHA256: row.BundleSHA256, SourceManifestDigest: row.SourceManifestDigest, DependencySnapshotJSON: row.DependencyJSON})
 	if err != nil {
 		t.Fatal(err)
 	}
 	before := controlSnapshot()
-	before.Selection = &RoomSelection{GameID: "game", VariantID: "variant", ProfileID: selected.ID, Digest: digest, MaxPlayers: 2}
-	eligibility := &eligibilityMemory{rows: map[string][]EligibilityRow{"game": {row}}}
-	memory := &roomControlMemory{before: before, result: Room{RoomID: "room"}, eligibility: eligibility, bios: controlBIOSRepository{}}
+	before.Selection = &model.RoomSelection{GameID: "game", VariantID: "variant", ProfileID: selected.ID, Digest: digest, MaxPlayers: 2}
+	eligibility := &eligibilityMemory{rows: map[string][]model.EligibilityRow{"game": {row}}}
+	memory := &roomControlMemory{before: before, result: model.Room{RoomID: "room"}, eligibility: eligibility, bios: controlBIOSRepository{}}
 	return NewRoomControl(memory, registry, time.Hour, time.Hour, time.Now), memory, eligibility
 }
 
@@ -71,14 +72,14 @@ func TestReadyRequiresExactFrozenVariantAndCanonicalDigest(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name   string
-		change func(*EligibilityRow)
+		change func(*model.EligibilityRow)
 		want   error
 	}{
-		{"same snapshot", func(*EligibilityRow) {}, nil},
-		{"new source", func(row *EligibilityRow) { row.SourceManifestDigest = strings.Repeat("c", 64) }, ErrProfileStale},
-		{"new bundle", func(row *EligibilityRow) { row.BundleSHA256 = strings.Repeat("c", 64) }, ErrProfileStale},
-		{"different variant", func(row *EligibilityRow) { row.VariantID = "replacement" }, ErrProfileStale},
-		{"platform drift", func(row *EligibilityRow) { row.PlatformID = "other" }, ErrProfileStale},
+		{"same snapshot", func(*model.EligibilityRow) {}, nil},
+		{"new source", func(row *model.EligibilityRow) { row.SourceManifestDigest = strings.Repeat("c", 64) }, model.ErrProfileStale},
+		{"new bundle", func(row *model.EligibilityRow) { row.BundleSHA256 = strings.Repeat("c", 64) }, model.ErrProfileStale},
+		{"different variant", func(row *model.EligibilityRow) { row.VariantID = "replacement" }, model.ErrProfileStale},
+		{"platform drift", func(row *model.EligibilityRow) { row.PlatformID = "other" }, model.ErrProfileStale},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			service, memory, eligibility := controlSelectionFixture(t)
@@ -105,8 +106,8 @@ func TestRoomSelectionUsesCurrentEligibilityAndRejectsOutOfRangeOccupants(t *tes
 		t.Fatalf("selection error=%v writes=%d", err, memory.writes)
 	}
 	memory.writes = 0
-	memory.before.Occupants = []SeatMember{{PlayerNo: 3}}
-	if _, err := service.SelectGame(t.Context(), "room", "host", "game", "fceumm-423-v1", 4); !errors.Is(err, ErrInvalidSeat) || memory.writes != 0 {
+	memory.before.Occupants = []model.SeatMember{{PlayerNo: 3}}
+	if _, err := service.SelectGame(t.Context(), "room", "host", "game", "fceumm-423-v1", 4); !errors.Is(err, model.ErrInvalidSeat) || memory.writes != 0 {
 		t.Fatalf("occupied seat error=%v writes=%d", err, memory.writes)
 	}
 	memory.before.Occupants = nil

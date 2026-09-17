@@ -10,9 +10,10 @@ import (
 
 	application "retrom/internal/service/payloadrelease"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
-	payloadservice "retrom/internal/service/payloadrelease"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 )
 
 func TestEmulationStationDuplicateBindingReleasesSharedImportPayload(t *testing.T) {
@@ -65,7 +66,7 @@ func finishESDuplicateSource(t *testing.T, fixture deduplicateFixture, result Se
 	if _, err := tx.ExecContext(fixture.ctx, `UPDATE emulationstation_import_items SET execution_state='SKIPPED_EXISTING',library_import_job_id=?,library_import_item_id=?,existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='es-source'`, result.Created.ImportJobID, result.Items[0].ItemID, result.Items[0].ExistingGameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadservice.Scope{Type: payloadservice.ScopeEmulationStationImportItem, ID: "es-source"}, ownedSourceNow().UnixMilli()); err != nil {
+	if _, err := payloadreleaseservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadreleasemodel.Scope{Type: payloadreleasemodel.ScopeEmulationStationImportItem, ID: "es-source"}, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

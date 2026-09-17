@@ -12,12 +12,11 @@ import (
 	"fmt"
 	"hash/crc32"
 	"path/filepath"
+	firmwareservice "retrom/internal/service/firmware"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
-
-	firmwareservice "retrom/internal/service/firmware"
 
 	uploadpersistence "retrom/internal/repo/uploads"
 
@@ -35,7 +34,9 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/foundation/legacychecksum"
-	"retrom/internal/service/uploads"
+	firmwaremodel "retrom/internal/model/firmware"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -57,12 +58,12 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	contents := []byte("retrom-invalid-bios\n")
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
 		ctx,
-		uploads.CreateRequest{
+		uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "bios", RelativePath: "gba_bios.bin", SizeBytes: int64(len(contents))},
 			},
 		},
@@ -117,7 +118,7 @@ WHERE f.id=?
 	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
-	result, err := service.Install(ctx, requirementID, version, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID})
+	result, err := service.Install(ctx, requirementID, version, firmwaremodel.InstallRequest{UploadFileID: upload.Files[0].ID})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "HASH_WARNING" }, func() bool { return !result.Active }), "installation = %#v", result)
 	var oldBlobID string
@@ -132,7 +133,7 @@ WHERE f.id=?
 		t, ctx, database.SQL, uploadService, "gba_bios.bin", []byte("retrom-replacement-bios\n"),
 	)
 	replaced, err := service.Install(
-		ctx, requirementID, version, firmwareservice.InstallRequest{UploadFileID: replacementFileID},
+		ctx, requirementID, version, firmwaremodel.InstallRequest{UploadFileID: replacementFileID},
 	)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, replaced.InstallationID == result.InstallationID, "replacement reused installation %s", replaced.InstallationID)
@@ -306,14 +307,14 @@ func completeFirmwareUpload(
 	t *testing.T,
 	ctx context.Context,
 	database *sql.DB,
-	service *uploads.Service,
+	service *uploadsservice.Service,
 	name string,
 	contents []byte,
 ) string {
 	t.Helper()
-	upload, err := service.Create(ctx, uploads.CreateRequest{
+	upload, err := service.Create(ctx, uploadsmodel.CreateRequest{
 		SourceType: "FILES",
-		Files:      []uploads.FileDeclaration{{ClientFileID: "bios", RelativePath: name, SizeBytes: int64(len(contents))}},
+		Files:      []uploadsmodel.FileDeclaration{{ClientFileID: "bios", RelativePath: name, SizeBytes: int64(len(contents))}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -429,8 +430,8 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "bios", RelativePath: "stvbios.zip", SizeBytes: int64(archive.Len())}}})
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{ClientFileID: "bios", RelativePath: "stvbios.zip", SizeBytes: int64(archive.Len())}}})
 	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(archive.Bytes())
 	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", archive.Len()-1, archive.Len()), "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(archive.Bytes())); err != nil {
@@ -450,7 +451,7 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 		time.Sleep(10 * time.Millisecond)
 	}
 	result, err := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).Install(
-		ctx, "requirement-test", 1, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID},
+		ctx, "requirement-test", 1, firmwaremodel.InstallRequest{UploadFileID: upload.Files[0].ID},
 	)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "MATCHED" }, func() bool { return !result.Active }), "installation = %#v", result)

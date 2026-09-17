@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"errors"
 	"math"
+	model "retrom/internal/model/emulationstationimport"
 	"strings"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ func TestWorkflowCancelChecksVersionStateAndUnicodeReason(t *testing.T) {
 			reason, version = changeCancellationBoundary(m, kind, reason, version)
 			_, pending, err := NewWorkflowControl(m, sources, time.Now).Cancel(t.Context(), "import", version, reason, "actor")
 			valid := kind == "500 runes"
-			if pending || valid != (err == nil) || !valid && !errors.Is(err, ErrNotCancellable) || !valid && m.cancel != nil || sources.verified {
+			if pending || valid != (err == nil) || !valid && !errors.Is(err, model.ErrNotCancellable) || !valid && m.cancel != nil || sources.verified {
 				t.Fatalf("%s pending=%v error=%v", kind, pending, err)
 			}
 		})
@@ -36,7 +37,7 @@ func TestWorkflowRetryChecksTerminalAndNumericBoundaries(t *testing.T) {
 			t.Parallel()
 			m, sources := workflowFixture()
 			version := int64(4)
-			want := ErrNotRetryable
+			want := model.ErrNotRetryable
 			version, want = changeRetryBoundary(m, kind, version, want)
 			result, err := NewWorkflowControl(m, sources, func() time.Time { return time.UnixMilli(1000) }).Retry(t.Context(), "import", version, "actor")
 			valid := kind == "expired mapping"
@@ -53,7 +54,7 @@ func TestWorkflowRetryRevalidatesExecutionAndSourceAfterIO(t *testing.T) {
 		t.Run(field, func(t *testing.T) {
 			t.Parallel()
 			m, sources := workflowFixture()
-			want := ErrNotRetryable
+			want := model.ErrNotRetryable
 			sources.verify = func() {
 				want = changeRetryAfterIO(m, field)
 			}
@@ -145,10 +146,10 @@ func changeRetryBoundary(m *workflowMemory, kind string, version int64, want err
 		m.current.Summary.State = "CANCELLED"
 	case "active":
 		m.current.OtherActive = true
-		want = ErrActive
+		want = model.ErrActive
 	case "target":
 		m.targets = false
-		want = ErrMappingTargetChanged
+		want = model.ErrMappingTargetChanged
 	case "expired mapping":
 		m.current.Summary.ExpiresAtMS = 1
 	}
@@ -156,7 +157,7 @@ func changeRetryBoundary(m *workflowMemory, kind string, version int64, want err
 }
 
 func changeRetryAfterIO(m *workflowMemory, field string) error {
-	want := ErrNotRetryable
+	want := model.ErrNotRetryable
 	switch field {
 	case "version":
 		m.current.Summary.Version++
@@ -172,17 +173,17 @@ func changeRetryAfterIO(m *workflowMemory, field string) error {
 		m.current.JobState = "RUNNING"
 	case "target":
 		m.targets = false
-		want = ErrMappingTargetChanged
+		want = model.ErrMappingTargetChanged
 	case "root":
 		m.source.RootConfigDigest = "changed"
-		want = ErrSourceChanged
+		want = model.ErrSourceChanged
 	case "year":
 		m.source.ReleaseYearMax++
-		want = ErrSourceChanged
+		want = model.ErrSourceChanged
 	case "evidence":
-		m.source.Gamelists = append([]GamelistEvidence(nil), m.source.Gamelists...)
+		m.source.Gamelists = append([]model.GamelistEvidence(nil), m.source.Gamelists...)
 		m.source.Gamelists[0].SizeBytes++
-		want = ErrSourceChanged
+		want = model.ErrSourceChanged
 	case "reread":
 		m.failure = errors.New("final read failed")
 		m.stage = "read"

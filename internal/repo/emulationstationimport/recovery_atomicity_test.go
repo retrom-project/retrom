@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testkit/testsupport"
 )
 
 func TestRecoverySQLFailuresRollBackWholeExecution(t *testing.T) {
@@ -35,7 +35,7 @@ func assertRecoverySQLRollback(t *testing.T, stage string) {
 	before := planRows(t, db)
 	var hits atomic.Int64
 	faultDB := testsupport.OpenSQLFaultDatabase(t, db, recoveryFaultHooks(stage, unit, &hits))
-	err := application.NewRecovery(NewRecovery(faultDB), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context())
+	err := emulationstationimportservice.NewRecovery(NewRecovery(faultDB), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context())
 	if !errors.Is(err, errLeaseStorage) || hits.Load() != 1 {
 		t.Fatalf("stage=%s cause=%v hits=%d", stage, err, hits.Load())
 	}
@@ -44,7 +44,7 @@ func assertRecoverySQLRollback(t *testing.T, stage string) {
 	}
 }
 
-func recoveryFaultHooks(stage string, unit application.Execution, hits *atomic.Int64) testsupport.SQLFaultHooks {
+func recoveryFaultHooks(stage string, unit emulationstationimportmodel.Execution, hits *atomic.Int64) testsupport.SQLFaultHooks {
 	prefixes := map[string]string{"fence": "UPDATE jobs SET version=version", "assets": "DELETE FROM emulationstation_import_item_assets", "files": "DELETE FROM emulationstation_import_item_files", "items": "DELETE FROM emulationstation_import_items", "collections": "DELETE FROM emulationstation_import_collections", "gamelists": "DELETE FROM emulationstation_import_gamelists", "job": "UPDATE jobs SET state=", "aggregate": "UPDATE emulationstation_imports SET", "event": "INSERT INTO job_events(", "payload": "INSERT INTO jobs(", "import items": "UPDATE emulationstation_import_items SET"}
 	return testsupport.SQLFaultHooks{
 		BeforeQuery: func(_ context.Context, query string, args []driver.NamedValue) error {
@@ -79,8 +79,8 @@ type recoveryCompletionFailure struct {
 	commit bool
 }
 
-func (repository recoveryCompletionFailure) WithRecovery(ctx context.Context, work func(application.RecoveryScope) error) error {
-	return repository.Recovery.WithRecovery(ctx, func(scope application.RecoveryScope) error {
+func (repository recoveryCompletionFailure) WithRecovery(ctx context.Context, work func(emulationstationimportmodel.RecoveryScope) error) error {
+	return repository.Recovery.WithRecovery(ctx, func(scope emulationstationimportmodel.RecoveryScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func TestRecoveryRollsBackAfterFinalEventAndCommitFailure(t *testing.T) {
 			t.Parallel()
 			db, _ := recoveryDatabase(t, false, true)
 			before := planRows(t, db)
-			err := application.NewRecovery(recoveryCompletionFailure{Recovery: NewRecovery(db), commit: commit}, func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context())
+			err := emulationstationimportservice.NewRecovery(recoveryCompletionFailure{Recovery: NewRecovery(db), commit: commit}, func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context())
 			if err == nil {
 				t.Fatal("late recovery failure committed")
 			}
@@ -126,7 +126,7 @@ func TestRecoveryRollsBackAfterFinalEventAndCommitFailure(t *testing.T) {
 	}
 }
 
-func recoveryBoundTarget(stage string, args []driver.NamedValue, unit application.Execution) bool {
+func recoveryBoundTarget(stage string, args []driver.NamedValue, unit emulationstationimportmodel.Execution) bool {
 	if stage == "list" {
 		return len(args) == 3 && args[0].Value == int64(1500) && args[1].Value == int64(1500) && args[2].Value == int64(100)
 	}

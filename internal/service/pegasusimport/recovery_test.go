@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 	"testing"
 	"time"
 
 	library "retrom/internal/service/libraryimport"
 )
 
-func recoverySnapshot() RecoverySnapshot {
-	return RecoverySnapshot{JobID: "job", ImportID: "import", Kind: "SERVER_PEGASUS_IMPORT", JobState: "RUNNING", ImportState: "RUNNING", WorkerID: "lost", JobVersion: 2, ImportVersion: 3, ExecutionNo: 1, Attempt: 1, MaxAttempts: 4, LeaseUntilMS: 5, DeadlineMS: 100}
+func recoverySnapshot() model.RecoverySnapshot {
+	return model.RecoverySnapshot{JobID: "job", ImportID: "import", Kind: "SERVER_PEGASUS_IMPORT", JobState: "RUNNING", ImportState: "RUNNING", WorkerID: "lost", JobVersion: 2, ImportVersion: 3, ExecutionNo: 1, Attempt: 1, MaxAttempts: 4, LeaseUntilMS: 5, DeadlineMS: 100}
 }
 
 func TestRecoveryPolicyPreservesOriginalExecutionAndPrioritizesCancellation(t *testing.T) {
@@ -75,40 +76,43 @@ func TestRecoveryRejectsInvalidOrLiveExecution(t *testing.T) {
 }
 
 type recoveryFake struct {
-	before    RecoverySnapshot
-	current   RecoverySnapshot
+	before    model.RecoverySnapshot
+	current   model.RecoverySnapshot
 	failure   error
 	applied   int
 	limit     int
-	reviews   []ReviewHandoffSnapshot
+	reviews   []model.ReviewHandoffSnapshot
 	completed int
 	metadata  *handoffMemory
 }
 
-func (fake *recoveryFake) ExpiredExecutions(_ context.Context, _ int64, limit int) ([]RecoverySnapshot, error) {
+func (fake *recoveryFake) ExpiredExecutions(_ context.Context, _ int64, limit int) ([]model.RecoverySnapshot, error) {
 	fake.limit = limit
-	return []RecoverySnapshot{fake.before}, nil
+	return []model.RecoverySnapshot{fake.before}, nil
 }
 
-func (fake *recoveryFake) WithRecovery(_ context.Context, work func(RecoveryScope) error) error {
-	return work(RecoveryScope{Payload: emptyPayloadScope(), Records: fake, Metadata: fake.metadata})
+func (fake *recoveryFake) WithRecovery(_ context.Context, work func(model.RecoveryScope) error) error {
+	return work(model.RecoveryScope{Payload: emptyPayloadScope(), Records: fake, Metadata: fake.metadata})
 }
 
-func (fake *recoveryFake) Current(context.Context, string) (RecoverySnapshot, error) {
+func (fake *recoveryFake) Current(context.Context, string) (model.RecoverySnapshot, error) {
 	return fake.current, fake.failure
 }
 
-func (fake *recoveryFake) Reviews(context.Context, string, int) ([]ReviewHandoffSnapshot, error) {
+func (fake *recoveryFake) Reviews(context.Context, string, int) ([]model.ReviewHandoffSnapshot, error) {
 	return fake.reviews, nil
 }
 
-func (fake *recoveryFake) CompleteReview(context.Context, RecoveryReviewChange) error {
+func (fake *recoveryFake) CompleteReview(context.Context, model.RecoveryReviewChange) error {
 	fake.completed++
 	fake.current.ImportVersion++
 	return nil
 }
 
-func (fake *recoveryFake) Apply(context.Context, RecoveryChange) error { fake.applied++; return nil }
+func (fake *recoveryFake) Apply(context.Context, model.RecoveryChange) error {
+	fake.applied++
+	return nil
+}
 
 func TestRecoverySkipsStaleCandidateAndPreservesRepositoryFailure(t *testing.T) {
 	t.Parallel()

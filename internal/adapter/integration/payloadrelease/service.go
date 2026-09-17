@@ -9,9 +9,10 @@ import (
 	"retrom/internal/adapter/files/payloadfiles"
 	"retrom/internal/foundation/cleanup"
 	repository "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/payloadrelease"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 
 	"retrom/internal/adapter/files/blobstore"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 )
 
 type Service struct {
@@ -19,12 +20,12 @@ type Service struct {
 	blobs       *blobstore.Store
 	now         func() time.Time
 	waitFor     func(context.Context, time.Duration) error
-	worker      *application.Worker
-	gc          *application.GCScheduler
-	garbage     *application.GarbageCollector
-	expirations *application.Expirations
-	retirements *application.Retirements
-	effects     *application.ReleaseEffects
+	worker      *payloadreleaseservice.Worker
+	gc          *payloadreleaseservice.GCScheduler
+	garbage     *payloadreleaseservice.GarbageCollector
+	expirations *payloadreleaseservice.Expirations
+	retirements *payloadreleaseservice.Retirements
+	effects     *payloadreleaseservice.ReleaseEffects
 }
 
 type claimedJob struct {
@@ -32,34 +33,34 @@ type claimedJob struct {
 	ScopeType   ScopeType
 	Attempt     int64
 	Input       scheduleInput
-	Work        application.Work
+	Work        payloadreleasemodel.Work
 }
 
 func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retention time.Duration) (*Service, error) {
 	service := &Service{database: database, blobs: blobs, now: now, waitFor: waitForContext}
-	gc, err := application.NewGCScheduler(repository.NewGC(database), application.GCOptions{
+	gc, err := payloadreleaseservice.NewGCScheduler(repository.NewGC(database), payloadreleaseservice.GCOptions{
 		Now: now, Retention: retention, Wake: service.Signal,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize GC scheduling: %w", err)
 	}
 	service.gc = gc
-	service.expirations = application.NewExpirations(repository.NewExpiration(database), gc, now)
-	service.retirements = application.NewRetirements(repository.NewRetirement(database), now)
+	service.expirations = payloadreleaseservice.NewExpirations(repository.NewExpiration(database), gc, now)
+	service.retirements = payloadreleaseservice.NewRetirements(repository.NewRetirement(database), now)
 	if err := ValidateOwnershipRegistry(); err != nil {
 		return nil, err
 	}
 	if err := validateLifecycleState(context.Background(), database); err != nil {
 		return nil, err
 	}
-	service.worker = application.NewWorker(
-		repository.NewWorker(database), releaseExecutor{service}, application.WorkerOptions{
+	service.worker = payloadreleaseservice.NewWorker(
+		repository.NewWorker(database), releaseExecutor{service}, payloadreleaseservice.WorkerOptions{
 			Now: now, Maintain: service.ReconcileGC, Report: func(err error) { cleanup.Error("payload worker", err) },
 		})
-	service.garbage = application.NewGarbageCollector(
+	service.garbage = payloadreleaseservice.NewGarbageCollector(
 		repository.NewGarbage(database), service.worker, payloadfiles.New(blobs),
 	)
-	service.effects = application.NewReleaseEffects(
+	service.effects = payloadreleaseservice.NewReleaseEffects(
 		repository.NewReleaseEffects(database), service.worker, gc, releaseEffectWaiter{service}, now,
 	)
 	return service, nil
@@ -112,11 +113,11 @@ func (service *Service) RunOnce(ctx context.Context) (bool, error) {
 
 type releaseExecutor struct{ service *Service }
 
-func (adapter releaseExecutor) Execute(ctx context.Context, unit application.Execution) error {
+func (adapter releaseExecutor) Execute(ctx context.Context, unit payloadreleasemodel.Execution) error {
 	return adapter.service.execute(ctx, claimedWork(unit))
 }
 
-func claimedWork(unit application.Execution) claimedJob {
+func claimedWork(unit payloadreleasemodel.Execution) claimedJob {
 	return claimedJob{
 		ID: unit.Work.ID, ScopeID: unit.Work.Scope.ID, ScopeType: unit.Work.Scope.Type,
 		Attempt: unit.Work.Attempt, Input: unit.Input, Work: unit.Work,

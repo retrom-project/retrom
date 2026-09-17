@@ -2,29 +2,30 @@ package libraryimport
 
 import (
 	"math"
+	model "retrom/internal/model/libraryimport"
 	"sort"
 	"strings"
 )
 
-func normalizeReviewApproval(request ReviewApprovalRequest) (ReviewApprovalRequest, error) {
+func normalizeReviewApproval(request model.ReviewApprovalRequest) (model.ReviewApprovalRequest, error) {
 	if request.ItemID == "" || request.ExpectedVersion < 1 || request.ExpectedVersion == math.MaxInt64 {
-		return ReviewApprovalRequest{}, ErrInvalid
+		return model.ReviewApprovalRequest{}, model.ErrInvalid
 	}
 	decision := &request.Decision
 	if decision.Reason != nil {
 		reason := strings.TrimSpace(*decision.Reason)
 		if reason == "" || !validField(reason, 500, true) {
-			return ReviewApprovalRequest{}, ErrInvalid
+			return model.ReviewApprovalRequest{}, model.ErrInvalid
 		}
 		decision.Reason = &reason
 	}
 	if !validApprovalDecision(*decision) || !validBulkPublicationIntent(request.Bulk) {
-		return ReviewApprovalRequest{}, ErrInvalid
+		return model.ReviewApprovalRequest{}, model.ErrInvalid
 	}
 	return request, nil
 }
 
-func validApprovalDecision(decision ReviewApprovalDecision) bool {
+func validApprovalDecision(decision model.ReviewApprovalDecision) bool {
 	if decision.DuplicatePolicy != "" && decision.DuplicatePolicy != "ALLOW_NEW" {
 		return false
 	}
@@ -41,7 +42,7 @@ func validApprovalDecision(decision ReviewApprovalDecision) bool {
 	return ValidApprovalExternalAssets(decision.ExternalAssets)
 }
 
-func validBulkPublicationIntent(intent *BulkPublicationIntent) bool {
+func validBulkPublicationIntent(intent *model.BulkPublicationIntent) bool {
 	return intent == nil || (intent.BulkID != "" && intent.JobID != "" && intent.WorkerID != "" &&
 		intent.ValidationID != "" && intent.SourceSnapshotID != "")
 }
@@ -50,7 +51,7 @@ func ValidApprovalSourceKind(value string) bool {
 	return value == "SERVER_PEGASUS_IMPORT" || value == "SERVER_EMULATIONSTATION_IMPORT"
 }
 
-func ValidApprovalExternalAssets(assets []ApprovalExternalAsset) bool {
+func ValidApprovalExternalAssets(assets []model.ApprovalExternalAsset) bool {
 	seen := make(map[string]struct{}, len(assets))
 	for _, asset := range assets {
 		if _, exists := seen[asset.Kind]; exists || asset.BlobID == "" || !ValidApprovalExternalAsset(asset) {
@@ -61,7 +62,7 @@ func ValidApprovalExternalAssets(assets []ApprovalExternalAsset) bool {
 	return true
 }
 
-func ValidApprovalExternalAsset(asset ApprovalExternalAsset) bool {
+func ValidApprovalExternalAsset(asset model.ApprovalExternalAsset) bool {
 	switch asset.Kind {
 	case "COVER":
 		return asset.WidthPX != nil && asset.HeightPX != nil && *asset.WidthPX > 0 && *asset.HeightPX > 0 &&
@@ -75,7 +76,7 @@ func ValidApprovalExternalAsset(asset ApprovalExternalAsset) bool {
 	}
 }
 
-func ApprovalDuplicateIDs(games []DuplicateGame) []string {
+func ApprovalDuplicateIDs(games []model.DuplicateGame) []string {
 	ids := make([]string, 0, len(games))
 	for _, game := range games {
 		ids = append(ids, game.GameID)
@@ -84,7 +85,7 @@ func ApprovalDuplicateIDs(games []DuplicateGame) []string {
 	return ids
 }
 
-func SameApprovalDuplicateIDs(games []DuplicateGame, acknowledged []string) bool {
+func SameApprovalDuplicateIDs(games []model.DuplicateGame, acknowledged []string) bool {
 	if len(games) != len(acknowledged) {
 		return false
 	}

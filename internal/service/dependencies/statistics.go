@@ -1,8 +1,11 @@
 package dependencies
 
-import "retrom/internal/capability/format/arcadedat"
+import (
+	"retrom/internal/capability/format/arcadedat"
+	model "retrom/internal/model/dependencies"
+)
 
-func catalogFromStats(stats CatalogStats) arcadedat.Catalog {
+func catalogFromStats(stats model.CatalogStats) arcadedat.Catalog {
 	return arcadedat.Catalog{Stats: arcadedat.Stats{
 		MachineCount:                 int(stats.MachineCount),
 		ROMEntryCount:                int(stats.ROMEntryCount),
@@ -16,7 +19,7 @@ func catalogFromStats(stats CatalogStats) arcadedat.Catalog {
 	}}
 }
 
-func statsMatch(actual arcadedat.Stats, expected CatalogStats) bool {
+func statsMatch(actual arcadedat.Stats, expected model.CatalogStats) bool {
 	return int64(actual.MachineCount) == expected.MachineCount && int64(actual.ROMEntryCount) == expected.ROMEntryCount &&
 		int64(actual.DiskEntryCount) == expected.DiskEntryCount &&
 		int64(actual.BIOSSetCount) == expected.BIOSSetCount &&

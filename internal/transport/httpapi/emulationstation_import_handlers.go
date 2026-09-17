@@ -4,19 +4,19 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
-	"retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func (server *Server) createEmulationStationImport(writer http.ResponseWriter, request *http.Request) {
 	createFormatImport(
 		writer,
 		request,
-		emulationstationimport.CreateRequest{},
+		emulationstationimportmodel.CreateRequest{},
 		"EmulationStation 扫描配置无效",
 		"/api/v1/admin/emulationstation-imports/",
 		server.emulationStationImports.Create,
-		func(summary emulationstationimport.Summary) string { return summary.ID },
+		func(summary emulationstationimportmodel.Summary) string { return summary.ID },
 		writeEmulationStationSummary,
 		server.writeEmulationStationImportError,
 	)
@@ -40,7 +40,7 @@ func (server *Server) updateEmulationStationMappings(writer http.ResponseWriter,
 		"emulationStationImportId",
 		"系统映射无效",
 		"跳过的系统不能关联标签",
-		func(mapping emulationstationimport.Mapping) serverImportMappingFields {
+		func(mapping emulationstationimportmodel.Mapping) serverImportMappingFields {
 			return serverImportMappingFields{action: mapping.Action, tagIDs: mapping.TagIDs}
 		},
 		server.emulationStationImports.UpdateMappings,
@@ -103,7 +103,7 @@ func (server *Server) deleteEmulationStationImport(writer http.ResponseWriter, r
 func writeEmulationStationSummary(
 	writer http.ResponseWriter,
 	status int,
-	summary emulationstationimport.Summary,
+	summary emulationstationimportmodel.Summary,
 ) {
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, summary.Version))
 	writeJSON(writer, status, summary)
@@ -118,7 +118,7 @@ func (server *Server) writeEmulationStationImportError(
 		writer,
 		request,
 		err,
-		emulationstationimport.ErrNotFound,
+		emulationstationimportmodel.ErrNotFound,
 		"EmulationStation 导入请求当前不可执行",
 		emulationStationImportErrorCode,
 	)
@@ -126,19 +126,19 @@ func (server *Server) writeEmulationStationImportError(
 
 func emulationStationImportErrorCode(err error) string {
 	for _, sentinel := range []error{
-		emulationstationimport.ErrInvalid,
-		emulationstationimport.ErrGamelistAbsent,
-		emulationstationimport.ErrNoValidGamelist,
-		emulationstationimport.ErrScanLimit,
-		emulationstationimport.ErrMapping,
-		emulationstationimport.ErrVersionConflict,
-		emulationstationimport.ErrNoSelection,
-		emulationstationimport.ErrSourceChanged,
-		emulationstationimport.ErrMappingTargetChanged,
-		emulationstationimport.ErrExpired,
-		emulationstationimport.ErrActive,
-		emulationstationimport.ErrNotCancellable,
-		emulationstationimport.ErrNotRetryable,
+		emulationstationimportmodel.ErrInvalid,
+		emulationstationimportservice.ErrGamelistAbsent,
+		emulationstationimportservice.ErrNoValidGamelist,
+		emulationstationimportservice.ErrScanLimit,
+		emulationstationimportmodel.ErrMapping,
+		emulationstationimportmodel.ErrVersionConflict,
+		emulationstationimportmodel.ErrNoSelection,
+		emulationstationimportmodel.ErrSourceChanged,
+		emulationstationimportmodel.ErrMappingTargetChanged,
+		emulationstationimportmodel.ErrExpired,
+		emulationstationimportmodel.ErrActive,
+		emulationstationimportmodel.ErrNotCancellable,
+		emulationstationimportmodel.ErrNotRetryable,
 	} {
 		if errors.Is(err, sentinel) {
 			return sentinel.Error()

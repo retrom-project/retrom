@@ -4,36 +4,37 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	model "retrom/internal/model/metadatascrape"
 	"testing"
 )
 
 func TestMediaInputRejectsChangedSourceAndPreservesJSONCause(t *testing.T) {
-	asset := CandidateAsset{ID: "asset", CandidateID: "candidate", ResponseID: "response"}
-	plan, err := newMediaJob(Subject{Kind: "GAME", ID: "game"}, "run", asset)
+	asset := model.CandidateAsset{ID: "asset", CandidateID: "candidate", ResponseID: "response"}
+	plan, err := newMediaJob(model.Subject{Kind: "GAME", ID: "game"}, "run", asset)
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot := MediaSnapshot{
-		Job:   MediaJob{ID: plan.JobID, Scope: plan.Scope, Input: plan.InputJSON, InputDigest: plan.InputDigest},
-		Asset: MediaAsset{CandidateAsset: asset, RunID: "run"},
+	snapshot := model.MediaSnapshot{
+		Job:   model.MediaJob{ID: plan.JobID, Scope: plan.Scope, Input: plan.InputJSON, InputDigest: plan.InputDigest},
+		Asset: model.MediaAsset{CandidateAsset: asset, RunID: "run"},
 	}
 	if err := validateMediaInput(snapshot); err != nil {
 		t.Fatal(err)
 	}
 	snapshot.Asset.Reference.Path = "changed"
-	if err := validateMediaInput(snapshot); !errors.Is(err, ErrMediaInput) {
+	if err := validateMediaInput(snapshot); !errors.Is(err, model.ErrMediaInput) {
 		t.Fatalf("changed source accepted: %v", err)
 	}
 	snapshot.Job.Input = "{"
 	snapshot.Job.InputDigest = mediaDigest(snapshot.Job.Input)
 	var syntax *json.SyntaxError
-	if err := validateMediaInput(snapshot); !errors.Is(err, ErrMediaInput) || !errors.As(err, &syntax) {
+	if err := validateMediaInput(snapshot); !errors.Is(err, model.ErrMediaInput) || !errors.As(err, &syntax) {
 		t.Fatalf("lost JSON cause: %v", err)
 	}
 }
 
 func TestMediaOrderingUsesCandidateRankingThenAssetIdentity(t *testing.T) {
-	assets := []MediaOrder{
+	assets := []model.MediaOrder{
 		{ID: "d", Hits: 1, QueryOrder: 1, GameID: "b", Kind: "COVER"},
 		{ID: "b", Hits: 2, QueryOrder: 2, GameID: "a", Kind: "SCREENSHOT"},
 		{ID: "a", Hits: 2, QueryOrder: 1, GameID: "z", Kind: "COVER"},
@@ -66,7 +67,7 @@ func TestMediaCompletionDistinguishesPersistedAndCallerDeadlines(t *testing.T) {
 			snapshot.Job.Attempt = 1
 			snapshot.Job.LeaseUntil = 100
 			snapshot.Job.Deadline = test.deadline
-			claim := MediaClaim{JobID: snapshot.Job.ID, WorkerID: "worker", Execution: 1, Attempt: 1}
+			claim := model.MediaClaim{JobID: snapshot.Job.ID, WorkerID: "worker", Execution: 1, Attempt: 1}
 			outcome, cause := mediaCompletion(snapshot, claim, "", context.DeadlineExceeded, 100)
 			if outcome.Code != test.code || !errors.Is(cause, context.DeadlineExceeded) {
 				t.Fatalf("deadline=%d outcome=%+v cause=%v", test.deadline, outcome, cause)

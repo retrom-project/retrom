@@ -5,12 +5,13 @@ import (
 	"database/sql/driver"
 	"errors"
 	"reflect"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"testing"
 	"time"
 
-	application "retrom/internal/service/pegasusimport"
-	"retrom/internal/testkit/testsupport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 
 	"modernc.org/sqlite"
 )
@@ -42,11 +43,11 @@ func TestScanPublicationChecksAffectedRowsAfterActualInsert(t *testing.T) {
 				return result, nil
 			},
 		})
-		service := application.NewScanPublication(NewScanPublication(fault), func() time.Time { return time.UnixMilli(10) })
+		service := pegasusimportservice.NewScanPublication(NewScanPublication(fault), func() time.Time { return time.UnixMilli(10) })
 		err := service.Headers(t.Context(), id, projection.Headers)
 		expected := cause
 		if zero {
-			expected = application.ErrVersionConflict
+			expected = pegasusimportmodel.ErrVersionConflict
 		}
 		if hits != 1 || !errors.Is(err, expected) || !reflect.DeepEqual(before, publicationRows(t, db)) {
 			t.Fatalf("partial headers zero=%v hits=%d err=%v", zero, hits, err)
@@ -70,7 +71,7 @@ func TestScanPublicationEventFailurePreservesStagedSnapshot(t *testing.T) {
 			return nil
 		},
 	})
-	service := application.NewScanPublication(NewScanPublication(fault), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewScanPublication(NewScanPublication(fault), func() time.Time { return time.UnixMilli(10) })
 	err := service.Finish(t.Context(), id, projection.Summary)
 	if hits != 1 || !errors.Is(err, cause) || !reflect.DeepEqual(before, publicationRows(t, db)) {
 		t.Fatalf("partial scan finalization hits=%d err=%v", hits, err)
@@ -79,8 +80,8 @@ func TestScanPublicationEventFailurePreservesStagedSnapshot(t *testing.T) {
 
 type scanCommitFailure struct{ repository *ScanPublication }
 
-func (repository scanCommitFailure) WithScan(ctx context.Context, work func(application.ScanScope) error) error {
-	return repository.repository.WithScan(ctx, func(scope application.ScanScope) error {
+func (repository scanCommitFailure) WithScan(ctx context.Context, work func(pegasusimportmodel.ScanScope) error) error {
+	return repository.repository.WithScan(ctx, func(scope pegasusimportmodel.ScanScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -102,7 +103,7 @@ func TestScanPublicationCommitFailureRollsBackPublishedOutcome(t *testing.T) {
 	db, id, projection := publicationDatabase(t)
 	stagePublication(t, db, id, projection)
 	before := publicationRows(t, db)
-	service := application.NewScanPublication(
+	service := pegasusimportservice.NewScanPublication(
 		scanCommitFailure{NewScanPublication(db)},
 		func() time.Time { return time.UnixMilli(10) },
 	)

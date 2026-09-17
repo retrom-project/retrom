@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/serversource"
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func (source *Sources) Select(

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	application "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 func TestRPGProductRepeatedNonDefaultTargetKeepsPublishedVariant(t *testing.T) {

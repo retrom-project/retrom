@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	model "retrom/internal/model/launch"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -13,14 +14,14 @@ import (
 
 const RuntimeContentPath = "/runtime/content/"
 
-func ContentIdentity(content ContentView) (string, error) {
+func ContentIdentity(content model.ContentView) (string, error) {
 	if !validContentDigest(content.Digest) {
-		return "", ErrBlocked
+		return "", model.ErrBlocked
 	}
 	if content.Format == "" || content.CoreID == "" || content.ProviderID == "" || content.TargetID == "" ||
 		!validContentDigest(content.BundleSHA256) ||
 		content.Format == "RETROM_DOS_DIRECT_ZIP_V1" && content.CoreID != "dosbox_pure" {
-		return "", ErrBlocked
+		return "", model.ErrBlocked
 	}
 	digestInput := "RETROM_RUNTIME_GAME_V3\x00" + content.Format + "\x00" + content.ProviderID + "\x00" +
 		content.TargetID + "\x00" + content.BundleSHA256 + "\x00" + content.Digest + "\x00" +
@@ -31,18 +32,18 @@ func ContentIdentity(content ContentView) (string, error) {
 
 func ExternalContentIdentity(digest string) (string, error) {
 	if !validContentDigest(digest) {
-		return "", ErrBlocked
+		return "", model.ErrBlocked
 	}
 	derived := sha256.Sum256([]byte("RETROM_RUNTIME_EXTERNAL_V1\x00" + digest))
 	return hex.EncodeToString(derived[:]), nil
 }
 
-func BundleIdentity(files []BundleFile) (string, error) {
+func BundleIdentity(files []model.BundleFile) (string, error) {
 	if len(files) == 0 {
-		return "", ErrBlocked
+		return "", model.ErrBlocked
 	}
 	ordered := slices.Clone(files)
-	slices.SortFunc(ordered, func(left, right BundleFile) int {
+	slices.SortFunc(ordered, func(left, right model.BundleFile) int {
 		return strings.Compare(left.LogicalName, right.LogicalName)
 	})
 	digest := sha256.New()
@@ -51,10 +52,10 @@ func BundleIdentity(files []BundleFile) (string, error) {
 	for _, file := range ordered {
 		if !validRuntimeLogicalName(file.LogicalName) ||
 			!validContentDigest(file.SHA256) {
-			return "", ErrBlocked
+			return "", model.ErrBlocked
 		}
 		if previousName == file.LogicalName {
-			return "", ErrBlocked
+			return "", model.ErrBlocked
 		}
 		_, _ = fmt.Fprintf(digest, "%d\x00%s\x00%s\x00", len(file.LogicalName), file.LogicalName, file.SHA256)
 		previousName = file.LogicalName
@@ -64,7 +65,7 @@ func BundleIdentity(files []BundleFile) (string, error) {
 
 func RuntimeContentURL(kind, identity, logicalName string) (string, error) {
 	if !validRuntimeContentKind(kind) || !validContentDigest(identity) || !validRuntimeLogicalName(logicalName) {
-		return "", ErrBlocked
+		return "", model.ErrBlocked
 	}
 	return RuntimeContentPath + kind + "/" + identity + "/" + url.PathEscape(logicalName), nil
 }

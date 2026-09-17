@@ -1,10 +1,13 @@
 package emulationstationimport
 
-import library "retrom/internal/service/libraryimport"
+import (
+	model "retrom/internal/model/emulationstationimport"
+	library "retrom/internal/model/libraryimport"
+)
 
 // ReviewPreparation returns the domain transitions required to complete a reserved review.
 // The caller supplies its own transactional ownership check before applying these transitions.
-func ReviewPreparation(review ExecutionReview) ([]string, error) {
+func ReviewPreparation(review model.ExecutionReview) ([]string, error) {
 	return reviewPreparation(review)
 }
 

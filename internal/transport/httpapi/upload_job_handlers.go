@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"retrom/internal/service/jobs"
-	"retrom/internal/service/uploads"
+	"retrom/internal/model/jobs"
+	"retrom/internal/model/uploads"
 )
 
 func (server *Server) createUpload(writer http.ResponseWriter, request *http.Request) {

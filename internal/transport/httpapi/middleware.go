@@ -12,7 +12,7 @@ import (
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
+	"retrom/internal/model/accounts"
 )
 
 // One boundary applies readiness, origin, authentication, role, and CSRF in fixed order.

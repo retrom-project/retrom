@@ -3,40 +3,41 @@ package netplay
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/netplay"
 	"testing"
 	"time"
 )
 
 type roomCreationMemory struct {
-	capacity                             RoomCapacity
-	plan                                 RoomCreationPlan
+	capacity                             model.RoomCapacity
+	plan                                 model.RoomCreationPlan
 	failure, commitFailure, writeFailure error
 	inserts                              int
 }
 
-func (memory *roomCreationMemory) WithCreate(_ context.Context, work func(RoomCreationWriter) error) error {
+func (memory *roomCreationMemory) WithCreate(_ context.Context, work func(model.RoomCreationWriter) error) error {
 	if err := work(memory); err != nil {
 		return err
 	}
 	return memory.commitFailure
 }
 
-func (memory *roomCreationMemory) Capacity(context.Context, string) (RoomCapacity, error) {
+func (memory *roomCreationMemory) Capacity(context.Context, string) (model.RoomCapacity, error) {
 	return memory.capacity, memory.failure
 }
 
-func (memory *roomCreationMemory) Insert(_ context.Context, plan RoomCreationPlan) (Room, error) {
+func (memory *roomCreationMemory) Insert(_ context.Context, plan model.RoomCreationPlan) (model.Room, error) {
 	memory.inserts++
 	memory.plan = plan
-	return Room{RoomID: plan.RoomID, State: RoomStateDraft, Version: 1, ExpiresAtMS: plan.ExpiresAtMS, Members: []RoomMember{{MemberID: plan.MemberID, ProfileID: plan.HostID, Role: "HOST", PlayerNo: 1}}}, memory.writeFailure
+	return model.Room{RoomID: plan.RoomID, State: model.RoomStateDraft, Version: 1, ExpiresAtMS: plan.ExpiresAtMS, Members: []model.RoomMember{{MemberID: plan.MemberID, ProfileID: plan.HostID, Role: "HOST", PlayerNo: 1}}}, memory.writeFailure
 }
 
 func TestRoomCreationRejectsCapacityAndDuplicateHostWithoutWrites(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		capacity RoomCapacity
+		capacity model.RoomCapacity
 		want     error
-	}{{RoomCapacity{Active: 16}, ErrCapacity}, {RoomCapacity{Active: 1, HostActive: true}, ErrRoomConflict}} {
+	}{{model.RoomCapacity{Active: 16}, model.ErrCapacity}, {model.RoomCapacity{Active: 1, HostActive: true}, model.ErrRoomConflict}} {
 		memory := &roomCreationMemory{capacity: test.capacity}
 		_, err := NewRoomCreation(memory, 16, time.Hour, time.Now).Create(t.Context(), "host")
 		if !errors.Is(err, test.want) || memory.inserts != 0 {

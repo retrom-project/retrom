@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
+	"retrom/internal/testkit/testsupport"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testkit/testsupport"
 )
 
 func TestCompletionSQLAndAffectedFailuresRollback(t *testing.T) {
@@ -50,9 +50,9 @@ type completionLateFailure struct {
 
 func (repository completionLateFailure) WithCompletion(
 	ctx context.Context,
-	run func(application.CompletionScope) error,
+	run func(emulationstationimportmodel.CompletionScope) error,
 ) error {
-	return repository.Completion.WithCompletion(ctx, func(scope application.CompletionScope) error {
+	return repository.Completion.WithCompletion(ctx, func(scope emulationstationimportmodel.CompletionScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func TestCompletionCallbackAndCommitFailuresRollback(t *testing.T) {
 			t.Parallel()
 			db, unit := completionDatabase(t)
 			before := planRows(t, db)
-			service := application.NewCompletion(
+			service := emulationstationimportservice.NewCompletion(
 				completionLateFailure{Completion: NewCompletion(db), commit: commit},
 				func() time.Time { return time.UnixMilli(1100) },
 			)

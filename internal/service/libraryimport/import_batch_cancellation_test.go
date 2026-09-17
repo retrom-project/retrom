@@ -3,29 +3,30 @@ package libraryimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"strings"
 	"testing"
 	"time"
 )
 
 type importBatchCancellationFixture struct {
-	result  ImportBatchCancellationResult
+	result  model.ImportBatchCancellationResult
 	err     error
-	request ImportBatchCancellationRequest
+	request model.ImportBatchCancellationRequest
 	now     int64
 	calls   int
 }
 
 func (fixture *importBatchCancellationFixture) Cancel(
-	_ context.Context, request ImportBatchCancellationRequest, now int64,
-) (ImportBatchCancellationResult, error) {
+	_ context.Context, request model.ImportBatchCancellationRequest, now int64,
+) (model.ImportBatchCancellationResult, error) {
 	fixture.calls++
 	fixture.request, fixture.now = request, now
 	return fixture.result, fixture.err
 }
 
 func TestImportBatchCancellationValidatesBeforeRepository(t *testing.T) {
-	requests := []ImportBatchCancellationRequest{
+	requests := []model.ImportBatchCancellationRequest{
 		{},
 		{ImportID: "import"},
 		{ImportID: "import", ExpectedVersion: 1},
@@ -34,18 +35,18 @@ func TestImportBatchCancellationValidatesBeforeRepository(t *testing.T) {
 	for _, request := range requests {
 		fixture := &importBatchCancellationFixture{}
 		_, err := NewImportBatchCancellations(fixture, func() time.Time { return time.UnixMilli(5) }).Cancel(t.Context(), request)
-		if !errors.Is(err, ErrInvalid) || fixture.calls != 0 {
+		if !errors.Is(err, model.ErrInvalid) || fixture.calls != 0 {
 			t.Fatalf("request=%+v error=%v calls=%d", request, err, fixture.calls)
 		}
 	}
 }
 
 func TestImportBatchCancellationNormalizesAndPassesAtomicRequest(t *testing.T) {
-	fixture := &importBatchCancellationFixture{result: ImportBatchCancellationResult{
+	fixture := &importBatchCancellationFixture{result: model.ImportBatchCancellationResult{
 		ImportID: "import", GroupJobID: "group-job", State: "CANCEL_REQUESTED", Version: 4, Pending: true,
 	}}
 	result, err := NewImportBatchCancellations(fixture, func() time.Time { return time.UnixMilli(88) }).Cancel(
-		t.Context(), ImportBatchCancellationRequest{ImportID: "import", ExpectedVersion: 3, Reason: "  stop  ", PreserveReviews: true},
+		t.Context(), model.ImportBatchCancellationRequest{ImportID: "import", ExpectedVersion: 3, Reason: "  stop  ", PreserveReviews: true},
 	)
 	if err != nil || result != fixture.result {
 		t.Fatalf("result=%+v error=%v", result, err)
@@ -59,7 +60,7 @@ func TestImportBatchCancellationPreservesRepositoryError(t *testing.T) {
 	cause := errors.New("cancel database unavailable")
 	fixture := &importBatchCancellationFixture{err: cause}
 	_, err := NewImportBatchCancellations(fixture, func() time.Time { return time.UnixMilli(1) }).Cancel(
-		t.Context(), ImportBatchCancellationRequest{ImportID: "import", ExpectedVersion: 1, Reason: "stop"},
+		t.Context(), model.ImportBatchCancellationRequest{ImportID: "import", ExpectedVersion: 1, Reason: "stop"},
 	)
 	if !errors.Is(err, cause) {
 		t.Fatalf("error=%v", err)

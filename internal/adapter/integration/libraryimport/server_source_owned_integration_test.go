@@ -10,10 +10,11 @@ import (
 
 	payloadcomposition "retrom/internal/bootstrap/composition/payloadrelease"
 
+	application "retrom/internal/model/libraryimport"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/libraryimport"
-	payloadservice "retrom/internal/service/payloadrelease"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 )
 
 func TestOwnedServerSourceCommitsUniquePrimaryAndPermanentBinding(t *testing.T) {
@@ -158,7 +159,7 @@ func finishOwnedDuplicateFixture(t *testing.T, fixture deduplicateFixture, gameI
 	if _, err := tx.ExecContext(fixture.ctx, `UPDATE pegasus_import_items SET execution_state='SKIPPED_EXISTING',existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='unlinked-source'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadservice.Scope{Type: payloadservice.ScopePegasusImportItem, ID: "unlinked-source"}, ownedSourceNow().UnixMilli()); err != nil {
+	if _, err := payloadreleaseservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadreleasemodel.Scope{Type: payloadreleasemodel.ScopePegasusImportItem, ID: "unlinked-source"}, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

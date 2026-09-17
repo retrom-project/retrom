@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 )
 
 type releaseEffectWaiter struct{ service *Service }

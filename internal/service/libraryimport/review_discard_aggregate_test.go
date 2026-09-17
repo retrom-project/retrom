@@ -3,9 +3,10 @@ package libraryimport
 import (
 	"errors"
 	"math"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 
-	"retrom/internal/service/importprogress"
+	"retrom/internal/model/importprogress"
 )
 
 func TestReviewDiscardProjectsParentFromSameSnapshot(t *testing.T) {
@@ -32,20 +33,20 @@ func TestReviewDiscardRejectsUnusableParentBeforeWrites(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name   string
-		change func(*ReviewDiscardAggregate)
+		change func(*model.ReviewDiscardAggregate)
 		cause  error
 	}{
-		{"missing version", func(a *ReviewDiscardAggregate) { a.Version = 0 }, ErrInvalid},
-		{"overflow", func(a *ReviewDiscardAggregate) { a.Version = math.MaxInt64 }, ErrInvalid},
-		{"no pending", func(a *ReviewDiscardAggregate) { a.Progress.Counts.ReviewPending = 0 }, ErrInvalid},
-		{"invalid failed count", func(a *ReviewDiscardAggregate) { a.Progress.Counts.Failed = -1 }, importprogress.ErrInvalid},
+		{"missing version", func(a *model.ReviewDiscardAggregate) { a.Version = 0 }, model.ErrInvalid},
+		{"overflow", func(a *model.ReviewDiscardAggregate) { a.Version = math.MaxInt64 }, model.ErrInvalid},
+		{"no pending", func(a *model.ReviewDiscardAggregate) { a.Progress.Counts.ReviewPending = 0 }, model.ErrInvalid},
+		{"invalid failed count", func(a *model.ReviewDiscardAggregate) { a.Progress.Counts.Failed = -1 }, importprogress.ErrInvalid},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			fixture := newDiscardFixture()
 			test.change(&fixture.snapshot.Aggregate)
 			result, err := discardService(fixture).Discard(t.Context(), discardRequest())
-			if !errors.Is(err, test.cause) || result != (ReviewDecisionResult{}) || len(fixture.steps) != 0 {
+			if !errors.Is(err, test.cause) || result != (model.ReviewDecisionResult{}) || len(fixture.steps) != 0 {
 				t.Fatalf("invalid parent reached writes: result=%+v err=%v steps=%v", result, err, fixture.steps)
 			}
 		})

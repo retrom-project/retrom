@@ -2,12 +2,13 @@ package serverimport_test
 
 import (
 	"database/sql"
+	model "retrom/internal/model/serverimport"
 	"testing"
 )
 
 func TestWorkerCannotCompleteImportWithUnfinishedItems(t *testing.T) {
 	service, database, _ := archiveImportFixture(t)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +43,7 @@ func TestExpiredWorkerCannotWriteProgressIntoNewExecution(t *testing.T) {
 func replacementWorkerFixture(t *testing.T) (*Service, *sql.DB, work, work) {
 	t.Helper()
 	service, database, _ := archiveImportFixture(t)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +110,7 @@ func TestReclaimedWorkerCannotInstallPersistedCandidate(t *testing.T) {
 type workerCandidateFixture struct {
 	service  *Service
 	database *sql.DB
-	created  Summary
+	created  model.Summary
 	unit     work
 	selected *evaluatedCandidate
 }
@@ -118,7 +119,7 @@ func persistedWorkerCandidate(t *testing.T) workerCandidateFixture {
 	t.Helper()
 	service, database, rootPath := archiveImportFixture(t)
 	writeArchiveCandidate(t, rootPath, true)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}

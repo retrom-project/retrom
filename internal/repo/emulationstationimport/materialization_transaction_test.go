@@ -3,16 +3,16 @@ package emulationstationimport
 import (
 	"database/sql"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"strings"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func materialDatabase(
 	t *testing.T,
-) (*sql.DB, application.Execution, application.MaterialSource, application.VerifiedBlob) {
+) (*sql.DB, emulationstationimportmodel.Execution, emulationstationimportmodel.MaterialSource, emulationstationimportmodel.VerifiedBlob) {
 	t.Helper()
 	db, unit := itemWorkDatabase(t)
 	item, found, err := itemWorkService(db).Next(t.Context(), unit)
@@ -27,13 +27,13 @@ func materialDatabase(
 	); err != nil {
 		t.Fatal(err)
 	}
-	source := application.MaterialSource{
-		Key:   application.MaterialKey{ItemID: item.ID},
+	source := emulationstationimportmodel.MaterialSource{
+		Key:   emulationstationimportmodel.MaterialKey{ItemID: item.ID},
 		Path:  "item.gba",
 		Size:  1,
 		Facts: planDigest,
 	}
-	blob := application.VerifiedBlob{
+	blob := emulationstationimportmodel.VerifiedBlob{
 		SHA256: strings.Repeat("c", 64),
 		MD5:    strings.Repeat("c", 32),
 		SHA1:   strings.Repeat("c", 40),
@@ -43,7 +43,7 @@ func materialDatabase(
 	return db, unit, source, blob
 }
 
-func materialAsset(source application.MaterialSource) application.MaterialSource {
+func materialAsset(source emulationstationimportmodel.MaterialSource) emulationstationimportmodel.MaterialSource {
 	source.Key.Kind = "COVER"
 	source.Path = "cover.png"
 	source.MediaType = "image/png"
@@ -53,8 +53,8 @@ func materialAsset(source application.MaterialSource) application.MaterialSource
 	return source
 }
 
-func materialService(db *sql.DB) *application.Materialization {
-	return application.NewMaterialization(NewMaterialization(db), func() time.Time { return time.UnixMilli(1100) })
+func materialService(db *sql.DB) *emulationstationimportservice.Materialization {
+	return emulationstationimportservice.NewMaterialization(NewMaterialization(db), func() time.Time { return time.UnixMilli(1100) })
 }
 
 func TestMaterializationPersistsFrozenBindingAndReplay(t *testing.T) {

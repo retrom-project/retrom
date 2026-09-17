@@ -3,23 +3,24 @@ package emulationstationimport
 import (
 	"context"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dberrors"
 	persistence "retrom/internal/repo/emulationstationimport"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 type importExecutorAdapter struct{ service *Service }
 
-func (service *Service) importExecutor() *application.ImportExecutor {
+func (service *Service) importExecutor() *emulationstationimportservice.ImportExecutor {
 	adapter := importExecutorAdapter{service: service}
-	return application.NewImportExecutor(
-		application.ImportExecutorDependencies{
+	return emulationstationimportservice.NewImportExecutor(
+		emulationstationimportservice.ImportExecutorDependencies{
 			Items:       service.itemWork(),
 			Materials:   service.materialization(),
 			Sources:     adapter,
 			Reviews:     service.reviewPreparer(),
 			Control:     service.executionControl(),
-			Completion:  application.NewCompletion(persistence.NewCompletion(service.database), service.now),
+			Completion:  emulationstationimportservice.NewCompletion(persistence.NewCompletion(service.database), service.now),
 			Diagnostics: adapter,
 		},
 	)
@@ -29,7 +30,7 @@ func (adapter importExecutorAdapter) CopyFile(
 	ctx context.Context,
 	unit work,
 	file executionFile,
-) (application.VerifiedBlob, error) {
+) (emulationstationimportmodel.VerifiedBlob, error) {
 	return adapter.service.sources().CopyFile(ctx, unit, file)
 }
 
@@ -37,7 +38,7 @@ func (adapter importExecutorAdapter) CopyAsset(
 	ctx context.Context,
 	unit work,
 	asset executionAsset,
-) (application.VerifiedBlob, bool, error) {
+) (emulationstationimportmodel.VerifiedBlob, bool, error) {
 	return adapter.service.sources().CopyAsset(ctx, unit, asset)
 }
 

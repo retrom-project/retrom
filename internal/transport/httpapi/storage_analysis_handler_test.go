@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
+	"retrom/internal/model/accounts"
 	"retrom/internal/testkit/testassert"
 )
 

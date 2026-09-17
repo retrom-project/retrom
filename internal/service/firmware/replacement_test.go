@@ -3,6 +3,7 @@ package firmware
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/firmware"
 	"testing"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -21,7 +22,7 @@ func TestServerReplacementPreservesEqualQualityAndMissingEvidence(t *testing.T) 
 		{"equal quality", "new", "SKIPPED_NOT_BETTER", "", true, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			request := ServerInstallRequest{
+			request := model.ServerInstallRequest{
 				SourceKind: "STATIC", ReplaceIfBetter: test.replace,
 				Metadata: blobstore.Metadata{SHA256: test.digest}, Status: "MATCHED",
 			}
@@ -30,7 +31,7 @@ func TestServerReplacementPreservesEqualQualityAndMissingEvidence(t *testing.T) 
 				candidate := firmware.EvaluateStatic(expectation, firmware.FileFacts{Basename: "bios.bin", SizeBytes: 10})
 				request.StaticExpectation, request.StaticEvaluation = &expectation, &candidate
 			}
-			active := ActiveInstallation{
+			active := model.ActiveInstallation{
 				ID: "active", SHA256: "old", Status: "MATCHED", ValidatedVersion: 1,
 				Filename: "bios.bin", Size: 10,
 			}
@@ -44,8 +45,8 @@ func TestServerReplacementPreservesEqualQualityAndMissingEvidence(t *testing.T) 
 }
 
 func TestServerReplacementRefreshesChangedValidationForSameBytes(t *testing.T) {
-	request := ServerInstallRequest{ReplaceIfBetter: true, Metadata: blobstore.Metadata{SHA256: "same"}, Status: "MATCHED"}
-	active := ActiveInstallation{ID: "active", SHA256: "same", ValidatedVersion: 1, Status: "MATCHED"}
+	request := model.ServerInstallRequest{ReplaceIfBetter: true, Metadata: blobstore.Metadata{SHA256: "same"}, Status: "MATCHED"}
+	active := model.ActiveInstallation{ID: "active", SHA256: "same", ValidatedVersion: 1, Status: "MATCHED"}
 	result, handled, err := evaluateExistingInstallation(t.Context(), nil, request, 2, active, true)
 	if err != nil || handled || result.PreviousInstallationID != "active" {
 		t.Fatalf("stale validation retained: %+v handled=%v error=%v", result, handled, err)
@@ -54,7 +55,7 @@ func TestServerReplacementRefreshesChangedValidationForSameBytes(t *testing.T) {
 
 func TestReplacementArchiveReadPreservesFailure(t *testing.T) {
 	failure := errors.New("archive records unavailable")
-	request := ServerInstallRequest{
+	request := model.ServerInstallRequest{
 		SourceKind: "DAT_MACHINE", DATEvaluation: &firmware.DATEvaluation{},
 		DATExpectedEntries: []firmware.ExpectedDATEntry{{Name: "bios.bin"}},
 	}

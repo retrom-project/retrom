@@ -2,21 +2,21 @@ package libraryimport
 
 import (
 	"context"
-
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
-func archiveReason(err error) string { return application.ArchiveReason(err) }
+func archiveReason(err error) string { return libraryimportservice.ArchiveReason(err) }
 func dosProgram(path string) (string, bool) {
-	return application.DOSProgram(path)
+	return libraryimportservice.DOSProgram(path)
 }
 
 func rankDOSEntries(entries []preparedDOSEntry) {
-	application.RankDOSEntries(entries)
+	libraryimportservice.RankDOSEntries(entries)
 }
 
 func directDOSPathSafe(path string) bool {
-	return application.DirectDOSPathSafe(path)
+	return libraryimportservice.DirectDOSPathSafe(path)
 }
 
 func (service *Service) prepareDOSFiles(
@@ -28,14 +28,14 @@ func (service *Service) prepareDOSFiles(
 }
 
 var (
-	ErrInvalid                        = application.ErrInvalid
-	ErrVersionConflict                = application.ErrVersionConflict
-	ErrReimportRequiredPlatformChange = application.ErrReimportRequiredPlatformChange
-	ErrMultiDiscModeUnavailable       = application.ErrMultiDiscModeUnavailable
-	ErrMultiDiscPlaylistMissing       = application.ErrMultiDiscPlaylistMissing
+	ErrInvalid                        = libraryimportmodel.ErrInvalid
+	ErrVersionConflict                = libraryimportmodel.ErrVersionConflict
+	ErrReimportRequiredPlatformChange = libraryimportmodel.ErrReimportRequiredPlatformChange
+	ErrMultiDiscModeUnavailable       = libraryimportmodel.ErrMultiDiscModeUnavailable
+	ErrMultiDiscPlaylistMissing       = libraryimportmodel.ErrMultiDiscPlaylistMissing
 )
 
-type CreateRequest = application.ImportRequest
+type CreateRequest = libraryimportmodel.ImportRequest
 
 type ReconfigureRequest struct {
 	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`
@@ -43,7 +43,7 @@ type ReconfigureRequest struct {
 	TagIDs                   []string `json:"tagIds"`
 }
 
-type Created = application.ServerCreated
+type Created = libraryimportmodel.ServerCreated
 
 type initialImportProgress struct {
 	state              string
@@ -74,19 +74,19 @@ func newInitialImportProgress(metadataProvider string, itemCount, rejectedFileCo
 	}
 }
 
-type importSourceFile = application.ImportFile
+type importSourceFile = libraryimportmodel.ImportFile
 
-type preparedDisposition = application.PreparedDisposition
+type preparedDisposition = libraryimportmodel.PreparedDisposition
 
-type preparedSource = application.PreparedSource
+type preparedSource = libraryimportmodel.PreparedSource
 
-type preparedArchive = application.PreparedArchive
+type preparedArchive = libraryimportmodel.PreparedArchive
 
-type preparedGroup = application.PreparedGroup
+type preparedGroup = libraryimportmodel.PreparedGroup
 
-type preparedValidationFile = application.PreparedValidationFile
+type preparedValidationFile = libraryimportmodel.PreparedValidationFile
 
-type preparedDOSEntry = application.PreparedDOSEntry
+type preparedDOSEntry = libraryimportmodel.PreparedDOSEntry
 
 type reconfigurationInput struct {
 	sourceImportJobID string
@@ -94,6 +94,6 @@ type reconfigurationInput struct {
 	sourceFileIDs     []string
 }
 
-type reusableUploadFile = application.PreparedReusableUploadFile
+type reusableUploadFile = libraryimportmodel.PreparedReusableUploadFile
 
-const maxDOSBatchInspectionBytes = application.MaxDOSBatchInspectionBytes
+const maxDOSBatchInspectionBytes = libraryimportservice.MaxDOSBatchInspectionBytes

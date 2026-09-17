@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func (service *Service) persistScanHeaders(ctx context.Context, unit work, value scanResult) error {
-	if err := service.scanPublication().Headers(ctx, unit, application.ScanProjection(value)); err != nil {
+	if err := service.scanPublication().Headers(ctx, unit, emulationstationimportmodel.ScanProjection(value)); err != nil {
 		return fmt.Errorf("persist EmulationStation scan headers: %w", err)
 	}
 	return nil
@@ -23,7 +23,7 @@ func (service *Service) persistScanItems(ctx context.Context, unit work, items [
 }
 
 func (service *Service) finishScan(ctx context.Context, unit work, value scanResult) error {
-	if err := service.scanPublication().Finish(ctx, unit, application.ScanProjection(value)); err != nil {
+	if err := service.scanPublication().Finish(ctx, unit, emulationstationimportmodel.ScanProjection(value)); err != nil {
 		return fmt.Errorf("finish EmulationStation scan: %w", err)
 	}
 	return nil
@@ -39,6 +39,6 @@ func (service *Service) fail(ctx context.Context, unit work, retryable bool) {
 	service.executionDispatcher().Failed(
 		ctx,
 		unit,
-		&application.ExecutionError{Failure: application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: retryable}, Cause: errors.New("INTERNAL_ERROR")},
+		&emulationstationimportservice.ExecutionError{Failure: emulationstationimportmodel.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: retryable}, Cause: errors.New("INTERNAL_ERROR")},
 	)
 }

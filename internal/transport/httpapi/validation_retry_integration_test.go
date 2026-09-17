@@ -21,6 +21,7 @@ import (
 	"retrom/internal/adapter/runtime/launch"
 	launchcomposition "retrom/internal/bootstrap/composition/launch"
 	"retrom/internal/foundation/cleanup"
+	launchmodel "retrom/internal/model/launch"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	jobpersistence "retrom/internal/repo/jobs"
 	launchpersistence "retrom/internal/repo/launch"
@@ -76,7 +77,7 @@ func seedValidationRetry(t *testing.T, fixture validationRetryFixture) string {
 	validationRetrySQL(t, database, `INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','worker.gbc','01980000-0000-7000-8000-000000000193',0)`, gameID)
 	validationRetrySQL(t, database, `INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,status,compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms)
  SELECT ?,?,'gambatte',provider_id,target_id,'BLOCKED','VALIDATION_PENDING','{}',1,?,? FROM runtime_target_bindings WHERE core_id='gambatte' LIMIT 1`, variantID, gameID, now, now)
-	provisional := launchservice.ValidationInputs{GameID: gameID, GameVariantID: variantID}
+	provisional := launchmodel.ValidationInputs{GameID: gameID, GameVariantID: variantID}
 	facts, err := launchpersistence.NewValidationWorker(database).Facts(t.Context(), provisional)
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +90,7 @@ func seedValidationRetry(t *testing.T, fixture validationRetryFixture) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	queued, err := launchservice.NewValidationScheduler(launchpersistence.NewValidationJobs(transaction), launchservice.ValidationEnvironment{Now: fixture.now}).Queue(t.Context(), inputs)
+	queued, err := launchservice.NewValidationScheduler(launchpersistence.NewValidationJobs(transaction), launchmodel.ValidationEnvironment{Now: fixture.now}).Queue(t.Context(), inputs)
 	if err != nil {
 		_ = transaction.Rollback()
 		t.Fatal(err)

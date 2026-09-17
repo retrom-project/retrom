@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"strings"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func TestWorkflowRetryRechecksRealStorageAfterSourceIO(t *testing.T) {
@@ -18,13 +18,13 @@ func TestWorkflowRetryRechecksRealStorageAfterSourceIO(t *testing.T) {
 		name, statement string
 		want            error
 	}{
-		{"plan", `UPDATE emulationstation_imports SET version=version+1`, application.ErrNotRetryable},
-		{"job", `UPDATE jobs SET version=version+1 WHERE kind='SERVER_EMULATIONSTATION_IMPORT'`, application.ErrNotRetryable},
-		{"execution", `UPDATE jobs SET execution_no=execution_no+1 WHERE kind='SERVER_EMULATIONSTATION_IMPORT'`, application.ErrNotRetryable},
-		{"mapping", `UPDATE emulationstation_imports SET mapping_version=mapping_version+1`, application.ErrNotRetryable},
-		{"target", `UPDATE platform_instances SET version=version+1`, application.ErrMappingTargetChanged},
-		{"source", `UPDATE emulationstation_imports SET source_snapshot_digest='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'`, application.ErrSourceChanged},
-		{"year", `UPDATE emulationstation_imports SET release_year_max=release_year_max+1`, application.ErrSourceChanged},
+		{"plan", `UPDATE emulationstation_imports SET version=version+1`, emulationstationimportmodel.ErrNotRetryable},
+		{"job", `UPDATE jobs SET version=version+1 WHERE kind='SERVER_EMULATIONSTATION_IMPORT'`, emulationstationimportmodel.ErrNotRetryable},
+		{"execution", `UPDATE jobs SET execution_no=execution_no+1 WHERE kind='SERVER_EMULATIONSTATION_IMPORT'`, emulationstationimportmodel.ErrNotRetryable},
+		{"mapping", `UPDATE emulationstation_imports SET mapping_version=mapping_version+1`, emulationstationimportmodel.ErrNotRetryable},
+		{"target", `UPDATE platform_instances SET version=version+1`, emulationstationimportmodel.ErrMappingTargetChanged},
+		{"source", `UPDATE emulationstation_imports SET source_snapshot_digest='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'`, emulationstationimportmodel.ErrSourceChanged},
+		{"year", `UPDATE emulationstation_imports SET release_year_max=release_year_max+1`, emulationstationimportmodel.ErrSourceChanged},
 	} {
 		t.Run(change.name, func(t *testing.T) {
 			t.Parallel()
@@ -37,7 +37,7 @@ func TestWorkflowRetryRechecksRealStorageAfterSourceIO(t *testing.T) {
 				rows = planRows(t, db)
 				return nil
 			}}
-			result, err := application.NewWorkflowControl(NewWorkflowControl(db), source, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
+			result, err := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), source, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
 			if !errors.Is(err, change.want) || result.ID != "" {
 				t.Fatalf("%s result=%#v error=%v", change.name, result, err)
 			}
@@ -54,7 +54,7 @@ type concurrentWorkflowSource struct {
 	resume  <-chan struct{}
 }
 
-func (source concurrentWorkflowSource) VerifyGamelists(ctx context.Context, _, _ string, _ []application.GamelistEvidence) error {
+func (source concurrentWorkflowSource) VerifyGamelists(ctx context.Context, _, _ string, _ []emulationstationimportmodel.GamelistEvidence) error {
 	select {
 	case source.arrived <- struct{}{}:
 	case <-ctx.Done():
@@ -73,7 +73,7 @@ func TestWorkflowConcurrentRetriesCreateOnlyOneNewExecution(t *testing.T) {
 	db, before := workflowDatabase(t, true)
 	arrived, resume := make(chan struct{}, 2), make(chan struct{})
 	source := concurrentWorkflowSource{verifiedStartSource: verifiedStartSource{database: db}, arrived: arrived, resume: resume}
-	service := application.NewWorkflowControl(NewWorkflowControl(db), source, func() time.Time { return time.UnixMilli(12) })
+	service := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), source, func() time.Time { return time.UnixMilli(12) })
 	results := make(chan error, 2)
 	for range 2 {
 		go func() { _, err := service.Retry(t.Context(), before.ID, before.Version, mappingActor); results <- err }()
@@ -92,7 +92,7 @@ func TestWorkflowConcurrentRetriesCreateOnlyOneNewExecution(t *testing.T) {
 		switch {
 		case err == nil:
 			succeeded++
-		case errors.Is(err, application.ErrNotRetryable):
+		case errors.Is(err, emulationstationimportmodel.ErrNotRetryable):
 			conflicted++
 		default:
 			t.Fatalf("unexpected competing retry: %v", err)
@@ -121,7 +121,7 @@ func TestWorkflowRetryPreservesFrozenDeletedTagPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	tags, relations := planTable(t, db, "tags"), planTable(t, db, "emulationstation_collection_tags")
-	_, err := application.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
+	_, err := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ VALUES('EMULATIONSTATION',? ,?,'REQUESTED',12,12)`, before.ID, mappingActor); er
 		t.Fatal(err)
 	}
 	rows := planRows(t, db)
-	result, err := application.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
+	result, err := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
 	if result.ID != "" || err == nil || !strings.Contains(err.Error(), "IMPORT_BATCH_DISCARDED") {
 		t.Fatalf("discarded retry result=%#v error=%v", result, err)
 	}

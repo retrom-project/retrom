@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/model/metadatascrape"
 	jobpersistence "retrom/internal/repo/jobs"
 	"retrom/internal/service/jobs"
-	"retrom/internal/service/metadatascrape"
 
 	"retrom/internal/adapter/metadata/hasheous"
 )

@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 )
 
 func TestConcurrentPartReplaysCountBytesOnce(t *testing.T) {
@@ -51,7 +52,7 @@ func TestPartRechecksCancellationAfterStaging(t *testing.T) {
 	var release sync.Once
 	unblock := func() { release.Do(func() { close(gate.proceed) }) }
 	defer unblock()
-	uploader := uploads.New(gate, nil, t.TempDir(), func() time.Time { return time.UnixMilli(1000) })
+	uploader := uploadsservice.New(gate, nil, t.TempDir(), func() time.Time { return time.UnixMilli(1000) })
 	result := make(chan error, 1)
 	go func() {
 		result <- uploader.PutPart(t.Context(), session.ID, session.Files[0].ID, 0,
@@ -66,7 +67,7 @@ func TestPartRechecksCancellationAfterStaging(t *testing.T) {
 		t.Fatal(err)
 	}
 	unblock()
-	if err := <-result; !errors.Is(err, uploads.ErrInvalid) {
+	if err := <-result; !errors.Is(err, uploadsmodel.ErrInvalid) {
 		t.Fatalf("late part accepted after cancellation: %v", err)
 	}
 	assertNoPartProgress(t, database, session, "CANCELLED")
@@ -77,7 +78,7 @@ type partCommitGate struct {
 	staged, proceed chan struct{}
 }
 
-func (gate *partCommitGate) CommitWrite(ctx context.Context, work func(uploads.WriteScope) error) error {
+func (gate *partCommitGate) CommitWrite(ctx context.Context, work func(uploadsmodel.WriteScope) error) error {
 	close(gate.staged)
 	select {
 	case <-gate.proceed:

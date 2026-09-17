@@ -13,12 +13,13 @@ import (
 	"testing"
 
 	providerpersistence "retrom/internal/repo/runtimeprovider"
-	providerservice "retrom/internal/service/runtimeprovider"
+	runtimeproviderservice "retrom/internal/service/runtimeprovider"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -39,12 +40,12 @@ func TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves(t *tes
 	}
 	catalog := extensionDeclarations(t)
 	extendFixtureProvider(t, &active, manifests)
-	projection, err := providerservice.NewProjection(active, manifests, catalog)
+	projection, err := runtimeprovidermodel.NewProjection(active, manifests, catalog)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for range 2 {
-		if err := providerservice.New(providerpersistence.New(fixture.database.SQL)).Reconcile(fixture.ctx, projection, *fixture.now); err != nil {
+		if err := runtimeproviderservice.New(providerpersistence.New(fixture.database.SQL)).Reconcile(fixture.ctx, projection, *fixture.now); err != nil {
 			t.Fatal(err)
 		}
 	}

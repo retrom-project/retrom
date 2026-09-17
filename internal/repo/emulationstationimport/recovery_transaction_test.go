@@ -4,16 +4,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
 )
 
-func recoveryDatabase(t *testing.T, importing, staging bool) (*sql.DB, application.Execution) {
+func recoveryDatabase(t *testing.T, importing, staging bool) (*sql.DB, emulationstationimportmodel.Execution) {
 	t.Helper()
 	db, _ := leaseDatabase(t, importing)
-	unit, found, err := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
+	unit, found, err := emulationstationimportservice.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
 	if err != nil || !found {
 		t.Fatalf("claim=%v error=%v", found, err)
 	}
@@ -36,7 +36,7 @@ func TestRecoveryPreservesFrozenImportProgressAcrossRetry(t *testing.T) {
 	items := planTable(t, db, "emulationstation_import_items")
 	files := planTable(t, db, "emulationstation_import_item_files")
 	tags := planTable(t, db, "tags")
-	if err := application.NewRecovery(NewRecovery(db), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context()); err != nil {
+	if err := emulationstationimportservice.NewRecovery(NewRecovery(db), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	after := readLease(t, db, unit.JobID)
@@ -46,7 +46,7 @@ func TestRecoveryPreservesFrozenImportProgressAcrossRetry(t *testing.T) {
 	}
 	assertRecoveryEvent(t, db, unit.JobID, "RETRY_SCHEDULED", map[string]any{"schemaVersion": float64(1), "executionNo": float64(1), "attempt": float64(1), "retryAtMs": float64(2500), "errorCode": "EMULATIONSTATION_WORKER_LEASE_EXPIRED", "errorRetryable": true})
 	before := planRows(t, db)
-	if err := application.NewRecovery(NewRecovery(db), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context()); err != nil {
+	if err := emulationstationimportservice.NewRecovery(NewRecovery(db), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(before, planRows(t, db)) {
@@ -66,7 +66,7 @@ func TestRecoveryClearsUnpublishedScanOnRetryAndFailure(t *testing.T) {
 				}
 			}
 			inputs := planTable(t, db, "job_input_snapshots")
-			if err := application.NewRecovery(NewRecovery(db), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context()); err != nil {
+			if err := emulationstationimportservice.NewRecovery(NewRecovery(db), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context()); err != nil {
 				t.Fatal(err)
 			}
 			assertClearedScan(t, db, unit, terminal)
@@ -77,7 +77,7 @@ func TestRecoveryClearsUnpublishedScanOnRetryAndFailure(t *testing.T) {
 	}
 }
 
-func assertClearedScan(t *testing.T, db *sql.DB, unit application.Execution, terminal bool) {
+func assertClearedScan(t *testing.T, db *sql.DB, unit emulationstationimportmodel.Execution, terminal bool) {
 	t.Helper()
 	var state string
 	var count, payloads int64
@@ -122,7 +122,7 @@ func TestRecoveryTerminatesQueuedBudgetAndPreservesFinishedImportItems(t *testin
 	if _, err := db.ExecContext(t.Context(), `UPDATE emulationstation_imports SET state='QUEUED',phase=NULL WHERE id=?`, unit.ImportID); err != nil {
 		t.Fatal(err)
 	}
-	if err := application.NewRecovery(NewRecovery(db), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context()); err != nil {
+	if err := emulationstationimportservice.NewRecovery(NewRecovery(db), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	summary, err := NewQueries(db).Get(t.Context(), unit.ImportID)
@@ -139,7 +139,7 @@ func TestRecoveryTerminatesQueuedBudgetAndPreservesFinishedImportItems(t *testin
 	}
 }
 
-func assertQueuedRecovery(t *testing.T, after application.LeaseSnapshot, unit application.Execution) {
+func assertQueuedRecovery(t *testing.T, after emulationstationimportmodel.LeaseSnapshot, unit emulationstationimportmodel.Execution) {
 	t.Helper()
 	if after.JobState != "QUEUED" || after.ImportState != "QUEUED" || after.AvailableAtMS != 2500 || after.DeadlineAtMS != unit.DeadlineAtMS || after.Attempt != unit.Attempt || after.ReleaseYearMax != unit.ReleaseYearMax || after.WorkerID != "" {
 		t.Fatalf("recovered=%#v", after)

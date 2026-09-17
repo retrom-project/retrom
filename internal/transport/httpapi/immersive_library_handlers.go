@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/immersive"
+	"retrom/internal/model/immersive"
 )
 
 const immersiveLibraryGameOperationID = "getImmersiveLibraryGames"

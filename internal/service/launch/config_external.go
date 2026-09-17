@@ -2,23 +2,24 @@ package launch
 
 import (
 	"fmt"
+	model "retrom/internal/model/launch"
 	"strings"
 )
 
-func providerBundleIdentity(files []ConfigFile) (string, error) {
+func providerBundleIdentity(files []model.ConfigFile) (string, error) {
 	if len(files) == 0 {
 		return "", errConfigInputMissing
 	}
-	members := make([]BundleFile, 0, len(files))
+	members := make([]model.BundleFile, 0, len(files))
 	for _, file := range files {
-		members = append(members, BundleFile{LogicalName: file.LogicalName, SHA256: file.Digest})
+		members = append(members, model.BundleFile{LogicalName: file.LogicalName, SHA256: file.Digest})
 	}
 	return BundleIdentity(members)
 }
 
-func providerBundleResource(files []ConfigFile, kind string) (map[string]any, error) {
+func providerBundleResource(files []model.ConfigFile, kind string) (map[string]any, error) {
 	if kind != "BIOS_BUNDLE" {
-		return nil, ErrCredential
+		return nil, model.ErrCredential
 	}
 	identity, err := providerBundleIdentity(files)
 	if err != nil {
@@ -34,9 +35,9 @@ func providerBundleResource(files []ConfigFile, kind string) (map[string]any, er
 	}}}, nil
 }
 
-func providerParentResource(files []ConfigFile, kind string) (map[string]any, error) {
+func providerParentResource(files []model.ConfigFile, kind string) (map[string]any, error) {
 	if kind != "PARENT_ARCHIVE" {
-		return nil, ErrCredential
+		return nil, model.ErrCredential
 	}
 	identity, err := providerBundleIdentity(files)
 	if err != nil {
@@ -51,9 +52,9 @@ func providerParentResource(files []ConfigFile, kind string) (map[string]any, er
 	}, nil
 }
 
-func providerExternalResource(files []ConfigFile, kind string) (map[string]any, error) {
+func providerExternalResource(files []model.ConfigFile, kind string) (map[string]any, error) {
 	if kind != "EXTERNAL_FILE_SET" {
-		return nil, ErrCredential
+		return nil, model.ErrCredential
 	}
 	if len(files) == 0 {
 		return nil, errConfigInputMissing
@@ -76,15 +77,15 @@ func providerExternalResource(files []ConfigFile, kind string) (map[string]any, 
 	return map[string]any{"kind": kind, "files": result}, nil
 }
 
-func providerDiscResource(files []ConfigFile, initial int64, kind string) (map[string]any, error) {
+func providerDiscResource(files []model.ConfigFile, initial int64, kind string) (map[string]any, error) {
 	if kind != "MULTI_DISC" {
-		return nil, ErrCredential
+		return nil, model.ErrCredential
 	}
 	if len(files) == 0 {
 		return nil, errConfigInputMissing
 	}
 	if len(files) < 2 || initial < 0 || initial >= int64(len(files)) {
-		return nil, ErrCredential
+		return nil, model.ErrCredential
 	}
 	entries := make([]map[string]any, 0, len(files))
 	for index, file := range files {

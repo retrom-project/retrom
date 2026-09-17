@@ -1,12 +1,15 @@
 package emulationstationimport
 
-import "time"
+import (
+	model "retrom/internal/model/emulationstationimport"
+	"time"
+)
 
 type Leases struct {
-	repository LeaseRepository
+	repository model.LeaseRepository
 	now        func() time.Time
 }
 
-func NewLeases(repository LeaseRepository, now func() time.Time) *Leases {
+func NewLeases(repository model.LeaseRepository, now func() time.Time) *Leases {
 	return &Leases{repository: repository, now: now}
 }

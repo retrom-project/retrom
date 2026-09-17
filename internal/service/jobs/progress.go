@@ -3,11 +3,12 @@ package jobs
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/jobs"
 )
 
-func (service *Service) Get(ctx context.Context, id string) (Snapshot, error) {
-	var snapshot Snapshot
-	err := service.repository.WithRead(ctx, func(records ReadRecords) error {
+func (service *Service) Get(ctx context.Context, id string) (model.Snapshot, error) {
+	var snapshot model.Snapshot
+	err := service.repository.WithRead(ctx, func(records model.ReadRecords) error {
 		var err error
 		snapshot, err = records.Detail(ctx, id)
 		if err != nil {
@@ -16,37 +17,37 @@ func (service *Service) Get(ctx context.Context, id string) (Snapshot, error) {
 		return nil
 	})
 	if err != nil {
-		return Snapshot{}, fmt.Errorf("read job detail: %w", err)
+		return model.Snapshot{}, fmt.Errorf("read job detail: %w", err)
 	}
 	return snapshot, nil
 }
 
-func (service *Service) JobStreamSnapshot(ctx context.Context, id string) (Snapshot, int64, error) {
-	return snapshotAtWatermark(ctx, service.repository, func(records ReadRecords) (Snapshot, error) {
+func (service *Service) JobStreamSnapshot(ctx context.Context, id string) (model.Snapshot, int64, error) {
+	return snapshotAtWatermark(ctx, service.repository, func(records model.ReadRecords) (model.Snapshot, error) {
 		snapshot, err := records.Detail(ctx, id)
 		if err != nil {
-			return Snapshot{}, fmt.Errorf("read job snapshot: %w", err)
+			return model.Snapshot{}, fmt.Errorf("read job snapshot: %w", err)
 		}
 		return snapshot, nil
 	})
 }
 
-func (service *Service) ImportStreamSnapshot(ctx context.Context, id string) (ImportProgress, int64, error) {
-	return snapshotAtWatermark(ctx, service.repository, func(records ReadRecords) (ImportProgress, error) {
+func (service *Service) ImportStreamSnapshot(ctx context.Context, id string) (model.ImportProgress, int64, error) {
+	return snapshotAtWatermark(ctx, service.repository, func(records model.ReadRecords) (model.ImportProgress, error) {
 		snapshot, err := records.ImportProgress(ctx, id)
 		if err != nil {
-			return ImportProgress{}, fmt.Errorf("read import snapshot: %w", err)
+			return model.ImportProgress{}, fmt.Errorf("read import snapshot: %w", err)
 		}
 		return snapshot, nil
 	})
 }
 
-func snapshotAtWatermark[T any](ctx context.Context, repository Repository,
-	read func(ReadRecords) (T, error),
+func snapshotAtWatermark[T any](ctx context.Context, repository model.Repository,
+	read func(model.ReadRecords) (T, error),
 ) (T, int64, error) {
 	var snapshot T
 	var maximum int64
-	err := repository.WithRead(ctx, func(records ReadRecords) error {
+	err := repository.WithRead(ctx, func(records model.ReadRecords) error {
 		var err error
 		snapshot, err = read(records)
 		if err != nil {
@@ -65,46 +66,46 @@ func snapshotAtWatermark[T any](ctx context.Context, repository Repository,
 	return snapshot, maximum, nil
 }
 
-func (service *Service) JobEvents(ctx context.Context, id string, after int64) (EventBatch, error) {
-	return service.readEventBatch(ctx, func(records ReadRecords) (EventBatch, error) {
+func (service *Service) JobEvents(ctx context.Context, id string, after int64) (model.EventBatch, error) {
+	return service.readEventBatch(ctx, func(records model.ReadRecords) (model.EventBatch, error) {
 		snapshot, err := records.Detail(ctx, id)
 		if err != nil {
-			return EventBatch{}, fmt.Errorf("read job state: %w", err)
+			return model.EventBatch{}, fmt.Errorf("read job state: %w", err)
 		}
-		events, err := records.JobEvents(ctx, EventQuery{ResourceID: id, After: after, Limit: EventBatchSize})
+		events, err := records.JobEvents(ctx, model.EventQuery{ResourceID: id, After: after, Limit: model.EventBatchSize})
 		return progressBatch(events, jobTerminal(snapshot.State), err)
 	})
 }
 
-func (service *Service) ImportEvents(ctx context.Context, id string, after int64) (EventBatch, error) {
-	return service.readEventBatch(ctx, func(records ReadRecords) (EventBatch, error) {
+func (service *Service) ImportEvents(ctx context.Context, id string, after int64) (model.EventBatch, error) {
+	return service.readEventBatch(ctx, func(records model.ReadRecords) (model.EventBatch, error) {
 		snapshot, err := records.ImportProgress(ctx, id)
 		if err != nil {
-			return EventBatch{}, fmt.Errorf("read import state: %w", err)
+			return model.EventBatch{}, fmt.Errorf("read import state: %w", err)
 		}
-		events, err := records.ImportEvents(ctx, EventQuery{ResourceID: id, After: after, Limit: EventBatchSize})
+		events, err := records.ImportEvents(ctx, model.EventQuery{ResourceID: id, After: after, Limit: model.EventBatchSize})
 		return progressBatch(events, importTerminal(snapshot.State), err)
 	})
 }
 
-func progressBatch(events []Event, terminal bool, err error) (EventBatch, error) {
+func progressBatch(events []model.Event, terminal bool, err error) (model.EventBatch, error) {
 	if err != nil {
-		return EventBatch{}, fmt.Errorf("read progress events: %w", err)
+		return model.EventBatch{}, fmt.Errorf("read progress events: %w", err)
 	}
-	return EventBatch{Events: events, Terminal: terminal && len(events) < EventBatchSize}, nil
+	return model.EventBatch{Events: events, Terminal: terminal && len(events) < model.EventBatchSize}, nil
 }
 
 func (service *Service) readEventBatch(ctx context.Context,
-	read func(ReadRecords) (EventBatch, error),
-) (EventBatch, error) {
-	var batch EventBatch
-	err := service.repository.WithRead(ctx, func(records ReadRecords) error {
+	read func(model.ReadRecords) (model.EventBatch, error),
+) (model.EventBatch, error) {
+	var batch model.EventBatch
+	err := service.repository.WithRead(ctx, func(records model.ReadRecords) error {
 		var err error
 		batch, err = read(records)
 		return err
 	})
 	if err != nil {
-		return EventBatch{}, fmt.Errorf("read event batch snapshot: %w", err)
+		return model.EventBatch{}, fmt.Errorf("read event batch snapshot: %w", err)
 	}
 	return batch, nil
 }

@@ -10,7 +10,7 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/format/pegasusmeta"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 func (source *Sources) VerifyMetadata(
