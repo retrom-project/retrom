@@ -13,7 +13,10 @@ func (service *Service) ContentBlob(ctx context.Context, launchID, capability, l
 	return content.Digest, err
 }
 
-func (service *Service) Content(ctx context.Context, launchID, capability, logicalName string) (model.ContentView, error) {
+func (service *Service) Content(
+	ctx context.Context,
+	launchID, capability, logicalName string,
+) (model.ContentView, error) {
 	result, err := service.dependencies.Content.Content(ctx, launchID, capability, logicalName)
 	if err != nil {
 		return result, fmt.Errorf("launch resource query: %w", err)
@@ -45,7 +48,10 @@ func (service *Service) RPGProjectContentAuthorized(
 	return result, nil
 }
 
-func (service *Service) External(ctx context.Context, launchID, capability, logicalName string) (model.ExternalView, error) {
+func (service *Service) External(
+	ctx context.Context,
+	launchID, capability, logicalName string,
+) (model.ExternalView, error) {
 	result, err := service.dependencies.Content.External(ctx, model.SessionRef{ID: launchID}, capability, logicalName)
 	if err != nil {
 		return result, fmt.Errorf("launch resource query: %w", err)
@@ -77,7 +83,10 @@ func (service *Service) MultiDiscTelemetryDimensions(
 	return result, nil
 }
 
-func (service *Service) BundleFiles(ctx context.Context, launchID, capability, kind string) ([]model.BundleFile, error) {
+func (service *Service) BundleFiles(
+	ctx context.Context,
+	launchID, capability, kind string,
+) ([]model.BundleFile, error) {
 	result, err := service.dependencies.Sessions.BundleFiles(ctx, model.SessionRef{ID: launchID}, capability, kind)
 	if err != nil {
 		return result, fmt.Errorf("launch resource query: %w", err)
@@ -179,7 +188,11 @@ func (service *Service) ProjectContentRoot(ctx context.Context, id, capability s
 	return RuntimeProjectContentRoot(identity)
 }
 
-func (service *Service) Create(ctx context.Context, profileID string, request model.CreateRequest) (model.Created, error) {
+func (service *Service) Create(
+	ctx context.Context,
+	profileID string,
+	request model.CreateRequest,
+) (model.Created, error) {
 	result, err := service.dependencies.Product.Create(
 		ctx,
 		model.ProductCreateCommand{ProfileID: profileID, Request: request},

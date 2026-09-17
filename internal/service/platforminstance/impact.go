@@ -103,7 +103,10 @@ func projectCoreImpact(instanceID, coreID string, facts model.CoreImpactFacts) m
 		default:
 			counts["needsValidation"]++
 		}
-		items = append(items, model.CoreImpactItem{GameID: game.GameID, Status: status, BlockerCode: game.TargetCompatibilityCode})
+		items = append(
+			items,
+			model.CoreImpactItem{GameID: game.GameID, Status: status, BlockerCode: game.TargetCompatibilityCode},
+		)
 	}
 	return model.CoreImpactResult{
 		Impact: model.CoreImpact{

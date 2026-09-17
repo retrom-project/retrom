@@ -10,6 +10,7 @@ import (
 	model "retrom/internal/model/importdiscard"
 )
 
+//nolint:unparam // id is always "source" in tests but the signature matches the repo-layer sibling
 func legacyOwner(ctx context.Context, ownership model.Ownership, id string) (string, error) {
 	candidates, err := ownership.LegacyCandidates(ctx, id)
 	if err != nil {

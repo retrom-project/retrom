@@ -105,7 +105,10 @@ func (service *Leases) Renew(ctx context.Context, unit model.Execution) (model.L
 		if now > math.MaxInt64-60000 {
 			return model.ErrInvalid
 		}
-		return scope.Write.Renew(ctx, model.RenewLease{Before: before, NowMS: now, UntilMS: min(now+60000, before.DeadlineAtMS)})
+		return scope.Write.Renew(
+			ctx,
+			model.RenewLease{Before: before, NowMS: now, UntilMS: min(now+60000, before.DeadlineAtMS)},
+		)
 	})
 	if err != nil {
 		return model.LeaseLost, fmt.Errorf("renew EmulationStation execution: %w", err)

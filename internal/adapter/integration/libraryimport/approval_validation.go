@@ -25,7 +25,9 @@ func prepareStaticBIOSDependencies(
 	groups []preparedGroup,
 ) error {
 	if err := libraryimportservice.PrepareCreationStaticBIOS(ctx, validationpersistence.New(transaction),
-		libraryimportmodel.ImportTarget{ProviderID: providerID, TargetID: targetID, PlatformID: platformID}, groups); err != nil {
+		libraryimportmodel.ImportTarget{
+			ProviderID: providerID, TargetID: targetID, PlatformID: platformID,
+		}, groups); err != nil {
 		return fmt.Errorf("prepare static BIOS: %w", err)
 	}
 	return nil

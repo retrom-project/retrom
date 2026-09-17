@@ -33,7 +33,10 @@ func (repository *WorkerRepository) Run(ctx context.Context, id string) (metadat
 	return run, nil
 }
 
-func (repository *WorkerRepository) CommitWrite(ctx context.Context, work func(metadatascrape.WorkerScope) error) error {
+func (repository *WorkerRepository) CommitWrite(
+	ctx context.Context,
+	work func(metadatascrape.WorkerScope) error,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin metadata execution: %w", err)

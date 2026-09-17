@@ -43,7 +43,11 @@ func (service *Service) DeleteAdminGame(
 }
 
 func (service *Service) deleteInScope(
-	ctx context.Context, scope model.WriteScope, request model.DeleteGameRequest, now int64, result *model.DeleteGameResult,
+	ctx context.Context,
+	scope model.WriteScope,
+	request model.DeleteGameRequest,
+	now int64,
+	result *model.DeleteGameResult,
 ) error {
 	if scope.GameDeletionReader == nil || scope.GameDeletionWriter == nil {
 		return model.ErrInvalid

@@ -49,7 +49,11 @@ func RetireInScope(
 	return impact, nil
 }
 
-func retirementChange(before model.RetirementOwner, gameID, selected string, now int64) (model.RetirementChange, bool, error) {
+func retirementChange(
+	before model.RetirementOwner,
+	gameID, selected string,
+	now int64,
+) (model.RetirementChange, bool, error) {
 	change := model.RetirementChange{
 		Before: before, GameID: gameID, State: before.State,
 		Reason: "GAME_CONTENT_REPLACED", Now: now,

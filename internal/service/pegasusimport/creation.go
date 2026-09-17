@@ -26,7 +26,11 @@ func NewCreation(
 	return &Creation{repository: repository, sources: sources, now: now}
 }
 
-func (service *Creation) Create(ctx context.Context, request model.CreateRequest, actorID string) (model.Summary, error) {
+func (service *Creation) Create(
+	ctx context.Context,
+	request model.CreateRequest,
+	actorID string,
+) (model.Summary, error) {
 	root, err := service.sources.Select(ctx, request.RootID, request.SourceRelativePath)
 	if err != nil {
 		return model.Summary{}, fmt.Errorf("select Pegasus source: %w", err)
@@ -56,7 +60,12 @@ func (service *Creation) Create(ctx context.Context, request model.CreateRequest
 	return result, nil
 }
 
-func newCreationPlan(request model.CreateRequest, root model.SelectedRoot, actorID string, now int64) (model.CreationPlan, error) {
+func newCreationPlan(
+	request model.CreateRequest,
+	root model.SelectedRoot,
+	actorID string,
+	now int64,
+) (model.CreationPlan, error) {
 	plan := model.CreationPlan{
 		Request:     request,
 		Root:        root,

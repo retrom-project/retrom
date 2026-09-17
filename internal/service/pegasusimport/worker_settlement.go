@@ -22,7 +22,11 @@ func NewWorkerSettlement(
 	return &WorkerSettlement{repository: repository, metadata: metadata, now: now}
 }
 
-func (service *WorkerSettlement) Fail(ctx context.Context, id model.ExecutionIdentity, failure model.ExecutionFailure) error {
+func (service *WorkerSettlement) Fail(
+	ctx context.Context,
+	id model.ExecutionIdentity,
+	failure model.ExecutionFailure,
+) error {
 	if failure.Code == "" {
 		return model.ErrInvalid
 	}

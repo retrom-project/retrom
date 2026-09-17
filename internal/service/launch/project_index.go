@@ -13,7 +13,11 @@ type ProjectIndexes struct {
 	policy     accessPolicy
 }
 
-func NewProjectIndexes(repository model.ProjectIndexReader, now func() time.Time, matches model.MatchCapability) *ProjectIndexes {
+func NewProjectIndexes(
+	repository model.ProjectIndexReader,
+	now func() time.Time,
+	matches model.MatchCapability,
+) *ProjectIndexes {
 	return &ProjectIndexes{repository: repository, policy: accessPolicy{now: now, matches: matches}}
 }
 
@@ -39,7 +43,11 @@ func (service *ProjectIndexes) Index(
 	return buildProjectIndex(snapshot)
 }
 
-func (service *ProjectIndexes) authorize(source model.ConfigSource, ref model.ProjectIndexReference, capability string) error {
+func (service *ProjectIndexes) authorize(
+	source model.ConfigSource,
+	ref model.ProjectIndexReference,
+	capability string,
+) error {
 	if source.State != "ACTIVE" || !validProjectAuthority(service.policy, source, capability) {
 		return model.ErrCredential
 	}

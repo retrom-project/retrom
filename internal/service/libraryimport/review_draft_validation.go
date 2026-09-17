@@ -288,7 +288,12 @@ func (state *draftValidationState) resolveDependencyState() (draftDependencyStat
 			return draftDependencyState{}, application.ErrInvalid
 		}
 		status, code := snapshot.Status()
-		return draftDependencyState{tracked: true, status: status, code: code, snapshotJSON: state.dependencySnapshot}, nil
+		return draftDependencyState{
+			tracked:      true,
+			status:       status,
+			code:         code,
+			snapshotJSON: state.dependencySnapshot,
+		}, nil
 	}
 	if state.contentKind == "RPG_MAKER_PROJECT" {
 		return state.resolveRPGDependencyState()
@@ -400,7 +405,8 @@ func (state *draftValidationState) newValidationPlan() (application.ReviewValida
 		PlatformInstanceVersion: state.platformVersion, CoreID: state.coreID,
 		ProviderID: state.providerID, TargetID: state.runtimeTargetID, DATVersionID: state.datID,
 		DefaultDOSEntry: state.dosEntry, SourceManifestDigest: state.effectiveManifestDigest,
-		SourceSnapshotID: state.effectiveSnapshotID, PrepublishInputDigest: application.PrepublishDigest(application.PrepublishDigestInput{
+		SourceSnapshotID: state.effectiveSnapshotID,
+		PrepublishInputDigest: application.PrepublishDigest(application.PrepublishDigestInput{
 			SchemaVersion: 1, SourceSnapshotID: state.effectiveSnapshotID,
 			SourceManifestDigest: state.effectiveManifestDigest, ContentKind: state.contentKind,
 			TargetPlatformInstanceID: state.targetID, ProviderID: state.providerID, TargetID: state.runtimeTargetID,

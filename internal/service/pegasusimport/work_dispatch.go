@@ -85,10 +85,20 @@ func (dispatcher *WorkDispatcher) fail(ctx context.Context, unit model.Work, cau
 			break
 		}
 	}
-	dispatcher.failWith(ctx, unit, cause, model.ExecutionFailure{Code: code, Retryable: errors.Is(cause, ErrRootUnavailable)})
+	dispatcher.failWith(
+		ctx,
+		unit,
+		cause,
+		model.ExecutionFailure{Code: code, Retryable: errors.Is(cause, ErrRootUnavailable)},
+	)
 }
 
-func (dispatcher *WorkDispatcher) failWith(ctx context.Context, unit model.Work, cause error, failure model.ExecutionFailure) {
+func (dispatcher *WorkDispatcher) failWith(
+	ctx context.Context,
+	unit model.Work,
+	cause error,
+	failure model.ExecutionFailure,
+) {
 	if importStopCause(ctx, cause) != nil {
 		return
 	}

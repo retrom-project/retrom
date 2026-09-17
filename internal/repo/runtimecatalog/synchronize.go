@@ -13,7 +13,12 @@ import (
 
 // SynchronizeDefinitions projects validated Host declarations in the caller's startup transaction.
 // It never updates user-created platform instances, defaults or installations.
-func SynchronizeDefinitions(ctx context.Context, transaction dbexec.Executor, catalog runtimecatalog.Catalog, now int64) error {
+func SynchronizeDefinitions(
+	ctx context.Context,
+	transaction dbexec.Executor,
+	catalog runtimecatalog.Catalog,
+	now int64,
+) error {
 	if err := pruneUnreferencedDefinitions(ctx, transaction, catalog.Definitions); err != nil {
 		return err
 	}
@@ -109,7 +114,11 @@ func pruneUnreferencedDefinitions(
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement, string(encoded)); err != nil {
-			return fmt.Errorf("%w: referenced product definition cannot be removed: %w", runtimecatalog.ErrCatalogInvalid, err)
+			return fmt.Errorf(
+				"%w: referenced product definition cannot be removed: %w",
+				runtimecatalog.ErrCatalogInvalid,
+				err,
+			)
 		}
 	}
 	return nil

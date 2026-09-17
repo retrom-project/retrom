@@ -21,7 +21,9 @@ type ReconfigurationRequest struct {
 	TagIDs                 []string
 }
 
-type ReconfigurationCreate func(context.Context, model.ImportRequest, model.ImportCreationOptions) (model.ImportCreationResult, error)
+type ReconfigurationCreate func(
+	context.Context, model.ImportRequest, model.ImportCreationOptions,
+) (model.ImportCreationResult, error)
 
 // Reconfigurations coordinates reusing rejected files with the normal import
 // creation workflow. It contains no database implementation details.

@@ -154,7 +154,11 @@ func (bootstrap *catalogBootstrap) activateReady(datID string) {
 }
 
 func (bootstrap *catalogBootstrap) loadCatalog(
-	version *dependencies.Version, coreID, relativePath string, expected model.CatalogStats, indexed int64, datID, jobID string,
+	version *dependencies.Version,
+	coreID, relativePath string,
+	expected model.CatalogStats,
+	indexed int64,
+	datID, jobID string,
 ) (arcadedat.Catalog, error) {
 	if indexed == expected.MachineCount {
 		return catalogFromStats(expected), nil

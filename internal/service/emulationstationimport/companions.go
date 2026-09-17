@@ -22,7 +22,11 @@ type Companions struct {
 	now        func() time.Time
 }
 
-func NewCompanions(repository model.CompanionRepository, sources model.CompanionSources, now func() time.Time) *Companions {
+func NewCompanions(
+	repository model.CompanionRepository,
+	sources model.CompanionSources,
+	now func() time.Time,
+) *Companions {
 	return &Companions{repository: repository, sources: sources, now: now}
 }
 
@@ -63,7 +67,11 @@ func (service *Companions) Files(
 	return result, nil
 }
 
-func (service *Companions) Find(ctx context.Context, unit model.Execution, itemID string) (model.CompanionSelection, error) {
+func (service *Companions) Find(
+	ctx context.Context,
+	unit model.Execution,
+	itemID string,
+) (model.CompanionSelection, error) {
 	var result model.CompanionSelection
 	err := service.repository.WithCompanions(ctx, func(scope model.CompanionScope) error {
 		var err error

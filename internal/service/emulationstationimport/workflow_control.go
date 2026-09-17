@@ -15,11 +15,20 @@ type WorkflowControl struct {
 	now        func() time.Time
 }
 
-func NewWorkflowControl(repository model.WorkflowRepository, sources model.FrozenSources, now func() time.Time) *WorkflowControl {
+func NewWorkflowControl(
+	repository model.WorkflowRepository,
+	sources model.FrozenSources,
+	now func() time.Time,
+) *WorkflowControl {
 	return &WorkflowControl{repository: repository, sources: sources, now: now}
 }
 
-func (service *WorkflowControl) Retry(ctx context.Context, id string, version int64, actor string) (model.Summary, error) {
+func (service *WorkflowControl) Retry(
+	ctx context.Context,
+	id string,
+	version int64,
+	actor string,
+) (model.Summary, error) {
 	before, err := service.repository.InspectRetry(ctx, id)
 	if errors.Is(err, model.ErrNotFound) {
 		return model.Summary{}, model.ErrNotRetryable
@@ -40,7 +49,11 @@ func (service *WorkflowControl) Retry(ctx context.Context, id string, version in
 	return service.queueRetry(ctx, plan, version)
 }
 
-func (service *WorkflowControl) queueRetry(ctx context.Context, plan model.RetryPlan, version int64) (model.Summary, error) {
+func (service *WorkflowControl) queueRetry(
+	ctx context.Context,
+	plan model.RetryPlan,
+	version int64,
+) (model.Summary, error) {
 	var result model.Summary
 	err := service.repository.WithControl(ctx, func(scope model.WorkflowScope) error {
 		current, err := scope.Read.RetryCurrent(ctx, plan.Before.Summary.ID)

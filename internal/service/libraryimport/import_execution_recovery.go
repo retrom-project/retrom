@@ -78,7 +78,10 @@ func importRecoveryRequired(before model.ImportWorkerSnapshot, now int64) bool {
 	}
 }
 
-func importRecoveryProjection(before model.ImportWorkerSnapshot, now int64) (model.ImportWorkerTransition, bool, error) {
+func importRecoveryProjection(
+	before model.ImportWorkerSnapshot,
+	now int64,
+) (model.ImportWorkerTransition, bool, error) {
 	if before.Creation.JobState == "CANCEL_REQUESTED" {
 		change, err := importCancelledTransition(before, "任务已取消", now)
 		return change, true, err

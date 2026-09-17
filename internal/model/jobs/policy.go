@@ -78,7 +78,7 @@ func BuildRetryWrite(
 // NeedsDomainCancel reports whether this job kind's cancellation
 // should be handled by a domain-specific handler rather than
 // the generic cancel path.
-func NeedsDomainCancel(kind string, hasDomainHandler bool) bool {
+func NeedsDomainCancel(_ string, hasDomainHandler bool) bool {
 	return hasDomainHandler
 }
 

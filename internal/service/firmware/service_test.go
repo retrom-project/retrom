@@ -62,13 +62,16 @@ func TestStaticArchivesRejectAliasesWhileDATRemainsAdvisory(t *testing.T) {
 			"schemaVersion": 1, "missingEntries": missing,
 			"mismatchedEntries": mismatched, "warnings": warnings,
 		}
-		status := "MATCHED"
-		if strict && (len(missing) > 0 || len(mismatched) > 0 || len(warnings) > 0) {
+		var status string
+		switch {
+		case strict && (len(missing) > 0 || len(mismatched) > 0 || len(warnings) > 0):
 			status = "INVALID"
-		} else if len(comparisons) == 0 || len(expected) == 0 || len(missing) > 0 {
+		case len(comparisons) == 0 || len(expected) == 0 || len(missing) > 0:
 			status = "MISSING_ENTRY"
-		} else if len(mismatched) > 0 {
+		case len(mismatched) > 0:
 			status = "HASH_WARNING"
+		default:
+			status = "MATCHED"
 		}
 		want := "MATCHED"
 		if strict {
@@ -106,17 +109,8 @@ func (memory *installMemory) WithRead(_ context.Context, work func(model.ReadSco
 func (memory *installMemory) CommitBrowserInstall(_ context.Context, cmd model.BrowserInstallCommand) (model.Installation, error) {
 	memory.insideWrite = true
 	defer func() { memory.insideWrite = false }()
-	if memory.current.SourceKind != cmd.PreparedSourceKind ||
-		memory.current.FileKind != cmd.PreparedFileKind ||
-		memory.currentUpload.BlobID != cmd.PreparedBlobID ||
-		memory.currentUpload.SHA256 != cmd.PreparedSHA256 {
-		return model.Installation{}, model.ErrInvalid
-	}
-	if !memory.current.Enabled || memory.current.Version != cmd.Version {
-		return model.Installation{}, model.ErrInvalid
-	}
-	if memory.currentUpload.State != "COMPLETE" {
-		return model.Installation{}, model.ErrInvalid
+	if err := memory.validateBrowserInstall(cmd); err != nil {
+		return model.Installation{}, err
 	}
 	memory.retired = true
 	id := "generated-id"
@@ -132,17 +126,37 @@ func (memory *installMemory) CommitBrowserInstall(_ context.Context, cmd model.B
 		ID: "consumption-id", UploadID: memory.currentUpload.SessionID,
 		FileID: memory.currentUpload.ID, InstallationID: id, AtMS: cmd.NowMS,
 	}
-	status := "MATCHED"
-	if (memory.current.SHA256 != nil && *memory.current.SHA256 != memory.currentUpload.SHA256) ||
-		(memory.current.Size != nil && *memory.current.Size != memory.currentUpload.Size) ||
-		(memory.current.MD5 != nil && *memory.current.MD5 != memory.currentUpload.MD5) ||
-		(memory.current.SHA1 != nil && *memory.current.SHA1 != memory.currentUpload.SHA1) {
-		status = "HASH_WARNING"
-	}
+	status := installStatus(memory.current, memory.currentUpload)
 	return model.Installation{
 		InstallationID: id, RequirementID: cmd.RequirementID, Status: status, Active: true,
 		ValidatedRequirementVersion: memory.current.Version, CreatedAtMS: cmd.NowMS,
 	}, nil
+}
+
+func (memory *installMemory) validateBrowserInstall(cmd model.BrowserInstallCommand) error {
+	if memory.current.SourceKind != cmd.PreparedSourceKind ||
+		memory.current.FileKind != cmd.PreparedFileKind ||
+		memory.currentUpload.BlobID != cmd.PreparedBlobID ||
+		memory.currentUpload.SHA256 != cmd.PreparedSHA256 {
+		return model.ErrInvalid
+	}
+	if !memory.current.Enabled || memory.current.Version != cmd.Version {
+		return model.ErrInvalid
+	}
+	if memory.currentUpload.State != "COMPLETE" {
+		return model.ErrInvalid
+	}
+	return nil
+}
+
+func installStatus(req model.Requirement, upload model.Upload) string {
+	if (req.SHA256 != nil && *req.SHA256 != upload.SHA256) ||
+		(req.Size != nil && *req.Size != upload.Size) ||
+		(req.MD5 != nil && *req.MD5 != upload.MD5) ||
+		(req.SHA1 != nil && *req.SHA1 != upload.SHA1) {
+		return "HASH_WARNING"
+	}
+	return "MATCHED"
 }
 
 func (memory *installMemory) CommitServerInstall(context.Context, model.ServerInstallCommand) (model.ServerInstallResult, error) {

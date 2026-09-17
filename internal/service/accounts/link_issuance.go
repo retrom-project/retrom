@@ -17,7 +17,11 @@ type LinkIssuanceService struct {
 	now        func() time.Time
 }
 
-func NewLinkIssuance(repository model.LinkIssueRepository, tokens model.LinkIssuer, now func() time.Time) *LinkIssuanceService {
+func NewLinkIssuance(
+	repository model.LinkIssueRepository,
+	tokens model.LinkIssuer,
+	now func() time.Time,
+) *LinkIssuanceService {
 	return &LinkIssuanceService{repository, tokens, now}
 }
 

@@ -93,7 +93,7 @@ func TestBIOSSupersessionReadFailuresRollBackCurrentInstallation(t *testing.T) {
 					return nil
 				},
 			})
-			err := testWithWrite(New(fault), t.Context(), func(scope firmware.WriteScope) error {
+			err := testWithWrite(t.Context(), New(fault), func(scope firmware.WriteScope) error {
 				return firmwareservice.SupersedeInScope(t.Context(), scope.Retirements, requirement, now)
 			})
 			var active, version int

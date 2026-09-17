@@ -74,7 +74,10 @@ func (service *Service) claimCurrent(
 		}
 		claim.Run.Attempt = job.Attempt
 		if job.State == "RUNNING" && job.Deadline > now && job.Attempt < job.MaxAttempts {
-			return finalizationError("requeue expired upload", scope.Leases.Requeue(ctx, job, now, min(now+1000, job.Deadline)))
+			return finalizationError(
+				"requeue expired upload",
+				scope.Leases.Requeue(ctx, job, now, min(now+1000, job.Deadline)),
+			)
 		}
 	} else if job.State != "QUEUED" {
 		return nil
@@ -128,7 +131,12 @@ func (claim *finalizationClaim) acquire(
 	ctx context.Context, scope model.WriteScope, current model.SessionState, job model.Job, now int64,
 ) error {
 	if current.State == "FAILED" {
-		progress := model.SessionProgress{ID: current.ID, State: "FINALIZING", ExpectedVersion: current.Version, AtMS: now}
+		progress := model.SessionProgress{
+			ID:              current.ID,
+			State:           "FINALIZING",
+			ExpectedVersion: current.Version,
+			AtMS:            now,
+		}
 		if err := scope.Sessions.Advance(ctx, progress); err != nil {
 			return finalizationError("resume upload session", err)
 		}
@@ -136,7 +144,12 @@ func (claim *finalizationClaim) acquire(
 			return finalizationError("resume upload files", err)
 		}
 	}
-	input := model.JobClaim{Run: claim.Run, Version: job.Version, AtMS: now, EventJSON: finalizationEvent(claim.Run, "", nil)}
+	input := model.JobClaim{
+		Run:       claim.Run,
+		Version:   job.Version,
+		AtMS:      now,
+		EventJSON: finalizationEvent(claim.Run, "", nil),
+	}
 	claimed, err := scope.Jobs.Claim(ctx, input)
 	claim.Acquired = claimed
 	return finalizationError("claim finalize job", err)
@@ -165,7 +178,12 @@ func (service *Service) Run(parent context.Context, id string) error {
 	return nil
 }
 
-func (service *Service) monitor(ctx context.Context, cancel context.CancelCauseFunc, run model.Run, stopped chan<- struct{}) {
+func (service *Service) monitor(
+	ctx context.Context,
+	cancel context.CancelCauseFunc,
+	run model.Run,
+	stopped chan<- struct{},
+) {
 	defer close(stopped)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()

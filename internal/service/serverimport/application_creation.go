@@ -9,7 +9,11 @@ import (
 	"retrom/internal/foundation/cleanup"
 )
 
-func (service *Service) Create(ctx context.Context, request model.CreateRequest, actorID string) (model.Summary, error) {
+func (service *Service) Create(
+	ctx context.Context,
+	request model.CreateRequest,
+	actorID string,
+) (model.Summary, error) {
 	result, err := service.creation.Create(ctx, request, actorID)
 	if err != nil {
 		return model.Summary{}, fmt.Errorf("create server import: %w", err)

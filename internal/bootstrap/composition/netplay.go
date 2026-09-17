@@ -44,13 +44,22 @@ func NewNetplay(
 			options.WaitingIdle,
 			now,
 		),
-		Starter:     netplayservice.NewSessionStart(repository.NewSessionStart(database), registry, now),
-		Exit:        exit,
-		Sessions:    netplayservice.NewSessionControl(repository.NewSessionControl(database), options.ReconnectLease, now),
+		Starter: netplayservice.NewSessionStart(repository.NewSessionStart(database), registry, now),
+		Exit:    exit,
+		Sessions: netplayservice.NewSessionControl(
+			repository.NewSessionControl(database),
+			options.ReconnectLease,
+			now,
+		),
 		Maintenance: netplayservice.NewRoomMaintenance(repository.NewRoomMaintenance(database), exit, now),
 		Events:      netplayservice.NewRoomEvents(repository.NewRoomEvents(database)),
 		Access:      netplayservice.NewParticipantAccess(repository.NewParticipantAccess(database), signer),
-		Preparation: netplayservice.NewParticipantPreparation(repository.NewParticipantPreparation(database), signer, exit, now),
+		Preparation: netplayservice.NewParticipantPreparation(
+			repository.NewParticipantPreparation(database),
+			signer,
+			exit,
+			now,
+		),
 	}
 	return netplayservice.NewService(components, registry)
 }

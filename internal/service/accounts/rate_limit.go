@@ -45,7 +45,10 @@ func NewLimiter(repository model.RateLimitRepository, hasher model.RateLimitHash
 }
 
 func (limiter *Limiter) key(subject model.RateLimitSubject) model.RateLimitKey {
-	return model.RateLimitKey{Scope: subject.Scope, Digest: limiter.hasher.RateLimitSubject(subject.Scope, subject.Subject)}
+	return model.RateLimitKey{
+		Scope:  subject.Scope,
+		Digest: limiter.hasher.RateLimitSubject(subject.Scope, subject.Subject),
+	}
 }
 
 func (limiter *Limiter) Check(ctx context.Context, subjects ...model.RateLimitSubject) error {

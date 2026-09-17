@@ -36,7 +36,10 @@ func (run *creationCommit) checkInputs(ctx context.Context, scope model.ImportCr
 	}
 	target := current.Target
 	if target.ProviderID == "" {
-		bindings, err := scope.Facts.Bindings(ctx, model.ImportBindingQuery{PlatformID: target.PlatformID, CoreID: target.CoreID})
+		bindings, err := scope.Facts.Bindings(
+			ctx,
+			model.ImportBindingQuery{PlatformID: target.PlatformID, CoreID: target.CoreID},
+		)
 		if err != nil {
 			return fmt.Errorf("revalidate prepared binding: %w", err)
 		}
@@ -127,7 +130,11 @@ func (run *creationCommit) checkQueuedDocuments(current model.CreationQueuedSnap
 
 // ImportExecutionCurrent checks the immutable execution identity and live lease.
 // Deadline equality retains the original budget; each operation chooses its terminal policy.
-func ImportExecutionCurrent(expected model.QueuedImportExecution, current model.CreationQueuedSnapshot, now int64) bool {
+func ImportExecutionCurrent(
+	expected model.QueuedImportExecution,
+	current model.CreationQueuedSnapshot,
+	now int64,
+) bool {
 	return (current.JobState == "RUNNING" || current.JobState == "CANCEL_REQUESTED") &&
 		current.JobVersion > 0 && current.JobVersion < math.MaxInt64 && current.LeaseUntilMS > now &&
 		expected.ImportID != "" && expected.WorkerID != "" && expected.ExecutionNo > 0 && expected.Attempt > 0 &&

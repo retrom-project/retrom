@@ -90,7 +90,10 @@ func (service *ImportPreparation) prepareKiriKiriArchive(
 	}
 	project, err := fileset.NormalizeProjectWithMarkers(input, detector.Markers())
 	if err != nil {
-		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf("normalize KiriKiri archive: %w", err)
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf(
+			"normalize KiriKiri archive: %w",
+			err,
+		)
 	}
 	projectEntries := make([]importing.ArchiveEntry, 0, len(project.Files))
 	index := kirikiriProjectIndex{files: make([]detector.File, 0, len(project.Files))}
@@ -104,7 +107,10 @@ func (service *ImportPreparation) prepareKiriKiriArchive(
 	}
 	profile, err := detector.Detect(index)
 	if err != nil {
-		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf("detect KiriKiri archive: %w", err)
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf(
+			"detect KiriKiri archive: %w",
+			err,
+		)
 	}
 	materialized, err := projectArchiveMaterialization(projectEntries, candidates, readMetadata)
 	if err != nil {
@@ -123,7 +129,11 @@ func (service *ImportPreparation) prepareKiriKiriArchive(
 	}, nil
 }
 
-func newKiriKiriGroup(sources []model.PreparedSource, profile detector.Profile, titleSource string) model.PreparedGroup {
+func newKiriKiriGroup(
+	sources []model.PreparedSource,
+	profile detector.Profile,
+	titleSource string,
+) model.PreparedGroup {
 	sortPreparedSources(sources)
 	profileJSON, _ := detector.MarshalSnapshot(profile)
 	return model.PreparedGroup{

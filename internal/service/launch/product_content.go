@@ -23,7 +23,9 @@ func BuildProductContent(snapshot model.ProductSnapshot) (model.ProductContent, 
 				return model.ProductContent{}, model.ErrBlocked
 			}
 			return model.ProductContent{
-				Files: []model.ProductContentFile{{BlobID: file.BlobID, LogicalName: "game.zip", Format: "RETROM_DOS_DIRECT_ZIP_V1"}},
+				Files: []model.ProductContentFile{
+					{BlobID: file.BlobID, LogicalName: "game.zip", Format: "RETROM_DOS_DIRECT_ZIP_V1"},
+				},
 			}, nil
 		}
 		return productSingleContent(snapshot)
@@ -71,7 +73,11 @@ func productProjectContent(snapshot model.ProductSnapshot) (model.ProductContent
 		}
 		files = append(
 			files,
-			model.ProductContentFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Format: snapshot.Source.ContentKind},
+			model.ProductContentFile{
+				BlobID:      file.BlobID,
+				LogicalName: file.LogicalName,
+				Format:      snapshot.Source.ContentKind,
+			},
 		)
 	}
 	if len(files) == 0 {
@@ -87,15 +93,24 @@ func productRPGContent(snapshot model.ProductSnapshot) (model.ProductContent, er
 	inputs := make([]model.PreviewFile, 0)
 	for _, file := range snapshot.GameFiles {
 		if file.Role == "PROJECT_FILE" {
-			inputs = append(inputs, model.PreviewFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Role: file.Role})
+			inputs = append(
+				inputs,
+				model.PreviewFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Role: file.Role},
+			)
 		}
 	}
 	for _, file := range snapshot.VariantFiles {
 		if file.Role == "RPG_EASYRPG_INDEX" || file.Role == "RPG_MAKER_LAUNCH_BUNDLE" {
-			inputs = append(inputs, model.PreviewFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Role: file.Role})
+			inputs = append(
+				inputs,
+				model.PreviewFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Role: file.Role},
+			)
 		}
 	}
-	slices.SortFunc(inputs, func(left, right model.PreviewFile) int { return cmp.Compare(left.LogicalName, right.LogicalName) })
+	slices.SortFunc(
+		inputs,
+		func(left, right model.PreviewFile) int { return cmp.Compare(left.LogicalName, right.LogicalName) },
+	)
 	role, native, err := RPGContentPolicy(snapshot.Source.DeliveryProfile)
 	if err != nil {
 		return model.ProductContent{}, errors.Join(model.ErrBlocked, err)
@@ -108,7 +123,11 @@ func productRPGContent(snapshot model.ProductSnapshot) (model.ProductContent, er
 	for _, file := range prepared {
 		files = append(
 			files,
-			model.ProductContentFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Format: snapshot.Source.ContentKind},
+			model.ProductContentFile{
+				BlobID:      file.BlobID,
+				LogicalName: file.LogicalName,
+				Format:      snapshot.Source.ContentKind,
+			},
 		)
 	}
 	return model.ProductContent{Files: files}, nil

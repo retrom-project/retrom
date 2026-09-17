@@ -19,7 +19,7 @@ func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 		t.Fatal(err)
 	}
 	created := false
-	err := testWithWrite(New(database), t.Context(), func(scope firmware.WriteScope) error {
+	err := testWithWrite(t.Context(), New(database), func(scope firmware.WriteScope) error {
 		active, found, err := scope.ReadScope.Installations.Active(t.Context(), requirementID)
 		if err != nil || !found {
 			t.Fatalf("active BIOS missing: found=%v error=%v", found, err)

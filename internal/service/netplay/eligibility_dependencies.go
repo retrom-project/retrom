@@ -246,7 +246,10 @@ func lockedSnapshotJSON(raw string) ([]byte, bool) {
 	return encoded, err == nil
 }
 
-func (service *Eligibility) profileEligibility(ctx context.Context, gameID string) ([]model.EligibleProfile, string, error) {
+func (service *Eligibility) profileEligibility(
+	ctx context.Context,
+	gameID string,
+) ([]model.EligibleProfile, string, error) {
 	lockedRows, err := service.repository.Rows(ctx, gameID)
 	if err != nil {
 		return nil, "", serviceError("eligible profiles", err)
@@ -291,7 +294,10 @@ func (service *Eligibility) matchEligibleProfile(
 	}
 	current, err := service.dependencySnapshotCurrent(ctx, row)
 	if err != nil {
-		return model.EligibleProfile{}, contentKindAllowed, true, false, fmt.Errorf("netplay/dependency snapshot: %w", err)
+		return model.EligibleProfile{}, contentKindAllowed, true, false, fmt.Errorf(
+			"netplay/dependency snapshot: %w",
+			err,
+		)
 	}
 	return model.EligibleProfile{
 		Summary: model.ProfileSummary{
@@ -304,7 +310,10 @@ func (service *Eligibility) matchEligibleProfile(
 	}, contentKindAllowed, true, current, nil
 }
 
-func (service *Eligibility) MatchesTargetProfile(row model.EligibilityRow, candidate profile.ManifestProfile) (bool, bool) {
+func (service *Eligibility) MatchesTargetProfile(
+	row model.EligibilityRow,
+	candidate profile.ManifestProfile,
+) (bool, bool) {
 	contentKindAllowed := slices.Contains(service.registry.Manifest.Protocol.AllowedContentKinds, row.ContentKind)
 	targetMatches := contentKindAllowed && slices.Contains(candidate.PlatformIDs, row.PlatformID) &&
 		candidate.CoreID == row.CoreID && candidate.ProviderID == row.ProviderID &&

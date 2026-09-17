@@ -23,7 +23,12 @@ func NewStarter(repository model.StartRepository, sources model.StartSources, no
 	return &Starter{repository: repository, sources: sources, now: now}
 }
 
-func (service *Starter) Start(ctx context.Context, id string, version int64, actorID string) (model.Summary, bool, error) {
+func (service *Starter) Start(
+	ctx context.Context,
+	id string,
+	version int64,
+	actorID string,
+) (model.Summary, bool, error) {
 	before, err := service.repository.Inspect(ctx, id)
 	if err != nil {
 		return model.Summary{}, false, fmt.Errorf("inspect Pegasus start: %w", err)

@@ -36,7 +36,8 @@ func validateWorkInput(input model.Input) error {
 		}
 		return nil
 	}
-	if !model.ValidScheduleScope(input.Scope.Type) || input.Inputs.ScopeVersion < 1 || !model.ValidReason(input.Inputs.Reason) {
+	if !model.ValidScheduleScope(input.Scope.Type) || input.Inputs.ScopeVersion < 1 ||
+		!model.ValidReason(input.Inputs.Reason) {
 		return model.ErrInputInvalid
 	}
 	return nil

@@ -84,8 +84,11 @@ func (service *GarbageCollector) removeCatalog(
 
 func validGarbageInput(unit model.Execution) bool {
 	digest, err := hex.DecodeString(unit.Input.Inputs.SHA256)
-	return err == nil && len(digest) == sha256.Size && unit.Work.Scope.Type == model.ScopeBlob && unit.Work.Scope.ID != "" &&
-		unit.Input.Scope == unit.Work.Scope && unit.Input.Kind == "BLOB_GC" && unit.Input.SchemaVersion == 1
+	return err == nil && len(digest) == sha256.Size &&
+		unit.Work.Scope.Type == model.ScopeBlob && unit.Work.Scope.ID != "" &&
+		unit.Input.Scope == unit.Work.Scope &&
+		unit.Input.Kind == "BLOB_GC" &&
+		unit.Input.SchemaVersion == 1
 }
 
 type effectError struct {

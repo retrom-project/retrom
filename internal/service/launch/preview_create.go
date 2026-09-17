@@ -37,7 +37,10 @@ func newPreviewID() (string, error) {
 	return id.String(), nil
 }
 
-func (service *PreviewCreator) Create(ctx context.Context, request model.ReviewPreviewRequest) (model.ReviewPreviewCreated, error) {
+func (service *PreviewCreator) Create(
+	ctx context.Context,
+	request model.ReviewPreviewRequest,
+) (model.ReviewPreviewCreated, error) {
 	if request.ImportItemID == "" || request.ActorUserID == "" || request.IdempotencyKey == "" {
 		return model.ReviewPreviewCreated{}, model.ErrReviewPreviewUnavailable
 	}

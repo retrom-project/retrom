@@ -34,7 +34,11 @@ func (service *ReviewDetails) Get(ctx context.Context, itemID string) (model.Rev
 	return result, nil
 }
 
-func readReviewDetail(ctx context.Context, scope model.ReviewReadScope, head model.ReviewHead) (model.ReviewDetail, error) {
+func readReviewDetail(
+	ctx context.Context,
+	scope model.ReviewReadScope,
+	head model.ReviewHead,
+) (model.ReviewDetail, error) {
 	result, err := projectReviewHead(head)
 	if err != nil {
 		return model.ReviewDetail{}, err
@@ -103,7 +107,12 @@ func reviewDocument(value string) (json.RawMessage, error) {
 	return result, nil
 }
 
-func readReviewSelections(ctx context.Context, scope model.ReviewReadScope, head model.ReviewHead, result *model.ReviewDetail) error {
+func readReviewSelections(
+	ctx context.Context,
+	scope model.ReviewReadScope,
+	head model.ReviewHead,
+	result *model.ReviewDetail,
+) error {
 	var err error
 	result.SelectedAssets.ScreenshotIDs, err = scope.Drafts.ScreenshotIDs(ctx, head.ItemID)
 	if err != nil {
@@ -116,7 +125,12 @@ func readReviewSelections(ctx context.Context, scope model.ReviewReadScope, head
 	return nil
 }
 
-func readReviewContent(ctx context.Context, scope model.ReviewReadScope, head model.ReviewHead, result *model.ReviewDetail) error {
+func readReviewContent(
+	ctx context.Context,
+	scope model.ReviewReadScope,
+	head model.ReviewHead,
+	result *model.ReviewDetail,
+) error {
 	var err error
 	result.DuplicateGames, result.ContentIdentityDigest, err = model.NewContentDuplicates(scope.Duplicates).Inspect(ctx,
 		model.ContentSnapshot{ID: head.SnapshotID, Kind: head.ContentKind}, head.PlatformID)

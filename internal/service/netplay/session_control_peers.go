@@ -53,7 +53,12 @@ func (service *SessionControl) Disconnected(ctx context.Context, identity model.
 			return writeSessionControl(
 				ctx,
 				scope.Write,
-				model.SessionTransitionPlan{Before: before, Target: "PAUSED_RECONNECT", Events: []model.SessionEvent{event}, Now: now},
+				model.SessionTransitionPlan{
+					Before: before,
+					Target: "PAUSED_RECONNECT",
+					Events: []model.SessionEvent{event},
+					Now:    now,
+				},
 			)
 		},
 	)
@@ -77,7 +82,10 @@ func (service *SessionControl) RuntimeReady(ctx context.Context, identity model.
 				if err := writePeerControl(
 					ctx,
 					scope.Write,
-					model.PeerTransitionPlan{Before: before, Peer: peer, Target: "RUNTIME_READY", Events: []model.SessionEvent{event}, Now: now},
+					model.PeerTransitionPlan{
+						Before: before, Peer: peer, Target: "RUNTIME_READY",
+						Events: []model.SessionEvent{event}, Now: now,
+					},
 				); err != nil {
 					return err
 				}
@@ -91,7 +99,12 @@ func (service *SessionControl) RuntimeReady(ctx context.Context, identity model.
 			return writeSessionControl(
 				ctx,
 				scope.Write,
-				model.SessionTransitionPlan{Before: before, Target: "SYNCHRONIZING", Events: []model.SessionEvent{event}, Now: now},
+				model.SessionTransitionPlan{
+					Before: before,
+					Target: "SYNCHRONIZING",
+					Events: []model.SessionEvent{event},
+					Now:    now,
+				},
 			)
 		},
 	)

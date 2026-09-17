@@ -54,7 +54,11 @@ func (service *Service) Recommendations(ctx context.Context) (model.Recommendati
 	return result, repositoryError("recommendations", err)
 }
 
-func (service *Service) Create(ctx context.Context, actor model.AuditActor, input model.CreateInput) (model.Instance, error) {
+func (service *Service) Create(
+	ctx context.Context,
+	actor model.AuditActor,
+	input model.CreateInput,
+) (model.Instance, error) {
 	if !validText(input.Name, 1, 200, false) || !validText(input.Description, 0, 10_000, true) {
 		return model.Instance{}, model.ErrInvalid
 	}
@@ -70,7 +74,12 @@ func (service *Service) Create(ctx context.Context, actor model.AuditActor, inpu
 }
 
 func (service *Service) createInstance(
-	ctx context.Context, scope model.WriteScope, actor model.AuditActor, input model.CreateInput, catalogKey, action string, now int64,
+	ctx context.Context,
+	scope model.WriteScope,
+	actor model.AuditActor,
+	input model.CreateInput,
+	catalogKey, action string,
+	now int64,
 ) (model.Instance, error) {
 	enabled, err := scope.Reader.CoreEnabled(ctx, input.PlatformID, input.DefaultCoreID)
 	if err != nil {

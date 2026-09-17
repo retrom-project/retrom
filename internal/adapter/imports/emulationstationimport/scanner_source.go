@@ -17,7 +17,10 @@ type scannerSource struct {
 	selectedPath string
 }
 
-func (source scannerSource) Discover(ctx context.Context, visit func(emulationstationimportservice.DiscoveredFile) error) error {
+func (source scannerSource) Discover(
+	ctx context.Context,
+	visit func(emulationstationimportservice.DiscoveredFile) error,
+) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("discover EmulationStation source: %w", err)
 	}
@@ -43,10 +46,16 @@ func (source scannerSource) Discover(ctx context.Context, visit func(emulationst
 	return nil
 }
 
-func discoverScanFile(ctx context.Context, candidate serversource.File) (emulationstationimportservice.DiscoveredFile, error) {
+func discoverScanFile(
+	ctx context.Context,
+	candidate serversource.File,
+) (emulationstationimportservice.DiscoveredFile, error) {
 	release, err := serversource.AcquireReader(ctx)
 	if err != nil {
-		return emulationstationimportservice.DiscoveredFile{}, fmt.Errorf("acquire EmulationStation discovery reader: %w", err)
+		return emulationstationimportservice.DiscoveredFile{}, fmt.Errorf(
+			"acquire EmulationStation discovery reader: %w",
+			err,
+		)
 	}
 	defer release()
 	handle, info, err := serversource.OpenFile(candidate)
@@ -66,12 +75,19 @@ func discoverScanFile(ctx context.Context, candidate serversource.File) (emulati
 	}, nil
 }
 
-func (source scannerSource) Read(ctx context.Context, file emulationstationimportservice.DiscoveredFile, maximum int64) ([]byte, error) {
+func (source scannerSource) Read(
+	ctx context.Context,
+	file emulationstationimportservice.DiscoveredFile,
+	maximum int64,
+) ([]byte, error) {
 	contents, err := readFrozenFile(ctx, source.root, source.selectedPath, file, maximum)
 	return contents, err
 }
 
-func (source scannerSource) Disc(ctx context.Context, file emulationstationimportservice.DiscoveredFile) ([]byte, error) {
+func (source scannerSource) Disc(
+	ctx context.Context,
+	file emulationstationimportservice.DiscoveredFile,
+) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("inspect EmulationStation disc: %w", err)
 	}

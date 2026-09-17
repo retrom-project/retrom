@@ -141,7 +141,11 @@ func approvedProductBIOS(snapshot model.ProductSnapshot) (model.ProductSnapshot,
 	return snapshot, &current, nil
 }
 
-func refreshProductBIOSFile(files []model.ProductFile, dependency corevalidation.BIOSDependency, index int) []model.ProductFile {
+func refreshProductBIOSFile(
+	files []model.ProductFile,
+	dependency corevalidation.BIOSDependency,
+	index int,
+) []model.ProductFile {
 	for position, file := range files {
 		if file.Role == "BIOS_BUNDLE" && file.LogicalName == dependency.LogicalName {
 			if file.BlobID != *dependency.BlobID {
@@ -153,7 +157,12 @@ func refreshProductBIOSFile(files []model.ProductFile, dependency corevalidation
 	}
 	return append(
 		files,
-		model.ProductFile{Role: "BIOS_BUNDLE", LogicalName: dependency.LogicalName, BlobID: *dependency.BlobID, SortOrder: index},
+		model.ProductFile{
+			Role:        "BIOS_BUNDLE",
+			LogicalName: dependency.LogicalName,
+			BlobID:      *dependency.BlobID,
+			SortOrder:   index,
+		},
 	)
 }
 

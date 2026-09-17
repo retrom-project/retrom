@@ -50,7 +50,10 @@ func (service *Service) InspectAccountLink(ctx context.Context, kind, token stri
 	return service.modules.Links.Inspect(ctx, kind, token)
 }
 
-func (service *Service) AcceptInvitation(ctx context.Context, request model.AcceptInvitationRequest) (model.Session, error) {
+func (service *Service) AcceptInvitation(
+	ctx context.Context,
+	request model.AcceptInvitationRequest,
+) (model.Session, error) {
 	return service.modules.Consumption.AcceptInvitation(ctx, request)
 }
 
@@ -71,6 +74,9 @@ func (service *Service) RevokeAccountLink(
 	return service.modules.Links.Revoke(ctx, principal.UserID, id, version, key)
 }
 
-func (service *Service) ListAccountLinks(ctx context.Context, filter model.LinkListFilter) ([]model.AccountLink, error) {
+func (service *Service) ListAccountLinks(
+	ctx context.Context,
+	filter model.LinkListFilter,
+) ([]model.AccountLink, error) {
 	return service.modules.Links.List(ctx, filter)
 }

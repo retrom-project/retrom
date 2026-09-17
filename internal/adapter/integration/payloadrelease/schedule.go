@@ -46,7 +46,10 @@ func Schedule(ctx context.Context, transaction *sql.Tx, scopeType ScopeType, sco
 	scope := persistence.BindScheduling(transaction)
 	scheduler := payloadreleaseservice.NewScheduler(nil)
 	return scheduledIdentity(scheduler.Queue(ctx, scope, payloadreleasemodel.ScheduleRequest{
-		Scope: payloadreleasemodel.Scope{Type: scopeType, ID: scopeID}, ScopeVersion: scopeVersion, Reason: reason, NowMS: now,
+		Scope: payloadreleasemodel.Scope{
+			Type: scopeType,
+			ID:   scopeID,
+		}, ScopeVersion: scopeVersion, Reason: reason, NowMS: now,
 	}))
 }
 

@@ -22,7 +22,11 @@ func NewCreation(repository model.CreationRepository, sources model.SourceSelect
 	return &Creation{repository: repository, sources: sources, now: now}
 }
 
-func (service *Creation) Create(ctx context.Context, request model.CreateRequest, actorID string) (model.Summary, error) {
+func (service *Creation) Create(
+	ctx context.Context,
+	request model.CreateRequest,
+	actorID string,
+) (model.Summary, error) {
 	if request.Kind != "BIOS_DIRECTORY" {
 		return model.Summary{}, model.ErrCatalogInvalid
 	}
@@ -74,7 +78,10 @@ func (service *Creation) freezeCatalog(ctx context.Context) ([]model.CatalogItem
 		}
 		items = append(items, entry.Item)
 	}
-	slices.SortFunc(items, func(a, b model.CatalogItem) int { return strings.Compare(a.RequirementID, b.RequirementID) })
+	slices.SortFunc(
+		items,
+		func(a, b model.CatalogItem) int { return strings.Compare(a.RequirementID, b.RequirementID) },
+	)
 	encoded, err := model.CanonicalCatalogJSON(items)
 	if err != nil {
 		return nil, "", fmt.Errorf("encode canonical catalog: %w", err)

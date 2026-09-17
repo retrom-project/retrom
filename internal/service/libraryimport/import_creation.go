@@ -57,7 +57,10 @@ func (service *ImportCreations) CommitPrepared(ctx context.Context, plan model.P
 	if err != nil {
 		return model.ImportCreationResult{}, creationError("commit prepared", err)
 	}
-	err = service.repository.WithCreation(ctx, func(scope model.ImportCreationScope) error { return run.commit(ctx, scope) })
+	err = service.repository.WithCreation(
+		ctx,
+		func(scope model.ImportCreationScope) error { return run.commit(ctx, scope) },
+	)
 	if err != nil {
 		return model.ImportCreationResult{}, fmt.Errorf("commit import creation: %w", err)
 	}
@@ -271,7 +274,10 @@ func (run *creationCommit) schedulePayload(ctx context.Context, scope model.Impo
 	return nil
 }
 
-func normalizeCreationOptions(plan model.PreparedImport, options model.ImportCreationOptions) (model.ImportCreationOptions, error) {
+func normalizeCreationOptions(
+	plan model.PreparedImport,
+	options model.ImportCreationOptions,
+) (model.ImportCreationOptions, error) {
 	if options.ReviewHandoffKind == "" {
 		options.ReviewHandoffKind = "DIRECT"
 	}

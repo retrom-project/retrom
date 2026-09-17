@@ -13,7 +13,10 @@ import (
 )
 
 type PegasusJobCanceller interface {
-	CancelJob(context.Context, pegasusimportservice.JobCancellationRequest) (pegasusimportservice.JobCancellationResult, bool, error)
+	CancelJob(
+		context.Context,
+		pegasusimportservice.JobCancellationRequest,
+	) (pegasusimportservice.JobCancellationResult, bool, error)
 }
 
 func WithPegasusJobCancellation(service *jobsservice.Service, source PegasusJobCanceller) *jobsservice.Service {
@@ -38,7 +41,8 @@ func (handler pegasusCancellation) CancelJob(
 		Reason: command.Reason, ActorID: principal.UserID,
 	})
 	if err != nil {
-		if errors.Is(err, pegasusimportmodel.ErrVersionConflict) || errors.Is(err, pegasusimportmodel.ErrNotCancellable) ||
+		if errors.Is(err, pegasusimportmodel.ErrVersionConflict) ||
+			errors.Is(err, pegasusimportmodel.ErrNotCancellable) ||
 			errors.Is(err, pegasusimportmodel.ErrNotFound) {
 			return jobsmodel.Result{}, false, fmt.Errorf("%w: %w", jobsmodel.ErrConflict, err)
 		}

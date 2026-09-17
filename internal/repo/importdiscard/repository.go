@@ -38,7 +38,10 @@ func (repository *Repository) writeScope(tx *sql.Tx) importdiscard.WriteScope {
 	}
 }
 
-func (repository *Repository) CommitRecoverOwnership(ctx context.Context, cmd importdiscard.RecoverOwnershipCommand) error {
+func (repository *Repository) CommitRecoverOwnership(
+	ctx context.Context,
+	cmd importdiscard.RecoverOwnershipCommand,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin discard write: %w", err)
@@ -54,7 +57,10 @@ func (repository *Repository) CommitRecoverOwnership(ctx context.Context, cmd im
 	return nil
 }
 
-func (repository *Repository) CommitDiscardSourceItems(ctx context.Context, cmd importdiscard.DiscardSourceItemsCommand) (bool, error) {
+func (repository *Repository) CommitDiscardSourceItems(
+	ctx context.Context,
+	cmd importdiscard.DiscardSourceItemsCommand,
+) (bool, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return false, fmt.Errorf("begin discard write: %w", err)
@@ -71,7 +77,10 @@ func (repository *Repository) CommitDiscardSourceItems(ctx context.Context, cmd 
 	return done, nil
 }
 
-func (repository *Repository) CommitRequestDiscard(ctx context.Context, cmd importdiscard.RequestDiscardCommand) (importdiscard.Status, error) {
+func (repository *Repository) CommitRequestDiscard(
+	ctx context.Context,
+	cmd importdiscard.RequestDiscardCommand,
+) (importdiscard.Status, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return importdiscard.Status{}, fmt.Errorf("begin discard write: %w", err)

@@ -80,7 +80,10 @@ func credentialDigest(encoded string) ([32]byte, error) {
 	return sha256.Sum256(raw), nil
 }
 
-func (service *Service) ConsumeTicket(ctx context.Context, launchID, origin, ticket string) (string, model.Access, error) {
+func (service *Service) ConsumeTicket(
+	ctx context.Context,
+	launchID, origin, ticket string,
+) (string, model.Access, error) {
 	digest, err := credentialDigest(ticket)
 	if err != nil {
 		return "", model.Access{}, err

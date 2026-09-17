@@ -16,7 +16,11 @@ type Recovery struct {
 	now        func() time.Time
 }
 
-func NewRecovery(repository model.RecoveryRepository, metadata model.ReviewMetadataSeeder, now func() time.Time) *Recovery {
+func NewRecovery(
+	repository model.RecoveryRepository,
+	metadata model.ReviewMetadataSeeder,
+	now func() time.Time,
+) *Recovery {
 	return &Recovery{repository: repository, metadata: metadata, now: now}
 }
 
@@ -39,7 +43,11 @@ func (service *Recovery) Recover(ctx context.Context) error {
 	return nil
 }
 
-func (service *Recovery) recoverExecution(ctx context.Context, scope model.RecoveryScope, candidate model.RecoverySnapshot) error {
+func (service *Recovery) recoverExecution(
+	ctx context.Context,
+	scope model.RecoveryScope,
+	candidate model.RecoverySnapshot,
+) error {
 	before, err := scope.Records.Current(ctx, candidate.JobID)
 	if errors.Is(err, model.ErrNotFound) {
 		return nil
@@ -90,7 +98,11 @@ func (service *Recovery) recoverExecution(ctx context.Context, scope model.Recov
 }
 
 func (service *Recovery) recoverReview(
-	ctx context.Context, scope model.RecoveryScope, execution model.RecoverySnapshot, review model.ReviewHandoffSnapshot, now time.Time,
+	ctx context.Context,
+	scope model.RecoveryScope,
+	execution model.RecoverySnapshot,
+	review model.ReviewHandoffSnapshot,
+	now time.Time,
 ) error {
 	change, err := prepareRecoveryReview(ctx, service.metadata, scope.Metadata, execution, review, now)
 	if err != nil {
@@ -160,7 +172,11 @@ func validRecoveryExecution(before model.RecoverySnapshot) bool {
 		before.ImportVersion < math.MaxInt64-1
 }
 
-func currentRecovery(ctx context.Context, records model.RecoveryRecords, before model.RecoverySnapshot) (model.RecoverySnapshot, error) {
+func currentRecovery(
+	ctx context.Context,
+	records model.RecoveryRecords,
+	before model.RecoverySnapshot,
+) (model.RecoverySnapshot, error) {
 	current, err := records.Current(ctx, before.JobID)
 	if err != nil {
 		return model.RecoverySnapshot{}, fmt.Errorf("reread Pegasus recovery execution: %w", err)

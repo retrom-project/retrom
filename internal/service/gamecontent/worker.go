@@ -162,7 +162,12 @@ func failureOutcome(claim model.Claim, snapshot model.JobSnapshot, err error, no
 	return outcome
 }
 
-func (service *Service) settleFailure(parent context.Context, claim model.Claim, snapshot model.JobSnapshot, cause error) error {
+func (service *Service) settleFailure(
+	parent context.Context,
+	claim model.Claim,
+	snapshot model.JobSnapshot,
+	cause error,
+) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
 	outcome := failureOutcome(claim, snapshot, cause, service.now().UnixMilli())

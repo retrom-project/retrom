@@ -49,7 +49,10 @@ func (repository *Repository) writeScope(tx *sql.Tx) firmware.WriteScope {
 	}
 }
 
-func (repository *Repository) CommitBrowserInstall(ctx context.Context, cmd firmware.BrowserInstallCommand) (firmware.Installation, error) {
+func (repository *Repository) CommitBrowserInstall(
+	ctx context.Context,
+	cmd firmware.BrowserInstallCommand,
+) (firmware.Installation, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return firmware.Installation{}, fmt.Errorf("begin BIOS write: %w", err)
@@ -66,7 +69,10 @@ func (repository *Repository) CommitBrowserInstall(ctx context.Context, cmd firm
 	return result, nil
 }
 
-func (repository *Repository) CommitServerInstall(ctx context.Context, cmd firmware.ServerInstallCommand) (firmware.ServerInstallResult, error) {
+func (repository *Repository) CommitServerInstall(
+	ctx context.Context,
+	cmd firmware.ServerInstallCommand,
+) (firmware.ServerInstallResult, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return firmware.ServerInstallResult{}, fmt.Errorf("begin BIOS write: %w", err)

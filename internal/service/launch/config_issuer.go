@@ -16,7 +16,11 @@ type ConfigIssuer struct {
 	environment    model.ConfigEnvironment
 }
 
-func NewConfigIssuer(repository model.ConfigRepository, builder model.ConfigBuilder, environment model.ConfigEnvironment) *ConfigIssuer {
+func NewConfigIssuer(
+	repository model.ConfigRepository,
+	builder model.ConfigBuilder,
+	environment model.ConfigEnvironment,
+) *ConfigIssuer {
 	return &ConfigIssuer{repository: repository, runtimeBuilder: builder, environment: environment}
 }
 
@@ -81,7 +85,12 @@ func (service *ConfigIssuer) activate(
 	return nil
 }
 
-func (service *ConfigIssuer) authorized(ref model.SessionRef, source model.ConfigSource, capability string, now int64) bool {
+func (service *ConfigIssuer) authorized(
+	ref model.SessionRef,
+	source model.ConfigSource,
+	capability string,
+	now int64,
+) bool {
 	purpose := "PRODUCT"
 	if ref.Preview {
 		purpose = "REVIEW_PREVIEW"
@@ -117,7 +126,10 @@ func sameConfigInput(before, after model.ConfigAuthority) bool {
 	return reflect.DeepEqual(left, right) && before.Restore == after.Restore
 }
 
-func (service *ConfigIssuer) isolationTicket(id string, authority model.ConfigAuthority) (model.IsolationTicket, error) {
+func (service *ConfigIssuer) isolationTicket(
+	id string,
+	authority model.ConfigAuthority,
+) (model.IsolationTicket, error) {
 	if authority.Source.Delivery != "ISOLATED_WEB_PROJECT" {
 		return model.IsolationTicket{}, nil
 	}

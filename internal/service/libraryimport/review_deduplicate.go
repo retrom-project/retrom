@@ -13,7 +13,11 @@ import (
 const reviewDeduplicatePageSize = 50
 
 type reviewInScopeDiscarder interface {
-	DiscardInScope(context.Context, model.ReviewDiscardScope, model.ReviewDiscardRequest) (model.ReviewDecisionResult, error)
+	DiscardInScope(
+		context.Context,
+		model.ReviewDiscardScope,
+		model.ReviewDiscardRequest,
+	) (model.ReviewDecisionResult, error)
 }
 
 // ReviewDeduplicator applies the duplicate review policy while the repository

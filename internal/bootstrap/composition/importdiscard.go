@@ -18,8 +18,12 @@ import (
 	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
-func NewImportDiscard(database *sql.DB, importer importdiscardmodel.ImportWorkflow, pegasus *pegasusimportservice.Service,
-	emulationstation *emulationstationimportservice.Service, now func() time.Time,
+func NewImportDiscard(
+	database *sql.DB,
+	importer importdiscardmodel.ImportWorkflow,
+	pegasus *pegasusimportservice.Service,
+	emulationstation *emulationstationimportservice.Service,
+	now func() time.Time,
 ) *importdiscardservice.Service {
 	return importdiscardservice.New(
 		discardpersistence.New(
@@ -88,7 +92,8 @@ func (sources discardSources) Cancel(ctx context.Context, kind, id string, versi
 	default:
 		return importdiscardmodel.ErrInvalid
 	}
-	if errors.Is(err, pegasusimportmodel.ErrNotCancellable) || errors.Is(err, emulationstationimportmodel.ErrNotCancellable) {
+	if errors.Is(err, pegasusimportmodel.ErrNotCancellable) ||
+		errors.Is(err, emulationstationimportmodel.ErrNotCancellable) {
 		return importdiscardmodel.ErrNotCancellable
 	}
 	if err != nil {

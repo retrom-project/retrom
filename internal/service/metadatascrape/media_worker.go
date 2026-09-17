@@ -64,7 +64,10 @@ func (worker *MediaWorker) Run(parent context.Context, id string) error {
 	return worker.settle(parent, execution, publication, code, cause)
 }
 
-func (worker *MediaWorker) fetch(ctx context.Context, execution mediaExecution) (model.AssetPublication, string, error) {
+func (worker *MediaWorker) fetch(
+	ctx context.Context,
+	execution mediaExecution,
+) (model.AssetPublication, string, error) {
 	var data hasheous.AssetData
 	cause := context.Cause(ctx)
 	if cause == nil {

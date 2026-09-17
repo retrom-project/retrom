@@ -39,7 +39,12 @@ func acceptedPlayDuration(interval model.Interval, lastHeartbeat, now int64) int
 	return min(now-lastHeartbeat, 45_000)
 }
 
-func replayPlayEvent(ctx context.Context, reader model.PlayReader, playID, kind string, event model.PlayEvent) (model.PlayResult, error) {
+func replayPlayEvent(
+	ctx context.Context,
+	reader model.PlayReader,
+	playID, kind string,
+	event model.PlayEvent,
+) (model.PlayResult, error) {
 	stored, found, err := reader.Event(ctx, playID, event.ClientSequence)
 	if err != nil {
 		return model.PlayResult{}, fmt.Errorf("read previous play event: %w", err)
@@ -62,7 +67,12 @@ func replayPlayEvent(ctx context.Context, reader model.PlayReader, playID, kind 
 	}, nil
 }
 
-func finishUnstartedPlay(ctx context.Context, writer model.PlayWriter, source model.PlaySource, now int64) (model.PlayResult, error) {
+func finishUnstartedPlay(
+	ctx context.Context,
+	writer model.PlayWriter,
+	source model.PlaySource,
+	now int64,
+) (model.PlayResult, error) {
 	if source.Session.State == "FINISHED" {
 		return model.PlayResult{State: "FINISHED"}, nil
 	}

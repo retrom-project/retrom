@@ -16,7 +16,10 @@ type ParticipantAccess struct {
 	signer     model.CredentialSigner
 }
 
-func NewParticipantAccess(repository model.ParticipantAccessRepository, signer model.CredentialSigner) *ParticipantAccess {
+func NewParticipantAccess(
+	repository model.ParticipantAccessRepository,
+	signer model.CredentialSigner,
+) *ParticipantAccess {
 	return &ParticipantAccess{repository, signer}
 }
 

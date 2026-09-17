@@ -25,7 +25,7 @@ crc32 TEXT,md5 TEXT,sha1 TEXT,sha256 TEXT,materialized_blob_id TEXT,created_at_m
 PRIMARY KEY(archive_blob_id,ordinal))`); err != nil {
 		t.Fatal(err)
 	}
-	err = testWithWrite(New(database), t.Context(), func(scope firmwareservice.WriteScope) error {
+	err = testWithWrite(t.Context(), New(database), func(scope firmwareservice.WriteScope) error {
 		return scope.Archives.Put(t.Context(), "blob", []importing.ArchiveEntry{{Ordinal: 0, Size: -1}}, 1)
 	})
 	if err == nil {

@@ -30,7 +30,11 @@ func (worker *Worker) Run(parent context.Context, unit model.Execution) {
 		worker.report(parent, model.ErrInvalid)
 		return
 	}
-	bounded, cancelBudget := context.WithTimeoutCause(parent, time.Duration(remaining)*time.Millisecond, errWorkerDeadline)
+	bounded, cancelBudget := context.WithTimeoutCause(
+		parent,
+		time.Duration(remaining)*time.Millisecond,
+		errWorkerDeadline,
+	)
 	defer cancelBudget()
 	ctx, cancel := context.WithCancelCause(bounded)
 	defer cancel(nil)
@@ -124,7 +128,11 @@ func (worker *Worker) finishCancellation(parent context.Context, unit model.Exec
 func (worker *Worker) finishDeadline(parent context.Context, unit model.Execution) {
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
 	defer cancel()
-	_, err := worker.dependencies.Control.Fail(cleanup, unit, model.ExecutionFailure{Code: "EMULATIONSTATION_EXECUTION_TIMEOUT"})
+	_, err := worker.dependencies.Control.Fail(
+		cleanup,
+		unit,
+		model.ExecutionFailure{Code: "EMULATIONSTATION_EXECUTION_TIMEOUT"},
+	)
 	if errors.Is(err, model.ErrExpired) {
 		err = worker.dependencies.Maintenance.Maintain(cleanup)
 	}

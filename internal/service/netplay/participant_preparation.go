@@ -93,14 +93,19 @@ func (service *ParticipantPreparation) Launch(
 	}, nil
 }
 
-func (service *ParticipantPreparation) record(ctx context.Context, request model.PreparationRequest, generation int64) error {
+func (service *ParticipantPreparation) record(
+	ctx context.Context,
+	request model.PreparationRequest,
+	generation int64,
+) error {
 	now := service.now().UnixMilli()
 	err := service.repository.WithPreparation(ctx, func(scope model.PreparationScope) error {
 		before, err := scope.Read.Snapshot(ctx, request.RoomID, request.SessionID, request.ProfileID)
 		if err != nil {
 			return fmt.Errorf("netplay/read prepared participant: %w", err)
 		}
-		if before.Peer.CredentialGeneration != generation || before.Peer.State == "LOCKED" || before.Peer.State == "LEFT" {
+		if before.Peer.CredentialGeneration != generation || before.Peer.State == "LOCKED" ||
+			before.Peer.State == "LEFT" {
 			return model.ErrRoomConflict
 		}
 		events := make([]model.SessionEvent, 0, 2)

@@ -22,7 +22,11 @@ func (run *importItemRun) copyFiles(ctx context.Context) (bool, error) {
 			Path: file.Path, Facts: file.Facts, Size: file.Size,
 		}, blob)
 		if err != nil {
-			return false, run.finish(ctx, err, model.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true})
+			return false, run.finish(
+				ctx,
+				err,
+				model.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true},
+			)
 		}
 		run.item.Files[index].BlobID = blobID
 	}

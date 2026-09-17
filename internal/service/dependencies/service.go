@@ -79,11 +79,19 @@ func targetForCore(catalog runtimecatalog.Catalog, coreID string) (model.Runtime
 			continue
 		}
 		if selected.ProviderID != binding.ProviderID || selected.TargetID != binding.TargetID {
-			return model.RuntimeTarget{}, fmt.Errorf("%w: ambiguous runtime target for core %s", dependencies.ErrInvalid, coreID)
+			return model.RuntimeTarget{}, fmt.Errorf(
+				"%w: ambiguous runtime target for core %s",
+				dependencies.ErrInvalid,
+				coreID,
+			)
 		}
 	}
 	if selected == nil {
-		return model.RuntimeTarget{}, fmt.Errorf("%w: runtime target missing for core %s", dependencies.ErrInvalid, coreID)
+		return model.RuntimeTarget{}, fmt.Errorf(
+			"%w: runtime target missing for core %s",
+			dependencies.ErrInvalid,
+			coreID,
+		)
 	}
 	return model.RuntimeTarget{ProviderID: selected.ProviderID, TargetID: selected.TargetID}, nil
 }
@@ -110,7 +118,11 @@ func (service *Service) staticBIOSTargets(
 	return result, nil
 }
 
-func (service *Service) seedTarget(ctx context.Context, records model.TargetRecords, coreID string) (model.RuntimeTarget, error) {
+func (service *Service) seedTarget(
+	ctx context.Context,
+	records model.TargetRecords,
+	coreID string,
+) (model.RuntimeTarget, error) {
 	target, err := targetForCore(service.set.RuntimeCatalog, coreID)
 	if err != nil {
 		return model.RuntimeTarget{}, err
@@ -120,7 +132,11 @@ func (service *Service) seedTarget(ctx context.Context, records model.TargetReco
 		return model.RuntimeTarget{}, fmt.Errorf("read runtime target: %w", err)
 	}
 	if !exists {
-		return model.RuntimeTarget{}, fmt.Errorf("%w: runtime target missing for core %s", dependencies.ErrInvalid, coreID)
+		return model.RuntimeTarget{}, fmt.Errorf(
+			"%w: runtime target missing for core %s",
+			dependencies.ErrInvalid,
+			coreID,
+		)
 	}
 	return target, nil
 }

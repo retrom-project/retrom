@@ -8,7 +8,11 @@ import (
 	model "retrom/internal/model/emulationstationimport"
 )
 
-func (executor *ImportExecutor) CopyFiles(ctx context.Context, unit model.Execution, item *model.ExecutionItem) (bool, error) {
+func (executor *ImportExecutor) CopyFiles(
+	ctx context.Context,
+	unit model.Execution,
+	item *model.ExecutionItem,
+) (bool, error) {
 	for index, file := range item.Files {
 		if file.State == "COPIED" && file.BlobID != "" {
 			continue

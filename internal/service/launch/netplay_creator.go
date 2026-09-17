@@ -41,7 +41,10 @@ type netplayCreationOutcome struct {
 	existing *model.NetplayExistingLaunch
 }
 
-func (service *NetplayCreator) CreateNetplay(ctx context.Context, request model.NetplayCreateRequest) (model.Created, error) {
+func (service *NetplayCreator) CreateNetplay(
+	ctx context.Context,
+	request model.NetplayCreateRequest,
+) (model.Created, error) {
 	if !validNetplayCreationRequest(request) {
 		return model.Created{}, model.ErrBlocked
 	}

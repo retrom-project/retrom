@@ -47,7 +47,11 @@ func (service *Completion) Finish(ctx context.Context, unit model.Execution) err
 	return nil
 }
 
-func planCompletion(before model.LeaseSnapshot, counts model.CompletionCounts, now int64) (model.CompletionChange, error) {
+func planCompletion(
+	before model.LeaseSnapshot,
+	counts model.CompletionCounts,
+	now int64,
+) (model.CompletionChange, error) {
 	if counts.Unfinished > 0 {
 		return model.CompletionChange{}, model.ErrActive
 	}

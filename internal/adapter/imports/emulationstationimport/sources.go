@@ -34,7 +34,12 @@ func NewSources(
 	roots := make(map[string]Root, len(configured))
 	for _, entry := range configured {
 		digest := credentials.ServerImportRootDigest(entry.ID, entry.Path)
-		roots[entry.ID] = Root{ID: entry.ID, Label: entry.Label, path: entry.Path, digest: hex.EncodeToString(digest[:])}
+		roots[entry.ID] = Root{
+			ID:     entry.ID,
+			Label:  entry.Label,
+			path:   entry.Path,
+			digest: hex.EncodeToString(digest[:]),
+		}
 	}
 	return &Sources{blobs: blobs, roots: roots, guard: guard, diagnostics: diagnostics}
 }
@@ -47,7 +52,9 @@ func (source *Sources) CheckRoot(unit emulationstationimportmodel.Execution) err
 	return nil
 }
 
-func (source *Sources) ForScan(unit emulationstationimportmodel.Execution) (emulationstationimportservice.ScannerSource, error) {
+func (source *Sources) ForScan(
+	unit emulationstationimportmodel.Execution,
+) (emulationstationimportservice.ScannerSource, error) {
 	if err := source.CheckRoot(unit); err != nil {
 		return nil, err
 	}

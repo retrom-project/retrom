@@ -10,7 +10,12 @@ import (
 	"retrom/internal/capability/engine/rpgmaker/detector"
 )
 
-func readReviewValidation(ctx context.Context, scope model.ReviewReadScope, head model.ReviewHead, result *model.ReviewDetail) error {
+func readReviewValidation(
+	ctx context.Context,
+	scope model.ReviewReadScope,
+	head model.ReviewHead,
+	result *model.ReviewDetail,
+) error {
 	current, err := projectReviewValidation(ctx, scope.Validation, head, result)
 	if err != nil {
 		return err
@@ -79,7 +84,10 @@ func ProjectReviewRPGMaker(profile model.RPGReviewProfile) (*model.ReviewRPGMake
 		analysis.Requirements.RTP)
 	requirements := make([]model.ReviewRTPDeclaration, 0, len(dependencies))
 	for _, entry := range dependencies {
-		requirements = append(requirements, model.ReviewRTPDeclaration{Slot: int64(entry.Slot), DeclaredName: entry.DeclaredName})
+		requirements = append(
+			requirements,
+			model.ReviewRTPDeclaration{Slot: int64(entry.Slot), DeclaredName: entry.DeclaredName},
+		)
 	}
 	return &model.ReviewRPGMaker{
 		SelectedCoreID:     profile.SelectedCoreID,

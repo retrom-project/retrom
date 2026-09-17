@@ -23,7 +23,13 @@ func (worker *Worker) Finish(ctx context.Context, unit model.Work, executionErr 
 	return nil
 }
 
-func (worker *Worker) settle(ctx context.Context, scope model.WorkerScope, before model.Work, cause error, now int64) error {
+func (worker *Worker) settle(
+	ctx context.Context,
+	scope model.WorkerScope,
+	before model.Work,
+	cause error,
+	now int64,
+) error {
 	change, err := worker.settlement(before, cause, now)
 	if err != nil {
 		return err
@@ -52,11 +58,13 @@ func (worker *Worker) settlement(before model.Work, cause error, now int64) (mod
 		change.Retryable = !errors.Is(cause, model.ErrInputInvalid)
 		change.After.State = "FAILED"
 		change.EventType = "FAILED"
-		if change.Retryable && !errors.Is(cause, model.ErrExecutionTimeout) && executionBudgetFailure(before, now) == nil {
+		if change.Retryable && !errors.Is(cause, model.ErrExecutionTimeout) &&
+			executionBudgetFailure(before, now) == nil {
 			change.After.State = "QUEUED"
 			change.EventType = "RETRY_SCHEDULED"
 			change.After.AvailableMS = now + RetryDelay(before.Attempt).Milliseconds()
-			if errors.Is(cause, model.ErrExecutionLost) || errors.Is(cause, context.Canceled) || errors.Is(cause, model.ErrWorkerClosed) {
+			if errors.Is(cause, model.ErrExecutionLost) || errors.Is(cause, context.Canceled) ||
+				errors.Is(cause, model.ErrWorkerClosed) {
 				change.After.AvailableMS = now
 			}
 		}
@@ -78,8 +86,14 @@ func (worker *Worker) settlement(before model.Work, cause error, now int64) (mod
 			change.AuditAction = "PAYLOAD_RELEASE_FAILED"
 		}
 		change.AuditID = id
-		change.AuditJSON = fmt.Sprintf(`{"schemaVersion":1,"jobId":%q,"scopeType":%q,"scopeId":%q,"state":%q,"errorCode":%q}`,
-			before.ID, before.Scope.Type, before.Scope.ID, state, change.ErrorCode)
+		change.AuditJSON = fmt.Sprintf(
+			`{"schemaVersion":1,"jobId":%q,"scopeType":%q,"scopeId":%q,"state":%q,"errorCode":%q}`,
+			before.ID,
+			before.Scope.Type,
+			before.Scope.ID,
+			state,
+			change.ErrorCode,
+		)
 	}
 	return change, nil
 }
@@ -114,7 +128,8 @@ func WorkErrorCode(err error) string {
 
 func prepareOwnerFailure(ctx context.Context, scope model.WorkerScope, change *model.WorkChange) error {
 	before := change.Before
-	if change.After.State != "FAILED" || before.Scope.Type == model.ScopeUploadConsumption || before.Scope.Type == model.ScopeBlob {
+	if change.After.State != "FAILED" || before.Scope.Type == model.ScopeUploadConsumption ||
+		before.Scope.Type == model.ScopeBlob {
 		return nil
 	}
 	owner, err := scope.Owners.Owner(ctx, before.Scope)

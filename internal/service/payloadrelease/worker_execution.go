@@ -37,7 +37,11 @@ func (worker *Worker) execute(parent context.Context, execution model.Execution)
 	if remaining <= 0 {
 		return model.ErrExecutionTimeout
 	}
-	timed, timeout := context.WithTimeoutCause(parent, time.Duration(remaining)*time.Millisecond, model.ErrExecutionTimeout)
+	timed, timeout := context.WithTimeoutCause(
+		parent,
+		time.Duration(remaining)*time.Millisecond,
+		model.ErrExecutionTimeout,
+	)
 	defer timeout()
 	ctx, cancel := context.WithCancelCause(timed)
 	defer cancel(context.Canceled)

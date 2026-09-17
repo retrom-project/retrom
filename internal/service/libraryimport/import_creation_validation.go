@@ -62,7 +62,8 @@ func PrepareCreationStaticBIOS(
 		if name == "" {
 			return model.ErrInvalid
 		}
-		snapshot, status, code, err := corevalidationservice.New(reader).ResolveBIOS(ctx, target.ProviderID, target.TargetID, name)
+		snapshot, status, code, err := corevalidationservice.New(reader).
+			ResolveBIOS(ctx, target.ProviderID, target.TargetID, name)
 		if err != nil {
 			return creationError("prepare creation static b i o s", err)
 		}
@@ -220,7 +221,12 @@ func (run *creationCommit) registerValidationArtifacts(
 		}
 		group.ValidationFiles = append(
 			group.ValidationFiles,
-			model.PreparedValidationFile{Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", BlobID: id, SortOrder: 0},
+			model.PreparedValidationFile{
+				Role:        "MULTI_DISC_PLAYLIST",
+				LogicalName: "playlist.m3u",
+				BlobID:      id,
+				SortOrder:   0,
+			},
 		)
 	}
 	bundle := group.BundleBlobID
@@ -234,7 +240,12 @@ func (run *creationCommit) registerValidationArtifacts(
 	if bundle != "" {
 		group.ValidationFiles = append(
 			group.ValidationFiles,
-			model.PreparedValidationFile{Role: "DOS_LAUNCH_BUNDLE", LogicalName: "game.zip", BlobID: bundle, SortOrder: 0},
+			model.PreparedValidationFile{
+				Role:        "DOS_LAUNCH_BUNDLE",
+				LogicalName: "game.zip",
+				BlobID:      bundle,
+				SortOrder:   0,
+			},
 		)
 	}
 	return nil
@@ -246,7 +257,10 @@ func (run *creationCommit) registerArtifact(
 	metadata blobstore.Metadata,
 	kind string,
 ) (string, error) {
-	id, err := scope.Sources.Artifact(ctx, model.CreationArtifact{Metadata: metadata, MediaType: kind, NowMS: run.header.NowMS})
+	id, err := scope.Sources.Artifact(
+		ctx,
+		model.CreationArtifact{Metadata: metadata, MediaType: kind, NowMS: run.header.NowMS},
+	)
 	if err != nil {
 		return "", fmt.Errorf("register creation validation artifact: %w", err)
 	}
