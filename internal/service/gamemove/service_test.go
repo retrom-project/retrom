@@ -49,23 +49,22 @@ func (memory *memoryRepository) ScrapeCandidates(context.Context, string) ([]mod
 	return memory.candidates, nil
 }
 
-func (memory *memoryRepository) WithMove(_ context.Context, work func(model.MoveScope) error) error {
-	return work(memory)
-}
-
-func (memory *memoryRepository) UpdateGame(
-	_ context.Context, gameID, targetID string, expectedVersion, nowMS int64,
-) (bool, error) {
-	memory.updatedGameID = gameID
-	memory.updatedTarget = targetID
-	memory.updatedVersion = expectedVersion
-	memory.updatedAt = nowMS
-	return memory.updated, memory.updateErr
-}
-
-func (memory *memoryRepository) Audit(_ context.Context, event model.AuditEvent) error {
-	memory.audit = event
-	return memory.auditErr
+func (memory *memoryRepository) CommitMove(_ context.Context, cmd model.MoveCommand) error {
+	memory.updatedGameID = cmd.GameID
+	memory.updatedTarget = cmd.TargetPlatformInstanceID
+	memory.updatedVersion = cmd.ExpectedVersion
+	memory.updatedAt = cmd.NowMS
+	if memory.updateErr != nil {
+		return memory.updateErr
+	}
+	if !memory.updated {
+		return model.ErrVersionConflict
+	}
+	memory.audit = cmd.Audit
+	if memory.auditErr != nil {
+		return memory.auditErr
+	}
+	return nil
 }
 
 type memoryValidation struct {

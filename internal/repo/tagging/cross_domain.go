@@ -63,8 +63,8 @@ func validateActiveReferences(
 	if len(validated) == 0 {
 		return []model.Reference{}, nil
 	}
-	scope := writeScope(executor)
-	result, err := scope.Tags.ActiveReferences(ctx, validated)
+	scope := newWriteScope(executor)
+	result, err := scope.tags.ActiveReferences(ctx, validated)
 	if err != nil {
 		return nil, fmt.Errorf("tagging: read active references: %w", err)
 	}
@@ -84,8 +84,8 @@ func replaceOwnerReferences(
 	if err != nil {
 		return nil, nil, err
 	}
-	scope := writeScope(executor)
-	before, err := scope.Relations.References(ctx, owner)
+	scope := newWriteScope(executor)
+	before, err := scope.relations.References(ctx, owner)
 	if err != nil {
 		return nil, nil, fmt.Errorf("tagging: read owner references: %w", err)
 	}
@@ -112,8 +112,8 @@ func assignReferences(
 	if !model.ValidID(owner.ID) || !model.ValidID(actorUserID) {
 		return model.ErrInvalid
 	}
-	scope := writeScope(executor)
-	if err := scope.Relations.Add(ctx, model.Assignment{
+	scope := newWriteScope(executor)
+	if err := scope.relations.Add(ctx, model.Assignment{
 		Owner:       owner,
 		References:  refs,
 		ActorUserID: actorUserID,
@@ -121,7 +121,7 @@ func assignReferences(
 	}); err != nil {
 		return fmt.Errorf("tagging: assign references: %w", err)
 	}
-	if err := scope.Relations.TouchTags(
+	if err := scope.relations.TouchTags(
 		ctx, actorUserID, model.ReferenceIDs(refs), now,
 	); err != nil {
 		return fmt.Errorf("tagging: touch assigned tags: %w", err)
@@ -132,8 +132,8 @@ func assignReferences(
 func readOwnerReferences(
 	ctx context.Context, executor dbexec.Executor, owner model.Owner,
 ) ([]model.Reference, error) {
-	scope := writeScope(executor)
-	refs, err := scope.Relations.References(ctx, owner)
+	scope := newWriteScope(executor)
+	refs, err := scope.relations.References(ctx, owner)
 	if err != nil {
 		return nil, fmt.Errorf("tagging: read references: %w", err)
 	}

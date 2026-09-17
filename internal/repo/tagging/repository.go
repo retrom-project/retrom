@@ -19,18 +19,17 @@ type (
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
 
-// Bind returns business capabilities bound to a caller-owned transaction. It never commits it.
-func Bind(transaction *sql.Tx) tagging.WriteScope { return writeScope(transaction) }
+// BindReferenceReader returns a read-only ReferenceReader bound to a
+// caller-owned transaction or connection.
+func BindReferenceReader(executor dbexec.Executor) tagging.ReferenceReader {
+	return relationRecords{database: executor}
+}
 
-// BindExecutor returns business capabilities bound to a caller-owned
-// transaction or connection. It never commits it.
-func BindExecutor(executor dbexec.Executor) tagging.WriteScope { return writeScope(executor) }
-
-func writeScope(database dbexec.Executor) tagging.WriteScope {
+func newWriteScope(database dbexec.Executor) writeScope {
 	records := tagRecords{database}
-	return tagging.WriteScope{
-		Tags: records, Changes: records, Relations: relationRecords{database},
-		Games: gameRecords{database}, Audit: auditRecords{database},
+	return writeScope{
+		tags: records, changes: records, relations: relationRecords{database},
+		games: gameRecords{database}, audit: auditRecords{database},
 	}
 }
 
@@ -40,17 +39,17 @@ func ApplyReplacementPlan(ctx context.Context, executor dbexec.Executor, plan ta
 	if !plan.Changed {
 		return nil
 	}
-	scope := writeScope(executor)
-	if err := scope.Relations.Remove(ctx, plan.Owner, tagging.ReferenceIDs(plan.Removed)); err != nil {
+	scope := newWriteScope(executor)
+	if err := scope.relations.Remove(ctx, plan.Owner, tagging.ReferenceIDs(plan.Removed)); err != nil {
 		return fmt.Errorf("tagging: remove owner tags: %w", err)
 	}
-	if err := scope.Relations.Add(ctx, tagging.Assignment{
+	if err := scope.relations.Add(ctx, tagging.Assignment{
 		Owner: plan.Owner, References: plan.Added, ActorUserID: plan.ActorUserID, NowMS: plan.NowMS,
 	}); err != nil {
 		return fmt.Errorf("tagging: add owner tags: %w", err)
 	}
 	touched := append(tagging.ReferenceIDs(plan.Added), tagging.ReferenceIDs(plan.Removed)...)
-	if err := scope.Relations.TouchTags(ctx, plan.ActorUserID, touched, plan.NowMS); err != nil {
+	if err := scope.relations.TouchTags(ctx, plan.ActorUserID, touched, plan.NowMS); err != nil {
 		return fmt.Errorf("tagging: touch owner tags: %w", err)
 	}
 	return nil

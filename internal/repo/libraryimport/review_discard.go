@@ -43,7 +43,7 @@ func BindReviewDiscard(executor dbexec.Executor) application.ReviewDiscardScope 
 	records := reviewDiscardRecords{executor: executor}
 	return application.ReviewDiscardScope{
 		Payload: payloadpersistence.BindReleases(executor),
-		Reader:  records, Writer: records, Tags: tagpersistence.BindExecutor(executor).Relations,
+		Reader:  records, Writer: records, Tags: tagpersistence.BindReferenceReader(executor),
 	}
 }
 

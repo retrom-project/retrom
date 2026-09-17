@@ -156,9 +156,8 @@ func TestInvalidActorDoesNotOpenWriteScope(t *testing.T) {
 	}
 }
 
-// boundaryTags is a test double for model.TagReader.
+// boundaryTags is a test double for activeReferenceReader and tag lookup.
 type boundaryTags struct {
-	model.TagReader
 	active     map[string]string
 	item       model.AdminItem
 	references []model.Reference

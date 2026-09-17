@@ -16,14 +16,16 @@ type Repository interface {
 	QueuedJobState(context.Context, string) (string, error)
 	LatestScrapeRun(context.Context, string) (string, bool, error)
 	ScrapeCandidates(context.Context, string) ([]CandidateRecord, error)
-	WithMove(context.Context, func(MoveScope) error) error
+	CommitMove(context.Context, MoveCommand) error
 }
 
-// MoveScope contains writes that must be committed together with the move
-// audit event.
-type MoveScope interface {
-	UpdateGame(context.Context, string, string, int64, int64) (bool, error)
-	Audit(context.Context, AuditEvent) error
+// MoveCommand carries the values needed for an atomic game move write.
+type MoveCommand struct {
+	GameID                   string
+	TargetPlatformInstanceID string
+	ExpectedVersion          int64
+	NowMS                    int64
+	Audit                    AuditEvent
 }
 
 // ValidationResolver supplies the immutable BIOS snapshot used in a move
