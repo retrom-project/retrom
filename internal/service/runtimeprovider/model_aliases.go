@@ -5,18 +5,11 @@ import model "retrom/internal/model/runtimeprovider"
 var NewProjection = model.NewProjection
 
 type (
-	Audit              = model.Audit
-	CatalogRecords     = model.CatalogRecords
-	CurrentProvider    = model.CurrentProvider
-	CurrentState       = model.CurrentState
 	Projection         = model.Projection
-	ProjectionRecords  = model.ProjectionRecords
 	ProviderProjection = model.ProviderProjection
-	Publication        = model.Publication
+	ReconcileCommand   = model.ReconcileCommand
 	Repository         = model.Repository
-	TargetIdentity     = model.TargetIdentity
 	TargetProjection   = model.TargetProjection
-	WriteScope         = model.WriteScope
 )
 
 var (

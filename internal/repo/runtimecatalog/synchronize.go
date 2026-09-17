@@ -2,18 +2,18 @@ package runtimecatalog
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
 	"retrom/internal/capability/runtime/runtimecatalog"
+	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/repo/recordstore"
 )
 
 // SynchronizeDefinitions projects validated Host declarations in the caller's startup transaction.
 // It never updates user-created platform instances, defaults or installations.
-func SynchronizeDefinitions(ctx context.Context, transaction *sql.Tx, catalog runtimecatalog.Catalog, now int64) error {
+func SynchronizeDefinitions(ctx context.Context, transaction dbexec.Executor, catalog runtimecatalog.Catalog, now int64) error {
 	if err := pruneUnreferencedDefinitions(ctx, transaction, catalog.Definitions); err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ INSERT INTO content_kinds(id) VALUES(?) ON CONFLICT(id) DO NOTHING
 	return writeProductRelations(ctx, transaction, catalog)
 }
 
-func writeProductRelations(ctx context.Context, transaction *sql.Tx, catalog runtimecatalog.Catalog) error {
+func writeProductRelations(ctx context.Context, transaction dbexec.Executor, catalog runtimecatalog.Catalog) error {
 	bindings, err := json.Marshal(catalog.Bindings)
 	if err != nil {
 		return fmt.Errorf("encode product relations: %w", err)
@@ -87,7 +87,7 @@ ON CONFLICT(platform_id,core_id) DO UPDATE SET enabled=excluded.enabled
 // projection (including provider activation and audit) on any failure.
 func pruneUnreferencedDefinitions(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	definitions runtimecatalog.Definitions,
 ) error {
 	encoded, err := json.Marshal(definitions)

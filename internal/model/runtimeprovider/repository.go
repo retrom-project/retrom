@@ -2,8 +2,14 @@ package runtimeprovider
 
 import "context"
 
+// ReconcileCommand captures the projection candidate and current timestamp.
+type ReconcileCommand struct {
+	Candidate Projection
+	NowMS     int64
+}
+
 type Repository interface {
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitReconcile(context.Context, ReconcileCommand) error
 }
 type WriteScope struct {
 	Catalog    CatalogRecords

@@ -2,10 +2,10 @@ package runtimeprovider
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	service "retrom/internal/model/runtimeprovider"
+	"retrom/internal/repo/dbexec"
 
 	runtimecatalogpersistence "retrom/internal/repo/runtimecatalog"
 
@@ -14,7 +14,7 @@ import (
 	"retrom/internal/capability/runtime/runtimecatalog"
 )
 
-func terminateProviderSessions(ctx context.Context, transaction *sql.Tx, providerID string, now int64) error {
+func terminateProviderSessions(ctx context.Context, transaction dbexec.Executor, providerID string, now int64) error {
 	if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
 		Set: `
 state='ENDED',current_session_id=NULL,ended_at_ms=?,end_reason='SERVER_RESTARTED',
@@ -48,7 +48,7 @@ finished_at_ms=?,updated_at_ms=?,version=version+1
 	return nil
 }
 
-func clearHostBindings(ctx context.Context, transaction *sql.Tx) error {
+func clearHostBindings(ctx context.Context, transaction dbexec.Executor) error {
 	tables := []struct {
 		name  string
 		label string
@@ -68,7 +68,7 @@ func clearHostBindings(ctx context.Context, transaction *sql.Tx) error {
 
 func writeProvider(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	provider service.ProviderProjection,
 	now int64,
 ) error {
@@ -98,7 +98,7 @@ ON CONFLICT(provider_id) DO UPDATE SET
 
 func writeTarget(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	providerID string,
 	projected service.TargetProjection,
 ) error {
@@ -122,7 +122,7 @@ ON CONFLICT(provider_id,target_id) DO UPDATE SET
 
 func writeHostBindings(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbexec.Executor,
 	bindings []runtimecatalog.Binding,
 ) error {
 	for _, binding := range bindings {
@@ -133,7 +133,7 @@ func writeHostBindings(
 	return nil
 }
 
-func writeHostBinding(ctx context.Context, transaction *sql.Tx, binding runtimecatalog.Binding) error {
+func writeHostBinding(ctx context.Context, transaction dbexec.Executor, binding runtimecatalog.Binding) error {
 	strategy, registered := runtimecatalog.Strategy(binding.DetectorProfile)
 	if !registered {
 		return runtimecatalog.ErrCatalogInvalid
@@ -164,7 +164,7 @@ INSERT INTO runtime_binding_content_kinds(binding_id,content_kind) VALUES(?,?)
 	return nil
 }
 
-func writeCatalogState(ctx context.Context, transaction *sql.Tx, candidate service.Projection, now int64) error {
+func writeCatalogState(ctx context.Context, transaction dbexec.Executor, candidate service.Projection, now int64) error {
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_catalog_state(singleton,catalog_sha256,activated_at_ms)
 VALUES(1,?,?)
@@ -177,7 +177,7 @@ ON CONFLICT(singleton) DO UPDATE SET
 	return nil
 }
 
-func synchronizeDefinitions(ctx context.Context, tx *sql.Tx, candidate service.Projection, now int64) error {
+func synchronizeDefinitions(ctx context.Context, tx dbexec.Executor, candidate service.Projection, now int64) error {
 	if err := runtimecatalogpersistence.SynchronizeDefinitions(ctx, tx, runtimecatalog.Catalog{
 		SchemaVersion: 1, Definitions: candidate.Definitions, Bindings: candidate.Bindings,
 	}, now); err != nil {
