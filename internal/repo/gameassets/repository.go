@@ -50,11 +50,27 @@ AND f.state='COMPLETE'
 	return upload, true, nil
 }
 
+func (repository *Repository) commitWrite(
+	ctx context.Context, work func(writeScope) error,
+) error {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("gameassets: begin: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	if err := work(writeScope{executor: tx, releases: repository.releases}); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("gameassets: commit: %w", err)
+	}
+	return nil
+}
+
 func (repository *Repository) CommitCreate(
 	ctx context.Context, cmd application.CreateCommand,
 ) error {
-	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
-		scope := writeScope{executor: exec, releases: repository.releases}
+	return repository.commitWrite(ctx, func(scope writeScope) error {
 		version, err := scope.GameVersion(ctx, cmd.GameID)
 		if err != nil {
 			return fmt.Errorf("%w: %w", application.ErrVersionConflict, err)
@@ -98,18 +114,13 @@ func (repository *Repository) CommitCreate(
 		}
 		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("gameassets: commit create: %w", err)
-	}
-	return nil
 }
 
 func (repository *Repository) CommitDelete(
 	ctx context.Context, cmd application.DeleteCommand,
 ) (application.DeleteResult, error) {
 	var result application.DeleteResult
-	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
-		scope := writeScope{executor: exec, releases: repository.releases}
+	err := repository.commitWrite(ctx, func(scope writeScope) error {
 		version, err := scope.GameVersion(ctx, cmd.GameID)
 		if err != nil {
 			return fmt.Errorf("%w: %w", application.ErrVersionConflict, err)
@@ -143,10 +154,7 @@ func (repository *Repository) CommitDelete(
 		result.Version = cmd.ExpectedVersion + 1
 		return nil
 	})
-	if err != nil {
-		return result, fmt.Errorf("gameassets: commit delete: %w", err)
-	}
-	return result, nil
+	return result, err
 }
 
 var _ application.Repository = (*Repository)(nil)
