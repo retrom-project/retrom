@@ -48,5 +48,5 @@ type ControlScope struct {
 	Write ControlWriter
 }
 type ControlRepository interface {
-	WithWrite(context.Context, func(ControlScope) error) error
+	CommitWrite(context.Context, func(ControlScope) error) error
 }

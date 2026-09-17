@@ -44,7 +44,7 @@ func (service *Service) ChangeDefaultCore(
 		return DefaultCoreChangeResult{}, ErrImpactStale
 	}
 	var change DefaultCoreChangeResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		facts, err := scope.Reader.CoreImpact(ctx, instanceID, coreID, expected)
 		if err != nil {
 			return fmt.Errorf("read core impact: %w", err)

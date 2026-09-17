@@ -24,5 +24,5 @@ type RecoveryScope struct {
 }
 type RecoveryRepository interface {
 	ByUsername(context.Context, string) (RecoveryTarget, bool, error)
-	WithWrite(context.Context, func(RecoveryScope) error) error
+	CommitWrite(context.Context, func(RecoveryScope) error) error
 }

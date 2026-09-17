@@ -21,7 +21,7 @@ type (
 )
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
-func (repository *Repository) WithWrite(ctx context.Context, work func(service.WriteScope) error) error {
+func (repository *Repository) CommitWrite(ctx context.Context, work func(service.WriteScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("dependencies/begin: %w", err)

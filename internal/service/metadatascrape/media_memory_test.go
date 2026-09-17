@@ -31,7 +31,7 @@ func newMediaMemory() (*mediaMemory, error) {
 	}}, nil
 }
 
-func (memory *mediaMemory) WithWrite(ctx context.Context, work func(MediaScope) error) error {
+func (memory *mediaMemory) CommitWrite(ctx context.Context, work func(MediaScope) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

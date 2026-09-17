@@ -17,7 +17,7 @@ type discoveryMemory struct {
 	lateErr error
 }
 
-func (memory *discoveryMemory) WithWrite(_ context.Context, work func(DiscoveryRecords) error) error {
+func (memory *discoveryMemory) CommitWrite(_ context.Context, work func(DiscoveryRecords) error) error {
 	if err := work(memory); err != nil {
 		return err
 	}

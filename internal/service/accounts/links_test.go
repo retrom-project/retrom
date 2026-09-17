@@ -28,7 +28,7 @@ func (memory *linkMemory) List(_ context.Context, query LinkQuery) ([]LinkRecord
 	return []LinkRecord{memory.record}, memory.readErr
 }
 
-func (memory *linkMemory) WithWrite(_ context.Context, work func(LinkScope) error) error {
+func (memory *linkMemory) CommitWrite(_ context.Context, work func(LinkScope) error) error {
 	if err := work(LinkScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}

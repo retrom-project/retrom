@@ -57,7 +57,9 @@ func ApplyReplacementPlan(ctx context.Context, executor dbexec.Executor, plan ta
 	return nil
 }
 
-func (repository *Repository) WithWrite(ctx context.Context, work func(tagging.WriteScope) error) error {
+// commitWrite runs work inside an IMMEDIATE transaction.
+// It is used internally by named command methods; not exposed in the model interface.
+func (repository *Repository) commitWrite(ctx context.Context, work func(tagging.WriteScope) error) error {
 	connection, err := repository.database.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("tagging: acquire connection: %w", err)

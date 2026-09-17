@@ -15,7 +15,7 @@ type leaseMemory struct {
 	lateErr  error
 }
 
-func (memory *leaseMemory) WithWrite(_ context.Context, work func(LeaseRecords) error) error {
+func (memory *leaseMemory) CommitWrite(_ context.Context, work func(LeaseRecords) error) error {
 	if err := work(memory); err != nil {
 		return err
 	}

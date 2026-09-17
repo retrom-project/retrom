@@ -18,7 +18,7 @@ func TestOfflineRecoveryLateFailureKeepsCredentialAndSession(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("recovery target: %v", err)
 	}
-	err = repository.WithWrite(t.Context(), func(scope accountservice.RecoveryScope) error {
+	err = repository.CommitWrite(t.Context(), func(scope accountservice.RecoveryScope) error {
 		if err := scope.Write.Reset(t.Context(), accountservice.RecoveryPlan{Target: target, PasswordHash: "replacement-hash", AuditID: "rollback-audit", BeforeJSON: `{}`, AfterJSON: `{}`, ClearTestDefault: true, Now: fixture.now.UnixMilli()}); err != nil {
 			return err
 		}

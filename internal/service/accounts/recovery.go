@@ -35,7 +35,7 @@ func (service *RecoveryService) Reset(ctx context.Context, username, password, c
 	if err != nil {
 		return fmt.Errorf("create recovery audit identity: %w", err)
 	}
-	err = service.repository.WithWrite(ctx, func(scope RecoveryScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope RecoveryScope) error {
 		current, found, err := scope.Read.Current(ctx, target.UserID)
 		if err != nil {
 			return fmt.Errorf("recheck offline recovery target: %w", err)

@@ -42,7 +42,7 @@ func newMediaRetryFixture(t *testing.T) validationRetryFixture {
 	database := fixture.server.database
 	now := fixture.now().UnixMilli()
 	gameID := "01980000-0000-7000-8000-000000000191"
-	err := metadatapersistence.NewScheduler(database).WithWrite(t.Context(), func(scope metadatascrape.ScheduleScope) error {
+	err := metadatapersistence.NewScheduler(database).CommitWrite(t.Context(), func(scope metadatascrape.ScheduleScope) error {
 		return scope.Writes.Create(t.Context(), metadatascrape.SchedulePlan{
 			Subject: metadatascrape.Subject{Kind: "GAME", ID: gameID},
 			RunID:   "media-run", JobID: "metadata-job", Provider: "HASHEOUS", Dedupe: strings.Repeat("8", 64), PayloadJSON: `{}`,

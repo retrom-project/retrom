@@ -66,6 +66,16 @@ type RoomControlScope struct {
 	Eligibility EligibilityRepository
 	BIOS        validation.Repository
 }
+// MutationCommand captures the validated room mutation envelope.
+type MutationCommand struct {
+	RoomID, ActorID string
+	Version         int64
+	HostOnly        bool
+	States          []string
+	NowMS           int64
+	Apply           func(RoomControlScope, RoomControlSnapshot, int64) error
+}
+
 type RoomControlRepository interface {
-	WithWrite(context.Context, func(RoomControlScope) error) error
+	CommitMutation(context.Context, MutationCommand) (Room, error)
 }

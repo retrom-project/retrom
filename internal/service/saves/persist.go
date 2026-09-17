@@ -41,7 +41,7 @@ func (service *Service) persistManualSave(ctx context.Context, id, key, digest s
 ) (ManualResult, bool, error) {
 	var result ManualResult
 	var replayed bool
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		now := service.now().UnixMilli()
 		var err error
 		result, replayed, err = replayManualSave(ctx, scope.Idempotency,

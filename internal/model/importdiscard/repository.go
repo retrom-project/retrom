@@ -43,9 +43,36 @@ type Envelope struct {
 	Complete         bool
 }
 
+// RecoverOwnershipCommand captures inputs for recovering source ownership links.
+type RecoverOwnershipCommand struct{ Key Key }
+
+// DiscardSourceItemsCommand captures inputs for discarding source items.
+type DiscardSourceItemsCommand struct {
+	Key   Key
+	NowMS int64
+}
+
+// RequestDiscardCommand captures inputs for requesting content discard.
+type RequestDiscardCommand struct {
+	Key    Key
+	UserID string
+	NowMS  int64
+}
+
 type Repository interface {
 	WithRead(context.Context, func(Reader) error) error
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitRecoverOwnership(context.Context, RecoverOwnershipCommand) error
+	CommitDiscardSourceItems(context.Context, DiscardSourceItemsCommand) (bool, error)
+	CommitRequestDiscard(context.Context, RequestDiscardCommand) (Status, error)
+	CommitProgress(context.Context, Progress) error
+}
+
+// Status describes the current discard state for a key.
+type Status struct {
+	Kind      string  `json:"kind"`
+	ImportID  string  `json:"importId"`
+	State     string  `json:"state"`
+	ErrorCode *string `json:"errorCode"`
 }
 type Reader interface {
 	Batch(context.Context, Key) (Batch, error)

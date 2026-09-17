@@ -11,7 +11,7 @@ type BlobWriter interface {
 	Put(io.Reader) (blobstore.Metadata, error)
 }
 type Repository interface {
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitWrite(context.Context, func(WriteScope) error) error
 	Snapshot(context.Context, string) (Session, error)
 	Target(context.Context, FileKey) (PartTarget, error)
 	Parts(context.Context, string) ([]Part, error)

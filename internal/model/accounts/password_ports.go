@@ -30,7 +30,7 @@ type PasswordScope struct {
 }
 type PasswordRepository interface {
 	Current(context.Context, PasswordActor, int64) (PasswordState, bool, error)
-	WithWrite(context.Context, func(PasswordScope) error) error
+	CommitWrite(context.Context, func(PasswordScope) error) error
 }
 type PasswordHasher interface {
 	Verify(context.Context, string, string) (bool, error)

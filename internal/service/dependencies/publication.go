@@ -17,7 +17,7 @@ func publishBuiltInDATCatalog(
 	ctx context.Context, repository Repository, datID, jobID string, indexed, expected int64,
 	catalog arcadedat.Catalog, now time.Time,
 ) error {
-	err := repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := repository.CommitWrite(ctx, func(scope WriteScope) error {
 		if err := scope.Catalog.Publish(
 			ctx,
 			CatalogPublication{

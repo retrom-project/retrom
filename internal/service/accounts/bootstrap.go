@@ -23,7 +23,7 @@ func (service *InitializationService) bootstrap(
 	if err != nil {
 		return Session{}, err
 	}
-	err = service.repository.WithWrite(ctx, func(scope InitializationScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope InitializationScope) error {
 		state, err := scope.Read.State(ctx)
 		if err != nil {
 			return fmt.Errorf("recheck initialization state: %w", err)

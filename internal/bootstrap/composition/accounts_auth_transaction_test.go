@@ -23,7 +23,7 @@ func TestLoginSessionAndUserActivityRollbackTogether(t *testing.T) {
 		t.Fatalf("credential missing: %v", err)
 	}
 	material := accountservice.SessionMaterial{ID: "rollback-session", Hash: [32]byte{1}}
-	err = repository.WithWrite(t.Context(), func(scope accountservice.AuthScope) error {
+	err = repository.CommitWrite(t.Context(), func(scope accountservice.AuthScope) error {
 		if err := scope.Write.Login(t.Context(), credential, material.Record(session.User.UserID, credential.SessionVersion, before+100)); err != nil {
 			return err
 		}

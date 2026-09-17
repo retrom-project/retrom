@@ -36,7 +36,7 @@ func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = NewMedia(database.SQL).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
+	err = NewMedia(database.SQL).CommitWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
 		return scope.Assets.Publish(context.Background(), metadatascrape.AssetPublication{
 			ID: "deleted", Blob: metadata, MediaType: "image/png", Width: 1, Height: 1, Now: recoveryNow().UnixMilli(),
 		}, 1)

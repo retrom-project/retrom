@@ -47,7 +47,7 @@ func (fixture *mediaFixture) worker(source mediaSource) *metadatascrape.MediaWor
 func (fixture *mediaFixture) snapshot(t *testing.T) metadatascrape.MediaSnapshot {
 	t.Helper()
 	var snapshot metadatascrape.MediaSnapshot
-	err := NewMedia(fixture.database).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
+	err := NewMedia(fixture.database).CommitWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
 		var err error
 		snapshot, err = scope.Read.Snapshot(t.Context(), fixture.jobID)
 		return err

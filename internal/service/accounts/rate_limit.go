@@ -63,7 +63,7 @@ func (limiter *Limiter) Check(ctx context.Context, subjects ...RateLimitSubject)
 
 func (limiter *Limiter) Record(ctx context.Context, subjects ...RateLimitSubject) error {
 	maximum := 0
-	err := limiter.repository.WithWrite(ctx, func(records RateLimitRecords) error {
+	err := limiter.repository.CommitWrite(ctx, func(records RateLimitRecords) error {
 		now := limiter.now().UnixMilli()
 		if err := records.Prune(ctx, now-(24*time.Hour).Milliseconds(), now); err != nil {
 			return fmt.Errorf("prune authentication limits: %w", err)

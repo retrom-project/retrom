@@ -84,7 +84,7 @@ type workerRepository struct {
 	claimError error
 }
 
-func (repository *workerRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *workerRepository) CommitWrite(_ context.Context, work func(WriteScope) error) error {
 	return work(WriteScope{Sessions: workerSessions{current: repository.current}, Jobs: workerJobs{repository: repository}, Finalize: workerFinalize{}})
 }
 

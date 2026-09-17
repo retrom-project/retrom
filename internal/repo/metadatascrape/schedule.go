@@ -25,7 +25,7 @@ func BindSchedule(transaction *sql.Tx) metadatascrape.ScheduleScope {
 	return metadatascrape.ScheduleScope{Subjects: reader, Sources: reader, Writes: scheduleWrites{transaction}}
 }
 
-func (repository *ScheduleRepository) WithWrite(
+func (repository *ScheduleRepository) CommitWrite(
 	ctx context.Context,
 	work func(metadatascrape.ScheduleScope) error,
 ) error {

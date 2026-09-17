@@ -14,7 +14,7 @@ func (worker *MediaWorker) claim(ctx context.Context, id string) (mediaExecution
 		return mediaExecution{}, err
 	}
 	var execution mediaExecution
-	err = worker.repository.WithWrite(ctx, func(scope MediaScope) error {
+	err = worker.repository.CommitWrite(ctx, func(scope MediaScope) error {
 		var err error
 		execution, err = worker.claimInScope(ctx, scope, id, workerID)
 		return err

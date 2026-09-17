@@ -52,7 +52,7 @@ func (service *ReviewCoverUploads) Upload(ctx context.Context, request ReviewCov
 		return ReviewCoverResult{}, err
 	}
 	var result ReviewCoverResult
-	err = service.repository.WithWrite(ctx, func(scope ReviewCoverScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope ReviewCoverScope) error {
 		record, saveErr := service.save(ctx, scope, request, source, prepared)
 		if saveErr != nil {
 			return saveErr

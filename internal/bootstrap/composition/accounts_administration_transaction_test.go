@@ -15,7 +15,7 @@ func TestUserDeletionLateFailureRollsBackSecurityAndAudit(t *testing.T) {
 	initial := authenticatedTestAdmin(t, fixture)
 	acceptFixtureInvitation(t, fixture, initial.Principal, "ADMIN", "otheradmin", "Other Admin")
 	repository := accountpersistence.NewAdministration(fixture.database.SQL)
-	err := repository.WithWrite(t.Context(), func(scope accountservice.AdministrationScope) error {
+	err := repository.CommitWrite(t.Context(), func(scope accountservice.AdministrationScope) error {
 		before, found, err := scope.Read.Current(t.Context(), initial.User.UserID, fixture.now.UnixMilli())
 		if err != nil {
 			return err

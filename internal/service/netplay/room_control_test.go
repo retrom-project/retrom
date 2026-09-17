@@ -21,11 +21,38 @@ type roomControlMemory struct {
 	ready                                                     RoomReadyPlan
 }
 
-func (memory *roomControlMemory) WithWrite(_ context.Context, work func(RoomControlScope) error) error {
-	if err := work(RoomControlScope{Read: memory, Write: memory, Eligibility: memory.eligibility, BIOS: memory.bios}); err != nil {
-		return err
+func (memory *roomControlMemory) CommitMutation(_ context.Context, cmd MutationCommand) (Room, error) {
+	before := memory.before
+	if memory.readFailure != nil {
+		return Room{}, memory.readFailure
 	}
-	return memory.commitFailure
+	if cmd.HostOnly && before.HostID != cmd.ActorID {
+		return Room{}, ErrForbidden
+	}
+	if before.Version != cmd.Version {
+		return Room{}, ErrPrecondition
+	}
+	found := false
+	for _, s := range cmd.States {
+		if s == before.State {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return Room{}, ErrRoomConflict
+	}
+	scope := RoomControlScope{Read: memory, Write: memory, Eligibility: memory.eligibility, BIOS: memory.bios}
+	if err := cmd.Apply(scope, before, cmd.NowMS); err != nil {
+		return Room{}, err
+	}
+	if memory.snapshotFailure != nil {
+		return Room{}, memory.snapshotFailure
+	}
+	if memory.commitFailure != nil {
+		return Room{}, memory.commitFailure
+	}
+	return memory.result, nil
 }
 
 func (memory *roomControlMemory) Current(context.Context, string, string) (RoomControlSnapshot, error) {

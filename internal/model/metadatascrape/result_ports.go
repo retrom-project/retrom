@@ -62,5 +62,5 @@ type ResultScope struct {
 	Write ResultWriter
 }
 type ResultRepository interface {
-	WithWrite(context.Context, func(ResultScope) error) error
+	CommitWrite(context.Context, func(ResultScope) error) error
 }

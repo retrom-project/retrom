@@ -13,7 +13,7 @@ type boundaryRepository struct {
 	writes int
 }
 
-func (repository *boundaryRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *boundaryRepository) CommitWrite(_ context.Context, work func(WriteScope) error) error {
 	repository.writes++
 	return work(repository.scope)
 }

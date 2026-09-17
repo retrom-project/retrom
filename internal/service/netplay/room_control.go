@@ -3,7 +3,6 @@ package netplay
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	validation "retrom/internal/service/corevalidation"
@@ -47,29 +46,14 @@ func (service *RoomControl) mutate(
 	apply func(RoomControlScope, RoomControlSnapshot, int64) error,
 ) (Room, error) {
 	now := service.now().UnixMilli()
-	var result Room
-	err := service.repository.WithWrite(ctx, func(scope RoomControlScope) error {
-		before, err := scope.Read.Current(ctx, request.roomID, request.actorID)
-		if err != nil {
-			return fmt.Errorf("netplay/read room control: %w", err)
-		}
-		if request.hostOnly && before.HostID != request.actorID {
-			return ErrForbidden
-		}
-		if before.Version != request.version {
-			return ErrPrecondition
-		}
-		if !slices.Contains(request.states, before.State) {
-			return ErrRoomConflict
-		}
-		if err := apply(scope, before, now); err != nil {
-			return err
-		}
-		result, err = scope.Read.Snapshot(ctx, request.roomID)
-		if err != nil {
-			return fmt.Errorf("netplay/read updated room: %w", err)
-		}
-		return nil
+	result, err := service.repository.CommitMutation(ctx, MutationCommand{
+		RoomID:   request.roomID,
+		ActorID:  request.actorID,
+		Version:  request.version,
+		HostOnly: request.hostOnly,
+		States:   request.states,
+		NowMS:    now,
+		Apply:    apply,
 	})
 	if err != nil {
 		return Room{}, fmt.Errorf("netplay/mutate room: %w", err)

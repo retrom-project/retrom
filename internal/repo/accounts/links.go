@@ -21,7 +21,7 @@ func (repository *LinkRepository) Current(ctx context.Context, id string) (accou
 	return (linkRecords{accountOperations{repository.database}}).Current(ctx, id)
 }
 
-func (repository *LinkRepository) WithWrite(ctx context.Context, work func(accounts.LinkScope) error) error {
+func (repository *LinkRepository) CommitWrite(ctx context.Context, work func(accounts.LinkScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin account link change: %w", err)

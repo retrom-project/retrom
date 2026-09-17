@@ -12,7 +12,7 @@ import (
 type Control struct{ database *sql.DB }
 
 func NewControl(database *sql.DB) *Control { return &Control{database} }
-func (repository *Control) WithWrite(ctx context.Context, work func(serverimport.ControlScope) error) error {
+func (repository *Control) CommitWrite(ctx context.Context, work func(serverimport.ControlScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin server import control: %w", err)

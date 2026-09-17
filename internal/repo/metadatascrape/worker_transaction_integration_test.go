@@ -24,7 +24,7 @@ func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, ru
 	}
 	claim.Version = snapshot.Version
 	claim.AttemptCount = snapshot.AttemptCount
-	err := repository.WithWrite(t.Context(), func(scope workerservice.WorkerScope) error {
+	err := repository.CommitWrite(t.Context(), func(scope workerservice.WorkerScope) error {
 		claimed, err := scope.Leases.Claim(t.Context(), claim)
 		if err != nil {
 			return err

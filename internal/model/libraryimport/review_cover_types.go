@@ -55,7 +55,7 @@ type ReviewCoverBlobs interface {
 }
 type ReviewCoverRepository interface {
 	Source(context.Context, string) (ReviewCoverSource, bool, error)
-	WithWrite(context.Context, func(ReviewCoverScope) error) error
+	CommitWrite(context.Context, func(ReviewCoverScope) error) error
 }
 type ReviewCoverScope struct {
 	Reader ReviewCoverReader

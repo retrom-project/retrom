@@ -21,7 +21,7 @@ func (service *Service) Apply(
 	digest := hex.EncodeToString(digestBytes[:])
 	identity := IdempotencyKey{PrincipalID: principalID, Operation: applyOperationID, Key: key}
 	var response IdempotentResponse
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		now := service.now().UnixMilli()
 		stored, found, err := scope.Idempotency.Find(ctx, identity, now)
 		if err != nil {

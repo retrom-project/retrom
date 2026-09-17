@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 
 	"retrom/internal/model/firmware"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 )
 
 type supersessionRecords struct{ executor dbexec.Executor }
@@ -58,4 +60,32 @@ func (records supersessionRecords) Deactivate(
 			Args:  []any{before.ID, before.RequirementID, before.BlobID, before.Version},
 		},
 	}))
+}
+
+func supersedeInScope(ctx context.Context, scope firmware.SupersessionScope, requirementID string, now int64) error {
+	before, found, err := scope.Read.Current(ctx, requirementID)
+	if err != nil {
+		return fmt.Errorf("read active BIOS for replacement: %w", err)
+	}
+	if !found {
+		return nil
+	}
+	if before.ID == "" || before.RequirementID != requirementID || before.BlobID == "" ||
+		before.Version < 1 || before.Version == math.MaxInt64 {
+		return firmware.ErrInvalid
+	}
+	if err := scope.Write.Deactivate(ctx, before, now); err != nil {
+		return fmt.Errorf("supersede active BIOS: %w", err)
+	}
+	consumptionID, err := scope.Read.Consumption(ctx, before.ID)
+	if err != nil {
+		return fmt.Errorf("read superseded BIOS consumption: %w", err)
+	}
+	if consumptionID == "" {
+		return nil
+	}
+	if _, err := payloadreleaseservice.NewScheduler(nil).Consumption(ctx, scope.Payload, consumptionID, now); err != nil {
+		return fmt.Errorf("schedule superseded BIOS consumption: %w", err)
+	}
+	return nil
 }

@@ -12,7 +12,7 @@ import (
 var ErrDATJobNotClaimed = errors.New("DEPENDENCY_DAT_JOB_NOT_CLAIMABLE")
 
 type Repository interface {
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitWrite(context.Context, func(WriteScope) error) error
 	TargetExists(context.Context, RuntimeTarget) (bool, error)
 	FindDAT(context.Context, DATLookup) (DATState, error)
 }

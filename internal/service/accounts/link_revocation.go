@@ -25,7 +25,7 @@ func (service *LinkService) Revoke(
 		return false, err
 	}
 	var replayed bool
-	err = service.repository.WithWrite(ctx, func(scope LinkScope) error {
+	err = service.repository.CommitWrite(ctx, func(scope LinkScope) error {
 		replay, err := scope.Read.Replay(ctx, operation)
 		if err != nil {
 			return fmt.Errorf("apply account link revocation: %w", err)

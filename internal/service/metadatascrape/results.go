@@ -60,7 +60,7 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 	}
 	now := recorder.now().UnixMilli()
 	created := false
-	err = recorder.repository.WithWrite(ctx, func(scope ResultScope) error {
+	err = recorder.repository.CommitWrite(ctx, func(scope ResultScope) error {
 		claim := attempt.Claim
 		claim.Now = recorder.now().UnixMilli()
 		writable, err := scope.Read.Writable(ctx, claim)

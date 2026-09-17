@@ -65,5 +65,5 @@ type AdministrationScope struct {
 	Write AdministrationWriter
 }
 type AdministrationRepository interface {
-	WithWrite(context.Context, func(AdministrationScope) error) error
+	CommitWrite(context.Context, func(AdministrationScope) error) error
 }

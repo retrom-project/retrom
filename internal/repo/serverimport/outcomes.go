@@ -14,7 +14,7 @@ import (
 type Outcomes struct{ database *sql.DB }
 
 func NewOutcomes(database *sql.DB) *Outcomes { return &Outcomes{database} }
-func (repository *Outcomes) WithWrite(ctx context.Context, work func(serverimport.OutcomeScope) error) error {
+func (repository *Outcomes) CommitWrite(ctx context.Context, work func(serverimport.OutcomeScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import outcome: %w", err)

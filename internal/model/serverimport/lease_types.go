@@ -48,5 +48,5 @@ type LeaseRecords interface {
 }
 
 type LeaseRepository interface {
-	WithWrite(context.Context, func(LeaseRecords) error) error
+	CommitWrite(context.Context, func(LeaseRecords) error) error
 }

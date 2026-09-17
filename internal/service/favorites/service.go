@@ -26,7 +26,7 @@ func (service *Service) Favorite(ctx context.Context, principal Principal, gameI
 		return State{}, ErrInvalid
 	}
 	var state State
-	err := service.repository.WithWrite(ctx, func(connection WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(connection WriteScope) error {
 		visible, err := connection.Games.Visible(ctx, gameID)
 		if err != nil {
 			return repositoryError("Favorite", err)
@@ -92,7 +92,7 @@ func (service *Service) ReplaceFolders(
 	desired := append([]string{}, folderIDs...)
 	sort.Strings(desired)
 	var state State
-	err := service.repository.WithWrite(ctx, func(connection WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(connection WriteScope) error {
 		if err := connection.Games.RequireVisible(ctx, []string{gameID}); err != nil {
 			return repositoryError("ReplaceFolders", err)
 		}
@@ -135,7 +135,7 @@ func (service *Service) idempotent(
 ) (IdempotentResponse, error) {
 	digest := requestDigest(operation, principal, request)
 	var response IdempotentResponse
-	err := service.repository.WithWrite(ctx, func(connection WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(connection WriteScope) error {
 		now := service.now().UnixMilli()
 		identity := IdempotencyKey{PrincipalID: principal.UserID, Operation: operation, Key: key}
 		stored, found, err := connection.Idempotency.Find(ctx, identity, now)

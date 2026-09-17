@@ -13,7 +13,7 @@ import (
 type Discovery struct{ database *sql.DB }
 
 func NewDiscovery(database *sql.DB) *Discovery { return &Discovery{database} }
-func (repository *Discovery) WithWrite(ctx context.Context, work func(serverimport.DiscoveryRecords) error) error {
+func (repository *Discovery) CommitWrite(ctx context.Context, work func(serverimport.DiscoveryRecords) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin discovery write: %w", err)

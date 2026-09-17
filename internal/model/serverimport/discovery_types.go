@@ -32,5 +32,5 @@ type DiscoveryRecords interface {
 }
 
 type DiscoveryRepository interface {
-	WithWrite(context.Context, func(DiscoveryRecords) error) error
+	CommitWrite(context.Context, func(DiscoveryRecords) error) error
 }

@@ -75,7 +75,7 @@ type MediaScope struct {
 }
 type MediaRepository interface {
 	Recoverable(context.Context, int64) ([]string, error)
-	WithWrite(context.Context, func(MediaScope) error) error
+	CommitWrite(context.Context, func(MediaScope) error) error
 }
 type MediaProvider interface {
 	FetchAssetBounded(context.Context, hasheous.AssetRef, int64) (hasheous.AssetData, error)

@@ -43,7 +43,7 @@ func (service *Service) PatchAdminGame(
 		now = service.now().UnixMilli()
 	}
 	var result AdminGamePatchResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope WriteScope) error {
 		if scope.AdminWriter == nil {
 			return ErrInvalid
 		}

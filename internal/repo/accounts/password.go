@@ -24,7 +24,7 @@ func (repository *PasswordRepository) Current(
 	return (passwordRecords{repository.database}).Current(ctx, actor, now)
 }
 
-func (repository *PasswordRepository) WithWrite(ctx context.Context, work func(accounts.PasswordScope) error) error {
+func (repository *PasswordRepository) CommitWrite(ctx context.Context, work func(accounts.PasswordScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin password rotation: %w", err)

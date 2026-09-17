@@ -20,7 +20,7 @@ func TestCanceledCommitRollsBackAndReleasesConnection(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	err := repository.WithWrite(ctx, func(scope platforminstance.WriteScope) error {
+	err := repository.CommitWrite(ctx, func(scope platforminstance.WriteScope) error {
 		if err := scope.Directories.Insert(ctx, directory); err != nil {
 			return err
 		}
@@ -37,7 +37,7 @@ func TestCanceledCommitRollsBackAndReleasesConnection(t *testing.T) {
 	if count != 0 {
 		t.Fatalf("canceled transaction retained %d directories", count)
 	}
-	if err := repository.WithWrite(t.Context(), func(scope platforminstance.WriteScope) error {
+	if err := repository.CommitWrite(t.Context(), func(scope platforminstance.WriteScope) error {
 		return scope.Directories.Insert(t.Context(), directory)
 	}); err != nil {
 		t.Fatalf("connection was not reusable: %v", err)

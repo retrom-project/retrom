@@ -21,7 +21,7 @@ func NewLeases(repository LeaseRepository, now func() time.Time) *Leases {
 func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
 	var result Work
 	var found bool
-	err := service.repository.WithWrite(ctx, func(records LeaseRecords) error {
+	err := service.repository.CommitWrite(ctx, func(records LeaseRecords) error {
 		now := service.now().UnixMilli()
 		before, ok, err := records.Next(ctx, now)
 		if err != nil {
@@ -80,7 +80,7 @@ func (service *Leases) Progress(ctx context.Context, unit Work, phase string, cu
 }
 
 func (service *Leases) touch(ctx context.Context, unit Work, phase string, event []byte) error {
-	err := service.repository.WithWrite(ctx, func(records LeaseRecords) error {
+	err := service.repository.CommitWrite(ctx, func(records LeaseRecords) error {
 		before, err := records.Current(ctx, unit.JobID)
 		if err != nil {
 			return fmt.Errorf("read import lease: %w", err)

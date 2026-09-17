@@ -23,7 +23,7 @@ func TestResponseAndCacheRollbackTogether(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	err = NewRecorder(database.SQL).WithWrite(t.Context(), func(scope metadatascrape.ResultScope) error {
+	err = NewRecorder(database.SQL).CommitWrite(t.Context(), func(scope metadatascrape.ResultScope) error {
 		if err := scope.Write.Response(t.Context(), metadatascrape.ResponseRecord{
 			ID: "response", RequestDigest: strings.Repeat("a", 64),
 			Outcome: hasheous.OutcomeMiss, Cacheable: true, Now: 100, ExpiresAt: 200,

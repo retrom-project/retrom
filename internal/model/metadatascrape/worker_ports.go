@@ -48,7 +48,7 @@ type WorkerScope struct {
 type WorkerRepository interface {
 	Run(context.Context, string) (WorkerRun, error)
 	Recoverable(context.Context, int64) ([]string, error)
-	WithWrite(context.Context, func(WorkerScope) error) error
+	CommitWrite(context.Context, func(WorkerScope) error) error
 }
 type WorkerProcessor interface {
 	Process(context.Context, WorkerClaim, string) (int, string, error)

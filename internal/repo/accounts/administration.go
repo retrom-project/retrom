@@ -19,7 +19,7 @@ func NewAdministration(database *sql.DB) *AdministrationRepository {
 	return &AdministrationRepository{database}
 }
 
-func (repository *AdministrationRepository) WithWrite(
+func (repository *AdministrationRepository) CommitWrite(
 	ctx context.Context,
 	work func(accounts.AdministrationScope) error,
 ) error {

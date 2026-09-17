@@ -21,7 +21,7 @@ func (repository *adminTestRepository) WithRead(_ context.Context, work func(Rea
 	return work(ReadScope{Admin: repository})
 }
 
-func (repository *adminTestRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *adminTestRepository) CommitWrite(_ context.Context, work func(WriteScope) error) error {
 	return work(WriteScope{AdminWriter: repository})
 }
 

@@ -29,7 +29,7 @@ func (repository *Repository) Restore(ctx context.Context, id string) (saves.Res
 	return (records{executor: repository.database}).Restore(ctx, id)
 }
 
-func (repository *Repository) WithWrite(ctx context.Context, work func(saves.WriteScope) error) error {
+func (repository *Repository) CommitWrite(ctx context.Context, work func(saves.WriteScope) error) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin checkpoint transaction: %w", err)

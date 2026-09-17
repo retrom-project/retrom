@@ -9,7 +9,7 @@ import (
 // Repository supplies consistent read snapshots and atomic write capabilities.
 type Repository interface {
 	WithRead(context.Context, func(Reader) error) error
-	WithWrite(context.Context, func(WriteScope) error) error
+	CommitWrite(context.Context, func(WriteScope) error) error
 }
 
 //nolint:interfacebloat // platform lifecycle and impact commands share one consistent read snapshot

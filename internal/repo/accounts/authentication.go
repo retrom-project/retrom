@@ -26,7 +26,7 @@ func (repository *Authentication) Session(ctx context.Context, hash [32]byte) (a
 	return (authRecords{repository.database}).Session(ctx, hash)
 }
 
-func (repository *Authentication) WithWrite(ctx context.Context, work func(accounts.AuthScope) error) error {
+func (repository *Authentication) CommitWrite(ctx context.Context, work func(accounts.AuthScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin authentication: %w", err)

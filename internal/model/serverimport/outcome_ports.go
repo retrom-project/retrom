@@ -64,6 +64,6 @@ type OutcomeScope struct {
 	Write OutcomeWriter
 }
 type OutcomeRepository interface {
-	WithWrite(context.Context, func(OutcomeScope) error) error
+	CommitWrite(context.Context, func(OutcomeScope) error) error
 	Recovery(context.Context, int64) (RecoveryWork, bool, error)
 }

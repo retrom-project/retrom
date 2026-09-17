@@ -17,7 +17,7 @@ type controlMemory struct {
 	readErr, lateErr error
 }
 
-func (memory *controlMemory) WithWrite(_ context.Context, work func(ControlScope) error) error {
+func (memory *controlMemory) CommitWrite(_ context.Context, work func(ControlScope) error) error {
 	if err := work(ControlScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}

@@ -77,7 +77,7 @@ func (worker *Worker) heartbeat(
 			return
 		case <-ticker.C:
 			current := false
-			err := worker.repository.WithWrite(ctx, func(scope WorkerScope) error {
+			err := worker.repository.CommitWrite(ctx, func(scope WorkerScope) error {
 				var err error
 				current, err = scope.Leases.Refresh(ctx, claim, worker.now().UnixMilli())
 				if err != nil {

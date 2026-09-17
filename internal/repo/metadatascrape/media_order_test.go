@@ -108,7 +108,7 @@ func TestMediaCapacityIncludesCancellingReadUntilLeaseEnds(t *testing.T) {
 	now := fixture.now.UnixMilli()
 	recoveryExec(t, fixture.database, `UPDATE jobs SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,
  worker_id='stopping',attempt_count=1,leased_until_ms=?,execution_deadline_at_ms=? WHERE id=?`, now, now+60000, now+1800000, fixture.jobID)
-	err := NewMedia(fixture.database).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
+	err := NewMedia(fixture.database).CommitWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
 		count, err := scope.Read.Running(t.Context(), now)
 		if err != nil {
 			return err

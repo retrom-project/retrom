@@ -11,7 +11,7 @@ import (
 type Repository struct{ database *sql.DB }
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
-func (service *Repository) WithWrite(ctx context.Context, work func(favorites.WriteScope) error) error {
+func (service *Repository) CommitWrite(ctx context.Context, work func(favorites.WriteScope) error) error {
 	connection, err := service.database.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("favorites: acquire connection: %w", err)

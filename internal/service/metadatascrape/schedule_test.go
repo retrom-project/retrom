@@ -52,7 +52,7 @@ type schedulingMemory struct {
 	committed bool
 }
 
-func (repository *schedulingMemory) WithWrite(ctx context.Context, work func(ScheduleScope) error) error {
+func (repository *schedulingMemory) CommitWrite(ctx context.Context, work func(ScheduleScope) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
