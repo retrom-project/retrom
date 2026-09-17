@@ -65,10 +65,11 @@ function warningCopyFor(warnings: string[]) {
     : "当前运行环境有需要留意的提示。";
 }
 
-function PauseOverlay({ isNetplay, netplayPaused, paused, onGameSurface }: {
-  isNetplay: boolean; netplayPaused: boolean; paused: boolean; onGameSurface: () => void;
+function PauseOverlay({ isNetplay, netplayPaused, paused, settingsOpen, onGameSurface }: {
+  isNetplay: boolean; netplayPaused: boolean; paused: boolean; settingsOpen: boolean; onGameSurface: () => void;
 }) {
-  return <button className={`player-pause-overlay${paused || netplayPaused ? " is-visible" : ""}`} type="button" aria-label="继续游戏" aria-hidden={!paused && !netplayPaused} disabled={!paused || isNetplay} onClick={onGameSurface}>
+  const visible = paused || netplayPaused;
+  return <button className={`player-pause-overlay${visible ? " is-visible" : ""}${visible && settingsOpen ? " is-settings-passthrough" : ""}`} type="button" aria-label="继续游戏" aria-hidden={!visible} disabled={!paused || isNetplay} onClick={onGameSurface}>
     <div className="player-pause-pill"><AppIcon name="pause" /><strong>{isNetplay ? "联机已暂停" : "已暂停"}</strong><small>{isNetplay ? "等待房主继续" : "点击游戏画面继续"}</small></div>
   </button>;
 }
@@ -261,7 +262,7 @@ export function PlayerChrome({
     <PlayerDebugPanel open={debugOpen} metrics={debugMetrics} runtime={debugRuntime} runtimeState={runtimeState} paused={paused} netplayPaused={netplayPaused} coreName={coreName} playerNo={netplayPlayerNo} discSet={discSet} discState={discState} inputRuntime={inputRuntime} />
 
     <CheckpointHelp save={nativeSave} semantics={checkpointSemantics} visible={controlsVisible} retryAvailable={nativeRetryAvailable} onRetry={onRetrySync} />
-    <PauseOverlay isNetplay={isNetplay} netplayPaused={netplayPaused} paused={paused} onGameSurface={resumeFromPauseOverlay} />
+    <PauseOverlay isNetplay={isNetplay} netplayPaused={netplayPaused} paused={paused} settingsOpen={emulatorToolbarOpen} onGameSurface={resumeFromPauseOverlay} />
 
     {!isNetplay ? <EmulatorToolbar open={emulatorToolbarOpen} volume={emulatorVolume} muted={emulatorMuted} renderingMode={videoRenderingMode} onHold={onHoldControls} onOpenPanel={onOpenEmulatorPanel} onVolume={onChangeEmulatorVolume} onRenderingMode={onChangeVideoRenderingMode} onMute={onToggleEmulatorMute} onClose={onCloseEmulatorSettings} /> : null}
 
