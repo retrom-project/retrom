@@ -89,8 +89,10 @@ func (memory *roomControlMemory) CommitSelectGame(
 			version int64
 			host    bool
 			states  []string
-		}{cmd.ActorID, cmd.Version, true,
-			[]string{model.RoomStateDraft, model.RoomStateWaiting}},
+		}{
+			cmd.ActorID, cmd.Version, true,
+			[]string{model.RoomStateDraft, model.RoomStateWaiting},
+		},
 		func(before model.RoomControlSnapshot) error {
 			for _, member := range before.Occupants {
 				if member.PlayerNo > cmd.Selection.MaxPlayers {

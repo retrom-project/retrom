@@ -35,28 +35,59 @@ func (repository *WorkflowControl) CommitCancelWorkflow(
 	}
 	defer dbexec.Rollback(tx)
 	records := workflowRecords{transaction: tx}
+	before, version, err := readAndValidateCancellation(ctx, records, cmd)
+	if err != nil {
+		return application.WorkflowSnapshot{}, false, err
+	}
+	if !application.CanCancelWorkflow(before, version) {
+		return application.WorkflowSnapshot{}, false, application.ErrNotCancellable
+	}
+	plan := buildCancellationPlan(before, cmd)
+	if err := records.Cancel(ctx, plan); err != nil {
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("save Pegasus cancellation: %w", err)
+	}
+	if err := repository.scheduleTerminalPayloads(ctx, tx, plan); err != nil {
+		return application.WorkflowSnapshot{}, false, err
+	}
+	after, err := records.Current(ctx, before.Summary.ID)
+	if err != nil {
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("read cancelled Pegasus import: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("commit Pegasus cancel: %w", err)
+	}
+	return after, plan.Pending, nil
+}
+
+func readAndValidateCancellation(
+	ctx context.Context, records workflowRecords, cmd application.CancelWorkflowCommand,
+) (application.WorkflowSnapshot, int64, error) {
 	var before application.WorkflowSnapshot
+	var err error
 	if cmd.ByJob {
 		before, err = records.CurrentJob(ctx, cmd.ID)
 	} else {
 		before, err = records.Current(ctx, cmd.ID)
 	}
 	if err != nil {
-		return application.WorkflowSnapshot{}, false, fmt.Errorf("read Pegasus cancellation: %w", err)
+		return before, 0, fmt.Errorf("read Pegasus cancellation: %w", err)
 	}
 	version := cmd.Version
 	if cmd.ByJob {
 		if !application.MatchesCancellationJob(before, cmd.ID, cmd.Kind, cmd.ScopeID) {
-			return application.WorkflowSnapshot{}, false, application.ErrNotCancellable
+			return before, 0, application.ErrNotCancellable
 		}
 		if cmd.Version != before.JobVersion || cmd.Version < 1 {
-			return application.WorkflowSnapshot{}, false, application.ErrVersionConflict
+			return before, 0, application.ErrVersionConflict
 		}
 		version = before.Summary.Version
 	}
-	if !application.CanCancelWorkflow(before, version) {
-		return application.WorkflowSnapshot{}, false, application.ErrNotCancellable
-	}
+	return before, version, nil
+}
+
+func buildCancellationPlan(
+	before application.WorkflowSnapshot, cmd application.CancelWorkflowCommand,
+) application.CancellationPlan {
 	pending := before.JobState == "RUNNING" || before.Summary.State == "RUNNING"
 	state := "CANCELLED"
 	if pending {
@@ -69,28 +100,22 @@ func (repository *WorkflowControl) CommitCancelWorkflow(
 	if !pending {
 		plan.CompletedAtMS = &cmd.NowMS
 	}
-	if err := records.Cancel(ctx, plan); err != nil {
-		return application.WorkflowSnapshot{}, false, fmt.Errorf("save Pegasus cancellation: %w", err)
-	}
+	return plan
+}
+
+func (repository *WorkflowControl) scheduleTerminalPayloads(
+	ctx context.Context, tx *sql.Tx, plan application.CancellationPlan,
+) error {
 	if plan.Before.Summary.ImportJobID != nil && repository.payloads != nil {
 		scope := payload.BindReleases(tx)
 		batch := payloadmodel.SourceBatch{
 			Type: payloadmodel.ScopePegasusImportItem, ImportID: plan.Before.Summary.ID,
 		}
 		if err := repository.payloads.TerminalSources(ctx, scope, batch, plan.NowMS); err != nil {
-			return application.WorkflowSnapshot{}, false, fmt.Errorf(
-				"schedule terminal Pegasus payloads: %w", err,
-			)
+			return fmt.Errorf("schedule terminal Pegasus payloads: %w", err)
 		}
 	}
-	after, err := records.Current(ctx, before.Summary.ID)
-	if err != nil {
-		return application.WorkflowSnapshot{}, false, fmt.Errorf("read cancelled Pegasus import: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return application.WorkflowSnapshot{}, false, fmt.Errorf("commit Pegasus cancel: %w", err)
-	}
-	return after, pending, nil
+	return nil
 }
 
 func (repository *WorkflowControl) CommitRetryWorkflow(

@@ -17,7 +17,7 @@ type sessionControlMemory struct {
 }
 
 func (memory *sessionControlMemory) withControl(
-	roomID, sessionID string,
+	_, _ string,
 	work func(model.SessionControlSnapshot) error,
 ) error {
 	if memory.readFailure != nil {
@@ -225,10 +225,14 @@ func sessionControlFixture() (*SessionControl, *sessionControlMemory, model.Peer
 		RoomState: model.RoomStateRunning, RoomVersion: 7,
 		State: "RUNNING", Version: 3,
 		Peers: []model.SessionPeer{
-			{ProfileID: "host", PlayerNo: 1, CredentialGeneration: 2,
-				State: "CONNECTED", Version: 4},
-			{ProfileID: "guest", PlayerNo: 2, CredentialGeneration: 5,
-				State: "CONNECTED", Version: 6},
+			{
+				ProfileID: "host", PlayerNo: 1, CredentialGeneration: 2,
+				State: "CONNECTED", Version: 4,
+			},
+			{
+				ProfileID: "guest", PlayerNo: 2, CredentialGeneration: 5,
+				State: "CONNECTED", Version: 6,
+			},
 		},
 	}}
 	service := NewSessionControl(memory, 10*time.Second,

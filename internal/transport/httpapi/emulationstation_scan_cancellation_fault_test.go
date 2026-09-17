@@ -33,7 +33,7 @@ func TestESGenericCancellationStorageFailureReturns500AndRollsBack(t *testing.T)
 		}
 		return nil
 	}})
-	server.jobService = composition.WithEmulationStationJobCancellation(server.jobService, es.NewWorkflowControl(esrepository.NewWorkflowControl(faultDB), nil, time.Now))
+	server.jobService = composition.WithEmulationStationJobCancellation(server.jobService, es.NewWorkflowControl(esrepository.NewWorkflowControl(faultDB, nil), nil, time.Now))
 	response := cancelHTTPScan(t, server, jobID)
 	if response.Code != http.StatusInternalServerError || hits.Load() != 1 {
 		t.Fatalf("cancel=%d hits=%d %s", response.Code, hits.Load(), response.Body.String())

@@ -66,6 +66,7 @@ type SessionControlScope struct {
 	Read  SessionControlReader
 	Write SessionControlWriter
 }
+
 // SetSessionStateCommand transitions the session between PAUSED_RECONNECT and RUNNING.
 type SetSessionStateCommand struct {
 	RoomID, SessionID, ActorID, Target string

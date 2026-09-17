@@ -153,7 +153,7 @@ func (repository *SessionControl) CommitDisconnected(
 		func(records sessionControlRecords, before netplay.SessionControlSnapshot) error {
 			peer, err := netplay.ControlPeer(before, cmd.Identity)
 			if err != nil {
-				return err
+				return fmt.Errorf("netplay/control peer disconnect: %w", err)
 			}
 			if peer.State != "CONNECTED" {
 				return nil
@@ -201,7 +201,7 @@ func (repository *SessionControl) CommitRuntimeReady(
 		func(records sessionControlRecords, before netplay.SessionControlSnapshot) error {
 			peer, err := netplay.ControlPeer(before, cmd.Identity)
 			if err != nil {
-				return err
+				return fmt.Errorf("netplay/control peer ready: %w", err)
 			}
 			if peer.State == "LAUNCH_READY" {
 				event := netplay.SessionEvent{

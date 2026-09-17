@@ -22,30 +22,14 @@ func (m *workflowMemory) CommitCancelWorkflow(_ context.Context, cmd model.Cance
 	if m.err != nil {
 		return model.WorkflowSnapshot{}, false, m.err
 	}
-
 	before := m.before
-	if cmd.ByJob {
-		if before.Summary.ID != cmd.ScopeID {
-			return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
-		}
-		if before.Summary.ImportJobID != nil {
-			if *before.Summary.ImportJobID != cmd.ID || cmd.Kind != "SERVER_PEGASUS_IMPORT" {
-				return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
-			}
-		} else {
-			if before.Summary.ScanJobID != cmd.ID || cmd.Kind != "SERVER_PEGASUS_SCAN" {
-				return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
-			}
-		}
-		if cmd.Version != before.JobVersion || cmd.Version < 1 {
-			return model.WorkflowSnapshot{}, false, model.ErrVersionConflict
-		}
-		cmd.Version = before.Summary.Version
+	version, err := m.validateCancelCommand(cmd, before)
+	if err != nil {
+		return model.WorkflowSnapshot{}, false, err
 	}
-	if !model.CanCancelWorkflow(before, cmd.Version) {
+	if !model.CanCancelWorkflow(before, version) {
 		return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
 	}
-
 	pending := before.JobState == "RUNNING" || before.Summary.State == "RUNNING"
 	state := "CANCELLED"
 	if pending {
@@ -55,26 +39,34 @@ func (m *workflowMemory) CommitCancelWorkflow(_ context.Context, cmd model.Cance
 	if !pending {
 		completedAt = &cmd.NowMS
 	}
-
 	plan := model.CancellationPlan{
 		Before: before, Reason: cmd.Reason, ActorID: cmd.ActorID, AuditID: cmd.AuditID,
 		NowMS: cmd.NowMS, State: state, Pending: pending, CompletedAtMS: completedAt,
 	}
 	m.cancellation = &plan
-
 	if m.writeErr != nil {
 		return model.WorkflowSnapshot{}, false, m.writeErr
 	}
-
 	m.before.Summary.State = state
 	m.before.JobState = state
 	m.before.JobVersion++
-
 	if m.commitErr != nil {
 		return model.WorkflowSnapshot{}, false, m.commitErr
 	}
-
 	return m.before, pending, nil
+}
+
+func (m *workflowMemory) validateCancelCommand(cmd model.CancelWorkflowCommand, before model.WorkflowSnapshot) (int64, error) {
+	if !cmd.ByJob {
+		return cmd.Version, nil
+	}
+	if !model.MatchesCancellationJob(before, cmd.ID, cmd.Kind, cmd.ScopeID) {
+		return 0, model.ErrNotCancellable
+	}
+	if cmd.Version != before.JobVersion || cmd.Version < 1 {
+		return 0, model.ErrVersionConflict
+	}
+	return before.Summary.Version, nil
 }
 
 func (m *workflowMemory) CommitRetryWorkflow(_ context.Context, cmd model.RetryWorkflowCommand) (model.Summary, error) {

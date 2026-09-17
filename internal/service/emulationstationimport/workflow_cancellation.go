@@ -81,4 +81,3 @@ func (service *WorkflowControl) cancel(
 	}
 	return result, pending, nil
 }
-

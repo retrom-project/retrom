@@ -166,14 +166,14 @@ func (repository *RoomControl) CommitSetSeat(
 	defer dbexec.Rollback(transaction)
 
 	if err := netplay.ValidateSeat(before, cmd.PlayerNo, cmd.ActorID); err != nil {
-		return netplay.Room{}, err
+		return netplay.Room{}, fmt.Errorf("netplay/validate seat: %w", err)
 	}
 	plan, err := netplay.BuildSeatPlan(
 		before, cmd.ActorID, cmd.PlayerNo,
 		cmd.NewMemberID, cmd.NowMS, cmd.IdleMS,
 	)
 	if err != nil {
-		return netplay.Room{}, err
+		return netplay.Room{}, fmt.Errorf("netplay/build seat plan: %w", err)
 	}
 	if err := records.Seat(ctx, plan); err != nil {
 		return netplay.Room{}, fmt.Errorf("netplay/set seat: %w", err)
