@@ -2,10 +2,13 @@ package jobs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/jobs"
 )
 
 type memoryJobs struct {
@@ -19,32 +22,80 @@ type memoryJobs struct {
 	opened             int
 }
 
-func (repository *memoryJobs) WithWrite(_ context.Context, work func(Records) error) error {
+func (repository *memoryJobs) WithRead(_ context.Context, work func(ReadRecords) error) error {
+	return nil
+}
+
+func (repository *memoryJobs) CommitCancel(
+	ctx context.Context, cmd CancelCommand,
+) (CancelResult, error) {
 	repository.opened++
-	return work(repository)
-}
-
-func (repository *memoryJobs) Get(context.Context, string) (Job, error) {
-	return repository.job, repository.readErr
-}
-
-func (repository *memoryJobs) Input(context.Context, string, int64) ([]byte, error) {
-	return repository.input, nil
-}
-
-func (repository *memoryJobs) Cancel(_ context.Context, change Cancellation) error {
+	if repository.readErr != nil {
+		return CancelResult{}, repository.readErr
+	}
+	job := repository.job
+	if job.Version != cmd.ExpectedVersion || !job.Cancellable ||
+		!model.CancellableJobState(job.State, job.Retryable) {
+		return CancelResult{}, ErrConflict
+	}
+	if job.Kind == "REVIEW_BULK_APPROVE" {
+		return CancelResult{}, ErrRetryViaDomain
+	}
+	for _, k := range cmd.DomainHandlerFor {
+		if k == job.Kind {
+			return CancelResult{NeedsDomain: true, DomainJob: job}, nil
+		}
+	}
+	state := "CANCELLED"
+	var finishedAtMS *int64
+	pending := job.State == "RUNNING"
+	if pending {
+		state = "CANCEL_REQUESTED"
+	} else {
+		finishedAtMS = &cmd.NowMS
+	}
+	event, _ := json.Marshal(struct {
+		Reason string `json:"reason"`
+	}{Reason: cmd.Reason})
+	change := Cancellation{
+		JobID: cmd.JobID, ExpectedVersion: cmd.ExpectedVersion,
+		State: state, Reason: cmd.Reason,
+		AtMS: cmd.NowMS, FinishedAtMS: finishedAtMS,
+		Event: event,
+	}
 	repository.cancellation = &change
-	return nil
+	if job.Kind == "SERVER_BIOS_IMPORT" {
+		repository.importCancellation = true
+	}
+	return CancelResult{
+		Result: Result{
+			Kind: job.Kind, JobID: cmd.JobID,
+			State: state, ExecutionNo: job.ExecutionNo,
+			Version: job.Version + 1,
+		},
+		Pending: pending,
+	}, nil
 }
 
-func (repository *memoryJobs) Retry(_ context.Context, change RetryWrite) error {
+func (repository *memoryJobs) CommitRetry(
+	ctx context.Context, cmd RetryCommand,
+) (Result, error) {
+	repository.opened++
+	if repository.readErr != nil {
+		return Result{}, repository.readErr
+	}
+	job := repository.job
+	if err := model.RetryEligibility(job, cmd.ExpectedVersion); err != nil {
+		return Result{}, err
+	}
+	change, result, err := model.BuildRetryWrite(
+		cmd.JobID, cmd.ExpectedVersion, repository.input, job, cmd.NowMS,
+	)
+	if err != nil {
+		return Result{}, err
+	}
 	repository.retry = &change
-	return nil
-}
-
-func (repository *memoryJobs) CancelServerImport(context.Context, Cancellation) error {
-	repository.importCancellation = true
-	return nil
+	return result, nil
 }
 
 func TestCancelEligibilityPrecedesWrites(t *testing.T) {
@@ -73,13 +124,21 @@ func TestCancelRejectsInvalidReasonWithoutTransaction(t *testing.T) {
 
 func TestRunningServerImportCancellationRemainsPending(t *testing.T) {
 	t.Parallel()
-	repository := &memoryJobs{job: Job{Kind: "SERVER_BIOS_IMPORT", State: "RUNNING", Cancellable: true, Version: 2, ExecutionNo: 3}}
-	result, pending, err := New(repository, func() time.Time { return time.UnixMilli(1234) }).Cancel(t.Context(), "job", 2, " stop ")
-	if err != nil || !pending || result.State != "CANCEL_REQUESTED" || result.Version != 3 || result.ExecutionNo != 3 {
+	repository := &memoryJobs{
+		job: Job{
+			Kind: "SERVER_BIOS_IMPORT", State: "RUNNING",
+			Cancellable: true, Version: 2, ExecutionNo: 3,
+		},
+	}
+	svc := New(repository, func() time.Time { return time.UnixMilli(1234) })
+	result, pending, err := svc.Cancel(t.Context(), "job", 2, " stop ")
+	if err != nil || !pending || result.State != "CANCEL_REQUESTED" ||
+		result.Version != 3 || result.ExecutionNo != 3 {
 		t.Fatalf("result=%+v pending=%v error=%v", result, pending, err)
 	}
 	change := repository.cancellation
-	if change == nil || change.FinishedAtMS != nil || change.Reason != "stop" || change.AtMS != 1234 || !repository.importCancellation {
+	if change == nil || change.FinishedAtMS != nil || change.Reason != "stop" ||
+		change.AtMS != 1234 || !repository.importCancellation {
 		t.Fatalf("cancellation=%+v import=%v", change, repository.importCancellation)
 	}
 }
@@ -88,7 +147,9 @@ func TestRetryDomainJobsCannotUseGenericAction(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"METADATA_SCRAPE", "SERVER_BIOS_IMPORT", "REVIEW_BULK_APPROVE"} {
 		t.Run(kind, func(t *testing.T) {
-			repository := &memoryJobs{job: Job{Kind: kind, State: "FAILED", Retryable: true, Version: 4}}
+			repository := &memoryJobs{
+				job: Job{Kind: kind, State: "FAILED", Retryable: true, Version: 4},
+			}
 			_, err := New(repository, time.Now).Retry(t.Context(), "job", 4)
 			if !errors.Is(err, ErrRetryViaDomain) || repository.retry != nil {
 				t.Fatalf("error=%v retry=%+v", err, repository.retry)
@@ -100,7 +161,10 @@ func TestRetryDomainJobsCannotUseGenericAction(t *testing.T) {
 func TestRetryRejectsMismatchedInputBeforeWrites(t *testing.T) {
 	t.Parallel()
 	repository := &memoryJobs{
-		job:   Job{Kind: "MEDIA_FETCH", ScopeType: "GAME", ScopeID: "game", State: "FAILED", Retryable: true, Version: 1},
+		job: Job{
+			Kind: "MEDIA_FETCH", ScopeType: "GAME", ScopeID: "game",
+			State: "FAILED", Retryable: true, Version: 1,
+		},
 		input: []byte(`{"schemaVersion":1,"kind":"MEDIA_FETCH","scope":{"type":"GAME","id":"other"},"executionId":"00000000-0000-7000-8000-000000000001","inputs":{}}`),
 	}
 	_, err := New(repository, time.Now).Retry(t.Context(), "job", 1)
