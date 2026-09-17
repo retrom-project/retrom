@@ -38,7 +38,7 @@ type RetryCommand struct {
 }
 
 // Repository binds all job state, input and event changes to one transaction.
-type Repository interface {
+type Repository interface { //nolint:interfacebloat // domain groups related named commands
 	LoadDetail(context.Context, string) (Snapshot, error)
 	LoadJobStreamSnapshot(context.Context, string) (Snapshot, int64, error)
 	LoadImportStreamSnapshot(context.Context, string) (ImportProgress, int64, error)

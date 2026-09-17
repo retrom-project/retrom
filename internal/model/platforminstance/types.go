@@ -19,6 +19,7 @@ var (
 	ErrImpactStale        = errors.New("platform impact is stale")
 	ErrInvalidCore        = errors.New("platform core is invalid")
 	ErrDefaultCoreBlocked = errors.New("platform default core is blocked")
+	ErrInsufficientIDs    = errors.New("insufficient pre-generated IDs for apply")
 )
 
 type State string

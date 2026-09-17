@@ -16,7 +16,7 @@ type favoriteRepositoryStub struct {
 	commits        int
 }
 
-func (repository *favoriteRepositoryStub) CommitFavorite(_ context.Context, cmd model.FavoriteCommand) (model.State, error) {
+func (repository *favoriteRepositoryStub) CommitFavorite(_ context.Context, _ model.FavoriteCommand) (model.State, error) {
 	repository.commits++
 	if repository.favoriteError != nil {
 		return model.State{}, repository.favoriteError

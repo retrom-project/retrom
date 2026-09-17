@@ -12,6 +12,8 @@ import (
 
 type Repository struct{ database *sql.DB }
 
+type idempotentWork func(dbexec.Executor) (int, map[string]string, any, error)
+
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
 
 func (repository *Repository) beginImmediate(ctx context.Context) (*sql.Conn, func(), error) {
@@ -154,7 +156,7 @@ func replaceMemberships(
 func (repository *Repository) commitIdempotent(
 	ctx context.Context,
 	envelope favorites.IdempotencyEnvelope,
-	work func(dbexec.Executor) (int, map[string]string, any, error),
+	work idempotentWork,
 ) (favorites.IdempotentResponse, error) {
 	var response favorites.IdempotentResponse
 	err := repository.commitImmediate(ctx, func(db dbexec.Executor) error {
@@ -187,7 +189,9 @@ func (repository *Repository) commitIdempotent(
 func (repository *Repository) CommitOrganize(
 	ctx context.Context, cmd favorites.OrganizeCommand,
 ) (favorites.IdempotentResponse, error) {
-	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (int, map[string]string, any, error) {
+	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (
+		int, map[string]string, any, error,
+	) {
 		games := gameRecords{db}
 		folders := folderRecords{db}
 		memberships := membershipRecords{db}
@@ -202,7 +206,11 @@ func (repository *Repository) CommitOrganize(
 		result := favorites.BatchResult{Items: make([]favorites.State, 0, len(cmd.GameIDs))}
 		now := cmd.Idempotency.NowMS
 		for _, gameID := range cmd.GameIDs {
-			state, exists, err := organizeGame(ctx, db, games, memberships, cmd.ProfileID, gameID, cmd.AddFolderIDs, cmd.RemoveFolderIDs, now)
+			state, exists, err := organizeGame(
+				ctx, db, games, memberships,
+				cmd.ProfileID, gameID,
+				cmd.AddFolderIDs, cmd.RemoveFolderIDs, now,
+			)
 			if err != nil {
 				return 0, nil, nil, err
 			}
@@ -215,7 +223,7 @@ func (repository *Repository) CommitOrganize(
 }
 
 func organizeGame(
-	ctx context.Context, db dbexec.Executor,
+	ctx context.Context, _ dbexec.Executor,
 	games gameRecords, memberships membershipRecords,
 	profileID, gameID string,
 	add, remove []string, now int64,
@@ -242,7 +250,9 @@ func organizeGame(
 func (repository *Repository) CommitUnfavorite(
 	ctx context.Context, cmd favorites.UnfavoriteCommand,
 ) (favorites.IdempotentResponse, error) {
-	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (int, map[string]string, any, error) {
+	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (
+		int, map[string]string, any, error,
+	) {
 		games := gameRecords{db}
 		memberships := membershipRecords{db}
 
@@ -271,7 +281,9 @@ func (repository *Repository) CommitUnfavorite(
 func (repository *Repository) CommitRestore(
 	ctx context.Context, cmd favorites.RestoreCommand,
 ) (favorites.IdempotentResponse, error) {
-	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (int, map[string]string, any, error) {
+	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (
+		int, map[string]string, any, error,
+	) {
 		games := gameRecords{db}
 		memberships := membershipRecords{db}
 		folders := folderRecords{db}
@@ -281,7 +293,11 @@ func (repository *Repository) CommitRestore(
 		if err != nil {
 			return 0, nil, nil, fmt.Errorf("favorites/restoreWork: %w", err)
 		}
-		result := favorites.RestoreResult{RestoredGameIDs: []string{}, SkippedGameIDs: []string{}, SkippedFolderIDs: []string{}}
+		result := favorites.RestoreResult{
+			RestoredGameIDs:  []string{},
+			SkippedGameIDs:   []string{},
+			SkippedFolderIDs: []string{},
+		}
 		skippedFolders := make(map[string]struct{})
 		now := cmd.Idempotency.NowMS
 		for _, item := range cmd.Items {
@@ -331,7 +347,9 @@ func restoreItem(
 func (repository *Repository) CommitCreateFolder(
 	ctx context.Context, cmd favorites.CreateFolderCommand,
 ) (favorites.IdempotentResponse, error) {
-	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (int, map[string]string, any, error) {
+	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (
+		int, map[string]string, any, error,
+	) {
 		games := gameRecords{db}
 		folders := folderRecords{db}
 		memberships := membershipRecords{db}
@@ -380,7 +398,9 @@ func (repository *Repository) CommitCreateFolder(
 func (repository *Repository) CommitRenameFolder(
 	ctx context.Context, cmd favorites.RenameFolderCommand,
 ) (favorites.IdempotentResponse, error) {
-	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (int, map[string]string, any, error) {
+	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (
+		int, map[string]string, any, error,
+	) {
 		folders := folderRecords{db}
 
 		folder, err := folders.Get(ctx, cmd.ProfileID, cmd.FolderID)
@@ -418,7 +438,9 @@ func (repository *Repository) CommitRenameFolder(
 func (repository *Repository) CommitDeleteFolder(
 	ctx context.Context, cmd favorites.DeleteFolderCommand,
 ) (favorites.IdempotentResponse, error) {
-	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (int, map[string]string, any, error) {
+	return repository.commitIdempotent(ctx, cmd.Idempotency, func(db dbexec.Executor) (
+		int, map[string]string, any, error,
+	) {
 		folders := folderRecords{db}
 
 		folder, err := folders.Get(ctx, cmd.ProfileID, cmd.FolderID)

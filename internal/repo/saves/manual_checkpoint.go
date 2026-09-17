@@ -11,7 +11,9 @@ import (
 	saves "retrom/internal/model/saves"
 )
 
-func executeManualCheckpoint(ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand) (saves.ManualResult, bool, error) {
+func executeManualCheckpoint(
+	ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand,
+) (saves.ManualResult, bool, error) {
 	now := cmd.IdempotencyKey.AtMS
 
 	previous, found, err := scope.Idempotency.Replay(ctx, cmd.IdempotencyKey)
@@ -79,7 +81,9 @@ func executeManualCheckpoint(ctx context.Context, scope saves.WriteScope, cmd sa
 	return result, false, nil
 }
 
-func persistProduct(ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand, payloadID string, now int64) (saves.ManualResult, error) {
+func persistProduct(
+	ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand, payloadID string, now int64,
+) (saves.ManualResult, error) {
 	binding, found, err := scope.GameSaves.Binding(ctx, cmd.LaunchID)
 	if err != nil {
 		return saves.ManualResult{}, fmt.Errorf("load game save binding: %w", err)
@@ -113,7 +117,9 @@ func persistProduct(ctx context.Context, scope saves.WriteScope, cmd saves.Manua
 	return result, nil
 }
 
-func insertProduct(ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand, payloadID string, now int64) (saves.ManualResult, error) {
+func insertProduct(
+	ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand, payloadID string, now int64,
+) (saves.ManualResult, error) {
 	var screenshotID *string
 	if cmd.Screenshot != nil {
 		meta := blobstore.Metadata{SHA256: cmd.Screenshot.SHA256, Size: cmd.Screenshot.Size}
@@ -148,7 +154,12 @@ func insertProduct(ctx context.Context, scope saves.WriteScope, cmd saves.Manual
 	return result, nil
 }
 
-func updateProduct(ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand, payloadID string, binding saves.GameSaveBinding, now int64) (saves.ManualResult, int64, error) {
+func updateProduct(
+	ctx context.Context, scope saves.WriteScope,
+	cmd saves.ManualCheckpointCommand,
+	payloadID string, binding saves.GameSaveBinding,
+	now int64,
+) (saves.ManualResult, int64, error) {
 	saved, found, err := scope.GameSaves.Saved(ctx, *binding.ID)
 	if err != nil {
 		return saves.ManualResult{}, 0, fmt.Errorf("load saved slot: %w", err)
@@ -164,7 +175,10 @@ func updateProduct(ctx context.Context, scope saves.WriteScope, cmd saves.Manual
 	if saved.Digest == cmd.Payload.SHA256 {
 		return result, saved.DataVersion, nil
 	}
-	imageID, err := scope.Blobs.Ensure(ctx, blobstore.Metadata{SHA256: cmd.Screenshot.SHA256, Size: cmd.Screenshot.Size}, cmd.ScreenshotMediaType, now)
+	imageID, err := scope.Blobs.Ensure(ctx, blobstore.Metadata{
+		SHA256: cmd.Screenshot.SHA256,
+		Size:   cmd.Screenshot.Size,
+	}, cmd.ScreenshotMediaType, now)
 	if err != nil {
 		return saves.ManualResult{}, 0, fmt.Errorf("register game save image: %w", err)
 	}

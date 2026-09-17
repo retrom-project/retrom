@@ -20,7 +20,9 @@ func (repository *Repository) Batch(ctx context.Context, key importdiscard.Key) 
 	return records{repository.database}.Batch(ctx, key)
 }
 
-func (repository *Repository) Disposition(ctx context.Context, key importdiscard.Key) (importdiscard.Disposition, bool, error) {
+func (repository *Repository) Disposition(
+	ctx context.Context, key importdiscard.Key,
+) (importdiscard.Disposition, bool, error) {
 	return records{repository.database}.Disposition(ctx, key)
 }
 

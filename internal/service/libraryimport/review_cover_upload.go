@@ -108,4 +108,3 @@ func (service *ReviewCoverUploads) prepare(
 	}
 	return prepared, nil
 }
-

@@ -37,7 +37,9 @@ func (repository *Repository) writeScope(tx *sql.Tx) saves.WriteScope {
 	}
 }
 
-func (repository *Repository) CommitManualCheckpoint(ctx context.Context, cmd saves.ManualCheckpointCommand) (saves.ManualResult, bool, error) {
+func (
+	repository *Repository) CommitManualCheckpoint(ctx context.Context, cmd saves.ManualCheckpointCommand,
+) (saves.ManualResult, bool, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return saves.ManualResult{}, false, fmt.Errorf("begin checkpoint transaction: %w", err)

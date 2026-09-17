@@ -6,12 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 
 	application "retrom/internal/model/libraryimport"
 	taggingmodel "retrom/internal/model/tagging"
-
-	"sort"
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/content/multidisc"
@@ -134,7 +133,11 @@ func reviewDocument(value string) (json.RawMessage, error) {
 	return result, nil
 }
 
-func loadReviewEvidence(ctx context.Context, reader metadatascrapemodel.ReviewEvidenceReader, itemID string) (metadatascrapemodel.ReviewEvidence, error) {
+func loadReviewEvidence(
+	ctx context.Context,
+	reader metadatascrapemodel.ReviewEvidenceReader,
+	itemID string,
+) (metadatascrapemodel.ReviewEvidence, error) {
 	records, err := reader.ReviewCandidates(ctx, itemID)
 	if err != nil {
 		return metadatascrapemodel.ReviewEvidence{}, fmt.Errorf("read review candidates: %w", err)
@@ -323,13 +326,52 @@ func assembleArcade(
 	head application.ReviewDependencyHead,
 ) (application.ReviewArcade, bool, error) {
 	var snapshot arcadeDraftSnapshot
-	if json.Unmarshal([]byte(*head.DependencyJSON), &snapshot) != nil ||
-		snapshot.SchemaVersion != corevalidation.SnapshotSchemaVersion ||
-		snapshot.Kind != corevalidation.SnapshotKindArcade ||
-		snapshot.Machine == "" || snapshot.DatVersionID == "" || snapshot.Dependencies == nil {
+	if !parseArcadeSnapshot(head.DependencyJSON, &snapshot) {
 		return application.ReviewArcade{}, false, application.ErrInvalid
 	}
+	if err := resolveArcadeClosure(ctx, reader, &snapshot); err != nil {
+		return application.ReviewArcade{}, false, err
+	}
+	sortArcadeDependencies(snapshot.Dependencies)
 
+	attachments, err := reader.ArcadeAttachments(ctx, itemID)
+	if err != nil {
+		return application.ReviewArcade{}, false, fmt.Errorf(
+			"read review arcade attachments: %w", err,
+		)
+	}
+	byMachine, active := indexArcadeAttachments(attachments)
+	status := optionalText(head.ValidationStatus)
+	code := optionalText(head.CompatibilityCode)
+	result := application.ReviewArcade{
+		Machine: snapshot.Machine, Status: status,
+		CompatibilityCode: code,
+		Nodes:             buildArcadeNodes(snapshot.Dependencies, byMachine, active, code),
+		ActiveAttachment:  active,
+	}
+	return result, true, nil
+}
+
+func parseArcadeSnapshot(
+	dependencyJSON *string, snapshot *arcadeDraftSnapshot,
+) bool {
+	if dependencyJSON == nil {
+		return false
+	}
+	if json.Unmarshal([]byte(*dependencyJSON), snapshot) != nil {
+		return false
+	}
+	return snapshot.SchemaVersion == corevalidation.SnapshotSchemaVersion &&
+		snapshot.Kind == corevalidation.SnapshotKindArcade &&
+		snapshot.Machine != "" && snapshot.DatVersionID != "" &&
+		snapshot.Dependencies != nil
+}
+
+func resolveArcadeClosure(
+	ctx context.Context,
+	reader application.ReviewDependencyReader,
+	snapshot *arcadeDraftSnapshot,
+) error {
 	cache := make(map[string]application.ArcadeMachineRelation)
 	missing := make(map[string]bool)
 	var failure error
@@ -340,7 +382,9 @@ func assembleArcade(
 		if rel, exists := cache[name]; exists {
 			return rel, true
 		}
-		rel, found, err := reader.MachineRelation(ctx, snapshot.DatVersionID, name)
+		rel, found, err := reader.MachineRelation(
+			ctx, snapshot.DatVersionID, name,
+		)
 		if err != nil {
 			failure = err
 			return application.ArcadeMachineRelation{}, false
@@ -352,65 +396,70 @@ func assembleArcade(
 		cache[name] = rel
 		return rel, true
 	}
-	nodes, cyclic, available := application.ArcadeDependencyClosure(snapshot.Machine, resolve)
+	nodes, cyclic, available := application.ArcadeDependencyClosure(
+		snapshot.Machine, resolve,
+	)
 	if failure != nil {
-		return application.ReviewArcade{}, false, fmt.Errorf("read arcade dependency relation: %w", failure)
+		return fmt.Errorf(
+			"read arcade dependency relation: %w", failure,
+		)
 	}
-	if !available {
-		return application.ReviewArcade{}, false, application.ErrInvalid
+	if !available || cyclic {
+		return application.ErrInvalid
 	}
-	if cyclic {
-		return application.ReviewArcade{}, false, application.ErrInvalid
-	}
-	byMachineNode := make(map[string]application.ArcadeClosureNode, len(nodes))
+	byNode := make(map[string]application.ArcadeClosureNode, len(nodes))
 	for _, node := range nodes {
-		byMachineNode[node.Machine] = node
+		byNode[node.Machine] = node
 	}
 	for i := range snapshot.Dependencies {
 		dep := &snapshot.Dependencies[i]
-		node, exists := byMachineNode[dep.Machine]
+		node, exists := byNode[dep.Machine]
 		if !exists || node.Kind != dep.Kind {
-			return application.ReviewArcade{}, false, application.ErrInvalid
+			return application.ErrInvalid
 		}
 		dep.RequiredBy = node.RequiredBy
 		dep.Depth = node.Depth
 		dep.ExpectedLogicalName = dep.Machine + ".zip"
 		dep.RequiredEntryCount = len(dep.RequiredEntries)
 	}
-	sort.Slice(snapshot.Dependencies, func(left, right int) bool {
-		if snapshot.Dependencies[left].Kind != snapshot.Dependencies[right].Kind {
-			return snapshot.Dependencies[left].Kind < snapshot.Dependencies[right].Kind
-		}
-		if snapshot.Dependencies[left].Depth != snapshot.Dependencies[right].Depth {
-			return snapshot.Dependencies[left].Depth < snapshot.Dependencies[right].Depth
-		}
-		return snapshot.Dependencies[left].Machine < snapshot.Dependencies[right].Machine
-	})
+	return nil
+}
 
-	attachments, err := reader.ArcadeAttachments(ctx, itemID)
-	if err != nil {
-		return application.ReviewArcade{}, false, fmt.Errorf("read review arcade attachments: %w", err)
-	}
-	byMachine, active := indexArcadeAttachments(attachments)
-	status := optionalText(head.ValidationStatus)
-	code := optionalText(head.CompatibilityCode)
-	result := application.ReviewArcade{
-		Machine: snapshot.Machine, Status: status, CompatibilityCode: code,
-		Nodes:            make([]application.ReviewArcadeNode, 0, len(snapshot.Dependencies)),
-		ActiveAttachment: active,
-	}
-	unsupported := arcadeUnsupported(code)
-	for _, dep := range snapshot.Dependencies {
-		node := application.ReviewArcadeNode{
-			Kind: dep.Kind, Machine: dep.Machine, RequiredBy: dep.RequiredBy,
-			Depth: dep.Depth, ExpectedLogicalName: dep.ExpectedLogicalName,
-			State: dep.State, RequiredEntryCount: dep.RequiredEntryCount,
-			RequiredEntries: dep.RequiredEntries, Attachment: byMachine[dep.Machine],
+func sortArcadeDependencies(deps []arcadeDraftDependency) {
+	sort.Slice(deps, func(left, right int) bool {
+		if deps[left].Kind != deps[right].Kind {
+			return deps[left].Kind < deps[right].Kind
 		}
-		node.CanAttach = dep.Kind == "PARENT" && (dep.State == "MISSING" || dep.State == "MISMATCH") && active == nil && !unsupported
-		result.Nodes = append(result.Nodes, node)
+		if deps[left].Depth != deps[right].Depth {
+			return deps[left].Depth < deps[right].Depth
+		}
+		return deps[left].Machine < deps[right].Machine
+	})
+}
+
+func buildArcadeNodes(
+	deps []arcadeDraftDependency,
+	byMachine map[string]*application.ArcadeAttachment,
+	active *application.ArcadeAttachment,
+	code string,
+) []application.ReviewArcadeNode {
+	unsupported := arcadeUnsupported(code)
+	nodes := make([]application.ReviewArcadeNode, 0, len(deps))
+	for _, dep := range deps {
+		node := application.ReviewArcadeNode{
+			Kind: dep.Kind, Machine: dep.Machine,
+			RequiredBy: dep.RequiredBy, Depth: dep.Depth,
+			ExpectedLogicalName: dep.ExpectedLogicalName,
+			State:               dep.State, RequiredEntryCount: dep.RequiredEntryCount,
+			RequiredEntries: dep.RequiredEntries,
+			Attachment:      byMachine[dep.Machine],
+		}
+		node.CanAttach = dep.Kind == "PARENT" &&
+			(dep.State == "MISSING" || dep.State == "MISMATCH") &&
+			active == nil && !unsupported
+		nodes = append(nodes, node)
 	}
-	return result, true, nil
+	return nodes
 }
 
 func assembleMultiDisc(
@@ -511,39 +560,63 @@ func projectValidation(
 		return false, fmt.Errorf("read review validation evidence: %w", err)
 	}
 	input, isCurrent := evidence.CurrentInput()
-	current := isCurrent && application.PrepublishDigestMatches(evidence.InputDigest, input)
+	current := isCurrent && application.PrepublishDigestMatches(
+		evidence.InputDigest, input,
+	)
 	if current && evidence.ContentKind == "RPG_MAKER_PROJECT" {
-		profile, found, err := reader.Profile(ctx, evidence.DraftID)
-		if err != nil {
-			return false, fmt.Errorf("read current RPG profile: %w", err)
-		}
-		if !found {
-			return false, application.ErrInvalid
-		}
-		dependencies, err := application.ResolveRPGReviewDependencies(profile)
-		if err != nil {
-			return false, fmt.Errorf("resolve RPG review dependencies: %w", err)
-		}
-		current = dependencies.SnapshotJSON == evidence.DependencyJSON &&
-			dependencies.Status == evidence.Status &&
-			dependencies.Code == evidence.CompatibilityCode &&
-			dependencies.Digest == profile.DependencySHA256
-	}
-	var dependency json.RawMessage
-	if head.DependencyJSON != nil {
-		dependency, err = reviewDocument(*head.DependencyJSON)
+		current, err = checkRPGDependencyCurrency(
+			ctx, reader, evidence,
+		)
 		if err != nil {
 			return false, err
 		}
 	}
+	dependency, err := parseDependencyDocument(head.DependencyJSON)
+	if err != nil {
+		return false, err
+	}
 	ready := optionalText(head.ValidationStatus) == "READY"
 	result.Validation = &application.ReviewValidationView{
-		ID: *head.ValidationID, Status: optionalText(head.ValidationStatus),
-		Current: current && ready, CompatibilityCode: optionalText(head.CompatibilityCode),
+		ID:                 *head.ValidationID,
+		Status:             optionalText(head.ValidationStatus),
+		Current:            current && ready,
+		CompatibilityCode:  optionalText(head.CompatibilityCode),
 		DependencySnapshot: dependency,
 	}
-	result.CanApprove = head.SelectedValidationID != nil && current && ready && head.Policy.Supports(head.ContentKind)
+	result.CanApprove = head.SelectedValidationID != nil &&
+		current && ready && head.Policy.Supports(head.ContentKind)
 	return current, nil
+}
+
+func checkRPGDependencyCurrency(
+	ctx context.Context,
+	reader application.ReviewValidationReader,
+	evidence application.ReviewValidationEvidence,
+) (bool, error) {
+	profile, found, err := reader.Profile(ctx, evidence.DraftID)
+	if err != nil {
+		return false, fmt.Errorf("read current RPG profile: %w", err)
+	}
+	if !found {
+		return false, application.ErrInvalid
+	}
+	deps, err := application.ResolveRPGReviewDependencies(profile)
+	if err != nil {
+		return false, fmt.Errorf("resolve RPG review dependencies: %w", err)
+	}
+	return deps.SnapshotJSON == evidence.DependencyJSON &&
+		deps.Status == evidence.Status &&
+		deps.Code == evidence.CompatibilityCode &&
+		deps.Digest == profile.DependencySHA256, nil
+}
+
+func parseDependencyDocument(
+	dependencyJSON *string,
+) (json.RawMessage, error) {
+	if dependencyJSON == nil {
+		return nil, nil
+	}
+	return reviewDocument(*dependencyJSON)
 }
 
 func projectRPGMaker(profile application.RPGReviewProfile) (*application.ReviewRPGMaker, error) {
@@ -551,10 +624,15 @@ func projectRPGMaker(profile application.RPGReviewProfile) (*application.ReviewR
 	if err := json.Unmarshal([]byte(profile.AnalysisJSON), &analysis); err != nil {
 		return nil, fmt.Errorf("decode review RPG profile: %w", err)
 	}
-	dependencies := detector.ExternalRTPRequirements(detector.Generation(profile.Generation), analysis.SelfContained, analysis.Requirements.RTP)
+	gen := detector.Generation(profile.Generation)
+	dependencies := detector.ExternalRTPRequirements(
+		gen, analysis.SelfContained, analysis.Requirements.RTP,
+	)
 	requirements := make([]application.ReviewRTPDeclaration, 0, len(dependencies))
 	for _, entry := range dependencies {
-		requirements = append(requirements, application.ReviewRTPDeclaration{Slot: int64(entry.Slot), DeclaredName: entry.DeclaredName})
+		requirements = append(requirements, application.ReviewRTPDeclaration{
+			Slot: int64(entry.Slot), DeclaredName: entry.DeclaredName,
+		})
 	}
 	return &application.ReviewRPGMaker{
 		SelectedCoreID: profile.SelectedCoreID, Generation: profile.Generation,
@@ -575,7 +653,9 @@ func optionalText(value *string) string {
 	return *value
 }
 
-func indexArcadeAttachments(attachments []application.ArcadeAttachment) (map[string]*application.ArcadeAttachment, *application.ArcadeAttachment) {
+func indexArcadeAttachments(
+	attachments []application.ArcadeAttachment,
+) (map[string]*application.ArcadeAttachment, *application.ArcadeAttachment) {
 	byMachine := make(map[string]*application.ArcadeAttachment)
 	var active *application.ArcadeAttachment
 	for i := range attachments {

@@ -23,7 +23,10 @@ func (repository *Mappings) WithMappings(ctx context.Context, work func(applicat
 	}
 	defer dbexec.Rollback(tx)
 	records := mappingRecords{executor: tx}
-	if err := work(application.MappingScope{Read: records, Write: records, Tags: tagrepository.BindCrossDomain(tx)}); err != nil {
+	scope := application.MappingScope{
+		Read: records, Write: records, Tags: tagrepository.BindCrossDomain(tx),
+	}
+	if err := work(scope); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

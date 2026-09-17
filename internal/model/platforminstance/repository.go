@@ -7,7 +7,7 @@ import (
 )
 
 // Repository supplies consistent read snapshots and named atomic commands.
-type Repository interface {
+type Repository interface { //nolint:interfacebloat // domain groups related lifecycle commands
 	LoadCatalogReferences(context.Context, platformcatalog.Catalog) (map[string]CatalogReference, error)
 	LoadDirectories(context.Context) ([]Directory, error)
 	LoadInstance(context.Context, string) (Instance, error)
@@ -87,14 +87,14 @@ type DeleteCommand struct {
 
 // ChangeDefaultCoreCommand carries values for changing the default core.
 type ChangeDefaultCoreCommand struct {
-	InstanceID      string
-	CoreID          string
-	Expected        int64
-	Digest          string
-	ConfirmBlocked  bool
-	Actor           AuditActor
-	NowMS           int64
-	AuditID         string
+	InstanceID     string
+	CoreID         string
+	Expected       int64
+	Digest         string
+	ConfirmBlocked bool
+	Actor          AuditActor
+	NowMS          int64
+	AuditID        string
 }
 
 // ApplyCommand carries values for applying catalog recommendations.
@@ -108,7 +108,6 @@ type ApplyCommand struct {
 	InstanceIDs    []string
 	AuditIDs       []string
 }
-
 
 type Directory struct {
 	ID, PlatformID, CoreID, Name, Description string
@@ -208,4 +207,3 @@ type CreationAudit struct {
 }
 
 type IdempotencyKey struct{ PrincipalID, Operation, Key string }
-

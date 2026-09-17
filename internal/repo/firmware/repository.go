@@ -27,7 +27,10 @@ func readScope(executor dbexec.Executor) firmware.ReadScope {
 	}
 }
 
-func (repository *Repository) LoadInstallFacts(ctx context.Context, requirementID string, expectedVersion int64, fileID string) (firmware.InstallFacts, error) {
+func (repository *Repository) LoadInstallFacts(
+	ctx context.Context, requirementID string,
+	expectedVersion int64, fileID string,
+) (firmware.InstallFacts, error) {
 	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return firmware.InstallFacts{}, fmt.Errorf("begin BIOS snapshot: %w", err)
@@ -59,7 +62,9 @@ func (repository *Repository) LoadInstallFacts(ctx context.Context, requirementI
 	}, nil
 }
 
-func (repository *Repository) LoadArchiveInspection(ctx context.Context, requirementID string) (firmware.ArchiveInspection, error) {
+func (repository *Repository) LoadArchiveInspection(
+	ctx context.Context, requirementID string,
+) (firmware.ArchiveInspection, error) {
 	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return firmware.ArchiveInspection{}, fmt.Errorf("begin BIOS snapshot: %w", err)
@@ -98,7 +103,11 @@ func (repository *Repository) LoadArchiveInspection(ctx context.Context, require
 	}, nil
 }
 
-func expectedArchiveFacts(ctx context.Context, records firmware.RequirementRecords, requirement firmware.Requirement) ([]firmwarecap.ExpectedDATEntry, error) {
+func expectedArchiveFacts(
+	ctx context.Context,
+	records firmware.RequirementRecords,
+	requirement firmware.Requirement,
+) ([]firmwarecap.ExpectedDATEntry, error) {
 	if requirement.ArchiveMembersJSON != nil {
 		entries, err := firmwarecap.StaticArchiveExpectations(*requirement.ArchiveMembersJSON)
 		if err != nil {
