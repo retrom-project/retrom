@@ -6,34 +6,128 @@ import (
 	"errors"
 	"fmt"
 
+	payloadmodel "retrom/internal/model/payloadrelease"
 	payload "retrom/internal/repo/payloadrelease"
 
 	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
 )
 
-type WorkflowControl struct{ database *sql.DB }
-
-func NewWorkflowControl(database *sql.DB) *WorkflowControl {
-	return &WorkflowControl{database: database}
+type PayloadTerminator interface {
+	TerminalSources(context.Context, payloadmodel.ReleaseScope, payloadmodel.SourceBatch, int64) error
 }
 
-func (repository *WorkflowControl) WithControl(ctx context.Context, work func(application.WorkflowScope) error) error {
+type WorkflowControl struct {
+	database *sql.DB
+	payloads PayloadTerminator
+}
+
+func NewWorkflowControl(database *sql.DB, payloads PayloadTerminator) *WorkflowControl {
+	return &WorkflowControl{database: database, payloads: payloads}
+}
+
+func (repository *WorkflowControl) CommitCancelWorkflow(
+	ctx context.Context, cmd application.CancelWorkflowCommand,
+) (application.WorkflowSnapshot, bool, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin Pegasus workflow control: %w", err)
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("begin Pegasus cancel: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := workflowRecords{transaction: tx}
-	if err := work(application.WorkflowScope{
-		Payload: payload.BindReleases(tx), Read: records, Write: records,
-	}); err != nil {
-		return err
+	var before application.WorkflowSnapshot
+	if cmd.ByJob {
+		before, err = records.CurrentJob(ctx, cmd.ID)
+	} else {
+		before, err = records.Current(ctx, cmd.ID)
+	}
+	if err != nil {
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("read Pegasus cancellation: %w", err)
+	}
+	version := cmd.Version
+	if cmd.ByJob {
+		if !application.MatchesCancellationJob(before, cmd.ID, cmd.Kind, cmd.ScopeID) {
+			return application.WorkflowSnapshot{}, false, application.ErrNotCancellable
+		}
+		if cmd.Version != before.JobVersion || cmd.Version < 1 {
+			return application.WorkflowSnapshot{}, false, application.ErrVersionConflict
+		}
+		version = before.Summary.Version
+	}
+	if !application.CanCancelWorkflow(before, version) {
+		return application.WorkflowSnapshot{}, false, application.ErrNotCancellable
+	}
+	pending := before.JobState == "RUNNING" || before.Summary.State == "RUNNING"
+	state := "CANCELLED"
+	if pending {
+		state = "CANCEL_REQUESTED"
+	}
+	plan := application.CancellationPlan{
+		Before: before, Reason: cmd.Reason, ActorID: cmd.ActorID, AuditID: cmd.AuditID,
+		NowMS: cmd.NowMS, State: state, Pending: pending,
+	}
+	if !pending {
+		plan.CompletedAtMS = &cmd.NowMS
+	}
+	if err := records.Cancel(ctx, plan); err != nil {
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("save Pegasus cancellation: %w", err)
+	}
+	if plan.Before.Summary.ImportJobID != nil && repository.payloads != nil {
+		scope := payload.BindReleases(tx)
+		batch := payloadmodel.SourceBatch{
+			Type: payloadmodel.ScopePegasusImportItem, ImportID: plan.Before.Summary.ID,
+		}
+		if err := repository.payloads.TerminalSources(ctx, scope, batch, plan.NowMS); err != nil {
+			return application.WorkflowSnapshot{}, false, fmt.Errorf(
+				"schedule terminal Pegasus payloads: %w", err,
+			)
+		}
+	}
+	after, err := records.Current(ctx, before.Summary.ID)
+	if err != nil {
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("read cancelled Pegasus import: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit Pegasus workflow control: %w", err)
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("commit Pegasus cancel: %w", err)
 	}
-	return nil
+	return after, pending, nil
+}
+
+func (repository *WorkflowControl) CommitRetryWorkflow(
+	ctx context.Context, cmd application.RetryWorkflowCommand,
+) (application.Summary, error) {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return application.Summary{}, fmt.Errorf("begin Pegasus retry: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	records := workflowRecords{transaction: tx}
+	before, err := records.Current(ctx, cmd.ID)
+	if err != nil {
+		return application.Summary{}, fmt.Errorf("read Pegasus retry: %w", err)
+	}
+	if !application.CanRetry(before, cmd.Version) {
+		return application.Summary{}, application.ErrNotRetryable
+	}
+	plan := application.RetryPlan{
+		Before:      before,
+		Execution:   before.Execution + 1,
+		ExecutionID: cmd.ExecutionID,
+		AuditID:     cmd.AuditID,
+		ActorID:     cmd.ActorID,
+		NowMS:       cmd.NowMS,
+	}
+	if err := records.Retry(ctx, plan); err != nil {
+		return application.Summary{}, fmt.Errorf("save Pegasus retry: %w", err)
+	}
+	after, err := records.Current(ctx, cmd.ID)
+	if err != nil {
+		return application.Summary{}, fmt.Errorf("read retried Pegasus import: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return application.Summary{}, fmt.Errorf("commit Pegasus retry: %w", err)
+	}
+	return after.Summary, nil
 }
 
 type workflowRecords struct{ transaction *sql.Tx }

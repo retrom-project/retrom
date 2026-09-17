@@ -18,29 +18,93 @@ type workflowMemory struct {
 	retry                    *model.RetryPlan
 }
 
-func (m *workflowMemory) WithControl(_ context.Context, work func(model.WorkflowScope) error) error {
-	if err := work(model.WorkflowScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
-		return err
+func (m *workflowMemory) CommitCancelWorkflow(_ context.Context, cmd model.CancelWorkflowCommand) (model.WorkflowSnapshot, bool, error) {
+	if m.err != nil {
+		return model.WorkflowSnapshot{}, false, m.err
 	}
-	return m.commitErr
-}
 
-func (m *workflowMemory) Current(context.Context, string) (model.WorkflowSnapshot, error) {
-	return m.before, m.err
-}
+	before := m.before
+	if cmd.ByJob {
+		if before.Summary.ID != cmd.ScopeID {
+			return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
+		}
+		if before.Summary.ImportJobID != nil {
+			if *before.Summary.ImportJobID != cmd.ID || cmd.Kind != "SERVER_PEGASUS_IMPORT" {
+				return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
+			}
+		} else {
+			if before.Summary.ScanJobID != cmd.ID || cmd.Kind != "SERVER_PEGASUS_SCAN" {
+				return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
+			}
+		}
+		if cmd.Version != before.JobVersion || cmd.Version < 1 {
+			return model.WorkflowSnapshot{}, false, model.ErrVersionConflict
+		}
+		cmd.Version = before.Summary.Version
+	}
+	if !model.CanCancelWorkflow(before, cmd.Version) {
+		return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
+	}
 
-func (m *workflowMemory) Cancel(_ context.Context, plan model.CancellationPlan) error {
+	pending := before.JobState == "RUNNING" || before.Summary.State == "RUNNING"
+	state := "CANCELLED"
+	if pending {
+		state = "CANCEL_REQUESTED"
+	}
+	var completedAt *int64
+	if !pending {
+		completedAt = &cmd.NowMS
+	}
+
+	plan := model.CancellationPlan{
+		Before: before, Reason: cmd.Reason, ActorID: cmd.ActorID, AuditID: cmd.AuditID,
+		NowMS: cmd.NowMS, State: state, Pending: pending, CompletedAtMS: completedAt,
+	}
 	m.cancellation = &plan
-	m.before.Summary.State = plan.State
-	m.before.JobState = plan.State
+
+	if m.writeErr != nil {
+		return model.WorkflowSnapshot{}, false, m.writeErr
+	}
+
+	m.before.Summary.State = state
+	m.before.JobState = state
 	m.before.JobVersion++
-	return m.writeErr
+
+	if m.commitErr != nil {
+		return model.WorkflowSnapshot{}, false, m.commitErr
+	}
+
+	return m.before, pending, nil
 }
 
-func (m *workflowMemory) Retry(_ context.Context, plan model.RetryPlan) error {
+func (m *workflowMemory) CommitRetryWorkflow(_ context.Context, cmd model.RetryWorkflowCommand) (model.Summary, error) {
+	if m.err != nil {
+		return model.Summary{}, m.err
+	}
+
+	before := m.before
+	if !model.CanRetry(before, cmd.Version) {
+		return model.Summary{}, model.ErrNotRetryable
+	}
+
+	plan := model.RetryPlan{
+		Before: before, Execution: before.Execution + 1,
+		ExecutionID: cmd.ExecutionID, AuditID: cmd.AuditID, ActorID: cmd.ActorID,
+		NowMS: cmd.NowMS,
+	}
 	m.retry = &plan
+
+	if m.writeErr != nil {
+		return model.Summary{}, m.writeErr
+	}
+
 	m.before.Summary.State = "QUEUED"
-	return m.writeErr
+
+	if m.commitErr != nil {
+		return model.Summary{}, m.commitErr
+	}
+
+	return m.before.Summary, nil
 }
 
 func workflowFixture() *workflowMemory {

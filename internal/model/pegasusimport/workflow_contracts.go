@@ -1,10 +1,6 @@
 package pegasusimport
 
-import (
-	"context"
-
-	payload "retrom/internal/model/payloadrelease"
-)
+import "context"
 
 type WorkflowSnapshot struct {
 	Summary               Summary
@@ -14,24 +10,26 @@ type WorkflowSnapshot struct {
 	RetryableItems        int64
 }
 
-type WorkflowScope struct {
-	Payload payload.ReleaseScope
-	Read    WorkflowReader
-	Write   WorkflowWriter
-}
-
-type WorkflowReader interface {
-	Current(context.Context, string) (WorkflowSnapshot, error)
-	CurrentJob(context.Context, string) (WorkflowSnapshot, error)
-}
-
-type WorkflowWriter interface {
-	Cancel(context.Context, CancellationPlan) error
-	Retry(context.Context, RetryPlan) error
-}
-
 type WorkflowRepository interface {
-	WithControl(context.Context, func(WorkflowScope) error) error
+	CommitCancelWorkflow(context.Context, CancelWorkflowCommand) (WorkflowSnapshot, bool, error)
+	CommitRetryWorkflow(context.Context, RetryWorkflowCommand) (Summary, error)
+}
+
+type CancelWorkflowCommand struct {
+	ID, Reason, ActorID, AuditID string
+	Version                       int64
+	NowMS                         int64
+	ByJob                         bool
+	Kind, ScopeID                 string
+}
+
+type RetryWorkflowCommand struct {
+	ID          string
+	ActorID     string
+	Version     int64
+	NowMS       int64
+	ExecutionID string
+	AuditID     string
 }
 
 type CancellationPlan struct {

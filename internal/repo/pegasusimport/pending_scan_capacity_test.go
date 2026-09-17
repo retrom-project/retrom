@@ -26,7 +26,7 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	control := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(database), func() time.Time { return time.UnixMilli(10) })
+	control := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(database, testPayloadTerminator()), func() time.Time { return time.UnixMilli(10) })
 	if _, pending, err := control.CancelJob(t.Context(), pegasusimportservice.JobCancellationRequest{
 		JobID: "job-1", ScopeID: "import-1", Kind: "SERVER_PEGASUS_SCAN", ExpectedVersion: 1,
 		Reason: "Stop queued scan", ActorID: "actor",
@@ -79,7 +79,7 @@ UPDATE jobs SET state='RUNNING',attempt_count=1,worker_id='scanner',leased_until
 heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadline_at_ms=100 WHERE id='job-0'`); err != nil {
 		t.Fatal(err)
 	}
-	control := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(database), func() time.Time { return time.UnixMilli(10) })
+	control := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(database, testPayloadTerminator()), func() time.Time { return time.UnixMilli(10) })
 	if _, pending, err := control.CancelJob(t.Context(), pegasusimportservice.JobCancellationRequest{
 		JobID: "job-0", ScopeID: "import-0", Kind: "SERVER_PEGASUS_SCAN", ExpectedVersion: 1,
 		Reason: "Stop running scan", ActorID: "actor",

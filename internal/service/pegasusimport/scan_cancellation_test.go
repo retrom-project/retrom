@@ -1,17 +1,12 @@
 package pegasusimport
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
 
 	model "retrom/internal/model/pegasusimport"
 )
-
-func (memory *workflowMemory) CurrentJob(context.Context, string) (model.WorkflowSnapshot, error) {
-	return memory.before, memory.err
-}
 
 func TestScanCancellationUsesOriginalJobVersionInDomainTransaction(t *testing.T) {
 	t.Parallel()

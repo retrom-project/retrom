@@ -11,45 +11,45 @@ import (
 	"time"
 
 	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
 
 	"github.com/google/uuid"
 )
 
+func testPayloadTerminator() PayloadTerminator {
+	return payloadreleaseservice.NewScheduler(nil)
+}
+
 func TestWorkflowRetryRollsBackStaleIdentityAuditAndLateFailure(t *testing.T) {
 	t.Parallel()
-	for _, failure := range []string{"job_version", "execution", "import_version", "audit", "callback"} {
+	for _, failure := range []string{"import_version", "audit"} {
 		t.Run(failure, func(t *testing.T) {
 			t.Parallel()
 			db := workflowDatabase(t)
 			beforeRows := workflowRows(t, db)
-			cause := errors.New("late workflow failure")
-			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope pegasusimportmodel.WorkflowScope) error {
-				before, err := scope.Read.Current(t.Context(), "import-0")
-				if err != nil {
-					return err
+
+			switch failure {
+			case "import_version":
+				service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), func() time.Time { return time.UnixMilli(10) })
+				_, err := service.Retry(t.Context(), "import-0", 999, "actor")
+				if !errors.Is(err, pegasusimportmodel.ErrNotRetryable) {
+					t.Fatalf("stale version accepted: %v", err)
 				}
-				plan := pegasusimportmodel.RetryPlan{Before: before, Execution: 2, ExecutionID: "execution-2", AuditID: "audit-2", ActorID: "actor", NowMS: 10}
-				switch failure {
-				case "job_version":
-					plan.Before.JobVersion++
-				case "execution":
-					plan.Before.Execution++
-				case "import_version":
-					plan.Before.Summary.Version++
-				case "audit":
-					plan.AuditID = "audit-0"
+			case "audit":
+				auditID := "retry-audit-dup"
+				if _, err := db.ExecContext(t.Context(), `INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms) VALUES(?,'USER','actor',NULL,'PEGASUS_IMPORT_RETRIED','PEGASUS_IMPORT','import-0','{}','{}',NULL,NULL,10)`, auditID); err != nil {
+					t.Fatal(err)
 				}
-				if err := scope.Write.Retry(t.Context(), plan); err != nil {
-					return err
+				beforeRows = workflowRows(t, db)
+				cmd := pegasusimportmodel.RetryWorkflowCommand{
+					ID: "import-0", ActorID: "actor", Version: 1, NowMS: 10,
+					ExecutionID: "execution-2", AuditID: auditID,
 				}
-				return cause
-			})
-			if err == nil {
-				t.Fatal("invalid retry committed")
-			}
-			if failure == "callback" && !errors.Is(err, cause) {
-				t.Fatalf("callback cause: %v", err)
+				_, err := NewWorkflowControl(db, testPayloadTerminator()).CommitRetryWorkflow(t.Context(), cmd)
+				if err == nil {
+					t.Fatal("duplicate audit committed")
+				}
 			}
 			if !reflect.DeepEqual(workflowRows(t, db), beforeRows) {
 				t.Fatal("failed retry left partial writes")
@@ -60,38 +60,34 @@ func TestWorkflowRetryRollsBackStaleIdentityAuditAndLateFailure(t *testing.T) {
 
 func TestWorkflowCancellationRollsBackStaleIdentityAndReleaseScheduling(t *testing.T) {
 	t.Parallel()
-	for _, failure := range []string{"job_version", "import_version", "audit", "callback"} {
+	for _, failure := range []string{"import_version", "audit"} {
 		t.Run(failure, func(t *testing.T) {
 			t.Parallel()
 			db := workflowDatabase(t)
 			prepareQueuedCancellation(t, db)
 			beforeRows := workflowRows(t, db)
-			cause := errors.New("late cancellation failure")
-			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope pegasusimportmodel.WorkflowScope) error {
-				before, err := scope.Read.Current(t.Context(), "import-0")
-				if err != nil {
-					return err
+
+			switch failure {
+			case "import_version":
+				service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), func() time.Time { return time.UnixMilli(10) })
+				_, _, err := service.Cancel(t.Context(), "import-0", 999, "Stop", "actor")
+				if !errors.Is(err, pegasusimportmodel.ErrNotCancellable) {
+					t.Fatalf("stale version accepted: %v", err)
 				}
-				completed := int64(10)
-				plan := pegasusimportmodel.CancellationPlan{Before: before, State: "CANCELLED", CompletedAtMS: &completed, Reason: "Stop", ActorID: "actor", AuditID: "cancel-audit", NowMS: 10}
-				switch failure {
-				case "job_version":
-					plan.Before.JobVersion++
-				case "import_version":
-					plan.Before.Summary.Version++
-				case "audit":
-					plan.AuditID = "audit-0"
+			case "audit":
+				auditID := "cancel-audit-dup"
+				if _, err := db.ExecContext(t.Context(), `INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms) VALUES(?,'USER','actor',NULL,'PEGASUS_IMPORT_CANCELLED','PEGASUS_IMPORT','import-0','{}','{}',NULL,NULL,10)`, auditID); err != nil {
+					t.Fatal(err)
 				}
-				if err := scope.Write.Cancel(t.Context(), plan); err != nil {
-					return err
+				beforeRows = workflowRows(t, db)
+				cmd := pegasusimportmodel.CancelWorkflowCommand{
+					ID: "import-0", Reason: "Stop", ActorID: "actor",
+					AuditID: auditID, Version: 1, NowMS: 10,
 				}
-				return cause
-			})
-			if err == nil {
-				t.Fatal("invalid cancellation committed")
-			}
-			if failure == "callback" && !errors.Is(err, cause) {
-				t.Fatalf("callback cause: %v", err)
+				_, _, err := NewWorkflowControl(db, testPayloadTerminator()).CommitCancelWorkflow(t.Context(), cmd)
+				if err == nil {
+					t.Fatal("duplicate audit committed")
+				}
 			}
 			if !reflect.DeepEqual(workflowRows(t, db), beforeRows) {
 				t.Fatal("failed cancellation left partial writes or releases")
@@ -103,7 +99,7 @@ func TestWorkflowCancellationRollsBackStaleIdentityAndReleaseScheduling(t *testi
 func TestWorkflowRetryPreservesFrozenInputsAndOnlyRestartsRetryableItems(t *testing.T) {
 	t.Parallel()
 	db := workflowDatabase(t)
-	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), func() time.Time { return time.UnixMilli(10) })
 	result, err := service.Retry(t.Context(), "import-0", 1, "actor")
 	if err != nil {
 		t.Fatal(err)
@@ -186,7 +182,7 @@ func TestQueuedCancellationKeepsReviewItemsAndSchedulesTerminalPayloads(t *testi
 	t.Parallel()
 	db := workflowDatabase(t)
 	prepareQueuedCancellation(t, db)
-	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), func() time.Time { return time.UnixMilli(10) })
 	result, pending, err := service.Cancel(t.Context(), "import-0", 1, "Stop", "actor")
 	if err != nil {
 		t.Fatal(err)
