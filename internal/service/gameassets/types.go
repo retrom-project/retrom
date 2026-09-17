@@ -6,14 +6,16 @@ import (
 	"os"
 	"time"
 
+	model "retrom/internal/model/gameassets"
+
 	"github.com/google/uuid"
 )
 
 var (
 	ErrInvalid         = errors.New("GAME_ASSET_INVALID")
-	ErrVersionConflict = errors.New("GAME_ASSET_VERSION_CONFLICT")
-	ErrAssetNotFound   = errors.New("GAME_ASSET_NOT_FOUND")
-	ErrUploadConsumed  = errors.New("GAME_ASSET_UPLOAD_CONSUMED")
+	ErrVersionConflict = model.ErrVersionConflict
+	ErrAssetNotFound   = model.ErrAssetNotFound
+	ErrUploadConsumed  = model.ErrUploadConsumed
 )
 
 // ValidationError carries the stable response code and message for upload

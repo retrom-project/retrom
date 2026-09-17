@@ -50,21 +50,103 @@ AND f.state='COMPLETE'
 	return upload, true, nil
 }
 
-func (repository *Repository) WithWrite(
-	ctx context.Context, work func(application.WriteScope) error,
+func (repository *Repository) CommitCreate(
+	ctx context.Context, cmd application.CreateCommand,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
+		scope := writeScope{executor: exec, releases: repository.releases}
+		version, err := scope.GameVersion(ctx, cmd.GameID)
+		if err != nil {
+			return fmt.Errorf("%w: %w", application.ErrVersionConflict, err)
+		}
+		if version != cmd.ExpectedVersion {
+			return application.ErrVersionConflict
+		}
+		replaced, err := scope.RemoveSlot(ctx, cmd.GameID, cmd.Kind, cmd.Ordinal)
+		if err != nil {
+			return fmt.Errorf("remove replaced game asset: %w", err)
+		}
+		if err := scope.Create(ctx, application.AssetRecord{
+			ID: cmd.AssetID, GameID: cmd.GameID, BlobID: cmd.Asset.BlobID,
+			Kind: cmd.Kind, Ordinal: cmd.Ordinal,
+			WidthPX: cmd.Asset.WidthPX, HeightPX: cmd.Asset.HeightPX,
+			MediaType: cmd.Asset.MediaType, CreatedAtMS: cmd.NowMS,
+		}); err != nil {
+			return fmt.Errorf("create game asset: %w", err)
+		}
+		if err := scope.ConsumeUpload(ctx, application.ConsumptionRecord{
+			ID: cmd.ConsumptionID, UploadID: cmd.Asset.UploadID,
+			UploadFileID: cmd.UploadFileID,
+			ConsumerID: cmd.AssetID, CreatedAtMS: cmd.NowMS,
+		}); err != nil {
+			return fmt.Errorf("%w: %w", application.ErrUploadConsumed, err)
+		}
+		changed, err := scope.UpdateGame(
+			ctx, cmd.GameID, cmd.ExpectedVersion, cmd.NowMS,
+		)
+		if err != nil {
+			return fmt.Errorf("update game asset version: %w", err)
+		}
+		if !changed {
+			return application.ErrVersionConflict
+		}
+		if err := scope.StageCandidates(ctx, replaced); err != nil {
+			return fmt.Errorf("stage replaced game assets: %w", err)
+		}
+		if err := scope.ScheduleConsumption(ctx, cmd.ConsumptionID, cmd.NowMS); err != nil {
+			return fmt.Errorf("schedule game asset upload release: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin game asset write: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	if err := work(writeScope{executor: tx, releases: repository.releases}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit game asset write: %w", err)
+		return fmt.Errorf("gameassets: commit create: %w", err)
 	}
 	return nil
+}
+
+func (repository *Repository) CommitDelete(
+	ctx context.Context, cmd application.DeleteCommand,
+) (application.DeleteResult, error) {
+	var result application.DeleteResult
+	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
+		scope := writeScope{executor: exec, releases: repository.releases}
+		version, err := scope.GameVersion(ctx, cmd.GameID)
+		if err != nil {
+			return fmt.Errorf("%w: %w", application.ErrVersionConflict, err)
+		}
+		if version != cmd.ExpectedVersion {
+			return application.ErrVersionConflict
+		}
+		exists, err := scope.AssetExists(ctx, cmd.GameID, cmd.Kind)
+		if err != nil {
+			return fmt.Errorf("%w: %w", application.ErrAssetNotFound, err)
+		}
+		if !exists {
+			return application.ErrAssetNotFound
+		}
+		replaced, err := scope.RemoveSlot(ctx, cmd.GameID, cmd.Kind, 0)
+		if err != nil {
+			return fmt.Errorf("remove game asset: %w", err)
+		}
+		changed, err := scope.UpdateGame(
+			ctx, cmd.GameID, cmd.ExpectedVersion, cmd.NowMS,
+		)
+		if err != nil {
+			return fmt.Errorf("update game asset version: %w", err)
+		}
+		if !changed {
+			return application.ErrVersionConflict
+		}
+		if err := scope.StageCandidates(ctx, replaced); err != nil {
+			return fmt.Errorf("stage deleted game assets: %w", err)
+		}
+		result.Version = cmd.ExpectedVersion + 1
+		return nil
+	})
+	if err != nil {
+		return result, fmt.Errorf("gameassets: commit delete: %w", err)
+	}
+	return result, nil
 }
 
 var _ application.Repository = (*Repository)(nil)
