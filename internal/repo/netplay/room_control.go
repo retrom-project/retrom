@@ -49,7 +49,7 @@ func (repository *RoomControl) CommitMutation(ctx context.Context, cmd netplay.M
 		return netplay.Room{}, netplay.ErrRoomConflict
 	}
 	if err := cmd.Apply(scope, before, cmd.NowMS); err != nil {
-		return netplay.Room{}, err
+		return netplay.Room{}, fmt.Errorf("apply room control: %w", err)
 	}
 	result, err := scope.Read.Snapshot(ctx, cmd.RoomID)
 	if err != nil {

@@ -19,7 +19,7 @@ func New(database *sql.DB) *Repository { return &Repository{database: database} 
 func (repository *Repository) CommitReconcile(
 	ctx context.Context, cmd service.ReconcileCommand,
 ) error {
-	return dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
+	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
 		catalog := catalogRecords{executor: exec}
 		current, err := catalog.Current(ctx)
 		if err != nil {
@@ -38,6 +38,10 @@ func (repository *Repository) CommitReconcile(
 			ctx, projectionRecords{executor: exec}, change, changed,
 		)
 	})
+	if err != nil {
+		return fmt.Errorf("reconcile runtime provider: %w", err)
+	}
+	return nil
 }
 
 func (records projectionRecords) Publish(ctx context.Context, input service.Publication) error {

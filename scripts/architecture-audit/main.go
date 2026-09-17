@@ -63,17 +63,18 @@ func main() {
 	}
 
 	if *output != "" {
-		if err := os.MkdirAll(filepath.Dir(*output), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(*output), 0o755); err != nil {
 			fmt.Fprintf(os.Stderr, "mkdir error: %v\n", err)
 			os.Exit(2)
 		}
-		if err := os.WriteFile(*output, data, 0644); err != nil {
+		if err := os.WriteFile(*output, data, 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "write error: %v\n", err)
 			os.Exit(2)
 		}
 		fmt.Fprintf(os.Stderr, "wrote %s (%d violations, %d errors)\n", *output, len(result.Violations), len(result.Errors))
 	} else {
-		fmt.Println(string(data))
+		os.Stdout.Write(data)       //nolint:errcheck // stdout write failure exits naturally
+		os.Stdout.WriteString("\n") //nolint:errcheck // stdout newline
 	}
 
 	if *mode == "check" && len(result.Violations) > 0 {

@@ -93,7 +93,7 @@ func (repository *Repository) CommitRetry(
 			return fmt.Errorf("read retry job: %w", err)
 		}
 		if err := jobs.RetryEligibility(job, cmd.ExpectedVersion); err != nil {
-			return err
+			return fmt.Errorf("check retry eligibility: %w", err)
 		}
 		previous, err := store.Input(ctx, cmd.JobID, job.ExecutionNo)
 		if err != nil {
@@ -103,7 +103,7 @@ func (repository *Repository) CommitRetry(
 			cmd.JobID, cmd.ExpectedVersion, previous, job, cmd.NowMS,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("build retry write: %w", err)
 		}
 		if err := store.Retry(ctx, change); err != nil {
 			return fmt.Errorf("retry job: %w", err)

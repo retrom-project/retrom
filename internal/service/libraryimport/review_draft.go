@@ -39,7 +39,7 @@ func (service *ReviewDrafts) Patch(
 	ctx context.Context, itemID string, expectedVersion int64, patch application.DraftPatch,
 ) (application.DraftResult, error) {
 	if err := application.ValidateDraftPatch(patch); err != nil {
-		return application.DraftResult{}, err
+		return application.DraftResult{}, fmt.Errorf("validate draft patch: %w", err)
 	}
 	if service == nil || service.repository == nil {
 		return application.DraftResult{}, application.ErrInvalid
