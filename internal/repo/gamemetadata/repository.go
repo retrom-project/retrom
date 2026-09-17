@@ -27,35 +27,77 @@ func New(database *sql.DB, gc payloadservice.GCStager) *Repository {
 	return &Repository{database: database, gc: gc}
 }
 
-func (repository *Repository) WithCandidateApply(
-	ctx context.Context, work func(application.CandidateApplyScope) error,
-) error {
+func (repository *Repository) LoadCandidateApplySnapshot(
+	ctx context.Context, gameID, candidateID string,
+) (application.CandidateApplySnapshot, error) {
+	scope := candidateApplyScope{transaction: nil, db: repository.database}
+	return scope.loadFromDB(ctx, gameID, candidateID)
+}
+
+func (repository *Repository) CommitCandidateApply(
+	ctx context.Context, cmd application.CandidateApplyCommand,
+) (application.CandidateApplyCommitResult, error) {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin scrape candidate apply: %w", err)
+		return application.CandidateApplyCommitResult{},
+			fmt.Errorf("begin scrape candidate apply: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
 	scope := candidateApplyScope{transaction: transaction, gc: repository.gc}
-	if err := work(scope); err != nil {
-		return err
+	var result application.CandidateApplyCommitResult
+	for _, kind := range cmd.SelectedKinds {
+		blobIDs, err := scope.ReplaceGameAssets(ctx, cmd.GameID, kind)
+		if err != nil {
+			return application.CandidateApplyCommitResult{},
+				fmt.Errorf("replace game assets: %w", err)
+		}
+		result.ReplacedBlobIDs = append(result.ReplacedBlobIDs, blobIDs...)
+	}
+	if len(cmd.SelectedAssets) > 0 {
+		assetIDs, err := scope.CreateSelectedGameAssets(
+			ctx, cmd.GameID, cmd.CandidateID, cmd.SelectedAssets, cmd.NowMS,
+		)
+		if err != nil {
+			return application.CandidateApplyCommitResult{},
+				fmt.Errorf("create selected game assets: %w", err)
+		}
+		result.AssetIDs = append(result.AssetIDs, assetIDs...)
+	}
+	changed, err := scope.UpdateGameMetadata(ctx, application.GameMetadataUpdate{
+		GameID: cmd.GameID, CandidateID: cmd.CandidateID,
+		ExpectedVersion: cmd.ExpectedVersion, Metadata: cmd.Metadata,
+		NowMS: cmd.NowMS,
+	})
+	if err != nil {
+		return application.CandidateApplyCommitResult{},
+			fmt.Errorf("persist candidate metadata: %w", err)
+	}
+	if !changed {
+		return application.CandidateApplyCommitResult{}, application.ErrVersionConflict
+	}
+	if err := scope.StageCandidates(ctx, result.ReplacedBlobIDs); err != nil {
+		return application.CandidateApplyCommitResult{},
+			fmt.Errorf("stage replaced candidate assets: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit scrape candidate apply: %w", err)
+		return application.CandidateApplyCommitResult{},
+			fmt.Errorf("commit scrape candidate apply: %w", err)
 	}
-	return nil
+	return result, nil
 }
 
 type candidateApplyScope struct {
 	transaction *sql.Tx
+	db          *sql.DB
 	gc          payloadservice.GCStager
 }
 
-func (scope candidateApplyScope) Load(
+func (scope candidateApplyScope) loadFromDB(
 	ctx context.Context, gameID, candidateID string,
 ) (application.CandidateApplySnapshot, error) {
 	var snapshot application.CandidateApplySnapshot
 	var players, releaseYear sql.NullInt64
-	err := scope.transaction.QueryRowContext(ctx, `
+	err := scope.db.QueryRowContext(ctx, `
 SELECT g.version,
 g.title,
 g.description,

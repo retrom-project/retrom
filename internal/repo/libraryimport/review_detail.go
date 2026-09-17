@@ -39,7 +39,7 @@ func (repository *ReviewDetail) LoadReviewDetail(ctx context.Context, itemID str
 	duplicates := BindContentDuplicates(transaction)
 	dependencies := BindReviewDependencies(transaction)
 	metadata := metadatapersistence.BindEvidenceQueries(transaction)
-	tags := tagpersistence.Bind(transaction).Relations
+	tags := tagpersistence.BindCrossDomain(transaction)
 
 	head, err := drafts.Head(ctx, itemID)
 	if err != nil {
@@ -83,7 +83,7 @@ func (repository *ReviewDetail) LoadReviewDetail(ctx context.Context, itemID str
 		return application.ReviewDetail{}, err
 	}
 
-	refs, err := tags.References(ctx, taggingmodel.Owner{Kind: taggingmodel.OwnerReviewDraft, ID: head.DraftID})
+	refs, err := tags.ReadOwnerReferences(ctx, taggingmodel.Owner{Kind: taggingmodel.OwnerReviewDraft, ID: head.DraftID})
 	if err != nil {
 		return application.ReviewDetail{}, fmt.Errorf("read review tags: %w", err)
 	}

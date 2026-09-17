@@ -16,42 +16,6 @@ type ReferenceReader interface {
 	References(context.Context, Owner) ([]Reference, error)
 }
 
-type WriteScope struct {
-	Tags      TagReader
-	Changes   TagWriter
-	Relations RelationRecords
-	Games     GameRecords
-	Audit     AuditRecords
-}
-
-type TagReader interface {
-	Get(context.Context, string) (AdminItem, error)
-	ActiveByNameKey(context.Context) (map[string]string, error)
-	ActiveReferences(context.Context, []string) ([]Reference, error)
-}
-
-type TagWriter interface {
-	Insert(context.Context, TagWrite) error
-	Rename(context.Context, TagWrite) error
-	Delete(context.Context, TagWrite) error
-}
-
-type RelationRecords interface {
-	References(context.Context, Owner) ([]Reference, error)
-	Add(context.Context, Assignment) error
-	Remove(context.Context, Owner, []string) error
-	TouchTags(context.Context, string, []string, int64) error
-}
-
-type GameRecords interface {
-	Version(context.Context, string) (int64, error)
-	Touch(context.Context, string, int64, int64) error
-}
-
-type AuditRecords interface {
-	Record(context.Context, AuditEvent) error
-}
-
 type OwnerKind string
 
 const (

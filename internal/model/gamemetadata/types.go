@@ -68,17 +68,23 @@ type GameMetadataUpdate struct {
 	NowMS           int64
 }
 
-// CandidateApplyScope is a transaction-bound persistence port. The service
-// coordinates validation and ordering while persistence supplies the concrete
-// transaction and SQL implementation.
-type CandidateApplyScope interface {
-	Load(context.Context, string, string) (CandidateApplySnapshot, error)
-	ReplaceGameAssets(context.Context, string, string) ([]string, error)
-	CreateSelectedGameAssets(context.Context, string, string, []CandidateAssetSelection, int64) ([]string, error)
-	UpdateGameMetadata(context.Context, GameMetadataUpdate) (bool, error)
-	StageCandidates(context.Context, []string) error
+type CandidateApplyRepository interface {
+	LoadCandidateApplySnapshot(context.Context, string, string) (CandidateApplySnapshot, error)
+	CommitCandidateApply(context.Context, CandidateApplyCommand) (CandidateApplyCommitResult, error)
 }
 
-type CandidateApplyRepository interface {
-	WithCandidateApply(context.Context, func(CandidateApplyScope) error) error
+// CandidateApplyCommand carries the values for an atomic candidate apply write.
+type CandidateApplyCommand struct {
+	GameID, CandidateID string
+	ExpectedVersion     int64
+	NowMS               int64
+	Metadata            Metadata
+	SelectedAssets      []CandidateAssetSelection
+	SelectedKinds       []string
+}
+
+// CandidateApplyCommitResult carries the write-side outputs.
+type CandidateApplyCommitResult struct {
+	ReplacedBlobIDs []string
+	AssetIDs        []string
 }

@@ -186,16 +186,27 @@ id
 	return result, nil
 }
 
-func (repository *Repository) WithMove(
-	ctx context.Context, work func(application.MoveScope) error,
+func (repository *Repository) CommitMove(
+	ctx context.Context, cmd application.MoveCommand,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin game move: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
-	if err := work(moveScope{transaction: transaction}); err != nil {
-		return err
+	scope := moveScope{transaction: transaction}
+	changed, err := scope.UpdateGame(
+		ctx, cmd.GameID, cmd.TargetPlatformInstanceID,
+		cmd.ExpectedVersion, cmd.NowMS,
+	)
+	if err != nil {
+		return fmt.Errorf("update moved game: %w", err)
+	}
+	if !changed {
+		return application.ErrVersionConflict
+	}
+	if err := scope.Audit(ctx, cmd.Audit); err != nil {
+		return fmt.Errorf("write game move audit: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit game move: %w", err)

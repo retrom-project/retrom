@@ -115,21 +115,12 @@ func (service *Service) Move(ctx context.Context, request model.MoveRequest) (mo
 	if err != nil {
 		return model.MoveResult{}, fmt.Errorf("create game move audit ID: %w", err)
 	}
-	err = service.repository.WithMove(ctx, func(scope model.MoveScope) error {
-		changed, err := scope.UpdateGame(
-			ctx,
-			request.GameID,
-			request.TargetPlatformInstanceID,
-			request.ExpectedVersion,
-			request.NowMS,
-		)
-		if err != nil {
-			return fmt.Errorf("update moved game: %w", err)
-		}
-		if !changed {
-			return model.ErrVersionConflict
-		}
-		if err := scope.Audit(ctx, model.AuditEvent{
+	err = service.repository.CommitMove(ctx, model.MoveCommand{
+		GameID:                   request.GameID,
+		TargetPlatformInstanceID: request.TargetPlatformInstanceID,
+		ExpectedVersion:          request.ExpectedVersion,
+		NowMS:                    request.NowMS,
+		Audit: model.AuditEvent{
 			ID: auditID.String(), Action: "GAME_MOVED", ResourceType: "GAME", ResourceID: request.GameID,
 			Before: map[string]any{"platformInstanceId": request.Impact.SourcePlatformInstanceID},
 			After: map[string]any{
@@ -138,10 +129,7 @@ func (service *Service) Move(ctx context.Context, request model.MoveRequest) (mo
 				"variantStatus":      request.Impact.VariantStatus,
 			},
 			Actor: request.Actor, CreatedAtMS: request.NowMS,
-		}); err != nil {
-			return fmt.Errorf("write game move audit: %w", err)
-		}
-		return nil
+		},
 	})
 	if err != nil {
 		return model.MoveResult{}, fmt.Errorf("move game: %w", err)
