@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"io"
-	model "retrom/internal/model/launch"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 type failingScreenshotRepository struct{ cause error }

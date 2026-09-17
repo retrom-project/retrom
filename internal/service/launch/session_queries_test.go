@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/launch"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 type sessionReaderStub struct {

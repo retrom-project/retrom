@@ -3,9 +3,10 @@ package launch
 import (
 	"cmp"
 	"fmt"
-	model "retrom/internal/model/launch"
 	"slices"
 	"strings"
+
+	model "retrom/internal/model/launch"
 )
 
 func projectIndexProjection(snapshot model.ProjectIndexSnapshot) ([]runtimeProjectIndexFile, string, string, error) {

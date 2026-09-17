@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"reflect"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func leaseDatabase(t *testing.T, importing bool) (*sql.DB, string) {

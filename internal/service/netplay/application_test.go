@@ -2,10 +2,11 @@ package netplay
 
 import (
 	"context"
-	model "retrom/internal/model/netplay"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type countingMaintenance struct {

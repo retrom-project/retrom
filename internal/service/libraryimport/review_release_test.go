@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/libraryimport"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/model/payloadrelease"
 )

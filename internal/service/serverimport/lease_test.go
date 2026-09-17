@@ -3,9 +3,10 @@ package serverimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/serverimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 type leaseMemory struct {

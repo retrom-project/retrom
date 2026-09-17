@@ -1,11 +1,12 @@
 package serverimport_test
 
 import (
-	model "retrom/internal/model/serverimport"
 	"database/sql"
 	"fmt"
 	"os"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
@@ -26,11 +27,11 @@ type (
 )
 
 var (
-	ErrQuery = model.ErrQuery
-	ErrNotCancellable = model.ErrNotCancellable
-	ErrNotRetryable = model.ErrNotRetryable
-	ErrCatalogInvalid = model.ErrCatalogInvalid
-	ErrActive = model.ErrActive
+	ErrQuery             = model.ErrQuery
+	ErrNotCancellable    = model.ErrNotCancellable
+	ErrNotRetryable      = model.ErrNotRetryable
+	ErrCatalogInvalid    = model.ErrCatalogInvalid
+	ErrActive            = model.ErrActive
 	ErrPathInvalid       = importservice.ErrPathInvalid
 	ValidateRelativePath = importservice.ValidateRelativePath
 	rankCandidates       = importservice.RankCandidates

@@ -2,9 +2,10 @@ package payloadrelease
 
 import (
 	"context"
-	model "retrom/internal/model/payloadrelease"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 const (

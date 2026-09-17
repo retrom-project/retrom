@@ -3,9 +3,10 @@ package netplay
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/netplay"
 	"slices"
 	"testing"
+
+	model "retrom/internal/model/netplay"
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/model/tagging"

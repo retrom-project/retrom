@@ -2,9 +2,10 @@ package launch
 
 import (
 	"errors"
-	model "retrom/internal/model/launch"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestPreviewCreatorFreezesActiveRestoreWithoutClosingOriginal(t *testing.T) {

@@ -3,9 +3,10 @@ package gamemetadata
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/gamemetadata"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/gamemetadata"
 )
 
 type candidateApplyMemory struct {
@@ -102,7 +103,7 @@ func TestApplyCandidateCoordinatesMetadataAssetsAndPayloadStaging(t *testing.T) 
 	cover := "candidate-cover"
 	result, err := candidateApplyService(memory).ApplyCandidate(t.Context(), model.ApplyCandidateRequest{
 		GameID: "game", CandidateID: "candidate", ExpectedVersion: 2,
-		Fields:               []string{"title", "players", "releaseYear"},
+		Fields:         []string{"title", "players", "releaseYear"},
 		SelectedAssets: model.SelectedAssets{CoverCandidateAssetID: &cover},
 	})
 	if err != nil {

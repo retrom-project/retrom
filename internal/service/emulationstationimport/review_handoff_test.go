@@ -3,12 +3,13 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/emulationstationimport"
-	libraryimportmodel "retrom/internal/model/libraryimport"
-	libraryimportservice "retrom/internal/service/libraryimport"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
 type handoffMemory struct {
@@ -72,10 +73,10 @@ func handoffMemoryService(memory *handoffMemory) *ReviewHandoff {
 
 func handoffRequest(memory *handoffMemory) model.ReviewHandoffRequest {
 	return model.ReviewHandoffRequest{
-		Execution: memory.before.Execution,
-		ItemID:          memory.review.ItemID,
-		LibraryJobID:    memory.review.ReservedJobID,
-		LibraryItemID:   memory.review.ReservedItemID,
+		Execution:     memory.before.Execution,
+		ItemID:        memory.review.ItemID,
+		LibraryJobID:  memory.review.ReservedJobID,
+		LibraryItemID: memory.review.ReservedItemID,
 	}
 }
 

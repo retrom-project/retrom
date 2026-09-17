@@ -6,12 +6,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	uploadsmodel "retrom/internal/model/uploads"
-	uploadsservice "retrom/internal/service/uploads"
-	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
+	"retrom/internal/testkit/testsupport"
 )
 
 type finalizationCountError struct {

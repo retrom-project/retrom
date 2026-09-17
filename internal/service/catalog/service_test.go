@@ -3,8 +3,9 @@ package catalog
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/catalog"
 	"testing"
+
+	model "retrom/internal/model/catalog"
 
 	"retrom/internal/capability/content/contentcapability"
 )

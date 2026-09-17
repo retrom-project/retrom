@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"math"
-	model "retrom/internal/model/pegasusimport"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type workflowMemory struct {
@@ -46,7 +47,7 @@ func workflowFixture() *workflowMemory {
 	job := "job"
 	return &workflowMemory{
 		before: model.WorkflowSnapshot{
-			Summary:  model.Summary{ID: "import", Version: 4, State: "PARTIAL_FAILURE", Retryable: true, ImportJobID: &job},
+			Summary:        model.Summary{ID: "import", Version: 4, State: "PARTIAL_FAILURE", Retryable: true, ImportJobID: &job},
 			JobState:       "SUCCEEDED",
 			JobVersion:     3,
 			Execution:      1,

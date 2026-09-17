@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	"retrom/internal/model/tagging"
 )

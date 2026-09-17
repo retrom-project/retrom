@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/libraryimport"
 	"slices"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/model/importprogress"

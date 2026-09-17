@@ -3,9 +3,10 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/pegasusimport"
 	"strings"
 	"unicode/utf8"
+
+	model "retrom/internal/model/pegasusimport"
 
 	"github.com/google/uuid"
 )

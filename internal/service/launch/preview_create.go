@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	model "retrom/internal/model/launch"
 	"strings"
+
+	model "retrom/internal/model/launch"
 
 	"github.com/google/uuid"
 )

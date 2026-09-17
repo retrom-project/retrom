@@ -3,8 +3,9 @@ package gamecontent
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/gamecontent"
 	"testing"
+
+	model "retrom/internal/model/gamecontent"
 )
 
 type retirementMemory struct {

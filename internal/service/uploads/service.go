@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	model "retrom/internal/model/uploads"
 	"strconv"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/uploads"
 
 	"retrom/internal/adapter/files/uploadfiles"
 

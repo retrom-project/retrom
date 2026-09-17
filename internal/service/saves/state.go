@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+
 	model "retrom/internal/model/saves"
 
 	"retrom/internal/foundation/cleanup"

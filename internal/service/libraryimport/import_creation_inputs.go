@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	model "retrom/internal/model/libraryimport"
 	"slices"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 func (run *creationCommit) checkInputs(ctx context.Context, scope model.ImportCreationScope) error {

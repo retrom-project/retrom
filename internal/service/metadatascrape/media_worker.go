@@ -5,8 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/metadatascrape"
 	"time"
+
+	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/adapter/metadata/hasheous"
 )

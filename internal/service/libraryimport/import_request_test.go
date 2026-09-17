@@ -2,8 +2,9 @@ package libraryimport
 
 import (
 	"errors"
-	model "retrom/internal/model/libraryimport"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/contentcapability"
 )

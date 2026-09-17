@@ -3,9 +3,10 @@ package libraryimport
 import (
 	"errors"
 	"path/filepath"
-	model "retrom/internal/model/libraryimport"
 	"slices"
 	"strings"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/contentprofile"

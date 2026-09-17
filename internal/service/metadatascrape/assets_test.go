@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
-	model "retrom/internal/model/metadatascrape"
 	"testing"
+
+	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/metadata/hasheous"

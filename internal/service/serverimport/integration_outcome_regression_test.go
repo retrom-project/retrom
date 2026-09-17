@@ -2,8 +2,9 @@ package serverimport_test
 
 import (
 	"math"
-	model "retrom/internal/model/serverimport"
 	"testing"
+
+	model "retrom/internal/model/serverimport"
 
 	"retrom/internal/capability/content/firmware"
 	jobpersistence "retrom/internal/repo/jobs"

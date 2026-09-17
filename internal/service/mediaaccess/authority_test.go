@@ -2,8 +2,9 @@ package mediaaccess
 
 import (
 	"errors"
-	model "retrom/internal/model/mediaaccess"
 	"testing"
+
+	model "retrom/internal/model/mediaaccess"
 )
 
 func TestMediaAccessChecksCurrentGameAndSaveOwner(t *testing.T) {

@@ -3,9 +3,10 @@ package libraryimport
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	model "retrom/internal/model/libraryimport"
 	payloadreleaseservice "retrom/internal/service/payloadrelease"
-	"strings"
 
 	"retrom/internal/capability/content/gametitle"
 	"retrom/internal/capability/security/authn"

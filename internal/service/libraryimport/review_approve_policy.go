@@ -2,9 +2,10 @@ package libraryimport
 
 import (
 	"math"
-	model "retrom/internal/model/libraryimport"
 	"sort"
 	"strings"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 func normalizeReviewApproval(request model.ReviewApprovalRequest) (model.ReviewApprovalRequest, error) {

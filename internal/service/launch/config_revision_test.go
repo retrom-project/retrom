@@ -2,8 +2,9 @@ package launch
 
 import (
 	"math"
-	model "retrom/internal/model/launch"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestConfigRevisionAllowsOnlyForwardActiveProgress(t *testing.T) {

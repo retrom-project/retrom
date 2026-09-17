@@ -3,9 +3,10 @@ package libraryimport
 import (
 	"encoding/json"
 	"errors"
-	model "retrom/internal/model/libraryimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 func esSourceOwnershipFixture() (model.SourceCreationIntent, model.SourceCreationSnapshot) {

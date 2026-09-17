@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	model "retrom/internal/model/maintenance"
 	"sort"
+
+	model "retrom/internal/model/maintenance"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/bootstrap/config"

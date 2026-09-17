@@ -2,8 +2,9 @@ package launch
 
 import (
 	"path"
-	model "retrom/internal/model/launch"
 	"strings"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/format/importing"

@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	model "retrom/internal/model/serverimport"
 	"strings"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 
 	"github.com/google/uuid"
 )

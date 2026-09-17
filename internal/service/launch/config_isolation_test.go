@@ -2,8 +2,9 @@ package launch
 
 import (
 	"errors"
-	model "retrom/internal/model/launch"
 	"testing"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )

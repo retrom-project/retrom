@@ -3,9 +3,10 @@ package accounts
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/accounts"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/accounts"
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
@@ -54,9 +55,11 @@ func (hasher initializationHasher) Hash(context.Context, string) (string, error)
 	}
 	return "initial-hash", nil
 }
+
 func initializationMint() (model.SessionMaterial, error) {
 	return model.SessionMaterial{ID: "session"}, nil
 }
+
 func TestInitializationRejectsPartialPendingAndOrphanedCompletedState(t *testing.T) {
 	for _, state := range []model.InitializationState{{State: "PENDING", Users: 1}, {State: "PENDING", Profiles: 1}, {State: "COMPLETED"}, {State: "COMPLETED", EnabledAdmins: 1, OrphanProfiles: 1}, {State: "UNKNOWN"}} {
 		memory := &initializationMemory{state: state}

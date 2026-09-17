@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	model "retrom/internal/model/launch"
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	model "retrom/internal/model/launch"
 )
 
 const RuntimeContentPath = "/runtime/content/"

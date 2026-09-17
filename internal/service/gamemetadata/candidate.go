@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/gamemetadata"
 	"strings"
+
+	model "retrom/internal/model/gamemetadata"
 )
 
 var candidateFieldNames = map[string]struct{}{

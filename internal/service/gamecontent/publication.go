@@ -3,8 +3,9 @@ package gamecontent
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/gamecontent"
 	"slices"
+
+	model "retrom/internal/model/gamecontent"
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/content/multidisc"

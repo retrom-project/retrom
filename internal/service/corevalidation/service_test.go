@@ -3,8 +3,9 @@ package corevalidation
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/corevalidation"
 	"testing"
+
+	model "retrom/internal/model/corevalidation"
 
 	"retrom/internal/capability/content/corevalidation"
 )

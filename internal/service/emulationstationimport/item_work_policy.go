@@ -2,6 +2,7 @@ package emulationstationimport
 
 import (
 	"math"
+
 	model "retrom/internal/model/emulationstationimport"
 )
 

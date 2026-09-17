@@ -1,10 +1,11 @@
 package favorites
 
 import (
-	model "retrom/internal/model/favorites"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	model "retrom/internal/model/favorites"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"

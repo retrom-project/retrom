@@ -5,10 +5,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	model "retrom/internal/model/netplay"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/netplay"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/content/corevalidation"

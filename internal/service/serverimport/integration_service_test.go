@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	model "retrom/internal/model/serverimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 
 	firmwarepersistence "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"

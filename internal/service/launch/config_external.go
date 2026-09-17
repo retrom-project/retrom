@@ -2,8 +2,9 @@ package launch
 
 import (
 	"fmt"
-	model "retrom/internal/model/launch"
 	"strings"
+
+	model "retrom/internal/model/launch"
 )
 
 func providerBundleIdentity(files []model.ConfigFile) (string, error) {

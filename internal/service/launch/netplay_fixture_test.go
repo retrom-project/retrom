@@ -2,10 +2,11 @@ package launch
 
 import (
 	"encoding/json"
-	model "retrom/internal/model/launch"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )

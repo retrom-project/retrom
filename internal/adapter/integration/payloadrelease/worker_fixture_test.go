@@ -3,9 +3,10 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+	"time"
+
 	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	payloadreleaseservice "retrom/internal/service/payloadrelease"
-	"time"
 )
 
 func (service *Service) claim(ctx context.Context) (claimedJob, bool, error) {
@@ -29,4 +30,5 @@ func (service *Service) finish(ctx context.Context, job claimedJob, executionErr
 	}
 	return nil
 }
+
 func releaseRetryDelay(attempt int64) time.Duration { return payloadreleaseservice.RetryDelay(attempt) }

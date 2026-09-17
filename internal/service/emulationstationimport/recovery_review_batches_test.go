@@ -2,9 +2,10 @@ package emulationstationimport
 
 import (
 	"context"
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type recoveryReviewMemory struct {

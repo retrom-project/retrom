@@ -5,8 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	model "retrom/internal/model/importdiscard"
 	"testing"
+
+	model "retrom/internal/model/importdiscard"
 )
 
 type memoryOwnership struct {

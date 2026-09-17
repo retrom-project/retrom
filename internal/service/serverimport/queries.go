@@ -3,8 +3,9 @@ package serverimport
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/serverimport"
 	"strings"
+
+	model "retrom/internal/model/serverimport"
 )
 
 type QueryRepository interface {

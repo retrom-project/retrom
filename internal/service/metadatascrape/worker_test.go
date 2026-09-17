@@ -3,9 +3,10 @@ package metadatascrape
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/metadatascrape"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 type workerMemory struct {

@@ -1,8 +1,10 @@
 package pegasusimport
 
-import model "retrom/internal/model/pegasusimport"
+import (
+	"time"
 
-import "time"
+	model "retrom/internal/model/pegasusimport"
+)
 
 type Materialization struct {
 	repository model.MaterialRepository

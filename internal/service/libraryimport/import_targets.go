@@ -3,8 +3,9 @@ package libraryimport
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/libraryimport"
 	"slices"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/engine/rpgmaker/detector"
 )

@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	model "retrom/internal/model/gamecontent"
 	"sort"
+
+	model "retrom/internal/model/gamecontent"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentmanifest"

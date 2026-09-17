@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+
 	model "retrom/internal/model/gamecontent"
 
 	"retrom/internal/capability/content/contentcapability"

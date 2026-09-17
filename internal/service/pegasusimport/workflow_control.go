@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	model "retrom/internal/model/pegasusimport"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 
 	"github.com/google/uuid"
 )

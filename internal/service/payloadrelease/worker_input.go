@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
 	model "retrom/internal/model/payloadrelease"
 
 	"github.com/google/uuid"

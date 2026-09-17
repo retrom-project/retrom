@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
-	pegasusimportmodel "retrom/internal/model/pegasusimport"
-	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"strings"
 	"testing"
 	"time"
+
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
 func materialDatabase(t *testing.T) (*sql.DB, pegasusimportmodel.MaterialKey, pegasusimportmodel.VerifiedBlob) {

@@ -1,15 +1,16 @@
 package payloadrelease
 
 import (
-	model "retrom/internal/model/payloadrelease"
 	"testing"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 func TestReleaseEffectPolicyRejectsActiveOrChangedOwners(t *testing.T) {
 	scope := model.Scope{Type: model.ScopeImportItem, ID: "item"}
 	unit := model.Execution{Work: model.Work{ID: "release", Scope: scope}, Input: model.Input{Inputs: model.ScopeInputs{ScopeVersion: 7}}}
 	before := model.EffectOwner{
-		Found:       true,
+		Found: true,
 		Owner: model.Owner{Scope: scope, State: "DISCARDED", PayloadState: "RELEASING", ReleaseJobID: "release", Version: 7},
 	}
 	if err := validateEffectRoot(unit, before); err != nil {

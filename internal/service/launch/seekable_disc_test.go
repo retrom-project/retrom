@@ -1,9 +1,10 @@
 package launch
 
 import (
-	model "retrom/internal/model/launch"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestSeekableDiscUsesFrozenBlobIdentityAndRange(t *testing.T) {

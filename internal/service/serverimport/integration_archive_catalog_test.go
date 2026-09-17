@@ -9,10 +9,11 @@ import (
 	"hash/crc32"
 	"os"
 	"path/filepath"
-	model "retrom/internal/model/serverimport"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 
 	firmwarepersistence "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"

@@ -1,8 +1,9 @@
 package emulationstationimport
 
 import (
-	model "retrom/internal/model/emulationstationimport"
 	"math"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func planRecovery(before model.LeaseSnapshot, now int64) (model.RecoveryChange, error) {

@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/favorites"
 	"sort"
 	"time"
+
+	model "retrom/internal/model/favorites"
 
 	"github.com/google/uuid"
 )

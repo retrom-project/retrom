@@ -3,8 +3,9 @@ package launch
 import (
 	"encoding/json"
 	"net/url"
-	model "retrom/internal/model/launch"
 	"slices"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )

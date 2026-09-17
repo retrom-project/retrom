@@ -2,8 +2,9 @@ package serverimport_test
 
 import (
 	"reflect"
-	model "retrom/internal/model/serverimport"
 	"testing"
+
+	model "retrom/internal/model/serverimport"
 )
 
 func TestServerImportCandidatePaginationKeepsNullRanksStable(t *testing.T) {

@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	model "retrom/internal/model/payloadrelease"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 const retirementBatchSize = 200

@@ -1,8 +1,9 @@
 package launch
 
 import (
-	model "retrom/internal/model/launch"
 	"crypto/subtle"
+
+	model "retrom/internal/model/launch"
 )
 
 func validNetplayCreationRequest(request model.NetplayCreateRequest) bool {

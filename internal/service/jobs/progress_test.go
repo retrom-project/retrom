@@ -3,9 +3,10 @@ package jobs
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/jobs"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/jobs"
 )
 
 func TestProgressBatchDrainsTerminalBacklog(t *testing.T) {

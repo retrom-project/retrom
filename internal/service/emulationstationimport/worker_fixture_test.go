@@ -2,9 +2,10 @@ package emulationstationimport
 
 import (
 	"context"
-	model "retrom/internal/model/emulationstationimport"
 	"sync/atomic"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type workerFixture struct {

@@ -3,9 +3,10 @@ package gamecontent
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/gamecontent"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/gamecontent"
 
 	"retrom/internal/model/payloadrelease"
 )
@@ -76,7 +77,7 @@ func TestPublicationRejectsChangedContentBeforeRetirement(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			repository := &workflowRepository{scope: model.WriteScope{
 				ReadScope: model.ReadScope{Content: workflowContent{binding: test.binding, identity: test.identity}},
-				Leases:          workflowLeases{current: test.current},
+				Leases:    workflowLeases{current: test.current},
 			}}
 			service := New(repository, func() time.Time { return time.UnixMilli(100) })
 			err := service.publish(t.Context(), model.Claim{}, model.JobSnapshot{}, model.PreparedReplacement{Files: []model.ReplacementFile{{Role: "CONTENT", SHA256: "same"}}})

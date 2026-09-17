@@ -7,13 +7,14 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	gamecontentmodel "retrom/internal/model/gamecontent"
-	gamecontentservice "retrom/internal/service/gamecontent"
-	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	gamecontentmodel "retrom/internal/model/gamecontent"
+	gamecontentservice "retrom/internal/service/gamecontent"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestContentRetirementDrainsReferencesAcrossBatchBoundary(t *testing.T) {

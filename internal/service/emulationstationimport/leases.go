@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	model "retrom/internal/model/emulationstationimport"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	"github.com/google/uuid"
 )

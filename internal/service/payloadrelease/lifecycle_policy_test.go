@@ -2,8 +2,9 @@ package payloadrelease
 
 import (
 	"errors"
-	model "retrom/internal/model/payloadrelease"
 	"testing"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 func TestLifecyclePolicyChecksTerminalOwnersAndReleaseBinding(t *testing.T) {

@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+
 	model "retrom/internal/model/emulationstationimport"
 	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	payloadreleaseservice "retrom/internal/service/payloadrelease"

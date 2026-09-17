@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/libraryimport"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/model/tagging"
 )

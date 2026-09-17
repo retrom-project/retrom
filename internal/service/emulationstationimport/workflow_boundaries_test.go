@@ -3,10 +3,11 @@ package emulationstationimport
 import (
 	"errors"
 	"math"
-	model "retrom/internal/model/emulationstationimport"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	"github.com/google/uuid"
 )

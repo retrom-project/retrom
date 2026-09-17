@@ -2,9 +2,10 @@ package launch
 
 import (
 	"path"
-	model "retrom/internal/model/launch"
 	"strings"
 	"unicode/utf8"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/engine/rpgmaker/nativeweb"
 )

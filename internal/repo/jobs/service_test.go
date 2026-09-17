@@ -7,9 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	jobsservice "retrom/internal/service/jobs"
 	"testing"
 	"time"
+
+	jobsservice "retrom/internal/service/jobs"
 
 	"retrom/internal/foundation/cleanup"
 	jobsmodel "retrom/internal/model/jobs"

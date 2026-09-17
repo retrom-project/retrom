@@ -5,8 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/accounts"
 	"time"
+
+	model "retrom/internal/model/accounts"
 
 	"github.com/google/uuid"
 )

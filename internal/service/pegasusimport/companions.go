@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"path"
-	model "retrom/internal/model/pegasusimport"
 	"strings"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type Companions struct {

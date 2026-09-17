@@ -4,9 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"path/filepath"
-	model "retrom/internal/model/uploads"
 	"strconv"
 	"strings"
+
+	model "retrom/internal/model/uploads"
 
 	"retrom/internal/capability/format/importing"
 )

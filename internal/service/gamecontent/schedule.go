@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/gamecontent"
 	"time"
+
+	model "retrom/internal/model/gamecontent"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/security/authn"

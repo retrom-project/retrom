@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/dependencies"
 	"time"
+
+	model "retrom/internal/model/dependencies"
 
 	"github.com/google/uuid"
 )

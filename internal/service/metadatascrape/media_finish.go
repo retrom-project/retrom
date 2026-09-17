@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/metadatascrape"
 	"time"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 func (worker *MediaWorker) settle(parent context.Context, execution mediaExecution,

@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/accounts"
 	"time"
+
+	model "retrom/internal/model/accounts"
 )
 
 const (

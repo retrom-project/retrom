@@ -1,8 +1,9 @@
 package emulationstationimport
 
 import (
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func TestExecutionProjectionPolicyBelongsToService(t *testing.T) {

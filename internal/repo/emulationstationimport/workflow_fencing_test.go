@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"strings"
 	"testing"
 	"time"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func TestWorkflowRetryRechecksRealStorageAfterSourceIO(t *testing.T) {

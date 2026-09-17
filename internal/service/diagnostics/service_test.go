@@ -3,8 +3,9 @@ package diagnostics
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/diagnostics"
 	"testing"
+
+	model "retrom/internal/model/diagnostics"
 )
 
 type memoryRepository struct {

@@ -2,10 +2,11 @@ package pegasusimport
 
 import (
 	"errors"
-	pegasusimportmodel "retrom/internal/model/pegasusimport"
-	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"testing"
 	"time"
+
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
 func TestPlanDeletionRollsBackTagVersionAndMutableProjectionOnAuditFailure(t *testing.T) {

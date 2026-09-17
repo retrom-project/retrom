@@ -3,9 +3,10 @@ package home
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/home"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/home"
 
 	"retrom/internal/model/tagging"
 )

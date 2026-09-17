@@ -3,10 +3,11 @@ package gamecontent
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/gamecontent"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/gamecontent"
 )
 
 type deleteGameTestRepository struct {

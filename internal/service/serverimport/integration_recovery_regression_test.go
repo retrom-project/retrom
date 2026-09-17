@@ -3,10 +3,11 @@ package serverimport_test
 import (
 	"context"
 	"database/sql"
-	model "retrom/internal/model/serverimport"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 func TestCandidateRecoveryRejectsBrokenEvaluationEvidence(t *testing.T) {

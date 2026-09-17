@@ -3,10 +3,11 @@ package launch
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/launch"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 type netplayCreationMemory struct {

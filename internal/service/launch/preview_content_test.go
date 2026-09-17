@@ -3,8 +3,9 @@ package launch
 import (
 	"errors"
 	"fmt"
-	model "retrom/internal/model/launch"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestPreviewContentFreezesDOSAndOrderedDiscs(t *testing.T) {

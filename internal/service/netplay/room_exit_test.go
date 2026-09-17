@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/netplay"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type roomExitMemory struct {

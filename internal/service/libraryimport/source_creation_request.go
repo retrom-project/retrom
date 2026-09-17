@@ -3,8 +3,9 @@ package libraryimport
 import (
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/libraryimport"
 	"slices"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/model/tagging"

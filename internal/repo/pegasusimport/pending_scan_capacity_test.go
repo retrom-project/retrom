@@ -3,10 +3,11 @@ package pegasusimport
 import (
 	"database/sql"
 	"errors"
-	pegasusimportmodel "retrom/internal/model/pegasusimport"
-	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"testing"
 	"time"
+
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
 func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {

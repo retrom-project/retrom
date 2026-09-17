@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/serverimport"
 	"slices"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/content/firmware"

@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	model "retrom/internal/model/launch"
 	"strings"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/format/importing"
 )

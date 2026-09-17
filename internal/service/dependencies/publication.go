@@ -3,8 +3,9 @@ package dependencies
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/dependencies"
 	"time"
+
+	model "retrom/internal/model/dependencies"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/format/arcadedat"

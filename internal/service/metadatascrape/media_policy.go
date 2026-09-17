@@ -8,8 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/metadatascrape"
 	"slices"
+
+	model "retrom/internal/model/metadatascrape"
 
 	"github.com/google/uuid"
 )

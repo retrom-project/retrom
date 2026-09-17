@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"reflect"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func recoveryDatabase(t *testing.T, importing, staging bool) (*sql.DB, emulationstationimportmodel.Execution) {

@@ -2,9 +2,10 @@ package netplay
 
 import (
 	"context"
-	model "retrom/internal/model/netplay"
 	"slices"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type RoomQueries struct {

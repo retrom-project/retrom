@@ -3,8 +3,9 @@ package firmware
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/firmware"
 	"time"
+
+	model "retrom/internal/model/firmware"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/format/importing"

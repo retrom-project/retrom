@@ -6,10 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	model "retrom/internal/model/uploads"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/uploads"
 )
 
 func TestStaleFinalizationCannotWriteNewRound(t *testing.T) {

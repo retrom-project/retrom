@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/importdiscard"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/importdiscard"
 )
 
 type importCalls struct {

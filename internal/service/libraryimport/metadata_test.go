@@ -6,10 +6,11 @@ import (
 	"errors"
 	"math"
 	"reflect"
-	model "retrom/internal/model/libraryimport"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/security/authn"
 )

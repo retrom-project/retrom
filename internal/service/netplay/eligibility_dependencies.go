@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	model "retrom/internal/model/netplay"
 	"slices"
 	"sort"
 	"strings"
+
+	model "retrom/internal/model/netplay"
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/transport/netplay/profile"

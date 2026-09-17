@@ -3,9 +3,10 @@ package firmware
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/firmware"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/firmware"
 
 	"retrom/internal/capability/content/firmware"
 	"retrom/internal/capability/format/importing"

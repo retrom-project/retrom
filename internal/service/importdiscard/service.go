@@ -4,9 +4,10 @@ package importdiscard
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/importdiscard"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/importdiscard"
 
 	"github.com/google/uuid"
 )

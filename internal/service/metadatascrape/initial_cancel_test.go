@@ -2,8 +2,9 @@ package metadatascrape
 
 import (
 	"context"
-	model "retrom/internal/model/metadatascrape"
 	"testing"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 type cancelledInitialMemory struct{ initialMemory }

@@ -5,9 +5,10 @@ import (
 	"errors"
 	"math"
 	"reflect"
-	model "retrom/internal/model/launch"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 const validationFixtureID = "01980000-0000-7000-8000-000000000081"

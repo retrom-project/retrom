@@ -3,9 +3,10 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	library "retrom/internal/model/libraryimport"
 )

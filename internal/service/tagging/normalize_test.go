@@ -2,10 +2,11 @@ package tagging
 
 import (
 	"errors"
-	model "retrom/internal/model/tagging"
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	model "retrom/internal/model/tagging"
 
 	"retrom/internal/testkit/testassert"
 )

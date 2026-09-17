@@ -2,9 +2,10 @@ package launch
 
 import (
 	"errors"
-	model "retrom/internal/model/launch"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/contentprofile"
 )

@@ -3,9 +3,10 @@ package libraryimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/libraryimport"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type duplicateReaderStub struct {

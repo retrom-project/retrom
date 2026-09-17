@@ -1,8 +1,9 @@
 package netplay
 
 import (
-	model "retrom/internal/model/netplay"
 	"context"
+
+	model "retrom/internal/model/netplay"
 )
 
 func controlPeer(before model.SessionControlSnapshot, identity model.PeerIdentity) (model.SessionPeer, error) {

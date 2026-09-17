@@ -3,9 +3,10 @@ package gamecontent
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/gamecontent"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/gamecontent"
 )
 
 type adminTestRepository struct {

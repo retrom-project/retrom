@@ -5,11 +5,12 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"strings"
+	"testing"
+
 	libraryimportmodel "retrom/internal/model/libraryimport"
 	libraryimportservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
-	"strings"
-	"testing"
 )
 
 func TestMetadataAuditZeroReturnedKeysRollsBackDraftSearchAndEvent(t *testing.T) {

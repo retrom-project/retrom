@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func TestPlanDeletionRollsBackEveryProjectionOnFailure(t *testing.T) {

@@ -3,9 +3,10 @@ package launch
 import (
 	"errors"
 	"math"
-	model "retrom/internal/model/launch"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestPreviewCreatorPreservesBothReplayBoundaries(t *testing.T) {

@@ -1,10 +1,11 @@
 package libraryimport
 
 import (
-	model "retrom/internal/model/libraryimport"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 const (

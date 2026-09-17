@@ -12,11 +12,12 @@ import (
 	"fmt"
 	"hash/crc32"
 	"path/filepath"
-	firmwareservice "retrom/internal/service/firmware"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	firmwareservice "retrom/internal/service/firmware"
 
 	uploadpersistence "retrom/internal/repo/uploads"
 

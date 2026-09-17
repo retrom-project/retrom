@@ -2,8 +2,9 @@ package launch
 
 import (
 	"reflect"
-	model "retrom/internal/model/launch"
 	"slices"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/multidisc"
 )

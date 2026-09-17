@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/pegasusimport"
 	"strings"
+
+	model "retrom/internal/model/pegasusimport"
 
 	"retrom/internal/capability/format/pegasusmeta"
 )

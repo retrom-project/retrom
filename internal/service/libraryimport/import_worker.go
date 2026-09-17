@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/libraryimport"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type ImportWorker struct {

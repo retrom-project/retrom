@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	model "retrom/internal/model/netplay"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type sessionStartMemory struct {

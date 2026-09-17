@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path"
-	model "retrom/internal/model/libraryimport"
 	"strings"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 func readReviewMedia(ctx context.Context, scope model.ReviewReadScope, head model.ReviewHead, result *model.ReviewDetail) error {

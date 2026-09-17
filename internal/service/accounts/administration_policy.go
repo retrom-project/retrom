@@ -1,8 +1,9 @@
 package accounts
 
 import (
-	model "retrom/internal/model/accounts"
 	"strings"
+
+	model "retrom/internal/model/accounts"
 )
 
 func resolveUserChange(before model.AdminUser, patch model.UserPatch, self bool) (model.UserChange, error) {

@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+
 	model "retrom/internal/model/emulationstationimport"
 )
 

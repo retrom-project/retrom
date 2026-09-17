@@ -6,9 +6,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	model "retrom/internal/model/libraryimport"
 	"sort"
 	"strings"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/contentprofile"
 	"retrom/internal/capability/engine/rpgmaker/detector"

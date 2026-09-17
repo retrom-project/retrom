@@ -3,9 +3,10 @@ package jobs
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/jobs"
 	"strings"
 	"time"
+
+	model "retrom/internal/model/jobs"
 )
 
 type Service struct {

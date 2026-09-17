@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/emulationstationimport"
 	"sort"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	"retrom/internal/capability/content/multidisc"
 	"retrom/internal/capability/format/emulationstationmeta"

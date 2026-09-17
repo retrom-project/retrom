@@ -3,8 +3,9 @@ package gamelist
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/gamelist"
 	"testing"
+
+	model "retrom/internal/model/gamelist"
 )
 
 type fakeRepository struct {

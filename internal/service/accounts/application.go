@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	model "retrom/internal/model/accounts"
 
 	"retrom/internal/capability/security/authn"

@@ -4,8 +4,9 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/launch"
 	"slices"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/corevalidation"
 	validation "retrom/internal/service/corevalidation"

@@ -5,9 +5,10 @@ import (
 	"errors"
 	"io"
 	"reflect"
-	model "retrom/internal/model/launch"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/adapter/files/mediaasset"
 )

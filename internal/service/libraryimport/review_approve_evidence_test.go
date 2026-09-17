@@ -3,8 +3,9 @@ package libraryimport
 import (
 	"encoding/json"
 	"reflect"
-	model "retrom/internal/model/libraryimport"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/model/tagging"

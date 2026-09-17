@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/metadatascrape"
 	"testing"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 type reviewEvidenceFixture struct {

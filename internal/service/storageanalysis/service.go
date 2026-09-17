@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	model "retrom/internal/model/storageanalysis"
 	"time"
+
+	model "retrom/internal/model/storageanalysis"
 )
 
 type Service struct {

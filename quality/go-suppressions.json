@@ -74,15 +74,6 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/model/gameassets/repository.go",
-      "line": 14,
-      "symbol": "type WriteScope interface",
-      "linter": "interfacebloat",
-      "reason": "Asset replacement operations share one transaction-scoped port to preserve atomic ordering.",
-      "invariant": "All slot replacement, upload consumption, versioning, staging, and release scheduling writes commit together.",
-      "reviewAfter": "2027-08-22"
-    },
-    {
       "path": "internal/model/gamemove/repository.go",
       "line": 12,
       "symbol": "type Repository interface",

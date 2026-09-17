@@ -3,9 +3,10 @@ package emulationstationimport
 import (
 	"database/sql"
 	"reflect"
+	"testing"
+
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
-	"testing"
 )
 
 func stagedCancellation(t *testing.T, running bool) (*sql.DB, emulationstationimportmodel.Summary, emulationstationimportmodel.LeaseSnapshot) {

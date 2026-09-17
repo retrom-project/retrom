@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/serverimport"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 
 	"github.com/google/uuid"
 )

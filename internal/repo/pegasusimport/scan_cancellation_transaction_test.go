@@ -6,12 +6,13 @@ import (
 	"database/sql/driver"
 	"errors"
 	"reflect"
-	pegasusimportmodel "retrom/internal/model/pegasusimport"
-	pegasusimportservice "retrom/internal/service/pegasusimport"
-	"retrom/internal/testkit/testsupport"
 	"strings"
 	"testing"
 	"time"
+
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestScanCancellationRechecksOriginalJobVersionAndOwnership(t *testing.T) {

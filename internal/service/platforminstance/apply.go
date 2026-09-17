@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/platforminstance"
 	"time"
+
+	model "retrom/internal/model/platforminstance"
 
 	"retrom/internal/capability/runtime/platformcatalog"
 )

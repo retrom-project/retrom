@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type scanMemory struct {

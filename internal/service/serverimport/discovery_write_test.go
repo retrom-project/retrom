@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"math"
-	model "retrom/internal/model/serverimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/content/firmware"

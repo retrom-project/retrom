@@ -3,8 +3,9 @@ package launch
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/launch"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestProductProviderChecksRunBeforeWriter(t *testing.T) {

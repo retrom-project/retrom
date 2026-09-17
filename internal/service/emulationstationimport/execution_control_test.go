@@ -3,9 +3,10 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type executionMemory struct {
@@ -106,7 +107,9 @@ func TestExecutionControlRejectsLostAndExpiredCancellation(t *testing.T) {
 func (memory *executionMemory) Reviews(context.Context, string, int) ([]model.ExecutionReview, error) {
 	return nil, nil
 }
+
 func (memory *executionMemory) Fence(context.Context, model.LeaseSnapshot, int64) error { return nil }
+
 func (memory *executionMemory) CompleteReview(context.Context, model.ExecutionReviewCompletion) error {
 	return nil
 }

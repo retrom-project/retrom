@@ -3,9 +3,10 @@ package bios
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/bios"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/bios"
 )
 
 type fakeRepository struct {
@@ -46,10 +47,10 @@ func TestListFetchesOneExtraItemAndBuildsCatalogCursor(t *testing.T) {
 
 func TestListKeepsAggregateProjectionWhenThereIsNoNextPage(t *testing.T) {
 	repository := &fakeRepository{result: model.ListResult{
-		ScopeCounts: model.ScopeCounts{RequiredByLibrary: 2, FullCatalog: 3},
-		Summary:     model.Summary{TotalCount: 2, ReadyCount: 1},
-		FilteredCount:     1,
-		Items:             []model.Item{{ID: "only"}},
+		ScopeCounts:   model.ScopeCounts{RequiredByLibrary: 2, FullCatalog: 3},
+		Summary:       model.Summary{TotalCount: 2, ReadyCount: 1},
+		FilteredCount: 1,
+		Items:         []model.Item{{ID: "only"}},
 	}}
 	result, err := New(repository).List(context.Background(), model.ListRequest{
 		Scope: model.ScopeRequiredByLibrary, Quick: model.QuickOptional, Limit: 10,

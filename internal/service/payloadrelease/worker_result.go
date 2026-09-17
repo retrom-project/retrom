@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/payloadrelease"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 func (worker *Worker) Finish(ctx context.Context, unit model.Work, executionErr error) error {

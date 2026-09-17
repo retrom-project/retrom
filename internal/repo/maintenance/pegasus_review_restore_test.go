@@ -2,11 +2,12 @@ package maintenance
 
 import (
 	"database/sql"
-	maintenancemodel "retrom/internal/model/maintenance"
-	maintenanceservice "retrom/internal/service/maintenance"
 	"strings"
 	"testing"
 	"time"
+
+	maintenancemodel "retrom/internal/model/maintenance"
+	maintenanceservice "retrom/internal/service/maintenance"
 )
 
 func restoredPegasusReview(t *testing.T) (*sql.DB, string) {

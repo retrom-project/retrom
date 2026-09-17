@@ -3,8 +3,9 @@ package datindex
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/datindex"
 	"time"
+
+	model "retrom/internal/model/datindex"
 )
 
 // SyncRequirements coordinates DAT reads and requirement writes. The model

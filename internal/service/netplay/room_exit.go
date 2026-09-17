@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/netplay"
 	"slices"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type RoomExit struct {
@@ -54,7 +55,9 @@ func (service *RoomExit) end(ctx context.Context, roomID string, actor *string, 
 	}
 	return nil
 }
+
 func activeExitMember(member *model.SeatMember) bool { return member != nil && member.LeftAtMS == nil }
+
 func (service *RoomExit) finish(
 	ctx context.Context,
 	writer model.RoomExitWriter,

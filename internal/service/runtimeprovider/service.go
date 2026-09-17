@@ -3,8 +3,9 @@ package runtimeprovider
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/runtimeprovider"
 	"time"
+
+	model "retrom/internal/model/runtimeprovider"
 )
 
 type Service struct{ repository model.Repository }

@@ -1,8 +1,9 @@
 package libraryimport
 
 import (
-	model "retrom/internal/model/libraryimport"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type MultiDiscAttachmentCommits struct {

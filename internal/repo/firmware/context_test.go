@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	firmwareservice "retrom/internal/service/firmware"
 	"testing"
 	"time"
+
+	firmwareservice "retrom/internal/service/firmware"
 
 	firmwaremodel "retrom/internal/model/firmware"
 

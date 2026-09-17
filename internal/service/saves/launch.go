@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	model "retrom/internal/model/saves"
 	"slices"
+
+	model "retrom/internal/model/saves"
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 )

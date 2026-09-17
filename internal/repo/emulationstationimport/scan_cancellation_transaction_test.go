@@ -3,10 +3,11 @@ package emulationstationimport
 import (
 	"database/sql"
 	"errors"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func insertScanPlan(t *testing.T, db *sql.DB, index int) emulationstationimportmodel.Summary {

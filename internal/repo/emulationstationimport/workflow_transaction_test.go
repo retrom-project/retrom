@@ -6,10 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"reflect"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func workflowDatabase(t *testing.T, retry bool) (*sql.DB, emulationstationimportmodel.Summary) {

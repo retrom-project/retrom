@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/pegasusimport"
 	"testing"
+
+	model "retrom/internal/model/pegasusimport"
 
 	library "retrom/internal/model/libraryimport"
 )

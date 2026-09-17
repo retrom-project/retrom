@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"math"
-	model "retrom/internal/model/firmware"
 	"testing"
+
+	model "retrom/internal/model/firmware"
 )
 
 type supersessionMemory struct {

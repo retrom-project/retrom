@@ -5,11 +5,12 @@ import (
 	"database/sql/driver"
 	"errors"
 	"reflect"
-	pegasusimportservice "retrom/internal/service/pegasusimport"
-	"retrom/internal/testkit/testsupport"
 	"strings"
 	"testing"
 	"time"
+
+	pegasusimportservice "retrom/internal/service/pegasusimport"
+	"retrom/internal/testkit/testsupport"
 
 	pegasusimportmodel "retrom/internal/model/pegasusimport"
 

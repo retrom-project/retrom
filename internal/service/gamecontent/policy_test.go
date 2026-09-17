@@ -2,8 +2,9 @@ package gamecontent
 
 import (
 	"errors"
-	model "retrom/internal/model/gamecontent"
 	"testing"
+
+	model "retrom/internal/model/gamecontent"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/multidisc"

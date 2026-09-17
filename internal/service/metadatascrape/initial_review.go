@@ -4,8 +4,9 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	model "retrom/internal/model/metadatascrape"
 	"slices"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 type InitialReviewService struct{ scope model.InitialReviewScope }

@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
-	pegasusimportmodel "retrom/internal/model/pegasusimport"
-	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"testing"
 	"time"
+
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
 func queuedLeaseDatabase(t *testing.T) *sql.DB {

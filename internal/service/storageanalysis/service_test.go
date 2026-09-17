@@ -3,9 +3,10 @@ package storageanalysis
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/storageanalysis"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/storageanalysis"
 )
 
 type snapshotRepository struct {
@@ -22,11 +23,11 @@ func (repository *snapshotRepository) Read(context.Context) (model.ReadModel, er
 func TestAnalyzePropagatesArchiveUsageWithinOneSnapshot(t *testing.T) {
 	t.Parallel()
 	repository := &snapshotRepository{value: model.ReadModel{
-		Blobs:       map[string]int64{"archive": 100, "member": 80, "orphan": 20},
-		Protected:   map[string]struct{}{"archive": {}, "member": {}},
-		Usage: map[string]model.Usage{"archive": model.UsageGame},
-		Archives:    []model.ArchiveMember{{ArchiveID: "archive", MemberID: "member"}},
-		Saves:       model.SaveReferences{ActiveCount: 1, PayloadIDs: []string{"member"}}, CleanupCandidates: []string{"orphan"},
+		Blobs:     map[string]int64{"archive": 100, "member": 80, "orphan": 20},
+		Protected: map[string]struct{}{"archive": {}, "member": {}},
+		Usage:     map[string]model.Usage{"archive": model.UsageGame},
+		Archives:  []model.ArchiveMember{{ArchiveID: "archive", MemberID: "member"}},
+		Saves:     model.SaveReferences{ActiveCount: 1, PayloadIDs: []string{"member"}}, CleanupCandidates: []string{"orphan"},
 	}}
 	snapshot, err := New(repository, func() time.Time { return time.UnixMilli(1234) }).Analyze(t.Context())
 	if err != nil {

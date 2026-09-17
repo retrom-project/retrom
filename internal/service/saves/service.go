@@ -2,8 +2,9 @@ package saves
 
 import (
 	"io"
-	model "retrom/internal/model/saves"
 	"time"
+
+	model "retrom/internal/model/saves"
 
 	"retrom/internal/adapter/files/blobstore"
 )

@@ -2,10 +2,11 @@ package emulationstationimport
 
 import (
 	"context"
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func TestWorkerStartOnceAndCloseJoinsExecution(t *testing.T) {

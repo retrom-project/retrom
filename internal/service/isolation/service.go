@@ -7,9 +7,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
-	model "retrom/internal/model/isolation"
 	"strings"
 	"time"
+
+	model "retrom/internal/model/isolation"
 
 	"github.com/google/uuid"
 )
