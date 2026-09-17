@@ -41,7 +41,6 @@ type PlatformCore struct {
 }
 
 type (
-	RuntimeTargetView    = model.RuntimeTarget
 	PlatformInstanceView struct {
 		model.PlatformInstance
 		SupportedExtensions []string
@@ -94,7 +93,7 @@ func (service *Service) supports(row model.PlatformRow, platformID, coreID strin
 		service.netplay.SupportsPlatformTarget(platformID, coreID, *row.ProviderID, *row.TargetID)
 }
 
-func (service *Service) RuntimeTargets(ctx context.Context) ([]RuntimeTargetView, error) {
+func (service *Service) RuntimeTargets(ctx context.Context) ([]model.RuntimeTarget, error) {
 	items, err := service.repository.RuntimeTargets(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read runtime targets: %w", err)
