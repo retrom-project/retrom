@@ -52,6 +52,8 @@ export PLAYWRIGHT_BROWSERS_PATH
 export RETROM_CHROME_EXECUTABLE
 
 GO_PACKAGES := ./cmd/... ./internal/... ./migrations/...
+LINT_GO_PACKAGES := $(GO_PACKAGES) ./scripts/architecture-audit/...
+LAYERING_EVIDENCE ?= .cache/refactor-layering/current
 API_OPENAPI_SOURCES := api/openapi.yaml api/runtime-provider/v1/launch-envelope.schema.json \
 	api/runtime-provider/v1/provider-manifest.schema.json \
 	$(sort $(wildcard api/domains/*.yaml api/components/*.yaml))
@@ -66,7 +68,8 @@ API_GO_GENERATED := internal/transport/httpapi/generated/models.gen.go internal/
 	runtime-provider-prepare runtime-provider-prepare-candidate runtime-provider-check runtime-provider-pin-release runtime-provider-verify-upgrade \
 	runtime-provider-prepare-auto \
 	require-local-user pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify \
-	pfb-core-build pfb-provider-import pfb-migrate-storage pfb-data-reset pfb-remove pfb-destroy pfb-gateway-up pfb-gateway-down
+	pfb-core-build pfb-provider-import pfb-migrate-storage pfb-data-reset pfb-remove pfb-destroy pfb-gateway-up pfb-gateway-down \
+	architecture-inventory architecture-check test-layering test-layering-race test-layering-repeat
 
 .NOTPARALLEL: dev
 
@@ -115,9 +118,27 @@ test: prepare-go api-generate-go
 	@go test $(GO_PACKAGES)
 
 lint-go: api-generate-go install-golangci-lint
-	@bin/golangci-lint run $(GO_PACKAGES)
+	@bin/golangci-lint run $(LINT_GO_PACKAGES)
 
-backend-check: quality-structure-check fmt-check build test lint-go
+architecture-inventory: prepare-go api-generate-go
+	@mkdir -p "$(LAYERING_EVIDENCE)"
+	@go run ./scripts/architecture-audit -root . -mode=inventory -output "$(LAYERING_EVIDENCE)/inventory-scan.json"
+
+architecture-check: prepare-go api-generate-go
+	@mkdir -p "$(LAYERING_EVIDENCE)"
+	@go test -count=1 ./internal/testkit/architecture/... ./scripts/architecture-audit/...
+	@go run ./scripts/architecture-audit -root . -mode=check -output "$(LAYERING_EVIDENCE)/architecture-report.json"
+
+test-layering: prepare-go api-generate-go
+	@go test -count=1 -tags=integration $(GO_PACKAGES)
+
+test-layering-race: prepare-go api-generate-go
+	@go test -race -count=1 -tags=integration $(GO_PACKAGES)
+
+test-layering-repeat: prepare-go api-generate-go
+	@go test -count=20 -tags=integration -run '^TestLayering' ./internal/repo/... ./internal/service/...
+
+backend-check: quality-structure-check fmt-check build test lint-go architecture-check
 
 prepare-go:
 	@if [[ "$(GO_PREPARE_MODE)" = system ]]; then \

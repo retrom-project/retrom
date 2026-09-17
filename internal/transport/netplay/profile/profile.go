@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"retrom/internal/adapter/runtime/dependencies"
+	netplaymodel "retrom/internal/model/netplay"
 )
 
 const (
@@ -41,15 +42,10 @@ type Protocol struct {
 	AllowedContentKinds    []string `json:"allowedContentKinds"`
 }
 
-type ManifestProfile struct {
-	ID                  string   `json:"id"`
-	ProviderID          string   `json:"providerId"`
-	TargetID            string   `json:"targetId"`
-	CoreID              string   `json:"coreId"`
-	PlatformIDs         []string `json:"platformIds"`
-	MaxPlayers          int      `json:"maxPlayers"`
-	MaxPredictionFrames int      `json:"maxPredictionFrames"`
-}
+// ManifestProfile is defined in the model layer (internal/model/netplay) to
+// preserve model → transport layering.  This alias keeps all existing
+// profile.ManifestProfile references working without a global rename.
+type ManifestProfile = netplaymodel.ManifestProfile
 
 type Manifest struct {
 	SchemaVersion int               `json:"schemaVersion"`

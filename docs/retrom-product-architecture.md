@@ -136,6 +136,26 @@ flowchart LR
 
 SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.js + React + Tailwind CSS 位于仓库根目录 `web/`。
 
+### 3.6.1 源码分层与依赖方向
+
+后端 `internal/` 的包分为以下层，依赖方向严格从上到下：
+
+| 层 | 路径 | 职责 |
+| --- | --- | --- |
+| model | `internal/model/<domain>` | 领域值、纯确定性规则、Repository/Capability port 接口 |
+| service | `internal/service/<domain>` | 用例编排、业务输入准备、调用 model port |
+| repo | `internal/repo/<domain>` | 原子持久化、SQL、事务内 guard 与审计 |
+| transport | `internal/transport/` | HTTP handler、WebSocket、协议解析 |
+| bootstrap | `internal/bootstrap/` | 应用启动、配置、composition root |
+
+**编译期规则**：model/repo 不得导入 service/transport/bootstrap。service 不得导入具体 repo 或 SQL。service 不得中转导出 model 类型。model 不得执行 I/O、调用系统时钟/随机/UUID/环境变量。
+
+**运行时规则**：repo 不得通过注入的业务接口、闭包或回调反调 service。model port 不含 func 参数/返回。需要跨层写入时，service 准备命名命令（如 `CommitCreate`），repo 在短事务中原子提交。
+
+**纯规则**：model 允许包含纯行为函数（校验、命名计算、策略分拣），只要它们确定性无 I/O。repo 可以复用 model 纯规则做事务内复核。
+
+这些规则由 `make architecture-check` 自动检查（规则 ID LAYER-001 至 LAYER-010），已接入 `backend-check`/CI。详见 [工程质量与测试](./engineering-quality-and-testing.md#14-架构分层检查器)。
+
 ### 3.7 账户边界与数据库 lineage
 
 - 默认 `release` 模式的空实例进入 `PENDING`，只有持有主机侧 `retrom setup-code` 输出的人能创建首位启用管理员；初始化完成后不可重开。

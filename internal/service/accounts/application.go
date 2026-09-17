@@ -6,7 +6,6 @@ import (
 	"fmt"
 	model "retrom/internal/model/accounts"
 
-	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
 )
 
@@ -24,16 +23,16 @@ type Modules struct {
 }
 type Service struct {
 	modules Modules
-	mode    config.Mode
+	mode    model.Mode
 }
 type Context struct {
 	InstanceState            string
-	Mode                     config.Mode
+	Mode                     model.Mode
 	Session                  *model.Session
 	TestDefaultAccountActive bool
 }
 
-func New(modules Modules, mode config.Mode) *Service { return &Service{modules: modules, mode: mode} }
+func New(modules Modules, mode model.Mode) *Service { return &Service{modules: modules, mode: mode} }
 
 func (service *Service) Start(ctx context.Context) error {
 	return service.modules.Initialization.Start(ctx)
@@ -82,7 +81,7 @@ func (service *Service) Context(ctx context.Context, cookie string) (Context, er
 	if err != nil {
 		return Context{}, fmt.Errorf("read instance state: %w", err)
 	}
-	result := Context{Mode: service.mode, TestDefaultAccountActive: service.mode == config.ModeTest && state.TestDefault}
+	result := Context{Mode: service.mode, TestDefaultAccountActive: service.mode == model.ModeTest && state.TestDefault}
 	if state.State == "PENDING" {
 		result.InstanceState = "INITIALIZATION_REQUIRED"
 		return result, nil

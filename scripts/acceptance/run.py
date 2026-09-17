@@ -530,6 +530,22 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         1800,
         ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/tyranoscript_product.mjs",
     ),
+    "ACC-LAYER-001": (
+        300,
+        "make architecture-check",
+    ),
+    "ACC-LAYER-002": (
+        600,
+        "make test-layering",
+    ),
+    "ACC-LAYER-003": (
+        900,
+        "make test-layering-race && make test-layering-repeat",
+    ),
+    "ACC-LAYER-004": (
+        900,
+        "make api-check && make web-check && make integration-test && make ci",
+    ),
     **{
         case_id: (900, f"scripts/acceptance/provider-case.sh {case_id}")
         for case_id in PROVIDER_CASES

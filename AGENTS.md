@@ -68,9 +68,10 @@
 - 禁止使用数据库 VIEW 和 TRIGGER；迁移与运行时代码不得创建或依赖它们，相关查询、校验与联动使用应用层显式 SQL，并在事务中保证一致性。
 - HTTP handler 负责协议解析、校验和错误映射；业务规则进入对应应用模块；SQL 与持久化细节留在存储层。
 - SQL 语句的执行必须收拢在 `internal/repo/` 及其子包；禁止在 `internal/repo/` 目录外直接构造 SQL 并调用 `database/sql` 或 SQLite 驱动提供的 `Exec*`、`Query*`、`Begin*`、`Prepare*` 等执行方法。Service、Capability、Adapter、Transport 等上层只能依赖 `internal/model` 的业务接口或 port；具体 repo 实现在 composition 中注入。
-- `internal/model/` 持有跨层共享的 DTO、Entity、领域错误、Repository/Capability port 及纯领域策略；`internal/service/` 只负责用例编排；`internal/repo/` 实现 model port 和 SQL。生产代码中的 `internal/model/` 与 `internal/repo/` 禁止导入 `internal/service/`，共享契约不得反向放回 service 包。
-- 分层同时约束编译期依赖和运行时业务调用：目标 A 要求 service 不导入具体 repo、model/repo 不导入 service；目标 B 要求 repo 不经由注入的业务接口、闭包、回调或 adapter 再调用上层 service、校验或流程编排。需要跨层写入时，service 生成只含业务值和并发 guard 的 plan，由 repo 在自己的短事务中原子提交。
-- repo 不得向 service、adapter 或其他上层传播 `dbexec.Executor`、`*sql.Tx`、`sql.Rows`、`sql.Result` 或 SQL nullable 值；repo 可以调用 repo 内部持久化组件和无 I/O 的纯规则。共享 Unit of Work 回调只有在明确属于通用事务机制、且不承载上层业务回调时才可保留。
+- `internal/model/` 持有跨层共享的 DTO、Entity、领域错误、Repository/Capability port 及纯领域策略。model 允许包含纯行为（无 I/O、无系统时间/随机/UUID/环境变量的确定性规则和校验函数），但禁止执行数据库、文件、网络、进程、调度等 I/O 或调用应用 service。`internal/service/` 只负责用例编排；`internal/repo/` 实现 model port 和 SQL。生产代码中的 `internal/model/` 与 `internal/repo/` 禁止导入 `internal/service/`、`internal/transport/` 和 `internal/bootstrap/`，共享契约不得反向放回 service 包。service 不得通过 type alias、wrapper 或中转导出方式重新导出 model 类型；调用者直接依赖真实定义方。
+- 分层同时约束编译期依赖和运行时业务调用：目标 A 要求 service 不导入具体 repo、model/repo 不导入 service/transport/bootstrap；目标 B 要求 repo 不经由注入的业务接口、闭包、回调或 adapter 再调用上层 service、校验或流程编排。需要跨层写入时，service 准备只含业务值和并发 guard 的命名命令（如 `CommitCreate`、`CommitCancel`），由 repo 在自己的短事务中原子提交。禁止使用 `WithWrite` 等泛型回调在 model port 中传递业务逻辑。
+- repo 不得向 service、adapter 或其他上层传播 `dbexec.Executor`、`*sql.Tx`、`sql.Rows`、`sql.Result` 或 SQL nullable 值；repo 可以调用 repo 内部持久化组件和无 I/O 的纯规则。repo 内技术 callback（如 `dbexec.Immediate`）的来源范围必须限于 repo 包自身，不得接受上层传入的业务回调。
+- 架构分层规则由 `make architecture-check`（`internal/testkit/architecture/`）自动检查并已接入 `backend-check`/CI。规则 ID 为 LAYER-001 至 LAYER-010，详见 `docs/engineering-quality-and-testing.md`。
 - 后台任务只负责编排、租约和重试，不复制领域规则。耗时哈希、网络访问、归档扫描和 DAT 解析不得占用长数据库写事务。
 - 依赖方向遵循 `httpapi/jobs -> 应用模块 -> repo/blobstore`。底层包不得反向依赖 HTTP、任务编排或进程入口。
 - 错误必须保留原因并在边界映射为稳定错误码；不得静默吞错、依赖错误字符串分支或输出临时调试日志。

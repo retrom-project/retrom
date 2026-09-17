@@ -63,7 +63,12 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 | `make build` | 按需生成被 Git 忽略的 Go API 文件，再构建 `./cmd/retrom` | 会写被忽略的 Go 生成物 |
 | `make test` | 按需生成被 Git 忽略的 Go API 文件，再运行常规 Go 单元测试；默认不含 `integration` build tag | 会写被忽略的 Go 生成物 |
 | `make lint-go` | 按需生成被 Git 忽略的 Go API 文件，再使用仓库固定版本的 golangci-lint v2 扫描源码和测试 | 会写被忽略的 Go 生成物 |
-| `make backend-check` | `fmt-check + build + test + lint-go` | 否 |
+| `make architecture-inventory` | 按需生成 Go API，运行架构检查器生成全量 inventory JSON 到 `$(LAYERING_EVIDENCE)` | 否 |
+| `make architecture-check` | 运行检查器测试（含反例）与 CLI 全量扫描，输出 report JSON；0 违规 0 分析错误才通过 | 否 |
+| `make test-layering` | 含 integration tag 的全包 Go 测试 | 否 |
+| `make test-layering-race` | 同上 + `-race` 检测 | 否 |
+| `make test-layering-repeat` | 架构检查器 `TestLayering*` 重复 20 次 | 否 |
+| `make backend-check` | `quality-structure-check + fmt-check + build + test + lint-go + architecture-check` | 否 |
 | `make web-install` | 在 `web/` 执行 `npm ci`，只接受 `package-lock.json` | 会重建依赖目录 |
 | `make web-lint` | ESLint 扫描全部受控 TS/TSX/JS，warning 视为失败 | 否 |
 | `make web-typecheck` | `tsc --noEmit` | 否 |
@@ -586,7 +591,38 @@ make acceptance-case CASE=ACC-RPG-001
 
 `ACC-RPG-008` 还要求 `RPG_MZ_SMOKE_ROOT=<licensed-web-deployment-directory>`。缺少合法物料时必须报告该 Case 未满足，不能把其余测试绿色写成七世代完成。
 
-## 14. 维护规则
+## 14. 架构分层检查器
+
+`internal/testkit/architecture/` 实现自动架构分层规则检查，由 `make architecture-check` 执行并已接入 `backend-check`/CI。
+
+### 14.1 规则 ID
+
+| ID | 描述 |
+| --- | --- |
+| LAYER-001 | model/repo 不得直接或通过本地中间包导入 service/transport/bootstrap |
+| LAYER-002 | service 不得导入具体 repo 或 SQL |
+| LAYER-003 | repository port 参数/返回不得含 func 类型 |
+| LAYER-004 | 命令/plan 不得通过 alias/embed/any 隐藏能力 |
+| LAYER-005 | repo 不得接受/持有来自 service 的 model 业务 port |
+| LAYER-006 | service 不得通过 alias/wrapper 中转导出 model 类型 |
+| LAYER-007 | model 不得调用 I/O、时钟、随机、UUID、环境变量 |
+| LAYER-008 | 非 repo 代码不得获取 dbexec/sql.Tx/Rows/nullable |
+| LAYER-009 | repo 内部 callback 不得在 repo 外定义 |
+| LAYER-010 | 不得通过 rename/generated/allowlist 规避检查 |
+
+### 14.2 命令与证据
+
+- `make architecture-inventory`：生成全量 inventory JSON，记录每个内部包的层分类和导入关系。
+- `make architecture-check`：先运行检查器自身测试（含反例），再执行 CLI 全量扫描。0 违规 0 分析错误才通过。
+- 证据保存在 `$(LAYERING_EVIDENCE)`（默认 `.cache/refactor-layering/current`）。
+- 检查器自身测试包含反例：确认 repo→service、service→model re-export、model→I/O 分别触发对应 LAYER 规则。
+
+### 14.3 竞争/回滚/race 证据
+
+- `make test-layering-race`：全包 `-race` 执行。
+- `make test-layering-repeat`：`TestLayering*` 重复 20 次，验证无竞争不确定性。
+
+## 15. 维护规则
 
 - 升级 Go、Next.js、ESLint、TypeScript、Vitest 或 golangci-lint 时，单独提交配置变化，阅读迁移说明并运行完整 `make ci`；不能把工具升级与大功能混在一起掩盖行为变化。
 - 新 linter 先证明信噪比和修复现有问题，再加入显式 enable；禁止用长期 `new-from-rev` 只检查新增代码形成双重标准。

@@ -281,6 +281,31 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 - 交付报告包含目标 commit、环境、命令/Case、证据位置、未执行项与剩余风险。
 
 
+## 架构分层重构
+
+在一期功能完整基础上，按 P0→P8 顺序完成内部代码分层重构，消除以下反模式：
+
+1. repo 通过回调/闭包/adapter 反调 service 业务编排。
+2. model 执行数据库/文件/网络/进程 I/O 或调用应用 service。
+3. service 通过 type alias 中转导出 model 类型。
+4. WithWrite 等泛型回调在 model port 中传递业务逻辑。
+
+重构不改变 HTTP/OpenAPI、持久化格式、数据库 schema 或产品规则。
+
+| 工作包 | 内容 | 退出门禁 |
+| --- | --- | --- |
+| P0 | 固定工作基线、全量符号/行为清单、初始测试 | 基线 SHA、清单完整 |
+| P1 | 架构检查器 + 文档冲突修正 + 反例测试 | LAYER-001–010 自动检查通过 |
+| P2 | repo 内部 immediate 事务 helper 与安全测试 | 事务 helper 覆盖完整 |
+| P3 | tagging 垂直切片（5 个命令 + 跨域关联改造） | tagging 命令 + guard 覆盖 |
+| P4 | libraryimport 草稿/标签组合链路改造 | guard 完整、原子回滚成立 |
+| P5 | 按依赖顺序迁移其余 callback 链路 | 全量清单 callback 清零 |
+| P6 | 全仓 model 分类与 alias 清理 | 中转导出清零 |
+| P7 | 全仓集成、文档/验收/命令闭环 | `make architecture-check` 接入 CI |
+| P8 | 最终门禁、证据检查、交付清理 | 第 16 节完成条件全部满足 |
+
+验收 Case：`ACC-LAYER-001`–`004`，详见[统一验收](./project-acceptance.md#架构分层验收)。
+
 ## PC-98 接入试点
 
 NP2kai 在独立 PFB 中接入，核心由 `retrom-project/NP2kai` 固定上游基线构建，
