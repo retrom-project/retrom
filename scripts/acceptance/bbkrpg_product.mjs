@@ -7,13 +7,17 @@ import {localRpgAcceptanceProxy} from "./rpgmaker_local_proxy.mjs";
 import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import {fantasyClient, previewCart, approveCart, launchCart} from "./fantasy_product_client.mjs";
 import {singleFile, reviewForImport} from "./rpgmaker_security_upload.mjs";
-import {hash, openBBKRPG, pictureBBKRPG, pressBBKRPG, keyboardBBKRPG, mainMenuBBKRPG, saveBBKRPG} from "./bbkrpg_browser.mjs";
+import {hash, openBBKRPG, pictureBBKRPG, pressBBKRPG, keyboardBBKRPG, mainMenuBBKRPG, saveBBKRPG, restoredBBKRPGPicture} from "./bbkrpg_browser.mjs";
+
+import {installAudioObservation, readAudioObservation} from "./rpgmaker_audio_observation.mjs";
+import {revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {checkBBKRPGAudio, measureBBKRPGFrames} from "./bbkrpg_audio.mjs";
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/bbkrpg-product");
 mkdirSync(join(directory, "screenshots"), {recursive: true});
 const evidence = {schemaVersion: 1, caseId: "ACC-BBKRPG-001", status: "FAIL",
-  stages: [], errors: [], runtimes: [], inputDevice: "virtual-standard-gamepad", audio: "not-implemented-upstream"};
+  stages: [], errors: [], runtimes: [], inputDevice: "virtual-standard-gamepad", audio: {}};
 const stage = name => {evidence.stages.push(name); console.log("bbkrpg_stage=" + name);};
 let browser, proxy;
 try {
@@ -23,7 +27,7 @@ try {
   }
   const cart = readFileSync(env.RETROM_BBKRPG_ROM);
   evidence.cart = {sha256: hash(cart), sizeBytes: cart.length};
-  assert.equal(evidence.cart.sha256, "0c708b24073df21889fd97c45dae7c5dbdececa767c55d0f46938a9d398502ca");
+  assert.equal(evidence.cart.sha256, "1065a3fe123f74341cf27464fd9cc06b444ad58c7f4c96ed67fa50c7d5c380f3");
   proxy = await localRpgAcceptanceProxy(base);
   browser = await chromium.launch({executablePath: env.RETROM_CHROME_EXECUTABLE, headless: true,
     args: ["--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"]});
@@ -31,6 +35,7 @@ try {
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   context.setDefaultTimeout(30000);
   await installVirtualStandardGamepad(context);
+  await context.addInitScript(installAudioObservation);
   const client = await fantasyClient(context, base);
   await installBIOS(client); stage("bios");
   const work = env.RETROM_ACCEPTANCE_RUN_DIR ? join(env.RETROM_ACCEPTANCE_RUN_DIR, "work") : directory;
@@ -47,13 +52,16 @@ try {
   if (!progress.gameId) {
     const preview = await openBBKRPG(context, base, await previewCart(client, progress.reviewId), evidence, directory);
     await mainMenuBBKRPG(preview, directory);
+    evidence.audio.preview = await readAudioObservation(preview.page);
     await pictureBBKRPG(preview, directory, "review-preview");
     await preview.page.close();
     progress.previewCoreSha256 = env.RETROM_BBKRPG_CORE_SHA256;
+    progress.preview = {runtime: evidence.runtimes.at(-1), audio: evidence.audio.preview};
     progress.gameId = (await approveCart(client, progress.reviewId)).gameId;
     writeFileSync(progressPath, JSON.stringify(progress));
   }
   assert.equal(progress.previewCoreSha256, env.RETROM_BBKRPG_CORE_SHA256, "BBKRPG_PREVIEW_CORE_CHANGED");
+  if (progress.preview) {evidence.reviewPreview = progress.preview;}
   evidence.reviewId = progress.reviewId;
   evidence.gameId = progress.gameId;
   stage("review-preview-and-publish");
@@ -108,6 +116,9 @@ async function verifyGame(context, client, gameId) {
   const a = await pictureBBKRPG(first, directory, "A-new-journey");
   assert.equal(a.selected, "new");
   await pressBBKRPG(first, 13);
+  // Freeze B before observing it: the menu cursor animates while running.
+  await revealPreviewToolbar(first.page);
+  await first.page.getByRole("button", {name: "暂停", exact: true}).click();
   const b = await pictureBBKRPG(first, directory, "B-load-journey");
   assert.equal(b.selected, "load", "BBKRPG_DIRECTION_FAILED");
   assert.notEqual(a.sha256, b.sha256);
@@ -122,7 +133,7 @@ async function verifyGame(context, client, gameId) {
   const restoredLaunch = await launchCart(client, gameId, saved.saveStateId);
   assert.notEqual(restoredLaunch.launchId, firstLaunch.launchId);
   const restored = await openBBKRPG(context, base, restoredLaunch, evidence, directory);
-  assert.equal(restored.config.restore.format, "gam4980-state-v1-storage-v1");
+  assert.equal(restored.config.restore.format, "gam4980-state-v2-storage-v1");
   const response = await client.raw("GET", restored.config.restore.url);
   assert.equal(response.status(), 200);
   const stored = await response.body();
@@ -131,7 +142,7 @@ async function verifyGame(context, client, gameId) {
   const decoded = gunzipSync(stored, {maxOutputLength: 16 * 1024 * 1024});
   assert.equal(decoded.length, native.sizeBytes);
   assert.equal(hash(decoded), native.sha256, "BBKRPG_STORAGE_CHANGED_NATIVE_STATE");
-  const d = await pictureBBKRPG(restored, directory, "D-new-launch-restored");
+  const d = await restoredBBKRPGPicture(restored, directory, b);
   assert.equal(d.selected, "load");
   assert.equal(d.sha256, b.sha256, "BBKRPG_DID_NOT_RESTORE_SELECTED_MENU");
   await keyboardBBKRPG(restored, "w");
@@ -150,5 +161,9 @@ async function verifyGame(context, client, gameId) {
     restoredLaunchId: restoredLaunch.launchId, storedBytes: stored.length, nativeBytes: decoded.length,
     nativeSha256: native.sha256, storageSha256: hash(stored)};
   evidence.frames = {a, b, c, d, journey};
+  evidence.audio.restored = await readAudioObservation(restored.page);
+  evidence.audio.controls = await checkBBKRPGAudio(restored);
+  evidence.performance = await measureBBKRPGFrames(restored);
+  assert.ok(evidence.performance.fps >= 55, "BBKRPG_FRAME_RATE_TOO_LOW");
   await restored.page.close(); stage("gamepad-save-continue-new-launch-restore-keyboard-confirm");
 }

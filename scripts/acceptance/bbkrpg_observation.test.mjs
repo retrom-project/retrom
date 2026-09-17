@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import sharp from "../../web/node_modules/sharp/dist/index.mjs";
-import {keyboardBBKRPG, pictureBBKRPG} from "./bbkrpg_browser.mjs";
+import {keyboardBBKRPG, pictureBBKRPG, restoredBBKRPGPicture} from "./bbkrpg_browser.mjs";
 
 function screenshot(png) {return {canvas: {screenshot: async () => png}};}
 function checkerboard() {
@@ -63,4 +63,35 @@ test("keyboard direction spans a controller poll and releases after the action",
   await keyboardBBKRPG(opened, "w");
   assert.ok(observed > 0, "keyboard press was lost between emulated input polls");
   assert.equal(held, false, "keyboard action must not leave a held direction");
+});
+
+async function menuImage(selected, blink = false, damaged = false) {
+  const pixels = Buffer.alloc(159 * 96 * 3, 255);
+  const dark = (x, y) => pixels.fill(0, (y * 159 + x) * 3, (y * 159 + x + 1) * 3);
+  for (let x = 23; x < 136; x++) {for (let y = 25; y < 29; y++) {dark(x, y);}}
+  const top = selected === "load" ? 50 : 36;
+  for (let x = 113; x < 119; x++) {for (let y = top; y < top + 6; y++) {dark(x, y);}}
+  if (blink) {dark(120, top);}
+  if (damaged) {dark(70, 70);}
+  return sharp(pixels, {raw: {width: 159, height: 96, channels: 3}}).png().toBuffer();
+}
+
+function menuSequence(images) {
+  let index = 0;
+  return {canvas: {screenshot: async () => images[Math.min(index++, images.length - 1)]},
+    page: {waitForTimeout: async () => {}}};
+}
+
+test("instant restore aligns a running cursor but still compares every LCD pixel", async () => {
+  const saved = await menuImage("load"), blinking = await menuImage("load", true);
+  const expected = await pictureBBKRPG(screenshot(saved), "", undefined);
+  const result = await restoredBBKRPGPicture(menuSequence([blinking, saved]), null, expected);
+  assert.equal(result.sha256, expected.sha256);
+});
+
+test("instant restore rejects an initial default selection and permanent pixel loss", async () => {
+  const saved = await menuImage("load"), reset = await menuImage("new"), damaged = await menuImage("load", false, true);
+  const expected = await pictureBBKRPG(screenshot(saved), "", undefined);
+  await assert.rejects(restoredBBKRPGPicture(menuSequence([reset, saved]), null, expected), /RESTORE_SELECTION_CHANGED/);
+  await assert.rejects(restoredBBKRPGPicture(menuSequence([damaged]), null, expected), /DID_NOT_RESTORE_SELECTED_MENU/);
 });

@@ -30,9 +30,9 @@ export async function openBBKRPG(context, base, launch, evidence, directory) {
     (await fetch("/runtime/launches/" + identifier + "/config")).json(), id);
   assert.equal(config.runtime.providerId, "emulatorjs");
   assert.equal(config.runtime.targetId, "gam4980");
-  assert.equal(config.runtime.checkpoint.writeFormat, "gam4980-state-v1-storage-v1");
+  assert.equal(config.runtime.checkpoint.writeFormat, "gam4980-state-v2-storage-v1");
   assert.equal(config.runtime.capabilities.standardGamepad, true);
-  assert.equal(config.runtime.capabilities.volume, false);
+  assert.equal(config.runtime.capabilities.volume, true);
   const cart = config.resources.find(resource => resource.kind === "ROM_BLOB");
   assert.equal(cart.sha256, evidence.cart.sha256);
   assert.equal(cart.sizeBytes, evidence.cart.sizeBytes);
@@ -51,8 +51,11 @@ export async function openBBKRPG(context, base, launch, evidence, directory) {
 }
 
 export async function pictureBBKRPG(opened, directory, name) {
-  const png = await opened.canvas.screenshot();
-  if (name) {writeFileSync(join(directory, "screenshots", name + ".png"), png);}
+  // Host overlays can cover the canvas and animate while emulation is paused.
+  // Hide only that chrome during observation; retain every LCD pixel in the hash.
+  const png = await opened.canvas.screenshot({style:
+    ".player-pause-overlay, .player-toast, .player-toolbar, .player-hud-handle, .player-controls-hint {visibility:hidden !important}"});
+  if (name && directory) {writeFileSync(join(directory, "screenshots", name + ".png"), png);}
   const metadata = await sharp(png).metadata();
   const scale = Math.min(metadata.width / 159, metadata.height / 96);
   const width = Math.floor(159 * scale), height = Math.floor(96 * scale);
@@ -144,4 +147,19 @@ export async function saveBBKRPG(opened, client, launchId, gameId, directory) {
   assert.equal(screenshot.status(), 200);
   writeFileSync(join(directory, "screenshots", "uploaded-screenshot.png"), await screenshot.body());
   return {saved: added[0], before, native: await opened.frame.evaluate(() => window.__bbkrpgSavedNative)};
+}
+
+export async function restoredBBKRPGPicture(opened, directory, expected) {
+  // The product resumes execution before the screenshot request. Require the
+  // selected state immediately, then align the blinking arrow without masking
+  // any LCD pixels. A reset/default menu cannot satisfy the first assertion.
+  let frame = await pictureBBKRPG(opened, directory, "D-new-launch-restored");
+  assert.equal(frame.selected, expected.selected, "BBKRPG_RESTORE_SELECTION_CHANGED");
+  for (let attempt = 0; frame.sha256 !== expected.sha256 && attempt < 20; attempt++) {
+    await opened.page.waitForTimeout(100);
+    frame = await pictureBBKRPG(opened, directory, "D-new-launch-restored");
+    assert.equal(frame.selected, expected.selected, "BBKRPG_RESTORE_SELECTION_CHANGED");
+  }
+  assert.equal(frame.sha256, expected.sha256, "BBKRPG_DID_NOT_RESTORE_SELECTED_MENU");
+  return frame;
 }
