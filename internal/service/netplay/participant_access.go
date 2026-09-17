@@ -3,6 +3,7 @@ package netplay
 import (
 	"context"
 	"fmt"
+
 	model "retrom/internal/model/netplay"
 
 	"retrom/internal/transport/netplay/capability"

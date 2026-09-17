@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
-	model "retrom/internal/model/serverimport"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 func TestApplicationSanitizesRootDescriptions(t *testing.T) {

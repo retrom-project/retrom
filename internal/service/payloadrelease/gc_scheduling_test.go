@@ -3,10 +3,11 @@ package payloadrelease
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/payloadrelease"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type gcRepositoryFixture struct {
@@ -42,6 +43,7 @@ func (r *gcRepositoryFixture) Page(context.Context, string, int) ([]model.GCBlob
 func (r *gcRepositoryFixture) Selected(context.Context, []string) ([]model.GCBlob, error) {
 	return r.facts, nil
 }
+
 func (r *gcRepositoryFixture) Candidates(context.Context) ([]model.GCBlob, error) {
 	return r.facts, nil
 }

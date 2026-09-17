@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/netplay"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type RoomMaintenance struct {

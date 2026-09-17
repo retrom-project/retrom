@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"math"
-	model "retrom/internal/model/payloadrelease"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type expirationMemory struct {

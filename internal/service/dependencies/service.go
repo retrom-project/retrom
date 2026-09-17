@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/dependencies"
 	"time"
+
+	model "retrom/internal/model/dependencies"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/runtime/runtimecatalog"

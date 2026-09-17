@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	model "retrom/internal/model/accounts"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/accounts"
 )
 
 type authMemory struct {

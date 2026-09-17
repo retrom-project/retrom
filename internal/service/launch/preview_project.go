@@ -2,6 +2,7 @@ package launch
 
 import (
 	"fmt"
+
 	model "retrom/internal/model/launch"
 
 	butter "retrom/internal/capability/engine/butterscotch/detector"

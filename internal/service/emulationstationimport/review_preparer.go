@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	model "retrom/internal/model/emulationstationimport"
 
 	"retrom/internal/capability/content/contentcapability"

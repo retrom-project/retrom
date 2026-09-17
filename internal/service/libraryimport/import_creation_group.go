@@ -7,9 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	model "retrom/internal/model/libraryimport"
 	"slices"
 	"strings"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/contentmanifest"
 	"retrom/internal/capability/content/multidisc"

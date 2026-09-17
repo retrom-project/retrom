@@ -3,9 +3,10 @@ package importdiscard
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/importdiscard"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/importdiscard"
 )
 
 const batchID = "01980000-0000-7000-8000-000000009981"
@@ -33,6 +34,7 @@ func (records *memoryRecords) Request(_ context.Context, request model.Request) 
 	records.requests = append(records.requests, request)
 	return records.fail
 }
+
 func (records *memoryRecords) Progress(context.Context, model.Progress) error { return records.fail }
 
 type memoryRepository struct {

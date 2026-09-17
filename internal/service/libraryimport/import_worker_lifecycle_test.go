@@ -3,11 +3,12 @@ package libraryimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/libraryimport"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type managedImportFixture struct {

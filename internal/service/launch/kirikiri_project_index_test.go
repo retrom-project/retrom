@@ -3,9 +3,10 @@ package launch
 import (
 	"encoding/json"
 	"errors"
-	model "retrom/internal/model/launch"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestBuildKiriKiriProjectIndexPublishesEveryProjectFile(t *testing.T) {

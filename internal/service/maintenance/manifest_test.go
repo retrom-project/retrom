@@ -5,9 +5,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	model "retrom/internal/model/maintenance"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/maintenance"
 )
 
 func TestBundleManifestRejectsTrailingJSON(t *testing.T) {

@@ -3,9 +3,10 @@ package emulationstationimport
 import (
 	"errors"
 	"math"
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func TestRecoveryRevalidatesLeaseAndQueuedBudget(t *testing.T) {

@@ -1,8 +1,9 @@
 package launch
 
 import (
-	model "retrom/internal/model/launch"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 type accessPolicy struct {

@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/metadatascrape"
 	"time"
+
+	model "retrom/internal/model/metadatascrape"
 
 	"github.com/google/uuid"
 )

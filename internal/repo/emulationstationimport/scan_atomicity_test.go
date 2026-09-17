@@ -6,12 +6,13 @@ import (
 	"database/sql/driver"
 	"errors"
 	"reflect"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestScanWriteAndRowCountFailuresRollBackCurrentTransaction(t *testing.T) {

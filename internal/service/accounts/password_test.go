@@ -3,9 +3,10 @@ package accounts
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/accounts"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/accounts"
 
 	"retrom/internal/capability/security/authn"
 )
@@ -51,9 +52,11 @@ func (hasher passwordHasher) Hash(context.Context, string) (string, error) {
 func passwordFixture() (*passwordMemory, model.PasswordActor) {
 	return &passwordMemory{state: model.PasswordState{SessionCurrent: true, Credential: model.LoginCredential{User: model.User{UserID: "user", Username: "alice", DisplayName: "Alice"}, Status: "ENABLED", SessionVersion: 2, PasswordHash: "old-hash"}}}, model.PasswordActor{UserID: "user", SessionID: "session", SessionVersion: 2}
 }
+
 func passwordMinter() (model.SessionMaterial, error) {
 	return model.SessionMaterial{ID: "replacement"}, nil
 }
+
 func TestPasswordChangeRechecksCredentialAfterHashing(t *testing.T) {
 	memory, actor := passwordFixture()
 	hasher := passwordHasher{memory: memory, duringHash: func() { memory.state.Credential.PasswordHash = "concurrent-hash" }}

@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	model "retrom/internal/model/libraryimport"
 	"strings"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/engine/scummvm"

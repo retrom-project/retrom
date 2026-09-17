@@ -3,9 +3,10 @@ package favorites
 import (
 	"errors"
 	"fmt"
-	model "retrom/internal/model/favorites"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/favorites"
 
 	"retrom/internal/testkit/testassert"
 )

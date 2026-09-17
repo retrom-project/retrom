@@ -2,8 +2,9 @@ package metadatascrape
 
 import (
 	"context"
-	model "retrom/internal/model/metadatascrape"
 	"time"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 type mediaMemory struct {
@@ -51,8 +52,10 @@ func (memory *mediaMemory) Recoverable(context.Context, int64) ([]string, error)
 func (memory *mediaMemory) Snapshot(context.Context, string) (model.MediaSnapshot, error) {
 	return memory.snapshot, nil
 }
+
 func (*mediaMemory) Ordering(context.Context, string) ([]model.MediaOrder, error) { return nil, nil }
-func (memory *mediaMemory) Running(context.Context, int64) (int, error)           { return memory.running, nil }
+
+func (memory *mediaMemory) Running(context.Context, int64) (int, error) { return memory.running, nil }
 
 func (memory *mediaMemory) Claim(_ context.Context, claim model.MediaClaim) error {
 	memory.snapshot.Job.WorkerID = claim.WorkerID

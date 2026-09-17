@@ -6,14 +6,15 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	payloadreleasemodel "retrom/internal/model/payloadrelease"
-	payloadreleaseservice "retrom/internal/service/payloadrelease"
-	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
+
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
+	"retrom/internal/testkit/testsupport"
 )
 
 func claimedGarbage(t *testing.T) (gcSchedulingFixture, claimedJob) {

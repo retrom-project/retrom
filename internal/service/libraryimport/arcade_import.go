@@ -6,9 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	model "retrom/internal/model/libraryimport"
 	"sort"
 	"strings"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/format/importing"

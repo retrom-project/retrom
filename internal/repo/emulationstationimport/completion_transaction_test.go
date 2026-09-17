@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func completionDatabase(t *testing.T) (*sql.DB, emulationstationimportmodel.Execution) {

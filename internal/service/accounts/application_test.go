@@ -7,9 +7,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
-	model "retrom/internal/model/accounts"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/accounts"
 
 	"retrom/internal/bootstrap/config"
 )

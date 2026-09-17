@@ -3,8 +3,9 @@ package metadatascrape
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/metadatascrape"
 	"testing"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 type initialMemory struct {

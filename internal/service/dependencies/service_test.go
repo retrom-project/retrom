@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/dependencies"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/dependencies"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/format/arcadedat"

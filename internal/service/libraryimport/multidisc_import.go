@@ -8,8 +8,9 @@ import (
 	"io"
 	"path"
 	"path/filepath"
-	model "retrom/internal/model/libraryimport"
 	"sort"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentcapability"

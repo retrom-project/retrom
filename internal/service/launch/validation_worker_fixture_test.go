@@ -6,10 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	model "retrom/internal/model/launch"
 	"sync"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/contentcapability"
 )

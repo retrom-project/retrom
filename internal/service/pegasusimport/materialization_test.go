@@ -3,9 +3,10 @@ package pegasusimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/pegasusimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type materialMemory struct {

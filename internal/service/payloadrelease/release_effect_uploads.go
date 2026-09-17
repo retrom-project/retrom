@@ -3,6 +3,7 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+
 	model "retrom/internal/model/payloadrelease"
 )
 
@@ -22,7 +23,7 @@ func (run *effectRun) consumePayload(ctx context.Context, payload model.EffectPa
 		run.completed = append(
 			run.completed,
 			model.EffectOwner{
-				Found:             true,
+				Found:       true,
 				Owner:       model.Owner{Scope: model.Scope{Type: model.ScopeUploadConsumption, ID: before.ID}, Version: before.Version},
 				Consumption: before,
 			},

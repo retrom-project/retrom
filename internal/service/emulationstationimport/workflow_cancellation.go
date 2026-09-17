@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/emulationstationimport"
 	"strings"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	"github.com/google/uuid"
 )

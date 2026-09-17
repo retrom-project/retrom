@@ -1,9 +1,10 @@
 package launch
 
 import (
-	model "retrom/internal/model/launch"
 	"slices"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestUploadedBIOSMissingEntriesRemainVisibleAsRuntimeWarnings(t *testing.T) {

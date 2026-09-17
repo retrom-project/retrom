@@ -2,6 +2,7 @@ package netplay
 
 import (
 	"fmt"
+
 	netplaymodel "retrom/internal/model/netplay"
 	netplayservice "retrom/internal/service/netplay"
 )

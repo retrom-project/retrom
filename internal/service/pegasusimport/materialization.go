@@ -3,8 +3,9 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/pegasusimport"
 	"strings"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 func (service *Materialization) Copy(

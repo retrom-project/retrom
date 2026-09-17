@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	model "retrom/internal/model/emulationstationimport"
 	"slices"
 	"strings"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	library "retrom/internal/model/libraryimport"
 )

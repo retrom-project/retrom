@@ -3,8 +3,9 @@ package netplay
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/netplay"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type SessionControl struct {

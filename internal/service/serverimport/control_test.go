@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	model "retrom/internal/model/serverimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 type controlMemory struct {

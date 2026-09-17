@@ -1,8 +1,9 @@
 package launch
 
 import (
-	model "retrom/internal/model/launch"
 	"strings"
+
+	model "retrom/internal/model/launch"
 )
 
 func providerBlobResource(

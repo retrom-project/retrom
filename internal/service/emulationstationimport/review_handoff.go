@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/emulationstationimport"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	library "retrom/internal/model/libraryimport"
 )

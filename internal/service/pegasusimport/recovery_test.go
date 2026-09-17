@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/pegasusimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 
 	library "retrom/internal/service/libraryimport"
 )

@@ -3,9 +3,10 @@ package launch
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/launch"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )

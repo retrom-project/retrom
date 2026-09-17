@@ -3,8 +3,9 @@ package serverimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/serverimport"
 	"testing"
+
+	model "retrom/internal/model/serverimport"
 )
 
 type queryMemory struct {

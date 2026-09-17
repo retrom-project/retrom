@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+
 	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/corevalidation"

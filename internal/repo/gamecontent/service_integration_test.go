@@ -12,12 +12,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	gamecontentservice "retrom/internal/service/gamecontent"
 	"runtime"
 	"slices"
 	"strconv"
 	"testing"
 	"time"
+
+	gamecontentservice "retrom/internal/service/gamecontent"
 
 	uploadpersistence "retrom/internal/repo/uploads"
 

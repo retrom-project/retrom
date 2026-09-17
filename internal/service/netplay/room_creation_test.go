@@ -3,9 +3,10 @@ package netplay
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/netplay"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type roomCreationMemory struct {

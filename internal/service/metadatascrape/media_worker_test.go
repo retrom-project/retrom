@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	model "retrom/internal/model/metadatascrape"
 	"testing"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 func TestMediaInputRejectsChangedSourceAndPreservesJSONCause(t *testing.T) {

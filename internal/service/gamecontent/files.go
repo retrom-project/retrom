@@ -8,8 +8,9 @@ import (
 	"io"
 	"path"
 	"path/filepath"
-	model "retrom/internal/model/gamecontent"
 	"strings"
+
+	model "retrom/internal/model/gamecontent"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentcapability"

@@ -1,8 +1,9 @@
 package launch
 
 import (
-	model "retrom/internal/model/launch"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestPreviewEventsNeverCreateProductTimeOrPlayEvents(t *testing.T) {

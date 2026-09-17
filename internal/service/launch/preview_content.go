@@ -2,9 +2,10 @@ package launch
 
 import (
 	"cmp"
-	model "retrom/internal/model/launch"
 	"slices"
 	"strings"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/contentprofile"
 )

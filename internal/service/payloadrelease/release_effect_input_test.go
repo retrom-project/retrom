@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	model "retrom/internal/model/payloadrelease"
 	"testing"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type forbiddenEffects struct{ calls int }
@@ -16,13 +17,14 @@ func (repository *forbiddenEffects) WithEffects(context.Context, func(model.Effe
 	repository.calls++
 	return errors.New("effect transaction entered")
 }
+
 func (*forbiddenEffects) ActiveMutations(context.Context, model.Scope) (int64, error) { return 0, nil }
 
 func TestReleaseEffectsRejectsUnfrozenInputsBeforeTransaction(t *testing.T) {
 	input := model.Input{
 		SchemaVersion: 1,
 		Kind:          "PAYLOAD_RELEASE",
-		Scope:   model.Scope{Type: model.ScopeImportItem, ID: "item"},
+		Scope:         model.Scope{Type: model.ScopeImportItem, ID: "item"},
 		ExecutionID:   "c9fcb44e-c97f-4d7d-a141-713f0a4384c7",
 		Inputs:        model.ScopeInputs{ScopeVersion: 7, Reason: model.ReasonImportDiscarded},
 	}
@@ -33,7 +35,7 @@ func TestReleaseEffectsRejectsUnfrozenInputsBeforeTransaction(t *testing.T) {
 	digest := sha256.Sum256(encoded)
 	work := model.Work{
 		Kind:        input.Kind,
-		Scope: input.Scope,
+		Scope:       input.Scope,
 		InputFound:  true,
 		InputJSON:   string(encoded),
 		InputDigest: hex.EncodeToString(digest[:]),

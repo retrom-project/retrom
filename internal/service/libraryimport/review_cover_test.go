@@ -7,10 +7,11 @@ import (
 	"image"
 	"image/png"
 	"io"
-	model "retrom/internal/model/libraryimport"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type coverRepositoryFixture struct {

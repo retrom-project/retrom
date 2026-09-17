@@ -3,12 +3,14 @@ package netplay
 import (
 	"context"
 	"fmt"
+
 	model "retrom/internal/model/netplay"
 )
 
 type RoomEvents struct{ repository model.RoomEventsRepository }
 
 func NewRoomEvents(repository model.RoomEventsRepository) *RoomEvents { return &RoomEvents{repository} }
+
 func (service *RoomEvents) Events(ctx context.Context, roomID string, after int64, limit int) ([]model.Event, error) {
 	if limit < 1 || limit > 100 {
 		limit = 100

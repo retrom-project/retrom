@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	model "retrom/internal/model/payloadrelease"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 func NewWorker(repository model.WorkerRepository, executor model.WorkExecutor, options WorkerOptions) *Worker {

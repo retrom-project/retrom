@@ -3,10 +3,11 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func TestWorkerOwnerLossAndStorageErrorsStopWithoutSettlement(t *testing.T) {

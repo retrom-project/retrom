@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
-	model "retrom/internal/model/launch"
 	"strings"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/contentprofile"
 	"retrom/internal/capability/content/corevalidation"

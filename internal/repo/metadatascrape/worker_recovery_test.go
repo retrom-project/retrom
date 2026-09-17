@@ -3,10 +3,11 @@ package metadatascrape
 import (
 	"context"
 	"errors"
-	metadatascrapemodel "retrom/internal/model/metadatascrape"
-	metadatascrapeservice "retrom/internal/service/metadatascrape"
 	"testing"
 	"time"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+	metadatascrapeservice "retrom/internal/service/metadatascrape"
 )
 
 func TestMetadataRecoveryFinalizesExpiredOrExhaustedQueuedExecution(t *testing.T) {

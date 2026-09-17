@@ -1,8 +1,9 @@
 package serverimport
 
 import (
-	model "retrom/internal/model/serverimport"
 	"sort"
+
+	model "retrom/internal/model/serverimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"

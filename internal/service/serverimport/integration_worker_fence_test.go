@@ -2,8 +2,9 @@ package serverimport_test
 
 import (
 	"database/sql"
-	model "retrom/internal/model/serverimport"
 	"testing"
+
+	model "retrom/internal/model/serverimport"
 )
 
 func TestWorkerCannotCompleteImportWithUnfinishedItems(t *testing.T) {

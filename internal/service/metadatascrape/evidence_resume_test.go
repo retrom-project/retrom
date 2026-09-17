@@ -1,8 +1,9 @@
 package metadatascrape
 
 import (
-	model "retrom/internal/model/metadatascrape"
 	"testing"
+
+	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/adapter/metadata/hasheous"
 )

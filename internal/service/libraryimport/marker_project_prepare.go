@@ -7,8 +7,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	model "retrom/internal/model/libraryimport"
 	"strings"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentprofile"

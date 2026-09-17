@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	model "retrom/internal/model/emulationstationimport"
 	libraryimportmodel "retrom/internal/model/libraryimport"
 	libraryimportservice "retrom/internal/service/libraryimport"
-	"time"
 )
 
 func completeExecutionReviews(

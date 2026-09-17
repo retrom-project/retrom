@@ -5,8 +5,9 @@ import (
 	"errors"
 	"math"
 	"reflect"
-	model "retrom/internal/model/payloadrelease"
 	"testing"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type impactMemory struct {

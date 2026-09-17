@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+
 	model "retrom/internal/model/firmware"
 )
 

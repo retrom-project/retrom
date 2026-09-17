@@ -5,8 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
-	model "retrom/internal/model/netplay"
 	"testing"
+
+	model "retrom/internal/model/netplay"
 
 	"github.com/google/uuid"
 )

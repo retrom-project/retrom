@@ -2,8 +2,9 @@ package saves
 
 import (
 	"encoding/json"
-	model "retrom/internal/model/saves"
 	"testing"
+
+	model "retrom/internal/model/saves"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )

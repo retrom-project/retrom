@@ -1,8 +1,9 @@
 package payloadrelease
 
 import (
-	model "retrom/internal/model/payloadrelease"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type GCOptions struct {

@@ -3,8 +3,9 @@ package launch
 import (
 	"bytes"
 	"errors"
-	model "retrom/internal/model/launch"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestProductCreatorRechecksReceiptBeforeFinalAuthority(t *testing.T) {

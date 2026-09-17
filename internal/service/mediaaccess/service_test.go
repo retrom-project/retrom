@@ -3,8 +3,9 @@ package mediaaccess
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/mediaaccess"
 	"testing"
+
+	model "retrom/internal/model/mediaaccess"
 )
 
 func TestReviewAccessPreservesPrimaryPriorityAndRejectsAmbiguousSource(t *testing.T) {

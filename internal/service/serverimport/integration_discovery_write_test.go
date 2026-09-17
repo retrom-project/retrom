@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	model "retrom/internal/model/serverimport"
 	"testing"
+
+	model "retrom/internal/model/serverimport"
 
 	"retrom/internal/capability/content/firmware"
 )

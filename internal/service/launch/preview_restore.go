@@ -3,8 +3,9 @@ package launch
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/launch"
 	"slices"
+
+	model "retrom/internal/model/launch"
 )
 
 func readPreviewRestore(

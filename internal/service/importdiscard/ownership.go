@@ -1,8 +1,9 @@
 package importdiscard
 
 import (
-	model "retrom/internal/model/importdiscard"
 	"context"
+
+	model "retrom/internal/model/importdiscard"
 )
 
 func (service *Service) recoverSourceLinks(ctx context.Context, key model.Key) error {

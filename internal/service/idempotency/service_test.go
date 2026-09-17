@@ -3,8 +3,9 @@ package idempotency
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/idempotency"
 	"testing"
+
+	model "retrom/internal/model/idempotency"
 )
 
 type memoryRepository struct {

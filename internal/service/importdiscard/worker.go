@@ -3,8 +3,9 @@ package importdiscard
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/importdiscard"
 	"time"
+
+	model "retrom/internal/model/importdiscard"
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"

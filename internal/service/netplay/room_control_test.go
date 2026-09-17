@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	model "retrom/internal/model/netplay"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/netplay"
 
 	validation "retrom/internal/model/corevalidation"
 )

@@ -3,8 +3,9 @@ package gamemove
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/gamemove"
 	"testing"
+
+	model "retrom/internal/model/gamemove"
 
 	"retrom/internal/capability/content/corevalidation"
 )

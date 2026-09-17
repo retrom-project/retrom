@@ -2,8 +2,9 @@ package launch
 
 import (
 	"context"
-	model "retrom/internal/model/launch"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 type validationRealTicker struct{ *time.Ticker }

@@ -3,8 +3,9 @@ package storageanalysis
 import (
 	"errors"
 	"math"
-	model "retrom/internal/model/storageanalysis"
 	"testing"
+
+	model "retrom/internal/model/storageanalysis"
 )
 
 func TestClassifyUsesDurablePrecedenceAndSharedFallback(t *testing.T) {

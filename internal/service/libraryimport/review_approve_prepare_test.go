@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"math"
-	model "retrom/internal/model/libraryimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/model/importprogress"
 )

@@ -7,8 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/gamecontent"
 	"time"
+
+	model "retrom/internal/model/gamecontent"
 
 	"github.com/google/uuid"
 )
@@ -147,11 +148,11 @@ func (service *Service) prepare(ctx context.Context, snapshot model.JobSnapshot)
 
 func failureOutcome(claim model.Claim, snapshot model.JobSnapshot, err error, now int64) model.Outcome {
 	outcome := model.Outcome{
-		Claim: claim,
-		GameID:      snapshot.GameID,
-		Code:        "GAME_CONTENT_INPUT_UNAVAILABLE",
-		Retryable:   true,
-		Now:         now,
+		Claim:     claim,
+		GameID:    snapshot.GameID,
+		Code:      "GAME_CONTENT_INPUT_UNAVAILABLE",
+		Retryable: true,
+		Now:       now,
 	}
 	var validation *replacementValidationError
 	if errors.As(err, &validation) {

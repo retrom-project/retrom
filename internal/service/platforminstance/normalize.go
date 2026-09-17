@@ -1,11 +1,12 @@
 package platforminstance
 
 import (
-	model "retrom/internal/model/platforminstance"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	model "retrom/internal/model/platforminstance"
 )
 
 func SlugBase(name, platformID string) string {

@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	model "retrom/internal/model/metadatascrape"
 	"sort"
 	"strings"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 func scheduleEvidence(ctx context.Context, scope model.ScheduleScope, plan model.SchedulePlan, platform string) error {

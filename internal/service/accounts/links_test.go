@@ -3,9 +3,10 @@ package accounts
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/accounts"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/accounts"
 
 	"github.com/google/uuid"
 )

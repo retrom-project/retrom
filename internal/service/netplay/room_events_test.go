@@ -3,8 +3,9 @@ package netplay
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/netplay"
 	"testing"
+
+	model "retrom/internal/model/netplay"
 )
 
 type roomEventsMemory struct {

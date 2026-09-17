@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"math"
-	model "retrom/internal/model/launch"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func activePlayMemory() *playMemory {

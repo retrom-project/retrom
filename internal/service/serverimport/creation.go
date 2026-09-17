@@ -5,10 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	model "retrom/internal/model/serverimport"
 	"slices"
 	"strings"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 type Creation struct {

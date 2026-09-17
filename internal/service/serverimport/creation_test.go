@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	model "retrom/internal/model/serverimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 type creationMemory struct {

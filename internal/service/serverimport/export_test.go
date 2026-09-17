@@ -3,8 +3,9 @@ package serverimport
 import (
 	"context"
 	"os"
-	model "retrom/internal/model/serverimport"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 
 	"retrom/internal/adapter/files/serversource"
 )

@@ -1,10 +1,11 @@
 package pegasusimport
 
 import (
-	pegasusimportmodel "retrom/internal/model/pegasusimport"
-	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"testing"
 	"time"
+
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
 func TestCancellingScanDoesNotReserveImportExecutionCapacity(t *testing.T) {

@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	model "retrom/internal/model/launch"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestValidationWorkerCommitsOnceAndJoinsMonitor(t *testing.T) {

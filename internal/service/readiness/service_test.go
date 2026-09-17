@@ -3,8 +3,9 @@ package readiness
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/readiness"
 	"testing"
+
+	model "retrom/internal/model/readiness"
 )
 
 type repositoryStub struct {

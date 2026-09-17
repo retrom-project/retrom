@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/emulationstationimport"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type WorkerLeases interface {

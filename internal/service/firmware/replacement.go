@@ -3,6 +3,7 @@ package firmware
 import (
 	"context"
 	"fmt"
+
 	model "retrom/internal/model/firmware"
 
 	"retrom/internal/capability/content/firmware"

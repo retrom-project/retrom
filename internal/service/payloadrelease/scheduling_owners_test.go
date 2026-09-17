@@ -3,8 +3,9 @@ package payloadrelease
 import (
 	"errors"
 	"math"
-	model "retrom/internal/model/payloadrelease"
 	"testing"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 func TestTerminalSourceEligibilityAndSharedRelease(t *testing.T) {

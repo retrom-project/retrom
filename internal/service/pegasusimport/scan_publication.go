@@ -3,8 +3,9 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/pegasusimport"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type ScanPublication struct {

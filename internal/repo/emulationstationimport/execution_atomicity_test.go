@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testkit/testsupport"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func executionTestDatabase(t *testing.T, operation string) (*sql.DB, emulationstationimportmodel.Execution) {

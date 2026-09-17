@@ -3,9 +3,10 @@ package payloadrelease
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/payloadrelease"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type workerRepositoryFixture struct {

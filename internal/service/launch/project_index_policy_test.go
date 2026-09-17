@@ -7,10 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	model "retrom/internal/model/launch"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/engine/scummvm"
 )

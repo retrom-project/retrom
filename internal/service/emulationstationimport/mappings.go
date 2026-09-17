@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	model "retrom/internal/model/emulationstationimport"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	"retrom/internal/model/tagging"
 )

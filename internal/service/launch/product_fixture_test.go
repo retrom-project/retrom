@@ -3,9 +3,10 @@ package launch
 import (
 	"context"
 	"encoding/json"
-	model "retrom/internal/model/launch"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/runtime/runtimebundle"
@@ -71,7 +72,9 @@ func (repository *productTestRepository) StoreReceipt(_ context.Context, command
 	repository.receipts = append(repository.receipts, receipt)
 	return repository.receiptErr
 }
+
 func (repository *productTestRepository) Validation() model.ProductValidationScope { return repository }
+
 func (repository *productTestRepository) Find(ctx context.Context, key string) (model.ValidationJob, bool, error) {
 	return repository.jobs.Find(ctx, key)
 }

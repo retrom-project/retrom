@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/pegasusimport"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type WorkerLeases interface {

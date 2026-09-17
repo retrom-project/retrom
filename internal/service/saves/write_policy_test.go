@@ -3,9 +3,10 @@ package saves
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/saves"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/saves"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )

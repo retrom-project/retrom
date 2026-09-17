@@ -3,8 +3,9 @@ package saves
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/saves"
 	"testing"
+
+	model "retrom/internal/model/saves"
 )
 
 type saveReadStub struct {

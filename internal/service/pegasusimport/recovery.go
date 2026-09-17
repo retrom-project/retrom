@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	model "retrom/internal/model/pegasusimport"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type Recovery struct {

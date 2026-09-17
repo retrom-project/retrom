@@ -3,8 +3,9 @@ package firmware
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/firmware"
 	"testing"
+
+	model "retrom/internal/model/firmware"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/firmware"

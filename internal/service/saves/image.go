@@ -2,14 +2,15 @@ package saves
 
 import (
 	"image"
-	model "retrom/internal/model/saves"
-
-	// Register the JPEG and PNG decoders used for save-state screenshots.
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 	"net/http"
 	"os"
+
+	model "retrom/internal/model/saves"
+
+	// Register the JPEG and PNG decoders used for save-state screenshots.
 
 	"retrom/internal/foundation/cleanup"
 )

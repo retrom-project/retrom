@@ -2,9 +2,10 @@ package favorites
 
 import (
 	"context"
-	model "retrom/internal/model/favorites"
 	"strings"
 	"unicode/utf8"
+
+	model "retrom/internal/model/favorites"
 )
 
 func validateListOptions(options model.ListOptions) (model.ListOptions, error) {

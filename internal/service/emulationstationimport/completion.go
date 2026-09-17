@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	model "retrom/internal/model/emulationstationimport"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type Completion struct {
@@ -58,11 +59,11 @@ func planCompletion(before model.LeaseSnapshot, counts model.CompletionCounts, n
 		state = "PARTIAL_FAILURE"
 	}
 	return model.CompletionChange{
-		Before:       before,
-		Counts: counts,
-		ImportState:  state,
-		Retryable:    counts.RetryableFailed > 0,
-		NowMS:        now,
+		Before:      before,
+		Counts:      counts,
+		ImportState: state,
+		Retryable:   counts.RetryableFailed > 0,
+		NowMS:       now,
 	}, nil
 }
 

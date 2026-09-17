@@ -4,11 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
-	pegasusimportmodel "retrom/internal/model/pegasusimport"
-	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"strings"
 	"testing"
 	"time"
+
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
 func publicationDatabase(t *testing.T) (*sql.DB, pegasusimportmodel.ExecutionIdentity, pegasusimportmodel.ScanProjection) {

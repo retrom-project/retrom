@@ -5,11 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	model "retrom/internal/model/payloadrelease"
 	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type synchronizedWork struct {

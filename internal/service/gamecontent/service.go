@@ -2,8 +2,9 @@ package gamecontent
 
 import (
 	"context"
-	model "retrom/internal/model/gamecontent"
 	"time"
+
+	model "retrom/internal/model/gamecontent"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentcapability"

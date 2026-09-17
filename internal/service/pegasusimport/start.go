@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
-	model "retrom/internal/model/pegasusimport"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 
 	"github.com/google/uuid"
 )

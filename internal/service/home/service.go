@@ -3,8 +3,9 @@ package home
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/home"
 	"sort"
+
+	model "retrom/internal/model/home"
 )
 
 type Service struct {

@@ -7,8 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/saves"
 	"time"
+
+	model "retrom/internal/model/saves"
 )
 
 func (service *Service) CreateManual(ctx context.Context, id, capability, key string,

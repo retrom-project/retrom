@@ -3,8 +3,9 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/pegasusimport"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type Completion struct {
@@ -37,11 +38,11 @@ func (service *Completion) Finish(ctx context.Context, identity model.ExecutionI
 			return model.ErrVersionConflict
 		}
 		change := model.CompletionChange{
-			Before:       before,
-			Counts: counts,
-			ImportState:  "COMPLETED",
-			Retryable:    counts.Failed > 0,
-			NowMS:        now,
+			Before:      before,
+			Counts:      counts,
+			ImportState: "COMPLETED",
+			Retryable:   counts.Failed > 0,
+			NowMS:       now,
 		}
 		if counts.Blocked > 0 || counts.Failed > 0 {
 			change.ImportState = "PARTIAL_FAILURE"

@@ -8,8 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	model "retrom/internal/model/payloadrelease"
 	"testing"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type scheduleMemory struct {

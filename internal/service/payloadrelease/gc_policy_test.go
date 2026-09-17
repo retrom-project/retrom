@@ -3,10 +3,11 @@ package payloadrelease
 import (
 	"errors"
 	"math"
-	model "retrom/internal/model/payloadrelease"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 func policyGCCandidate(state string, size int64) model.GCBlob {

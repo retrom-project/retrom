@@ -8,9 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	model "retrom/internal/model/maintenance"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/maintenance"
 )
 
 type memoryRepository struct {

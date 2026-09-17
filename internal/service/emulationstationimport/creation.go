@@ -5,8 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	model "retrom/internal/model/emulationstationimport"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	"github.com/google/uuid"
 )

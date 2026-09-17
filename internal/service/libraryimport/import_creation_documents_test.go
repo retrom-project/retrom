@@ -5,8 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	model "retrom/internal/model/libraryimport"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 func TestCreationQueuedDocumentsUseCanonicalDefaultMode(t *testing.T) {

@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"fmt"
+
 	model "retrom/internal/model/accounts"
 
 	"retrom/internal/capability/security/authn"
@@ -56,7 +57,7 @@ func (service *LinkConsumptionService) AcceptInvitation(
 		plan := model.InvitationAcceptance{
 			LinkID:       prepared.linkID,
 			LinkVersion:  link.Link.Version,
-			User:   user,
+			User:         user,
 			ProfileID:    prepared.profileID,
 			PasswordHash: prepared.passwordHash,
 			Session: prepared.session.Record(

@@ -1,8 +1,9 @@
 package gamemetadata
 
 import (
-	model "retrom/internal/model/gamemetadata"
 	"time"
+
+	model "retrom/internal/model/gamemetadata"
 )
 
 type Service struct {

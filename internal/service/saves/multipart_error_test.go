@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	model "retrom/internal/model/saves"
 	"testing"
+
+	model "retrom/internal/model/saves"
 )
 
 func TestMultipartFailureUsesTypeAndPreservesCause(t *testing.T) {

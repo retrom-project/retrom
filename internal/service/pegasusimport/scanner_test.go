@@ -3,9 +3,10 @@ package pegasusimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/pegasusimport"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/pegasusimport"
 
 	"retrom/internal/capability/format/pegasusmeta"
 )

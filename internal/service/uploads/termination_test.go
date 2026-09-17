@@ -3,9 +3,10 @@ package uploads
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/uploads"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/uploads"
 )
 
 func TestCancelledQueuedJobFinishesMatchingUpload(t *testing.T) {

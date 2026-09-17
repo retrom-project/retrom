@@ -3,9 +3,10 @@ package datindex
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/datindex"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/datindex"
 )
 
 type datMemory struct {

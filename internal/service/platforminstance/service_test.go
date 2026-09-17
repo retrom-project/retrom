@@ -3,9 +3,10 @@ package platforminstance
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/platforminstance"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/platforminstance"
 )
 
 type boundaryRepository struct {

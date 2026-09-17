@@ -1,8 +1,9 @@
 package emulationstationimport
 
 import (
-	model "retrom/internal/model/emulationstationimport"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type ItemWork struct {

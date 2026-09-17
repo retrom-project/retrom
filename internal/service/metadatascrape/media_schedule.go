@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	model "retrom/internal/model/metadatascrape"
 	"strconv"
+
+	model "retrom/internal/model/metadatascrape"
 )
 
 func newMediaJob(scope model.Subject, runID string, asset model.CandidateAsset) (model.MediaJobPlan, error) {

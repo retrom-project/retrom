@@ -3,9 +3,10 @@ package libraryimport
 import (
 	"errors"
 	"math"
-	model "retrom/internal/model/libraryimport"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 func TestReviewApprovalInputBoundaries(t *testing.T) {

@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	model "retrom/internal/model/gamecontent"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/gamecontent"
 )
 
 type budgetRepository struct {

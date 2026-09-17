@@ -3,8 +3,9 @@ package payloadrelease
 import (
 	"errors"
 	"fmt"
-	model "retrom/internal/model/payloadrelease"
 	"sort"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 var ErrOwnershipRegistryMismatch = errors.New("PAYLOAD_OWNERSHIP_REGISTRY_MISMATCH")

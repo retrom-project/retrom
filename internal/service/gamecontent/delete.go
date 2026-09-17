@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	model "retrom/internal/model/gamecontent"
 	"time"
+
+	model "retrom/internal/model/gamecontent"
 )
 
 const deleteReplayRetention = 24 * time.Hour

@@ -5,10 +5,11 @@ package saves
 import (
 	"context"
 	"errors"
-	savesmodel "retrom/internal/model/saves"
-	savesservice "retrom/internal/service/saves"
 	"testing"
 	"time"
+
+	savesmodel "retrom/internal/model/saves"
+	savesservice "retrom/internal/service/saves"
 )
 
 func TestCheckpointLateFailureRollsBackAllRecords(t *testing.T) {

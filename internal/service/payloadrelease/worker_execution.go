@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/payloadrelease"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 func (worker *Worker) RunOnce(parent context.Context) (bool, error) {

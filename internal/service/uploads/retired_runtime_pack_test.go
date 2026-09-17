@@ -1,8 +1,9 @@
 package uploads
 
 import (
-	model "retrom/internal/model/uploads"
 	"testing"
+
+	model "retrom/internal/model/uploads"
 )
 
 func TestUploadRejectsRetiredRuntimePackPurpose(t *testing.T) {

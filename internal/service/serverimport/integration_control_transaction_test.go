@@ -6,9 +6,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/serverimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 
 	importpersistence "retrom/internal/repo/serverimport"
 	importservice "retrom/internal/service/serverimport"

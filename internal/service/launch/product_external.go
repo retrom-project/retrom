@@ -3,8 +3,9 @@ package launch
 import (
 	"fmt"
 	"path"
-	model "retrom/internal/model/launch"
 	"strings"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/corevalidation"
 )

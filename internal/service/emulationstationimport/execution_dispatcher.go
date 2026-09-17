@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/emulationstationimport"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 var ErrExecutionRootChanged = errors.New("SERVER_IMPORT_ROOT_CHANGED")

@@ -1,8 +1,10 @@
 package maintenance
 
-import model "retrom/internal/model/maintenance"
+import (
+	"time"
 
-import "time"
+	model "retrom/internal/model/maintenance"
+)
 
 type Service struct {
 	repository model.Repository

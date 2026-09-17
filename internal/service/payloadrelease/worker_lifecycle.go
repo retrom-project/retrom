@@ -2,8 +2,9 @@ package payloadrelease
 
 import (
 	"context"
-	model "retrom/internal/model/payloadrelease"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 func (worker *Worker) register(parent context.Context) (context.Context, func(), bool) {

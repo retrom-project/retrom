@@ -2,10 +2,11 @@ package emulationstationimport
 
 import (
 	"errors"
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
+
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func TestPlanDeletionRollsBackTagVersionAndMutableProjectionOnAuditFailure(t *testing.T) {

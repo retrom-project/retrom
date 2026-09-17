@@ -3,8 +3,9 @@ package libraryimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/libraryimport"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/model/importprogress"
 )

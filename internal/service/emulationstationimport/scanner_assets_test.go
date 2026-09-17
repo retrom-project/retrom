@@ -3,8 +3,9 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/emulationstationimport"
 	"testing"
+
+	model "retrom/internal/model/emulationstationimport"
 
 	"retrom/internal/adapter/files/mediaasset"
 	"retrom/internal/capability/format/emulationstationmeta"

@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	model "retrom/internal/model/serverimport"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 var ErrOutcomeIncomplete = errors.New("SERVER_IMPORT_ITEMS_UNFINISHED")

@@ -5,9 +5,10 @@ import (
 	"context"
 	"errors"
 	"math"
-	model "retrom/internal/model/launch"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestProductCreatorRejectsFinalInputChanges(t *testing.T) {

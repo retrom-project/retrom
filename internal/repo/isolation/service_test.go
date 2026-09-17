@@ -7,9 +7,10 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
-	isolationservice "retrom/internal/service/isolation"
 	"testing"
 	"time"
+
+	isolationservice "retrom/internal/service/isolation"
 
 	isolationmodel "retrom/internal/model/isolation"
 

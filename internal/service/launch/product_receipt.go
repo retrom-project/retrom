@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+
 	model "retrom/internal/model/launch"
 )
 
@@ -25,11 +26,11 @@ func productReceipt(created model.Created, now int64) (model.ProductReceipt, err
 		return model.ProductReceipt{}, fmt.Errorf("encode product receipt: %w", err)
 	}
 	return model.ProductReceipt{
-		Status:        status,
-		Body:          body,
-		Created: created,
-		CreatedAtMS:   now,
-		ExpiresAtMS:   now + 86_400_000,
+		Status:      status,
+		Body:        body,
+		Created:     created,
+		CreatedAtMS: now,
+		ExpiresAtMS: now + 86_400_000,
 	}, nil
 }
 

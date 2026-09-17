@@ -2,8 +2,9 @@ package readiness
 
 import (
 	"context"
-	model "retrom/internal/model/readiness"
 	"time"
+
+	model "retrom/internal/model/readiness"
 )
 
 const probeTimeout = 2 * time.Second

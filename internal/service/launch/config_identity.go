@@ -4,9 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	model "retrom/internal/model/launch"
 	"slices"
 	"strings"
+
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/content/contentprofile"
 	"retrom/internal/capability/format/importing"

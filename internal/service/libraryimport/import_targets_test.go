@@ -3,8 +3,9 @@ package libraryimport
 import (
 	"errors"
 	"fmt"
-	model "retrom/internal/model/libraryimport"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 func TestImportAdmissionSnapshotsAllVirtualRPGTargets(t *testing.T) {

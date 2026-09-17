@@ -3,9 +3,10 @@ package favorites
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/favorites"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/favorites"
 )
 
 type favoriteRepositoryStub struct {

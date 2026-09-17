@@ -3,8 +3,9 @@ package payloadrelease
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/payloadrelease"
 	"testing"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type effectGraphMemory struct {

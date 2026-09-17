@@ -3,11 +3,12 @@ package pegasusimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/pegasusimport"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type workerFixture struct {

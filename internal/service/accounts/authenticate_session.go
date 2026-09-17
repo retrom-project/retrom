@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+
 	model "retrom/internal/model/accounts"
 )
 

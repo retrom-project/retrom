@@ -1,11 +1,12 @@
 package accounts
 
 import (
-	model "retrom/internal/model/accounts"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	model "retrom/internal/model/accounts"
 
 	"golang.org/x/text/unicode/norm"
 )

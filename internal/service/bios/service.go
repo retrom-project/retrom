@@ -3,6 +3,7 @@ package bios
 import (
 	"context"
 	"fmt"
+
 	model "retrom/internal/model/bios"
 )
 

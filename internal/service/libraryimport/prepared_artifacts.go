@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	model "retrom/internal/model/libraryimport"
 	"slices"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/engine/rpgmaker/detector"

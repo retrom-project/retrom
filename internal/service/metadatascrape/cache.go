@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	model "retrom/internal/model/metadatascrape"
 	"time"
+
+	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/metadata/hasheous"

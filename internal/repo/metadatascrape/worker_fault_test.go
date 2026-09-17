@@ -4,11 +4,12 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"strings"
+	"testing"
+
 	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	metadatascrapeservice "retrom/internal/service/metadatascrape"
 	"retrom/internal/testkit/testsupport"
-	"strings"
-	"testing"
 )
 
 func TestMetadataRecoveredLeaseAndRetryEventRollbackTogether(t *testing.T) {

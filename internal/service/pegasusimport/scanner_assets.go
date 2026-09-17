@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	model "retrom/internal/model/pegasusimport"
 	"strings"
+
+	model "retrom/internal/model/pegasusimport"
 
 	"retrom/internal/adapter/files/mediaasset"
 	"retrom/internal/adapter/files/serversource"

@@ -2,6 +2,7 @@ package metadatascrape
 
 import (
 	"errors"
+
 	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/adapter/metadata/hasheous"

@@ -2,8 +2,9 @@ package importprogress
 
 import (
 	"errors"
-	model "retrom/internal/model/importprogress"
 	"testing"
+
+	model "retrom/internal/model/importprogress"
 )
 
 func TestProjectImportStatePriority(t *testing.T) {

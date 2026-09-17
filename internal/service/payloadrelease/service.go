@@ -3,8 +3,9 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
-	model "retrom/internal/model/payloadrelease"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type Dependencies struct {

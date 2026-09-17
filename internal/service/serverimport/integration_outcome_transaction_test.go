@@ -1,10 +1,11 @@
 package serverimport_test
 
 import (
-	model "retrom/internal/model/serverimport"
 	"context"
 	"errors"
 	"testing"
+
+	model "retrom/internal/model/serverimport"
 
 	importpersistence "retrom/internal/repo/serverimport"
 	importservice "retrom/internal/service/serverimport"

@@ -3,6 +3,7 @@ package gamemove
 import (
 	"context"
 	"fmt"
+
 	model "retrom/internal/model/gamemove"
 
 	"retrom/internal/capability/content/corevalidation"

@@ -2,9 +2,10 @@ package pegasusimport
 
 import (
 	"errors"
-	model "retrom/internal/model/pegasusimport"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/pegasusimport"
 
 	library "retrom/internal/model/libraryimport"
 )

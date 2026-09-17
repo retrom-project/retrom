@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/netplay"
 	"slices"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/netplay"
 
 	launch "retrom/internal/model/launch"
 	"retrom/internal/transport/netplay/capability"

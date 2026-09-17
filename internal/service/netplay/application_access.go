@@ -2,6 +2,7 @@ package netplay
 
 import (
 	"context"
+
 	model "retrom/internal/model/netplay"
 
 	launch "retrom/internal/model/launch"

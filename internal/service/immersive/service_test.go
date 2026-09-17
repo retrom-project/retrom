@@ -3,8 +3,9 @@ package immersive
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/immersive"
 	"testing"
+
+	model "retrom/internal/model/immersive"
 )
 
 type snapshotRepository struct {

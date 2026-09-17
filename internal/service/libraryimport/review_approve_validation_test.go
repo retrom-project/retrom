@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"math"
-	model "retrom/internal/model/libraryimport"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/corevalidation"

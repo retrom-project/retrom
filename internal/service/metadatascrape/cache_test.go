@@ -3,10 +3,11 @@ package metadatascrape
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/metadatascrape"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/metadata/hasheous"

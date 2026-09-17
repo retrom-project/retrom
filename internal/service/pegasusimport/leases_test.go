@@ -3,9 +3,10 @@ package pegasusimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/pegasusimport"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type leaseFake struct {
@@ -40,7 +41,7 @@ func (fake *leaseFake) Renew(context.Context, model.LeaseRenewal) error {
 
 func leaseCandidate() model.LeaseCandidate {
 	return model.LeaseCandidate{
-		Work: model.Work{JobID: "job", ImportID: "import", Kind: "SERVER_PEGASUS_IMPORT", ExecutionNo: 1},
+		Work:       model.Work{JobID: "job", ImportID: "import", Kind: "SERVER_PEGASUS_IMPORT", ExecutionNo: 1},
 		JobVersion: 1, ImportVersion: 1, ImportState: "QUEUED", MaxAttempts: 4,
 	}
 }

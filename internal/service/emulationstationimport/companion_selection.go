@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"path"
-	model "retrom/internal/model/emulationstationimport"
 	"slices"
 	"strings"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func (service *Companions) load(

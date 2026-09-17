@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	model "retrom/internal/model/pegasusimport"
 	"strings"
+
+	model "retrom/internal/model/pegasusimport"
 
 	library "retrom/internal/model/libraryimport"
 )

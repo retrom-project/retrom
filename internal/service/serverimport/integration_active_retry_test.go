@@ -2,8 +2,9 @@ package serverimport_test
 
 import (
 	"errors"
-	model "retrom/internal/model/serverimport"
 	"testing"
+
+	model "retrom/internal/model/serverimport"
 )
 
 func TestServerImportRetryRejectsAnotherActiveImport(t *testing.T) {

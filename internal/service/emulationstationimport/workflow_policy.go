@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"fmt"
 	"math"
+
 	model "retrom/internal/model/emulationstationimport"
 
 	"github.com/google/uuid"

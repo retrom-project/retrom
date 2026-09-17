@@ -2,8 +2,9 @@ package netplay
 
 import (
 	"context"
-	model "retrom/internal/model/netplay"
 	"strings"
+
+	model "retrom/internal/model/netplay"
 
 	"retrom/internal/model/tagging"
 )

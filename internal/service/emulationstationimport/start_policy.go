@@ -1,8 +1,10 @@
 package emulationstationimport
 
-import model "retrom/internal/model/emulationstationimport"
+import (
+	"math"
 
-import "math"
+	model "retrom/internal/model/emulationstationimport"
+)
 
 func startState(summary model.Summary, version int64) (bool, error) {
 	if summary.Version != version || version < 1 {

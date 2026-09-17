@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	model "retrom/internal/model/pegasusimport"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 
 	"github.com/google/uuid"
 )
@@ -58,7 +59,7 @@ func planLease(before model.LeaseCandidate, now int64) (model.LeaseClaim, error)
 	}
 	change := model.LeaseClaim{
 		Before:      before,
-		Work:  before.Work,
+		Work:        before.Work,
 		ImportState: "SCANNING",
 		Phase:       "DISCOVERING_METADATA",
 		NowMS:       now,

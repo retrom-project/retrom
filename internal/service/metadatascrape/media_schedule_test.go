@@ -2,8 +2,9 @@ package metadatascrape
 
 import (
 	"encoding/json"
-	model "retrom/internal/model/metadatascrape"
 	"testing"
+
+	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/adapter/metadata/hasheous"
 

@@ -3,10 +3,11 @@ package libraryimport
 import (
 	"context"
 	"errors"
-	model "retrom/internal/model/libraryimport"
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type importBatchCancellationFixture struct {

@@ -7,8 +7,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	model "retrom/internal/model/libraryimport"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/engine/rpgmaker/detector"

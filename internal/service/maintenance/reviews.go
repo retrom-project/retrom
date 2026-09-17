@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"time"
+
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	model "retrom/internal/model/maintenance"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	libraryimportservice "retrom/internal/service/libraryimport"
 	pegasus "retrom/internal/service/pegasusimport"
-	"time"
 
 	// CompleteRestoredReviews preserves already materialized ordinary reviews without
 	// reading the former host's sources. The caller owns the entire restore transaction,

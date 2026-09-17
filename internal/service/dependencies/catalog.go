@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	model "retrom/internal/model/dependencies"
 	"sort"
 	"time"
+
+	model "retrom/internal/model/dependencies"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/format/arcadedat"

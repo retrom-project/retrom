@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	model "retrom/internal/model/netplay"
 	"time"
+
+	model "retrom/internal/model/netplay"
 
 	validation "retrom/internal/service/corevalidation"
 	"retrom/internal/transport/netplay/profile"
@@ -149,13 +150,13 @@ func (service *SessionStart) plan(
 		return model.SessionStartPlan{}, fmt.Errorf("netplay/start event: %w", err)
 	}
 	return model.SessionStartPlan{
-		Before:      before,
-		SessionID:   id,
-		SessionNo:   sessionNo,
-		Profile:     frozen,
-		Members:     before.Occupants,
-		SeatMask:    mask,
-		Now:         now,
-		Event: data,
+		Before:    before,
+		SessionID: id,
+		SessionNo: sessionNo,
+		Profile:   frozen,
+		Members:   before.Occupants,
+		SeatMask:  mask,
+		Now:       now,
+		Event:     data,
 	}, nil
 }

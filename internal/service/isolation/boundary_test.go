@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	model "retrom/internal/model/isolation"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/isolation"
 )
 
 type isolationMemory struct {
