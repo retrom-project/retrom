@@ -101,7 +101,7 @@ func installFixture() *installMemory {
 	return &installMemory{initial: requirement, current: requirement, upload: upload, currentUpload: upload}
 }
 
-func (memory *installMemory) LoadInstallFacts(_ context.Context, requirementID string, expectedVersion int64, fileID string) (model.InstallFacts, error) {
+func (memory *installMemory) LoadInstallFacts(_ context.Context, _ string, expectedVersion int64, _ string) (model.InstallFacts, error) {
 	req := memory.initial
 	if !req.Enabled || req.Version != expectedVersion {
 		return model.InstallFacts{}, model.ErrInvalid
@@ -197,21 +197,6 @@ func (memory *installMemory) Deactivate(context.Context, model.SupersededInstall
 func (memory *installMemory) Signal() {
 	memory.signals++
 	memory.signalInsideWrite = memory.insideWrite
-}
-
-type requirementMemory struct {
-	model.RequirementRecords
-	value model.Requirement
-}
-
-func (records requirementMemory) Get(context.Context, string) (model.Requirement, bool, error) {
-	return records.value, true, nil
-}
-
-type uploadMemory struct{ value model.Upload }
-
-func (records uploadMemory) Get(context.Context, string) (model.Upload, bool, error) {
-	return records.value, true, nil
 }
 
 func (memory *installMemory) Current(context.Context, string) (model.SupersededInstallation, bool, error) {

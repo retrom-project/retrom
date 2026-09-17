@@ -53,15 +53,16 @@ type ReviewCoverExisting struct {
 type ReviewCoverBlobs interface {
 	OpenDigest(string) (io.ReadCloser, error)
 }
+
 // ReviewCoverUploadCommand captures all values for a review cover upload commit.
 type ReviewCoverUploadCommand struct {
-	Request        ReviewCoverRequest
-	Source         ReviewCoverSource
-	AssetID        string
-	ConsumptionID  string
-	Width, Height  int
-	MediaType      string
-	NowMS          int64
+	Request       ReviewCoverRequest
+	Source        ReviewCoverSource
+	AssetID       string
+	ConsumptionID string
+	Width, Height int
+	MediaType     string
+	NowMS         int64
 }
 
 type ReviewCoverRepository interface {

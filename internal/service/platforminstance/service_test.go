@@ -18,12 +18,12 @@ type boundaryRepository struct {
 	commits      int
 }
 
-func (repository *boundaryRepository) CommitCreate(_ context.Context, cmd model.CreateCommand) (model.Instance, error) {
+func (repository *boundaryRepository) CommitCreate(_ context.Context, _ model.CreateCommand) (model.Instance, error) {
 	repository.commits++
 	return repository.createResult, repository.createError
 }
 
-func (repository *boundaryRepository) CommitPatch(_ context.Context, cmd model.PatchCommand) (model.PatchResult, error) {
+func (repository *boundaryRepository) CommitPatch(_ context.Context, _ model.PatchCommand) (model.PatchResult, error) {
 	repository.commits++
 	return repository.patchResult, repository.patchError
 }

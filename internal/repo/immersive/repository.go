@@ -89,7 +89,11 @@ func (repository *Repository) LoadDestinations(ctx context.Context, profileID st
 	}
 	defer func() { _ = tx.Rollback() }()
 	destinations := make([]immersive.Destination, 0, 4)
-	for _, kind := range []string{immersive.LibraryAll, immersive.LibraryRecent, immersive.LibraryFavorites, immersive.LibrarySaves} {
+	kinds := []string{
+		immersive.LibraryAll, immersive.LibraryRecent,
+		immersive.LibraryFavorites, immersive.LibrarySaves,
+	}
+	for _, kind := range kinds {
 		dest, queryErr := scope.Libraries.Summary(ctx, profileID, kind, "")
 		if queryErr != nil {
 			return nil, fmt.Errorf("immersive: read destination: %w", queryErr)
@@ -162,24 +166,41 @@ func (repository *Repository) LoadLibraryPage(
 		return immersive.LibraryPage{}, fmt.Errorf("immersive: read games: %w", err)
 	}
 	games, next := immersive.PageItems(games, limit, kind)
-	if kind == immersive.LibrarySaves && len(games) > 0 {
-		ids := make([]string, len(games))
-		for i, g := range games {
-			ids[i] = g.ID
-		}
-		saves, err := scope.Saves.ForGames(ctx, profileID, ids)
-		if err != nil {
-			return immersive.LibraryPage{}, fmt.Errorf("immersive: read saves: %w", err)
-		}
-		for i := range games {
-			games[i].SaveStates = append(games[i].SaveStates, saves[games[i].ID]...)
-		}
+	if err := enrichSaveStates(ctx, scope, kind, profileID, games); err != nil {
+		return immersive.LibraryPage{}, err
 	}
 	library.Name = immersive.LibraryName(kind)
 	if err := tx.Commit(); err != nil {
 		return immersive.LibraryPage{}, fmt.Errorf("immersive: commit read snapshot: %w", err)
 	}
-	return immersive.LibraryPage{Library: library, Folder: folder, Folders: folders, Items: games, NextCursor: next}, nil
+	return immersive.LibraryPage{
+		Library: library, Folder: folder, Folders: folders,
+		Items: games, NextCursor: next,
+	}, nil
+}
+
+func enrichSaveStates(
+	ctx context.Context, scope immersive.ReadScope,
+	kind, profileID string,
+	games []immersive.Game,
+) error {
+	if kind != immersive.LibrarySaves || len(games) == 0 {
+		return nil
+	}
+	ids := make([]string, len(games))
+	for i, g := range games {
+		ids[i] = g.ID
+	}
+	saves, err := scope.Saves.ForGames(ctx, profileID, ids)
+	if err != nil {
+		return fmt.Errorf("immersive: read saves: %w", err)
+	}
+	for i := range games {
+		games[i].SaveStates = append(
+			games[i].SaveStates, saves[games[i].ID]...,
+		)
+	}
+	return nil
 }
 
 func nullableInt64Pointer(value sql.NullInt64) *int64 {

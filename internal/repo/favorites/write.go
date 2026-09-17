@@ -10,10 +10,9 @@ import (
 )
 
 type (
-	gameRecords        struct{ database dbexec.Executor }
-	membershipRecords  struct{ database dbexec.Executor }
-	folderRecords      struct{ database dbexec.Executor }
-	idempotencyRecords struct{ database dbexec.Executor }
+	gameRecords       struct{ database dbexec.Executor }
+	membershipRecords struct{ database dbexec.Executor }
+	folderRecords     struct{ database dbexec.Executor }
 )
 
 func (records gameRecords) Remove(ctx context.Context, profileID, gameID string) error {

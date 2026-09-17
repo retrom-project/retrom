@@ -44,4 +44,3 @@ func (service *Service) ChangeDefaultCore(
 	})
 	return change, repositoryError("change default core", err)
 }
-

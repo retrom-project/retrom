@@ -130,14 +130,18 @@ func (repository *Repository) CommitCreate(
 	}
 	slug, err := model.NextSlug(base, slugs)
 	if err != nil {
-		return model.Instance{}, err
+		return model.Instance{}, fmt.Errorf("platforminstance: next slug: %w", err)
 	}
-	directory := model.NewDirectory{ID: cmd.ID, Slug: slug, CatalogKey: cmd.CatalogKey, Input: cmd.Input, CreatedAtMS: cmd.NowMS}
+	directory := model.NewDirectory{
+		ID: cmd.ID, Slug: slug, CatalogKey: cmd.CatalogKey,
+		Input: cmd.Input, CreatedAtMS: cmd.NowMS,
+	}
 	if err := bound.Insert(ctx, directory); err != nil {
 		return model.Instance{}, fmt.Errorf("platforminstance: insert directory: %w", err)
 	}
 	if err := bound.RecordCreation(ctx, model.CreationAudit{
-		ID: cmd.AuditID, Action: cmd.Action, Actor: cmd.Actor, Directory: directory,
+		ID: cmd.AuditID, Action: cmd.Action,
+		Actor: cmd.Actor, Directory: directory,
 	}); err != nil {
 		return model.Instance{}, fmt.Errorf("platforminstance: record creation: %w", err)
 	}
@@ -218,6 +222,26 @@ func (repository *Repository) CommitReorder(
 	}
 	defer cleanup()
 
+	current, err := loadActiveDirectories(ctx, bound)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateReorderItems(current, cmd.Items); err != nil {
+		return nil, err
+	}
+	result, err := applyReorder(ctx, bound, cmd, current)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
+		return nil, fmt.Errorf("platforminstance: commit: %w", err)
+	}
+	return result, nil
+}
+
+func loadActiveDirectories(
+	ctx context.Context, bound records,
+) (map[string]model.Directory, error) {
 	rows, err := bound.Directories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("platforminstance: read directories: %w", err)
@@ -228,25 +252,42 @@ func (repository *Repository) CommitReorder(
 			current[row.ID] = row
 		}
 	}
-	if len(current) != len(cmd.Items) {
-		return nil, model.ErrOrderStale
+	return current, nil
+}
+
+func validateReorderItems(
+	current map[string]model.Directory,
+	items []model.ReorderItem,
+) error {
+	if len(current) != len(items) {
+		return model.ErrOrderStale
 	}
-	for _, item := range cmd.Items {
+	for _, item := range items {
 		row, exists := current[item.ID]
 		if !exists {
-			return nil, model.ErrOrderStale
+			return model.ErrOrderStale
 		}
 		if row.Version != item.Version {
-			return nil, model.ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 	}
+	return nil
+}
+
+func applyReorder(
+	ctx context.Context, bound records,
+	cmd model.ReorderCommand,
+	current map[string]model.Directory,
+) ([]model.ReorderResult, error) {
 	result := make([]model.ReorderResult, 0, len(cmd.Items))
 	for index, item := range cmd.Items {
 		sortOrder := int64(index+1) * 100
 		row := current[item.ID]
 		changed, err := bound.Update(ctx, model.DirectoryUpdate{
-			ID: item.ID, Name: row.Name, Description: row.Description, SortOrder: sortOrder,
-			Enabled: row.Enabled, ExpectedVersion: item.Version, UpdatedAtMS: cmd.NowMS,
+			ID: item.ID, Name: row.Name,
+			Description: row.Description, SortOrder: sortOrder,
+			Enabled: row.Enabled, ExpectedVersion: item.Version,
+			UpdatedAtMS: cmd.NowMS,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("platforminstance: update order: %w", err)
@@ -254,27 +295,26 @@ func (repository *Repository) CommitReorder(
 		if !changed {
 			return nil, model.ErrVersionConflict
 		}
-		if index < len(cmd.Items) {
-			auditID := fmt.Sprintf("reorder-%d", index)
-			if index < len(cmd.Items) && len(cmd.Items) > 0 {
-				// Use deterministic audit IDs from NowMS + index for reorder operations
-				auditID = fmt.Sprintf("%s-reorder-%d", item.ID, index)
-			}
-			if err := bound.RecordAudit(ctx, model.AuditEvent{
-				ID: auditID, Action: "PLATFORM_INSTANCE_REORDERED", ResourceType: "PLATFORM_INSTANCE", ResourceID: item.ID,
-				Actor:  cmd.Actor,
-				Before: map[string]any{"version": row.Version, "sortOrder": row.SortOrder},
-				After:  map[string]any{"version": item.Version + 1, "sortOrder": sortOrder}, CreatedAtMS: cmd.NowMS,
-			}); err != nil {
-				return nil, fmt.Errorf("platforminstance: record reorder audit: %w", err)
-			}
+		auditID := fmt.Sprintf("%s-reorder-%d", item.ID, index)
+		if err := bound.RecordAudit(ctx, model.AuditEvent{
+			ID: auditID, Action: "PLATFORM_INSTANCE_REORDERED",
+			ResourceType: "PLATFORM_INSTANCE", ResourceID: item.ID,
+			Actor: cmd.Actor,
+			Before: map[string]any{
+				"version": row.Version, "sortOrder": row.SortOrder,
+			},
+			After: map[string]any{
+				"version":   item.Version + 1,
+				"sortOrder": sortOrder,
+			},
+			CreatedAtMS: cmd.NowMS,
+		}); err != nil {
+			return nil, fmt.Errorf("platforminstance: record reorder audit: %w", err)
 		}
 		result = append(result, model.ReorderResult{
-			ID: item.ID, SortOrder: sortOrder, Version: item.Version + 1, UpdatedAtMS: cmd.NowMS,
+			ID: item.ID, SortOrder: sortOrder,
+			Version: item.Version + 1, UpdatedAtMS: cmd.NowMS,
 		})
-	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return nil, fmt.Errorf("platforminstance: commit: %w", err)
 	}
 	return result, nil
 }
@@ -355,7 +395,12 @@ func (repository *Repository) CommitChangeDefaultCore(
 		ResourceType: "PLATFORM_INSTANCE", ResourceID: cmd.InstanceID,
 		Actor:  cmd.Actor,
 		Before: map[string]any{"version": cmd.Expected},
-		After:  map[string]any{"defaultCoreId": cmd.CoreID, "version": cmd.Expected + 1, "impactDigest": cmd.Digest}, CreatedAtMS: cmd.NowMS,
+		After: map[string]any{
+			"defaultCoreId": cmd.CoreID,
+			"version":       cmd.Expected + 1,
+			"impactDigest":  cmd.Digest,
+		},
+		CreatedAtMS: cmd.NowMS,
 	}); err != nil {
 		return model.DefaultCoreChangeResult{}, fmt.Errorf("platforminstance: record default core audit: %w", err)
 	}
@@ -396,7 +441,10 @@ func (repository *Repository) CommitApply(
 	response := model.IdempotentResponse{
 		Status: 200, Headers: map[string]string{"Content-Type": "application/json; charset=utf-8"}, Body: append(body, '\n'),
 	}
-	if err := bound.saveIdempotency(ctx, cmd.IdempotencyKey, cmd.Digest, response, cmd.NowMS, cmd.ExpiresAtMS); err != nil {
+	if err := bound.saveIdempotency(
+		ctx, cmd.IdempotencyKey, cmd.Digest,
+		response, cmd.NowMS, cmd.ExpiresAtMS,
+	); err != nil {
 		return model.IdempotentResponse{}, fmt.Errorf("platforminstance: store idempotency: %w", err)
 	}
 	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
@@ -439,7 +487,7 @@ func (repository *Repository) executeApply(
 			continue
 		}
 		if idIndex >= len(cmd.InstanceIDs) || idIndex >= len(cmd.AuditIDs) {
-			return model.ApplyResult{}, fmt.Errorf("platforminstance: insufficient pre-generated IDs for apply")
+			return model.ApplyResult{}, fmt.Errorf("platforminstance: %w", model.ErrInsufficientIDs)
 		}
 		template := model.CatalogTemplate(cmd.Catalog, recommendation.TemplateKey)
 		createCmd := model.CreateCommand{
@@ -495,9 +543,12 @@ func (repository *Repository) executeCreate(
 	}
 	slug, err := model.NextSlug(base, slugs)
 	if err != nil {
-		return model.Instance{}, err
+		return model.Instance{}, fmt.Errorf("apply: next slug: %w", err)
 	}
-	directory := model.NewDirectory{ID: cmd.ID, Slug: slug, CatalogKey: cmd.CatalogKey, Input: cmd.Input, CreatedAtMS: cmd.NowMS}
+	directory := model.NewDirectory{
+		ID: cmd.ID, Slug: slug, CatalogKey: cmd.CatalogKey,
+		Input: cmd.Input, CreatedAtMS: cmd.NowMS,
+	}
 	if err := bound.Insert(ctx, directory); err != nil {
 		return model.Instance{}, fmt.Errorf("insert directory: %w", err)
 	}

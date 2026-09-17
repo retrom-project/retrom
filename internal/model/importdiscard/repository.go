@@ -59,7 +59,7 @@ type RequestDiscardCommand struct {
 	NowMS  int64
 }
 
-type Repository interface {
+type Repository interface { //nolint:interfacebloat // domain groups related named commands
 	Batch(context.Context, Key) (Batch, error)
 	Disposition(context.Context, Key) (Disposition, bool, error)
 	Pending(context.Context) (Request, bool, error)

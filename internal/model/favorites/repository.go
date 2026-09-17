@@ -3,7 +3,7 @@ package favorites
 import "context"
 
 // Repository supplies a consistent read projection and named atomic commands.
-type Repository interface {
+type Repository interface { //nolint:interfacebloat // domain groups related named commands
 	CommitFavorite(context.Context, FavoriteCommand) (State, error)
 	CommitReplaceFolders(context.Context, ReplaceFoldersCommand) (State, error)
 	CommitOrganize(context.Context, OrganizeCommand) (IdempotentResponse, error)

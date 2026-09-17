@@ -31,7 +31,10 @@ func (service *Service) Game(ctx context.Context, id string) (model.Resource, er
 func (service *Service) Save(ctx context.Context, id, profile string) (model.Resource, error) {
 	screenshot, found, err := service.repository.Save(ctx, id)
 	if err != nil {
-		return model.Resource{}, accessError("authorize save screenshot", fmt.Errorf("read save screenshot authority: %w", err))
+		return model.Resource{}, accessError(
+			"authorize save screenshot",
+			fmt.Errorf("read save screenshot authority: %w", err),
+		)
 	}
 	if !found || screenshot.Deleted || screenshot.ProfileID != profile || screenshot.GameState != "PUBLISHED" {
 		return model.Resource{}, accessError("authorize save screenshot", ErrNotFound)

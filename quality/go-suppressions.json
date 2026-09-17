@@ -110,24 +110,6 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/model/platforminstance/repository.go",
-      "line": 15,
-      "symbol": "type Reader interface",
-      "linter": "interfacebloat",
-      "reason": "Platform lifecycle and impact use cases share one consistent read snapshot.",
-      "invariant": "Directory, catalog, core, and impact reads must be resolved through the same application read port.",
-      "reviewAfter": "2027-08-22"
-    },
-    {
-      "path": "internal/model/platforminstance/repository.go",
-      "line": 31,
-      "symbol": "type DirectoryWrites interface",
-      "linter": "interfacebloat",
-      "reason": "Directory mutations and their audit records share one atomic write scope.",
-      "invariant": "Directory lifecycle changes and audit records must commit together.",
-      "reviewAfter": "2027-08-22"
-    },
-    {
       "path": "scripts/architecture-audit/main.go",
       "line": 93,
       "symbol": "func writeReport",
@@ -152,6 +134,42 @@
       "linter": "unparam",
       "reason": "The id parameter is always 'source' in tests but the function signature mirrors the repo-layer sibling and the parameter is semantically meaningful.",
       "invariant": "The function signature must remain compatible with the repo-layer legacyOwner for consistency.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/model/favorites/repository.go",
+      "line": 6,
+      "symbol": "type Repository interface",
+      "linter": "interfacebloat",
+      "reason": "Favorites repository groups related named commands for a single domain.",
+      "invariant": "All favorite commands share the same transactional boundary.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/model/importdiscard/repository.go",
+      "line": 62,
+      "symbol": "type Repository interface",
+      "linter": "interfacebloat",
+      "reason": "Import discard repository groups related named commands for a single domain.",
+      "invariant": "All discard commands share the same transactional boundary.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/model/jobs/repository.go",
+      "line": 41,
+      "symbol": "type Repository interface",
+      "linter": "interfacebloat",
+      "reason": "Jobs repository groups related named commands for a single domain.",
+      "invariant": "All job commands share the same transactional boundary.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/model/platforminstance/repository.go",
+      "line": 10,
+      "symbol": "type Repository interface",
+      "linter": "interfacebloat",
+      "reason": "Platform instance repository groups related lifecycle and impact commands.",
+      "invariant": "All platform instance commands share the same transactional boundary.",
       "reviewAfter": "2027-09-17"
     }
   ]
