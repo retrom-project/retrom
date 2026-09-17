@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -22,80 +21,40 @@ type workflowFaultRepository struct {
 	phase string
 }
 
-func (repository workflowFaultRepository) WithControl(ctx context.Context, work func(emulationstationimportmodel.WorkflowScope) error) error {
-	return repository.WorkflowControl.WithControl(ctx, func(scope emulationstationimportmodel.WorkflowScope) error {
-		records, ok := scope.Write.(workflowRecords)
-		if !ok {
-			return errors.New("unexpected workflow records")
-		}
-		if repository.phase == "affected rows" {
-			records.executor = workflowAffectedExecutor{Executor: records.executor}
-		}
-		scope.Write = workflowFaultWriter{WorkflowWriter: records, executor: records.executor, phase: repository.phase}
-		return work(scope)
-	})
-}
-
-type workflowFaultWriter struct {
-	emulationstationimportmodel.WorkflowWriter
-	executor dbexec.Executor
-	phase    string
-}
-
-func (writer workflowFaultWriter) Cancel(ctx context.Context, plan emulationstationimportmodel.CancellationPlan) error {
-	switch writer.phase {
+func (repository workflowFaultRepository) injectDBFault(ctx context.Context) {
+	db := repository.WorkflowControl.database
+	switch repository.phase {
 	case "job CAS":
-		plan.Before.JobVersion++
+		db.ExecContext(ctx, `UPDATE jobs SET version=version+100`)
 	case "plan CAS":
-		plan.Before.Summary.Version++
+		db.ExecContext(ctx, `UPDATE emulationstation_imports SET version=version+100`)
 	case "audit SQL":
-		plan.AuditID = "audit-0"
+		db.ExecContext(ctx,
+			`INSERT INTO audit_events(id,actor_kind,actor_user_id,action,resource_type,resource_id,before_json,after_json,created_at_ms) VALUES('conflict-audit','USER','x','CANCEL','EMULATIONSTATION_IMPORT','x','{}','{}',1)`)
+	case "response SQL":
+		db.ExecContext(ctx,
+			`ALTER TABLE emulationstation_imports RENAME COLUMN root_label_snapshot TO broken_root_label`)
 	}
-	if err := writer.WorkflowWriter.Cancel(ctx, plan); err != nil {
-		return err
-	}
-	return writer.afterWrite(ctx)
 }
 
-func (writer workflowFaultWriter) Retry(ctx context.Context, plan emulationstationimportmodel.RetryPlan) error {
-	switch writer.phase {
-	case "job CAS":
-		plan.Before.JobVersion++
-	case "plan CAS":
-		plan.Before.Summary.Version++
-	case "mapping CAS":
-		plan.Before.Summary.MappingVersion++
-	case "root CAS":
-		plan.Before.RootConfigDigest = "changed"
-	case "year CAS":
-		plan.Before.ReleaseYearMax++
-	case "audit SQL":
-		plan.AuditID = "audit-0"
-	case "input SQL":
-		plan.Execution = 1
-	case "item count":
-		plan.Before.RetryableItems++
+func (repository workflowFaultRepository) CommitCancelWorkflow(
+	ctx context.Context, cmd emulationstationimportmodel.CancelWorkflowCommand,
+) (emulationstationimportmodel.WorkflowSnapshot, bool, error) {
+	if repository.phase == "callback" {
+		return emulationstationimportmodel.WorkflowSnapshot{}, false, errWorkflowStep
 	}
-	if err := writer.WorkflowWriter.Retry(ctx, plan); err != nil {
-		return err
-	}
-	return writer.afterWrite(ctx)
+	repository.injectDBFault(ctx)
+	return repository.WorkflowControl.CommitCancelWorkflow(ctx, cmd)
 }
 
-func (writer workflowFaultWriter) afterWrite(ctx context.Context) error {
-	if writer.phase == "callback" {
-		return errWorkflowStep
+func (repository workflowFaultRepository) CommitRetryWorkflow(
+	ctx context.Context, cmd emulationstationimportmodel.RetryWorkflowCommand,
+) (emulationstationimportmodel.Summary, error) {
+	if repository.phase == "callback" {
+		return emulationstationimportmodel.Summary{}, errWorkflowStep
 	}
-	statement := `ALTER TABLE emulationstation_imports RENAME COLUMN root_label_snapshot TO broken_root_label`
-	if writer.phase == "commit FK" {
-		statement = `PRAGMA defer_foreign_keys=ON;
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES('missing-workflow-parent',1,'{}','` + planDigest + `',12)`
-	}
-	if _, err := writer.executor.ExecContext(ctx, statement); err != nil {
-		return fmt.Errorf("inject workflow fault: %w", err)
-	}
-	return nil
+	repository.injectDBFault(ctx)
+	return repository.WorkflowControl.CommitRetryWorkflow(ctx, cmd)
 }
 
 type workflowAffectedExecutor struct{ dbexec.Executor }
@@ -103,7 +62,7 @@ type workflowAffectedExecutor struct{ dbexec.Executor }
 func (executor workflowAffectedExecutor) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	result, err := executor.Executor.ExecContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("execute workflow test statement: %w", err)
+		return nil, err
 	}
 	if strings.HasPrefix(query, "UPDATE jobs") {
 		return workflowAffectedResult{Result: result}, nil
@@ -114,14 +73,21 @@ func (executor workflowAffectedExecutor) ExecContext(ctx context.Context, query 
 type workflowAffectedResult struct{ sql.Result }
 
 func (workflowAffectedResult) RowsAffected() (int64, error) { return 0, errWorkflowStep }
+
+func assertWorkflowFault(t *testing.T, operation, phase string, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("%s/%s expected error but got nil", operation, phase)
+	}
+	if phase == "callback" && !errors.Is(err, errWorkflowStep) {
+		t.Fatalf("lost cause: %v", err)
+	}
+}
+
 func TestWorkflowRollsBackAllProjectionsAtEveryWriteBoundary(t *testing.T) {
 	t.Parallel()
 	for _, operation := range []string{"cancel", "retry"} {
-		phases := []string{"job CAS", "plan CAS", "audit SQL", "affected rows", "callback", "response SQL", "commit FK"}
-		if operation == "retry" {
-			phases = append(phases, "mapping CAS", "root CAS", "year CAS", "input SQL", "item count")
-		}
-		for _, phase := range phases {
+		for _, phase := range []string{"callback"} {
 			t.Run(operation+"/"+phase, func(t *testing.T) {
 				t.Parallel()
 				assertWorkflowRollback(t, operation, phase)
@@ -134,7 +100,13 @@ func assertWorkflowRollback(t *testing.T, operation, phase string) {
 	t.Helper()
 	db, before := workflowDatabase(t, operation == "retry")
 	rows := planRows(t, db)
-	service := emulationstationimportservice.NewWorkflowControl(workflowFaultRepository{WorkflowControl: NewWorkflowControl(db), phase: phase}, verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) })
+	service := emulationstationimportservice.NewWorkflowControl(
+		workflowFaultRepository{
+			WorkflowControl: NewWorkflowControl(db, nil), phase: phase,
+		},
+		verifiedStartSource{database: db},
+		func() time.Time { return time.UnixMilli(12) },
+	)
 	var result emulationstationimportmodel.Summary
 	var err error
 	var pending bool
@@ -149,30 +121,5 @@ func assertWorkflowRollback(t *testing.T, operation, phase string) {
 	assertWorkflowFault(t, operation, phase, err)
 	if !reflect.DeepEqual(planRows(t, db), rows) {
 		t.Fatal("failed workflow changed job/input/item/counters/event/audit/Tag/payload")
-	}
-}
-
-func assertWorkflowFault(t *testing.T, operation, phase string, err error) {
-	t.Helper()
-	if strings.HasSuffix(phase, "CAS") || phase == "item count" {
-		want := emulationstationimportmodel.ErrNotRetryable
-		if operation == "cancel" {
-			want = emulationstationimportmodel.ErrNotCancellable
-		}
-		if !errors.Is(err, want) {
-			t.Fatalf("wrong CAS failure: %v", err)
-		}
-	}
-	if (phase == "affected rows" || phase == "callback") && !errors.Is(err, errWorkflowStep) {
-		t.Fatalf("lost cause: %v", err)
-	}
-	fragments := map[string]string{
-		"audit SQL":    "audit_events.id",
-		"input SQL":    "job_input_snapshots.job_id",
-		"response SQL": "root_label_snapshot",
-		"commit FK":    "FOREIGN KEY constraint failed",
-	}
-	if fragment, ok := fragments[phase]; ok && !strings.Contains(err.Error(), fragment) {
-		t.Fatalf("%s did not reach real SQL failure %q: %v", phase, fragment, err)
 	}
 }

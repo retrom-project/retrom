@@ -72,7 +72,7 @@ func (service *Starter) queue(ctx context.Context, plan model.StartPlan, version
 		if err := readyToStart(current, plan.NowMS); err != nil {
 			return err
 		}
-		if !sameFrozenSource(
+		if !model.SameFrozenSource(
 			plan.Before.Summary,
 			current.Summary,
 			plan.Before.FrozenSourceSnapshot,

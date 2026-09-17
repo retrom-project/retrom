@@ -3,18 +3,27 @@ package emulationstationimport
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
+	payloadmodel "retrom/internal/model/payloadrelease"
 	payload "retrom/internal/repo/payloadrelease"
 
 	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
 )
 
-type WorkflowControl struct{ database *sql.DB }
+type PayloadTerminator interface {
+	TerminalSources(context.Context, payloadmodel.ReleaseScope, payloadmodel.SourceBatch, int64) error
+}
 
-func NewWorkflowControl(database *sql.DB) *WorkflowControl {
-	return &WorkflowControl{database: database}
+type WorkflowControl struct {
+	database   *sql.DB
+	payloads   PayloadTerminator
+}
+
+func NewWorkflowControl(database *sql.DB, payloads PayloadTerminator) *WorkflowControl {
+	return &WorkflowControl{database: database, payloads: payloads}
 }
 
 func (repository *WorkflowControl) InspectRetry(ctx context.Context, id string) (application.RetrySnapshot, error) {
@@ -33,22 +42,115 @@ func (repository *WorkflowControl) InspectRetry(ctx context.Context, id string) 
 	return result, nil
 }
 
-func (repository *WorkflowControl) WithControl(ctx context.Context, work func(application.WorkflowScope) error) error {
+func (repository *WorkflowControl) CommitCancelWorkflow(
+	ctx context.Context, cmd application.CancelWorkflowCommand,
+) (application.WorkflowSnapshot, bool, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin EmulationStation workflow: %w", err)
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("begin EmulationStation cancel: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := workflowRecords{transaction: tx, executor: tx}
-	if err := work(application.WorkflowScope{
-		Payload: payload.BindReleases(tx), Read: records, Write: records,
-	}); err != nil {
-		return err
+	before, err := records.Current(ctx, cmd.ID)
+	if errors.Is(err, application.ErrNotFound) {
+		return application.WorkflowSnapshot{}, false, application.ErrNotCancellable
+	}
+	if err != nil {
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("read EmulationStation cancellation: %w", err)
+	}
+	version := cmd.Version
+	if cmd.Job != nil {
+		if !application.MatchesCancellationJob(before, cmd.Job.JobID, cmd.Job.Kind, cmd.Job.ScopeID) {
+			return application.WorkflowSnapshot{}, false, application.ErrNotCancellable
+		}
+		if cmd.Job.ExpectedVersion < 1 || cmd.Job.ExpectedVersion != before.JobVersion {
+			return application.WorkflowSnapshot{}, false, application.ErrVersionConflict
+		}
+		version = before.Summary.Version
+	}
+	if !application.CanCancelWorkflow(before, version) {
+		return application.WorkflowSnapshot{}, false, application.ErrNotCancellable
+	}
+	pending := before.JobState == "RUNNING"
+	state := "CANCELLED"
+	if pending {
+		state = "CANCEL_REQUESTED"
+	}
+	plan := application.CancellationPlan{
+		Before: before, Reason: cmd.Reason, ActorID: cmd.ActorID, AuditID: cmd.AuditID,
+		NowMS: cmd.NowMS, State: state, Pending: pending,
+	}
+	if !pending {
+		plan.CompletedAtMS = &cmd.NowMS
+	}
+	if err := records.Cancel(ctx, plan); err != nil {
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("persist EmulationStation cancellation: %w", err)
+	}
+	if plan.Before.Summary.ImportJobID != nil && repository.payloads != nil {
+		scope := payload.BindReleases(tx)
+		batch := payloadmodel.SourceBatch{
+			Type: payloadmodel.ScopeEmulationStationImportItem, ImportID: plan.Before.Summary.ID,
+		}
+		if err := repository.payloads.TerminalSources(ctx, scope, batch, plan.NowMS); err != nil {
+			return application.WorkflowSnapshot{}, false, fmt.Errorf(
+				"schedule terminal EmulationStation payloads: %w", err,
+			)
+		}
+	}
+	after, err := records.Current(ctx, before.Summary.ID)
+	if err != nil {
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("read cancelled EmulationStation plan: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit EmulationStation workflow: %w", err)
+		return application.WorkflowSnapshot{}, false, fmt.Errorf("commit EmulationStation cancel: %w", err)
 	}
-	return nil
+	return after, pending, nil
+}
+
+func (repository *WorkflowControl) CommitRetryWorkflow(
+	ctx context.Context, cmd application.RetryWorkflowCommand,
+) (application.Summary, error) {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return application.Summary{}, fmt.Errorf("begin EmulationStation retry: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	records := workflowRecords{transaction: tx, executor: tx}
+	current, err := records.RetryCurrent(ctx, cmd.Plan.Before.Summary.ID)
+	if errors.Is(err, application.ErrNotFound) {
+		return application.Summary{}, application.ErrNotRetryable
+	}
+	if err != nil {
+		return application.Summary{}, fmt.Errorf("reread EmulationStation retry: %w", err)
+	}
+	if err := application.ValidateRetryEligibility(current, cmd.Version); err != nil {
+		return application.Summary{}, err
+	}
+	if !application.SameRetryExecution(cmd.Plan.Before, current) {
+		return application.Summary{}, application.ErrNotRetryable
+	}
+	if !application.SameFrozenSource(
+		cmd.Plan.Before.Summary,
+		current.Summary,
+		cmd.Plan.Before.FrozenSourceSnapshot,
+		current.FrozenSourceSnapshot,
+	) {
+		return application.Summary{}, application.ErrSourceChanged
+	}
+	plan := cmd.Plan
+	plan.Before = current
+	plan.NowMS = cmd.Plan.NowMS
+	if err := records.Retry(ctx, plan); err != nil {
+		return application.Summary{}, fmt.Errorf("persist EmulationStation retry: %w", err)
+	}
+	after, err := records.Current(ctx, current.Summary.ID)
+	if err != nil {
+		return application.Summary{}, fmt.Errorf("read retried EmulationStation plan: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return application.Summary{}, fmt.Errorf("commit EmulationStation retry: %w", err)
+	}
+	return after.Summary, nil
 }
 
 type workflowRecords struct {

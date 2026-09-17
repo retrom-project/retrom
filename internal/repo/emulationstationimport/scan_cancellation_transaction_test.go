@@ -25,7 +25,7 @@ func insertScanPlan(t *testing.T, db *sql.DB, index int) emulationstationimportm
 }
 
 func scanCancellationService(db *sql.DB) *emulationstationimportservice.WorkflowControl {
-	return emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), nil, func() time.Time { return time.UnixMilli(1001) })
+	return emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), nil, func() time.Time { return time.UnixMilli(1001) })
 }
 
 func TestRunningScanCancellationDoesNotCompeteWithActiveImport(t *testing.T) {
@@ -132,7 +132,7 @@ func assertPendingScanAllowsExecution(t *testing.T, retry bool) {
 		t.Fatalf("cancel pending=%v err=%v", pending, err)
 	}
 	if retry {
-		_, err = emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(1002) }).Retry(t.Context(), summary.ID, summary.Version, mappingActor)
+		_, err = emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(1002) }).Retry(t.Context(), summary.ID, summary.Version, mappingActor)
 	} else {
 		_, _, err = emulationstationimportservice.NewStarter(NewStarter(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(1002) }).Start(t.Context(), summary.ID, summary.Version, mappingActor)
 	}

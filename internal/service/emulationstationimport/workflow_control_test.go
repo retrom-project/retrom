@@ -21,52 +21,104 @@ type workflowMemory struct {
 	afterVerify func()
 }
 
-func (m *workflowMemory) Current(context.Context, string) (model.WorkflowSnapshot, error) {
-	if m.stage == "read" || m.stage == "response" && (m.cancel != nil || m.retry != nil) {
-		return model.WorkflowSnapshot{}, m.failure
+func (m *workflowMemory) InspectRetry(_ context.Context, _ string) (model.RetrySnapshot, error) {
+	if m.stage == "read" {
+		return model.RetrySnapshot{}, m.failure
 	}
-	return m.current, nil
+	return model.RetrySnapshot{
+		WorkflowSnapshot:     m.current,
+		FrozenSourceSnapshot: m.source,
+		TargetsValid:         m.targets,
+	}, nil
 }
 
-func (m *workflowMemory) RetryCurrent(ctx context.Context, id string) (model.RetrySnapshot, error) {
-	value, err := m.Current(ctx, id)
-	return model.RetrySnapshot{WorkflowSnapshot: value, FrozenSourceSnapshot: m.source, TargetsValid: m.targets}, err
-}
-
-func (m *workflowMemory) InspectRetry(ctx context.Context, id string) (model.RetrySnapshot, error) {
-	return m.RetryCurrent(ctx, id)
-}
-
-func (m *workflowMemory) WithControl(_ context.Context, work func(model.WorkflowScope) error) error {
+func (m *workflowMemory) CommitCancelWorkflow(
+	_ context.Context, cmd model.CancelWorkflowCommand,
+) (model.WorkflowSnapshot, bool, error) {
 	m.writeScopes++
 	if m.afterVerify != nil {
 		m.afterVerify()
 	}
-	if err := work(model.WorkflowScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
-		return err
+	if m.stage == "read" {
+		return model.WorkflowSnapshot{}, false, m.failure
 	}
-	if m.stage == "commit" {
-		return m.failure
+	version := cmd.Version
+	if cmd.Job != nil {
+		if !model.MatchesCancellationJob(m.current, cmd.Job.JobID, cmd.Job.Kind, cmd.Job.ScopeID) {
+			return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
+		}
+		if cmd.Job.ExpectedVersion < 1 || cmd.Job.ExpectedVersion != m.current.JobVersion {
+			return model.WorkflowSnapshot{}, false, model.ErrVersionConflict
+		}
+		version = m.current.Summary.Version
 	}
-	return nil
-}
-
-func (m *workflowMemory) Cancel(_ context.Context, plan model.CancellationPlan) error {
+	if !model.CanCancelWorkflow(m.current, version) {
+		return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
+	}
+	pending := m.current.JobState == "RUNNING"
+	state := "CANCELLED"
+	if pending {
+		state = "CANCEL_REQUESTED"
+	}
+	plan := model.CancellationPlan{
+		Before: m.current, Reason: cmd.Reason, ActorID: cmd.ActorID, AuditID: cmd.AuditID,
+		NowMS: cmd.NowMS, State: state, Pending: pending,
+	}
+	if !pending {
+		plan.CompletedAtMS = &cmd.NowMS
+	}
+	if m.stage == "write" {
+		return model.WorkflowSnapshot{}, false, m.failure
+	}
 	m.cancel = &plan
 	m.current.Summary.State = plan.State
-	if m.stage == "write" {
-		return m.failure
+	if m.stage == "response" {
+		return model.WorkflowSnapshot{}, false, m.failure
 	}
-	return nil
+	if m.stage == "commit" {
+		return model.WorkflowSnapshot{}, false, m.failure
+	}
+	return m.current, pending, nil
 }
 
-func (m *workflowMemory) Retry(_ context.Context, plan model.RetryPlan) error {
+func (m *workflowMemory) CommitRetryWorkflow(
+	_ context.Context, cmd model.RetryWorkflowCommand,
+) (model.Summary, error) {
+	m.writeScopes++
+	if m.afterVerify != nil {
+		m.afterVerify()
+	}
+	if m.stage == "read" {
+		return model.Summary{}, m.failure
+	}
+	current := model.RetrySnapshot{
+		WorkflowSnapshot:     m.current,
+		FrozenSourceSnapshot: m.source,
+		TargetsValid:         m.targets,
+	}
+	if err := model.ValidateRetryEligibility(current, cmd.Version); err != nil {
+		return model.Summary{}, err
+	}
+	if !model.SameRetryExecution(cmd.Plan.Before, current) {
+		return model.Summary{}, model.ErrNotRetryable
+	}
+	if !model.SameFrozenSource(
+		cmd.Plan.Before.Summary, current.Summary,
+		cmd.Plan.Before.FrozenSourceSnapshot, current.FrozenSourceSnapshot,
+	) {
+		return model.Summary{}, model.ErrSourceChanged
+	}
+	plan := cmd.Plan
+	plan.Before = current
+	if m.stage == "write" {
+		return model.Summary{}, m.failure
+	}
 	m.retry = &plan
 	m.current.Summary.State = "QUEUED"
-	if m.stage == "write" {
-		return m.failure
+	if m.stage == "response" || m.stage == "commit" {
+		return model.Summary{}, m.failure
 	}
-	return nil
+	return m.current.Summary, nil
 }
 
 func workflowFixture() (*workflowMemory, *startSources) {
@@ -75,7 +127,13 @@ func workflowFixture() (*workflowMemory, *startSources) {
 	summary.State = "PARTIAL_FAILURE"
 	summary.Retryable = true
 	summary.ImportJobID = stringPointer("job")
-	return &workflowMemory{current: model.WorkflowSnapshot{Summary: summary, JobState: "SUCCEEDED", JobVersion: 3, Execution: 1, RetryableItems: 2}, source: start.snapshot.FrozenSourceSnapshot, targets: true}, sources
+	return &workflowMemory{
+		current: model.WorkflowSnapshot{
+			Summary: summary, JobState: "SUCCEEDED", JobVersion: 3, Execution: 1, RetryableItems: 2,
+		},
+		source:  start.snapshot.FrozenSourceSnapshot,
+		targets: true,
+	}, sources
 }
 
 func TestWorkflowRetryVerifiesSourceBeforeNewExecution(t *testing.T) {
@@ -86,7 +144,9 @@ func TestWorkflowRetryVerifiesSourceBeforeNewExecution(t *testing.T) {
 			t.Fatal("write scope opened before source verification")
 		}
 	}
-	result, err := NewWorkflowControl(m, sources, func() time.Time { return time.UnixMilli(1000) }).Retry(t.Context(), "import", 4, "editor")
+	result, err := NewWorkflowControl(m, sources, func() time.Time { return time.UnixMilli(1000) }).Retry(
+		t.Context(), "import", 4, "editor",
+	)
 	if err != nil || result.State != "QUEUED" || m.retry == nil {
 		t.Fatalf("retry=%#v error=%v", result, err)
 	}
@@ -102,7 +162,9 @@ func TestWorkflowCancelUsesJobAndPlanStateWithoutSource(t *testing.T) {
 		m.current.Summary.State = state
 		m.current.JobState = state
 		sources.err = errors.New("source unavailable")
-		result, pending, err := NewWorkflowControl(m, sources, func() time.Time { return time.UnixMilli(10) }).Cancel(t.Context(), "import", 4, "  Stop  ", "editor")
+		result, pending, err := NewWorkflowControl(m, sources, func() time.Time { return time.UnixMilli(10) }).Cancel(
+			t.Context(), "import", 4, "  Stop  ", "editor",
+		)
 		want := "CANCELLED"
 		if state == "RUNNING" {
 			want = "CANCEL_REQUESTED"
