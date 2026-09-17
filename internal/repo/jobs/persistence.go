@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -17,19 +18,103 @@ type (
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
 
-func (repository *Repository) WithWrite(ctx context.Context, work func(jobs.Records) error) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
+func (repository *Repository) CommitCancel(
+	ctx context.Context, cmd jobs.CancelCommand,
+) (jobs.CancelResult, error) {
+	var result jobs.CancelResult
+	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
+		store := records{executor: exec}
+		job, err := store.Get(ctx, cmd.JobID)
+		if err != nil {
+			return fmt.Errorf("read cancellation job: %w", err)
+		}
+		if job.Version != cmd.ExpectedVersion || !job.Cancellable ||
+			!jobs.CancellableJobState(job.State, job.Retryable) {
+			return jobs.ErrConflict
+		}
+		if job.Kind == "REVIEW_BULK_APPROVE" {
+			return jobs.ErrRetryViaDomain
+		}
+		if hasDomainHandler(job.Kind, cmd.DomainHandlerFor) {
+			result.NeedsDomain = true
+			result.DomainJob = job
+			return nil
+		}
+		pending := job.State == "RUNNING"
+		state := "CANCELLED"
+		var finishedAtMS *int64
+		if pending {
+			state = "CANCEL_REQUESTED"
+		} else {
+			finishedAtMS = &cmd.NowMS
+		}
+		event, err := json.Marshal(struct {
+			Reason string `json:"reason"`
+		}{Reason: cmd.Reason})
+		if err != nil {
+			return fmt.Errorf("encode cancellation event: %w", err)
+		}
+		change := jobs.Cancellation{
+			JobID: cmd.JobID, ExpectedVersion: cmd.ExpectedVersion,
+			State: state, Reason: cmd.Reason,
+			AtMS: cmd.NowMS, FinishedAtMS: finishedAtMS,
+			Event: event,
+		}
+		if err := store.Cancel(ctx, change); err != nil {
+			return fmt.Errorf("cancel job: %w", err)
+		}
+		if job.Kind == "SERVER_BIOS_IMPORT" {
+			if err := store.CancelServerImport(ctx, change); err != nil {
+				return fmt.Errorf("cancel server import: %w", err)
+			}
+		}
+		result.Result = jobs.Result{
+			Kind: job.Kind, JobID: cmd.JobID,
+			State: state, ExecutionNo: job.ExecutionNo,
+			Version: job.Version + 1,
+		}
+		result.Pending = pending
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("jobs/begin: %w", err)
+		return result, fmt.Errorf("jobs: commit cancel: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	if err := work(records{executor: transaction}); err != nil {
-		return err
+	return result, nil
+}
+
+func (repository *Repository) CommitRetry(
+	ctx context.Context, cmd jobs.RetryCommand,
+) (jobs.Result, error) {
+	var result jobs.Result
+	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
+		store := records{executor: exec}
+		job, err := store.Get(ctx, cmd.JobID)
+		if err != nil {
+			return fmt.Errorf("read retry job: %w", err)
+		}
+		if err := jobs.RetryEligibility(job, cmd.ExpectedVersion); err != nil {
+			return err
+		}
+		previous, err := store.Input(ctx, cmd.JobID, job.ExecutionNo)
+		if err != nil {
+			return fmt.Errorf("read retry input: %w", err)
+		}
+		change, res, err := jobs.BuildRetryWrite(
+			cmd.JobID, cmd.ExpectedVersion, previous, job, cmd.NowMS,
+		)
+		if err != nil {
+			return err
+		}
+		if err := store.Retry(ctx, change); err != nil {
+			return fmt.Errorf("retry job: %w", err)
+		}
+		result = res
+		return nil
+	})
+	if err != nil {
+		return result, fmt.Errorf("jobs: commit retry: %w", err)
 	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("jobs/commit: %w", err)
-	}
-	return nil
+	return result, nil
 }
 
 func (store records) Get(ctx context.Context, id string) (jobs.Job, error) {
@@ -152,4 +237,13 @@ SELECT id,scope_type,scope_id,'MANUAL_RETRY',?,? FROM jobs WHERE id=?
 		return fmt.Errorf("jobs/retry event: %w", err)
 	}
 	return nil
+}
+
+func hasDomainHandler(kind string, domainKinds []string) bool {
+	for _, k := range domainKinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
 }

@@ -2,22 +2,11 @@ package jobs
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 )
 
-var ErrRetryViaDomain = errors.New("RETRY_VIA_DOMAIN_ACTION")
-
-type Result struct {
-	Kind        string `json:"-"`
-	JobID       string `json:"jobId"`
-	State       string `json:"state"`
-	ExecutionNo int64  `json:"executionNo"`
-	Version     int64  `json:"version"`
-}
 
 type Service struct {
 	repository    Repository
@@ -34,68 +23,37 @@ func validReason(value string) bool {
 	return value != "" && len([]rune(value)) <= 500
 }
 
-func cancellableJobState(state string, retryable bool) bool {
-	return state == "QUEUED" || state == "RUNNING" || state == "FAILED" && retryable
-}
-
 func (service *Service) Cancel(
 	ctx context.Context, jobID string, expectedVersion int64, reason string,
 ) (Result, bool, error) {
 	if !validReason(reason) {
 		return Result{}, false, ErrConflict
 	}
-	var result Result
-	var dispatch domainDispatch
-	pending := false
-	err := service.repository.WithWrite(ctx, func(records Records) error {
-		job, err := records.Get(ctx, jobID)
-		if err != nil {
-			return fmt.Errorf("read cancellation job: %w", err)
-		}
-		if job.Version != expectedVersion || !job.Cancellable || !cancellableJobState(job.State, job.Retryable) {
-			return ErrConflict
-		}
-		if job.Kind == "REVIEW_BULK_APPROVE" {
-			return ErrRetryViaDomain
-		}
-		if handler := service.cancellations[job.Kind]; handler != nil {
-			dispatch = domainDispatch{handler: handler, command: DomainCancellation{
-				JobID: jobID, Kind: job.Kind, ScopeID: job.ScopeID,
-				Reason: strings.TrimSpace(reason), ExpectedVersion: expectedVersion,
-			}}
-			return nil
-		}
-		now := service.now().UnixMilli()
-		change := Cancellation{
-			JobID: jobID, ExpectedVersion: expectedVersion, State: "CANCELLED",
-			Reason: strings.TrimSpace(reason), AtMS: now, FinishedAtMS: &now,
-		}
-		pending = job.State == "RUNNING"
-		if pending {
-			change.State, change.FinishedAtMS = "CANCEL_REQUESTED", nil
-		}
-		change.Event, err = json.Marshal(struct {
-			Reason string `json:"reason"`
-		}{Reason: change.Reason})
-		if err != nil {
-			return fmt.Errorf("encode cancellation event: %w", err)
-		}
-		if err := records.Cancel(ctx, change); err != nil {
-			return fmt.Errorf("cancel job: %w", err)
-		}
-		if job.Kind == "SERVER_BIOS_IMPORT" {
-			if err := records.CancelServerImport(ctx, change); err != nil {
-				return fmt.Errorf("cancel server import: %w", err)
-			}
-		}
-		result = Result{JobID: jobID, State: change.State, ExecutionNo: job.ExecutionNo, Version: job.Version + 1}
-		return nil
+	trimmed := strings.TrimSpace(reason)
+	domainKinds := make([]string, 0, len(service.cancellations))
+	for k := range service.cancellations {
+		domainKinds = append(domainKinds, k)
+	}
+	cr, err := service.repository.CommitCancel(ctx, CancelCommand{
+		JobID: jobID, ExpectedVersion: expectedVersion,
+		Reason: trimmed, NowMS: service.now().UnixMilli(),
+		DomainHandlerFor: domainKinds,
 	})
 	if err != nil {
 		return Result{}, false, fmt.Errorf("jobs/cancel: %w", err)
 	}
-	if dispatch.handler != nil {
-		return dispatch.cancel(ctx)
+	if cr.NeedsDomain {
+		handler := service.cancellations[cr.DomainJob.Kind]
+		if handler != nil {
+			return domainDispatch{
+				handler: handler,
+				command: DomainCancellation{
+					JobID: jobID, Kind: cr.DomainJob.Kind,
+					ScopeID: cr.DomainJob.ScopeID,
+					Reason: trimmed, ExpectedVersion: expectedVersion,
+				},
+			}.cancel(ctx)
+		}
 	}
-	return result, pending, nil
+	return cr.Result, cr.Pending, nil
 }
