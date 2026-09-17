@@ -12,36 +12,36 @@ import (
 type (
 	Repository        struct{ database *sql.DB }
 	catalogRecords    struct{ executor dbexec.Executor }
-	projectionRecords struct{ transaction *sql.Tx }
+	projectionRecords struct{ executor dbexec.Executor }
 )
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
-func (repository *Repository) WithWrite(ctx context.Context, work func(service.WriteScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("runtimeprovider/begin: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	if err := work(
-		service.WriteScope{
-			Catalog: catalogRecords{
-				executor: tx,
-			},
-			Projection: projectionRecords{
-				transaction: tx,
-			},
-		},
-	); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("runtimeprovider/commit: %w", err)
-	}
-	return nil
+func (repository *Repository) CommitReconcile(
+	ctx context.Context, cmd service.ReconcileCommand,
+) error {
+	return dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
+		catalog := catalogRecords{executor: exec}
+		current, err := catalog.Current(ctx)
+		if err != nil {
+			return fmt.Errorf("read current runtime catalog: %w", err)
+		}
+		change, changed, err := prepareReconciliation(
+			ctx, catalog, current, cmd.Candidate, cmd.NowMS,
+		)
+		if err != nil {
+			return err
+		}
+		if len(changed) == 0 && current.CatalogSHA256 == cmd.Candidate.CatalogSHA256 {
+			return nil
+		}
+		return applyChangedProjection(
+			ctx, projectionRecords{executor: exec}, change, changed,
+		)
+	})
 }
 
 func (records projectionRecords) Publish(ctx context.Context, input service.Publication) error {
-	tx := records.transaction
+	tx := records.executor
 	if err := clearHostBindings(ctx, tx); err != nil {
 		return err
 	}
@@ -61,11 +61,11 @@ func (records projectionRecords) Publish(ctx context.Context, input service.Publ
 }
 
 func (records projectionRecords) TerminateSessions(ctx context.Context, id string, now int64) error {
-	return terminateProviderSessions(ctx, records.transaction, id, now)
+	return terminateProviderSessions(ctx, records.executor, id, now)
 }
 
 func (records projectionRecords) Audit(ctx context.Context, input service.Audit) error {
-	if _, err := records.transaction.ExecContext(ctx, `
+	if _, err := records.executor.ExecContext(ctx, `
 INSERT INTO audit_events(
  id,actor_kind,actor_label,action,resource_type,resource_id,diff_json,created_at_ms
 ) VALUES(?,'SYSTEM','runtime-provider-reconciliation','RUNTIME_PROVIDER_RECONCILED',
@@ -76,7 +76,7 @@ INSERT INTO audit_events(
 	return nil
 }
 
-func writeProvidersAndTargets(ctx context.Context, tx *sql.Tx, candidate service.Projection, now int64) error {
+func writeProvidersAndTargets(ctx context.Context, tx dbexec.Executor, candidate service.Projection, now int64) error {
 	for _, provider := range candidate.Providers {
 		if err := writeProvider(ctx, tx, provider, now); err != nil {
 			return err
@@ -92,7 +92,7 @@ func writeProvidersAndTargets(ctx context.Context, tx *sql.Tx, candidate service
 
 func removeStaleProjection(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx dbexec.Executor,
 	providers []string,
 	targets []service.TargetIdentity,
 ) error {

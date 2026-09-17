@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	service "retrom/internal/service/runtimeprovider"
+	service "retrom/internal/model/runtimeprovider"
 )
 
 func TestCheckpointGuardProtectsOnlyDurableSaves(t *testing.T) {
@@ -50,7 +50,7 @@ INSERT INTO game_variants VALUES('game','fixture','target','alternative');
 			}
 			defer func() { _ = transaction.Rollback() }()
 			upgrade := projectionFixture("1.1.0", "b", []string{"state-v2"})
-			err = validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.Providers[0].Targets[0])
+			err = testValidateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.Providers[0].Targets[0])
 			if errors.Is(err, service.ErrProviderCheckpointUnreadable) != test.blocked {
 				t.Fatalf("blocked=%v error=%v", test.blocked, err)
 			}
@@ -61,12 +61,16 @@ INSERT INTO game_variants VALUES('game','fixture','target','alternative');
 	}
 }
 
-func validateCheckpointFormats(
+func testValidateCheckpointFormats(
 	ctx context.Context, tx *sql.Tx, providerID string, target service.TargetProjection,
 ) error {
-	formats, err := (catalogRecords{executor: tx}).CheckpointFormats(ctx, service.TargetIdentity{ProviderID: providerID, TargetID: target.Target.ID})
+	formats, err := (catalogRecords{executor: tx}).CheckpointFormats(
+		ctx, service.TargetIdentity{
+			ProviderID: providerID, TargetID: target.Target.ID,
+		},
+	)
 	if err != nil {
 		return err
 	}
-	return service.ValidateCheckpointFormats(providerID, target, formats)
+	return validateCheckpointFormats(providerID, target, formats)
 }

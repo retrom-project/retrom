@@ -175,7 +175,7 @@ INSERT INTO save_states(game_id,checkpoint_format,source_launch_session_id) VALU
 		t.Fatal(err)
 	}
 	upgrade := projectionFixture("1.1.0", "b", []string{"state-v2"})
-	if err := validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.Providers[0].Targets[0]); !errors.Is(err, service.ErrProviderCheckpointUnreadable) {
+	if err := testValidateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.Providers[0].Targets[0]); !errors.Is(err, service.ErrProviderCheckpointUnreadable) {
 		t.Fatalf("error = %v", err)
 	}
 }
