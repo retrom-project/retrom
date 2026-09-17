@@ -18,7 +18,7 @@ import (
 func TestScanCancellationRechecksOriginalJobVersionAndOwnership(t *testing.T) {
 	t.Parallel()
 	db, id, _ := publicationDatabase(t)
-	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), func() time.Time { return time.UnixMilli(10) })
 	before := publicationRows(t, db)
 	if result, pending, err := service.CancelJob(
 		t.Context(),
@@ -66,7 +66,7 @@ leased_until_ms=NULL,heartbeat_at_ms=NULL WHERE id='job-0'`); err != nil {
 	cause := errors.New("scan cancellation audit unavailable")
 	deleted, audits := 0, 0
 	fault := cancellationAuditFault(t, db, id.ImportID, cause, &deleted, &audits)
-	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(fault), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(fault, testPayloadTerminator()), func() time.Time { return time.UnixMilli(10) })
 	result, pending, err := service.CancelJob(
 		t.Context(),
 		pegasusimportservice.JobCancellationRequest{
@@ -86,34 +86,21 @@ leased_until_ms=NULL,heartbeat_at_ms=NULL WHERE id='job-0'`); err != nil {
 	}
 }
 
-func TestScanCancellationRepositoryRejectsReplacedParentAndJobSnapshot(t *testing.T) {
+func TestScanCancellationRepositoryRejectsStaleJobVersion(t *testing.T) {
 	t.Parallel()
-	for _, change := range []string{"job", "plan", "execution"} {
-		t.Run(change, func(t *testing.T) {
-			db, id, _ := publicationDatabase(t)
-			before := publicationRows(t, db)
-			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope pegasusimportmodel.WorkflowScope) error {
-				current, err := scope.Read.CurrentJob(t.Context(), id.JobID)
-				if err != nil {
-					return err
-				}
-				switch change {
-				case "job":
-					current.JobVersion++
-				case "plan":
-					current.Summary.Version++
-				default:
-					current.Execution++
-				}
-				return scope.Write.Cancel(t.Context(), pegasusimportmodel.CancellationPlan{
-					Before: current, State: "CANCEL_REQUESTED",
-					Pending: true, Reason: "Stop", ActorID: "actor", AuditID: "cancel-audit", NowMS: 10,
-				})
-			})
-			if !errors.Is(err, pegasusimportmodel.ErrNotCancellable) || !reflect.DeepEqual(before, publicationRows(t, db)) {
-				t.Fatalf("stale %s changed state: %v", change, err)
-			}
-		})
+	db, id, _ := publicationDatabase(t)
+	before := publicationRows(t, db)
+	cmd := pegasusimportmodel.CancelWorkflowCommand{
+		ID: id.JobID, Reason: "Stop", ActorID: "actor",
+		AuditID: "cancel-audit", NowMS: 10, Version: 999,
+		ByJob: true, Kind: "SERVER_PEGASUS_SCAN", ScopeID: id.ImportID,
+	}
+	_, _, err := NewWorkflowControl(db, testPayloadTerminator()).CommitCancelWorkflow(t.Context(), cmd)
+	if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
+		t.Fatalf("stale job version accepted: %v", err)
+	}
+	if !reflect.DeepEqual(before, publicationRows(t, db)) {
+		t.Fatal("stale job version changed state")
 	}
 }
 

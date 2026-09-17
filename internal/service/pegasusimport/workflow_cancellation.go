@@ -38,8 +38,6 @@ func (service *WorkflowControl) Cancel(
 	return after.Summary, pending, err
 }
 
-// CancelJob checks the caller's original Job version within the same transaction
-// that changes the domain aggregate; it never translates an ETag outside that transaction.
 func (service *WorkflowControl) CancelJob(
 	ctx context.Context,
 	request JobCancellationRequest,
@@ -67,106 +65,18 @@ func (service *WorkflowControl) cancel(
 	if request.Reason == "" || utf8.RuneCountInString(request.Reason) > 500 {
 		return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
 	}
-	var result model.WorkflowSnapshot
-	var pending bool
-	err := service.repository.WithControl(ctx, func(scope model.WorkflowScope) error {
-		before, err := readCancellation(ctx, scope.Read, request)
-		if err != nil {
-			return err
-		}
-		plan, err := service.cancellationPlan(before, request)
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Cancel(ctx, plan); err != nil {
-			return fmt.Errorf("save Pegasus cancellation: %w", err)
-		}
-		if plan.Before.Summary.ImportJobID != nil {
-			if err := scheduleTerminalPayloads(ctx, scope.Payload, plan.Before.Summary.ID, plan.NowMS); err != nil {
-				return err
-			}
-		}
-		after, err := scope.Read.Current(ctx, before.Summary.ID)
-		if err != nil {
-			return fmt.Errorf("read cancelled Pegasus import: %w", err)
-		}
-		result, pending = after, plan.Pending
-		return nil
-	})
+	audit, err := uuid.NewV7()
+	if err != nil {
+		return model.WorkflowSnapshot{}, false, fmt.Errorf("generate Pegasus cancellation audit: %w", err)
+	}
+	cmd := model.CancelWorkflowCommand{
+		ID: request.ID, Reason: request.Reason, ActorID: request.ActorID,
+		AuditID: audit.String(), Version: request.Version, NowMS: service.now().UnixMilli(),
+		ByJob: request.ByJob, Kind: request.Kind, ScopeID: request.ScopeID,
+	}
+	result, pending, err := service.repository.CommitCancelWorkflow(ctx, cmd)
 	if err != nil {
 		return model.WorkflowSnapshot{}, false, fmt.Errorf("finish Pegasus cancellation: %w", err)
 	}
 	return result, pending, nil
-}
-
-func readCancellation(
-	ctx context.Context,
-	reader model.WorkflowReader,
-	request cancellationRequest,
-) (model.WorkflowSnapshot, error) {
-	var before model.WorkflowSnapshot
-	var err error
-	if request.ByJob {
-		before, err = reader.CurrentJob(ctx, request.ID)
-	} else {
-		before, err = reader.Current(ctx, request.ID)
-	}
-	if err != nil {
-		return model.WorkflowSnapshot{}, fmt.Errorf("read Pegasus cancellation: %w", err)
-	}
-	version := request.Version
-	if request.ByJob {
-		if !matchesCancellationJob(before, request) {
-			return model.WorkflowSnapshot{}, model.ErrNotCancellable
-		}
-		if request.Version != before.JobVersion || request.Version < 1 {
-			return model.WorkflowSnapshot{}, model.ErrVersionConflict
-		}
-		version = before.Summary.Version
-	}
-	if !canCancel(before, version) {
-		return model.WorkflowSnapshot{}, model.ErrNotCancellable
-	}
-	return before, nil
-}
-
-func (service *WorkflowControl) cancellationPlan(
-	before model.WorkflowSnapshot,
-	request cancellationRequest,
-) (model.CancellationPlan, error) {
-	auditID, err := uuid.NewV7()
-	if err != nil {
-		return model.CancellationPlan{}, fmt.Errorf("generate Pegasus cancellation audit: %w", err)
-	}
-	plan := model.CancellationPlan{
-		Before: before, Reason: request.Reason, ActorID: request.ActorID, AuditID: auditID.String(),
-		NowMS: service.now().UnixMilli(), State: "CANCELLED",
-		Pending: before.JobState == "RUNNING" || before.Summary.State == "RUNNING",
-	}
-	if plan.Pending {
-		plan.State = "CANCEL_REQUESTED"
-	} else {
-		plan.CompletedAtMS = &plan.NowMS
-	}
-	return plan, nil
-}
-
-func canCancel(before model.WorkflowSnapshot, version int64) bool {
-	if !validWorkflowVersion(before, version) || (before.JobState != "QUEUED" && before.JobState != "RUNNING") {
-		return false
-	}
-	if before.Summary.ImportJobID == nil {
-		return before.Summary.ScanJobID != "" && before.Summary.State == "SCANNING"
-	}
-	return before.Summary.State == "QUEUED" || before.Summary.State == "RUNNING"
-}
-
-func matchesCancellationJob(before model.WorkflowSnapshot, request cancellationRequest) bool {
-	if before.Summary.ID != request.ScopeID {
-		return false
-	}
-	if before.Summary.ImportJobID != nil {
-		return *before.Summary.ImportJobID == request.ID && request.Kind == "SERVER_PEGASUS_IMPORT"
-	}
-	return before.Summary.ScanJobID == request.ID && request.Kind == "SERVER_PEGASUS_SCAN"
 }

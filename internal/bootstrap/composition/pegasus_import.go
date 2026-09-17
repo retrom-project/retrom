@@ -49,7 +49,7 @@ func NewPegasusImport(database *sql.DB, blobs *blobstore.Store, importer applica
 		Creation:  application.NewCreation(repository.NewCreation(database), source, now),
 		Mappings:  application.NewMappings(repository.NewMappings(database), now),
 		Starter:   application.NewStarter(repository.NewStarter(database), source, now),
-		Control:   application.NewWorkflowControl(repository.NewWorkflowControl(database), now),
+		Control:   application.NewWorkflowControl(repository.NewWorkflowControl(database, payloadScheduler()), now),
 		Lifecycle: lifecycle, Worker: worker,
 	})
 }
