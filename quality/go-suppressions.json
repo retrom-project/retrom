@@ -126,6 +126,51 @@
       "reason": "Directory mutations and their audit records share one atomic write scope.",
       "invariant": "Directory lifecycle changes and audit records must commit together.",
       "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/testkit/architecture/layer_scan.go",
+      "line": 80,
+      "symbol": "func scanImportViolations",
+      "linter": "nilerr",
+      "reason": "WalkDir callback intentionally skips unreadable filesystem entries without propagating the walk error.",
+      "invariant": "Unreachable entries are silently skipped; the scan continues and reports only parseable violations.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/testkit/architecture/layer_scan.go",
+      "line": 235,
+      "symbol": "func checkModelPurity",
+      "linter": "nilerr",
+      "reason": "WalkDir callback skips unreadable or non-directory entries in the model tree.",
+      "invariant": "Unreachable model entries are silently skipped; scan continues for reachable files.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/testkit/architecture/layer_scan.go",
+      "line": 243,
+      "symbol": "func checkModelPurity",
+      "linter": "nilerr",
+      "reason": "ParseFile errors for individual model files are skipped to allow the scan to continue.",
+      "invariant": "Unparseable model files do not block the purity check for other files.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "scripts/architecture-audit/main.go",
+      "line": 76,
+      "symbol": "func main",
+      "linter": "errcheck",
+      "reason": "Stdout write failure is non-recoverable; the process exits naturally on pipe close.",
+      "invariant": "The audit report is written to stdout as best-effort; pipe errors terminate the process.",
+      "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "scripts/architecture-audit/main.go",
+      "line": 77,
+      "symbol": "func main",
+      "linter": "errcheck",
+      "reason": "Stdout newline write failure is non-recoverable; the process exits naturally.",
+      "invariant": "Trailing newline is best-effort output formatting.",
+      "reviewAfter": "2027-09-17"
     }
   ]
 }
