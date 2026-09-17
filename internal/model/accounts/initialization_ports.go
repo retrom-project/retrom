@@ -4,8 +4,16 @@ import (
 	"context"
 	"time"
 
-	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
+)
+
+// Mode represents the application operating mode passed to model from the
+// service layer.  Defining it here avoids a model → bootstrap dependency.
+type Mode string
+
+const (
+	ModeRelease Mode = "release"
+	ModeTest    Mode = "test"
 )
 
 type InitializationState struct {
@@ -43,7 +51,7 @@ type SetupCredentials interface {
 	MatchesSetupCode(string) bool
 }
 type InitializationOptions struct {
-	Mode        config.Mode
+	Mode        Mode
 	Credentials SetupCredentials
 	Hasher      PasswordHasher
 	Blocklist   authn.Blocklist

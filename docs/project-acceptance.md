@@ -2374,3 +2374,26 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
   与全部 Worker 释放。证据为 `ppsspp-range.json`；不能复用旧截图或旧网络记录作为当次结果。
 - 本 Case 聚焦内容读取边界；导入发布链路本身仍由 ACC-PSP-001 验证，结论不扩大到完整
   PSP 游戏库、CSO/CHD/PBP 的真实兼容性或硬件性能。
+
+## 架构分层验收
+
+### ACC-LAYER-001：架构检查器、反例与全量 inventory 对账
+
+- 前提：工作树已 `make install-deps`。
+- 执行：`make architecture-check`，包含检查器自身测试（含反例）和 CLI 全量扫描。
+- 通过条件：0 违规、0 分析错误；`inventory-scan.json` 与 `architecture-report.json` 均写入 `$(LAYERING_EVIDENCE)`。
+
+### ACC-LAYER-002：model/service/SQLite/组合事务用例
+
+- 执行：`make test-layering`，覆盖所有 Go 包的 integration-tagged 测试。
+- 通过条件：所有列出的测试执行且通过，无跳过。
+
+### ACC-LAYER-003：竞争检测与重复执行
+
+- 执行：`make test-layering-race` 与 `make test-layering-repeat`。
+- 通过条件：无 race，竞争/回滚重复执行稳定（20 次）。
+
+### ACC-LAYER-004：API、存储兼容、tagging 现有 Case 与全量 CI
+
+- 执行：`make api-check && make web-check && make integration-test && make ci`。
+- 通过条件：既有协议/数据/业务规则不变，完整门禁通过。

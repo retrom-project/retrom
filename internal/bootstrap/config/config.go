@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	accounts "retrom/internal/model/accounts"
 	"slices"
 	"strconv"
 	"strings"
@@ -67,11 +68,14 @@ type Config struct {
 	PFBID                    string
 }
 
-type Mode string
+// Mode is defined in internal/model/accounts to preserve model → bootstrap
+// layering.  These aliases keep existing config.Mode / config.ModeRelease /
+// config.ModeTest references working without a global rename.
+type Mode = accounts.Mode
 
 const (
-	ModeRelease Mode = "release"
-	ModeTest    Mode = "test"
+	ModeRelease = accounts.ModeRelease
+	ModeTest    = accounts.ModeTest
 )
 
 func ParseMode(value string) (Mode, error) {

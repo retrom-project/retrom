@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"retrom/internal/adapter/runtime/runtime"
-	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
 	accountsmodel "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
@@ -19,7 +18,7 @@ func NewAccounts(
 	ctx context.Context,
 	database *sql.DB,
 	credentials *runtime.Credentials,
-	mode config.Mode,
+	mode accountsmodel.Mode,
 	blocklist authn.Blocklist,
 	now func() time.Time,
 ) (*accountsservice.Service, error) {

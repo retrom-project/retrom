@@ -5,7 +5,6 @@ import (
 	"fmt"
 	model "retrom/internal/model/accounts"
 
-	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
 )
 
@@ -35,7 +34,7 @@ func (service *InitializationService) Start(ctx context.Context) error {
 		if state.Users != 0 || state.Profiles != 0 {
 			return model.ErrInitializationState
 		}
-		if service.options.Mode == config.ModeTest {
+		if service.options.Mode == model.ModeTest {
 			_, err := service.bootstrap(ctx, "test", "test", "test", "TEST_DEFAULT")
 			return err
 		}
@@ -44,7 +43,7 @@ func (service *InitializationService) Start(ctx context.Context) error {
 	if state.State != "COMPLETED" || state.EnabledAdmins == 0 || state.OrphanProfiles != 0 {
 		return model.ErrInitializationState
 	}
-	if service.options.Mode == config.ModeRelease && state.TestDefault {
+	if service.options.Mode == model.ModeRelease && state.TestDefault {
 		return model.ErrTestCredential
 	}
 	return service.validateCredentials(ctx)
@@ -75,7 +74,7 @@ func (service *InitializationService) ReadSetupCode(ctx context.Context) (string
 }
 
 func (service *InitializationService) Initialize(ctx context.Context, request model.InitializeRequest) (model.Session, error) {
-	if service.options.Mode != config.ModeRelease {
+	if service.options.Mode != model.ModeRelease {
 		return model.Session{}, model.ErrInitializationDone
 	}
 	if !service.options.Credentials.MatchesSetupCode(request.SetupCode) {

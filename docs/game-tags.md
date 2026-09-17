@@ -45,7 +45,7 @@ Tag 删除与关系变化都在短数据库写事务内完成，不执行文件�
 
 `internal/service/tagging` 维护名称与容量校验、活动引用验证、版本与删除确认、关系差异、no-op 和审计快照。`internal/repo/tagging` 实现业务 Repository 接口，集中 SQL、nullable 映射、分页及联动版本更新，并复用 `internal/repo/dbexec` 的执行与扫描接口。
 
-独立标签用例通过 Repository 开启短写事务。参与导入、审核发布及 Collection 映射时，标签 Service 接收绑定到外层事务的 `WriteScope` 业务能力；它不接收 `sql.Tx`，也不独立提交。外层操作失败必须同时撤销标签关系和版本推进。分页 cursor 先在 Service 验证并转换为类型明确的查询参数，再交给 Repository 生成 SQL 条件。
+独立标签用例通过 Repository 命名原子操作（如 `CommitCreate`、`CommitRename`、`CommitDelete`、`CommitReplaceGameTags`）完成短写事务。参与导入、审核发布及 Collection 映射时，标签关系写入由组合 repo 在外层事务中代为执行，service 不接收 `sql.Tx` 或事务回调，也不独立提交。外层操作失败必须同时撤销标签关系和版本推进。分页 cursor 先在 Service 验证并转换为类型明确的查询参数，再交给 Repository 生成 SQL 条件。
 
 ## 4. 普通导入与 Pegasus
 

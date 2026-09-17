@@ -6,8 +6,21 @@ import (
 
 	contentvalidation "retrom/internal/capability/content/corevalidation"
 	"retrom/internal/model/tagging"
-	"retrom/internal/transport/netplay/profile"
 )
+
+// ManifestProfile is the netplay profile definition loaded from a provider
+// manifest.  It is defined here (model layer) so that model types do not
+// depend on the transport layer.  The transport/netplay/profile package
+// references this type via a type alias.
+type ManifestProfile struct {
+	ID                  string   `json:"id"`
+	ProviderID          string   `json:"providerId"`
+	TargetID            string   `json:"targetId"`
+	CoreID              string   `json:"coreId"`
+	PlatformIDs         []string `json:"platformIds"`
+	MaxPlayers          int      `json:"maxPlayers"`
+	MaxPredictionFrames int      `json:"maxPredictionFrames"`
+}
 
 var ErrInvalidProfile = errors.New("NETPLAY_INVALID_PROFILE")
 
@@ -63,7 +76,7 @@ type GameSummary struct {
 
 type EligibleProfile struct {
 	Summary                ProfileSummary
-	Manifest               profile.ManifestProfile
+	Manifest               ManifestProfile
 	VariantID              string
 	BundleSHA256           string
 	SourceManifestDigest   string
