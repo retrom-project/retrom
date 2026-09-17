@@ -25,19 +25,25 @@ func (memory *isolationMemory) Capability(context.Context, CredentialQuery) (Cap
 	return memory.capability, nil
 }
 func (memory *isolationMemory) Revoke(context.Context, Access, int64) error { return nil }
-func (memory *isolationMemory) WithWrite(_ context.Context, work func(Tickets) error) error {
+
+func (memory *isolationMemory) ConsumeAndIssue(
+	_ context.Context, cmd ConsumeAndIssueCommand,
+) (ConsumeAndIssueResult, error) {
 	memory.writes++
-	return work(memory)
-}
-
-func (memory *isolationMemory) Consume(context.Context, TicketQuery, int64) error {
+	if memory.bootstrap.Consumed || memory.bootstrap.ExpiresAtMS <= cmd.NowMS ||
+		!ActiveSession(memory.bootstrap.Session, cmd.NowMS) {
+		return ConsumeAndIssueResult{}, ErrCredential
+	}
 	memory.consumed++
-	return nil
-}
-
-func (memory *isolationMemory) Issue(context.Context, CapabilityWrite) error {
 	memory.issued++
-	return nil
+	access := Access{
+		LaunchID: cmd.LaunchID, Origin: cmd.Origin,
+		Profile:       memory.bootstrap.Session.Profile,
+		ContentFormat: memory.bootstrap.Session.ContentFormat,
+		Preview:       memory.bootstrap.Session.Preview,
+		Expires:       memory.bootstrap.Session.HardExpiresAtMS,
+	}
+	return ConsumeAndIssueResult{Access: access}, nil
 }
 
 func TestInvalidCredentialsDoNotReachRepository(t *testing.T) {

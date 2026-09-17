@@ -17,19 +17,39 @@ type (
 )
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
-func (repository *Repository) WithWrite(ctx context.Context, work func(isolation.Tickets) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+func (repository *Repository) ConsumeAndIssue(
+	ctx context.Context, cmd isolation.ConsumeAndIssueCommand,
+) (isolation.ConsumeAndIssueResult, error) {
+	var result isolation.ConsumeAndIssueResult
+	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
+		store := tickets{executor: exec}
+		bootstrap, err := store.Bootstrap(ctx, cmd.Query)
+		if err != nil {
+			return fmt.Errorf("read isolated ticket: %w", err)
+		}
+		if bootstrap.Consumed || bootstrap.ExpiresAtMS <= cmd.NowMS ||
+			!isolation.ActiveSession(bootstrap.Session, cmd.NowMS) {
+			return isolation.ErrCredential
+		}
+		if err := store.Consume(ctx, cmd.Query, cmd.NowMS); err != nil {
+			return fmt.Errorf("consume isolated ticket: %w", err)
+		}
+		access := isolation.SessionAccess(
+			bootstrap.Session, cmd.LaunchID, cmd.Origin,
+			bootstrap.Session.HardExpiresAtMS,
+		)
+		if err := store.Issue(ctx, isolation.CapabilityWrite{
+			Access: access, Digest: cmd.Digest, IssuedAtMS: cmd.NowMS,
+		}); err != nil {
+			return fmt.Errorf("issue isolated capability: %w", err)
+		}
+		result.Access = access
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("isolation/begin: %w", err)
+		return result, fmt.Errorf("isolation: consume and issue: %w", err)
 	}
-	defer dbexec.Rollback(tx)
-	if err := work(tickets{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("isolation/commit: %w", err)
-	}
-	return nil
+	return result, nil
 }
 
 func (repository *Repository) Bootstrap(ctx context.Context, query isolation.TicketQuery) (isolation.Bootstrap, error) {

@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"retrom/internal/service/isolation"
+	"retrom/internal/model/isolation"
 )
 
 func TestFailedCapabilityIssueDoesNotConsumeTicket(t *testing.T) {
@@ -16,18 +16,13 @@ func TestFailedCapabilityIssueDoesNotConsumeTicket(t *testing.T) {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(raw)
-	query := isolation.TicketQuery{LaunchID: fixture.launchID, Origin: fixture.origin, Digest: &digest}
-	err = fixture.repository.WithWrite(t.Context(), func(records isolation.Tickets) error {
-		if err := records.Consume(t.Context(), query, *fixture.nowMS); err != nil {
-			return err
-		}
-		return records.Issue(t.Context(), isolation.CapabilityWrite{
-			Digest: digest, IssuedAtMS: *fixture.nowMS,
-			Access: isolation.Access{LaunchID: fixture.launchID, Origin: fixture.origin, Profile: "wrong-owner", Expires: *fixture.nowMS + 1000},
-		})
+	_, err = fixture.repository.ConsumeAndIssue(t.Context(), isolation.ConsumeAndIssueCommand{
+		Query:    isolation.TicketQuery{LaunchID: fixture.launchID, Origin: fixture.origin, Digest: &digest},
+		LaunchID: fixture.launchID, Origin: "wrong-origin",
+		Digest: digest, NowMS: *fixture.nowMS,
 	})
 	if err == nil {
-		t.Fatal("capability with a mismatched owner was issued")
+		t.Fatal("capability with a mismatched origin was issued")
 	}
 	if _, err := fixture.service.InspectBootstrap(t.Context(), fixture.launchID, fixture.origin); err != nil {
 		t.Fatalf("failed issue consumed ticket: %v", err)
