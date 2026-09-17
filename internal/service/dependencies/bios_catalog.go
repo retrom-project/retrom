@@ -1,17 +1,9 @@
 package dependencies
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
-
-	model "retrom/internal/model/dependencies"
-
-	"github.com/google/uuid"
 )
 
 type staticBIOS struct {
@@ -266,76 +258,6 @@ var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 		sourceURL: "https://docs.libretro.com/library/beetle_pc_fx/",
 	},
 }...)
-
-// Static BIOS definitions are synchronized atomically with their aliases and version provenance.
-func bootstrapStaticBIOS(
-	ctx context.Context,
-	records model.BIOSRecords,
-	versionName string,
-	selectedTargets map[string]model.RuntimeTarget,
-	now time.Time,
-) error {
-	catalog, err := completeStaticBIOSCatalog()
-	if err != nil {
-		return err
-	}
-	if err := validateBIOSActivationOptions(catalog); err != nil {
-		return err
-	}
-	for _, requirement := range catalog {
-		target, selected := selectedTargets[requirement.coreID]
-		if !selected {
-			continue
-		}
-		if requirement.providerID != "" &&
-			(target.ProviderID != requirement.providerID || target.TargetID != requirement.targetID) {
-			return fmt.Errorf("%w: firmware target %s", errBIOSOptions, requirement.coreID)
-		}
-		delivery := requirement.delivery
-		if delivery == "" {
-			delivery = "BIOS_BUNDLE"
-		}
-		canonical, _ := json.Marshal(
-			map[string]any{
-				"activationOptions": json.RawMessage(nullableJSON(requirement.options)),
-				"conditionCode":     requirement.condition,
-				"deliveryKind":      delivery,
-				"emulatorPath":      nullableStringValue(requirement.emulatorPath),
-				"logicalName":       requirement.logical,
-				"archiveMembers":    json.RawMessage(nullableJSON(requirement.members)),
-				"sourceDigest":      requirement.sourceDigest,
-				"md5":               requirement.md5,
-				"mode":              requirement.mode,
-				"sha256":            nullableStringValue(requirement.sha256),
-				"sizeBytes":         nullablePositive(requirement.size),
-			},
-		)
-		digest := sha256.Sum256(canonical)
-		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
-			"retrom:bios:"+target.ProviderID+":"+target.TargetID+":"+requirement.logical,
-		)).String()
-		err := records.Upsert(ctx, model.BIOSRequirement{
-			ID: id, CoreID: requirement.coreID, ProviderID: target.ProviderID, TargetID: target.TargetID,
-			LogicalName: requirement.logical, Mode: requirement.mode, ConditionCode: requirement.condition,
-			Options: nullableOptions(
-				requirement.options,
-			), Digest: hex.EncodeToString(
-				digest[:],
-			), SizeBytes: nullablePositive(
-				requirement.size,
-			),
-			MD5: requirement.md5, SHA256: nullableStringValue(requirement.sha256), SourceURL: requirement.sourceURL,
-			VersionName: versionName, AtMS: now.UnixMilli(), Delivery: delivery, EmulatorPath: nullableStringValue(
-				requirement.emulatorPath,
-			),
-			ArchiveMembers: nullableStringValue(requirement.members),
-		})
-		if err != nil {
-			return fmt.Errorf("seed BIOS requirement: %w", err)
-		}
-	}
-	return nil
-}
 
 func validateBIOSActivationOptions(catalog []staticBIOS) error {
 	byCore := make(map[string]map[string]string)

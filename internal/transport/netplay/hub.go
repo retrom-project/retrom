@@ -194,7 +194,8 @@ func (hub *Hub) Connect(
 		case errors.Is(err, context.DeadlineExceeded):
 			kind = "TIMEOUT"
 		}
-		slog.InfoContext(ctx, "netplay peer socket disconnected",
+		slog.InfoContext(
+			ctx, "netplay peer socket disconnected",
 			"roomId", session.roomID, "sessionId", session.sessionID,
 			"playerNo", participant.PlayerNo, "kind", kind, "closeStatus", int(status),
 		)
@@ -252,7 +253,8 @@ func (client *peer) validateAndPing(ctx context.Context, session *realtimeSessio
 			session.fail(ctx, "AUTH_REVOKED", client.participant.ProfileID)
 			return false
 		case SessionUnavailable:
-			slog.WarnContext(ctx, "netplay peer authentication unavailable",
+			slog.WarnContext(
+				ctx, "netplay peer authentication unavailable",
 				"roomId", session.roomID, "sessionId", session.sessionID,
 				"playerNo", client.participant.PlayerNo, "consecutive", client.authUnavailable,
 			)
@@ -305,7 +307,8 @@ func (session *realtimeSession) readMessages(ctx context.Context, client *peer) 
 			if errors.Is(err, ErrProtocol) {
 				reason = "PROTOCOL_VIOLATION"
 			}
-			slog.WarnContext(ctx, "netplay client message rejected",
+			slog.WarnContext(
+				ctx, "netplay client message rejected",
 				"roomId", session.roomID, "sessionId", session.sessionID,
 				"playerNo", client.participant.PlayerNo, "reason", reason, "error", err,
 			)
@@ -474,7 +477,8 @@ func (session *realtimeSession) sendPeerHistoryLocked(
 
 func (session *realtimeSession) prepareResync(ctx context.Context) {
 	if err := session.services.Sessions.PrepareReconnectResync(ctx, session.roomID, session.sessionID); err != nil {
-		slog.ErrorContext(ctx, "netplay reconnect resync preparation failed",
+		slog.ErrorContext(
+			ctx, "netplay reconnect resync preparation failed",
 			"roomId", session.roomID, "sessionId", session.sessionID, "error", err,
 		)
 		session.fail(ctx, "INTERNAL_ERROR", "")
@@ -502,7 +506,8 @@ func (session *realtimeSession) removePeer(ctx context.Context, client *peer) {
 		participant := client.participant
 		go func() {
 			if err := session.services.Peers.MarkDisconnected(workContext, participant); err != nil {
-				slog.ErrorContext(workContext, "netplay disconnect persistence failed",
+				slog.ErrorContext(
+					workContext, "netplay disconnect persistence failed",
 					"roomId", session.roomID, "sessionId", session.sessionID, "playerNo", playerNo,
 				)
 			}

@@ -37,30 +37,12 @@ func (service *RecoveryService) Reset(ctx context.Context, username, password, c
 	if err != nil {
 		return fmt.Errorf("create recovery audit identity: %w", err)
 	}
-	err = service.repository.CommitWrite(ctx, func(scope model.RecoveryScope) error {
-		current, found, err := scope.Read.Current(ctx, target.UserID)
-		if err != nil {
-			return fmt.Errorf("recheck offline recovery target: %w", err)
-		}
-		if !found || !recoverable(current) || current.Version != target.Version {
-			return model.ErrOfflineAdmin
-		}
-		plan := model.RecoveryPlan{
-			Target: current, PasswordHash: hash, AuditID: id.String(),
-			ClearTestDefault: current.Username == "test", Now: service.now().UnixMilli(),
-			BeforeJSON: fmt.Sprintf(
-				`{"status":%q,"version":%d}`,
-				current.Status,
-				current.Version,
-			), AfterJSON: fmt.Sprintf(
-				`{"status":"ENABLED","version":%d}`,
-				current.Version+1,
-			),
-		}
-		if err := scope.Write.Reset(ctx, plan); err != nil {
-			return fmt.Errorf("reset offline admin security: %w", err)
-		}
-		return nil
+	err = service.repository.CommitRecovery(ctx, model.RecoveryCommand{
+		UserID:       target.UserID,
+		Version:      target.Version,
+		PasswordHash: hash,
+		AuditID:      id.String(),
+		NowMS:        service.now().UnixMilli(),
 	})
 	if err != nil {
 		return fmt.Errorf("commit offline admin recovery: %w", err)
@@ -80,7 +62,7 @@ func (service *RecoveryService) prepare(
 	if err != nil {
 		return target, "", fmt.Errorf("read recovery target: %w", err)
 	}
-	if !found || !recoverable(target) {
+	if !found || !model.Recoverable(target) {
 		return target, "", model.ErrOfflineAdmin
 	}
 	normalized, err := authn.ValidatePassword(
@@ -98,8 +80,4 @@ func (service *RecoveryService) prepare(
 		return target, "", fmt.Errorf("hash offline recovery password: %w", err)
 	}
 	return target, hash, nil
-}
-
-func recoverable(target model.RecoveryTarget) bool {
-	return target.Role == "ADMIN" && target.Status != "DELETED"
 }

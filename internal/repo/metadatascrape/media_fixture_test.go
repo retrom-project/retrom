@@ -47,12 +47,12 @@ func (fixture *mediaFixture) worker(source mediaSource) *metadatascrapeservice.M
 
 func (fixture *mediaFixture) snapshot(t *testing.T) metadatascrapemodel.MediaSnapshot {
 	t.Helper()
-	var snapshot metadatascrapemodel.MediaSnapshot
-	err := NewMedia(fixture.database).CommitWrite(t.Context(), func(scope metadatascrapemodel.MediaScope) error {
-		var err error
-		snapshot, err = scope.Read.Snapshot(t.Context(), fixture.jobID)
-		return err
-	})
+	tx, err := fixture.database.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	snapshot, err := mediaRecords{tx}.Snapshot(t.Context(), fixture.jobID)
 	if err != nil {
 		t.Fatal(err)
 	}

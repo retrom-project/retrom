@@ -34,10 +34,10 @@ func (repository *Repository) Children(ctx context.Context, key importdiscard.Ke
 	return records{repository.database}.Children(ctx, key)
 }
 
-func (repository *Repository) writeScope(tx *sql.Tx) importdiscard.WriteScope {
+func (repository *Repository) newWriteScope(tx *sql.Tx) writeScope {
 	bound := writes{tx}
-	return importdiscard.WriteScope{
-		Reader: records{tx}, Requests: bound, Sources: bound, Ownership: bound,
+	return writeScope{
+		reader: records{tx}, requests: bound, sources: bound, ownership: bound,
 	}
 }
 
@@ -50,7 +50,7 @@ func (repository *Repository) CommitRecoverOwnership(
 		return fmt.Errorf("begin discard write: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	scope := repository.writeScope(tx)
+	scope := repository.newWriteScope(tx)
 	if err := recoverOwnership(ctx, scope, cmd.Key); err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (repository *Repository) CommitDiscardSourceItems(
 		return false, fmt.Errorf("begin discard write: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	scope := repository.writeScope(tx)
+	scope := repository.newWriteScope(tx)
 	done, err := discardSourceItems(ctx, scope, cmd.Key, cmd.NowMS)
 	if err != nil {
 		return false, err
@@ -89,7 +89,7 @@ func (repository *Repository) CommitRequestDiscard(
 		return importdiscard.Status{}, fmt.Errorf("begin discard write: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	scope := repository.writeScope(tx)
+	scope := repository.newWriteScope(tx)
 	result, err := requestDiscard(ctx, scope, cmd)
 	if err != nil {
 		return importdiscard.Status{}, err

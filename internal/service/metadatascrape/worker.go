@@ -9,8 +9,6 @@ import (
 	model "retrom/internal/model/metadatascrape"
 )
 
-const metadataExecutionTimeout = time.Hour
-
 type Worker struct {
 	repository model.WorkerRepository
 	processor  model.WorkerProcessor
@@ -33,10 +31,11 @@ func (worker *Worker) Run(parent context.Context, runID string) error {
 	if run.JobState == "CANCELLED" {
 		return worker.settle(parent, claim, 0, "", nil)
 	}
-	claim, claimed, err := worker.claim(parent, run)
-	if err != nil || !claimed {
+	result, err := worker.claim(parent, run)
+	if err != nil || !result.Claimed {
 		return err
 	}
+	claim = result.Claim
 	if claim.Terminal {
 		if run.JobState == "CANCEL_REQUESTED" {
 			return worker.settle(parent, claim, 0, "", nil)
@@ -78,14 +77,8 @@ func (worker *Worker) heartbeat(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			current := false
-			err := worker.repository.CommitWrite(ctx, func(scope model.WorkerScope) error {
-				var err error
-				current, err = scope.Leases.Refresh(ctx, claim, worker.now().UnixMilli())
-				if err != nil {
-					return fmt.Errorf("renew scrape lease: %w", err)
-				}
-				return nil
+			current, err := worker.repository.CommitRefresh(ctx, model.WorkerRefreshCommand{
+				Claim: claim, Now: worker.now().UnixMilli(),
 			})
 			if err != nil {
 				cancel(fmt.Errorf("refresh metadata lease: %w", err))

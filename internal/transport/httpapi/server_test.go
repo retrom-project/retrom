@@ -37,7 +37,8 @@ func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return live.Code != http.StatusOK }, func() bool { return live.Header().Get("X-Request-ID") == "" }), "live status = %d, request id = %q", live.Code, live.Header().Get("X-Request-ID"))
 
 	requestBody := `{"platformId":"gbc","defaultCoreId":"gambatte","name":"Protected","description":"","sortOrder":900}`
-	unauthenticated := httptest.NewRequestWithContext(context.Background(),
+	unauthenticated := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost,
 		"/api/v1/admin/platform-instances",
 		strings.NewReader(requestBody),
@@ -147,7 +148,8 @@ func TestIdempotencyRecordsAreScopedToAuthenticatedUser(t *testing.T) {
 	replayA := send(userA)
 	testassert.Falsef(t, testassert.Any(func() bool { return firstA.Code != http.StatusCreated }, func() bool { return firstB.Code != http.StatusCreated }, func() bool { return replayA.Code != http.StatusCreated }, func() bool { return !strings.Contains(firstA.Body.String(), userA) }, func() bool { return !strings.Contains(firstB.Body.String(), userB) }, func() bool { return replayA.Header().Get("X-Retrom-Idempotent-Replay") != "true" }, func() bool { return calls != 2 }), "principal idempotency responses: A=%d %s B=%d %s replay=%d %s calls=%d", firstA.Code, firstA.Body.String(), firstB.Code, firstB.Body.String(), replayA.Code, replayA.Body.String(), calls)
 	var records int
-	if err := server.database.QueryRowContext(context.Background(),
+	if err := server.database.QueryRowContext(
+		context.Background(),
 		`SELECT count(*) FROM idempotency_records WHERE operation_id='postPrincipalScopeFixture' AND key=?`,
 		key,
 	).Scan(&records); err != nil || records != 2 {
@@ -239,7 +241,8 @@ VALUES(?,0,'epr-19730.ic8','epr-19730.ic8','epr-19730.ic8','ZIP','STORE',524288,
 	server.Handler().ServeHTTP(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/bios?scope=FULL_CATALOG", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return list.Code != http.StatusOK }, func() bool { return !strings.Contains(list.Body.String(), `"sourceKind":"DAT_MACHINE"`) }), "BIOS list = %d %s", list.Code, list.Body.String())
 	entries := httptest.NewRecorder()
-	server.Handler().ServeHTTP(entries, httptest.NewRequestWithContext(context.Background(),
+	server.Handler().ServeHTTP(entries, httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodGet,
 		"/api/v1/admin/bios/"+requirementID+"/entries",
 		nil,
@@ -413,7 +416,8 @@ VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fc
 		"first import page = %#v, error=%v", firstPage, decodeErr)
 	testassert.Falsef(t, firstPage.Items[0].ID != importID, "first import page = %#v", firstPage)
 	second := httptest.NewRecorder()
-	server.imports(second, httptest.NewRequestWithContext(context.Background(),
+	server.imports(second, httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodGet,
 		"/api/v1/admin/imports?limit=20&cursor="+url.QueryEscape(*firstPage.NextCursor),
 		nil,
@@ -539,37 +543,44 @@ INSERT INTO pegasus_import_items(
 func TestReviewWorkflowQueriesAreAllowed(t *testing.T) {
 	t.Parallel()
 	requests := []*http.Request{
-		httptest.NewRequestWithContext(context.Background(),
+		httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodGet,
 			"/api/v1/admin/reviews?pegasusImportId=01980000-0000-7000-8000-000000000001&limit=20",
 			nil,
 		),
-		httptest.NewRequestWithContext(context.Background(),
+		httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodGet,
 			"/api/v1/admin/reviews?emulationStationImportId=01980000-0000-7000-8000-000000000005&limit=20",
 			nil,
 		),
-		httptest.NewRequestWithContext(context.Background(),
+		httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodGet,
 			"/api/v1/admin/review-assets/01980000-0000-7000-8000-000000000002?kind=VIDEO",
 			nil,
 		),
-		httptest.NewRequestWithContext(context.Background(),
+		httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodHead,
 			"/api/v1/admin/review-assets/01980000-0000-7000-8000-000000000002?kind=VIDEO",
 			nil,
 		),
-		httptest.NewRequestWithContext(context.Background(),
+		httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodGet,
 			"/api/v1/admin/review-bulk-approval-preview?importJobId=01980000-0000-7000-8000-000000000003&blockerCode=MISSING_BIOS",
 			nil,
 		),
-		httptest.NewRequestWithContext(context.Background(),
+		httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodGet,
 			"/api/v1/admin/review-bulk-approval-preview?emulationStationImportId=01980000-0000-7000-8000-000000000006",
 			nil,
 		),
-		httptest.NewRequestWithContext(context.Background(),
+		httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodGet,
 			"/api/v1/admin/review-bulk-approvals/01980000-0000-7000-8000-000000000004/items?outcome=PUBLISHED&cursor=10&limit=50",
 			nil,

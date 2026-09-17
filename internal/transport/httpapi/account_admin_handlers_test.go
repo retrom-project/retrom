@@ -22,7 +22,8 @@ type accountHTTPAuth struct {
 
 func accountHTTPLogin(t *testing.T, handler http.Handler) accountHTTPAuth {
 	t.Helper()
-	request := httptest.NewRequestWithContext(context.Background(),
+	request := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost, "/api/v1/auth/login",
 		strings.NewReader(`{"username":"test","password":"test"}`),
 	)
@@ -70,7 +71,8 @@ func TestAccountAdministrationHTTPInvitationAndAuthorization(t *testing.T) {
 	handler := server.Handler()
 	admin := accountHTTPLogin(t, handler)
 
-	createRequest := httptest.NewRequestWithContext(context.Background(),
+	createRequest := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost, "/api/v1/admin/invitations", strings.NewReader(`{"role":"USER","confirmAdminRole":false}`),
 	)
 	createRequest.Header.Set("Content-Type", "application/json")
@@ -120,7 +122,8 @@ func TestAccountAdministrationHTTPInvitationAndAuthorization(t *testing.T) {
 	emptyQuery := accountHTTPRequest(t, handler, http.MethodGet, "/api/v1/admin/users?q=%20", "", &admin)
 	testassert.Falsef(t, testassert.Any(func() bool { return emptyQuery.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(emptyQuery.Body.String(), "INVALID_QUERY") }), "empty user query = %d %s", emptyQuery.Code, emptyQuery.Body.String())
 
-	memberCreate := httptest.NewRequestWithContext(context.Background(),
+	memberCreate := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost, "/api/v1/admin/invitations", strings.NewReader(`{"role":"USER","confirmAdminRole":false}`),
 	)
 	memberCreate.Header.Set("Content-Type", "application/json")

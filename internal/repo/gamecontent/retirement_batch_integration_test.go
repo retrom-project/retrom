@@ -4,6 +4,7 @@ package gamecontent
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"fmt"
@@ -13,7 +14,7 @@ import (
 	"time"
 
 	gamecontentmodel "retrom/internal/model/gamecontent"
-	gamecontentservice "retrom/internal/service/gamecontent"
+	"retrom/internal/repo/dbexec"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -30,13 +31,21 @@ WHERE launch_session_id=? ORDER BY logical_name LIMIT 1`, fmt.Sprintf("companion
 		}
 	}
 	var impact gamecontentmodel.RetirementImpact
-	err := New(fixture.db).CommitWrite(t.Context(), func(scope gamecontentmodel.WriteScope) error {
-		var err error
-		impact, err = gamecontentservice.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
-		return err
-	})
-	if err != nil || impact.SaveStateCount != 1 {
-		t.Fatalf("retirement failed: impact=%+v err=%v", impact, err)
+	tx, err := fixture.db.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dbexec.Rollback(tx)
+	scope := BindRetirement(tx)
+	impact, err = retireContent(t.Context(), scope, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if impact.SaveStateCount != 1 {
+		t.Fatalf("retirement failed: impact=%+v", impact)
 	}
 	var files, saves int
 	var state, variant string
@@ -65,12 +74,26 @@ func TestContentRetirementPreservesLateReadCauseAndRollsBack(t *testing.T) {
 			return nil
 		},
 	})
-	err := New(fault).CommitWrite(t.Context(), func(scope gamecontentmodel.WriteScope) error {
-		_, err := gamecontentservice.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
-		return err
-	})
-	if !errors.Is(err, cause) || hits.Load() != 1 {
-		t.Fatalf("late read cause lost: hits=%d err=%v", hits.Load(), err)
+	tx, err := fault.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	scope := BindRetirement(tx)
+	_, retireErr := retireContent(t.Context(), scope, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
+	if !errors.Is(retireErr, cause) || hits.Load() != 1 {
+		t.Fatalf("late read cause lost: hits=%d err=%v", hits.Load(), retireErr)
+	}
+	_ = tx.Rollback()
 	fixture.assertUnchanged(t)
+}
+
+// retireContent is the repo-local retirement function exposed for tests.
+// The function is defined in commands.go.
+func init() {
+	// compile-time assertion that retireContent exists and has correct signature.
+	var _ func(context.Context, gamecontentmodel.RetirementScope, string, string, int64) (gamecontentmodel.RetirementImpact, error) = retireContent
+	_ = sql.ErrNoRows // keep sql import alive
 }

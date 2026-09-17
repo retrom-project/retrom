@@ -82,7 +82,7 @@ SELECT id,version FROM games WHERE id=?
 	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releases.Close)
-	service := gamecontentservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
+	service := gamecontentservice.New(New(database.SQL).WithGCStager(releases), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load RPG replacement binding: %v", bindingErr)
 	} else if binding.RPGGeneration != "RPG2000" {
@@ -317,7 +317,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontentservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService).WithGCStager(releaseService)
+	service := gamecontentservice.New(New(database.SQL).WithGCStager(releaseService), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService).WithGCStager(releaseService)
 	saveID, launchID, savePayloads := seedReplacementSave(
 		t, ctx, database.SQL, blobs, published.GameID,
 	)
@@ -478,7 +478,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontentservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).
+	service := gamecontentservice.New(New(database.SQL).WithGCStager(releaseService), time.Now).WithBlobStore(blobs).
 		WithPayloadRelease(releaseService).WithGCStager(releaseService).WithMultiDiscImportEnabled(true)
 	scheduled, err := service.ScheduleMode(
 		ctx, published.GameID, replacementUpload, "MULTI_DISC", gameVersion,

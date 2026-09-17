@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 )
 
-func recoverOwnership(ctx context.Context, scope importdiscard.WriteScope, key importdiscard.Key) error {
-	ids, err := scope.Ownership.Unlinked(ctx, key)
+func recoverOwnership(ctx context.Context, scope writeScope, key importdiscard.Key) error {
+	ids, err := scope.ownership.Unlinked(ctx, key)
 	if err != nil {
 		return failure("recover source ownership", err)
 	}
@@ -22,18 +22,18 @@ func recoverOwnership(ctx context.Context, scope importdiscard.WriteScope, key i
 			uuid.NameSpaceOID,
 			[]byte("retrom:server-source:v1\x00SERVER_"+key.Kind+"_IMPORT:"+id),
 		).String()
-		importID, err := scope.Ownership.ImportByUpload(ctx, uploadID)
+		importID, err := scope.ownership.ImportByUpload(ctx, uploadID)
 		if err != nil {
 			return failure("recover source ownership", err)
 		}
 		if importID == "" && key.Kind == "PEGASUS" {
-			importID, err = legacyOwner(ctx, scope.Ownership, id)
+			importID, err = legacyOwner(ctx, scope.ownership, id)
 		}
 		if err != nil {
 			return failure("recover source ownership", err)
 		}
 		if importID != "" {
-			if err := scope.Ownership.Link(ctx, key.Kind, id, importID); err != nil {
+			if err := scope.ownership.Link(ctx, key.Kind, id, importID); err != nil {
 				return failure("recover source ownership", err)
 			}
 		}
@@ -41,7 +41,7 @@ func recoverOwnership(ctx context.Context, scope importdiscard.WriteScope, key i
 	return nil
 }
 
-func legacyOwner(ctx context.Context, ownership importdiscard.Ownership, id string) (string, error) {
+func legacyOwner(ctx context.Context, ownership ownership, id string) (string, error) {
 	candidates, err := ownership.LegacyCandidates(ctx, id)
 	if err != nil {
 		return "", failure("recover source ownership", err)
@@ -87,11 +87,11 @@ func internalEnvelope(envelope importdiscard.Envelope) (bool, error) {
 
 func discardSourceItems(
 	ctx context.Context,
-	scope importdiscard.WriteScope,
+	scope writeScope,
 	key importdiscard.Key,
 	nowMS int64,
 ) (bool, error) {
-	releases, err := scope.Sources.Releases(ctx, key)
+	releases, err := scope.sources.Releases(ctx, key)
 	if err != nil {
 		return false, failure("process discarded content", err)
 	}
@@ -101,16 +101,16 @@ func discardSourceItems(
 		}
 		return false, nil
 	}
-	ids, err := scope.Sources.UnusedUploads(ctx, key)
+	ids, err := scope.sources.UnusedUploads(ctx, key)
 	if err != nil {
 		return false, failure("process discarded content", err)
 	}
 	for _, id := range ids {
-		if err := scope.Sources.DeleteUpload(ctx, id); err != nil {
+		if err := scope.sources.DeleteUpload(ctx, id); err != nil {
 			return false, failure("process discarded content", err)
 		}
 	}
-	if err := scope.Sources.Complete(ctx, key, nowMS); err != nil {
+	if err := scope.sources.Complete(ctx, key, nowMS); err != nil {
 		return false, failure("process discarded content", err)
 	}
 	return true, nil
@@ -118,10 +118,10 @@ func discardSourceItems(
 
 func requestDiscard(
 	ctx context.Context,
-	scope importdiscard.WriteScope,
+	scope writeScope,
 	cmd importdiscard.RequestDiscardCommand,
 ) (importdiscard.Status, error) {
-	current, err := discardStatus(ctx, scope.Reader, cmd.Key)
+	current, err := discardStatus(ctx, scope.reader, cmd.Key)
 	if err != nil {
 		return importdiscard.Status{}, failure("access discard status", err)
 	}
@@ -135,7 +135,7 @@ func requestDiscard(
 	if err != nil {
 		return importdiscard.Status{}, fmt.Errorf("create discard audit identity: %w", err)
 	}
-	if err := scope.Requests.Request(ctx, importdiscard.Request{
+	if err := scope.requests.Request(ctx, importdiscard.Request{
 		Key:     cmd.Key,
 		UserID:  cmd.UserID,
 		AuditID: auditID.String(),
@@ -148,7 +148,7 @@ func requestDiscard(
 
 func discardStatus(
 	ctx context.Context,
-	records importdiscard.Reader,
+	records reader,
 	key importdiscard.Key,
 ) (importdiscard.Status, error) {
 	batch, err := records.Batch(ctx, key)

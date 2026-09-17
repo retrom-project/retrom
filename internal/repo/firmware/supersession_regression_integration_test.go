@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"retrom/internal/model/firmware"
 	"retrom/internal/repo/dbexec"
 	firmwareservice "retrom/internal/service/firmware"
 	"retrom/internal/testkit/testsupport"
@@ -93,8 +92,8 @@ func TestBIOSSupersessionReadFailuresRollBackCurrentInstallation(t *testing.T) {
 					return nil
 				},
 			})
-			err := testWithWrite(t.Context(), New(fault), func(scope firmware.WriteScope) error {
-				return firmwareservice.SupersedeInScope(t.Context(), scope.Retirements, requirement, now)
+			err := testWithWrite(t.Context(), New(fault), func(scope writeScope) error {
+				return firmwareservice.SupersedeInScope(t.Context(), scope.retirements, requirement, now)
 			})
 			var active, version int
 			readErr := db.QueryRowContext(t.Context(), `SELECT is_active,version FROM bios_installations WHERE id='read-failure-installation'`).Scan(&active, &version)

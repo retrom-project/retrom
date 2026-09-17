@@ -33,11 +33,9 @@ INSERT INTO dat_versions(id,parse_status,version) VALUES('dat','PENDING',1);
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	err = New(database).CommitWrite(ctx, func(scope service.WriteScope) error {
-		if err := scope.Jobs.Claim(ctx, service.JobClaim{JobID: "job", DATID: "dat", AtMS: 1000}); err != nil {
-			return err
-		}
-		return scope.Catalog.MarkParsing(ctx, "dat", 1000)
+	err = New(database).CommitClaimDAT(ctx, service.ClaimDATCommand{
+		Claim:   service.JobClaim{JobID: "job", DATID: "dat", AtMS: 1000},
+		MarkDAT: "dat",
 	})
 	if err == nil {
 		t.Error("claim succeeded despite missing event storage")

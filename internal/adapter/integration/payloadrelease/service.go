@@ -56,7 +56,8 @@ func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retenti
 	service.worker = payloadreleaseservice.NewWorker(
 		repository.NewWorker(database), releaseExecutor{service}, payloadreleaseservice.WorkerOptions{
 			Now: now, Maintain: service.ReconcileGC, Report: func(err error) { cleanup.Error("payload worker", err) },
-		})
+		},
+	)
 	service.garbage = payloadreleaseservice.NewGarbageCollector(
 		repository.NewGarbage(database), service.worker, payloadfiles.New(blobs),
 	)

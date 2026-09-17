@@ -3,8 +3,6 @@ package firmware
 import (
 	"context"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/capability/content/firmware"
 	"retrom/internal/capability/format/importing"
 )
 
@@ -40,52 +38,6 @@ type Repository interface {
 	LoadArchiveInspection(ctx context.Context, requirementID string) (ArchiveInspection, error)
 	CommitBrowserInstall(context.Context, BrowserInstallCommand) (Installation, error)
 	CommitServerInstall(context.Context, ServerInstallCommand) (ServerInstallResult, error)
-}
-type ReadScope struct {
-	Requirements  RequirementRecords
-	Uploads       UploadReader
-	Installations InstallationReader
-	Archives      ArchiveReader
-}
-type WriteScope struct {
-	ReadScope
-	Archives      ArchiveWriter
-	Installations InstallationWriter
-	Retirements   SupersessionScope
-	Server        ServerRecords
-	Blobs         BlobRecords
-}
-type RequirementRecords interface {
-	Get(context.Context, string) (Requirement, bool, error)
-	DATEntries(context.Context, string) ([]firmware.ExpectedDATEntry, error)
-}
-type UploadReader interface {
-	Get(context.Context, string) (Upload, bool, error)
-}
-type InstallationReader interface {
-	Active(context.Context, string) (ActiveInstallation, bool, error)
-}
-type ArchiveReader interface {
-	Entries(context.Context, string) ([]importing.ArchiveEntry, error)
-}
-type ArchiveWriter interface {
-	Put(context.Context, string, []importing.ArchiveEntry, int64) error
-}
-type InstallationWriter interface {
-	Create(context.Context, InstallationWrite) error
-	Consume(context.Context, Consumption) error
-}
-type ServerRecords interface {
-	LockExecution(context.Context, ServerExecution) error
-	SelectCandidate(context.Context, Selection) error
-	Finish(context.Context, ServerOutcome) error
-}
-type ServerExecution struct {
-	ImportID, JobID, WorkerID string
-	ExecutionNo, AtMS         int64
-}
-type BlobRecords interface {
-	Ensure(context.Context, blobstore.Metadata, int64) (string, error)
 }
 type ReleaseSignal interface{ Signal() }
 

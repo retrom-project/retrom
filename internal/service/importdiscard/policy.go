@@ -10,8 +10,13 @@ import (
 	model "retrom/internal/model/importdiscard"
 )
 
+type ownershipReader interface {
+	LegacyCandidates(context.Context, string) ([]model.Envelope, error)
+	OwnerCount(context.Context, string) (int64, error)
+}
+
 //nolint:unparam // id is always "source" in tests but the signature matches the repo-layer sibling
-func legacyOwner(ctx context.Context, ownership model.Ownership, id string) (string, error) {
+func legacyOwner(ctx context.Context, ownership ownershipReader, id string) (string, error) {
 	candidates, err := ownership.LegacyCandidates(ctx, id)
 	if err != nil {
 		return "", failure("recover source ownership", err)

@@ -322,7 +322,8 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 		func() bool { return secondFirstDiscURL != firstDiscURL },
 	), "cross-launch URLs = first:%#v second:%#v error=%v", configuration, secondConfiguration, err)
 
-	if _, err := server.database.ExecContext(t.Context(),
+	if _, err := server.database.ExecContext(
+		t.Context(),
 		`UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1 WHERE id=?`,
 		time.Now().UnixMilli(), time.Now().UnixMilli(), created.LaunchID,
 	); err != nil {
@@ -364,7 +365,8 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
-	importDetailRequest := httptest.NewRequestWithContext(context.Background(),
+	importDetailRequest := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodGet, "/api/v1/admin/imports/"+createdImport.ImportJobID, nil,
 	)
 	importDetailRequest.SetPathValue("importJobId", createdImport.ImportJobID)
@@ -390,7 +392,8 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 	handler, cookie, csrf := httpSession(t, server)
 	key := uuid.NewString()
 	send := func() *httptest.ResponseRecorder {
-		request := httptest.NewRequestWithContext(context.Background(),
+		request := httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/multi-disc-attachments",
 			strings.NewReader(fmt.Sprintf(`{"uploadId":%q}`, attachmentUploadID)),
 		)
@@ -495,7 +498,8 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		Path: "/runtime/launches/" + createdLaunch.LaunchID + "/",
 	}
 	send := func(body string, cookie *http.Cookie) *httptest.ResponseRecorder {
-		request := httptest.NewRequestWithContext(context.Background(),
+		request := httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodPost, "/runtime/launches/"+createdLaunch.LaunchID+"/player-events", strings.NewReader(body),
 		)
 		request.Header.Set("Content-Type", "application/json")

@@ -52,7 +52,8 @@ const (
 
 func seedFavoriteHTTPPrincipal(t *testing.T, server *Server, profileID, userID, username string) authn.Principal {
 	t.Helper()
-	if _, err := server.database.ExecContext(context.Background(),
+	if _, err := server.database.ExecContext(
+		context.Background(),
 		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Favorite player',1000)`, profileID,
 	); err != nil {
 		t.Fatal(err)

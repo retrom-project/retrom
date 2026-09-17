@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadservice "retrom/internal/service/uploads"
 )
 
@@ -24,7 +25,7 @@ func TestFinalizationDamagedInputPreservesJSONCause(t *testing.T) {
 			err := uploadservice.New(New(fixture.database), fixture.blobs, fixture.root, finalizationNow).Run(t.Context(), job)
 			var syntax *json.SyntaxError
 			var value *json.UnmarshalTypeError
-			if !errors.Is(err, uploadservice.ErrInputInvalid) || !errors.As(err, &syntax) && !errors.As(err, &value) {
+			if !errors.Is(err, uploadsmodel.ErrInputInvalid) || !errors.As(err, &syntax) && !errors.As(err, &value) {
 				t.Fatalf("JSON cause lost: %v", err)
 			}
 			awaitFinalizeState(t, fixture.database, job, "FAILED")

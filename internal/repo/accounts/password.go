@@ -24,20 +24,46 @@ func (repository *PasswordRepository) Current(
 	return (passwordRecords{repository.database}).Current(ctx, actor, now)
 }
 
-func (repository *PasswordRepository) CommitWrite(ctx context.Context, work func(accounts.PasswordScope) error) error {
+func (repository *PasswordRepository) CommitChangePassword(
+	ctx context.Context, cmd accounts.ChangePasswordCommand,
+) (accounts.PasswordChangeResult, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin password rotation: %w", err)
+		return accounts.PasswordChangeResult{}, fmt.Errorf("begin password rotation: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := passwordRecords{tx}
-	if err := work(accounts.PasswordScope{Read: records, Write: records}); err != nil {
-		return err
+	state, found, err := records.Current(ctx, cmd.Actor, cmd.NowMS)
+	if err != nil {
+		return accounts.PasswordChangeResult{}, fmt.Errorf("recheck password authorization: %w", err)
+	}
+	if !found || !accounts.PasswordAuthorized(state, cmd.Actor) ||
+		state.Credential.PasswordHash != cmd.ExpectedHash {
+		return accounts.PasswordChangeResult{}, accounts.ErrAuthenticationNeeded
+	}
+	version := state.Credential.SessionVersion + 1
+	plan := accounts.PasswordPlan{
+		Actor:            cmd.Actor,
+		ExpectedHash:     cmd.ExpectedHash,
+		NewHash:          cmd.NewHash,
+		AuditID:          cmd.AuditID,
+		Session:          cmd.Session,
+		ClearTestDefault: state.Credential.User.Username == "test",
+		Now:              cmd.NowMS,
+		BeforeJSON:       fmt.Sprintf(`{"sessionVersion":%d}`, version-1),
+		AfterJSON:        fmt.Sprintf(`{"sessionVersion":%d}`, version),
+	}
+	if err := records.Rotate(ctx, plan); err != nil {
+		return accounts.PasswordChangeResult{}, fmt.Errorf("rotate password security state: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit password rotation: %w", err)
+		return accounts.PasswordChangeResult{}, fmt.Errorf("commit password rotation: %w", err)
 	}
-	return nil
+	return accounts.PasswordChangeResult{
+		User:      state.Credential.User,
+		ProfileID: state.Credential.ProfileID,
+		Version:   version,
+	}, nil
 }
 
 func (records passwordRecords) Current(

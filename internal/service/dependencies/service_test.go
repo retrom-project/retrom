@@ -81,11 +81,6 @@ type workflowRepository struct {
 	found                        bool
 }
 
-func (repository *workflowRepository) CommitWrite(_ context.Context, work func(model.WriteScope) error) error {
-	repository.transactions++
-	return work(model.WriteScope{Jobs: repository, Catalog: repository})
-}
-
 func (*workflowRepository) TargetExists(context.Context, model.RuntimeTarget) (bool, error) {
 	panic("unexpected target read")
 }
@@ -94,42 +89,52 @@ func (*workflowRepository) FindDAT(context.Context, model.DATLookup) (model.DATS
 	panic("unexpected DAT read")
 }
 
-func (repository *workflowRepository) Find(context.Context, string) (model.Job, bool, error) {
-	return repository.job, repository.found, nil
+func (*workflowRepository) CommitBootstrapDefinitions(context.Context, model.BootstrapCommand) error {
+	panic("unexpected bootstrap")
 }
 
-func (*workflowRepository) Create(context.Context, model.JobCreation) error {
-	panic("unexpected job creation")
+func (repository *workflowRepository) CommitEnsureDATJob(
+	_ context.Context, cmd model.EnsureDATJobCommand,
+) (string, error) {
+	repository.transactions++
+	if repository.found {
+		if repository.job.State == "FAILED" || repository.job.State == "CANCELLED" {
+			return "", ErrDATParseFailed
+		}
+		return repository.job.ID, nil
+	}
+	return cmd.JobID, nil
 }
 
-func (*workflowRepository) Requeue(context.Context, string, int64) error {
-	panic("unexpected job recovery")
-}
-
-func (repository *workflowRepository) Claim(_ context.Context, claim model.JobClaim) error {
+func (repository *workflowRepository) CommitClaimDAT(
+	_ context.Context, cmd model.ClaimDATCommand,
+) error {
+	repository.transactions++
 	repository.calls = append(repository.calls, "claim")
-	repository.claim = claim
-	return repository.claimError
-}
-
-func (*workflowRepository) Finish(context.Context, model.JobFinish) error {
-	panic("unexpected completion")
-}
-
-func (*workflowRepository) Version(context.Context, string) (int64, error) {
-	panic("unexpected version read")
-}
-
-func (repository *workflowRepository) Publish(context.Context, model.CatalogPublication) error {
-	repository.calls = append(repository.calls, "publish")
-	return repository.publicationError
-}
-
-func (repository *workflowRepository) MarkParsing(context.Context, string, int64) error {
+	repository.claim = cmd.Claim
+	if repository.claimError != nil {
+		return repository.claimError
+	}
 	repository.calls = append(repository.calls, "parsing")
 	return nil
 }
 
-func (*workflowRepository) MarkFailed(context.Context, string, int64) error {
+func (*workflowRepository) CommitFailDAT(context.Context, model.FailDATCommand) error {
 	panic("unexpected failure write")
+}
+
+func (*workflowRepository) CommitActivateDAT(context.Context, model.ActivateDATCommand) error {
+	panic("unexpected activation")
+}
+
+func (repository *workflowRepository) CommitPublishDAT(
+	_ context.Context, _ model.PublishDATCommand,
+) error {
+	repository.transactions++
+	repository.calls = append(repository.calls, "publish")
+	if repository.publicationError != nil {
+		return repository.publicationError
+	}
+	repository.calls = append(repository.calls, "activate", "finish")
+	return nil
 }

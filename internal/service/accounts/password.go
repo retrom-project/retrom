@@ -46,45 +46,20 @@ func (service *PasswordService) Change(
 	if err != nil {
 		return model.Session{}, err
 	}
-	var result model.Session
-	err = service.repository.CommitWrite(ctx, func(scope model.PasswordScope) error {
-		now := service.now().UnixMilli()
-		state, found, err := scope.Read.Current(ctx, actor, now)
-		if err != nil {
-			return fmt.Errorf("recheck password authorization: %w", err)
-		}
-		if !found || !passwordAuthorized(
-			state,
-			actor,
-		) || state.Credential.PasswordHash != prepared.state.Credential.PasswordHash {
-			return model.ErrAuthenticationNeeded
-		}
-		version := state.Credential.SessionVersion + 1
-		plan := model.PasswordPlan{
-			Actor:        actor,
-			ExpectedHash: prepared.state.Credential.PasswordHash, NewHash: prepared.newHash, AuditID: prepared.auditID,
-			Session: prepared.session.Record(
-				actor.UserID,
-				version,
-				now,
-			), BeforeJSON: fmt.Sprintf(
-				`{"sessionVersion":%d}`,
-				version-1,
-			), AfterJSON: fmt.Sprintf(
-				`{"sessionVersion":%d}`,
-				version,
-			), ClearTestDefault: state.Credential.User.Username == "test", Now: now,
-		}
-		if err := scope.Write.Rotate(ctx, plan); err != nil {
-			return fmt.Errorf("rotate password security state: %w", err)
-		}
-		result = prepared.session.View(state.Credential.User, state.Credential.ProfileID, version, now)
-		return nil
+	now := service.now().UnixMilli()
+	version := actor.SessionVersion + 1
+	result, err := service.repository.CommitChangePassword(ctx, model.ChangePasswordCommand{
+		Actor:        actor,
+		ExpectedHash: prepared.state.Credential.PasswordHash,
+		NewHash:      prepared.newHash,
+		AuditID:      prepared.auditID,
+		Session:      prepared.session.Record(actor.UserID, version, now),
+		NowMS:        now,
 	})
 	if err != nil {
 		return model.Session{}, fmt.Errorf("commit password change: %w", err)
 	}
-	return result, nil
+	return prepared.session.View(result.User, result.ProfileID, result.Version, now), nil
 }
 
 func (service *PasswordService) prepare(
@@ -100,7 +75,7 @@ func (service *PasswordService) prepare(
 	if err != nil {
 		return preparedPassword{}, fmt.Errorf("read password authorization: %w", err)
 	}
-	if !found || !passwordAuthorized(state, actor) {
+	if !found || !model.PasswordAuthorized(state, actor) {
 		return preparedPassword{}, model.ErrAuthenticationNeeded
 	}
 	verified, err := service.hasher.Verify(ctx, normalized, state.Credential.PasswordHash)
@@ -133,9 +108,4 @@ func (service *PasswordService) prepare(
 		return preparedPassword{}, fmt.Errorf("create password audit identity: %w", err)
 	}
 	return preparedPassword{state: state, newHash: hash, session: material, auditID: auditID.String()}, nil
-}
-
-func passwordAuthorized(state model.PasswordState, actor model.PasswordActor) bool {
-	return state.SessionCurrent && state.Credential.Status == "ENABLED" &&
-		state.Credential.SessionVersion == actor.SessionVersion
 }

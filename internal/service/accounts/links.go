@@ -30,7 +30,7 @@ func (service *LinkService) Inspect(ctx context.Context, kind, token string) (mo
 	if err != nil {
 		return model.LinkInspection{}, fmt.Errorf("inspect account link: %w", err)
 	}
-	if !found || record.Link.Kind != kind || accountLinkState(record.Link, service.now().UnixMilli()) != "ACTIVE" {
+	if !found || record.Link.Kind != kind || model.LinkState(record.Link, service.now().UnixMilli()) != "ACTIVE" {
 		return model.LinkInspection{}, model.ErrAccountLinkUnavailable
 	}
 	return model.LinkInspection{
@@ -54,23 +54,11 @@ func (service *LinkService) List(ctx context.Context, filter model.LinkListFilte
 	result := make([]model.AccountLink, len(records))
 	for index, record := range records {
 		result[index] = record.Link
-		result[index].State = accountLinkState(record.Link, now)
+		result[index].State = model.LinkState(record.Link, now)
 	}
 	return result, nil
 }
 
-func accountLinkState(link model.AccountLink, now int64) string {
-	switch {
-	case link.ConsumedAtMS != nil:
-		return "CONSUMED"
-	case link.RevokedAtMS != nil:
-		return "REVOKED"
-	case now >= link.ExpiresAtMS:
-		return "EXPIRED"
-	default:
-		return "ACTIVE"
-	}
-}
 func validLinkKind(kind string) bool { return kind == "INVITATION" || kind == "PASSWORD_RESET" }
 func validateLinkFilter(filter model.LinkListFilter) (model.LinkListFilter, error) {
 	if !validLinkKind(filter.Kind) {

@@ -40,13 +40,23 @@ type LeaseTouch struct {
 	Event           []byte
 }
 
-type LeaseRecords interface {
-	Next(context.Context, int64) (LeaseSnapshot, bool, error)
-	Current(context.Context, string) (LeaseSnapshot, error)
-	Claim(context.Context, LeaseClaim) error
-	Touch(context.Context, LeaseTouch) error
+type ClaimCommand struct {
+	Now int64
+}
+
+type ClaimResult struct {
+	Unit  Work
+	Found bool
+}
+
+type TouchCommand struct {
+	Unit  Work
+	Phase string
+	Event []byte
+	Now   int64
 }
 
 type LeaseRepository interface {
-	CommitWrite(context.Context, func(LeaseRecords) error) error
+	CommitClaim(context.Context, ClaimCommand) (ClaimResult, error)
+	CommitTouch(context.Context, TouchCommand) error
 }

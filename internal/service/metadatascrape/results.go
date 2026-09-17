@@ -10,7 +10,6 @@ import (
 	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/metadata/hasheous"
 )
 
 type ResultRecorder struct {
@@ -21,31 +20,6 @@ type ResultRecorder struct {
 
 func NewRecorder(repository model.ResultRepository, blobs model.AssetBlobs, now func() time.Time) *ResultRecorder {
 	return &ResultRecorder{repository: repository, blobs: blobs, now: now}
-}
-
-type preparedRaw struct {
-	blob *blobstore.Metadata
-}
-
-type preparedCandidate struct {
-	metadata, evidence string
-	value              *hasheous.Candidate
-}
-
-func prepareCandidate(attempt model.LookupAttempt) (preparedCandidate, error) {
-	if !attempt.AllowCandidate || attempt.Lookup.Result.Candidate == nil {
-		return preparedCandidate{}, nil
-	}
-	candidate := attempt.Lookup.Result.Candidate
-	metadata, err := json.Marshal(candidate.Metadata)
-	if err != nil {
-		return preparedCandidate{}, fmt.Errorf("encode candidate metadata: %w", err)
-	}
-	evidence, err := json.Marshal(candidate.Evidence)
-	if err != nil {
-		return preparedCandidate{}, fmt.Errorf("encode candidate evidence: %w", err)
-	}
-	return preparedCandidate{metadata: string(metadata), evidence: string(evidence), value: candidate}, nil
 }
 
 func (recorder *ResultRecorder) Record(ctx context.Context, attempt model.LookupAttempt) (bool, error) {
@@ -60,81 +34,43 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt model.Lookup
 	if err != nil {
 		return false, err
 	}
-	now := recorder.now().UnixMilli()
-	created := false
-	err = recorder.repository.CommitWrite(ctx, func(scope model.ResultScope) error {
-		claim := attempt.Claim
-		claim.Now = recorder.now().UnixMilli()
-		writable, err := scope.Read.Writable(ctx, claim)
-		if err != nil {
-			return fmt.Errorf("read scrape result owner: %w", err)
-		}
-		if !writable {
-			return model.ErrExecutionLost
-		}
-		responseID, source, err := recordResponse(ctx, scope.Write, attempt.Lookup, blob.blob, now)
-		if err != nil {
-			return err
-		}
-		attemptID, err := scheduleID()
-		if err != nil {
-			return err
-		}
-		number := attempt.AttemptNo
-		if err := scope.Write.Attempt(ctx, model.AttemptRecord{
-			ID: attemptID, RunID: attempt.Claim.RunID, EvidenceID: attempt.EvidenceID,
-			ResponseID: responseID, Source: source, AttemptNo: number, Now: now,
-		}); err != nil {
-			return fmt.Errorf("record scrape attempt: %w", err)
-		}
-		if candidate.value == nil {
-			return nil
-		}
-		created, err = recordCandidate(ctx, scope, attempt, candidate, responseID, attemptID, now)
-		return err
+	result, err := recorder.repository.CommitRecord(ctx, model.RecordCommand{
+		Attempt:   attempt,
+		Blob:      blob,
+		Candidate: candidate,
+		Now:       recorder.now().UnixMilli(),
 	})
 	if err != nil {
 		return false, fmt.Errorf("commit scrape result: %w", err)
 	}
-	return created, nil
+	return result.Created, nil
 }
 
-func (recorder *ResultRecorder) prepareRaw(lookup model.ResolvedLookup) (preparedRaw, error) {
+func prepareCandidate(attempt model.LookupAttempt) (*model.RecordCandidate, error) {
+	if !attempt.AllowCandidate || attempt.Lookup.Result.Candidate == nil {
+		return nil, nil //nolint:nilnil // absence is a valid non-error outcome
+	}
+	c := attempt.Lookup.Result.Candidate
+	metadata, err := json.Marshal(c.Metadata)
+	if err != nil {
+		return nil, fmt.Errorf("encode candidate metadata: %w", err)
+	}
+	evidence, err := json.Marshal(c.Evidence)
+	if err != nil {
+		return nil, fmt.Errorf("encode candidate evidence: %w", err)
+	}
+	return &model.RecordCandidate{
+		MetadataJSON: string(metadata), EvidenceJSON: string(evidence), Value: c,
+	}, nil
+}
+
+func (recorder *ResultRecorder) prepareRaw(lookup model.ResolvedLookup) (*blobstore.Metadata, error) {
 	if lookup.CachedResponseID != "" || len(lookup.Result.RawResponse) == 0 {
-		return preparedRaw{}, nil
+		return nil, nil //nolint:nilnil // absence is a valid non-error outcome
 	}
 	blob, err := recorder.blobs.Put(bytes.NewReader(lookup.Result.RawResponse))
 	if err != nil {
-		return preparedRaw{}, fmt.Errorf("store raw scrape response: %w", err)
+		return nil, fmt.Errorf("store raw scrape response: %w", err)
 	}
-	return preparedRaw{blob: &blob}, nil
-}
-
-func recordResponse(
-	ctx context.Context,
-	writer model.ResultWriter,
-	lookup model.ResolvedLookup,
-	blob *blobstore.Metadata,
-	now int64,
-) (string, string, error) {
-	if lookup.CachedResponseID != "" {
-		return lookup.CachedResponseID, "CACHE", nil
-	}
-	id, err := scheduleID()
-	if err != nil {
-		return "", "", err
-	}
-	result := lookup.Result
-	err = writer.Response(ctx, model.ResponseRecord{
-		ID: id, RequestDigest: result.RequestDigest, Outcome: result.Outcome, HTTPStatus: result.HTTPStatus, Blob: blob,
-		Cacheable: result.Outcome == hasheous.OutcomeHit || result.Outcome == hasheous.OutcomeMiss,
-		Now:       now, ExpiresAt: ResponseExpiry(
-			result.Outcome,
-			now,
-		),
-	})
-	if err != nil {
-		return "", "", fmt.Errorf("record provider response: %w", err)
-	}
-	return id, "NETWORK", nil
+	return &blob, nil
 }

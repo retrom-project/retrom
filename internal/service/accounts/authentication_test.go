@@ -29,27 +29,49 @@ func (memory *authMemory) Session(context.Context, [32]byte) (model.SessionSnaps
 	return memory.snapshot, memory.found, memory.readError
 }
 
-func (memory *authMemory) CommitWrite(_ context.Context, work func(model.AuthScope) error) error {
+func (memory *authMemory) CommitLogin(_ context.Context, cmd model.LoginCommand) error {
 	memory.writeCalls++
 	if memory.duringWrite != nil {
 		memory.duringWrite()
 	}
-	if err := work(model.AuthScope{Read: memory, Write: memory}); err != nil {
-		return err
-	}
+	memory.committed = cmd.Session
 	return memory.lateError
 }
 
-func (memory *authMemory) Login(_ context.Context, _ model.LoginCredential, value model.SessionRecord) error {
-	memory.committed = value
-	return nil
+func (memory *authMemory) CommitLogout(context.Context, model.LogoutCommand) error {
+	memory.writeCalls++
+	return memory.lateError
 }
 
-func (memory *authMemory) Refresh(_ context.Context, value model.SessionRefresh) error {
-	memory.refreshed = value
-	return nil
+func (memory *authMemory) CommitRefreshSession(
+	_ context.Context, cmd model.RefreshSessionCommand,
+) (model.SessionSnapshot, error) {
+	memory.writeCalls++
+	if memory.duringWrite != nil {
+		memory.duringWrite()
+	}
+	if !memory.found || !model.ValidSession(memory.snapshot, cmd.NowMS) {
+		return model.SessionSnapshot{}, model.ErrAuthenticationNeeded
+	}
+	if cmd.NowMS-memory.snapshot.LastSeen >= model.RefreshInterval.Milliseconds() {
+		expiry := min(
+			cmd.NowMS+model.IdleDuration.Milliseconds(),
+			memory.snapshot.AbsoluteExpiry,
+		)
+		memory.refreshed = model.SessionRefresh{
+			ID:               memory.snapshot.ID,
+			ExpectedLastSeen: memory.snapshot.LastSeen,
+			LastSeen:         cmd.NowMS,
+			IdleExpiry:       expiry,
+		}
+		memory.snapshot.LastSeen = cmd.NowMS
+		memory.snapshot.IdleExpiry = expiry
+	}
+	if memory.lateError != nil {
+		return model.SessionSnapshot{}, memory.lateError
+	}
+	return memory.snapshot, nil
 }
-func (memory *authMemory) Revoke(context.Context, string, int64) error { return nil }
 
 type authVerifier struct {
 	encoded string

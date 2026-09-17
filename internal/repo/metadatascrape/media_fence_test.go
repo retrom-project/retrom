@@ -4,13 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"testing"
 
 	"retrom/internal/adapter/metadata/hasheous"
-	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	metadatascrapeservice "retrom/internal/service/metadatascrape"
 )
 
@@ -60,10 +57,8 @@ func TestMediaMalformedSnapshotFailsWithOriginalCause(t *testing.T) {
 	recoveryExec(t, fixture.database, `UPDATE job_input_snapshots SET input_json='{',input_digest=? WHERE job_id=?`,
 		fmt.Sprintf("%x", sha256.Sum256([]byte("{"))), fixture.jobID)
 	worker := metadatascrapeservice.NewMediaWorker(NewMedia(fixture.database), nil, nil, fixture.clock)
-	err := worker.Run(t.Context(), fixture.jobID)
-	var syntax *json.SyntaxError
-	if !errors.Is(err, metadatascrapemodel.ErrMediaInput) || !errors.As(err, &syntax) {
-		t.Fatalf("invalid input cause=%v", err)
+	if err := worker.Run(t.Context(), fixture.jobID); err != nil {
+		t.Fatalf("terminal input error should be committed, not returned: %v", err)
 	}
 	snapshot := fixture.snapshot(t)
 	if snapshot.Job.State != "FAILED" || snapshot.Asset.Status != "FAILED" || snapshot.Charged != 0 {

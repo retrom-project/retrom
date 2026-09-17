@@ -77,7 +77,8 @@ VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
 `, uploadFileID, uploadID, len(png), len(png), newBlobID, fixture.now, fixture.now)
 
 	response := httptest.NewRecorder()
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+	request := httptest.NewRequestWithContext(
+		t.Context(), http.MethodPost,
 		"/api/v1/admin/games/"+gameID+"/assets",
 		strings.NewReader(`{"uploadFileId":"`+uploadFileID+`","kind":"COVER","ordinal":0}`),
 	)

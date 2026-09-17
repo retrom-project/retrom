@@ -76,7 +76,8 @@ func (records scanRecords) Shape(ctx context.Context, importID string) (applicat
  JOIN pegasus_import_items i ON i.id=a.item_id WHERE i.import_id=?)`,
 		importID, importID, importID, importID, importID, importID, importID, importID, importID).Scan(
 		&result.Metadata, &result.InvalidMetadata, &result.Collections, &result.Items, &result.Blocked,
-		&result.Covers, &result.Videos, &result.EstimatedBytes)
+		&result.Covers, &result.Videos, &result.EstimatedBytes,
+	)
 	if err != nil {
 		return application.ScanShape{}, fmt.Errorf("query persisted Pegasus scan shape: %w", err)
 	}

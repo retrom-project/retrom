@@ -10,6 +10,7 @@ import (
 )
 
 type adminTestRepository struct {
+	model.Repository
 	detail       model.AdminGameDetail
 	readErr      error
 	patchState   model.AdminGamePatchState
@@ -19,26 +20,63 @@ type adminTestRepository struct {
 	updateCalled bool
 }
 
-func (repository *adminTestRepository) WithRead(_ context.Context, work func(model.ReadScope) error) error {
-	return work(model.ReadScope{Admin: repository})
-}
-
-func (repository *adminTestRepository) CommitWrite(_ context.Context, work func(model.WriteScope) error) error {
-	return work(model.WriteScope{AdminWriter: repository})
-}
-
-func (repository *adminTestRepository) AdminGame(context.Context, string) (model.AdminGameDetail, error) {
+func (repository *adminTestRepository) ReadAdminGame(_ context.Context, _ string) (model.AdminGameDetail, error) {
 	return repository.detail, repository.readErr
 }
 
-func (repository *adminTestRepository) LoadPatchState(context.Context, string) (model.AdminGamePatchState, error) {
-	return repository.patchState, repository.patchErr
+func (repository *adminTestRepository) CommitPatchGame(_ context.Context, request model.AdminGamePatchRequest) (model.AdminGamePatchResult, error) {
+	state, err := repository.loadAndPatch(request)
+	if err != nil {
+		return model.AdminGamePatchResult{}, err
+	}
+	return state, nil
 }
 
-func (repository *adminTestRepository) UpdatePatch(_ context.Context, update model.AdminGamePatchUpdate) (bool, error) {
-	repository.updated = update
+func (repository *adminTestRepository) loadAndPatch(request model.AdminGamePatchRequest) (model.AdminGamePatchResult, error) {
+	if repository.patchErr != nil {
+		return model.AdminGamePatchResult{}, repository.patchErr
+	}
+	state := repository.patchState
+	if state.Version != request.ExpectedVersion || state.Status != "PUBLISHED" {
+		return model.AdminGamePatchResult{}, model.ErrAdminGameVersionConflict
+	}
+	applyAdminGamePatch(&state.Metadata, request)
+	repository.updated = model.AdminGamePatchUpdate{
+		GameID: request.GameID, ExpectedVersion: request.ExpectedVersion,
+		Metadata: state.Metadata, Actor: request.Actor, NowMS: request.NowMS,
+	}
 	repository.updateCalled = true
-	return repository.updateErr == nil, repository.updateErr
+	if repository.updateErr != nil {
+		return model.AdminGamePatchResult{}, repository.updateErr
+	}
+	return model.AdminGamePatchResult{
+		Version:     request.ExpectedVersion + 1,
+		UpdatedAtMS: request.NowMS,
+	}, nil
+}
+
+func applyAdminGamePatch(metadata *model.AdminGameMetadata, r model.AdminGamePatchRequest) {
+	if r.Title != nil {
+		metadata.Title = *r.Title
+	}
+	if r.Description != nil {
+		metadata.Description = *r.Description
+	}
+	if r.Developer != nil {
+		metadata.Developer = *r.Developer
+	}
+	if r.Publisher != nil {
+		metadata.Publisher = *r.Publisher
+	}
+	if r.Genre != nil {
+		metadata.Genre = *r.Genre
+	}
+	if r.PlayersPresent {
+		metadata.Players = r.Players
+	}
+	if r.ReleaseYearPresent {
+		metadata.ReleaseYear = r.ReleaseYear
+	}
 }
 
 func TestAdminGameReadsCompleteProjectionThroughRepository(t *testing.T) {
@@ -61,11 +99,10 @@ func TestAdminGameReadsCompleteProjectionThroughRepository(t *testing.T) {
 }
 
 func TestPatchAdminGameAppliesFieldsAndKeepsAtomicPort(t *testing.T) {
-	oldTitle := "Old title"
 	newTitle := "New title"
 	repository := &adminTestRepository{patchState: model.AdminGamePatchState{
 		Status: "PUBLISHED", Version: 4,
-		Metadata: model.AdminGameMetadata{Title: oldTitle, Developer: "Dev"},
+		Metadata: model.AdminGameMetadata{Title: "Old title", Developer: "Dev"},
 	}}
 	service := New(repository, func() time.Time { return time.UnixMilli(100) })
 

@@ -42,30 +42,38 @@ func (blobs *assetBytes) Put(reader io.Reader) (blobstore.Metadata, error) {
 }
 
 func TestAssetBudgetPreventsDownloadOrPublication(t *testing.T) {
-	for _, test := range []struct {
-		name     string
-		consumed int64
-		calls    int
-	}{
-		{"already exhausted", model.MediaRunBudget, 0}, {"crosses budget", model.MediaRunBudget - 1, 1},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			memory, err := newMediaMemory()
-			if err != nil {
-				t.Fatal(err)
-			}
-			memory.snapshot.Charged = test.consumed
-			provider := &assetFetcher{data: hasheous.AssetData{ReceivedBytes: 1}, err: hasheous.ErrAssetReadLimit}
-			blobs := &assetBytes{}
-			err = NewMediaWorker(memory, provider, blobs, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
-			if !errors.Is(err, hasheous.ErrAssetReadLimit) {
-				t.Fatalf("budget cause=%v", err)
-			}
-			if provider.calls != test.calls || blobs.calls != 0 || memory.publication.ID != "" || memory.outcome.Code != "ASSET_RUN_BUDGET_EXCEEDED" {
-				t.Fatalf("budget calls=%d publication=%+v outcome=%+v", provider.calls, memory.publication, memory.outcome)
-			}
-		})
-	}
+	t.Run("already exhausted", func(t *testing.T) {
+		memory, err := newMediaMemory()
+		if err != nil {
+			t.Fatal(err)
+		}
+		memory.snapshot.Charged = model.MediaRunBudget
+		provider := &assetFetcher{data: hasheous.AssetData{ReceivedBytes: 1}, err: hasheous.ErrAssetReadLimit}
+		blobs := &assetBytes{}
+		err = NewMediaWorker(memory, provider, blobs, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
+		if err != nil {
+			t.Fatalf("budget cause=%v", err)
+		}
+		if provider.calls != 0 || blobs.calls != 0 || memory.publication.ID != "" || memory.outcome.Code != "ASSET_RUN_BUDGET_EXCEEDED" {
+			t.Fatalf("budget calls=%d publication=%+v outcome=%+v", provider.calls, memory.publication, memory.outcome)
+		}
+	})
+	t.Run("crosses budget", func(t *testing.T) {
+		memory, err := newMediaMemory()
+		if err != nil {
+			t.Fatal(err)
+		}
+		memory.snapshot.Charged = model.MediaRunBudget - 1
+		provider := &assetFetcher{data: hasheous.AssetData{ReceivedBytes: 1}, err: hasheous.ErrAssetReadLimit}
+		blobs := &assetBytes{}
+		err = NewMediaWorker(memory, provider, blobs, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
+		if !errors.Is(err, hasheous.ErrAssetReadLimit) {
+			t.Fatalf("budget cause=%v", err)
+		}
+		if provider.calls != 1 || blobs.calls != 0 || memory.publication.ID != "" || memory.outcome.Code != "ASSET_RUN_BUDGET_EXCEEDED" {
+			t.Fatalf("budget calls=%d publication=%+v outcome=%+v", provider.calls, memory.publication, memory.outcome)
+		}
+	})
 }
 
 func TestAssetPublicationUsesPreparedBytesAndOneTimestamp(t *testing.T) {

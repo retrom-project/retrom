@@ -28,17 +28,6 @@ func (writer *scheduleMemory) Evidence(_ context.Context, values []model.HashEvi
 }
 func (writer *scheduleMemory) Game(context.Context, string, int64, int64) error { return nil }
 
-type subjectMemory struct {
-	model.ScheduleReader
-	game  model.GameSubject
-	found bool
-	err   error
-}
-
-func (reader subjectMemory) Game(context.Context, string) (model.GameSubject, bool, error) {
-	return reader.game, reader.found, reader.err
-}
-
 type evidenceMemory struct {
 	model.ScheduleEvidenceReader
 	files []model.FileEvidence
@@ -49,41 +38,41 @@ func (reader evidenceMemory) Files(context.Context, model.Subject) ([]model.File
 }
 
 type schedulingMemory struct {
-	scope     model.ScheduleScope
-	lateError error
-	committed bool
+	reviewResult model.ScheduleResult
+	gameResult   model.ScheduleResult
+	reviewCmd    model.ReviewScheduleCommand
+	gameCmd      model.GameScheduleCommand
+	reviewErr    error
+	gameErr      error
 }
 
-func (repository *schedulingMemory) CommitWrite(ctx context.Context, work func(model.ScheduleScope) error) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := work(repository.scope); err != nil {
-		return err
-	}
-	if repository.lateError != nil {
-		return repository.lateError
-	}
-	repository.committed = true
-	return nil
+func (repository *schedulingMemory) CommitReviewSchedule(
+	_ context.Context, cmd model.ReviewScheduleCommand,
+) (model.ScheduleResult, error) {
+	repository.reviewCmd = cmd
+	return repository.reviewResult, repository.reviewErr
 }
 
-func TestScrapeGameChecksSubjectBeforeCreatingTask(t *testing.T) {
+func (repository *schedulingMemory) CommitGameSchedule(
+	_ context.Context, cmd model.GameScheduleCommand,
+) (model.ScheduleResult, error) {
+	repository.gameCmd = cmd
+	return repository.gameResult, repository.gameErr
+}
+
+func TestScrapeGameScheduleFailureIsReturned(t *testing.T) {
 	for _, test := range []struct {
-		name   string
-		reader subjectMemory
-		want   error
+		name string
+		err  error
 	}{
-		{"missing", subjectMemory{}, model.ErrGameVersionConflict},
-		{"stale", subjectMemory{found: true, game: model.GameSubject{Version: 2}}, model.ErrGameVersionConflict},
-		{"storage failure", subjectMemory{err: context.Canceled}, context.Canceled},
+		{"version conflict", model.ErrGameVersionConflict},
+		{"storage failure", context.Canceled},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			writes := &scheduleMemory{}
-			repository := &schedulingMemory{scope: model.ScheduleScope{Subjects: test.reader, Writes: writes}}
+			repository := &schedulingMemory{gameErr: test.err}
 			_, _, err := NewScheduler(repository, nil, time.Now).ScheduleGame(t.Context(), "game", 1)
-			if !errors.Is(err, test.want) || writes.creates != 0 || repository.committed {
-				t.Fatalf("invalid scheduling: writes=%d committed=%t error=%v", writes.creates, repository.committed, err)
+			if !errors.Is(err, test.err) {
+				t.Fatalf("schedule game error: %v", err)
 			}
 		})
 	}
@@ -147,13 +136,9 @@ func TestArcadeEvidencePrefersSHA1DeduplicatesAndCapsQueries(t *testing.T) {
 }
 
 func TestScheduleCommitFailureIsReturned(t *testing.T) {
-	writer := &scheduleMemory{}
-	repository := &schedulingMemory{scope: model.ScheduleScope{
-		Subjects: subjectMemory{found: true, game: model.GameSubject{Version: 1, PlatformID: "gba", ManifestDigest: "manifest"}},
-		Sources:  evidenceMemory{}, Writes: writer,
-	}, lateError: context.DeadlineExceeded}
+	repository := &schedulingMemory{gameErr: context.DeadlineExceeded}
 	_, _, err := NewScheduler(repository, nil, func() time.Time { return time.UnixMilli(100) }).ScheduleGame(t.Context(), "game", 1)
-	if !errors.Is(err, context.DeadlineExceeded) || repository.committed || writer.creates != 1 {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("late scheduling failure: %v", err)
 	}
 }

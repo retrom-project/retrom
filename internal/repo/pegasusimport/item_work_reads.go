@@ -18,7 +18,8 @@ func (records itemWorkRecords) Current(ctx context.Context, id string) (applicat
 COALESCE(item.library_import_job_id,''),COALESCE(item.library_import_item_id,''),COALESCE(plan.import_job_id,'')
 FROM pegasus_import_items item JOIN pegasus_imports plan ON plan.id=item.import_id WHERE item.id=?`, id).Scan(
 		&result.Item.ID, &result.Item.ImportID, &result.Item.State, &result.Item.Version,
-		&result.Item.LibraryImportJobID, &result.Item.LibraryImportItemID, &jobID)
+		&result.Item.LibraryImportJobID, &result.Item.LibraryImportItemID, &jobID,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.OwnedItem{}, application.ErrNotFound
 	}
@@ -43,7 +44,8 @@ FROM pegasus_import_items item JOIN pegasus_import_collections collection ON col
 WHERE item.import_id=? AND item.execution_state='PENDING' AND collection.mapping_action='IMPORT'
 ORDER BY item.metadata_relative_path,item.game_ordinal,item.id LIMIT 1`, importID).Scan(
 		&item.ID, &item.ImportID, &item.State, &item.Version, &item.TargetPlatformID, &item.TargetPlatformKind,
-		&item.TargetDATVersionID, &item.MetadataJSON, &tags, &item.LibraryImportJobID, &item.LibraryImportItemID)
+		&item.TargetDATVersionID, &item.MetadataJSON, &tags, &item.LibraryImportJobID, &item.LibraryImportItemID,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ExecutionItem{}, false, nil
 	}

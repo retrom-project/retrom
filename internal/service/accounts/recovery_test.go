@@ -26,17 +26,18 @@ func (memory *recoveryMemory) Current(context.Context, string) (model.RecoveryTa
 	return memory.target, true, nil
 }
 
-func (memory *recoveryMemory) CommitWrite(_ context.Context, work func(model.RecoveryScope) error) error {
-	if err := work(model.RecoveryScope{Read: memory, Write: memory}); err != nil {
-		return err
+func (memory *recoveryMemory) CommitRecovery(_ context.Context, cmd model.RecoveryCommand) error {
+	if !model.Recoverable(memory.target) || memory.target.Version != cmd.Version {
+		return model.ErrOfflineAdmin
 	}
-	return memory.lateError
-}
-
-func (memory *recoveryMemory) Reset(_ context.Context, plan model.RecoveryPlan) error {
-	memory.plan = plan
+	memory.plan = model.RecoveryPlan{
+		Target:       memory.target,
+		PasswordHash: cmd.PasswordHash,
+		AuditID:      cmd.AuditID,
+		Now:          cmd.NowMS,
+	}
 	memory.writes++
-	return nil
+	return memory.lateError
 }
 
 type recoveryHasher struct{ duringHash func() }

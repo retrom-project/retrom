@@ -12,11 +12,11 @@ import (
 )
 
 func executeManualCheckpoint(
-	ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand,
+	ctx context.Context, scope writeScope, cmd saves.ManualCheckpointCommand,
 ) (saves.ManualResult, bool, error) {
 	now := cmd.IdempotencyKey.AtMS
 
-	previous, found, err := scope.Idempotency.Replay(ctx, cmd.IdempotencyKey)
+	previous, found, err := scope.idempotency.Replay(ctx, cmd.IdempotencyKey)
 	if err != nil {
 		return saves.ManualResult{}, false, fmt.Errorf("read checkpoint replay: %w", err)
 	}
@@ -31,7 +31,7 @@ func executeManualCheckpoint(
 		return result, true, nil
 	}
 
-	current, err := scope.Launches.LoadLaunch(ctx, cmd.LaunchID)
+	current, err := scope.launches.LoadLaunch(ctx, cmd.LaunchID)
 	if err != nil {
 		return saves.ManualResult{}, false, fmt.Errorf("verify launch: %w", err)
 	}
@@ -43,7 +43,7 @@ func executeManualCheckpoint(
 	}
 
 	payload := blobstore.Metadata{SHA256: cmd.Payload.SHA256, Size: cmd.Payload.Size}
-	payloadID, err := scope.Blobs.Ensure(ctx, payload, cmd.Payload.MediaType, now)
+	payloadID, err := scope.blobs.Ensure(ctx, payload, cmd.Payload.MediaType, now)
 	if err != nil {
 		return saves.ManualResult{}, false, fmt.Errorf("register checkpoint payload: %w", err)
 	}
@@ -58,7 +58,7 @@ func executeManualCheckpoint(
 			CheckpointFormat: cmd.Launch.Checkpoint.WriteFormat,
 			CreatedAtMS:      now,
 		}
-		err = scope.Checkpoints.ReplacePreview(ctx, saves.PreviewWrite{
+		err = scope.checkpoints.ReplacePreview(ctx, saves.PreviewWrite{
 			PreviewID: cmd.LaunchID, PayloadID: payloadID,
 			Format: cmd.Launch.Checkpoint.WriteFormat, AtMS: now,
 		})
@@ -71,7 +71,7 @@ func executeManualCheckpoint(
 	if err != nil {
 		return saves.ManualResult{}, false, fmt.Errorf("encode checkpoint response: %w", err)
 	}
-	if err := scope.Idempotency.Remember(ctx, saves.ReplayWrite{
+	if err := scope.idempotency.Remember(ctx, saves.ReplayWrite{
 		ReplayKey:   cmd.IdempotencyKey,
 		Replay:      saves.Replay{Digest: cmd.Digest, Body: body},
 		ExpiresAtMS: now + int64(24*time.Hour/time.Millisecond),
@@ -82,9 +82,9 @@ func executeManualCheckpoint(
 }
 
 func persistProduct(
-	ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand, payloadID string, now int64,
+	ctx context.Context, scope writeScope, cmd saves.ManualCheckpointCommand, payloadID string, now int64,
 ) (saves.ManualResult, error) {
-	binding, found, err := scope.GameSaves.Binding(ctx, cmd.LaunchID)
+	binding, found, err := scope.gameSaves.Binding(ctx, cmd.LaunchID)
 	if err != nil {
 		return saves.ManualResult{}, fmt.Errorf("load game save binding: %w", err)
 	}
@@ -103,7 +103,7 @@ func persistProduct(
 		result, err = insertProduct(ctx, scope, cmd, payloadID, now)
 		dataVersion = 1
 		if err == nil {
-			err = scope.GameSaves.MarkSynced(ctx, result.SaveStateID, cmd.LaunchID, now)
+			err = scope.gameSaves.MarkSynced(ctx, result.SaveStateID, cmd.LaunchID, now)
 		}
 	} else {
 		result, dataVersion, err = updateProduct(ctx, scope, cmd, payloadID, binding, now)
@@ -111,25 +111,25 @@ func persistProduct(
 	if err != nil {
 		return saves.ManualResult{}, fmt.Errorf("publish game save: %w", err)
 	}
-	if err := scope.GameSaves.Bind(ctx, cmd.LaunchID, result.SaveStateID, dataVersion); err != nil {
+	if err := scope.gameSaves.Bind(ctx, cmd.LaunchID, result.SaveStateID, dataVersion); err != nil {
 		return saves.ManualResult{}, fmt.Errorf("advance game save binding: %w", err)
 	}
 	return result, nil
 }
 
 func insertProduct(
-	ctx context.Context, scope saves.WriteScope, cmd saves.ManualCheckpointCommand, payloadID string, now int64,
+	ctx context.Context, scope writeScope, cmd saves.ManualCheckpointCommand, payloadID string, now int64,
 ) (saves.ManualResult, error) {
 	var screenshotID *string
 	if cmd.Screenshot != nil {
 		meta := blobstore.Metadata{SHA256: cmd.Screenshot.SHA256, Size: cmd.Screenshot.Size}
-		value, err := scope.Blobs.Ensure(ctx, meta, cmd.ScreenshotMediaType, now)
+		value, err := scope.blobs.Ensure(ctx, meta, cmd.ScreenshotMediaType, now)
 		if err != nil {
 			return saves.ManualResult{}, fmt.Errorf("register save screenshot: %w", err)
 		}
 		screenshotID = &value
 	}
-	duration, err := scope.Checkpoints.Duration(ctx, cmd.LaunchID)
+	duration, err := scope.checkpoints.Duration(ctx, cmd.LaunchID)
 	if err != nil {
 		return saves.ManualResult{}, fmt.Errorf("read save duration: %w", err)
 	}
@@ -145,7 +145,7 @@ func insertProduct(
 	}
 	result.ScreenshotURL = screenshotURL(result.SaveStateID, screenshotID)
 	payload := blobstore.Metadata{SHA256: cmd.Payload.SHA256, Size: cmd.Payload.Size}
-	if err := scope.Checkpoints.CreateSave(ctx, saves.SaveCreation{
+	if err := scope.checkpoints.CreateSave(ctx, saves.SaveCreation{
 		LaunchID: cmd.LaunchID, ProfileID: cmd.Launch.ProfileID, GameID: cmd.Launch.GameID, PayloadID: payloadID,
 		DOSEntry: cmd.Launch.DOSEntry, ScreenshotID: screenshotID, Payload: payload, Result: result,
 	}); err != nil {
@@ -155,12 +155,12 @@ func insertProduct(
 }
 
 func updateProduct(
-	ctx context.Context, scope saves.WriteScope,
+	ctx context.Context, scope writeScope,
 	cmd saves.ManualCheckpointCommand,
 	payloadID string, binding saves.GameSaveBinding,
 	now int64,
 ) (saves.ManualResult, int64, error) {
-	saved, found, err := scope.GameSaves.Saved(ctx, *binding.ID)
+	saved, found, err := scope.gameSaves.Saved(ctx, *binding.ID)
 	if err != nil {
 		return saves.ManualResult{}, 0, fmt.Errorf("load saved slot: %w", err)
 	}
@@ -175,20 +175,20 @@ func updateProduct(
 	if saved.Digest == cmd.Payload.SHA256 {
 		return result, saved.DataVersion, nil
 	}
-	imageID, err := scope.Blobs.Ensure(ctx, blobstore.Metadata{
+	imageID, err := scope.blobs.Ensure(ctx, blobstore.Metadata{
 		SHA256: cmd.Screenshot.SHA256,
 		Size:   cmd.Screenshot.Size,
 	}, cmd.ScreenshotMediaType, now)
 	if err != nil {
 		return saves.ManualResult{}, 0, fmt.Errorf("register game save image: %w", err)
 	}
-	duration, err := scope.Checkpoints.Duration(ctx, cmd.LaunchID)
+	duration, err := scope.checkpoints.Duration(ctx, cmd.LaunchID)
 	if err != nil {
 		return saves.ManualResult{}, 0, fmt.Errorf("read game save duration: %w", err)
 	}
 	result.ActiveDurationMS = duration.InitialMS + duration.ActiveMS
 	payload := blobstore.Metadata{SHA256: cmd.Payload.SHA256, Size: cmd.Payload.Size}
-	if err := scope.GameSaves.UpdateSave(ctx, saves.SaveUpdate{
+	if err := scope.gameSaves.UpdateSave(ctx, saves.SaveUpdate{
 		SaveID: result.SaveStateID, LaunchID: cmd.LaunchID, PayloadID: payloadID, ScreenshotID: imageID,
 		Payload: payload, ExpectedDataVersion: binding.ExpectedVersion, AtMS: now,
 		ActiveDurationMS: result.ActiveDurationMS,

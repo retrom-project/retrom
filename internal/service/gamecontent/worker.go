@@ -38,15 +38,7 @@ func (service *Service) Run(parent context.Context, jobID string, executionNo in
 		Now:         now,
 		Deadline:    now + replacementExecutionTimeout.Milliseconds(),
 	}
-	var claimed bool
-	err = service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
-		var err error
-		claimed, err = scope.Leases.Claim(ctx, claim)
-		if err != nil {
-			return fmt.Errorf("claim replacement execution: %w", err)
-		}
-		return nil
-	})
+	claimed, err := service.repository.CommitClaimLease(ctx, claim)
 	if err != nil {
 		return fmt.Errorf("start replacement execution: %w", err)
 	}
@@ -67,15 +59,7 @@ func (service *Service) Run(parent context.Context, jobID string, executionNo in
 }
 
 func (service *Service) input(ctx context.Context, id string, execution int64) (model.JobSnapshot, string, error) {
-	var stored model.StoredInput
-	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
-		var err error
-		stored, err = scope.Inputs.Input(ctx, id, execution)
-		if err != nil {
-			return fmt.Errorf("read replacement input: %w", err)
-		}
-		return nil
-	})
+	stored, err := service.repository.ReadInput(ctx, id, execution)
 	if err != nil {
 		return model.JobSnapshot{}, "", fmt.Errorf("load replacement execution: %w", err)
 	}
@@ -94,7 +78,6 @@ func (service *Service) input(ctx context.Context, id string, execution int64) (
 	if _, err := uuid.Parse(envelope.ExecutionID); err != nil {
 		return model.JobSnapshot{}, "", model.ErrInvalid
 	}
-	// Retry changes the envelope execution identity while preserving frozen business inputs.
 	envelope.Inputs.ExecutionID = envelope.ExecutionID
 	return envelope.Inputs, stored.Digest, nil
 }
@@ -113,15 +96,7 @@ func (service *Service) heartbeat(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			current := false
-			err := service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
-				var err error
-				current, err = scope.Leases.Refresh(ctx, claim, service.now().UnixMilli())
-				if err != nil {
-					return fmt.Errorf("refresh replacement lease: %w", err)
-				}
-				return nil
-			})
+			current, err := service.repository.CommitRefreshLease(ctx, claim, service.now().UnixMilli())
 			if err != nil || !current {
 				cancel()
 				return
@@ -131,15 +106,7 @@ func (service *Service) heartbeat(
 }
 
 func (service *Service) prepare(ctx context.Context, snapshot model.JobSnapshot) (model.PreparedReplacement, error) {
-	var files []model.UploadedFile
-	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
-		var err error
-		files, err = scope.Content.Files(ctx, snapshot.UploadSessionID)
-		if err != nil {
-			return fmt.Errorf("read replacement files: %w", err)
-		}
-		return nil
-	})
+	files, err := service.repository.ReadFiles(ctx, snapshot.UploadSessionID)
 	if err != nil {
 		return model.PreparedReplacement{}, fmt.Errorf("load replacement content: %w", err)
 	}
@@ -171,34 +138,13 @@ func (service *Service) settleFailure(
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
 	outcome := failureOutcome(claim, snapshot, cause, service.now().UnixMilli())
-	changed := false
-	err := service.repository.CommitWrite(ctx, func(scope model.WriteScope) error {
-		state, err := scope.Leases.State(ctx, claim)
-		if err != nil {
-			return fmt.Errorf("read failed replacement ownership: %w", err)
-		}
-		if state != "RUNNING" && state != "CANCEL_REQUESTED" {
-			return nil
-		}
-		if state == "CANCEL_REQUESTED" {
-			outcome.Cancelled = true
-			outcome.Retryable = false
-		}
-		changed, err = scope.Jobs.Fail(ctx, outcome)
-		if err != nil {
-			return fmt.Errorf("finish failed replacement: %w", err)
-		}
-		if changed && !outcome.Retryable {
-			if err := releaseReplacementUpload(ctx, scope.Retirements, claim.JobID, outcome.Now); err != nil {
-				return fmt.Errorf("release terminal replacement upload: %w", err)
-			}
-		}
-		return nil
+	result, err := service.repository.CommitSettleFailure(ctx, model.SettleFailureCommand{
+		Claim: claim, Outcome: outcome,
 	})
 	if err != nil {
 		return errors.Join(cause, fmt.Errorf("settle replacement execution: %w", err))
 	}
-	if changed && !outcome.Retryable && service.payloadReleases != nil {
+	if result.SignalRelease && service.payloadReleases != nil {
 		service.payloadReleases.Signal()
 	}
 	return nil

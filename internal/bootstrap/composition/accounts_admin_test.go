@@ -244,7 +244,8 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }), "delete user = replay=%v error=%v", replayed, err)
 	var credentials int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(),
+	if err := fixture.database.SQL.QueryRowContext(
+		context.Background(),
 		`SELECT count(*) FROM user_credentials WHERE user_id=?`, winner.User.UserID,
 	).Scan(&credentials); err != nil || credentials != 0 {
 		t.Fatalf("deleted credential count = %d, error=%v", credentials, err)
@@ -324,7 +325,8 @@ func TestAccountSecurityAuditUsesClosedActions(t *testing.T) {
 		"USER_ROLE_CHANGED", "USER_ENABLED", "USER_DISABLED", "USER_DELETED",
 	} {
 		var count int
-		if err := fixture.database.SQL.QueryRowContext(context.Background(),
+		if err := fixture.database.SQL.QueryRowContext(
+			context.Background(),
 			`SELECT count(*) FROM audit_events WHERE action=?`, action,
 		).Scan(&count); err != nil || count == 0 {
 			t.Fatalf("audit action %s count = %d, error=%v", action, count, err)

@@ -32,11 +32,29 @@ func (memory *limitMemory) Clear(_ context.Context, key model.RateLimitKey) erro
 	return nil
 }
 
-func (memory *limitMemory) CommitWrite(_ context.Context, work func(model.RateLimitRecords) error) error {
-	if err := work(memory); err != nil {
-		return err
+func (memory *limitMemory) CommitRecordRateLimit(
+	_ context.Context, cmd model.RecordRateLimitCommand,
+) (model.RecordRateLimitResult, error) {
+	var maxRetry int64
+	for _, entry := range cmd.Entries {
+		current, found := memory.values[entry.Key]
+		if found && current.BlockedUntil != nil && *current.BlockedUntil > cmd.NowMS {
+			if *current.BlockedUntil > maxRetry {
+				maxRetry = *current.BlockedUntil
+			}
+			continue
+		}
+		next := model.NextRateLimitBucket(current, found, entry.Key, entry.Threshold, cmd.NowMS)
+		memory.writes++
+		memory.values[next.Key] = next
+		if next.BlockedUntil != nil && *next.BlockedUntil > maxRetry {
+			maxRetry = *next.BlockedUntil
+		}
 	}
-	return memory.lateError
+	if memory.lateError != nil {
+		return model.RecordRateLimitResult{}, memory.lateError
+	}
+	return model.RecordRateLimitResult{MaxRetryAfterMS: maxRetry}, nil
 }
 
 type limitHasher struct{}

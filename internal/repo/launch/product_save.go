@@ -20,7 +20,8 @@ func productCreationSave(
 	}
 	var save application.ProductSave
 	var readable bool
-	err := executor.QueryRowContext(ctx, `SELECT save.id,save.profile_id,save.game_id,source.core_id,
+	err := executor.QueryRowContext(
+		ctx, `SELECT save.id,save.profile_id,save.game_id,source.core_id,
  COALESCE(save.payload_blob_id,''),save.checkpoint_format,COALESCE(save.payload_sha256,''),
  COALESCE(save.payload_size_bytes,0),save.dos_entry_path,save.disc_index,
  EXISTS(SELECT 1 FROM game_variants variant

@@ -49,7 +49,8 @@ func (records validationWorkerRecords) Facts(
 		&source.DependencySnapshot, &facts.VariantVersion,
 		&source.ValidationLogicalName, contentquery.ScanPolicy(&source.ContentPolicy),
 		&facts.BindingFound,
-		&facts.RelationshipEnabled)
+		&facts.RelationshipEnabled,
+	)
 	if err != nil {
 		return application.ValidationFacts{}, fmt.Errorf("read validation source: %w", err)
 	}

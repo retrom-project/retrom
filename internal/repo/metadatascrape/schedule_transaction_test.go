@@ -21,12 +21,19 @@ func TestMissingScrapeSubjectRollsBackCreatedJob(t *testing.T) {
 		}
 	})
 	now := int64(100)
-	err = NewScheduler(database.SQL).CommitWrite(t.Context(), func(scope metadatascrape.ScheduleScope) error {
-		return scope.Writes.Create(t.Context(), metadatascrape.SchedulePlan{
-			Subject: metadatascrape.Subject{Kind: "IMPORT_ITEM", ID: "missing"}, RunID: "run", JobID: "job", Provider: "NONE",
-			Dedupe: strings.Repeat("a", 64), PayloadJSON: `{"provider":"NONE"}`, JobState: "SUCCEEDED", RunState: "COMPLETED", EventJSON: "{}", FinishedAt: &now, Now: now,
-		})
+	tx, txErr := database.SQL.BeginTx(t.Context(), nil)
+	if txErr != nil {
+		t.Fatal(txErr)
+	}
+	err = BindSchedule(tx).Writes.Create(t.Context(), metadatascrape.SchedulePlan{
+		Subject: metadatascrape.Subject{Kind: "IMPORT_ITEM", ID: "missing"}, RunID: "run", JobID: "job", Provider: "NONE",
+		Dedupe: strings.Repeat("a", 64), PayloadJSON: `{"provider":"NONE"}`, JobState: "SUCCEEDED", RunState: "COMPLETED", EventJSON: "{}", FinishedAt: &now, Now: now,
 	})
+	if err == nil {
+		err = tx.Commit()
+	} else {
+		_ = tx.Rollback()
+	}
 	if err == nil {
 		t.Fatal("scheduled nonexistent import item")
 	}

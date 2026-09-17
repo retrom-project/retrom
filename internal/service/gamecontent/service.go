@@ -11,11 +11,13 @@ import (
 	"retrom/internal/model/payloadrelease"
 )
 
+// Scheduled is the JSON-serializable schedule outcome.
 type Scheduled struct {
-	GameID  string `json:"gameId"`
-	JobID   string `json:"jobId"`
-	State   string `json:"state"`
-	Version int64  `json:"version"`
+	GameID   string `json:"gameId"`
+	JobID    string `json:"jobId"`
+	State    string `json:"state"`
+	Version  int64  `json:"version"`
+	Replayed bool   `json:"-"`
 }
 type Service struct {
 	repository             model.Repository
@@ -106,13 +108,6 @@ func (service *Service) ScheduleIdempotentMode(
 		return Scheduled{}, false, model.ErrInvalid
 	}
 	return service.schedule(ctx, gameID, uploadID, expectedVersion, mode, key, digest)
-}
-
-func pointerText(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
 }
 
 func (service *Service) WithGCStager(gc payloadrelease.GCStager) *Service {

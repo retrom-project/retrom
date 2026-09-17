@@ -54,7 +54,8 @@ JOIN review_drafts draft ON draft.import_item_id=screenshot.import_item_id
 WHERE screenshot.import_item_id=? AND screenshot.validation_id=?
 AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
 `, itemID, validationID).Scan(
-		&result.ID, &result.ProviderID, &result.TargetID, &result.WidthPX, &result.HeightPX, &result.CapturedAtMS)
+		&result.ID, &result.ProviderID, &result.TargetID, &result.WidthPX, &result.HeightPX, &result.CapturedAtMS,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewRuntimeScreenshot{}, false, nil
 	}

@@ -46,7 +46,8 @@ func (records companionRecords) Dependencies(
 	ctx context.Context,
 	datVersionID, machine string,
 ) ([]string, error) {
-	rows, err := records.tx.QueryContext(ctx, `
+	rows, err := records.tx.QueryContext(
+		ctx, `
 WITH RECURSIVE dependency(machine) AS (
  SELECT cloneof FROM dat_machines
  WHERE dat_version_id=? AND machine_name=? AND cloneof IS NOT NULL

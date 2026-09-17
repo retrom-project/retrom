@@ -436,7 +436,8 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 	err = database.SQL.QueryRowContext(context.Background(),
 		`SELECT state,end_reason FROM netplay_sessions WHERE id=?`, sessionID).Scan(&sessionState, &reason)
 	testassert.False(t, err != nil, err)
-	err = database.SQL.QueryRowContext(context.Background(),
+	err = database.SQL.QueryRowContext(
+		context.Background(),
 		`SELECT count(*) FROM netplay_session_participants WHERE netplay_session_id=? AND state='LEFT'`, sessionID,
 	).Scan(&left)
 	testassert.False(t, err != nil, err)

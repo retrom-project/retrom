@@ -42,7 +42,8 @@ func (memory *sessionControlMemory) writePeer(plan model.PeerTransitionPlan) err
 func (memory *sessionControlMemory) CommitSetSessionState(
 	_ context.Context, cmd model.SetSessionStateCommand,
 ) error {
-	return memory.withControl(cmd.RoomID, cmd.SessionID,
+	return memory.withControl(
+		cmd.RoomID, cmd.SessionID,
 		func(before model.SessionControlSnapshot) error {
 			if before.HostID != cmd.ActorID {
 				return model.ErrForbidden
@@ -77,7 +78,8 @@ func (memory *sessionControlMemory) CommitSetSessionState(
 func (memory *sessionControlMemory) CommitResync(
 	_ context.Context, cmd model.ResyncCommand,
 ) error {
-	return memory.withControl(cmd.RoomID, cmd.SessionID,
+	return memory.withControl(
+		cmd.RoomID, cmd.SessionID,
 		func(before model.SessionControlSnapshot) error {
 			if !model.ValidResyncSource(cmd.Cause, before.State) {
 				return model.ErrRoomConflict
@@ -105,7 +107,8 @@ func (memory *sessionControlMemory) CommitResync(
 func (memory *sessionControlMemory) CommitRunning(
 	_ context.Context, cmd model.RunningCommand,
 ) error {
-	return memory.withControl(cmd.RoomID, cmd.SessionID,
+	return memory.withControl(
+		cmd.RoomID, cmd.SessionID,
 		func(before model.SessionControlSnapshot) error {
 			if before.State != "SYNCHRONIZING" && before.State != "RESYNCHRONIZING" {
 				return model.ErrRoomConflict
@@ -135,7 +138,8 @@ func (memory *sessionControlMemory) CommitRunning(
 func (memory *sessionControlMemory) CommitDisconnected(
 	_ context.Context, cmd model.DisconnectedCommand,
 ) error {
-	return memory.withControl(cmd.Identity.RoomID, cmd.Identity.SessionID,
+	return memory.withControl(
+		cmd.Identity.RoomID, cmd.Identity.SessionID,
 		func(before model.SessionControlSnapshot) error {
 			peer, err := model.ControlPeer(before, cmd.Identity)
 			if err != nil {
@@ -176,7 +180,8 @@ func (memory *sessionControlMemory) CommitRuntimeReady(
 	_ context.Context, cmd model.RuntimeReadyCommand,
 ) (bool, error) {
 	allReady := false
-	err := memory.withControl(cmd.Identity.RoomID, cmd.Identity.SessionID,
+	err := memory.withControl(
+		cmd.Identity.RoomID, cmd.Identity.SessionID,
 		func(before model.SessionControlSnapshot) error {
 			peer, err := model.ControlPeer(before, cmd.Identity)
 			if err != nil {

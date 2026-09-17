@@ -2,35 +2,159 @@ package serverimport
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 
 	"retrom/internal/model/serverimport"
 	"retrom/internal/repo/dbexec"
+
+	"github.com/google/uuid"
 )
 
-type Control struct{ database *sql.DB }
+type Control struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
-func NewControl(database *sql.DB) *Control { return &Control{database} }
-func (repository *Control) CommitWrite(ctx context.Context, work func(serverimport.ControlScope) error) error {
+func NewControl(database *sql.DB) *Control { return &Control{database: database} }
+
+// WithPreCommitHook sets a function called after all writes but before commit.
+// Test-only: enables fault injection for rollback verification.
+func (c *Control) WithPreCommitHook(hook func() error) *Control {
+	c.preCommitHook = hook
+	return c
+}
+
+func (repository *Control) CommitCancel(
+	ctx context.Context, cmd serverimport.CancelCommand,
+) (serverimport.CancelResult, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin server import control: %w", err)
+		return serverimport.CancelResult{},
+			fmt.Errorf("begin server import control: %w", err)
 	}
 	defer dbexec.Rollback(tx)
+
 	records := controlRecords{tx}
-	if err := work(serverimport.ControlScope{Read: records, Write: records}); err != nil {
-		return err
+	before, err := records.Current(ctx, cmd.ID)
+	if errors.Is(err, serverimport.ErrNotFound) {
+		return serverimport.CancelResult{}, serverimport.ErrNotCancellable
+	}
+	if err != nil {
+		return serverimport.CancelResult{},
+			fmt.Errorf("read import cancellation state: %w", err)
+	}
+
+	if !serverimport.CancelValid(before, cmd.Version) {
+		return serverimport.CancelResult{}, serverimport.ErrNotCancellable
+	}
+
+	evidence, err := newControlEvidence(cmd.ActorID, cmd.Now)
+	if err != nil {
+		return serverimport.CancelResult{}, err
+	}
+
+	plan := serverimport.Cancellation{
+		Before:         before,
+		Pending:        before.Summary.State == "RUNNING",
+		State:          "CANCEL_REQUESTED",
+		Reason:         cmd.Reason,
+		CancelledItems: before.Summary.Counts.Cancelled,
+		Evidence:       evidence,
+	}
+	if !plan.Pending {
+		plan.State = "CANCELLED"
+		now := evidence.Now
+		plan.CompletedAt = &now
+		plan.CancelledItems += before.PendingItems
+	}
+
+	if err := records.Cancel(ctx, plan); err != nil {
+		return serverimport.CancelResult{},
+			fmt.Errorf("cancel server import: %w", err)
+	}
+
+	after, err := records.Current(ctx, cmd.ID)
+	if err != nil {
+		return serverimport.CancelResult{},
+			fmt.Errorf("read cancelled import: %w", err)
+	}
+
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return serverimport.CancelResult{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit server import control: %w", err)
+		return serverimport.CancelResult{},
+			fmt.Errorf("commit server import control: %w", err)
 	}
-	return nil
+	return serverimport.CancelResult{
+		Summary: after.Summary, Pending: plan.Pending,
+	}, nil
+}
+
+func (repository *Control) CommitRetry(
+	ctx context.Context, cmd serverimport.RetryCommand,
+) (serverimport.Summary, error) {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return serverimport.Summary{},
+			fmt.Errorf("begin server import control: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+
+	records := controlRecords{tx}
+	before, err := records.Current(ctx, cmd.ID)
+	if errors.Is(err, serverimport.ErrNotFound) {
+		return serverimport.Summary{}, serverimport.ErrNotRetryable
+	}
+	if err != nil {
+		return serverimport.Summary{},
+			fmt.Errorf("read import retry state: %w", err)
+	}
+
+	if !serverimport.Retryable(before, cmd.Version, cmd.ValidRoots) {
+		return serverimport.Summary{}, serverimport.ErrNotRetryable
+	}
+
+	plan, err := newManualRetry(before, cmd.ActorID, cmd.Now)
+	if err != nil {
+		return serverimport.Summary{}, err
+	}
+
+	if err := records.Retry(ctx, plan); err != nil {
+		return serverimport.Summary{},
+			fmt.Errorf("reset server import: %w", err)
+	}
+
+	after, err := records.Current(ctx, cmd.ID)
+	if err != nil {
+		return serverimport.Summary{},
+			fmt.Errorf("read retried import: %w", err)
+	}
+
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return serverimport.Summary{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return serverimport.Summary{},
+			fmt.Errorf("commit server import control: %w", err)
+	}
+	return after.Summary, nil
 }
 
 type controlRecords struct{ executor dbexec.Executor }
 
-func (records controlRecords) Current(ctx context.Context, id string) (serverimport.ControlSnapshot, error) {
+func (records controlRecords) Current(
+	ctx context.Context, id string,
+) (serverimport.ControlSnapshot, error) {
 	summary, err := getSummary(ctx, records.executor, id)
 	if err != nil {
 		return serverimport.ControlSnapshot{}, err
@@ -57,7 +181,8 @@ FROM server_imports import JOIN jobs job ON job.id=import.job_id WHERE import.id
 		&snapshot.OtherActive,
 	)
 	if err != nil {
-		return serverimport.ControlSnapshot{}, fmt.Errorf("read required import job state: %w", err)
+		return serverimport.ControlSnapshot{},
+			fmt.Errorf("read required import job state: %w", err)
 	}
 	return snapshot, nil
 }
@@ -96,4 +221,83 @@ before_json, after_json, diff_json, request_id, created_at_ms) VALUES(?, 'USER',
 		return fmt.Errorf("append import control audit: %w", err)
 	}
 	return nil
+}
+
+func newControlEvidence(
+	actorID string, now int64,
+) (serverimport.ControlEvidence, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return serverimport.ControlEvidence{},
+			fmt.Errorf("create import audit identity: %w", err)
+	}
+	event := []byte(`{"schemaVersion":1}`)
+	return serverimport.ControlEvidence{
+		ActorID: actorID, AuditID: id.String(), Event: event, Now: now,
+	}, nil
+}
+
+func newManualRetry(
+	before serverimport.ControlSnapshot,
+	actorID string,
+	now int64,
+) (serverimport.ManualRetry, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return serverimport.ManualRetry{},
+			fmt.Errorf("create import retry identity: %w", err)
+	}
+	summary := before.Summary
+	execution := before.Execution + 1
+	input, err := json.Marshal(
+		map[string]any{
+			"schemaVersion": 1,
+			"kind":          "SERVER_BIOS_IMPORT",
+			"scope": map[string]any{
+				"type": "SERVER_IMPORT",
+				"id":   summary.ID,
+			},
+			"executionId": id.String(),
+			"inputs": map[string]any{
+				"serverImportVersion":   summary.Version,
+				"rootId":                summary.Root.ID,
+				"sourceRelativePath":    summary.SourceRelativePath,
+				"rootConfigDigest":      before.RootDigest,
+				"catalogSnapshotDigest": before.CatalogDigest,
+				"replaceIfBetter":       summary.ReplaceIfBetter,
+			},
+		},
+	)
+	if err != nil {
+		return serverimport.ManualRetry{},
+			fmt.Errorf("encode import retry input: %w", err)
+	}
+	payload, err := json.Marshal(
+		map[string]any{"inputExecutionNo": execution},
+	)
+	if err != nil {
+		return serverimport.ManualRetry{},
+			fmt.Errorf("encode import retry payload: %w", err)
+	}
+	retryEvent, err := json.Marshal(
+		map[string]any{"schemaVersion": 1, "executionNo": execution},
+	)
+	if err != nil {
+		return serverimport.ManualRetry{},
+			fmt.Errorf("encode import retry event: %w", err)
+	}
+	evidence, err := newControlEvidence(actorID, now)
+	if err != nil {
+		return serverimport.ManualRetry{}, err
+	}
+	evidence.Event = retryEvent
+	digest := sha256.Sum256(input)
+	return serverimport.ManualRetry{
+		Before:      before,
+		Execution:   execution,
+		Input:       input,
+		InputDigest: hex.EncodeToString(digest[:]),
+		Payload:     payload,
+		Evidence:    evidence,
+	}, nil
 }

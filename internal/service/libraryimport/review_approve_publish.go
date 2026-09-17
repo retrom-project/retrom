@@ -45,7 +45,8 @@ func (run *reviewApprovalRun) publishGame() error {
 	fromOwner := tagging.Owner{Kind: tagging.OwnerReviewDraft, ID: run.head.DraftID}
 	toOwner := tagging.Owner{Kind: tagging.OwnerGame, ID: run.gameID}
 	tags, err := run.scope.Tags.CopyOwnerReferences(
-		run.ctx, fromOwner, toOwner, principal.UserID, run.now)
+		run.ctx, fromOwner, toOwner, principal.UserID, run.now,
+	)
 	if err != nil {
 		return fmt.Errorf("publish review tags: %w", err)
 	}

@@ -37,6 +37,12 @@ type InitializationReader interface {
 type InitializationWriter interface {
 	Bootstrap(context.Context, BootstrapPlan) error
 }
+
+// BootstrapCommand captures all inputs for initializing the account store.
+type BootstrapCommand struct {
+	Plan BootstrapPlan
+}
+
 type InitializationScope struct {
 	Read  InitializationReader
 	Write InitializationWriter
@@ -44,7 +50,7 @@ type InitializationScope struct {
 type InitializationRepository interface {
 	State(context.Context) (InitializationState, error)
 	Credentials(context.Context) ([]StoredCredential, error)
-	CommitWrite(context.Context, func(InitializationScope) error) error
+	CommitBootstrap(context.Context, BootstrapCommand) error
 }
 type SetupCredentials interface {
 	SetupCode() string

@@ -41,7 +41,8 @@ WHERE source.id=? AND source.import_id=?`, intent.ItemID, intent.ImportID).Scan(
 		&value.TargetDefaultCoreID, &value.TargetProviderID, &value.TargetID, &value.TargetDATVersionID, &value.UploadID,
 		&value.LibraryJobID, &value.LibraryItemID, &value.Frozen.RootID, &value.Frozen.RootDigest, &value.Frozen.RelativePath,
 		&value.Frozen.ActorUserID, &value.Frozen.ReleaseYearMax, &value.Frozen.MappingVersion, &value.Frozen.MaxAttempts,
-		&value.Frozen.StartedAtMS, &value.Frozen.CollectionID, &value.Frozen.TagSnapshotJSON, &value.Frozen.ContentKind)
+		&value.Frozen.StartedAtMS, &value.Frozen.CollectionID, &value.Frozen.TagSnapshotJSON, &value.Frozen.ContentKind,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.SourceCreationSnapshot{}, application.ErrVersionConflict
 	}

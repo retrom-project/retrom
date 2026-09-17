@@ -2,10 +2,8 @@ package serverimport_test
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -37,23 +35,18 @@ func failedControlImport(t *testing.T) (*Service, *sql.DB, model.Summary) {
 }
 
 func TestRetryWriteRejectsSnapshotChangedAfterPreparation(t *testing.T) {
-	_, database, created := failedControlImport(t)
+	service, database, created := failedControlImport(t)
 	repository := importpersistence.NewControl(database)
-	var before model.ControlSnapshot
-	if err := repository.CommitWrite(t.Context(), func(scope model.ControlScope) error {
-		var err error
-		before, err = scope.Read.Current(t.Context(), created.ID)
-		return err
-	}); err != nil {
-		t.Fatal(err)
-	}
+
 	if _, err := database.ExecContext(t.Context(), `UPDATE server_imports SET version=version+1 WHERE id=?`, created.ID); err != nil {
 		t.Fatal(err)
 	}
-	input := []byte(`{"schemaVersion":1}`)
-	digest := sha256.Sum256(input)
-	plan := model.ManualRetry{Before: before, Execution: before.Execution + 1, Input: input, InputDigest: fmt.Sprintf("%x", digest), Payload: []byte(`{"inputExecutionNo":2}`), Evidence: model.ControlEvidence{ActorID: controlActorID, AuditID: "retry-audit", Event: []byte(`{"schemaVersion":1,"executionNo":2}`), Now: created.UpdatedAtMS}}
-	err := repository.CommitWrite(t.Context(), func(scope model.ControlScope) error { return scope.Write.Retry(t.Context(), plan) })
+
+	_, err := repository.CommitRetry(t.Context(), model.RetryCommand{
+		ID: created.ID, Version: created.Version, ActorID: controlActorID,
+		Now:        service.NowForTest().UnixMilli(),
+		ValidRoots: map[string]string{"bios-root": service.RootDigestForTest("bios-root")},
+	})
 	if !errors.Is(err, model.ErrNotRetryable) {
 		t.Fatalf("stale retry write: %v", err)
 	}
@@ -67,23 +60,12 @@ func TestRetryWriteRejectsSnapshotChangedAfterPreparation(t *testing.T) {
 	}
 }
 
-type failingControlRepository struct {
-	repository model.ControlRepository
-}
-
-func (repository failingControlRepository) CommitWrite(ctx context.Context, work func(model.ControlScope) error) error {
-	return repository.repository.CommitWrite(ctx, func(scope model.ControlScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		return context.Canceled
-	})
-}
-
 func TestImportControlLateFailureRollsBackEveryWrite(t *testing.T) {
+	hook := func() error { return context.Canceled }
 	t.Run("retry", func(t *testing.T) {
 		service, database, created := failedControlImport(t)
-		control := importservice.NewControl(failingControlRepository{importpersistence.NewControl(database)}, map[string]string{"bios-root": service.RootDigestForTest("bios-root")}, time.Now)
+		repo := importpersistence.NewControl(database).WithPreCommitHook(hook)
+		control := importservice.NewControl(repo, map[string]string{"bios-root": service.RootDigestForTest("bios-root")}, time.Now)
 		result, err := control.Retry(t.Context(), created.ID, created.Version, controlActorID)
 		if !errors.Is(err, context.Canceled) || result.ID != "" {
 			t.Fatalf("late retry: %+v %v", result, err)
@@ -96,7 +78,8 @@ func TestImportControlLateFailureRollsBackEveryWrite(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		control := importservice.NewControl(failingControlRepository{importpersistence.NewControl(database)}, nil, time.Now)
+		repo := importpersistence.NewControl(database).WithPreCommitHook(hook)
+		control := importservice.NewControl(repo, nil, time.Now)
 		result, pending, err := control.Cancel(t.Context(), created.ID, created.Version, "stop", controlActorID)
 		if !errors.Is(err, context.Canceled) || result.ID != "" || pending {
 			t.Fatalf("late cancel: %+v %v", result, err)

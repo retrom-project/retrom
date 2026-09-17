@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	model "retrom/internal/model/uploads"
 )
 
 func TestFinalizationFailureDistinguishesExecutionAndCallerDeadline(t *testing.T) {
@@ -18,7 +20,7 @@ func TestFinalizationFailureDistinguishesExecutionAndCallerDeadline(t *testing.T
 		{"execution deadline", context.DeadlineExceeded, 100, 100, "UPLOAD_FINALIZE_TIMEOUT", true},
 		{"close", ErrWorkerClosed, 200, 100, "UPLOAD_FINALIZE_IO", true},
 		{"bad part", errors.Join(errPartCorrupt, context.Canceled), 200, 100, "UPLOAD_PART_CORRUPT", false},
-		{"invalid input", ErrInputInvalid, 200, 100, "UPLOAD_INPUT_INVALID", false},
+		{"invalid input", model.ErrInputInvalid, 200, 100, "UPLOAD_INPUT_INVALID", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			code, retry := finalizationFailure(test.cause, test.deadline, test.now)

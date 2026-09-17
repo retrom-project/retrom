@@ -24,13 +24,15 @@ func (source scannerSource) Asset(
 	release, err := serversource.AcquireReader(ctx)
 	if err != nil {
 		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf(
-			"acquire EmulationStation media reader: %w: %w", emulationstationimportservice.ErrScanReadFailed, err)
+			"acquire EmulationStation media reader: %w: %w", emulationstationimportservice.ErrScanReadFailed, err,
+		)
 	}
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(source.root.path, source.selectedPath, file.Path)
 	if err != nil {
 		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf(
-			"open EmulationStation scan media: %w: %w", emulationstationimportmodel.ErrSourceChanged, err)
+			"open EmulationStation scan media: %w: %w", emulationstationimportmodel.ErrSourceChanged, err,
+		)
 	}
 	defer func() { cleanup.Error("close", handle.Close()) }()
 	if before.Size() != file.Size || serversource.FactsDigest(before) != file.Facts {
@@ -40,11 +42,13 @@ func (source scannerSource) Asset(
 	after, statErr := handle.Stat()
 	if err := ctx.Err(); err != nil {
 		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf(
-			"stop EmulationStation media inspection: %w", errors.Join(err, inspectErr, statErr))
+			"stop EmulationStation media inspection: %w", errors.Join(err, inspectErr, statErr),
+		)
 	}
 	if inspectErr != nil || statErr != nil {
 		return emulationstationimportservice.ScanAssetInspection{}, fmt.Errorf(
-			"inspect EmulationStation frozen media: %w", errors.Join(inspectErr, statErr))
+			"inspect EmulationStation frozen media: %w", errors.Join(inspectErr, statErr),
+		)
 	}
 	if !serversource.SameFileFacts(before, after) {
 		return emulationstationimportservice.ScanAssetInspection{Changed: true}, nil

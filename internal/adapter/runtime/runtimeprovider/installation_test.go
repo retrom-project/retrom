@@ -60,7 +60,8 @@ INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('fixture','fixtur
 		t.Fatalf("projection counts = (%d,%d)", providerCount, targetCount)
 	}
 	response := httptest.NewRecorder()
-	installation.Handler.ServeHTTP(response, httptest.NewRequestWithContext(ctx,
+	installation.Handler.ServeHTTP(response, httptest.NewRequestWithContext(
+		ctx,
 		http.MethodGet,
 		"/runtime/providers/fixture/"+paths.bundleSHA256+"/client.mjs",
 		nil,

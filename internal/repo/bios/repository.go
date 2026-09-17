@@ -220,7 +220,8 @@ func conditions(request application.ListRequest, includeCursor bool) ([]string, 
 	}
 	arguments := make([]any, 0, 12)
 	if request.Query != "" {
-		result = append(result,
+		result = append(
+			result,
 			"(instr(lower(requirement.logical_name),lower(?))>0 OR instr(lower(core.name),lower(?))>0)",
 		)
 		arguments = append(arguments, request.Query, request.Query)
@@ -248,11 +249,13 @@ WHERE platform_core.core_id=requirement.core_id AND platform_core.platform_id=?)
 	}
 	result = appendQuickFilter(result, request.Quick)
 	if includeCursor && request.Cursor != nil {
-		result = append(result,
+		result = append(
+			result,
 			"(core.name>? OR (core.name=? AND requirement.logical_name>?) OR "+
 				"(core.name=? AND requirement.logical_name=? AND requirement.id>?))",
 		)
-		arguments = append(arguments,
+		arguments = append(
+			arguments,
 			request.Cursor.SortValues[0], request.Cursor.SortValues[0], request.Cursor.SortValues[1],
 			request.Cursor.SortValues[0], request.Cursor.SortValues[1], request.Cursor.ID,
 		)

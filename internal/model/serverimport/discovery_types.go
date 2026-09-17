@@ -26,11 +26,7 @@ type DiscoveryPlan struct {
 	Counts               serversource.Counts
 }
 
-type DiscoveryRecords interface {
-	Reset(context.Context, Work, int64) error
-	Persist(context.Context, DiscoveryPlan) error
-}
-
 type DiscoveryRepository interface {
-	CommitWrite(context.Context, func(DiscoveryRecords) error) error
+	CommitReset(context.Context, Work, int64) error
+	CommitPersist(context.Context, DiscoveryPlan) error
 }

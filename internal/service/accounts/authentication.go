@@ -39,21 +39,10 @@ func (service *Authentication) Login(ctx context.Context, username, password str
 	if err != nil {
 		return model.Session{}, fmt.Errorf("prepare login session: %w", err)
 	}
-	var now int64
-	err = service.repository.CommitWrite(ctx, func(scope model.AuthScope) error {
-		now = service.now().UnixMilli()
-		if err := scope.Write.Login(
-			ctx,
-			credential,
-			material.Record(
-				credential.User.UserID,
-				credential.SessionVersion,
-				now,
-			),
-		); err != nil {
-			return fmt.Errorf("create login session: %w", err)
-		}
-		return nil
+	now := service.now().UnixMilli()
+	err = service.repository.CommitLogin(ctx, model.LoginCommand{
+		Credential: credential,
+		Session:    material.Record(credential.User.UserID, credential.SessionVersion, now),
 	})
 	if err != nil {
 		return model.Session{}, fmt.Errorf("commit login session: %w", err)
@@ -94,11 +83,9 @@ func (service *Authentication) verify(
 }
 
 func (service *Authentication) Logout(ctx context.Context, id string) error {
-	err := service.repository.CommitWrite(ctx, func(scope model.AuthScope) error {
-		if err := scope.Write.Revoke(ctx, id, service.now().UnixMilli()); err != nil {
-			return fmt.Errorf("revoke authentication session: %w", err)
-		}
-		return nil
+	err := service.repository.CommitLogout(ctx, model.LogoutCommand{
+		SessionID: id,
+		NowMS:     service.now().UnixMilli(),
 	})
 	if err != nil {
 		return fmt.Errorf("commit session logout: %w", err)

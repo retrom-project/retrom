@@ -49,7 +49,6 @@ func newAccountAudit(
 	if err != nil {
 		return model.AccountAudit{}, fmt.Errorf("create account audit identity: %w", err)
 	}
-
 	result := model.AccountAudit{
 		ID:           id.String(),
 		ActorID:      actorID,
@@ -76,18 +75,11 @@ func newAccountAudit(
 }
 
 func auditJSON(value any) (string, error) {
-	encoded, err := json.Marshal(
-		value,
-	)
+	encoded, err := json.Marshal(value)
 	if err != nil {
-		return "", fmt.Errorf(
-			"encode account audit: %w",
-			err,
-		)
+		return "", fmt.Errorf("encode account audit: %w", err)
 	}
-	return string(
-		encoded,
-	), nil
+	return string(encoded), nil
 }
 
 func checkAccountReplay(replay model.AccountReplay, operation model.AccountOperation) error {

@@ -57,7 +57,11 @@ func validLaunchDiscShape(launch model.Launch) bool {
 	return launch.DiscCount >= 2 && launch.InitialDiscIndex >= 0 && launch.InitialDiscIndex < launch.DiscCount
 }
 
-func (service *Service) ensureWritable(ctx context.Context, records model.LaunchReader, id string,
+type launchReader interface {
+	LoadLaunch(context.Context, string) (model.Launch, error)
+}
+
+func (service *Service) ensureWritable(ctx context.Context, records launchReader, id string,
 	expected model.Launch, payloadSize int64,
 ) error {
 	current, err := records.LoadLaunch(ctx, id)

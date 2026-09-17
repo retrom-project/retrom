@@ -85,7 +85,6 @@ func TestStaticArchivesRejectAliasesWhileDATRemainsAdvisory(t *testing.T) {
 }
 
 type installMemory struct {
-	model.InstallationWriter
 	initial, current               model.Requirement
 	upload, currentUpload          model.Upload
 	created                        *model.InstallationWrite

@@ -129,7 +129,8 @@ AND enabled=1
 		t.Fatal(err)
 	}
 	installationID, _ := uuid.NewV7()
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := database.SQL.ExecContext(
+		ctx, `
 INSERT INTO bios_installations(id,
 requirement_id,
 blob_id,
@@ -250,7 +251,8 @@ SELECT state,error_code FROM jobs WHERE id=?
 	contentDigest, err := service.ContentBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Launch.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return contentDigest != base64DigestHex(digest) }), "content digest = %s, error = %v", contentDigest, err)
 	saveID, _ := uuid.NewV7()
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := database.SQL.ExecContext(
+		ctx, `
 INSERT INTO save_states(
 id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
 screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms)

@@ -48,6 +48,25 @@ type AuthWriter interface {
 	Refresh(context.Context, SessionRefresh) error
 	Revoke(context.Context, string, int64) error
 }
+
+// LoginCommand captures all pre-computed values for creating a login session.
+type LoginCommand struct {
+	Credential LoginCredential
+	Session    SessionRecord
+}
+
+// LogoutCommand captures all inputs for revoking an authentication session.
+type LogoutCommand struct {
+	SessionID string
+	NowMS     int64
+}
+
+// RefreshSessionCommand captures inputs for conditionally refreshing a session.
+type RefreshSessionCommand struct {
+	Digest [32]byte
+	NowMS  int64
+}
+
 type AuthScope struct {
 	Read  AuthReader
 	Write AuthWriter
@@ -55,7 +74,9 @@ type AuthScope struct {
 type AuthRepository interface {
 	Credential(context.Context, string) (LoginCredential, bool, error)
 	Session(context.Context, [32]byte) (SessionSnapshot, bool, error)
-	CommitWrite(context.Context, func(AuthScope) error) error
+	CommitLogin(context.Context, LoginCommand) error
+	CommitLogout(context.Context, LogoutCommand) error
+	CommitRefreshSession(context.Context, RefreshSessionCommand) (SessionSnapshot, error)
 }
 type PasswordVerifier interface {
 	Verify(context.Context, string, string) (bool, error)

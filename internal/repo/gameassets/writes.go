@@ -79,7 +79,8 @@ DELETE FROM game_assets WHERE game_id=? AND kind=? AND ordinal=?
 }
 
 func (scope writeScope) Create(ctx context.Context, asset application.AssetRecord) error {
-	if _, err := recordstore.CreateGameAssets(ctx, scope.executor, `
+	if _, err := recordstore.CreateGameAssets(
+		ctx, scope.executor, `
 INSERT INTO game_assets(id,
 game_id,
 blob_id,
@@ -105,7 +106,8 @@ created_at_ms) VALUES(?,?,?,?,?,?,?,?,?)`,
 }
 
 func (scope writeScope) ConsumeUpload(ctx context.Context, record application.ConsumptionRecord) error {
-	if _, err := recordstore.CreateUploadConsumptions(ctx, scope.executor, `
+	if _, err := recordstore.CreateUploadConsumptions(
+		ctx, scope.executor, `
 INSERT INTO upload_consumptions(id,
 upload_session_id,
 upload_file_id,

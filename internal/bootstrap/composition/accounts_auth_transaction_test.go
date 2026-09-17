@@ -2,12 +2,14 @@ package composition
 
 import (
 	"context"
-	"errors"
+	"database/sql/driver"
+	"strings"
 	"testing"
 
 	"retrom/internal/bootstrap/config"
 	accountservice "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestLoginSessionAndUserActivityRollbackTogether(t *testing.T) {
@@ -17,20 +19,26 @@ func TestLoginSessionAndUserActivityRollbackTogether(t *testing.T) {
 	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT last_login_at_ms FROM users WHERE id=?`, session.User.UserID).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	repository := accountpersistence.NewAuthentication(fixture.database.SQL)
-	credential, found, err := repository.Credential(t.Context(), session.User.Username)
+	credential, found, err := accountpersistence.NewAuthentication(fixture.database.SQL).Credential(t.Context(), session.User.Username)
 	if err != nil || !found {
 		t.Fatalf("credential missing: %v", err)
 	}
-	material := accountservice.SessionMaterial{ID: "rollback-session", Hash: [32]byte{1}}
-	err = repository.CommitWrite(t.Context(), func(scope accountservice.AuthScope) error {
-		if err := scope.Write.Login(t.Context(), credential, material.Record(session.User.UserID, credential.SessionVersion, before+100)); err != nil {
-			return err
-		}
-		return context.Canceled
+	faultDB := testsupport.OpenSQLFaultDatabase(t, fixture.database.SQL, testsupport.SQLFaultHooks{
+		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+			if strings.Contains(query, "INSERT INTO auth_sessions") {
+				return context.Canceled
+			}
+			return nil
+		},
 	})
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("late login write: %v", err)
+	repository := accountpersistence.NewAuthentication(faultDB)
+	material := accountservice.SessionMaterial{ID: "rollback-session", Hash: [32]byte{1}}
+	err = repository.CommitLogin(t.Context(), accountservice.LoginCommand{
+		Credential: credential,
+		Session:    material.Record(session.User.UserID, credential.SessionVersion, before+100),
+	})
+	if err == nil {
+		t.Fatal("expected session insert fault to cause error")
 	}
 	var after int64
 	var sessions int

@@ -11,42 +11,71 @@ import (
 
 type workerMemory struct {
 	run     model.WorkerRun
-	claim   model.WorkerClaim
 	claimed bool
 	status  model.WorkerStatus
 	outcome model.WorkerOutcome
 	initial initialMemory
 	writes  int
+	claim   model.WorkerClaim
 }
 
 func (memory *workerMemory) Run(context.Context, string) (model.WorkerRun, error) {
 	return memory.run, nil
 }
 
-func (memory *workerMemory) CommitWrite(ctx context.Context, work func(model.WorkerScope) error) error {
-	if err := ctx.Err(); err != nil {
-		return err
+func (memory *workerMemory) CommitClaim(
+	_ context.Context, cmd model.WorkerClaimCommand,
+) (model.WorkerClaimResult, error) {
+	claim := model.WorkerClaim{
+		RunID: cmd.Run.RunID, JobID: cmd.Run.JobID, ExecutionNo: cmd.Run.ExecutionNo,
+		WorkerID: cmd.WorkerID, Version: cmd.Run.Version, AttemptCount: cmd.Run.AttemptCount,
+		Now: cmd.Now,
 	}
-	return work(model.WorkerScope{Leases: memory, Write: memory, Initial: model.InitialReviewScope{Read: &memory.initial, Write: &memory.initial}})
-}
-
-func (memory *workerMemory) Claim(_ context.Context, claim model.WorkerClaim) (bool, error) {
+	claim.Deadline = cmd.Run.Deadline
+	if claim.Deadline == 0 {
+		claim.Deadline = cmd.Now + 3600000
+	}
+	claim.Terminal = claim.Deadline <= cmd.Now ||
+		cmd.Run.MaxAttempts > 0 && cmd.Run.AttemptCount >= cmd.Run.MaxAttempts ||
+		cmd.Run.JobState == "CANCEL_REQUESTED"
 	memory.claim = claim
-	return memory.claimed, nil
+	return model.WorkerClaimResult{Claim: claim, Claimed: memory.claimed}, nil
 }
 
-func (memory *workerMemory) Refresh(context.Context, model.WorkerClaim, int64) (bool, error) {
+func (memory *workerMemory) CommitRefresh(context.Context, model.WorkerRefreshCommand) (bool, error) {
 	return true, nil
 }
 
-func (memory *workerMemory) Status(context.Context, model.WorkerClaim, int64) (model.WorkerStatus, error) {
-	return memory.status, nil
-}
-
-func (memory *workerMemory) Finish(_ context.Context, outcome model.WorkerOutcome) error {
-	memory.outcome = outcome
+func (memory *workerMemory) CommitSettle(_ context.Context, cmd model.WorkerSettleCommand) (model.WorkerSettleResult, error) {
+	var result model.WorkerSettleResult
+	memory.outcome = model.WorkerOutcome{
+		Claim: cmd.Claim, State: "SUCCEEDED", RunState: "COMPLETED",
+		Count: cmd.Count, Now: cmd.Now,
+	}
+	switch {
+	case memory.status.State == "CANCEL_REQUESTED" || memory.status.State == "CANCELLED":
+		memory.outcome.State = "CANCELLED"
+		memory.outcome.RunState = "CANCELLED"
+		if memory.initial.found && memory.initial.item.ItemState == "SCRAPING" {
+			change := model.InitialProgress(memory.initial.item, cmd.Now)
+			change.ItemState = "REVIEW_PENDING"
+			change.ReviewDelta = 1
+			change.JobState = "REVIEW_PENDING"
+			memory.initial.changes = append(memory.initial.changes, change)
+		}
+	case memory.status.State != "RUNNING" && memory.status.State != "QUEUED":
+		return result, nil
+	case cmd.Failed || memory.status.Expired:
+		memory.outcome.State = "FAILED"
+		memory.outcome.RunState = "FAILED"
+		memory.outcome.Code = cmd.Code
+		if !cmd.Failed && memory.status.Expired {
+			memory.outcome.Code = "METADATA_EXECUTION_EXPIRED"
+			result.Expired = true
+		}
+	}
 	memory.writes++
-	return nil
+	return result, nil
 }
 
 type processFunc func(context.Context, model.WorkerClaim, string) (int, string, error)

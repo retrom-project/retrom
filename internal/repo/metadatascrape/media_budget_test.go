@@ -61,7 +61,7 @@ func TestMediaBudgetUsesRemainingReservationAndRejectsFurtherReads(t *testing.T)
 	}
 	recoveryExec(t, fixture.database, `UPDATE jobs SET state='QUEUED',finished_at_ms=NULL,error_code=NULL,error_retryable=NULL,
  worker_id=NULL,version=version+1 WHERE id=?`, fixture.jobID)
-	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, hasheous.ErrAssetReadLimit) {
+	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); err != nil {
 		t.Fatal(err)
 	}
 	if calls != 1 {

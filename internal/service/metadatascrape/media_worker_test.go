@@ -1,7 +1,6 @@
 package metadatascrape
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -19,17 +18,17 @@ func TestMediaInputRejectsChangedSourceAndPreservesJSONCause(t *testing.T) {
 		Job:   model.MediaJob{ID: plan.JobID, Scope: plan.Scope, Input: plan.InputJSON, InputDigest: plan.InputDigest},
 		Asset: model.MediaAsset{CandidateAsset: asset, RunID: "run"},
 	}
-	if err := validateMediaInput(snapshot); err != nil {
+	if err := model.ValidateMediaInput(snapshot); err != nil {
 		t.Fatal(err)
 	}
 	snapshot.Asset.Reference.Path = "changed"
-	if err := validateMediaInput(snapshot); !errors.Is(err, model.ErrMediaInput) {
+	if err := model.ValidateMediaInput(snapshot); !errors.Is(err, model.ErrMediaInput) {
 		t.Fatalf("changed source accepted: %v", err)
 	}
 	snapshot.Job.Input = "{"
-	snapshot.Job.InputDigest = mediaDigest(snapshot.Job.Input)
+	snapshot.Job.InputDigest = model.MediaDigest(snapshot.Job.Input)
 	var syntax *json.SyntaxError
-	if err := validateMediaInput(snapshot); !errors.Is(err, model.ErrMediaInput) || !errors.As(err, &syntax) {
+	if err := model.ValidateMediaInput(snapshot); !errors.Is(err, model.ErrMediaInput) || !errors.As(err, &syntax) {
 		t.Fatalf("lost JSON cause: %v", err)
 	}
 }
@@ -41,7 +40,7 @@ func TestMediaOrderingUsesCandidateRankingThenAssetIdentity(t *testing.T) {
 		{ID: "a", Hits: 2, QueryOrder: 1, GameID: "z", Kind: "COVER"},
 		{ID: "c", Hits: 2, QueryOrder: 2, GameID: "a", Kind: "COVER"},
 	}
-	sortMedia(assets)
+	model.SortMedia(assets)
 	for index, id := range []string{"a", "c", "b", "d"} {
 		if assets[index].ID != id {
 			t.Fatalf("order=%+v", assets)
@@ -69,9 +68,11 @@ func TestMediaCompletionDistinguishesPersistedAndCallerDeadlines(t *testing.T) {
 			snapshot.Job.LeaseUntil = 100
 			snapshot.Job.Deadline = test.deadline
 			claim := model.MediaClaim{JobID: snapshot.Job.ID, WorkerID: "worker", Execution: 1, Attempt: 1}
-			outcome, cause := mediaCompletion(snapshot, claim, "", context.DeadlineExceeded, 100)
-			if outcome.Code != test.code || !errors.Is(cause, context.DeadlineExceeded) {
-				t.Fatalf("deadline=%d outcome=%+v cause=%v", test.deadline, outcome, cause)
+			outcome := model.MediaCompletion(snapshot, model.MediaSettleCommand{
+				Claim: claim, Failed: true, Retryable: true, Now: 100,
+			})
+			if outcome.Code != test.code {
+				t.Fatalf("deadline=%d outcome=%+v", test.deadline, outcome)
 			}
 		})
 	}

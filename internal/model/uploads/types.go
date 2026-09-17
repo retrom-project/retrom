@@ -5,8 +5,11 @@ import "errors"
 const PartSize = int64(8 << 20)
 
 var (
-	ErrInvalid  = errors.New("UPLOAD_INVALID")
-	ErrNotFound = errors.New("UPLOAD_NOT_FOUND")
+	ErrInvalid           = errors.New("UPLOAD_INVALID")
+	ErrNotFound          = errors.New("UPLOAD_NOT_FOUND")
+	ErrExecutionLost     = errors.New("UPLOAD_EXECUTION_LOST")
+	ErrInputInvalid      = errors.New("UPLOAD_INPUT_INVALID")
+	ErrAttemptsExhausted = errors.New("UPLOAD_ATTEMPTS_EXHAUSTED")
 )
 
 type Canceled struct {

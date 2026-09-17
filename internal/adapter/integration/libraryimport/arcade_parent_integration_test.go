@@ -54,7 +54,8 @@ func TestReviewBulkApprovalPublishesCurrentTypedArcadeSnapshot(t *testing.T) {
 		profileID = "01990000-0000-7000-8000-00000000c710"
 		adminID   = "01990000-0000-7000-8000-00000000c711"
 	)
-	if _, err := database.SQL.ExecContext(context.Background(),
+	if _, err := database.SQL.ExecContext(
+		context.Background(),
 		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Arcade Bulk Admin',1)`, profileID,
 	); err != nil {
 		t.Fatal(err)
@@ -460,7 +461,8 @@ func waitParentJob(t *testing.T, database *sql.DB, jobID, wanted string) {
 	for {
 		var state, kind string
 		var errorCode sql.NullString
-		if err := database.QueryRowContext(context.Background(),
+		if err := database.QueryRowContext(
+			context.Background(),
 			`SELECT state,kind,error_code FROM jobs WHERE id=?`, jobID,
 		).Scan(&state, &kind, &errorCode); err != nil {
 			t.Fatal(err)

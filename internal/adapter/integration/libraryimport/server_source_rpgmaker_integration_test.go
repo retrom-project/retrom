@@ -42,7 +42,8 @@ FROM upload_files file JOIN blobs blob ON blob.id=file.final_blob_id WHERE file.
 	}
 	var count int
 	var mode string
-	if err := database.SQL.QueryRowContext(ctx,
+	if err := database.SQL.QueryRowContext(
+		ctx,
 		"SELECT count(*),json_extract(config_snapshot_json,'$.contentMode') FROM import_jobs",
 	).Scan(&count, &mode); err != nil {
 		t.Fatal(err)

@@ -11,24 +11,14 @@ import (
 	importservice "retrom/internal/service/serverimport"
 )
 
-type failingLeaseRepository struct{ model.LeaseRepository }
-
-func (repository failingLeaseRepository) CommitWrite(ctx context.Context, work func(model.LeaseRecords) error) error {
-	return repository.LeaseRepository.CommitWrite(ctx, func(records model.LeaseRecords) error {
-		if err := work(records); err != nil {
-			return err
-		}
-		return context.Canceled
-	})
-}
-
 func TestLeaseClaimFailureRollsBackOwnerBudgetAndEvents(t *testing.T) {
 	legacy, database, _ := archiveImportFixture(t)
 	created, err := legacy.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := importservice.NewLeases(failingLeaseRepository{importpersistence.NewLeases(database)}, legacy.NowForTest)
+	repo := importpersistence.NewLeases(database).WithPreCommitHook(func() error { return context.Canceled })
+	service := importservice.NewLeases(repo, legacy.NowForTest)
 	unit, found, err := service.Claim(t.Context())
 	if !errors.Is(err, context.Canceled) || found || unit.Owner != "" {
 		t.Fatalf("failed claim: %+v %v %v", unit, found, err)
@@ -47,7 +37,7 @@ FROM jobs WHERE id=?`, created.JobID).Scan(&state, &version, &attempt, &leases, 
 	}
 }
 
-func TestProgressConflictRollsBackJobLeaseAndEvent(t *testing.T) {
+func TestProgressCancelledImportRollsBackJobLeaseAndEvent(t *testing.T) {
 	legacy, database, _ := archiveImportFixture(t)
 	created, err := legacy.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
@@ -57,29 +47,24 @@ func TestProgressConflictRollsBackJobLeaseAndEvent(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("claim: %v %v", found, err)
 	}
+
+	if _, _, err := legacy.Cancel(t.Context(), created.ID, created.Version+1, "stop", controlActorID); err != nil {
+		t.Fatal(err)
+	}
+
 	repository := importpersistence.NewLeases(database)
-	var before model.LeaseSnapshot
-	if err := repository.CommitWrite(t.Context(), func(records model.LeaseRecords) error {
-		var err error
-		before, err = records.Current(t.Context(), unit.JobID)
-		return err
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.ExecContext(t.Context(), `UPDATE server_imports SET version=version+1 WHERE id=?`, created.ID); err != nil {
-		t.Fatal(err)
-	}
-	err = repository.CommitWrite(t.Context(), func(records model.LeaseRecords) error {
-		return records.Touch(t.Context(), model.LeaseTouch{Before: before, Now: legacy.NowForTest().UnixMilli(), LeaseUntil: *before.LeaseUntil + 1000, Phase: "DISCOVERING", Event: []byte(`{"schemaVersion":1}`)})
+	err = repository.CommitTouch(t.Context(), model.TouchCommand{
+		Unit: unit, Phase: "DISCOVERING",
+		Event: []byte(`{"schemaVersion":1}`),
+		Now:   legacy.NowForTest().UnixMilli(),
 	})
-	if !errors.Is(err, model.ErrLeaseLost) {
-		t.Fatalf("stale progress accepted: %v", err)
+	if !errors.Is(err, model.ErrWorkerCancelled) {
+		t.Fatalf("cancelled progress accepted: %v", err)
 	}
-	importVersion, jobVersion := workerVersions(t, database, unit)
-	var lease, events int64
-	err = database.QueryRowContext(t.Context(), `SELECT leased_until_ms,
-(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type='PROGRESS') FROM jobs WHERE id=?`, unit.JobID).Scan(&lease, &events)
-	if err != nil || importVersion != before.ImportVersion+1 || jobVersion != before.JobVersion || lease != *before.LeaseUntil || events != 0 {
-		t.Fatalf("partial progress: import=%d job=%d lease=%d events=%d %v", importVersion, jobVersion, lease, events, err)
+	var events int64
+	err = database.QueryRowContext(t.Context(), `SELECT
+(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type='PROGRESS') FROM jobs WHERE id=?`, unit.JobID).Scan(&events)
+	if err != nil || events != 0 {
+		t.Fatalf("partial progress: events=%d %v", events, err)
 	}
 }

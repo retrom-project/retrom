@@ -90,7 +90,8 @@ func TestScanIsolatesOversizedGamelistWithoutReadingItsContents(t *testing.T) {
 		oversized = result.Gamelists[1]
 	}
 	testassert.Falsef(t, oversized.State != "INVALID", "oversized = %#v", oversized)
-	testassert.Falsef(t,
+	testassert.Falsef(
+		t,
 		oversized.ErrorCode != emulationstationmeta.ErrTooLarge.Error(),
 		"oversized = %#v", oversized,
 	)
@@ -125,7 +126,8 @@ func TestBlockedGameManifestUsesAnEmptyFilesArray(t *testing.T) {
 	result, err := (&Service{}).scan(context.Background(), Root{path: rootPath}, "", 2027)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, len(result.Items) != 1, "items = %d", len(result.Items))
-	testassert.Falsef(t,
+	testassert.Falsef(
+		t,
 		result.Items[0].SourceManifestJSON !=
 			`{"schemaVersion":1,"contentKind":"SINGLE_FILE","files":[]}`,
 		"manifest = %s", result.Items[0].SourceManifestJSON,

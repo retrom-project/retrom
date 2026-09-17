@@ -75,7 +75,8 @@ type gcScanner struct {
 
 func (scanner gcScanner) Scan(destinations ...any) error {
 	blob := scanner.blob
-	args := append(make([]any, 0, 7+len(destinations)),
+	args := append(
+		make([]any, 0, 7+len(destinations)),
 		&blob.ID, &blob.Digest, &blob.SizeBytes, &blob.HasCandidate,
 		&blob.Candidate.FirstUnreferencedMS, &blob.Candidate.ScheduledMS, &blob.Candidate.Attempt,
 	)

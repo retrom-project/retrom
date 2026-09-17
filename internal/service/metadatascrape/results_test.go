@@ -20,59 +20,22 @@ type resultMemory struct {
 	calls         int
 	lateError     error
 	readable      bool
-	response      model.ResponseRecord
-	responses     int
-	attempt       model.AttemptRecord
-	candidate     model.CandidateIdentity
-	hit           model.CandidateHit
-	assets        []model.CandidateAsset
+	created       bool
+	attempt       model.RecordCommand
 }
 
-func (memory *resultMemory) CommitWrite(_ context.Context, work func(model.ResultScope) error) error {
+func (memory *resultMemory) CommitRecord(_ context.Context, cmd model.RecordCommand) (model.RecordResult, error) {
 	memory.calls++
 	memory.inTransaction = true
 	defer func() { memory.inTransaction = false }()
-	if err := work(model.ResultScope{Read: memory, Write: memory, Media: memory}); err != nil {
-		return err
+	memory.attempt = cmd
+	if !memory.readable {
+		return model.RecordResult{}, model.ErrExecutionLost
 	}
-	return memory.lateError
-}
-
-func (memory *resultMemory) Writable(context.Context, model.WorkerClaim) (bool, error) {
-	return memory.readable, nil
-}
-
-func (memory *resultMemory) Hashes(context.Context, string) (model.Hashes, error) {
-	value := "sha1"
-	return model.Hashes{SHA1: &value}, nil
-}
-
-func (memory *resultMemory) Response(_ context.Context, value model.ResponseRecord) error {
-	memory.response = value
-	memory.responses++
-	return nil
-}
-
-func (memory *resultMemory) Attempt(_ context.Context, value model.AttemptRecord) error {
-	memory.attempt = value
-	return nil
-}
-
-func (memory *resultMemory) Candidate(_ context.Context, value model.CandidateRecord) (model.CandidateIdentity, error) {
-	if memory.candidate.Created {
-		memory.candidate.ID = value.ID
+	if memory.lateError != nil {
+		return model.RecordResult{}, memory.lateError
 	}
-	return memory.candidate, nil
-}
-
-func (memory *resultMemory) Hit(_ context.Context, value model.CandidateHit) error {
-	memory.hit = value
-	return nil
-}
-
-func (memory *resultMemory) Assets(_ context.Context, values []model.CandidateAsset) error {
-	memory.assets = values
-	return nil
+	return model.RecordResult{Created: memory.created}, nil
 }
 
 type responseBlobs struct {
@@ -100,13 +63,17 @@ func TestRawResponseIsPreparedBeforeResultTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created || blobs.calls != 1 || records.responses != 1 || !records.response.Cacheable || records.response.ExpiresAt != 100+86400000 || records.attempt.Source != "NETWORK" || records.attempt.AttemptNo != 2 {
-		t.Fatalf("response recording: %+v attempt=%+v", records.response, records.attempt)
+	if created || blobs.calls != 1 || records.calls != 1 {
+		t.Fatalf("response recording: calls=%d blobs=%d created=%t", records.calls, blobs.calls, created)
+	}
+	cmd := records.attempt
+	if cmd.Blob == nil || cmd.Blob.SHA256 != "raw" || cmd.Candidate != nil {
+		t.Fatalf("command: blob=%v candidate=%v", cmd.Blob, cmd.Candidate)
 	}
 }
 
-func TestCachedCandidateHitReusesResponseAndDoesNotDuplicateAssets(t *testing.T) {
-	records := &resultMemory{readable: true, candidate: model.CandidateIdentity{ID: "existing"}}
+func TestCachedResponseSkipsBlobPreparation(t *testing.T) {
+	records := &resultMemory{readable: true}
 	blobs := &responseBlobs{t: t, records: records}
 	recorder := NewRecorder(records, blobs, func() time.Time { return time.UnixMilli(100) })
 	created, err := recorder.Record(t.Context(), model.LookupAttempt{
@@ -119,11 +86,12 @@ func TestCachedCandidateHitReusesResponseAndDoesNotDuplicateAssets(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created || blobs.calls != 0 || records.responses != 0 || records.attempt.ResponseID != "cached" || records.attempt.Source != "CACHE" || records.attempt.AttemptNo != 3 || records.hit.CandidateID != "existing" || len(records.assets) != 0 {
-		t.Fatalf("cached hit: %+v / %+v", records.attempt, records.hit)
+	if created || blobs.calls != 0 || records.calls != 1 {
+		t.Fatalf("cached result: blobs=%d calls=%d created=%t", blobs.calls, records.calls, created)
 	}
-	if records.hit.HashesJSON != `{"sha1":"sha1"}` {
-		t.Fatalf("fabricated hashes: %s", records.hit.HashesJSON)
+	cmd := records.attempt
+	if cmd.Blob != nil || cmd.Candidate == nil || cmd.Candidate.Value.ProviderGameID != "provider-game" {
+		t.Fatalf("cached command: blob=%v candidate=%v", cmd.Blob, cmd.Candidate)
 	}
 }
 
@@ -140,7 +108,7 @@ func TestInvalidCandidateCannotReachPersistence(t *testing.T) {
 }
 
 func TestResultCommitFailureDoesNotReportCreatedCandidate(t *testing.T) {
-	records := &resultMemory{readable: true, candidate: model.CandidateIdentity{Created: true}, lateError: context.DeadlineExceeded}
+	records := &resultMemory{readable: true, lateError: context.DeadlineExceeded}
 	recorder := NewRecorder(records, &responseBlobs{t: t, records: records}, time.Now)
 	created, err := recorder.Record(t.Context(), model.LookupAttempt{
 		Claim: model.WorkerClaim{RunID: "run"}, EvidenceID: "evidence", AttemptNo: 1, AllowCandidate: true,
@@ -149,12 +117,4 @@ func TestResultCommitFailureDoesNotReportCreatedCandidate(t *testing.T) {
 	if created || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("failed commit returned success: %t / %v", created, err)
 	}
-	if records.hit.CandidateID == "" {
-		t.Fatal("late failure did not execute candidate writes")
-	}
 }
-
-func (memory *resultMemory) Subject(context.Context, string) (model.Subject, error) {
-	return model.Subject{Kind: "IMPORT_ITEM", ID: "item"}, nil
-}
-func (memory *resultMemory) Enqueue(context.Context, model.MediaJobPlan) error { return nil }

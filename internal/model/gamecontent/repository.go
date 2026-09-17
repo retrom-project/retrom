@@ -7,10 +7,72 @@ import (
 	validation "retrom/internal/model/corevalidation"
 )
 
+//nolint:interfacebloat // named commands replace former WithRead/CommitWrite callbacks
 type Repository interface {
-	WithRead(context.Context, func(ReadScope) error) error
-	CommitWrite(context.Context, func(WriteScope) error) error
+	// Snapshot reads – replace former WithRead callbacks.
+	ReadInput(context.Context, string, int64) (StoredInput, error)
+	ReadFiles(context.Context, string) ([]UploadedFile, error)
+	ReadAdminGame(context.Context, string) (AdminGameDetail, error)
+
+	// Named commands – replace former CommitWrite callbacks.
+	CommitClaimLease(context.Context, Claim) (bool, error)
+	CommitRefreshLease(context.Context, Claim, int64) (bool, error)
+	CommitSchedule(context.Context, ScheduleCommand) (ScheduleResult, error)
+	CommitPatchGame(context.Context, AdminGamePatchRequest) (AdminGamePatchResult, error)
+	CommitDeleteGame(context.Context, DeleteGameRequest) (DeleteGameResult, error)
+	CommitPublish(context.Context, PublishCommand) (PublishResult, error)
+	CommitSettleFailure(context.Context, SettleFailureCommand) (SettleFailureResult, error)
 }
+
+// ScheduleCommand carries all inputs for the schedule-and-enqueue
+// atomic operation. The repository resolves binding/upload/capabilities
+// inside the transaction and enqueues the replacement job.
+type ScheduleCommand struct {
+	GameID, UploadID, ContentMode string
+	ExpectedVersion, NowMS        int64
+	PrincipalID, Key, Digest      string
+	MultiDiscImportEnabled        bool
+}
+
+// ScheduleResult is the outcome of CommitSchedule.
+type ScheduleResult struct {
+	GameID   string `json:"gameId"`
+	JobID    string `json:"jobId"`
+	State    string `json:"state"`
+	Version  int64  `json:"version"`
+	Replayed bool   `json:"-"`
+}
+
+// PublishCommand carries all inputs for the atomic publication commit.
+type PublishCommand struct {
+	Claim    Claim
+	Snapshot JobSnapshot
+	Prepared PreparedReplacement
+	NowMS    int64
+}
+
+// PublishResult reports post-commit side-effect triggers.
+type PublishResult struct {
+	SignalRelease bool
+}
+
+// SettleFailureCommand carries data for the atomic failure settlement.
+type SettleFailureCommand struct {
+	Claim   Claim
+	Outcome Outcome
+}
+
+// SettleFailureResult reports what the settlement did.
+type SettleFailureResult struct {
+	Changed       bool
+	Retryable     bool
+	SignalRelease bool
+}
+
+// ---------------------------------------------------------------------------
+// Internal scope types – used only by the repo implementation.
+// ---------------------------------------------------------------------------
+
 type ReadScope struct {
 	Content Reader
 	Inputs  InputReader

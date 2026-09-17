@@ -67,7 +67,8 @@ WHERE source.id=? AND source.import_id=?`, intent.ItemID, intent.ImportID).Scan(
 		&value.TargetDATVersionID,
 		&value.UploadID,
 		&value.LibraryJobID,
-		&value.LibraryItemID)
+		&value.LibraryItemID,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.SourceCreationSnapshot{}, application.ErrVersionConflict
 	}

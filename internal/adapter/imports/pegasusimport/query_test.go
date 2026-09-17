@@ -23,7 +23,8 @@ func TestRetryableCurrentFailureCanBeRecheckedWithoutRescanning(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return queued.State != "QUEUED" }), "queued summary = %#v, error=%v", queued, err)
 	var state string
 	var code, details sql.NullString
-	if err := database.QueryRowContext(context.Background(),
+	if err := database.QueryRowContext(
+		context.Background(),
 		`SELECT execution_state,error_code,error_details_json FROM pegasus_import_items WHERE id='item'`,
 	).Scan(&state, &code, &details); err != nil || state != "PENDING" || code.Valid || details.Valid {
 		t.Fatalf("retried item = state:%q code:%#v details:%#v error:%v", state, code, details, err)

@@ -174,7 +174,8 @@ func (repository *MultiDiscAttachmentFinalization) FinishCancellation(
 	ctx context.Context, write application.MultiDiscAttachmentCancellationWrite,
 ) (bool, error) {
 	var state string
-	if err := repository.database.QueryRowContext(ctx,
+	if err := repository.database.QueryRowContext(
+		ctx,
 		`SELECT state FROM jobs WHERE id=? AND worker_id=?`, write.Target.JobID, write.Target.WorkerID,
 	).Scan(&state); err != nil {
 		return false, fmt.Errorf("read multi-disc cancellation state: %w", err)

@@ -29,15 +29,36 @@ func (repository *RecoveryRepository) ByUsername(
 	)
 }
 
-func (repository *RecoveryRepository) CommitWrite(ctx context.Context, work func(accounts.RecoveryScope) error) error {
+func (repository *RecoveryRepository) CommitRecovery(
+	ctx context.Context, cmd accounts.RecoveryCommand,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin offline recovery: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := recoveryRecords{tx}
-	if err := work(accounts.RecoveryScope{Read: records, Write: records}); err != nil {
-		return err
+	current, found, err := records.Current(ctx, cmd.UserID)
+	if err != nil {
+		return fmt.Errorf("recheck offline recovery target: %w", err)
+	}
+	if !found || !accounts.Recoverable(current) || current.Version != cmd.Version {
+		return accounts.ErrOfflineAdmin
+	}
+	plan := accounts.RecoveryPlan{
+		Target: current, PasswordHash: cmd.PasswordHash, AuditID: cmd.AuditID,
+		ClearTestDefault: current.Username == "test", Now: cmd.NowMS,
+		BeforeJSON: fmt.Sprintf(
+			`{"status":%q,"version":%d}`,
+			current.Status, current.Version,
+		),
+		AfterJSON: fmt.Sprintf(
+			`{"status":"ENABLED","version":%d}`,
+			current.Version+1,
+		),
+	}
+	if err := records.Reset(ctx, plan); err != nil {
+		return fmt.Errorf("reset offline admin security: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit offline recovery: %w", err)

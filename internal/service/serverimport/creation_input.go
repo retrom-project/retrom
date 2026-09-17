@@ -38,7 +38,7 @@ func newCreationPlan(
 	if err != nil {
 		return model.CreationPlan{}, fmt.Errorf("encode import input: %w", err)
 	}
-	evidence, err := newControlEvidence(actorID, now, []byte(`{"schemaVersion":1}`))
+	evidence, err := creationEvidence(actorID, now)
 	if err != nil {
 		return model.CreationPlan{}, err
 	}
@@ -49,5 +49,19 @@ func newCreationPlan(
 		Request: request, Root: root, Items: items, CatalogDigest: digest,
 		Input: input, InputDigest: hex.EncodeToString(inputDigest[:]),
 		Payload: []byte(`{"inputExecutionNo":1}`), Audit: []byte(`{"state":"QUEUED"}`), Evidence: evidence,
+	}, nil
+}
+
+func creationEvidence(
+	actorID string, now int64,
+) (model.ControlEvidence, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return model.ControlEvidence{},
+			fmt.Errorf("create import audit identity: %w", err)
+	}
+	return model.ControlEvidence{
+		ActorID: actorID, AuditID: id.String(),
+		Event: []byte(`{"schemaVersion":1}`), Now: now,
 	}, nil
 }

@@ -166,7 +166,8 @@ SELECT
 	var reviewItemID string
 	var reviewVersion int64
 	var reviewTitle, reviewDescription, reviewDeveloper, reviewWarnings string
-	mustScanPegasusTest(t, database.SQL.QueryRowContext(context.Background(), `
+	mustScanPegasusTest(
+		t, database.SQL.QueryRowContext(context.Background(), `
 SELECT item.library_import_item_id,draft.version,json_extract(draft.metadata_json,'$.title'),
 json_extract(draft.metadata_json,'$.description'),json_extract(draft.metadata_json,'$.developer'),item.warnings_json
 FROM pegasus_import_items item
@@ -318,7 +319,8 @@ func assertResumedPegasusReview(
 ) {
 	var resumedPegasusItemID, resumedImportJobID, resumedReviewItemID string
 	var importJobCount, draftEventCount int
-	mustScanPegasusTest(t, database.SQL.QueryRowContext(ctx, `
+	mustScanPegasusTest(
+		t, database.SQL.QueryRowContext(ctx, `
 SELECT item.id,item.library_import_job_id,item.library_import_item_id,
  (SELECT count(*) FROM import_jobs),
  (SELECT count(*) FROM review_events event

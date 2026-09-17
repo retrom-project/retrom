@@ -39,7 +39,8 @@ func (records companionRecords) Owner(ctx context.Context, itemID string) (appli
 COALESCE(collection.target_dat_version_id,'') FROM pegasus_import_items item
 JOIN pegasus_import_collections collection ON collection.id=item.collection_id
 WHERE item.id=? AND collection.mapping_action='IMPORT'`, itemID).Scan(
-		&before.Item.TargetPlatformID, &before.Item.TargetPlatformKind, &before.Item.TargetDATVersionID); err != nil {
+		&before.Item.TargetPlatformID, &before.Item.TargetPlatformKind, &before.Item.TargetDATVersionID,
+	); err != nil {
 		return application.OwnedItem{}, fmt.Errorf("read Pegasus companion target: %w", err)
 	}
 	before.Item.Files, err = itemWorkRecords(records).files(ctx, itemID)

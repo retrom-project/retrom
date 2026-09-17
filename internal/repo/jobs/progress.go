@@ -18,7 +18,8 @@ func (repository *Repository) LoadDetail(ctx context.Context, id string) (jobs.S
 func (repository *Repository) LoadJobStreamSnapshot(
 	ctx context.Context, id string,
 ) (jobs.Snapshot, int64, error) {
-	return readStreamSnapshot(ctx, repository.database, id,
+	return readStreamSnapshot(
+		ctx, repository.database, id,
 		func(r records, ctx context.Context, id string) (jobs.Snapshot, error) {
 			return r.Detail(ctx, id)
 		},
@@ -28,7 +29,8 @@ func (repository *Repository) LoadJobStreamSnapshot(
 func (repository *Repository) LoadImportStreamSnapshot(
 	ctx context.Context, id string,
 ) (jobs.ImportProgress, int64, error) {
-	return readStreamSnapshot(ctx, repository.database, id,
+	return readStreamSnapshot(
+		ctx, repository.database, id,
 		func(r records, ctx context.Context, id string) (jobs.ImportProgress, error) {
 			return r.ImportProgress(ctx, id)
 		},
@@ -63,7 +65,8 @@ func readStreamSnapshot[T any](
 func (repository *Repository) LoadJobEvents(
 	ctx context.Context, id string, after int64,
 ) ([]jobs.Event, jobs.Snapshot, error) {
-	return readEvents(ctx, repository.database, id, after,
+	return readEvents(
+		ctx, repository.database, id, after,
 		func(r records, ctx context.Context, id string) (jobs.Snapshot, error) {
 			return r.Detail(ctx, id)
 		},
@@ -76,7 +79,8 @@ func (repository *Repository) LoadJobEvents(
 func (repository *Repository) LoadImportEvents(
 	ctx context.Context, id string, after int64,
 ) ([]jobs.Event, jobs.ImportProgress, error) {
-	return readEvents(ctx, repository.database, id, after,
+	return readEvents(
+		ctx, repository.database, id, after,
 		func(r records, ctx context.Context, id string) (jobs.ImportProgress, error) {
 			return r.ImportProgress(ctx, id)
 		},

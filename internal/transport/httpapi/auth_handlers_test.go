@@ -73,7 +73,8 @@ func TestAuthHTTPTestLoginCookieCSRFAndLogout(t *testing.T) {
 		return !strings.Contains(contextRecorder.Body.String(), `"testDefaultAccountActive":true`)
 	}), "context = %d %s", contextRecorder.Code, contextRecorder.Body.String())
 
-	loginRequest := httptest.NewRequestWithContext(context.Background(),
+	loginRequest := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"username":"test","password":"test"}`),
 	)
 	loginRequest.Header.Set("Content-Type", "application/json")
@@ -96,7 +97,8 @@ func TestAuthHTTPTestLoginCookieCSRFAndLogout(t *testing.T) {
 	handler.ServeHTTP(protectedRecorder, protected)
 	testassert.Falsef(t, protectedRecorder.Code != http.StatusUnauthorized, "anonymous home = %d %s", protectedRecorder.Code, protectedRecorder.Body.String())
 
-	change := httptest.NewRequestWithContext(context.Background(),
+	change := httptest.NewRequestWithContext(
+		context.Background(),
 		http.MethodPost, "/api/v1/auth/change-password",
 		strings.NewReader(`{"currentPassword":"test","newPassword":"a sufficiently long new phrase","newPasswordConfirmation":"a sufficiently long new phrase"}`),
 	)
@@ -153,7 +155,8 @@ func TestAuthHTTPLoginRateLimitReturnsRetryAfter(t *testing.T) {
 	server, _ := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	for attempt := 1; attempt <= 5; attempt++ {
-		request := httptest.NewRequestWithContext(context.Background(),
+		request := httptest.NewRequestWithContext(
+			context.Background(),
 			http.MethodPost, "/api/v1/auth/login",
 			strings.NewReader(`{"username":"test","password":"wrong"}`),
 		)

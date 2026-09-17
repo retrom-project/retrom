@@ -24,7 +24,7 @@ type mediaExecution struct {
 	Limit    int64
 	Acquired bool
 	Code     string
-	Cause    error
+	Failed   bool
 }
 
 func NewMediaWorker(
@@ -47,7 +47,7 @@ func (worker *MediaWorker) Run(parent context.Context, id string) error {
 		return nil
 	}
 	if execution.Claim.Terminal {
-		return worker.settle(parent, execution, model.AssetPublication{}, execution.Code, execution.Cause)
+		return worker.settle(parent, execution, model.AssetPublication{}, execution.Code, execution.Failed)
 	}
 	remaining := time.Duration(execution.Claim.Deadline-worker.now().UnixMilli()) * time.Millisecond
 	ctx, timeout := context.WithTimeout(parent, remaining)
@@ -61,7 +61,8 @@ func (worker *MediaWorker) Run(parent context.Context, id string) error {
 	if code == "" && cause != nil {
 		code = "MEDIA_EXECUTION_INTERRUPTED"
 	}
-	return worker.settle(parent, execution, publication, code, cause)
+	settleErr := worker.settle(parent, execution, publication, code, cause != nil)
+	return errors.Join(cause, settleErr)
 }
 
 func (worker *MediaWorker) fetch(
@@ -104,19 +105,11 @@ func (worker *MediaWorker) account(parent context.Context, execution mediaExecut
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
-	err := worker.repository.CommitWrite(ctx, func(scope model.MediaScope) error {
-		snapshot, err := scope.Read.Snapshot(ctx, execution.Claim.JobID)
-		if err != nil {
-			return mediaError("read media byte owner", err)
-		}
-		if !mediaOwned(snapshot, execution.Claim) || snapshot.Asset.Reserved != execution.Limit {
-			return model.ErrExecutionLost
-		}
-		if err := validateMediaInput(snapshot); err != nil {
-			return err
-		}
-		err = scope.Assets.Account(ctx, snapshot.Asset, received, worker.now().UnixMilli())
-		return mediaError("account media response", err)
+	err := worker.repository.CommitAccount(ctx, model.MediaAccountCommand{
+		Claim:    execution.Claim,
+		Received: received,
+		Limit:    execution.Limit,
+		Now:      worker.now().UnixMilli(),
 	})
 	return mediaError("settle known media bytes", err)
 }

@@ -31,7 +31,8 @@ func TestRunOnceHonorsGraceAndConcurrentReference(t *testing.T) {
 		t.Helper()
 		metadata, err := blobs.Put(bytes.NewBufferString(value))
 		testassert.False(t, err != nil, err)
-		if _, err := database.SQL.ExecContext(context.Background(), `
+		if _, err := database.SQL.ExecContext(
+			context.Background(), `
 INSERT INTO blobs(id,
 sha256,
 size_bytes,

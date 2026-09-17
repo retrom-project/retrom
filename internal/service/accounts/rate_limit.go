@@ -9,11 +9,6 @@ import (
 	model "retrom/internal/model/accounts"
 )
 
-const (
-	rateLimitWindow = 15 * time.Minute
-	rateLimitBlock  = 15 * time.Minute
-)
-
 type RateLimitError struct{ retryAfterSeconds int }
 
 func (err *RateLimitError) Error() string { return model.ErrRateLimited.Error() }
@@ -67,57 +62,25 @@ func (limiter *Limiter) Check(ctx context.Context, subjects ...model.RateLimitSu
 }
 
 func (limiter *Limiter) Record(ctx context.Context, subjects ...model.RateLimitSubject) error {
-	maximum := 0
-	err := limiter.repository.CommitWrite(ctx, func(records model.RateLimitRecords) error {
-		now := limiter.now().UnixMilli()
-		if err := records.Prune(ctx, now-(24*time.Hour).Milliseconds(), now); err != nil {
-			return fmt.Errorf("prune authentication limits: %w", err)
+	now := limiter.now().UnixMilli()
+	entries := make([]model.RateLimitEntry, len(subjects))
+	for i, subject := range subjects {
+		entries[i] = model.RateLimitEntry{
+			Key:       limiter.key(subject),
+			Threshold: subject.Threshold,
 		}
-		for _, subject := range subjects {
-			retry, err := limiter.record(ctx, records, subject, now)
-			if err != nil {
-				return err
-			}
-			maximum = max(maximum, retry)
-		}
-		return nil
+	}
+	result, err := limiter.repository.CommitRecordRateLimit(ctx, model.RecordRateLimitCommand{
+		Entries: entries,
+		NowMS:   now,
 	})
 	if err != nil {
 		return fmt.Errorf("commit authentication rate limits: %w", err)
 	}
-	return limitedError(maximum)
-}
-
-func (limiter *Limiter) record(
-	ctx context.Context,
-	records model.RateLimitRecords,
-	subject model.RateLimitSubject,
-	now int64,
-) (int, error) {
-	key := limiter.key(subject)
-	value, found, err := records.Read(ctx, key)
-	if err != nil {
-		return 0, fmt.Errorf("read authentication failure bucket: %w", err)
+	if result.MaxRetryAfterMS > 0 {
+		return limitedError(retryAfterSeconds(result.MaxRetryAfterMS, now))
 	}
-	if found && value.BlockedUntil != nil && *value.BlockedUntil > now {
-		return retryAfterSeconds(*value.BlockedUntil, now), nil
-	}
-	if !found || now-value.WindowStarted >= rateLimitWindow.Milliseconds() {
-		value = model.RateLimitBucket{Key: key, WindowStarted: now}
-	}
-	value.Failures++
-	value.UpdatedAt = now
-	if value.Failures >= subject.Threshold {
-		until := now + rateLimitBlock.Milliseconds()
-		value.BlockedUntil = &until
-	}
-	if err := records.Write(ctx, value); err != nil {
-		return 0, fmt.Errorf("record authentication failure bucket: %w", err)
-	}
-	if value.BlockedUntil != nil {
-		return retryAfterSeconds(*value.BlockedUntil, now), nil
-	}
-	return 0, nil
+	return nil
 }
 
 func (limiter *Limiter) Clear(ctx context.Context, subject model.RateLimitSubject) error {

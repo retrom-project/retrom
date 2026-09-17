@@ -2,59 +2,28 @@ package serverimport
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"maps"
 	"time"
 
 	model "retrom/internal/model/serverimport"
 )
-
-var ErrOutcomeIncomplete = errors.New("SERVER_IMPORT_ITEMS_UNFINISHED")
 
 type Outcomes struct {
 	repository model.OutcomeRepository
 	now        func() time.Time
 }
 
-func NewOutcomes(repository model.OutcomeRepository, now func() time.Time) *Outcomes {
+func NewOutcomes(
+	repository model.OutcomeRepository, now func() time.Time,
+) *Outcomes {
 	return &Outcomes{repository, now}
 }
 
-func (service *Outcomes) Finish(ctx context.Context, unit model.Work) error {
-	err := service.repository.CommitWrite(ctx, func(scope model.OutcomeScope) error {
-		now := service.now().UnixMilli()
-		counts, err := lockedCounts(ctx, scope, unit, now, model.RunningWorker)
-		if err != nil {
-			return err
-		}
-		if counts["PENDING"]+counts["EVALUATING"] > 0 {
-			return ErrOutcomeIncomplete
-		}
-		totals := terminalCounts(counts)
-		state := "COMPLETED"
-		if totals.Failed > 0 {
-			state = "PARTIAL_FAILURE"
-		}
-		phase := "QUEUEING_REVALIDATION"
-		return writeFinal(
-			ctx,
-			scope.Write,
-			model.FinalOutcome{
-				Unit:        unit,
-				State:       state,
-				JobState:    "SUCCEEDED",
-				EventType:   "SUCCEEDED",
-				Phase:       &phase,
-				HeartbeatAt: &now,
-				Counts:      totals,
-				Event: []byte(
-					`{"schemaVersion":1}`,
-				),
-				Now: now,
-			},
-		)
+func (service *Outcomes) Finish(
+	ctx context.Context, unit model.Work,
+) error {
+	err := service.repository.CommitFinish(ctx, model.FinishCommand{
+		Unit: unit, Now: service.now().UnixMilli(),
 	})
 	if err != nil {
 		return fmt.Errorf("finish server import: %w", err)
@@ -62,92 +31,39 @@ func (service *Outcomes) Finish(ctx context.Context, unit model.Work) error {
 	return nil
 }
 
-func (service *Outcomes) Cancel(ctx context.Context, unit model.Work) error {
-	err := service.repository.CommitWrite(ctx, func(scope model.OutcomeScope) error {
-		now := service.now().UnixMilli()
-		counts, err := lockedCounts(ctx, scope, unit, now, model.CancelledWorker)
-		if err != nil {
-			return err
-		}
-		counts = movePending(counts, "CANCELLED")
-		return writeFinal(
-			ctx,
-			scope.Write,
-			model.FinalOutcome{
-				Unit:         unit,
-				State:        "CANCELLED",
-				JobState:     "CANCELLED",
-				EventType:    "CANCELLED",
-				PendingState: "CANCELLED",
-				PendingCode:  "CANCELLED",
-				Counts: terminalCounts(
-					counts,
-				),
-				Event: []byte(
-					`{"schemaVersion":1}`,
-				),
-				Now: now,
-			},
-		)
-	})
+func (service *Outcomes) Cancel(
+	ctx context.Context, unit model.Work,
+) error {
+	err := service.repository.CommitCancelOutcome(
+		ctx,
+		model.CancelOutcomeCommand{
+			Unit: unit, Now: service.now().UnixMilli(),
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("cancel import execution: %w", err)
 	}
 	return nil
 }
 
-func (service *Outcomes) Fail(ctx context.Context, unit model.Work, code string) (int64, error) {
-	var retryAt int64
-	err := service.repository.CommitWrite(ctx, func(scope model.OutcomeScope) error {
-		now := service.now().UnixMilli()
-		access := model.RunningWorker
-		if unit.Recovery {
-			access = model.ExhaustedWorker
-		}
-		counts, err := lockedCounts(ctx, scope, unit, now, access)
-		if err != nil {
-			return err
-		}
-		retryable := code == "SERVER_IMPORT_ROOT_UNAVAILABLE" || code == "INTERNAL_ERROR"
-		if retryable && !unit.Recovery {
-			retryAt, err = retryExecution(ctx, scope, unit, counts, code, now)
-			if err != nil || retryAt != 0 {
-				return err
-			}
-		}
-		event, err := json.Marshal(map[string]any{"schemaVersion": 1, "code": code})
-		if err != nil {
-			return fmt.Errorf("encode import failure: %w", err)
-		}
-		counts = movePending(counts, "COMMIT_FAILED")
-		return writeFinal(
-			ctx,
-			scope.Write,
-			model.FinalOutcome{
-				Unit:         unit,
-				State:        "FAILED",
-				JobState:     "FAILED",
-				EventType:    "FAILED",
-				Code:         &code,
-				Retryable:    &retryable,
-				PendingState: "COMMIT_FAILED",
-				PendingCode:  code,
-				Counts: terminalCounts(
-					counts,
-				),
-				Event: event,
-				Now:   now,
-			},
-		)
+func (service *Outcomes) Fail(
+	ctx context.Context, unit model.Work, code string,
+) (int64, error) {
+	result, err := service.repository.CommitFail(ctx, model.FailCommand{
+		Unit: unit, Code: code, Now: service.now().UnixMilli(),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("fail import execution: %w", err)
 	}
-	return retryAt, nil
+	return result.RetryAt, nil
 }
 
-func (service *Outcomes) Reconcile(ctx context.Context) (bool, error) {
-	pending, found, err := service.repository.Recovery(ctx, service.now().UnixMilli())
+func (service *Outcomes) Reconcile(
+	ctx context.Context,
+) (bool, error) {
+	pending, found, err := service.repository.Recovery(
+		ctx, service.now().UnixMilli(),
+	)
 	if err != nil {
 		return false, fmt.Errorf("find import recovery: %w", err)
 	}
@@ -159,56 +75,11 @@ func (service *Outcomes) Reconcile(ctx context.Context) (bool, error) {
 			return false, err
 		}
 	} else {
-		if _, err := service.Fail(ctx, pending.Unit, "INTERNAL_ERROR"); err != nil {
+		if _, err := service.Fail(
+			ctx, pending.Unit, "INTERNAL_ERROR",
+		); err != nil {
 			return false, err
 		}
 	}
 	return true, nil
-}
-
-func lockedCounts(
-	ctx context.Context,
-	scope model.OutcomeScope,
-	unit model.Work,
-	now int64,
-	access model.WorkerAccess,
-) (map[string]int64, error) {
-	if err := scope.Write.Lock(ctx, unit, now, access); err != nil {
-		return nil, fmt.Errorf("lock import outcome: %w", err)
-	}
-	counts, err := scope.Read.Counts(ctx, unit)
-	if err != nil {
-		return nil, fmt.Errorf("read import outcome counts: %w", err)
-	}
-	return counts, nil
-}
-
-func writeFinal(ctx context.Context, writer model.OutcomeWriter, plan model.FinalOutcome) error {
-	if err := writer.Final(ctx, plan); err != nil {
-		return fmt.Errorf("write terminal import: %w", err)
-	}
-	return nil
-}
-
-func movePending(counts map[string]int64, state string) map[string]int64 {
-	result := maps.Clone(counts)
-	result[state] += result["PENDING"] + result["EVALUATING"]
-	delete(result, "PENDING")
-	delete(result, "EVALUATING")
-	return result
-}
-
-func terminalCounts(counts map[string]int64) model.TerminalCounts {
-	return model.TerminalCounts{
-		Matched:          counts["IMPORTED_MATCHED"],
-		Warning:          counts["IMPORTED_WARNING"],
-		Missing:          counts["IMPORTED_MISSING_ENTRY"],
-		NotFound:         counts["NOT_FOUND"],
-		SkippedExisting:  counts["SKIPPED_EXISTING"],
-		SkippedNotBetter: counts["SKIPPED_NOT_BETTER"],
-		SameBytes:        counts["ALREADY_SAME_BYTES"],
-		Failed: counts["SOURCE_CHANGED"] + counts["CATALOG_CHANGED"] +
-			counts["READ_FAILED"] + counts["INVALID_ARCHIVE"] + counts["COMMIT_FAILED"],
-		Cancelled: counts["CANCELLED"],
-	}
 }

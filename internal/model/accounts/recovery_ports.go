@@ -18,11 +18,21 @@ type RecoveryReader interface {
 type RecoveryWriter interface {
 	Reset(context.Context, RecoveryPlan) error
 }
+
+// RecoveryCommand captures all inputs for an offline admin password recovery.
+type RecoveryCommand struct {
+	UserID       string
+	Version      int64
+	PasswordHash string
+	AuditID      string
+	NowMS        int64
+}
+
 type RecoveryScope struct {
 	Read  RecoveryReader
 	Write RecoveryWriter
 }
 type RecoveryRepository interface {
 	ByUsername(context.Context, string) (RecoveryTarget, bool, error)
-	CommitWrite(context.Context, func(RecoveryScope) error) error
+	CommitRecovery(context.Context, RecoveryCommand) error
 }

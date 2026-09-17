@@ -45,10 +45,37 @@ type WorkerScope struct {
 	Write   WorkerWriter
 	Initial InitialReviewScope
 }
+
+type WorkerClaimCommand struct {
+	Run      WorkerRun
+	WorkerID string
+	Now      int64
+}
+type WorkerClaimResult struct {
+	Claim   WorkerClaim
+	Claimed bool
+}
+type WorkerRefreshCommand struct {
+	Claim WorkerClaim
+	Now   int64
+}
+type WorkerSettleCommand struct {
+	Claim  WorkerClaim
+	Count  int
+	Code   string
+	Failed bool
+	Now    int64
+}
+type WorkerSettleResult struct {
+	Expired bool
+}
+
 type WorkerRepository interface {
 	Run(context.Context, string) (WorkerRun, error)
 	Recoverable(context.Context, int64) ([]string, error)
-	CommitWrite(context.Context, func(WorkerScope) error) error
+	CommitClaim(context.Context, WorkerClaimCommand) (WorkerClaimResult, error)
+	CommitRefresh(context.Context, WorkerRefreshCommand) (bool, error)
+	CommitSettle(context.Context, WorkerSettleCommand) (WorkerSettleResult, error)
 }
 type WorkerProcessor interface {
 	Process(context.Context, WorkerClaim, string) (int, string, error)

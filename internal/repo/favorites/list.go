@@ -376,7 +376,8 @@ func queryItems(
 		return nil, err
 	}
 	arguments := make([]any, 0, 10+len(cursorArguments)+1)
-	arguments = append(arguments,
+	arguments = append(
+		arguments,
 		profileID,
 		options.Scope,
 		options.Scope,

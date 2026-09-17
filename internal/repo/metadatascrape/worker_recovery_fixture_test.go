@@ -37,12 +37,19 @@ func recoveryDatabase(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = NewScheduler(database.SQL).CommitWrite(t.Context(), func(scope metadatascrape.ScheduleScope) error {
-		return scope.Writes.Create(t.Context(), metadatascrape.SchedulePlan{
-			Subject: metadatascrape.Subject{Kind: "GAME", ID: "game"}, RunID: "run", JobID: "job", Provider: "HASHEOUS",
-			Dedupe: strings.Repeat("b", 64), PayloadJSON: `{}`, JobState: "QUEUED", RunState: "RUNNING", EventJSON: `{}`, Now: recoveryTime.UnixMilli(),
-		})
+	tx, err := database.SQL.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = BindSchedule(tx).Writes.Create(t.Context(), metadatascrape.SchedulePlan{
+		Subject: metadatascrape.Subject{Kind: "GAME", ID: "game"}, RunID: "run", JobID: "job", Provider: "HASHEOUS",
+		Dedupe: strings.Repeat("b", 64), PayloadJSON: `{}`, JobState: "QUEUED", RunState: "RUNNING", EventJSON: `{}`, Now: recoveryTime.UnixMilli(),
 	})
+	if err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	err = tx.Commit()
 	if err != nil {
 		t.Fatal(err)
 	}

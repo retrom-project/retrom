@@ -93,35 +93,6 @@ type DeleteRequest struct {
 	SaveStateID, ProfileID       string
 	ExpectedVersion, UpdatedAtMS int64
 }
-type WriteScope struct {
-	Launches    LaunchReader
-	Idempotency IdempotencyRecords
-	Blobs       BlobRecords
-	Checkpoints CheckpointRecords
-	GameSaves   GameSaveRecords
-}
-type LaunchReader interface {
-	LoadLaunch(context.Context, string) (Launch, error)
-}
-type IdempotencyRecords interface {
-	Replay(context.Context, ReplayKey) (Replay, bool, error)
-	Remember(context.Context, ReplayWrite) error
-}
-type BlobRecords interface {
-	Ensure(context.Context, blobstore.Metadata, string, int64) (string, error)
-}
-type CheckpointRecords interface {
-	Duration(context.Context, string) (Duration, error)
-	CreateSave(context.Context, SaveCreation) error
-	ReplacePreview(context.Context, PreviewWrite) error
-}
-type GameSaveRecords interface {
-	Binding(context.Context, string) (GameSaveBinding, bool, error)
-	Saved(context.Context, string) (StoredSave, bool, error)
-	UpdateSave(context.Context, SaveUpdate) error
-	MarkSynced(context.Context, string, string, int64) error
-	Bind(context.Context, string, string, int64) error
-}
 
 type Launch struct {
 	PrincipalID, ProfileID, Purpose, GameID string

@@ -27,7 +27,8 @@ func (records reviewApprovalRecords) Head(
 		&h.Progress.Counts.ReviewPending,
 		&h.Progress.Counts.Failed, &h.Progress.Counts.Cancelled, &h.Progress.Counts.Rejected,
 		&h.Progress.Counts.ResolvedRejected,
-		&h.Progress.CancelRequestedAtMS, &h.Progress.CompletedAtMS, &h.SourceBusy)
+		&h.Progress.CancelRequestedAtMS, &h.Progress.CompletedAtMS, &h.SourceBusy,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewApprovalHead{}, false, nil
 	}
