@@ -20,7 +20,7 @@ func TestCancellationEventAndAuditRowCountFailuresRollback(t *testing.T) {
 			before := planRows(t, db)
 			var hits atomic.Int64
 			faultDB := testsupport.OpenSQLFaultDatabase(t, db, scanFaultHooks(statement, summary.ID, true, &hits))
-			result, pending, err := application.NewWorkflowControl(NewWorkflowControl(faultDB), nil, func() time.Time { return time.UnixMilli(20) }).Cancel(t.Context(), summary.ID, summary.Version, "Stop", "actor")
+			result, pending, err := application.NewWorkflowControl(NewWorkflowControl(faultDB, nil), nil, func() time.Time { return time.UnixMilli(20) }).Cancel(t.Context(), summary.ID, summary.Version, "Stop", "actor")
 			if !errors.Is(err, errLeaseStorage) || hits.Load() != 1 || result.ID != "" || pending {
 				t.Fatalf("cancel=%#v pending=%v cause=%v hits=%d", result, pending, err, hits.Load())
 			}

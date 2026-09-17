@@ -1,10 +1,6 @@
 package emulationstationimport
 
-import (
-	"context"
-
-	payload "retrom/internal/model/payloadrelease"
-)
+import "context"
 
 type WorkflowSnapshot struct {
 	Summary               Summary
@@ -20,25 +16,22 @@ type RetrySnapshot struct {
 	TargetsValid bool
 }
 
-type WorkflowScope struct {
-	Payload payload.ReleaseScope
-	Read    WorkflowReader
-	Write   WorkflowWriter
-}
-
-type WorkflowReader interface {
-	Current(context.Context, string) (WorkflowSnapshot, error)
-	RetryCurrent(context.Context, string) (RetrySnapshot, error)
-}
-
-type WorkflowWriter interface {
-	Cancel(context.Context, CancellationPlan) error
-	Retry(context.Context, RetryPlan) error
-}
-
 type WorkflowRepository interface {
 	InspectRetry(context.Context, string) (RetrySnapshot, error)
-	WithControl(context.Context, func(WorkflowScope) error) error
+	CommitCancelWorkflow(context.Context, CancelWorkflowCommand) (WorkflowSnapshot, bool, error)
+	CommitRetryWorkflow(context.Context, RetryWorkflowCommand) (Summary, error)
+}
+
+type CancelWorkflowCommand struct {
+	ID, Reason, ActorID, AuditID string
+	Version                       int64
+	NowMS                         int64
+	Job                           *CancelWorkflowJobInfo
+}
+
+type CancelWorkflowJobInfo struct {
+	JobID, Kind, ScopeID string
+	ExpectedVersion      int64
 }
 
 type CancellationPlan struct {
@@ -54,4 +47,9 @@ type RetryPlan struct {
 	Execution                     int64
 	ExecutionID, AuditID, ActorID string
 	NowMS                         int64
+}
+
+type RetryWorkflowCommand struct {
+	Plan    RetryPlan
+	Version int64
 }

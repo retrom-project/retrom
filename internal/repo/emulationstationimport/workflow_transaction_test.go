@@ -10,8 +10,13 @@ import (
 	"time"
 
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
+
+func testPayloadTerminator() PayloadTerminator {
+	return payloadreleaseservice.NewScheduler(nil)
+}
 
 func workflowDatabase(t *testing.T, retry bool) (*sql.DB, emulationstationimportmodel.Summary) {
 	t.Helper()
@@ -45,7 +50,7 @@ func TestWorkflowRetryKeepsFrozenHistoryAndResetsOnlyRetryableRows(t *testing.T)
 	originalSnapshot := planTable(t, db, "job_input_snapshots")
 	tags := planTable(t, db, "tags")
 	gamelists := planTable(t, db, "emulationstation_import_gamelists")
-	service := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(before.ExpiresAtMS + 1) })
+	service := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(before.ExpiresAtMS + 1) })
 	after, err := service.Retry(t.Context(), before.ID, before.Version, mappingActor)
 	if err != nil || after.State != "QUEUED" || after.Counts.Failed != 0 || after.Version != before.Version+1 {
 		t.Fatalf("retry=%#v error=%v", after, err)
@@ -93,7 +98,7 @@ FROM jobs WHERE id=?`, mappingActor, id).Scan(&execution, &attempt, &reset, &inp
 func TestWorkflowQueuedCancellationIsAtomicAndPreservesTerminalRows(t *testing.T) {
 	t.Parallel()
 	db, before := workflowDatabase(t, false)
-	service := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) })
+	service := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) })
 	after, pending, err := service.Cancel(t.Context(), before.ID, before.Version, " Stop ", mappingActor)
 	if err != nil || pending || after.State != "CANCELLED" || after.Counts.Cancelled != 1 || after.Counts.Blocked != 1 || after.Counts.SkippedMapping != 1 {
 		t.Fatalf("cancel=%#v pending=%v error=%v", after, pending, err)

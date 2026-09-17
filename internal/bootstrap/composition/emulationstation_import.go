@@ -13,6 +13,7 @@ import (
 	repository "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	library "retrom/internal/service/libraryimport"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 )
 
 func NewEmulationStationImport(database *sql.DB, blobs *blobstore.Store, importer application.ReviewSourceCreator,
@@ -58,9 +59,13 @@ func NewEmulationStationImport(database *sql.DB, blobs *blobstore.Store, importe
 		Creation:  application.NewCreation(repository.NewCreation(database), source, now),
 		Mappings:  application.NewMappings(repository.NewMappings(database), now),
 		Starter:   application.NewStarter(repository.NewStarter(database), source, now),
-		Control:   application.NewWorkflowControl(repository.NewWorkflowControl(database), source, now),
+		Control:   application.NewWorkflowControl(repository.NewWorkflowControl(database, payloadScheduler()), source, now),
 		Lifecycle: lifecycle, Worker: worker,
 	})
+}
+
+func payloadScheduler() *payloadreleaseservice.Scheduler {
+	return payloadreleaseservice.NewScheduler(nil)
 }
 
 type emulationStationDiagnostics struct{}

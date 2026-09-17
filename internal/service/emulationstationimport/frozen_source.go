@@ -68,26 +68,3 @@ func validFrozenDigest(value string) bool {
 	return true
 }
 
-func sameFrozenSource(beforeSummary, currentSummary model.Summary, before, current model.FrozenSourceSnapshot) bool {
-	if before.RootConfigDigest != current.RootConfigDigest ||
-		before.SourceSnapshotDigest != current.SourceSnapshotDigest ||
-		before.ReleaseYearMax != current.ReleaseYearMax || beforeSummary.Root.ID != currentSummary.Root.ID ||
-		beforeSummary.SourceRelativePath != currentSummary.SourceRelativePath ||
-		len(before.Gamelists) != len(current.Gamelists) {
-		return false
-	}
-	for i, left := range before.Gamelists {
-		right := current.Gamelists[i]
-		if left.RelativePath != right.RelativePath || left.FactsDigest != right.FactsDigest ||
-			left.ParseState != right.ParseState || left.SizeBytes != right.SizeBytes {
-			return false
-		}
-		if (left.ContentDigest == nil) != (right.ContentDigest == nil) {
-			return false
-		}
-		if left.ContentDigest != nil && *left.ContentDigest != *right.ContentDigest {
-			return false
-		}
-	}
-	return true
-}

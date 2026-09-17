@@ -38,7 +38,7 @@ func TestWorkflowRetryRechecksRealStorageAfterSourceIO(t *testing.T) {
 				rows = planRows(t, db)
 				return nil
 			}}
-			result, err := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), source, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
+			result, err := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), source, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
 			if !errors.Is(err, change.want) || result.ID != "" {
 				t.Fatalf("%s result=%#v error=%v", change.name, result, err)
 			}
@@ -74,7 +74,7 @@ func TestWorkflowConcurrentRetriesCreateOnlyOneNewExecution(t *testing.T) {
 	db, before := workflowDatabase(t, true)
 	arrived, resume := make(chan struct{}, 2), make(chan struct{})
 	source := concurrentWorkflowSource{verifiedStartSource: verifiedStartSource{database: db}, arrived: arrived, resume: resume}
-	service := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), source, func() time.Time { return time.UnixMilli(12) })
+	service := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), source, func() time.Time { return time.UnixMilli(12) })
 	results := make(chan error, 2)
 	for range 2 {
 		go func() { _, err := service.Retry(t.Context(), before.ID, before.Version, mappingActor); results <- err }()
@@ -122,7 +122,7 @@ func TestWorkflowRetryPreservesFrozenDeletedTagPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	tags, relations := planTable(t, db, "tags"), planTable(t, db, "emulationstation_collection_tags")
-	_, err := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
+	_, err := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ VALUES('EMULATIONSTATION',? ,?,'REQUESTED',12,12)`, before.ID, mappingActor); er
 		t.Fatal(err)
 	}
 	rows := planRows(t, db)
-	result, err := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
+	result, err := emulationstationimportservice.NewWorkflowControl(NewWorkflowControl(db, testPayloadTerminator()), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) }).Retry(t.Context(), before.ID, before.Version, mappingActor)
 	if result.ID != "" || err == nil || !strings.Contains(err.Error(), "IMPORT_BATCH_DISCARDED") {
 		t.Fatalf("discarded retry result=%#v error=%v", result, err)
 	}
