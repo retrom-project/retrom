@@ -62,7 +62,7 @@ type ImportCreationScope struct {
 	Arcade     CreationArcadeReader
 	Duplicates ContentDuplicateReader
 	Claims     ApprovalDecisionWriter
-	Tags       tagging.WriteScope
+	Tags       tagging.CrossDomainWriter
 	Metadata   metadatascrape.ScheduleScope
 	Payload    payloadrelease.SchedulingScope
 	Ownership  SourceOwnershipRecords

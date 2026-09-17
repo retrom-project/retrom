@@ -110,3 +110,50 @@ type LibraryPage struct {
 	Items      []Game
 	NextCursor *GameCursor
 }
+
+// AttachFeaturedGames distributes featured games to their platforms by ID.
+func AttachFeaturedGames(platforms []Platform, games []FeaturedGame) {
+	idx := make(map[string]int, len(platforms))
+	for i := range platforms {
+		platforms[i].FeaturedGames = make([]FeaturedGame, 0, 3)
+		idx[platforms[i].ID] = i
+	}
+	for _, g := range games {
+		if i, ok := idx[g.PlatformID]; ok {
+			platforms[i].FeaturedGames = append(platforms[i].FeaturedGames, g)
+		}
+	}
+}
+
+// PageItems returns at most limit items and a next cursor if more exist.
+func PageItems(games []Game, limit int, kind string) ([]Game, *GameCursor) {
+	if len(games) <= limit {
+		return games, nil
+	}
+	last := games[limit-1]
+	next := &GameCursor{
+		TitleInitial: last.TitleInitial,
+		Title:        last.Title,
+		ID:           last.ID,
+	}
+	if kind == LibraryRecent {
+		next.LastPlayedAtMS = last.LastPlayedAtMS
+	}
+	return games[:limit], next
+}
+
+// LibraryName returns the display name for the given library kind.
+func LibraryName(kind string) string {
+	switch kind {
+	case LibraryAll:
+		return "全部游戏"
+	case LibraryRecent:
+		return "最近游玩"
+	case LibraryFavorites:
+		return "收藏游戏"
+	case LibrarySaves:
+		return "我的存档"
+	default:
+		return ""
+	}
+}

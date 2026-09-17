@@ -87,7 +87,7 @@ func (service *ImportAdmissions) prepare(
 	if len(request.TagIDs) > 0 && principal.UserID == "" {
 		return model.ImportAdmissionChange{}, model.ErrInvalid
 	}
-	tags, err := service.tags.ValidateReferences(ctx, scope.Tags, request.TagIDs)
+	tags, err := scope.Tags.ValidateActiveReferences(ctx, request.TagIDs)
 	if err != nil {
 		return model.ImportAdmissionChange{}, fmt.Errorf("validate admission tags: %w", err)
 	}

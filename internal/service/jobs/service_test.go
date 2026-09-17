@@ -89,7 +89,7 @@ func (repository *memoryJobs) CommitRetry(
 		return model.Result{}, err
 	}
 	change, result, err := model.BuildRetryWrite(
-		cmd.JobID, cmd.ExpectedVersion, repository.input, job, cmd.NowMS,
+		cmd.JobID, cmd.ExpectedVersion, repository.input, job, cmd.NowMS, cmd.ExecutionID,
 	)
 	if err != nil {
 		return model.Result{}, err

@@ -14,12 +14,11 @@ import (
 
 type Mappings struct {
 	repository model.MappingRepository
-	tags       model.MappingTagWriter
 	now        func() time.Time
 }
 
-func NewMappings(repository model.MappingRepository, tags model.MappingTagWriter, now func() time.Time) *Mappings {
-	return &Mappings{repository: repository, tags: tags, now: now}
+func NewMappings(repository model.MappingRepository, now func() time.Time) *Mappings {
+	return &Mappings{repository: repository, now: now}
 }
 
 func (service *Mappings) Update(
@@ -134,13 +133,9 @@ func (service *Mappings) saveMappings(
 	actorID string,
 ) error {
 	for _, change := range changes {
-		references, err := service.tags.ReplacePegasusCollectionTags(
-			ctx,
-			scope.Tags,
-			change.Mapping.CollectionID,
-			change.Mapping.TagIDs,
-			actorID,
-			change.NowMS,
+		owner := tagging.Owner{Kind: tagging.OwnerPegasusCollection, ID: change.Mapping.CollectionID}
+		_, references, err := scope.Tags.ReplaceOwnerReferences(
+			ctx, owner, change.Mapping.TagIDs, actorID, change.NowMS,
 		)
 		if errors.Is(err, tagging.ErrInvalid) {
 			return fmt.Errorf("%w: %w", model.ErrInvalid, err)

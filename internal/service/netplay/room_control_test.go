@@ -23,7 +23,7 @@ type roomControlMemory struct {
 	ready                                                     model.RoomReadyPlan
 }
 
-func (memory *roomControlMemory) CommitMutation(_ context.Context, cmd model.MutationCommand) (model.Room, error) {
+func (memory *roomControlMemory) CommitMutation(_ context.Context, cmd model.MutationCommand, apply model.MutationFunc) (model.Room, error) {
 	before := memory.before
 	if memory.readFailure != nil {
 		return model.Room{}, memory.readFailure
@@ -45,7 +45,7 @@ func (memory *roomControlMemory) CommitMutation(_ context.Context, cmd model.Mut
 		return model.Room{}, model.ErrRoomConflict
 	}
 	scope := model.RoomControlScope{Read: memory, Write: memory, Eligibility: memory.eligibility, BIOS: memory.bios}
-	if err := cmd.Apply(scope, before, cmd.NowMS); err != nil {
+	if err := apply(scope, before, cmd.NowMS); err != nil {
 		return model.Room{}, err
 	}
 	if memory.snapshotFailure != nil {

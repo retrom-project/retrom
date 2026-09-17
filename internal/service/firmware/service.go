@@ -46,30 +46,15 @@ func (service *Service) prepareInstall(
 	version int64,
 	fileID string,
 ) (preparedInstall, error) {
-	var prepared preparedInstall
-	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
-		requirement, found, err := scope.Requirements.Get(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read BIOS requirement: %w", err)
-		}
-		if !found || !requirement.Enabled || requirement.Version != version {
-			return model.ErrInvalid
-		}
-		upload, found, err := scope.Uploads.Get(ctx, fileID)
-		if err != nil {
-			return fmt.Errorf("read BIOS upload: %w", err)
-		}
-		if !found || upload.State != "COMPLETE" {
-			return model.ErrInvalid
-		}
-		prepared.sourceKind = requirement.SourceKind
-		prepared.fileKind = requirement.FileKind
-		prepared.blobID = upload.BlobID
-		prepared.sha256 = upload.SHA256
-		return nil
-	})
+	facts, err := service.repository.LoadInstallFacts(ctx, id, version, fileID)
 	if err != nil {
 		return preparedInstall{}, fmt.Errorf("prepare BIOS installation: %w", err)
+	}
+	prepared := preparedInstall{
+		sourceKind: facts.SourceKind,
+		fileKind:   facts.FileKind,
+		blobID:     facts.BlobID,
+		sha256:     facts.SHA256,
 	}
 	if prepared.fileKind == "ARCHIVE" {
 		if service.blobs == nil {

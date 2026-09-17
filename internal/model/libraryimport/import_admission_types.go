@@ -63,7 +63,7 @@ type ImportAdmissionRepository interface {
 }
 type ImportAdmissionScope struct {
 	Facts  ImportFactsReader
-	Tags   tagging.WriteScope
+	Tags   tagging.CrossDomainWriter
 	Writer ImportAdmissionWriter
 }
 type ImportFactsReader interface {

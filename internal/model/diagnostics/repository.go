@@ -4,14 +4,7 @@ import "context"
 
 // Repository provides one consistent read snapshot for diagnostics.
 type Repository interface {
-	WithRead(context.Context, func(ReadScope) error) error
-}
-
-// ReadScope contains the projections needed by the diagnostics report.
-type ReadScope interface {
-	SchemaVersion(context.Context) (int64, error)
-	Counts(context.Context) (Counts, error)
-	RuntimeProviders(context.Context) ([]RuntimeProvider, error)
+	LoadReport(context.Context) (Report, error)
 }
 
 type Counts struct {

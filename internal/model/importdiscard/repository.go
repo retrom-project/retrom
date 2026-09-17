@@ -60,7 +60,10 @@ type RequestDiscardCommand struct {
 }
 
 type Repository interface {
-	WithRead(context.Context, func(Reader) error) error
+	Batch(context.Context, Key) (Batch, error)
+	Disposition(context.Context, Key) (Disposition, bool, error)
+	Pending(context.Context) (Request, bool, error)
+	Children(context.Context, Key) ([]string, error)
 	CommitRecoverOwnership(context.Context, RecoverOwnershipCommand) error
 	CommitDiscardSourceItems(context.Context, DiscardSourceItemsCommand) (bool, error)
 	CommitRequestDiscard(context.Context, RequestDiscardCommand) (Status, error)

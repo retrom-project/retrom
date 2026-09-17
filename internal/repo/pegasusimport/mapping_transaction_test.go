@@ -11,9 +11,8 @@ import (
 
 	"retrom/internal/adapter/runtime/dependencies"
 	pegasusimportmodel "retrom/internal/model/pegasusimport"
-	tagrepository "retrom/internal/repo/tagging"
+	taggingmodel "retrom/internal/model/tagging"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
-	"retrom/internal/service/tagging"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -87,8 +86,7 @@ func TestMappingsRollBackRelationsAndTagVersionsOnLateFailure(t *testing.T) {
 	db := mappingDatabase(t)
 	before := mappingRows(t, db)
 	cause := errors.New("late mapping failure")
-	tagRepo := tagrepository.New(db)
-	service := pegasusimportservice.NewMappings(failingMappingCommit{repository: NewMappings(db), cause: cause}, tagging.New(tagRepo, tagRepo, tagging.Options{Now: time.Now}), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewMappings(failingMappingCommit{repository: NewMappings(db), cause: cause}, func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []pegasusimportmodel.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}}, mappingActor)
 	if !errors.Is(err, cause) || value.ID != "" {
 		t.Fatalf("late mapping failure: %#v %v", value, err)
@@ -102,16 +100,13 @@ func TestMappingsRejectStalePlanAfterUpdatingCollection(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	beforeRows := mappingRows(t, db)
-	tags := func() *tagging.Service {
-		r := tagrepository.New(db)
-		return tagging.New(r, r, tagging.Options{Now: time.Now})
-	}()
 	err := NewMappings(db).WithMappings(t.Context(), func(scope pegasusimportmodel.MappingScope) error {
 		before, err := scope.Read.Import(t.Context(), "import-0")
 		if err != nil {
 			return err
 		}
-		refs, err := tags.ReplacePegasusCollectionTags(t.Context(), scope.Tags, mappingCollection, []string{}, mappingActor, 10)
+		owner := taggingmodel.Owner{Kind: taggingmodel.OwnerPegasusCollection, ID: mappingCollection}
+		_, refs, err := scope.Tags.ReplaceOwnerReferences(t.Context(), owner, []string{}, mappingActor, 10)
 		if err != nil {
 			return err
 		}
@@ -133,10 +128,7 @@ func TestMappingsPersistSelectionThenClearItWhenSkipped(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	instance := seedMappingTarget(t, db)
-	service := func() *pegasusimportservice.Mappings {
-		r := tagrepository.New(db)
-		return pegasusimportservice.NewMappings(NewMappings(db), tagging.New(r, r, tagging.Options{Now: time.Now}), func() time.Time { return time.UnixMilli(10) })
-	}()
+	service := pegasusimportservice.NewMappings(NewMappings(db), func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []pegasusimportmodel.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}}}, mappingActor)
 	if err != nil {
 		t.Fatal(err)
@@ -212,10 +204,7 @@ func TestMappingsRejectDisabledTargetWithoutClearingTags(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := mappingRows(t, db)
-	service := func() *pegasusimportservice.Mappings {
-		r := tagrepository.New(db)
-		return pegasusimportservice.NewMappings(NewMappings(db), tagging.New(r, r, tagging.Options{Now: time.Now}), func() time.Time { return time.UnixMilli(10) })
-	}()
+	service := pegasusimportservice.NewMappings(NewMappings(db), func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []pegasusimportmodel.Mapping{{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{}}}, mappingActor)
 	if !errors.Is(err, pegasusimportmodel.ErrInvalid) || value.ID != "" {
 		t.Fatalf("disabled mapping: %#v %v", value, err)

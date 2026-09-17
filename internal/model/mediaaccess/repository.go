@@ -2,11 +2,8 @@ package mediaaccess
 
 import "context"
 
+// Repository provides consistent read projections for media access control.
 type Repository interface {
-	WithRead(context.Context, func(Reader) error) error
-}
-
-type Reader interface {
 	Game(context.Context, string) (GameAsset, bool, error)
 	Save(context.Context, string) (SaveScreenshot, bool, error)
 	Review(context.Context, string) ([]ReviewAsset, error)

@@ -18,64 +18,49 @@ type Service struct{ repository model.Repository }
 func New(repository model.Repository) *Service { return &Service{repository: repository} }
 
 func (service *Service) Game(ctx context.Context, id string) (model.Resource, error) {
-	var result model.Resource
-	err := service.repository.WithRead(ctx, func(reader model.Reader) error {
-		asset, found, err := reader.Game(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read game media authority: %w", err)
-		}
-		if !found || asset.GameState != "PUBLISHED" {
-			return ErrNotFound
-		}
-		result = asset.Resource
-		return nil
-	})
-	return result, accessError("authorize game media", err)
+	asset, found, err := service.repository.Game(ctx, id)
+	if err != nil {
+		return model.Resource{}, accessError("authorize game media", fmt.Errorf("read game media authority: %w", err))
+	}
+	if !found || asset.GameState != "PUBLISHED" {
+		return model.Resource{}, accessError("authorize game media", ErrNotFound)
+	}
+	return asset.Resource, nil
 }
 
 func (service *Service) Save(ctx context.Context, id, profile string) (model.Resource, error) {
-	var result model.Resource
-	err := service.repository.WithRead(ctx, func(reader model.Reader) error {
-		screenshot, found, err := reader.Save(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read save screenshot authority: %w", err)
-		}
-		if !found || screenshot.Deleted || screenshot.ProfileID != profile || screenshot.GameState != "PUBLISHED" {
-			return ErrNotFound
-		}
-		result = screenshot.Resource
-		return nil
-	})
-	return result, accessError("authorize save screenshot", err)
+	screenshot, found, err := service.repository.Save(ctx, id)
+	if err != nil {
+		return model.Resource{}, accessError("authorize save screenshot", fmt.Errorf("read save screenshot authority: %w", err))
+	}
+	if !found || screenshot.Deleted || screenshot.ProfileID != profile || screenshot.GameState != "PUBLISHED" {
+		return model.Resource{}, accessError("authorize save screenshot", ErrNotFound)
+	}
+	return screenshot.Resource, nil
 }
 
 func (service *Service) Review(ctx context.Context, id, kind string) (model.Resource, error) {
-	var result model.Resource
-	err := service.repository.WithRead(ctx, func(reader model.Reader) error {
-		assets, err := reader.Review(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read review media authority: %w", err)
+	assets, err := service.repository.Review(ctx, id)
+	if err != nil {
+		return model.Resource{}, accessError("authorize review media", fmt.Errorf("read review media authority: %w", err))
+	}
+	for _, asset := range assets {
+		if visibleReview(asset) {
+			return asset.Resource, nil
 		}
-		for _, asset := range assets {
-			if visibleReview(asset) {
-				result = asset.Resource
-				return nil
-			}
-		}
-		result, err = sourceMedia(ctx, reader, id, kind)
-		return err
-	})
+	}
+	result, err := sourceMedia(ctx, service.repository, id, kind)
 	return result, accessError("authorize review media", err)
 }
 
-func sourceMedia(ctx context.Context, reader model.Reader, id, kind string) (model.Resource, error) {
+func sourceMedia(ctx context.Context, repo model.Repository, id, kind string) (model.Resource, error) {
 	if kind == "" {
 		kind = "COVER"
 	}
 	if kind != "COVER" && kind != "VIDEO" {
 		return model.Resource{}, ErrKind
 	}
-	assets, err := reader.Sources(ctx, id, kind)
+	assets, err := repo.Sources(ctx, id, kind)
 	if err != nil {
 		return model.Resource{}, fmt.Errorf("read review source media: %w", err)
 	}

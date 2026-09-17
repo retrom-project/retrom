@@ -19,7 +19,7 @@ func serverInstall(
 	request := cmd.Request
 	if err := scope.Server.LockExecution(ctx, fwmodel.ServerExecution{
 		ImportID: request.ServerImportID, JobID: request.JobID, WorkerID: request.WorkerID,
-		ExecutionNo: request.ExecutionNo, AtMS: cmd.NowFn(),
+		ExecutionNo: request.ExecutionNo, AtMS: cmd.NowMS,
 	}); err != nil {
 		return fwmodel.ServerInstallResult{}, fmt.Errorf("lock server BIOS execution: %w", err)
 	}
@@ -30,7 +30,7 @@ func serverInstall(
 	if !found || !matchesServerCatalog(requirement, request) {
 		return fwmodel.ServerInstallResult{}, fwmodel.ErrCatalogChanged
 	}
-	now := cmd.NowFn()
+	now := cmd.NowMS
 	if err := scope.Server.SelectCandidate(ctx, fwmodel.Selection{
 		CandidateID: request.CandidateID, ImportID: request.ServerImportID,
 		RequirementID: request.RequirementID, AtMS: now,

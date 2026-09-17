@@ -26,20 +26,75 @@ func (repository *ReviewCoverUploads) Source(
 	return (reviewCoverRecords{repository.database}).Source(ctx, fileID)
 }
 
-func (repository *ReviewCoverUploads) CommitWrite(
-	ctx context.Context, work func(application.ReviewCoverScope) error,
-) error {
+func (repository *ReviewCoverUploads) CommitCoverUpload(
+	ctx context.Context, cmd application.ReviewCoverUploadCommand,
+) (application.ReviewCoverRecord, error) {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin review cover transaction: %w", err)
+		return application.ReviewCoverRecord{}, fmt.Errorf("begin review cover transaction: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
 	records := reviewCoverRecords{transaction}
-	if err := work(application.ReviewCoverScope{Reader: records, Writer: records}); err != nil {
-		return err
+
+	if err := checkCoverAuthority(ctx, records, cmd.Request, cmd.Source); err != nil {
+		return application.ReviewCoverRecord{}, err
+	}
+	existing, found, err := records.ExistingByUpload(ctx, cmd.Source.FileID)
+	if err != nil {
+		return application.ReviewCoverRecord{}, fmt.Errorf("read review cover ownership: %w", err)
+	}
+	if found {
+		if existing.Record.ItemID != cmd.Request.ItemID {
+			return application.ReviewCoverRecord{}, application.ErrReviewCoverConsumed
+		}
+		if !existing.HasConsumption || existing.Record.BlobID != cmd.Source.BlobID {
+			return application.ReviewCoverRecord{}, application.ErrReviewCoverIntegrity
+		}
+		if err := transaction.Commit(); err != nil {
+			return application.ReviewCoverRecord{}, fmt.Errorf("commit review cover transaction: %w", err)
+		}
+		return existing.Record, nil
+	}
+	record := application.ReviewCoverRecord{
+		ID: cmd.AssetID, ItemID: cmd.Request.ItemID, UploadFileID: cmd.Source.FileID,
+		BlobID: cmd.Source.BlobID, Width: cmd.Width, Height: cmd.Height,
+		MediaType: cmd.MediaType, CreatedAtMS: cmd.NowMS,
+	}
+	if err := records.InsertAsset(ctx, record); err != nil {
+		return application.ReviewCoverRecord{}, fmt.Errorf("save review cover asset: %w", err)
+	}
+	if err := records.Consume(ctx, application.ReviewCoverConsumption{
+		ID: cmd.ConsumptionID, UploadID: cmd.Source.UploadID, FileID: cmd.Source.FileID,
+		AssetID: cmd.AssetID, CreatedAtMS: cmd.NowMS,
+	}); err != nil {
+		return application.ReviewCoverRecord{}, fmt.Errorf("retain review cover upload: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit review cover transaction: %w", err)
+		return application.ReviewCoverRecord{}, fmt.Errorf("commit review cover transaction: %w", err)
+	}
+	return record, nil
+}
+
+func checkCoverAuthority(
+	ctx context.Context,
+	records reviewCoverRecords,
+	request application.ReviewCoverRequest,
+	prepared application.ReviewCoverSource,
+) error {
+	current, found, err := records.Source(ctx, request.UploadFileID)
+	if err != nil {
+		return fmt.Errorf("recheck review cover source: %w", err)
+	}
+	if !found || current != prepared {
+		return application.ErrReviewCoverUploadInvalid
+	}
+	draft, found, err := records.Draft(ctx, request.ItemID)
+	if err != nil {
+		return fmt.Errorf("read review cover authority: %w", err)
+	}
+	if !found || draft.Version != request.ExpectedVersion || draft.State != "REVIEW_PENDING" ||
+		(draft.HandoffKind != "DIRECT" && !draft.EmulationStationReady) || draft.SourceBusy {
+		return application.ErrReviewCoverVersion
 	}
 	return nil
 }

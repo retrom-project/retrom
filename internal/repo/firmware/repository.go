@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	firmwarecap "retrom/internal/capability/content/firmware"
 	"retrom/internal/model/firmware"
 	"retrom/internal/repo/dbexec"
 )
@@ -26,19 +27,90 @@ func readScope(executor dbexec.Executor) firmware.ReadScope {
 	}
 }
 
-func (repository *Repository) WithRead(ctx context.Context, work func(firmware.ReadScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+func (repository *Repository) LoadInstallFacts(ctx context.Context, requirementID string, expectedVersion int64, fileID string) (firmware.InstallFacts, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return fmt.Errorf("begin BIOS snapshot: %w", err)
+		return firmware.InstallFacts{}, fmt.Errorf("begin BIOS snapshot: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
-	if err := work(readScope(transaction)); err != nil {
-		return err
+	defer dbexec.Rollback(tx)
+	scope := readScope(tx)
+	requirement, found, err := scope.Requirements.Get(ctx, requirementID)
+	if err != nil {
+		return firmware.InstallFacts{}, fmt.Errorf("read BIOS requirement: %w", err)
 	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit BIOS snapshot: %w", err)
+	if !found || !requirement.Enabled || requirement.Version != expectedVersion {
+		return firmware.InstallFacts{}, firmware.ErrInvalid
 	}
-	return nil
+	upload, found, err := scope.Uploads.Get(ctx, fileID)
+	if err != nil {
+		return firmware.InstallFacts{}, fmt.Errorf("read BIOS upload: %w", err)
+	}
+	if !found || upload.State != "COMPLETE" {
+		return firmware.InstallFacts{}, firmware.ErrInvalid
+	}
+	if err := tx.Commit(); err != nil {
+		return firmware.InstallFacts{}, fmt.Errorf("commit BIOS snapshot: %w", err)
+	}
+	return firmware.InstallFacts{
+		SourceKind: requirement.SourceKind,
+		FileKind:   requirement.FileKind,
+		BlobID:     upload.BlobID,
+		SHA256:     upload.SHA256,
+	}, nil
+}
+
+func (repository *Repository) LoadArchiveInspection(ctx context.Context, requirementID string) (firmware.ArchiveInspection, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return firmware.ArchiveInspection{}, fmt.Errorf("begin BIOS snapshot: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	scope := readScope(tx)
+	requirement, found, err := scope.Requirements.Get(ctx, requirementID)
+	if err != nil {
+		return firmware.ArchiveInspection{}, fmt.Errorf("read BIOS inspection requirement: %w", err)
+	}
+	if !found || !requirement.Enabled || requirement.FileKind != "ARCHIVE" {
+		return firmware.ArchiveInspection{}, firmware.ErrArchiveFactsNotFound
+	}
+	active, found, err := scope.Installations.Active(ctx, requirementID)
+	if err != nil {
+		return firmware.ArchiveInspection{}, fmt.Errorf("read active BIOS inspection: %w", err)
+	}
+	if !found {
+		return firmware.ArchiveInspection{}, firmware.ErrArchiveFactsNotFound
+	}
+	expected, err := expectedArchiveFacts(ctx, scope.Requirements, requirement)
+	if err != nil {
+		return firmware.ArchiveInspection{}, err
+	}
+	actual, err := scope.Archives.Entries(ctx, active.BlobID)
+	if err != nil {
+		return firmware.ArchiveInspection{}, fmt.Errorf("read BIOS archive inspection: %w", err)
+	}
+	comparisons, _, _, _ := firmwarecap.CompareArchiveEntries(expected, actual)
+	if err := tx.Commit(); err != nil {
+		return firmware.ArchiveInspection{}, fmt.Errorf("commit BIOS snapshot: %w", err)
+	}
+	return firmware.ArchiveInspection{
+		RequirementID: requirementID, LogicalName: requirement.LogicalName,
+		InstallationID: active.ID, InstallationStatus: active.Status, Entries: comparisons,
+	}, nil
+}
+
+func expectedArchiveFacts(ctx context.Context, records firmware.RequirementRecords, requirement firmware.Requirement) ([]firmwarecap.ExpectedDATEntry, error) {
+	if requirement.ArchiveMembersJSON != nil {
+		entries, err := firmwarecap.StaticArchiveExpectations(*requirement.ArchiveMembersJSON)
+		if err != nil {
+			return nil, fmt.Errorf("decode BIOS archive requirements: %w", err)
+		}
+		return entries, nil
+	}
+	entries, err := records.DATEntries(ctx, requirement.ID)
+	if err != nil {
+		return nil, fmt.Errorf("read BIOS DAT entries: %w", err)
+	}
+	return entries, nil
 }
 
 func (repository *Repository) writeScope(tx *sql.Tx) firmware.WriteScope {

@@ -6,37 +6,109 @@ import (
 	"retrom/internal/capability/runtime/platformcatalog"
 )
 
-// Repository supplies consistent read snapshots and atomic write capabilities.
+// Repository supplies consistent read snapshots and named atomic commands.
 type Repository interface {
-	WithRead(context.Context, func(Reader) error) error
-	CommitWrite(context.Context, func(WriteScope) error) error
+	LoadCatalogReferences(context.Context, platformcatalog.Catalog) (map[string]CatalogReference, error)
+	LoadDirectories(context.Context) ([]Directory, error)
+	LoadInstance(context.Context, string) (Instance, error)
+	LoadCoreImpactFacts(context.Context, string, string, int64) (CoreImpactFacts, error)
+	CommitCreate(context.Context, CreateCommand) (Instance, error)
+	CommitPatch(context.Context, PatchCommand) (PatchResult, error)
+	CommitReorder(context.Context, ReorderCommand) ([]ReorderResult, error)
+	CommitDelete(context.Context, DeleteCommand) error
+	CommitChangeDefaultCore(context.Context, ChangeDefaultCoreCommand) (DefaultCoreChangeResult, error)
+	CommitApply(context.Context, ApplyCommand) (IdempotentResponse, error)
 }
 
-//nolint:interfacebloat // platform lifecycle and impact commands share one consistent read snapshot
-type Reader interface {
-	CatalogReferences(context.Context, platformcatalog.Catalog) (map[string]CatalogReference, error)
-	Directories(context.Context) ([]Directory, error)
-	Instance(context.Context, string) (Instance, error)
-	CoreImpact(context.Context, string, string, int64) (CoreImpactFacts, error)
-	UsedSlugs(context.Context, string, string) ([]string, error)
-	CoreEnabled(context.Context, string, string) (bool, error)
+// CreateCommand carries all values for creating a new platform instance.
+type CreateCommand struct {
+	Actor      AuditActor
+	Input      CreateInput
+	CatalogKey string
+	Action     string
+	NowMS      int64
+	ID         string
+	AuditID    string
 }
 
-type WriteScope struct {
-	Reader      Reader
-	Directories DirectoryWrites
-	Idempotency IdempotencyRecords
+// PatchCommand carries values for updating a platform instance.
+type PatchCommand struct {
+	ID              string
+	ExpectedVersion int64
+	Name            *string
+	Description     *string
+	SortOrder       *int64
+	Enabled         *bool
+	Actor           AuditActor
+	NowMS           int64
+	AuditID         string
 }
 
-//nolint:interfacebloat // directory mutations and their audit records share one atomic write scope
-type DirectoryWrites interface {
-	Insert(context.Context, NewDirectory) error
-	RecordCreation(context.Context, CreationAudit) error
-	Update(context.Context, DirectoryUpdate) (bool, error)
-	Delete(context.Context, DirectoryDelete) (bool, error)
-	ChangeDefaultCore(context.Context, DefaultCoreChange) (bool, error)
-	RecordAudit(context.Context, AuditEvent) error
+// PatchResult holds the result of a patch operation.
+type PatchResult struct {
+	ID          string
+	Name        string
+	Description string
+	SortOrder   int64
+	Enabled     bool
+	Version     int64
+	UpdatedAtMS int64
 }
+
+// ReorderCommand carries values for reordering platform instances.
+type ReorderCommand struct {
+	Actor AuditActor
+	Items []ReorderItem
+	NowMS int64
+}
+
+// ReorderItem carries a single item for reordering.
+type ReorderItem struct {
+	ID      string
+	Version int64
+}
+
+// ReorderResult holds the result of a single reorder update.
+type ReorderResult struct {
+	ID          string
+	SortOrder   int64
+	Version     int64
+	UpdatedAtMS int64
+}
+
+// DeleteCommand carries values for soft-deleting a platform instance.
+type DeleteCommand struct {
+	ID              string
+	ExpectedVersion int64
+	Actor           AuditActor
+	NowMS           int64
+	AuditID         string
+}
+
+// ChangeDefaultCoreCommand carries values for changing the default core.
+type ChangeDefaultCoreCommand struct {
+	InstanceID      string
+	CoreID          string
+	Expected        int64
+	Digest          string
+	ConfirmBlocked  bool
+	Actor           AuditActor
+	NowMS           int64
+	AuditID         string
+}
+
+// ApplyCommand carries values for applying catalog recommendations.
+type ApplyCommand struct {
+	IdempotencyKey IdempotencyKey
+	Digest         string
+	Actor          AuditActor
+	Catalog        platformcatalog.Catalog
+	NowMS          int64
+	ExpiresAtMS    int64
+	InstanceIDs    []string
+	AuditIDs       []string
+}
+
 
 type Directory struct {
 	ID, PlatformID, CoreID, Name, Description string
@@ -137,13 +209,3 @@ type CreationAudit struct {
 
 type IdempotencyKey struct{ PrincipalID, Operation, Key string }
 
-type IdempotencyRecord struct {
-	Digest                   string
-	Response                 IdempotentResponse
-	CreatedAtMS, ExpiresAtMS int64
-}
-
-type IdempotencyRecords interface {
-	Find(context.Context, IdempotencyKey, int64) (IdempotencyRecord, bool, error)
-	Save(context.Context, IdempotencyKey, IdempotencyRecord) error
-}

@@ -35,7 +35,7 @@ func (repository *Repository) CommitReconcile(
 			return nil
 		}
 		return applyChangedProjection(
-			ctx, projectionRecords{executor: exec}, change, changed,
+			ctx, projectionRecords{executor: exec}, change, changed, cmd.AuditID,
 		)
 	})
 	if err != nil {

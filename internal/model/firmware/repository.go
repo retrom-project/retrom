@@ -24,11 +24,20 @@ type BrowserInstallCommand struct {
 // ServerInstallCommand wraps a ServerInstallRequest with timing for atomic commit.
 type ServerInstallCommand struct {
 	Request ServerInstallRequest
-	NowFn   func() int64
+	NowMS   int64
+}
+
+// InstallFacts contains the pre-validated inputs needed before committing a browser install.
+type InstallFacts struct {
+	SourceKind string
+	FileKind   string
+	BlobID     string
+	SHA256     string
 }
 
 type Repository interface {
-	WithRead(context.Context, func(ReadScope) error) error
+	LoadInstallFacts(ctx context.Context, requirementID string, expectedVersion int64, fileID string) (InstallFacts, error)
+	LoadArchiveInspection(ctx context.Context, requirementID string) (ArchiveInspection, error)
 	CommitBrowserInstall(context.Context, BrowserInstallCommand) (Installation, error)
 	CommitServerInstall(context.Context, ServerInstallCommand) (ServerInstallResult, error)
 }

@@ -16,14 +16,6 @@ type (
 	idempotencyRecords struct{ database dbexec.Executor }
 )
 
-func writeScope(database dbexec.Executor) favorites.WriteScope {
-	return favorites.WriteScope{
-		Games: gameRecords{database}, Memberships: membershipRecords{database},
-		Folders: folderRecords{database}, FolderWrites: folderRecords{database},
-		Idempotency: idempotencyRecords{database},
-	}
-}
-
 func (records gameRecords) Remove(ctx context.Context, profileID, gameID string) error {
 	if _, err := records.database.ExecContext(ctx,
 		"DELETE FROM favorite_folder_games WHERE profile_id=? AND game_id=?", profileID, gameID); err != nil {

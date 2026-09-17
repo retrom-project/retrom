@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	model "retrom/internal/model/libraryimport"
+	"retrom/internal/model/tagging"
 	payloadreleaseservice "retrom/internal/service/payloadrelease"
 
 	"retrom/internal/capability/content/gametitle"
@@ -41,8 +42,10 @@ func (run *reviewApprovalRun) publishGame() error {
 		return fmt.Errorf("create approved game: %w", err)
 	}
 	principal, _ := authn.PrincipalFromContext(run.ctx)
-	tags, err := run.service.tags.CopyDraftTagsToGame(run.ctx, run.scope.Tags,
-		run.head.DraftID, run.gameID, principal.UserID, run.now)
+	fromOwner := tagging.Owner{Kind: tagging.OwnerReviewDraft, ID: run.head.DraftID}
+	toOwner := tagging.Owner{Kind: tagging.OwnerGame, ID: run.gameID}
+	tags, err := run.scope.Tags.CopyOwnerReferences(
+		run.ctx, fromOwner, toOwner, principal.UserID, run.now)
 	if err != nil {
 		return fmt.Errorf("publish review tags: %w", err)
 	}

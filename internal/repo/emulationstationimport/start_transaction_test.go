@@ -14,9 +14,7 @@ import (
 	"time"
 
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	tagrepository "retrom/internal/repo/tagging"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
-	"retrom/internal/service/tagging"
 )
 
 func startDatabase(t *testing.T) *sql.DB {
@@ -30,10 +28,7 @@ UPDATE emulationstation_import_gamelists SET game_count=2 WHERE relative_path='g
 INSERT INTO content_kinds(id) VALUES('SINGLE_FILE') ON CONFLICT(id) DO NOTHING;`); err != nil {
 		t.Fatal(err)
 	}
-	mapper := emulationstationimportservice.NewMappings(NewMappings(db), func() *tagging.Service {
-		r := tagrepository.New(db)
-		return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(2) }})
-	}(), func() time.Time { return time.UnixMilli(2) })
+	mapper := emulationstationimportservice.NewMappings(NewMappings(db), func() time.Time { return time.UnixMilli(2) })
 	if _, err := mapper.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{
 		{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}},
 		{CollectionID: secondMappingCollection, Action: "SKIP", TagIDs: []string{}},

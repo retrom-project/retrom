@@ -66,11 +66,11 @@ func validText(value string, minimum, maximum int, allowNewline bool) bool {
 }
 
 func platformSlugBase(name, platformID string) string {
-	return platforminstanceservice.SlugBase(name, platformID)
+	return platforminstancemodel.SlugBase(name, platformID)
 }
 
 func platformSlugWithSuffix(base string, suffix int) string {
-	return platforminstanceservice.SlugWithSuffix(base, suffix)
+	return platforminstancemodel.SlugWithSuffix(base, suffix)
 }
 
 func (server *Server) createPlatformInstance(writer http.ResponseWriter, request *http.Request) {

@@ -29,23 +29,29 @@ func (repository *Repository) Restore(ctx context.Context, id string) (saves.Res
 	return (records{executor: repository.database}).Restore(ctx, id)
 }
 
-func (repository *Repository) CommitWrite(ctx context.Context, work func(saves.WriteScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin checkpoint transaction: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	bound := writes{records: records{executor: transaction}, transaction: transaction}
-	if err := work(saves.WriteScope{
+func (repository *Repository) writeScope(tx *sql.Tx) saves.WriteScope {
+	bound := writes{records: records{executor: tx}, transaction: tx}
+	return saves.WriteScope{
 		Launches: bound, Idempotency: bound, Blobs: bound,
 		Checkpoints: bound, GameSaves: bound,
-	}); err != nil {
-		return err
 	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit checkpoint transaction: %w", err)
+}
+
+func (repository *Repository) CommitManualCheckpoint(ctx context.Context, cmd saves.ManualCheckpointCommand) (saves.ManualResult, bool, error) {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return saves.ManualResult{}, false, fmt.Errorf("begin checkpoint transaction: %w", err)
 	}
-	return nil
+	defer dbexec.Rollback(tx)
+	scope := repository.writeScope(tx)
+	result, replayed, err := executeManualCheckpoint(ctx, scope, cmd)
+	if err != nil {
+		return saves.ManualResult{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return saves.ManualResult{}, false, fmt.Errorf("commit checkpoint transaction: %w", err)
+	}
+	return result, replayed, nil
 }
 
 func (store records) Ensure(

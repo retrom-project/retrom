@@ -23,17 +23,7 @@ type ReviewHead struct {
 }
 
 type ReviewDetailRepository interface {
-	WithRead(context.Context, func(ReviewReadScope) error) error
-}
-type ReviewReadScope struct {
-	Drafts       ReviewDraftReader
-	Media        ReviewMediaReader
-	Sources      ReviewSourceReader
-	Validation   ReviewValidationReader
-	Duplicates   ContentDuplicateReader
-	Dependencies ReviewDependencyReader
-	Metadata     metadatascrape.ReviewEvidenceReader
-	Tags         tagging.ReferenceReader
+	LoadReviewDetail(context.Context, string) (ReviewDetail, error)
 }
 type ReviewDraftReader interface {
 	Head(context.Context, string) (ReviewHead, error)

@@ -9,43 +9,44 @@ import (
 )
 
 type snapshotRepository struct {
-	scope model.ReadScope
-	reads int
-}
-
-func (repository *snapshotRepository) WithRead(_ context.Context, work func(model.ReadScope) error) error {
-	repository.reads++
-	return work(repository.scope)
-}
-
-type platformReader struct {
-	model.PlatformReader
 	platforms []model.Platform
 	featured  []model.FeaturedGame
 	games     []model.Game
+	reads     int
 }
 
-func (reader platformReader) Platforms(context.Context, string) ([]model.Platform, error) {
-	return reader.platforms, nil
+func (r *snapshotRepository) LoadPlatforms(_ context.Context, _ string) ([]model.Platform, error) {
+	r.reads++
+	platforms := make([]model.Platform, len(r.platforms))
+	copy(platforms, r.platforms)
+	model.AttachFeaturedGames(platforms, r.featured)
+	return platforms, nil
 }
 
-func (reader platformReader) Platform(context.Context, string, string) (model.Platform, error) {
-	return reader.platforms[0], nil
+func (r *snapshotRepository) LoadGamePage(_ context.Context, _, _ string, limit int, _ *model.GameCursor) (model.GamePage, error) {
+	r.reads++
+	platform := r.platforms[0]
+	platform.FeaturedGames = r.featured
+	games, next := model.PageItems(r.games, limit, model.LibraryAll)
+	return model.GamePage{Platform: platform, Items: games, NextCursor: next}, nil
 }
 
-func (reader platformReader) Featured(context.Context, string, string) ([]model.FeaturedGame, error) {
-	return reader.featured, nil
+func (r *snapshotRepository) LoadDestinations(context.Context, string) ([]model.Destination, error) {
+	r.reads++
+	return nil, nil
 }
 
-func (reader platformReader) Games(context.Context, string, string, int, *model.GameCursor) ([]model.Game, error) {
-	return reader.games, nil
+func (r *snapshotRepository) LoadLibraryPage(_ context.Context, _, _, _ string, _ int, _ *model.GameCursor) (model.LibraryPage, error) {
+	r.reads++
+	return model.LibraryPage{}, nil
 }
 
 func TestPlatformsAttachOnlyMatchingFeaturedGames(t *testing.T) {
 	t.Parallel()
-	repository := &snapshotRepository{scope: model.ReadScope{Platforms: platformReader{
-		platforms: []model.Platform{{ID: "gba"}, {ID: "nes"}}, featured: []model.FeaturedGame{{PlatformID: "gba", ID: "first"}, {PlatformID: "unknown", ID: "hidden"}},
-	}}}
+	repository := &snapshotRepository{
+		platforms: []model.Platform{{ID: "gba"}, {ID: "nes"}},
+		featured:  []model.FeaturedGame{{PlatformID: "gba", ID: "first"}, {PlatformID: "unknown", ID: "hidden"}},
+	}
 	result, err := New(repository).Platforms(t.Context(), "profile")
 	if err != nil {
 		t.Fatal(err)
@@ -63,9 +64,14 @@ func TestPlatformsAttachOnlyMatchingFeaturedGames(t *testing.T) {
 
 func TestGamePageUsesLastVisibleRowForCursor(t *testing.T) {
 	t.Parallel()
-	repository := &snapshotRepository{scope: model.ReadScope{Platforms: platformReader{
-		platforms: []model.Platform{{ID: "gba"}}, games: []model.Game{{ID: "a", Title: "A", TitleInitial: "A"}, {ID: "b", Title: "B", TitleInitial: "B"}, {ID: "c", Title: "C", TitleInitial: "C"}},
-	}}}
+	repository := &snapshotRepository{
+		platforms: []model.Platform{{ID: "gba"}},
+		games: []model.Game{
+			{ID: "a", Title: "A", TitleInitial: "A"},
+			{ID: "b", Title: "B", TitleInitial: "B"},
+			{ID: "c", Title: "C", TitleInitial: "C"},
+		},
+	}
 	result, err := New(repository).Games(t.Context(), "profile", "gba", 2, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +103,7 @@ func TestRecentPageCursorRetainsLastPlayedTime(t *testing.T) {
 	t.Parallel()
 	recent := int64(2000)
 	earlier := int64(1000)
-	items, next := libraryPageItems([]model.Game{{ID: "a", LastPlayedAtMS: &recent}, {ID: "b", LastPlayedAtMS: &earlier}}, 1, model.LibraryRecent)
+	items, next := model.PageItems([]model.Game{{ID: "a", LastPlayedAtMS: &recent}, {ID: "b", LastPlayedAtMS: &earlier}}, 1, model.LibraryRecent)
 	if len(items) != 1 || next == nil || next.LastPlayedAtMS == nil || *next.LastPlayedAtMS != recent {
 		t.Fatalf("recent cursor = %#v", next)
 	}

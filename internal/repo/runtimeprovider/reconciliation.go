@@ -8,9 +8,6 @@ import (
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	service "retrom/internal/model/runtimeprovider"
-
-	"github.com/google/uuid"
-	"golang.org/x/mod/semver"
 )
 
 func prepareReconciliation(
@@ -79,6 +76,7 @@ func applyChangedProjection(
 	records projectionRecords,
 	change service.Publication,
 	changed []string,
+	auditID string,
 ) error {
 	for _, providerID := range changed {
 		if err := records.TerminateSessions(ctx, providerID, change.AtMS); err != nil {
@@ -88,10 +86,6 @@ func applyChangedProjection(
 	if err := records.Publish(ctx, change); err != nil {
 		return fmt.Errorf("publish runtime catalog: %w", err)
 	}
-	id, err := uuid.NewV7()
-	if err != nil {
-		return fmt.Errorf("create runtime reconciliation audit ID: %w", err)
-	}
 	diff, err := json.Marshal(map[string]any{
 		"catalogSha256": change.Candidate.CatalogSHA256,
 		"providers":     changed,
@@ -100,7 +94,7 @@ func applyChangedProjection(
 		return fmt.Errorf("%w: %w", service.ErrProjectionInvalid, err)
 	}
 	if err := records.Audit(ctx, service.Audit{
-		ID: id.String(), DiffJSON: diff, AtMS: change.AtMS,
+		ID: auditID, DiffJSON: diff, AtMS: change.AtMS,
 	}); err != nil {
 		return fmt.Errorf("audit runtime reconciliation: %w", err)
 	}
@@ -112,38 +106,28 @@ func validateProviderVersion(
 	current service.CurrentProvider,
 	exists bool,
 ) (bool, error) {
-	if !exists {
-		return true, nil
+	changed, err := service.ValidateProviderVersionChange(
+		candidate.ProviderVersion, candidate.BundleSHA256,
+		current.Version, current.BundleSHA256,
+		candidate.ProviderID, exists,
+	)
+	if err != nil {
+		return false, fmt.Errorf("validate provider version: %w", err)
 	}
-	comparison := semver.Compare("v"+candidate.ProviderVersion, "v"+current.Version)
-	if comparison < 0 {
-		return false, fmt.Errorf("%w: %s", service.ErrProviderDowngrade, candidate.ProviderID)
-	}
-	if comparison == 0 && candidate.BundleSHA256 != current.BundleSHA256 {
-		return false, fmt.Errorf(
-			"%w: %s", service.ErrProviderVersionRebuilt, candidate.ProviderID,
-		)
-	}
-	return comparison > 0 || candidate.BundleSHA256 != current.BundleSHA256, nil
+	return changed, nil
 }
 
 func validateCheckpointFormats(
 	providerID string, target service.TargetProjection, formats []string,
 ) error {
-	readable := make(map[string]bool)
+	var readFormats []string
 	if target.Target.Checkpoint != nil {
-		for _, format := range target.Target.Checkpoint.ReadFormats {
-			readable[format] = true
-		}
+		readFormats = target.Target.Checkpoint.ReadFormats
 	}
-	for _, format := range formats {
-		if !readable[format] {
-			return fmt.Errorf(
-				"%w: %s/%s %s",
-				service.ErrProviderCheckpointUnreadable,
-				providerID, target.Target.ID, format,
-			)
-		}
+	if err := service.ValidateCheckpointFormats(
+		providerID, target.Target.ID, readFormats, formats,
+	); err != nil {
+		return fmt.Errorf("validate checkpoint formats: %w", err)
 	}
 	return nil
 }

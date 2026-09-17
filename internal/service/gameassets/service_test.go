@@ -25,7 +25,7 @@ func (repository *memoryRepository) CommitCreate(
 ) error {
 	repository.createCmd = &cmd
 	if cmd.ExpectedVersion != repository.version {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	if repository.consumeErr != nil {
 		return model.ErrUploadConsumed
@@ -38,7 +38,7 @@ func (repository *memoryRepository) CommitDelete(
 ) (model.DeleteResult, error) {
 	repository.deleteCmd = &cmd
 	if cmd.ExpectedVersion != repository.version {
-		return model.DeleteResult{}, ErrVersionConflict
+		return model.DeleteResult{}, model.ErrVersionConflict
 	}
 	if !repository.exists {
 		return model.DeleteResult{}, model.ErrAssetNotFound
@@ -112,7 +112,7 @@ func TestCreateMapsUploadConsumptionFailureToStableConflict(t *testing.T) {
 			UploadID: "upload", BlobID: "blob", MediaType: "video/mp4",
 		},
 	})
-	if !errors.Is(err, ErrUploadConsumed) {
+	if !errors.Is(err, model.ErrUploadConsumed) {
 		t.Fatalf("create consumption error = %v", err)
 	}
 }
@@ -123,7 +123,7 @@ func TestDeleteRequiresExistingVideoAndCurrentVersion(t *testing.T) {
 	_, err := service.Delete(context.Background(), DeleteRequest{
 		GameID: "game", Kind: "VIDEO", ExpectedVersion: 2, NowMS: 100,
 	})
-	if !errors.Is(err, ErrAssetNotFound) {
+	if !errors.Is(err, model.ErrAssetNotFound) {
 		t.Fatalf("delete missing asset = %v", err)
 	}
 }

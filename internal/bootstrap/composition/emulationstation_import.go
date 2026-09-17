@@ -56,7 +56,7 @@ func NewEmulationStationImport(database *sql.DB, blobs *blobstore.Store, importe
 	return application.New(application.ServiceDependencies{
 		Queries:   application.NewQueries(repository.NewQueries(database), tags),
 		Creation:  application.NewCreation(repository.NewCreation(database), source, now),
-		Mappings:  application.NewMappings(repository.NewMappings(database), tags, now),
+		Mappings:  application.NewMappings(repository.NewMappings(database), now),
 		Starter:   application.NewStarter(repository.NewStarter(database), source, now),
 		Control:   application.NewWorkflowControl(repository.NewWorkflowControl(database), source, now),
 		Lifecycle: lifecycle, Worker: worker,

@@ -36,13 +36,7 @@ func (service *Service) Start() {
 func (service *Service) Close() { close(service.stop); service.wait.Wait() }
 
 func (service *Service) RunOnce(ctx context.Context) (bool, error) {
-	var request model.Request
-	var found bool
-	err := service.repository.WithRead(ctx, func(records model.Reader) error {
-		var err error
-		request, found, err = records.Pending(ctx)
-		return failure("reconcile discard request", err)
-	})
+	request, found, err := service.repository.Pending(ctx)
 	if err != nil {
 		return false, failure("reconcile discard request", err)
 	}

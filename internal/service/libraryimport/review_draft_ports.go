@@ -20,12 +20,6 @@ type ReviewDraftValidationPort interface {
 	SelectScummVM(context.Context, ReviewDraftScummVMRequest) (application.ReviewValidationPlan, error)
 }
 
-type ReviewDraftValidationReader = application.ReviewValidationRefreshReader
-
-type ReviewDraftValidationSelectedReader = application.ReviewValidationRefreshSelectedReader
-
-type ReviewDraftValidationDependencyReader = application.ReviewValidationRefreshDependencyReader
-
 type ReviewDraftValidationRequest struct {
 	ItemID, TargetPlatformInstanceID string
 	DefaultDOSEntry                  *string

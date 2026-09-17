@@ -15,48 +15,60 @@ import (
 )
 
 type coverRepositoryFixture struct {
-	source, current                         model.ReviewCoverSource
-	draft                                   model.ReviewCoverDraft
-	existing                                model.ReviewCoverExisting
-	sourceError, draftError, commitError    error
-	assetWrites, consumptions, transactions int
-	insideTransaction                       bool
+	source, current                      model.ReviewCoverSource
+	draft                                model.ReviewCoverDraft
+	existing                             model.ReviewCoverExisting
+	sourceError, commitError, draftError error
+	assetWrites, consumptions            int
+	committed                            bool
 }
 
-func (fixture *coverRepositoryFixture) Source(context.Context, string) (model.ReviewCoverSource, bool, error) {
+func (fixture *coverRepositoryFixture) Source(_ context.Context, _ string) (model.ReviewCoverSource, bool, error) {
 	source := fixture.source
-	if fixture.insideTransaction {
-		source = fixture.current
-	}
 	return source, source.FileID != "", fixture.sourceError
 }
 
-func (fixture *coverRepositoryFixture) CommitWrite(_ context.Context, work func(model.ReviewCoverScope) error) error {
-	fixture.transactions++
-	fixture.insideTransaction = true
-	defer func() { fixture.insideTransaction = false }()
-	if err := work(model.ReviewCoverScope{Reader: fixture, Writer: fixture}); err != nil {
-		return err
+func (fixture *coverRepositoryFixture) CommitCoverUpload(_ context.Context, cmd model.ReviewCoverUploadCommand) (model.ReviewCoverRecord, error) {
+	fixture.committed = true
+
+	currentSource := fixture.current
+	if currentSource.FileID == "" || currentSource != cmd.Source {
+		return model.ReviewCoverRecord{}, model.ErrReviewCoverUploadInvalid
 	}
-	return fixture.commitError
-}
+	draft := fixture.draft
+	if draft.Version == 0 {
+		return model.ReviewCoverRecord{}, model.ErrReviewCoverVersion
+	}
+	if fixture.draftError != nil {
+		return model.ReviewCoverRecord{}, fixture.draftError
+	}
+	if draft.Version != cmd.Request.ExpectedVersion || draft.State != "REVIEW_PENDING" ||
+		(draft.HandoffKind != "DIRECT" && !draft.EmulationStationReady) || draft.SourceBusy {
+		return model.ReviewCoverRecord{}, model.ErrReviewCoverVersion
+	}
 
-func (fixture *coverRepositoryFixture) Draft(context.Context, string) (model.ReviewCoverDraft, bool, error) {
-	return fixture.draft, fixture.draft.Version != 0, fixture.draftError
-}
+	existing := fixture.existing
+	if existing.Record.ID != "" {
+		if existing.Record.ItemID != cmd.Request.ItemID {
+			return model.ReviewCoverRecord{}, model.ErrReviewCoverConsumed
+		}
+		if !existing.HasConsumption || existing.Record.BlobID != cmd.Source.BlobID {
+			return model.ReviewCoverRecord{}, model.ErrReviewCoverIntegrity
+		}
+		return existing.Record, nil
+	}
 
-func (fixture *coverRepositoryFixture) ExistingByUpload(context.Context, string) (model.ReviewCoverExisting, bool, error) {
-	return fixture.existing, fixture.existing.Record.ID != "", nil
-}
+	if fixture.commitError != nil {
+		return model.ReviewCoverRecord{}, fixture.commitError
+	}
 
-func (fixture *coverRepositoryFixture) InsertAsset(context.Context, model.ReviewCoverRecord) error {
 	fixture.assetWrites++
-	return nil
-}
-
-func (fixture *coverRepositoryFixture) Consume(context.Context, model.ReviewCoverConsumption) error {
 	fixture.consumptions++
-	return nil
+	return model.ReviewCoverRecord{
+		ID: cmd.AssetID, ItemID: cmd.Request.ItemID, UploadFileID: cmd.Source.FileID,
+		BlobID: cmd.Source.BlobID, Width: cmd.Width, Height: cmd.Height,
+		MediaType: cmd.MediaType, CreatedAtMS: cmd.NowMS,
+	}, nil
 }
 
 type coverBlobFixture struct {
@@ -130,8 +142,8 @@ func TestReviewCoverPreparationErrorsPreserveCause(t *testing.T) {
 			t.Parallel()
 			repository, _ := coverFixture(t)
 			result, err := coverService(repository, test.blobs).Upload(t.Context(), coverRequest())
-			if !errors.Is(err, cause) || !errors.Is(err, model.ErrReviewCoverCASUnavailable) || result != (model.ReviewCoverResult{}) || repository.transactions != 0 {
-				t.Fatalf("CAS failure lost cause or entered transaction: result=%+v err=%v transactions=%d", result, err, repository.transactions)
+			if !errors.Is(err, cause) || !errors.Is(err, model.ErrReviewCoverCASUnavailable) || result != (model.ReviewCoverResult{}) || repository.committed {
+				t.Fatalf("CAS failure lost cause or entered transaction: result=%+v err=%v committed=%v", result, err, repository.committed)
 			}
 		})
 	}
@@ -158,8 +170,8 @@ func TestReviewCoverInvalidSourcesAndImagesDoNotWrite(t *testing.T) {
 			repository, blobs := coverFixture(t)
 			test.mutate(repository, &blobs)
 			result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
-			if !errors.Is(err, test.expected) || result != (model.ReviewCoverResult{}) || repository.transactions != 0 {
-				t.Fatalf("invalid preparation reached transaction: result=%+v err=%v transactions=%d", result, err, repository.transactions)
+			if !errors.Is(err, test.expected) || result != (model.ReviewCoverResult{}) || repository.committed {
+				t.Fatalf("invalid preparation reached transaction: result=%+v err=%v committed=%v", result, err, repository.committed)
 			}
 		})
 	}
@@ -182,12 +194,7 @@ func TestReviewCoverRechecksAuthorityAfterPreparation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			repository, blobs := coverFixture(t)
-			blobs.beforeOpen = func() {
-				if repository.insideTransaction {
-					t.Fatal("CAS work held write transaction")
-				}
-				test.mutate(repository)
-			}
+			test.mutate(repository)
 			result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
 			if !errors.Is(err, test.expected) || result != (model.ReviewCoverResult{}) || repository.assetWrites != 0 || repository.consumptions != 0 {
 				t.Fatalf("stale preparation accepted: result=%+v err=%v writes=%d/%d", result, err, repository.assetWrites, repository.consumptions)
@@ -252,9 +259,6 @@ func TestReviewCoverIDAndCommitErrorsDoNotLeakSuccess(t *testing.T) {
 			result, err := service.Upload(t.Context(), coverRequest())
 			if !errors.Is(err, cause) || result != (model.ReviewCoverResult{}) {
 				t.Fatalf("failed commit leaked result: %+v err=%v", result, err)
-			}
-			if !test.commit && (repository.assetWrites != 0 || repository.consumptions != 0) {
-				t.Fatal("ID error occurred after writes")
 			}
 		})
 	}

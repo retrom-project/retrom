@@ -53,20 +53,18 @@ type ReviewCoverExisting struct {
 type ReviewCoverBlobs interface {
 	OpenDigest(string) (io.ReadCloser, error)
 }
+// ReviewCoverUploadCommand captures all values for a review cover upload commit.
+type ReviewCoverUploadCommand struct {
+	Request        ReviewCoverRequest
+	Source         ReviewCoverSource
+	AssetID        string
+	ConsumptionID  string
+	Width, Height  int
+	MediaType      string
+	NowMS          int64
+}
+
 type ReviewCoverRepository interface {
 	Source(context.Context, string) (ReviewCoverSource, bool, error)
-	CommitWrite(context.Context, func(ReviewCoverScope) error) error
-}
-type ReviewCoverScope struct {
-	Reader ReviewCoverReader
-	Writer ReviewCoverWriter
-}
-type ReviewCoverReader interface {
-	Source(context.Context, string) (ReviewCoverSource, bool, error)
-	Draft(context.Context, string) (ReviewCoverDraft, bool, error)
-	ExistingByUpload(context.Context, string) (ReviewCoverExisting, bool, error)
-}
-type ReviewCoverWriter interface {
-	InsertAsset(context.Context, ReviewCoverRecord) error
-	Consume(context.Context, ReviewCoverConsumption) error
+	CommitCoverUpload(context.Context, ReviewCoverUploadCommand) (ReviewCoverRecord, error)
 }

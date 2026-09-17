@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	application "retrom/internal/model/libraryimport"
@@ -55,12 +56,13 @@ func loadPatchSnapshot(
 		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	owner := tagging.Owner{Kind: tagging.OwnerReviewDraft, ID: result.DraftID}
-	result.BeforeTags, err = tagpersistence.Bind(transaction).Relations.References(ctx, owner)
+	tagOps := tagpersistence.BindCrossDomain(transaction)
+	result.BeforeTags, err = tagOps.ReadOwnerReferences(ctx, owner)
 	if err != nil {
 		return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: read draft tags: %w", err)
 	}
 	if len(query.TagIDs) > 0 {
-		result.ActiveTags, err = tagpersistence.Bind(transaction).Tags.ActiveReferences(ctx, query.TagIDs)
+		result.ActiveTags, err = tagOps.ValidateActiveReferences(ctx, query.TagIDs)
 		if err != nil {
 			return application.ReviewDraftPatchSnapshot{}, fmt.Errorf("libraryimport/review: read active tags: %w", err)
 		}
@@ -217,7 +219,7 @@ WHERE i.id=? AND i.state='REVIEW_PENDING'
 		run.isRPG != run.plan.ExpectedIsRPG || !sameNullable(run.currentDOS, run.plan.ExpectedDOSEntry) {
 		return application.ErrVersionConflict
 	}
-	run.beforeTags, err = tagpersistence.Bind(run.transaction).Relations.References(
+	run.beforeTags, err = tagpersistence.BindCrossDomain(run.transaction).ReadOwnerReferences(
 		run.ctx, tagging.Owner{Kind: tagging.OwnerReviewDraft, ID: run.draftID},
 	)
 	if err != nil {
@@ -238,8 +240,8 @@ func (run *draftPatchRun) applyPlan() error {
 	}
 	currentDOS := run.currentDOSEntry()
 	if !sameNullable(currentDOS, run.plan.DOSEntry) {
-		if run.plan.DOSEntry != nil && !run.validDOSEntry(*run.plan.DOSEntry) {
-			return application.ErrInvalid
+		if err := run.validateDOSChange(); err != nil {
+			return err
 		}
 		run.targetOrDOSChanged = true
 	}
@@ -281,13 +283,19 @@ func (run *draftPatchRun) validateTarget(targetID string) error {
 	if err := run.transaction.QueryRowContext(run.ctx, `
 SELECT platform_id FROM platform_instances WHERE id=?
 `, run.targetID).Scan(&currentPlatform); err != nil {
-		return application.ErrInvalid
+		if errors.Is(err, sql.ErrNoRows) {
+			return application.ErrInvalid
+		}
+		return fmt.Errorf("libraryimport/review: query current platform: %w", err)
 	}
 	if err := run.transaction.QueryRowContext(run.ctx, `
 SELECT platform_id FROM platform_instances
 WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 `, targetID).Scan(&targetPlatform); err != nil {
-		return application.ErrInvalid
+		if errors.Is(err, sql.ErrNoRows) {
+			return application.ErrInvalid
+		}
+		return fmt.Errorf("libraryimport/review: query target platform: %w", err)
 	}
 	if err := application.ValidateDraftTargetChange(currentPlatform, targetPlatform); err != nil {
 		return fmt.Errorf("libraryimport/review: target change: %w", err)
@@ -304,15 +312,29 @@ func (run *draftPatchRun) currentDOSEntry() *string {
 	return &value
 }
 
-func (run *draftPatchRun) validDOSEntry(value string) bool {
+func (run *draftPatchRun) validateDOSChange() error {
+	if run.plan.DOSEntry == nil {
+		return nil
+	}
+	valid, err := run.validDOSEntry(*run.plan.DOSEntry)
+	if err != nil {
+		return fmt.Errorf("check DOS entry: %w", err)
+	}
+	if !valid {
+		return application.ErrInvalid
+	}
+	return nil
+}
+
+func (run *draftPatchRun) validDOSEntry(value string) (bool, error) {
 	var count int
 	if err := run.transaction.QueryRowContext(run.ctx, `
 SELECT count(*) FROM import_item_dos_entries
 WHERE import_item_id=? AND normalized_path=? AND enabled=1
 `, run.plan.ItemID, value).Scan(&count); err != nil {
-		return false
+		return false, fmt.Errorf("query DOS entry: %w", err)
 	}
-	return count == 1
+	return count == 1, nil
 }
 
 func (run *draftPatchRun) applyValidation() error {
@@ -444,7 +466,10 @@ FROM scrape_candidates c
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
 WHERE c.id=? AND r.import_item_id=? AND r.state='COMPLETED'
 	`, *run.plan.CandidateID, run.plan.ItemID).Scan(&count)
-	if err != nil || count != 1 {
+	if err != nil {
+		return fmt.Errorf("libraryimport/review: query candidate: %w", err)
+	}
+	if count != 1 {
 		return application.ErrInvalid
 	}
 	return nil
@@ -458,7 +483,10 @@ func (run *draftPatchRun) applyRPGBinding() error {
 			`SELECT generation FROM rpgmaker_review_profiles WHERE review_draft_id=?`,
 			run.draftID,
 		).Scan(&generation); err != nil {
-			return application.ErrInvalid
+			if errors.Is(err, sql.ErrNoRows) {
+				return application.ErrInvalid
+			}
+			return fmt.Errorf("libraryimport/review: query RPG profile: %w", err)
 		}
 	}
 	if err := application.ValidateRPGOverride(application.RPGOverrideFacts{
@@ -576,7 +604,7 @@ func (run *draftPatchRun) persist() (application.DraftResult, error) {
 	if err != nil {
 		return application.DraftResult{}, fmt.Errorf("libraryimport/review: encode metadata: %w", err)
 	}
-	active, err := tagpersistence.Bind(run.transaction).Tags.ActiveReferences(
+	active, err := tagpersistence.BindCrossDomain(run.transaction).ValidateActiveReferences(
 		run.ctx, tagging.ReferenceIDs(run.plan.Tags.After),
 	)
 	if err != nil {

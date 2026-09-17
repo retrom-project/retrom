@@ -179,7 +179,7 @@ func (run *creationCommit) initialize(ctx context.Context, scope model.ImportCre
 	}
 	run.actorID = actorID
 	var err error
-	run.tags, err = run.service.tags.ValidateReferences(ctx, scope.Tags, run.plan.Request.TagIDs)
+	run.tags, err = scope.Tags.ValidateActiveReferences(ctx, run.plan.Request.TagIDs)
 	if err != nil {
 		return fmt.Errorf("validate creation tags: %w", err)
 	}

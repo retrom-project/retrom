@@ -3,7 +3,6 @@ package mediaaccess
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	service "retrom/internal/model/mediaaccess"
 	"retrom/internal/repo/dbexec"
@@ -16,17 +15,18 @@ type (
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
 
-func (repository *Repository) WithRead(ctx context.Context, work func(service.Reader) error) error {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return fmt.Errorf("begin media access snapshot: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	if err := work(reader{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit media access snapshot: %w", err)
-	}
-	return nil
+func (repository *Repository) Game(ctx context.Context, id string) (service.GameAsset, bool, error) {
+	return reader{executor: repository.database}.Game(ctx, id)
+}
+
+func (repository *Repository) Save(ctx context.Context, id string) (service.SaveScreenshot, bool, error) {
+	return reader{executor: repository.database}.Save(ctx, id)
+}
+
+func (repository *Repository) Review(ctx context.Context, id string) ([]service.ReviewAsset, error) {
+	return reader{executor: repository.database}.Review(ctx, id)
+}
+
+func (repository *Repository) Sources(ctx context.Context, id, kind string) ([]service.ReviewAsset, error) {
+	return reader{executor: repository.database}.Sources(ctx, id, kind)
 }

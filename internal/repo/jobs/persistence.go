@@ -100,7 +100,7 @@ func (repository *Repository) CommitRetry(
 			return fmt.Errorf("read retry input: %w", err)
 		}
 		change, res, err := jobs.BuildRetryWrite(
-			cmd.JobID, cmd.ExpectedVersion, previous, job, cmd.NowMS,
+			cmd.JobID, cmd.ExpectedVersion, previous, job, cmd.NowMS, cmd.ExecutionID,
 		)
 		if err != nil {
 			return fmt.Errorf("build retry write: %w", err)

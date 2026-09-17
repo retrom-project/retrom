@@ -11,12 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var (
-	ErrInvalid         = errors.New("GAME_ASSET_INVALID")
-	ErrVersionConflict = model.ErrVersionConflict
-	ErrAssetNotFound   = model.ErrAssetNotFound
-	ErrUploadConsumed  = model.ErrUploadConsumed
-)
+var ErrInvalid = errors.New("GAME_ASSET_INVALID")
 
 // ValidationError carries the stable response code and message for upload
 // preparation failures.

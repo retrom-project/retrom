@@ -10,6 +10,7 @@ import (
 	"time"
 
 	model "retrom/internal/model/libraryimport"
+	"retrom/internal/model/tagging"
 
 	"retrom/internal/capability/content/contentcapability"
 )
@@ -37,7 +38,7 @@ func admissionServiceFixture() (*ImportAdmissions, *admissionMemory, model.Impor
 
 func (memory *admissionMemory) WithAdmission(_ context.Context, work func(model.ImportAdmissionScope) error) error {
 	memory.events = append(memory.events, "begin")
-	if err := work(model.ImportAdmissionScope{Facts: memory, Writer: memory}); err != nil {
+	if err := work(model.ImportAdmissionScope{Facts: memory, Tags: memory, Writer: memory}); err != nil {
 		return err
 	}
 	if memory.commitError != nil {
@@ -71,6 +72,40 @@ func (memory *admissionMemory) Create(_ context.Context, change model.ImportAdmi
 
 func (memory *admissionMemory) NotifyImportGroup(context.Context, string) {
 	memory.events = append(memory.events, "notify")
+}
+
+func (memory *admissionMemory) ValidateActiveReferences(
+	_ context.Context, ids []string,
+) ([]tagging.Reference, error) {
+	refs := make([]tagging.Reference, len(ids))
+	for i, id := range ids {
+		refs[i] = tagging.Reference{TagID: id}
+	}
+	return refs, nil
+}
+
+func (memory *admissionMemory) ReplaceOwnerReferences(
+	_ context.Context, _ tagging.Owner, _ []string, _ string, _ int64,
+) ([]tagging.Reference, []tagging.Reference, error) {
+	return nil, nil, nil
+}
+
+func (memory *admissionMemory) AssignReferences(
+	_ context.Context, _ tagging.Owner, _ []tagging.Reference, _ string, _ int64,
+) error {
+	return nil
+}
+
+func (memory *admissionMemory) ReadOwnerReferences(
+	_ context.Context, _ tagging.Owner,
+) ([]tagging.Reference, error) {
+	return nil, nil
+}
+
+func (memory *admissionMemory) CopyOwnerReferences(
+	_ context.Context, _, _ tagging.Owner, _ string, _ int64,
+) ([]tagging.Reference, error) {
+	return nil, nil
 }
 
 func TestImportAdmissionFreezesInputAndNotifiesAfterCommit(t *testing.T) {

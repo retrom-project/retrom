@@ -11,6 +11,9 @@ import (
 func (repository *Repository) CommitReplaceGameTags(
 	ctx context.Context, cmd tagging.ReplaceGameTagsCommand,
 ) (tagging.GameTagResult, error) {
+	if err := tagging.ValidateReplaceGameTagsCommand(cmd); err != nil {
+		return tagging.GameTagResult{}, fmt.Errorf("tagging: validate command: %w", err)
+	}
 	var result tagging.GameTagResult
 	err := dbexec.Immediate(ctx, repository.database, func(exec dbexec.Executor) error {
 		records := tagRecords{exec}
