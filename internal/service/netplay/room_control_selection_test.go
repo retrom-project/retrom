@@ -15,6 +15,7 @@ import (
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/runtime/runtimecatalog"
 	validation "retrom/internal/model/corevalidation"
+	corevalidationservice "retrom/internal/service/corevalidation"
 	"retrom/internal/transport/netplay/profile"
 )
 
@@ -65,8 +66,9 @@ func controlSelectionFixture(t *testing.T) (*RoomControl, *roomControlMemory, *e
 	before := controlSnapshot()
 	before.Selection = &model.RoomSelection{GameID: "game", VariantID: "variant", ProfileID: selected.ID, Digest: digest, MaxPlayers: 2}
 	eligibility := &eligibilityMemory{rows: map[string][]model.EligibilityRow{"game": {row}}}
-	memory := &roomControlMemory{before: before, result: model.Room{RoomID: "room"}, eligibility: eligibility, bios: controlBIOSRepository{}}
-	return NewRoomControl(memory, registry, time.Hour, time.Hour, time.Now), memory, eligibility
+	memory := &roomControlMemory{before: before, result: model.Room{RoomID: "room"}}
+	biosResolver := corevalidationservice.New(controlBIOSRepository{})
+	return NewRoomControl(memory, eligibility, biosResolver, registry, time.Hour, time.Hour, time.Now), memory, eligibility
 }
 
 func TestReadyRequiresExactFrozenVariantAndCanonicalDigest(t *testing.T) {

@@ -66,8 +66,44 @@ type SessionControlScope struct {
 	Read  SessionControlReader
 	Write SessionControlWriter
 }
+// SetSessionStateCommand transitions the session between PAUSED_RECONNECT and RUNNING.
+type SetSessionStateCommand struct {
+	RoomID, SessionID, ActorID, Target string
+	NowMS                              int64
+}
+
+// ResyncCommand initiates a resynchronization.
+type ResyncCommand struct {
+	RoomID, SessionID string
+	Cause             ResyncCause
+	NowMS             int64
+}
+
+// RunningCommand transitions from SYNCHRONIZING/RESYNCHRONIZING to RUNNING.
+type RunningCommand struct {
+	RoomID, SessionID string
+	NowMS             int64
+}
+
+// DisconnectedCommand records a peer disconnection.
+type DisconnectedCommand struct {
+	Identity PeerIdentity
+	NowMS    int64
+	LeaseMS  int64
+}
+
+// RuntimeReadyCommand records a peer reaching runtime-ready state.
+type RuntimeReadyCommand struct {
+	Identity PeerIdentity
+	NowMS    int64
+}
+
 type SessionControlRepository interface {
-	WithControl(context.Context, func(SessionControlScope) error) error
+	CommitSetSessionState(context.Context, SetSessionStateCommand) error
+	CommitResync(context.Context, ResyncCommand) error
+	CommitRunning(context.Context, RunningCommand) error
+	CommitDisconnected(context.Context, DisconnectedCommand) error
+	CommitRuntimeReady(context.Context, RuntimeReadyCommand) (bool, error)
 }
 type ResyncCause string
 

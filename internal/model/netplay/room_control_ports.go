@@ -67,21 +67,46 @@ type RoomControlScope struct {
 	BIOS        validation.Repository
 }
 
-// MutationCommand captures the validated room mutation envelope.
-// It contains only values; the mutation function is passed separately.
-type MutationCommand struct {
+// SelectGameCommand requests a game selection for a room.
+type SelectGameCommand struct {
 	RoomID, ActorID string
 	Version         int64
-	HostOnly        bool
-	States          []string
+	Selection       RoomSelection
 	NowMS           int64
+	IdleMS          int64
 }
 
-// MutationFunc is a function that applies a mutation within a room control
-// transaction scope. It is not a command field; the repository interface
-// accepts it as a separate parameter.
-type MutationFunc func(RoomControlScope, RoomControlSnapshot, int64) error
+// ClearGameCommand clears the game selection for a room.
+type ClearGameCommand struct {
+	RoomID, ActorID string
+	Version         int64
+	NowMS           int64
+	IdleMS          int64
+}
+
+// SetSeatCommand assigns a player seat within a room.
+type SetSeatCommand struct {
+	RoomID, ActorID string
+	Version         int64
+	PlayerNo        int
+	NewMemberID     string
+	NowMS           int64
+	IdleMS          int64
+}
+
+// SetReadyCommand toggles the ready state for a room member.
+type SetReadyCommand struct {
+	RoomID, ActorID string
+	Version         int64
+	Ready           bool
+	NowMS           int64
+	IdleMS          int64
+}
 
 type RoomControlRepository interface {
-	CommitMutation(context.Context, MutationCommand, MutationFunc) (Room, error)
+	LoadControlSnapshot(context.Context, string, string) (RoomControlSnapshot, error)
+	CommitSelectGame(context.Context, SelectGameCommand) (Room, error)
+	CommitClearGame(context.Context, ClearGameCommand) (Room, error)
+	CommitSetSeat(context.Context, SetSeatCommand) (Room, error)
+	CommitSetReady(context.Context, SetReadyCommand) (Room, error)
 }

@@ -8,11 +8,14 @@ import (
 	"testing"
 	"time"
 
+	validation "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/netplay"
 )
 
 type sessionStartMemory struct {
 	room                                        *roomControlMemory
+	eligibility                                 model.EligibilityRepository
+	bios                                        validation.Repository
 	number                                      int
 	plan                                        model.SessionStartPlan
 	inserts                                     int
@@ -20,7 +23,7 @@ type sessionStartMemory struct {
 }
 
 func (memory *sessionStartMemory) WithStart(_ context.Context, work func(model.SessionStartScope) error) error {
-	err := work(model.SessionStartScope{Read: memory.room, Write: memory, Eligibility: memory.room.eligibility, BIOS: memory.room.bios})
+	err := work(model.SessionStartScope{Read: memory.room, Write: memory, Eligibility: memory.eligibility, BIOS: memory.bios})
 	if err != nil {
 		return err
 	}
@@ -40,9 +43,22 @@ func (memory *sessionStartMemory) Insert(_ context.Context, plan model.SessionSt
 func sessionStartFixture(t *testing.T) (*SessionStart, *sessionStartMemory, *eligibilityMemory) {
 	t.Helper()
 	control, room, eligibility := controlSelectionFixture(t)
-	room.before.Occupants = []model.SeatMember{{ID: "host-member", ProfileID: "host", Role: "HOST", PlayerNo: 1, Ready: true}, {ID: "guest-member", ProfileID: "guest", Role: "GUEST", PlayerNo: 2, Ready: true}}
-	room.result = model.Room{RoomID: "room", State: model.RoomStateStarting, Version: 5, CurrentSession: &model.SessionSummary{SessionID: "session", SessionNo: 2, State: "PREPARING"}}
-	memory := &sessionStartMemory{room: room, number: 2}
+	room.before.Occupants = []model.SeatMember{
+		{ID: "host-member", ProfileID: "host", Role: "HOST", PlayerNo: 1, Ready: true},
+		{ID: "guest-member", ProfileID: "guest", Role: "GUEST", PlayerNo: 2, Ready: true},
+	}
+	room.result = model.Room{
+		RoomID: "room", State: model.RoomStateStarting, Version: 5,
+		CurrentSession: &model.SessionSummary{
+			SessionID: "session", SessionNo: 2, State: "PREPARING",
+		},
+	}
+	memory := &sessionStartMemory{
+		room:        room,
+		eligibility: eligibility,
+		bios:        controlBIOSRepository{},
+		number:      2,
+	}
 	service := NewSessionStart(memory, control.registry, func() time.Time { return time.UnixMilli(1_786_000_000_000) })
 	service.newID = func() (string, error) { return "session", nil }
 	return service, memory, eligibility
