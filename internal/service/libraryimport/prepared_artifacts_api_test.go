@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -13,9 +14,9 @@ import (
 func TestPreparedArtifactsPreserveStorageFailureAndClearResult(t *testing.T) {
 	cause := errors.New("artifact storage unavailable")
 	service := NewImportArtifacts(failingPreparedArtifactBlobs{cause: cause})
-	groups := []PreparedGroup{{
+	groups := []model.PreparedGroup{{
 		RPGProfile: &detector.Profile{ExpectedGeneration: detector.RPGXP},
-		Sources:    []PreparedSource{{File: ImportFile{SHA256: "digest", Size: 1}, LogicalName: "game.dat"}},
+		Sources:    []model.PreparedSource{{File: model.ImportFile{SHA256: "digest", Size: 1}, LogicalName: "game.dat"}},
 	}}
 	result, err := service.Prepare(context.Background(), groups, nil)
 	if !errors.Is(err, cause) || result != nil {

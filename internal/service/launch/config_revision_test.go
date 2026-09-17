@@ -2,6 +2,7 @@ package launch
 
 import (
 	"math"
+	model "retrom/internal/model/launch"
 	"testing"
 )
 
@@ -34,7 +35,7 @@ func TestConfigRevisionAllowsOnlyForwardActiveProgress(t *testing.T) {
 			repository.snapshot.Authority.Source.Version = item.beforeVersion
 			repository.current.Source.State = item.afterState
 			repository.current.Source.Version = item.afterVersion
-			configuration, err := issuer.Issue(t.Context(), SessionRef{ID: "launch"}, "valid")
+			configuration, err := issuer.Issue(t.Context(), model.SessionRef{ID: "launch"}, "valid")
 			if item.allowed {
 				if err != nil {
 					t.Fatalf("legitimate activation/play revision rejected: %v", err)
@@ -43,7 +44,7 @@ func TestConfigRevisionAllowsOnlyForwardActiveProgress(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				assertConfigRejected(t, configuration, err, ErrCredential)
+				assertConfigRejected(t, configuration, err, model.ErrCredential)
 			}
 			if repository.activations != item.activations {
 				t.Fatalf("activation count=%d want=%d", repository.activations, item.activations)

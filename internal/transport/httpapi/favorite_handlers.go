@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/favorites"
+	"retrom/internal/model/favorites"
 )
 
 func favoritePrincipal(request *http.Request) favorites.Principal {

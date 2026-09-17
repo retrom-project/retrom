@@ -4,13 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
 )
 
-func completionDatabase(t *testing.T) (*sql.DB, application.Execution) {
+func completionDatabase(t *testing.T) (*sql.DB, emulationstationimportmodel.Execution) {
 	t.Helper()
 	db, unit := itemWorkDatabase(t)
 	item, found, err := itemWorkService(db).Next(t.Context(), unit)
@@ -21,15 +21,15 @@ func completionDatabase(t *testing.T) (*sql.DB, application.Execution) {
 		t.Context(),
 		unit,
 		item.ID,
-		application.ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true},
+		emulationstationimportmodel.ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true},
 	); err != nil {
 		t.Fatal(err)
 	}
 	return db, unit
 }
 
-func completionService(db *sql.DB) *application.Completion {
-	return application.NewCompletion(NewCompletion(db), func() time.Time { return time.UnixMilli(1100) })
+func completionService(db *sql.DB) *emulationstationimportservice.Completion {
+	return emulationstationimportservice.NewCompletion(NewCompletion(db), func() time.Time { return time.UnixMilli(1100) })
 }
 
 func TestCompletionPersistsCountsEventAndPayloadTogether(t *testing.T) {
@@ -45,7 +45,7 @@ func TestCompletionPersistsCountsEventAndPayloadTogether(t *testing.T) {
 	assertCompletionPayloadEvent(t, db, unit)
 
 	before := planRows(t, db)
-	if err := completionService(db).Finish(t.Context(), unit); !errors.Is(err, application.ErrVersionConflict) {
+	if err := completionService(db).Finish(t.Context(), unit); !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 		t.Fatalf("duplicate completion=%v", err)
 	}
 	if !reflect.DeepEqual(before, planRows(t, db)) {
@@ -57,7 +57,7 @@ func TestCompletionRejectsUnfinishedImportWithoutWrites(t *testing.T) {
 	t.Parallel()
 	db, unit := itemWorkDatabase(t)
 	before := planRows(t, db)
-	if err := completionService(db).Finish(t.Context(), unit); !errors.Is(err, application.ErrActive) {
+	if err := completionService(db).Finish(t.Context(), unit); !errors.Is(err, emulationstationimportmodel.ErrActive) {
 		t.Fatalf("unfinished=%v", err)
 	}
 	if !reflect.DeepEqual(before, planRows(t, db)) {
@@ -65,7 +65,7 @@ func TestCompletionRejectsUnfinishedImportWithoutWrites(t *testing.T) {
 	}
 }
 
-func assertCompletionPayloadEvent(t *testing.T, db *sql.DB, unit application.Execution) {
+func assertCompletionPayloadEvent(t *testing.T, db *sql.DB, unit emulationstationimportmodel.Execution) {
 	t.Helper()
 	var state, event, payload string
 	var worker, lease sql.NullString

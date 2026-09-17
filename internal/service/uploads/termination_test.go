@@ -3,6 +3,7 @@ package uploads
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/uploads"
 	"testing"
 	"time"
 )
@@ -50,19 +51,19 @@ func TestTimedOutFinalizationPersistsFailureWithBoundedContext(t *testing.T) {
 }
 
 type terminationRepository struct {
-	Repository
-	current       SessionState
-	job           Job
-	sessionFinish SessionFinish
-	jobFinish     JobFinish
-	fileFailure   PendingFailure
+	model.Repository
+	current       model.SessionState
+	job           model.Job
+	sessionFinish model.SessionFinish
+	jobFinish     model.JobFinish
+	fileFailure   model.PendingFailure
 	bounded       bool
 }
 
-func terminationFixture() (*terminationRepository, Run) {
-	run := Run{UploadID: "upload", JobID: "job", FinalizationNo: 1, ExecutionNo: 1}
+func terminationFixture() (*terminationRepository, model.Run) {
+	run := model.Run{UploadID: "upload", JobID: "job", FinalizationNo: 1, ExecutionNo: 1}
 	return &terminationRepository{
-		current: SessionState{
+		current: model.SessionState{
 			ID: run.UploadID, State: "FINALIZING", Version: 1,
 			FinalizeJobID: &run.JobID, FinalizationNo: 1,
 		},
@@ -70,42 +71,42 @@ func terminationFixture() (*terminationRepository, Run) {
 	}, run
 }
 
-func (repository *terminationRepository) CommitWrite(ctx context.Context, work func(WriteScope) error) error {
+func (repository *terminationRepository) CommitWrite(ctx context.Context, work func(model.WriteScope) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	deadline, ok := ctx.Deadline()
 	repository.bounded = ok && time.Until(deadline) <= 5*time.Second
-	return work(WriteScope{
+	return work(model.WriteScope{
 		Sessions: terminationSessions{repository: repository},
 		Jobs:     terminationJobs{repository: repository}, Files: terminationFiles{repository: repository},
 	})
 }
 
 type terminationSessions struct {
-	SessionRecords
+	model.SessionRecords
 	repository *terminationRepository
 }
 
-func (records terminationSessions) Current(context.Context, string) (SessionState, error) {
+func (records terminationSessions) Current(context.Context, string) (model.SessionState, error) {
 	return records.repository.current, nil
 }
 
-func (records terminationSessions) Finish(_ context.Context, finish SessionFinish) error {
+func (records terminationSessions) Finish(_ context.Context, finish model.SessionFinish) error {
 	records.repository.sessionFinish = finish
 	return nil
 }
 
 type terminationJobs struct {
-	JobRecords
+	model.JobRecords
 	repository *terminationRepository
 }
 
-func (records terminationJobs) Get(context.Context, string) (Job, error) {
+func (records terminationJobs) Get(context.Context, string) (model.Job, error) {
 	return records.repository.job, nil
 }
 
-func (records terminationJobs) Finish(_ context.Context, finish JobFinish) error {
+func (records terminationJobs) Finish(_ context.Context, finish model.JobFinish) error {
 	if finish.ExpectedState != records.repository.job.State {
 		return errors.New("unexpected job state")
 	}
@@ -114,18 +115,18 @@ func (records terminationJobs) Finish(_ context.Context, finish JobFinish) error
 }
 
 type terminationFiles struct {
-	FileRecords
+	model.FileRecords
 	repository *terminationRepository
 }
 
-func (records terminationFiles) FailPending(_ context.Context, failure PendingFailure) error {
+func (records terminationFiles) FailPending(_ context.Context, failure model.PendingFailure) error {
 	records.repository.fileFailure = failure
 	return nil
 }
 
-func terminationJob(run Run) Job {
+func terminationJob(run model.Run) model.Job {
 	created, _ := prepareFinalization(run.UploadID, run.FinalizationNo, finalizationTestNow().UnixMilli(), nil)
-	return Job{
+	return model.Job{
 		ID: run.JobID, State: "RUNNING", ExecutionNo: 1, Kind: "UPLOAD_FINALIZE", Scope: "UPLOAD_SESSION", ScopeID: run.UploadID,
 		Input: string(created.InputJSON), InputDigest: created.InputDigest,
 	}

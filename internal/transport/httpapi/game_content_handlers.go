@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/gamecontent"
+	"retrom/internal/model/gamecontent"
 )
 
 type patchGameRequest struct {

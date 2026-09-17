@@ -5,13 +5,13 @@ import (
 	"database/sql/driver"
 	"errors"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/testkit/testsupport"
 )
 
 func TestExecutionControlReadFailuresRetainCauseAndState(t *testing.T) {
@@ -34,8 +34,8 @@ func TestExecutionControlReadFailuresRetainCauseAndState(t *testing.T) {
 				}
 				return nil
 			}})
-			service := application.NewExecutionControl(NewExecutionControl(faultDB), func() time.Time { return time.UnixMilli(1002) })
-			state, err := service.Fail(t.Context(), unit, application.ExecutionFailure{Code: "INTERNAL_ERROR"})
+			service := emulationstationimportservice.NewExecutionControl(NewExecutionControl(faultDB), func() time.Time { return time.UnixMilli(1002) })
+			state, err := service.Fail(t.Context(), unit, emulationstationimportmodel.ExecutionFailure{Code: "INTERNAL_ERROR"})
 			if state != "" || !errors.Is(err, errLeaseStorage) || hits.Load() != 1 {
 				t.Fatalf("read=%s state=%s cause=%v hits=%d", read, state, err, hits.Load())
 			}

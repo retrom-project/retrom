@@ -3,6 +3,7 @@ package netplay
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/netplay"
 
 	"retrom/internal/transport/netplay/capability"
 
@@ -10,24 +11,24 @@ import (
 )
 
 type ParticipantAccess struct {
-	repository ParticipantAccessRepository
-	signer     CredentialSigner
+	repository model.ParticipantAccessRepository
+	signer     model.CredentialSigner
 }
 
-func NewParticipantAccess(repository ParticipantAccessRepository, signer CredentialSigner) *ParticipantAccess {
+func NewParticipantAccess(repository model.ParticipantAccessRepository, signer model.CredentialSigner) *ParticipantAccess {
 	return &ParticipantAccess{repository, signer}
 }
 
 func (service *ParticipantAccess) Authenticate(
 	ctx context.Context,
 	roomID, profileID, encoded string,
-) (SocketParticipant, error) {
+) (model.SocketParticipant, error) {
 	record, err := service.repository.Socket(ctx, roomID, profileID)
 	if err != nil {
-		return SocketParticipant{}, fmt.Errorf("netplay/read socket access: %w", err)
+		return model.SocketParticipant{}, fmt.Errorf("netplay/read socket access: %w", err)
 	}
 	if record.LaunchState != "ACTIVE" || !capability.MatchesCapability(encoded, record.CredentialHash) {
-		return SocketParticipant{}, ErrForbidden
+		return model.SocketParticipant{}, model.ErrForbidden
 	}
 	return record.Participant, nil
 }
@@ -43,26 +44,26 @@ func (service *ParticipantAccess) Capability(ctx context.Context, sessionID, pro
 	}
 	encoded := capability.EncodeCapability(credential)
 	if !capability.MatchesCapability(encoded, record.CredentialHash) {
-		return "", ErrForbidden
+		return "", model.ErrForbidden
 	}
 	return encoded, nil
 }
 
 func IssueParticipantCredential(
-	signer CredentialSigner,
+	signer model.CredentialSigner,
 	sessionID, profileID string,
 	generation int64,
 ) ([32]byte, error) {
 	if generation < 1 || generation > 1<<32-1 {
-		return [32]byte{}, ErrForbidden
+		return [32]byte{}, model.ErrForbidden
 	}
 	session, err := uuid.Parse(sessionID)
 	if err != nil {
-		return [32]byte{}, ErrForbidden
+		return [32]byte{}, model.ErrForbidden
 	}
 	profile, err := uuid.Parse(profileID)
 	if err != nil {
-		return [32]byte{}, ErrForbidden
+		return [32]byte{}, model.ErrForbidden
 	}
 	return signer.Capability(session, profile, uint32(generation)), nil
 }

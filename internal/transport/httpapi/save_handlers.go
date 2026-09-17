@@ -10,7 +10,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	saveservice "retrom/internal/service/saves"
+	saveservice "retrom/internal/model/saves"
 )
 
 type saveListFilters struct {

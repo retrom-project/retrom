@@ -9,9 +9,9 @@ import (
 	"reflect"
 	"testing"
 
+	application "retrom/internal/model/launch"
 	"retrom/internal/repo/dbexec"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 type launchQueryCounter struct {

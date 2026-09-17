@@ -3,20 +3,20 @@ package runtimeprovider
 import (
 	"database/sql"
 	"encoding/json"
+	runtimeproviderservice "retrom/internal/service/runtimeprovider"
 	"strings"
 	"testing"
 	"time"
 
-	service "retrom/internal/service/runtimeprovider"
-
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 )
 
 func TestDeclaredCoreCanBeAddedToInitializedDatabaseWithoutSchemaChange(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
+	if err := runtimeproviderservice.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(t.Context(), `
@@ -81,7 +81,7 @@ func assertExtensionPreservesFolder(t *testing.T, database *sql.DB, schemaBefore
 	}
 }
 
-func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial service.Projection, catalog runtimecatalog.Catalog) error {
+func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial runtimeprovidermodel.Projection, catalog runtimecatalog.Catalog) error {
 	t.Helper()
 	provider := initial.Providers[0].Active
 	provider.ProviderVersion = "1.1.0"
@@ -97,23 +97,23 @@ func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial service.P
 		SchemaVersion: 1, Source: "candidate", SourceTreeSHA256: &provider.BundleSHA256,
 		Providers: []runtimebundle.ActiveProvider{provider},
 	}
-	candidate, err := service.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
+	candidate, err := runtimeprovidermodel.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: provider.ProviderVersion, ProviderAPI: 1,
 		ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{extra, target},
 	}}, catalog)
 	if err != nil {
 		return err
 	}
-	if err := service.New(New(database)).Reconcile(t.Context(), candidate, time.UnixMilli(2)); err != nil {
+	if err := runtimeproviderservice.New(New(database)).Reconcile(t.Context(), candidate, time.UnixMilli(2)); err != nil {
 		return err
 	}
-	return service.New(New(database)).Reconcile(t.Context(), candidate, time.UnixMilli(3))
+	return runtimeproviderservice.New(New(database)).Reconcile(t.Context(), candidate, time.UnixMilli(3))
 }
 
 func TestDeclaredCoreRemovalCannotOrphanUserConfiguration(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
+	if err := runtimeproviderservice.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(t.Context(), `INSERT INTO platform_instances(id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms) VALUES('custom','gbc','gambatte','My folder','custom',1,1,1,1,1)`); err != nil {
@@ -123,7 +123,7 @@ func TestDeclaredCoreRemovalCannotOrphanUserConfiguration(t *testing.T) {
 	candidate.Definitions.Cores[0].ID = "replacement"
 	candidate.Bindings[0].CoreID = "replacement"
 	candidate.CatalogSHA256 = strings.Repeat("c", 64)
-	if err := service.New(New(database.SQL)).Reconcile(t.Context(), candidate, time.UnixMilli(2)); err == nil {
+	if err := runtimeproviderservice.New(New(database.SQL)).Reconcile(t.Context(), candidate, time.UnixMilli(2)); err == nil {
 		t.Fatal("omitting a referenced core was silently accepted")
 	}
 	var version, core string
@@ -140,11 +140,11 @@ func TestUnusedProductDefinitionCanBeRemovedWithoutSchemaChange(t *testing.T) {
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
 	initial.Definitions.Cores = append([]runtimecatalog.CoreDefinition{{ID: "dormant", Name: "Unused", Enabled: true}}, initial.Definitions.Cores...)
 	initial.CatalogSHA256 = strings.Repeat("c", 64)
-	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
+	if err := runtimeproviderservice.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
 	current := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	if err := service.New(New(database.SQL)).Reconcile(t.Context(), current, time.UnixMilli(2)); err != nil {
+	if err := runtimeproviderservice.New(New(database.SQL)).Reconcile(t.Context(), current, time.UnixMilli(2)); err != nil {
 		t.Fatal(err)
 	}
 	var count int

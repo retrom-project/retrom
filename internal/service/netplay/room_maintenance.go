@@ -4,18 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/netplay"
 	"time"
 )
 
 type RoomMaintenance struct {
-	repository MaintenanceRepository
-	ender      ExpiredSessionEnder
+	repository model.MaintenanceRepository
+	ender      model.ExpiredSessionEnder
 	now        func() time.Time
 }
 
 func NewRoomMaintenance(
-	repository MaintenanceRepository,
-	ender ExpiredSessionEnder,
+	repository model.MaintenanceRepository,
+	ender model.ExpiredSessionEnder,
 	now func() time.Time,
 ) *RoomMaintenance {
 	return &RoomMaintenance{repository, ender, now}
@@ -23,7 +24,7 @@ func NewRoomMaintenance(
 
 func (service *RoomMaintenance) Expire(ctx context.Context) error {
 	now := service.now()
-	cutoffs := ExpiryCutoffs{
+	cutoffs := model.ExpiryCutoffs{
 		Now:            now.UnixMilli(),
 		StartingBefore: now.Add(-2 * time.Minute).UnixMilli(),
 		RunningBefore:  now.Add(-8 * time.Hour).UnixMilli(),
@@ -34,8 +35,8 @@ func (service *RoomMaintenance) Expire(ctx context.Context) error {
 		return fmt.Errorf("netplay/read expired rooms: %w", err)
 	}
 	for _, candidate := range passive {
-		err := service.repository.WithMaintenance(ctx, func(writer MaintenanceWriter) error {
-			if err := writer.Expire(ctx, ExpiryPlan{Before: candidate, Now: cutoffs.Now}); err != nil {
+		err := service.repository.WithMaintenance(ctx, func(writer model.MaintenanceWriter) error {
+			if err := writer.Expire(ctx, model.ExpiryPlan{Before: candidate, Now: cutoffs.Now}); err != nil {
 				return fmt.Errorf("netplay/expire passive room: %w", err)
 			}
 			return nil
@@ -49,7 +50,7 @@ func (service *RoomMaintenance) Expire(ctx context.Context) error {
 		return fmt.Errorf("netplay/read expired sessions: %w", err)
 	}
 	for _, candidate := range active {
-		if err := service.ender.EndExpired(ctx, candidate, cutoffs.Now); err != nil && !errors.Is(err, ErrRoomNotFound) {
+		if err := service.ender.EndExpired(ctx, candidate, cutoffs.Now); err != nil && !errors.Is(err, model.ErrRoomNotFound) {
 			return fmt.Errorf("netplay/end expired session: %w", err)
 		}
 	}
@@ -58,10 +59,10 @@ func (service *RoomMaintenance) Expire(ctx context.Context) error {
 
 func (service *RoomMaintenance) Recover(ctx context.Context, reason string) error {
 	if reason != "SERVER_RESTARTED" && reason != "RESTORE" {
-		return ErrInvalidRecoveryReason
+		return model.ErrInvalidRecoveryReason
 	}
-	plan := RecoveryPlan{Reason: reason, Now: service.now().UnixMilli()}
-	err := service.repository.WithMaintenance(ctx, func(writer MaintenanceWriter) error {
+	plan := model.RecoveryPlan{Reason: reason, Now: service.now().UnixMilli()}
+	err := service.repository.WithMaintenance(ctx, func(writer model.MaintenanceWriter) error {
 		if err := writer.Recover(ctx, plan); err != nil {
 			return fmt.Errorf("netplay/recover runtime: %w", err)
 		}
@@ -73,8 +74,8 @@ func (service *RoomMaintenance) Recover(ctx context.Context, reason string) erro
 	return nil
 }
 
-func (service *RoomExit) EndExpired(ctx context.Context, candidate ExpiryCandidate, now int64) error {
-	err := service.repository.WithExit(ctx, func(scope RoomExitScope) error {
+func (service *RoomExit) EndExpired(ctx context.Context, candidate model.ExpiryCandidate, now int64) error {
+	err := service.repository.WithExit(ctx, func(scope model.RoomExitScope) error {
 		before, err := scope.Read.Current(ctx, candidate.RoomID, "")
 		if err != nil {
 			return fmt.Errorf("netplay/read expiry state: %w", err)
@@ -87,11 +88,11 @@ func (service *RoomExit) EndExpired(ctx context.Context, candidate ExpiryCandida
 		}
 		reason := "HARD_EXPIRED"
 		switch candidate.State {
-		case RoomStateStarting:
+		case model.RoomStateStarting:
 			reason = "START_TIMEOUT"
-		case RoomStateRunning:
+		case model.RoomStateRunning:
 		default:
-			return ErrRoomConflict
+			return model.ErrRoomConflict
 		}
 		return service.finish(ctx, scope.Write, before, nil, reason, now)
 	})

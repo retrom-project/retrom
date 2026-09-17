@@ -3,19 +3,20 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 	"time"
 )
 
 type ScanPublication struct {
-	repository ScanRepository
+	repository model.ScanRepository
 	now        func() time.Time
 }
 
-func NewScanPublication(repository ScanRepository, now func() time.Time) *ScanPublication {
+func NewScanPublication(repository model.ScanRepository, now func() time.Time) *ScanPublication {
 	return &ScanPublication{repository: repository, now: now}
 }
 
-func (service *ScanPublication) Save(ctx context.Context, id ExecutionIdentity, projection ScanProjection) error {
+func (service *ScanPublication) Save(ctx context.Context, id model.ExecutionIdentity, projection model.ScanProjection) error {
 	if err := service.Headers(ctx, id, projection.Headers); err != nil {
 		return err
 	}
@@ -27,18 +28,18 @@ func (service *ScanPublication) Save(ctx context.Context, id ExecutionIdentity, 
 	return service.Finish(ctx, id, projection.Summary)
 }
 
-func (service *ScanPublication) Headers(ctx context.Context, id ExecutionIdentity, headers ScanHeaders) error {
-	if len(headers.Metadata) > MaxMetadataFiles {
-		return ErrScanLimit
+func (service *ScanPublication) Headers(ctx context.Context, id model.ExecutionIdentity, headers model.ScanHeaders) error {
+	if len(headers.Metadata) > model.MaxMetadataFiles {
+		return model.ErrScanLimit
 	}
 	for offset := 0; offset < len(headers.Metadata); offset += 500 {
-		batch := ScanHeaders{Metadata: headers.Metadata[offset:min(offset+500, len(headers.Metadata))]}
+		batch := model.ScanHeaders{Metadata: headers.Metadata[offset:min(offset+500, len(headers.Metadata))]}
 		if err := service.headerBatch(ctx, id, batch); err != nil {
 			return err
 		}
 	}
 	for offset := 0; offset < len(headers.Collections); offset += 500 {
-		batch := ScanHeaders{Collections: headers.Collections[offset:min(offset+500, len(headers.Collections))]}
+		batch := model.ScanHeaders{Collections: headers.Collections[offset:min(offset+500, len(headers.Collections))]}
 		if err := service.headerBatch(ctx, id, batch); err != nil {
 			return err
 		}
@@ -49,29 +50,29 @@ func (service *ScanPublication) Headers(ctx context.Context, id ExecutionIdentit
 	return nil
 }
 
-func (service *ScanPublication) headerBatch(ctx context.Context, id ExecutionIdentity, headers ScanHeaders) error {
-	return service.withOwner(ctx, id, func(scope ScanScope, owner ScanLease) error {
+func (service *ScanPublication) headerBatch(ctx context.Context, id model.ExecutionIdentity, headers model.ScanHeaders) error {
+	return service.withOwner(ctx, id, func(scope model.ScanScope, owner model.ScanLease) error {
 		return scope.Write.Headers(ctx, owner, headers)
 	})
 }
 
-func (service *ScanPublication) Items(ctx context.Context, id ExecutionIdentity, items []ScanItem) error {
+func (service *ScanPublication) Items(ctx context.Context, id model.ExecutionIdentity, items []model.ScanItem) error {
 	if len(items) > 500 {
-		return ErrScanLimit
+		return model.ErrScanLimit
 	}
-	return service.withOwner(ctx, id, func(scope ScanScope, owner ScanLease) error {
+	return service.withOwner(ctx, id, func(scope model.ScanScope, owner model.ScanLease) error {
 		return scope.Write.Items(ctx, owner, items)
 	})
 }
 
-func (service *ScanPublication) Finish(ctx context.Context, id ExecutionIdentity, summary ScanSummary) error {
-	return service.withOwner(ctx, id, func(scope ScanScope, owner ScanLease) error {
+func (service *ScanPublication) Finish(ctx context.Context, id model.ExecutionIdentity, summary model.ScanSummary) error {
+	return service.withOwner(ctx, id, func(scope model.ScanScope, owner model.ScanLease) error {
 		actual, err := scope.Read.Shape(ctx, owner.Before.ImportID)
 		if err != nil {
 			return fmt.Errorf("read persisted Pegasus scan shape: %w", err)
 		}
 		if actual != summary.Shape {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		// Count queries may take time; the final write must still own an unexpired execution.
 		owner.NowMS = service.now().UnixMilli()
@@ -83,12 +84,12 @@ func (service *ScanPublication) Finish(ctx context.Context, id ExecutionIdentity
 }
 
 func (service *ScanPublication) withOwner(
-	ctx context.Context, id ExecutionIdentity, work func(ScanScope, ScanLease) error,
+	ctx context.Context, id model.ExecutionIdentity, work func(model.ScanScope, model.ScanLease) error,
 ) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("publish Pegasus scan: %w", err)
 	}
-	err := service.repository.WithScan(ctx, func(scope ScanScope) error {
+	err := service.repository.WithScan(ctx, func(scope model.ScanScope) error {
 		before, err := scope.Read.Current(ctx, id.JobID)
 		if err != nil {
 			return fmt.Errorf("read Pegasus scanner ownership: %w", err)
@@ -98,9 +99,9 @@ func (service *ScanPublication) withOwner(
 			return err
 		}
 		if before.Kind != "SERVER_PEGASUS_SCAN" || before.JobState != "RUNNING" || before.ImportState != "SCANNING" {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
-		return work(scope, ScanLease{Before: before, NowMS: now})
+		return work(scope, model.ScanLease{Before: before, NowMS: now})
 	})
 	if err != nil {
 		return fmt.Errorf("persist Pegasus scan: %w", err)

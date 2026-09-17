@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -63,7 +64,7 @@ func TestESCompanionCatalogWriteRejectsOwnerReplacedAfterCopy(t *testing.T) {
 			t.Fatal(err)
 		}
 	}}
-	service := application.NewCompanions(persistence.NewCompanions(fixture.database), sources, fixture.service.now)
+	service := emulationstationimportservice.NewCompanions(persistence.NewCompanions(fixture.database), sources, fixture.service.now)
 	files, err := service.Files(fixture.context, unit, item)
 	var count int
 	if readErr := fixture.database.QueryRowContext(fixture.context, `SELECT count(*) FROM blobs`).Scan(
@@ -102,9 +103,9 @@ type companionCopyHook struct {
 
 func (source companionCopyHook) CopyFile(
 	ctx context.Context,
-	unit application.Execution,
-	file application.ExecutionFile,
-) (application.VerifiedBlob, error) {
+	unit emulationstationimportmodel.Execution,
+	file emulationstationimportmodel.ExecutionFile,
+) (emulationstationimportmodel.VerifiedBlob, error) {
 	if source.before != nil {
 		source.before()
 	}
@@ -140,9 +141,9 @@ func TestESCompanionCopyPropagatesExecutionObservationCause(t *testing.T) {
 		importExecutorAdapter: importExecutorAdapter{service: fixture.service},
 		before:                func() { enabled = true },
 	}
-	service := application.NewCompanions(persistence.NewCompanions(fixture.service.database), sources, fixture.service.now)
+	service := emulationstationimportservice.NewCompanions(persistence.NewCompanions(fixture.service.database), sources, fixture.service.now)
 	files, err := service.Files(fixture.context, unit, item)
-	if !errors.Is(err, cause) || !errors.Is(err, application.ErrExecutionObservation) || hits != 1 || files != nil {
+	if !errors.Is(err, cause) || !errors.Is(err, emulationstationimportservice.ErrExecutionObservation) || hits != 1 || files != nil {
 		t.Fatalf("files=%#v error=%v hits=%d", files, err, hits)
 	}
 }

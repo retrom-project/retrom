@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 )
 
@@ -10,7 +11,7 @@ type creationRepositoryProbe struct{ writes int }
 
 func (repository *creationRepositoryProbe) WithCreation(
 	_ context.Context,
-	_ func(ImportCreationScope) error,
+	_ func(model.ImportCreationScope) error,
 ) error {
 	repository.writes++
 	return nil
@@ -20,7 +21,7 @@ func TestImportCreationIdentityFailurePrecedesWrite(t *testing.T) {
 	cause := errors.New("creation identity entropy unavailable")
 	for failure := 1; failure <= 7; failure++ {
 		repository := &creationRepositoryProbe{}
-		service := NewImportCreations(repository, nil, nil, nil, ImportCreationSettings{})
+		service := NewImportCreations(repository, nil, nil, nil, model.ImportCreationSettings{})
 		calls := 0
 		service.newID = func() (string, error) {
 			calls++
@@ -29,8 +30,8 @@ func TestImportCreationIdentityFailurePrecedesWrite(t *testing.T) {
 			}
 			return "identity", nil
 		}
-		result, err := service.CommitPrepared(t.Context(), creationPreparedInput(), ImportCreationOptions{})
-		if !errors.Is(err, cause) || result.Created != (ServerCreated{}) || result.Owned.Items != nil ||
+		result, err := service.CommitPrepared(t.Context(), creationPreparedInput(), model.ImportCreationOptions{})
+		if !errors.Is(err, cause) || result.Created != (model.ServerCreated{}) || result.Owned.Items != nil ||
 			calls != failure || repository.writes != 0 {
 			t.Fatalf(
 				"identity %d failure: result=%+v calls=%d writes=%d error=%v",
@@ -44,22 +45,22 @@ func TestImportCreationIdentityFailurePrecedesWrite(t *testing.T) {
 	}
 }
 
-func creationPreparedInput() PreparedImport {
-	file := ImportFile{
+func creationPreparedInput() model.PreparedImport {
+	file := model.ImportFile{
 		ID:     "file",
 		Path:   "game.gba",
 		BlobID: "blob",
 		SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		Size:   16,
 	}
-	return PreparedImport{
-		Request: ImportRequest{
+	return model.PreparedImport{
+		Request: model.ImportRequest{
 			UploadID:                 "upload",
 			TargetPlatformInstanceID: "platform",
 			MetadataProvider:         "NONE",
 			ContentMode:              "STANDARD",
 		},
-		Upload: ImportUpload{
+		Upload: model.ImportUpload{
 			ID:             "upload",
 			Purpose:        "GENERAL",
 			SourceType:     "FILES",
@@ -68,7 +69,7 @@ func creationPreparedInput() PreparedImport {
 			ManifestDigest: file.SHA256,
 			FileCount:      1,
 		},
-		Target: ImportTarget{
+		Target: model.ImportTarget{
 			ID:            "platform",
 			PlatformID:    "gba",
 			DefaultCoreID: "mgba",
@@ -80,8 +81,8 @@ func creationPreparedInput() PreparedImport {
 		},
 		ContentMode:  "STANDARD",
 		SourceType:   "FILES",
-		Files:        []ImportFile{file},
-		Groups:       []PreparedGroup{{Sources: []PreparedSource{{File: file, Role: "CONTENT", LogicalName: file.Path}}}},
-		Dispositions: []PreparedDisposition{{File: file, Disposition: "ACCEPTED"}},
+		Files:        []model.ImportFile{file},
+		Groups:       []model.PreparedGroup{{Sources: []model.PreparedSource{{File: file, Role: "CONTENT", LogicalName: file.Path}}}},
+		Dispositions: []model.PreparedDisposition{{File: file, Disposition: "ACCEPTED"}},
 	}
 }

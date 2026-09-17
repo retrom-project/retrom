@@ -3,6 +3,7 @@ package metadatascrape
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/metadatascrape"
 	"strings"
 	"testing"
 	"time"
@@ -12,14 +13,14 @@ import (
 )
 
 type memoryCache struct {
-	value CachedResponse
+	value model.CachedResponse
 	found bool
 	err   error
 	calls int
 	now   int64
 }
 
-func (cache *memoryCache) Cached(_ context.Context, _ string, now int64) (CachedResponse, bool, error) {
+func (cache *memoryCache) Cached(_ context.Context, _ string, now int64) (model.CachedResponse, bool, error) {
 	cache.calls++
 	cache.now = now
 	return cache.value, cache.found, cache.err
@@ -76,7 +77,7 @@ func assertCacheScenario(t *testing.T, test cacheScenario) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cache := &memoryCache{found: test.found, value: CachedResponse{ID: "response", Outcome: test.outcome}}
+	cache := &memoryCache{found: test.found, value: model.CachedResponse{ID: "response", Outcome: test.outcome}}
 	if test.raw {
 		metadata, err := blobs.Put(strings.NewReader(`{"data":"cached"}`))
 		if err != nil {
@@ -96,7 +97,7 @@ func assertCacheScenario(t *testing.T, test cacheScenario) {
 	assertCacheOutcome(t, test, provider, cache, result)
 }
 
-func assertCacheOutcome(t *testing.T, test cacheScenario, provider *lookupProvider, cache *memoryCache, result ResolvedLookup) {
+func assertCacheOutcome(t *testing.T, test cacheScenario, provider *lookupProvider, cache *memoryCache, result model.ResolvedLookup) {
 	t.Helper()
 	if provider.network != test.network || provider.restored != test.restored {
 		t.Fatalf("network=%d restore=%d", provider.network, provider.restored)

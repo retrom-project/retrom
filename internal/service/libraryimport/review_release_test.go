@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/model/payloadrelease"
 )
 
 type discardReleaseRepository struct {
@@ -14,8 +15,8 @@ type discardReleaseRepository struct {
 	cause error
 }
 
-func (fixture discardReleaseRepository) WithDiscard(_ context.Context, work func(ReviewDiscardScope) error) error {
-	return work(ReviewDiscardScope{
+func (fixture discardReleaseRepository) WithDiscard(_ context.Context, work func(model.ReviewDiscardScope) error) error {
+	return work(model.ReviewDiscardScope{
 		Reader: fixture.discardFixture, Tags: fixture.discardFixture, Writer: fixture.discardFixture,
 		Payload: payloadrelease.ReleaseScope{Scheduling: failedReviewScheduling{cause: fixture.cause}},
 	})
@@ -36,7 +37,7 @@ func TestReviewDiscardUsesTypedPayloadScopeAndPreservesCause(t *testing.T) {
 	service := discardService(fixture)
 	service.repository = discardReleaseRepository{discardFixture: fixture, cause: cause}
 	result, err := service.Discard(t.Context(), discardRequest())
-	if !errors.Is(err, cause) || result != (ReviewDecisionResult{}) {
+	if !errors.Is(err, cause) || result != (model.ReviewDecisionResult{}) {
 		t.Fatalf("typed payload failure result=%+v error=%v", result, err)
 	}
 	if !reflect.DeepEqual(fixture.steps, []string{"attachments", "item", "event", "owner"}) {

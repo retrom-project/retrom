@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"retrom/internal/foundation/cleanup"
+	taggingmodel "retrom/internal/model/tagging"
 	"retrom/internal/repo/store"
 	tagpersistence "retrom/internal/repo/tagging"
-	"retrom/internal/service/tagging"
+	taggingservice "retrom/internal/service/tagging"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -21,7 +22,7 @@ const (
 	testGameID  = "01980000-0000-7000-8000-00000000f401"
 )
 
-func openTaggingTest(t *testing.T) (*store.DB, *tagging.Service, *int64) {
+func openTaggingTest(t *testing.T) (*store.DB, *taggingservice.Service, *int64) {
 	t.Helper()
 	clock := int64(1_000)
 	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
@@ -54,10 +55,10 @@ COMMIT;
 		t.Fatal(err)
 	}
 	repo := tagpersistence.New(database.SQL)
-	return database, tagging.New(
+	return database, taggingservice.New(
 		repo,
 		repo,
-		tagging.Options{
+		taggingservice.Options{
 			Now: func() time.Time {
 				return time.UnixMilli(clock)
 			},
@@ -78,13 +79,13 @@ func TestTagLifecycleAndNameReuse(t *testing.T) {
 			func() bool { return err != nil },
 			func() bool { return created.Name != "ACTION" },
 			func() bool { return created.Version != 1 },
-			func() bool { return created.Status != tagging.StatusActive },
+			func() bool { return created.Status != taggingmodel.StatusActive },
 		),
 		"created = %#v, %v",
 		created,
 		err,
 	)
-	if _, err := service.Create(ctx, testAdminID, "action"); !errors.Is(err, tagging.ErrNameConflict) {
+	if _, err := service.Create(ctx, testAdminID, "action"); !errors.Is(err, taggingmodel.ErrNameConflict) {
 		t.Fatalf("case-fold conflict = %v", err)
 	}
 	*clock = 2_000
@@ -108,7 +109,7 @@ func TestTagLifecycleAndNameReuse(t *testing.T) {
 		1,
 	); !errors.Is(
 		err,
-		tagging.ErrVersionConflict,
+		taggingmodel.ErrVersionConflict,
 	) {
 		t.Fatalf("stale rename = %v", err)
 	}
@@ -120,7 +121,7 @@ func TestTagLifecycleAndNameReuse(t *testing.T) {
 		renamed.Version,
 	); !errors.Is(
 		err,
-		tagging.ErrDeleteConfirmation,
+		taggingmodel.ErrDeleteConfirmation,
 	) {
 		t.Fatalf("confirmation = %v", err)
 	}
@@ -130,7 +131,7 @@ func TestTagLifecycleAndNameReuse(t *testing.T) {
 		t,
 		testassert.Any(
 			func() bool { return err != nil },
-			func() bool { return deleted.Status != tagging.StatusDeleted },
+			func() bool { return deleted.Status != taggingmodel.StatusDeleted },
 			func() bool { return deleted.Version != 3 },
 			func() bool { return deleted.DeletedAtMS == nil },
 		),
@@ -149,7 +150,7 @@ func TestTagLifecycleAndNameReuse(t *testing.T) {
 		recreated,
 		err,
 	)
-	items, err := service.List(ctx, tagging.ListFilter{Status: "ALL", Sort: tagging.SortNameAsc, Limit: 10})
+	items, err := service.List(ctx, taggingmodel.ListFilter{Status: "ALL", Sort: taggingmodel.SortNameAsc, Limit: 10})
 	testassert.Falsef(
 		t,
 		testassert.Any(
@@ -194,7 +195,7 @@ func TestEnsureCommonTagsIsAtomicAndIdempotent(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return err != nil },
 		func() bool { return len(second.CreatedItems) != 0 },
-		func() bool { return len(second.ExistingItems) != len(tagging.CommonTagNames()) },
+		func() bool { return len(second.ExistingItems) != len(taggingmodel.CommonTagNames()) },
 	), "second ensure = %#v, %v", second, err)
 
 	var activeCount, auditCount int
@@ -206,8 +207,8 @@ SELECT
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return activeCount != len(tagging.CommonTagNames()) },
-		func() bool { return auditCount != len(tagging.CommonTagNames()) },
+		func() bool { return activeCount != len(taggingmodel.CommonTagNames()) },
+		func() bool { return auditCount != len(taggingmodel.CommonTagNames()) },
 	), "common tags = active:%d audits:%d", activeCount, auditCount)
 }
 
@@ -257,7 +258,7 @@ func TestReplaceGameTagsAndDeleteInvalidatesGameVersion(t *testing.T) {
 		[]string{},
 	); !errors.Is(
 		err,
-		tagging.ErrVersionConflict,
+		taggingmodel.ErrVersionConflict,
 	) {
 		t.Fatalf("stale replace = %v", err)
 	}
@@ -304,7 +305,7 @@ func TestReplaceGameTagsAndDeleteInvalidatesGameVersion(t *testing.T) {
 		},
 	); !errors.Is(
 		err,
-		tagging.ErrReferenceInvalid,
+		taggingmodel.ErrReferenceInvalid,
 	) {
 		t.Fatalf("invalid reference = %v", err)
 	}
@@ -332,13 +333,13 @@ FROM sequence
 `, testAdminID, testAdminID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Create(ctx, testAdminID, "超过实例上限"); !errors.Is(err, tagging.ErrLimitReached) {
+	if _, err := service.Create(ctx, testAdminID, "超过实例上限"); !errors.Is(err, taggingmodel.ErrLimitReached) {
 		t.Fatalf("capacity error = %v", err)
 	}
-	if _, err := service.EnsureCommonTags(ctx, testAdminID); !errors.Is(err, tagging.ErrLimitReached) {
+	if _, err := service.EnsureCommonTags(ctx, testAdminID); !errors.Is(err, taggingmodel.ErrLimitReached) {
 		t.Fatalf("common tag capacity error = %v", err)
 	}
-	for _, name := range tagging.CommonTagNames() {
+	for _, name := range taggingmodel.CommonTagNames() {
 		var count int
 		if err := database.SQL.QueryRowContext(
 			ctx,
@@ -351,7 +352,7 @@ FROM sequence
 		}
 	}
 
-	for index := 1; index <= tagging.MaxTagsPerOwner; index++ {
+	for index := 1; index <= taggingmodel.MaxTagsPerOwner; index++ {
 		tagID := fmt.Sprintf("01980000-0000-7000-8001-%012x", index)
 		if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO game_tags(game_id,tag_id,assigned_by_user_id,created_at_ms) VALUES(?,?,?,2)

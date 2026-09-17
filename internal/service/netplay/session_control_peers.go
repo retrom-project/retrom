@@ -1,23 +1,26 @@
 package netplay
 
-import "context"
+import (
+	model "retrom/internal/model/netplay"
+	"context"
+)
 
-func controlPeer(before SessionControlSnapshot, identity PeerIdentity) (SessionPeer, error) {
+func controlPeer(before model.SessionControlSnapshot, identity model.PeerIdentity) (model.SessionPeer, error) {
 	for _, peer := range before.Peers {
 		if peer.ProfileID == identity.ProfileID && peer.PlayerNo == identity.PlayerNo &&
 			peer.CredentialGeneration == identity.CredentialGeneration {
 			return peer, nil
 		}
 	}
-	return SessionPeer{}, ErrForbidden
+	return model.SessionPeer{}, model.ErrForbidden
 }
 
-func (service *SessionControl) Disconnected(ctx context.Context, identity PeerIdentity) error {
+func (service *SessionControl) Disconnected(ctx context.Context, identity model.PeerIdentity) error {
 	return service.mutate(
 		ctx,
 		identity.RoomID,
 		identity.SessionID,
-		func(scope SessionControlScope, before SessionControlSnapshot, now int64) error {
+		func(scope model.SessionControlScope, before model.SessionControlSnapshot, now int64) error {
 			peer, err := controlPeer(before, identity)
 			if err != nil {
 				return err
@@ -29,7 +32,7 @@ func (service *SessionControl) Disconnected(ctx context.Context, identity PeerId
 			if err := writePeerControl(
 				ctx,
 				scope.Write,
-				PeerTransitionPlan{
+				model.PeerTransitionPlan{
 					Before:           before,
 					Peer:             peer,
 					Target:           "DISCONNECTED",
@@ -49,19 +52,19 @@ func (service *SessionControl) Disconnected(ctx context.Context, identity PeerId
 			return writeSessionControl(
 				ctx,
 				scope.Write,
-				SessionTransitionPlan{Before: before, Target: "PAUSED_RECONNECT", Events: []SessionEvent{event}, Now: now},
+				model.SessionTransitionPlan{Before: before, Target: "PAUSED_RECONNECT", Events: []model.SessionEvent{event}, Now: now},
 			)
 		},
 	)
 }
 
-func (service *SessionControl) RuntimeReady(ctx context.Context, identity PeerIdentity) (bool, error) {
+func (service *SessionControl) RuntimeReady(ctx context.Context, identity model.PeerIdentity) (bool, error) {
 	allReady := false
 	err := service.mutate(
 		ctx,
 		identity.RoomID,
 		identity.SessionID,
-		func(scope SessionControlScope, before SessionControlSnapshot, now int64) error {
+		func(scope model.SessionControlScope, before model.SessionControlSnapshot, now int64) error {
 			peer, err := controlPeer(before, identity)
 			if err != nil {
 				return err
@@ -73,7 +76,7 @@ func (service *SessionControl) RuntimeReady(ctx context.Context, identity PeerId
 				if err := writePeerControl(
 					ctx,
 					scope.Write,
-					PeerTransitionPlan{Before: before, Peer: peer, Target: "RUNTIME_READY", Events: []SessionEvent{event}, Now: now},
+					model.PeerTransitionPlan{Before: before, Peer: peer, Target: "RUNTIME_READY", Events: []model.SessionEvent{event}, Now: now},
 				); err != nil {
 					return err
 				}
@@ -87,7 +90,7 @@ func (service *SessionControl) RuntimeReady(ctx context.Context, identity PeerId
 			return writeSessionControl(
 				ctx,
 				scope.Write,
-				SessionTransitionPlan{Before: before, Target: "SYNCHRONIZING", Events: []SessionEvent{event}, Now: now},
+				model.SessionTransitionPlan{Before: before, Target: "SYNCHRONIZING", Events: []model.SessionEvent{event}, Now: now},
 			)
 		},
 	)
@@ -97,7 +100,7 @@ func (service *SessionControl) RuntimeReady(ctx context.Context, identity PeerId
 	return allReady, nil
 }
 
-func allControlPeersReady(before SessionControlSnapshot, changed SessionPeer) bool {
+func allControlPeersReady(before model.SessionControlSnapshot, changed model.SessionPeer) bool {
 	if len(before.Peers) < 2 {
 		return false
 	}

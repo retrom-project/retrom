@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/accounts"
 	"testing"
 	"time"
 
@@ -10,24 +11,24 @@ import (
 )
 
 type passwordMemory struct {
-	state      PasswordState
-	plan       PasswordPlan
+	state      model.PasswordState
+	plan       model.PasswordPlan
 	writeCalls int
 	lateError  error
 }
 
-func (memory *passwordMemory) Current(context.Context, PasswordActor, int64) (PasswordState, bool, error) {
+func (memory *passwordMemory) Current(context.Context, model.PasswordActor, int64) (model.PasswordState, bool, error) {
 	return memory.state, true, nil
 }
 
-func (memory *passwordMemory) CommitWrite(_ context.Context, work func(PasswordScope) error) error {
-	if err := work(PasswordScope{Read: memory, Write: memory}); err != nil {
+func (memory *passwordMemory) CommitWrite(_ context.Context, work func(model.PasswordScope) error) error {
+	if err := work(model.PasswordScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.lateError
 }
 
-func (memory *passwordMemory) Rotate(_ context.Context, plan PasswordPlan) error {
+func (memory *passwordMemory) Rotate(_ context.Context, plan model.PasswordPlan) error {
 	memory.plan = plan
 	memory.writeCalls++
 	return nil
@@ -47,16 +48,18 @@ func (hasher passwordHasher) Hash(context.Context, string) (string, error) {
 	return "new-hash", nil
 }
 
-func passwordFixture() (*passwordMemory, PasswordActor) {
-	return &passwordMemory{state: PasswordState{SessionCurrent: true, Credential: LoginCredential{User: User{UserID: "user", Username: "alice", DisplayName: "Alice"}, Status: "ENABLED", SessionVersion: 2, PasswordHash: "old-hash"}}}, PasswordActor{UserID: "user", SessionID: "session", SessionVersion: 2}
+func passwordFixture() (*passwordMemory, model.PasswordActor) {
+	return &passwordMemory{state: model.PasswordState{SessionCurrent: true, Credential: model.LoginCredential{User: model.User{UserID: "user", Username: "alice", DisplayName: "Alice"}, Status: "ENABLED", SessionVersion: 2, PasswordHash: "old-hash"}}}, model.PasswordActor{UserID: "user", SessionID: "session", SessionVersion: 2}
 }
-func passwordMinter() (SessionMaterial, error) { return SessionMaterial{ID: "replacement"}, nil }
+func passwordMinter() (model.SessionMaterial, error) {
+	return model.SessionMaterial{ID: "replacement"}, nil
+}
 func TestPasswordChangeRechecksCredentialAfterHashing(t *testing.T) {
 	memory, actor := passwordFixture()
 	hasher := passwordHasher{memory: memory, duringHash: func() { memory.state.Credential.PasswordHash = "concurrent-hash" }}
 	service := NewPasswords(memory, hasher, authn.EmptyBlocklist{}, passwordMinter, time.Now)
 	_, err := service.Change(t.Context(), actor, "old password", "replacement passphrase", "replacement passphrase")
-	if !errors.Is(err, ErrAuthenticationNeeded) || memory.writeCalls != 0 {
+	if !errors.Is(err, model.ErrAuthenticationNeeded) || memory.writeCalls != 0 {
 		t.Fatalf("overwrote concurrent credential: %v", err)
 	}
 }

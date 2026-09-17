@@ -7,9 +7,11 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	taggingmodel "retrom/internal/model/tagging"
 	tagrepository "retrom/internal/repo/tagging"
-	application "retrom/internal/service/emulationstationimport"
-	"retrom/internal/service/tagging"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
+	taggingservice "retrom/internal/service/tagging"
 )
 
 const secondMappingCollection = "019b0000-0000-7000-8000-000000000004"
@@ -36,11 +38,11 @@ func TestMappingsPreserveExistingTagAssignmentOnDomainRejection(t *testing.T) {
 			instance := seedMappingTarget(t, db)
 			mapping, want := rejectedMapping(t, db, instance, kind)
 			before := planRows(t, db)
-			service := application.NewMappings(NewMappings(db), func() *tagging.Service {
+			service := emulationstationimportservice.NewMappings(NewMappings(db), func() *taggingservice.Service {
 				r := tagrepository.New(db)
-				return tagging.New(r, r, tagging.Options{Now: func() time.Time { return time.UnixMilli(10) }})
+				return taggingservice.New(r, r, taggingservice.Options{Now: func() time.Time { return time.UnixMilli(10) }})
 			}(), func() time.Time { return time.UnixMilli(10) })
-			result, err := service.Update(t.Context(), "import-0", 1, []application.Mapping{mapping}, mappingActor)
+			result, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{mapping}, mappingActor)
 			if result.ID != "" || !errors.Is(err, want) {
 				t.Fatalf("%s result=%#v error=%v want=%v", kind, result, err, want)
 			}
@@ -51,17 +53,17 @@ func TestMappingsPreserveExistingTagAssignmentOnDomainRejection(t *testing.T) {
 	}
 }
 
-func rejectedMapping(t *testing.T, db *sql.DB, instance, kind string) (application.Mapping, error) {
+func rejectedMapping(t *testing.T, db *sql.DB, instance, kind string) (emulationstationimportmodel.Mapping, error) {
 	t.Helper()
-	mapping := application.Mapping{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}}
-	want := application.ErrInvalid
+	mapping := emulationstationimportmodel.Mapping{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}}
+	want := emulationstationimportmodel.ErrInvalid
 	switch kind {
 	case "missing tag":
 		mapping.TagIDs = []string{secondMappingCollection}
-		want = tagging.ErrReferenceInvalid
+		want = taggingmodel.ErrReferenceInvalid
 	case "too many tags":
 		mapping.TagIDs = make([]string, 21)
-		want = tagging.ErrAssignmentLimitExceeded
+		want = taggingmodel.ErrAssignmentLimitExceeded
 	case "duplicate tag":
 		mapping.TagIDs = []string{mappingTag, mappingTag}
 	case "empty collection":
@@ -69,7 +71,7 @@ func rejectedMapping(t *testing.T, db *sql.DB, instance, kind string) (applicati
 			t.Fatal(err)
 		}
 	case "foreign collection":
-		if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+		if err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
 			_, err := writer.Insert(t.Context(), creationPlan(1))
 			return err
 		}); err != nil {
@@ -102,11 +104,11 @@ func TestMappingsPreserveAffectedRowAndStorageErrors(t *testing.T) {
 	}{
 		{nil, cause, cause},
 		{mappingAffectedResult{err: cause}, nil, cause},
-		{mappingAffectedResult{count: 0}, nil, application.ErrVersionConflict},
-		{mappingAffectedResult{count: 2}, nil, application.ErrVersionConflict},
+		{mappingAffectedResult{count: 0}, nil, emulationstationimportmodel.ErrVersionConflict},
+		{mappingAffectedResult{count: 2}, nil, emulationstationimportmodel.ErrVersionConflict},
 	}
 	for _, test := range cases {
-		err := requireMappingChange(test.result, test.storageErr, application.ErrVersionConflict)
+		err := requireMappingChange(test.result, test.storageErr, emulationstationimportmodel.ErrVersionConflict)
 		if !errors.Is(err, test.want) {
 			t.Fatalf("mapping write cause=%v want=%v", err, test.want)
 		}

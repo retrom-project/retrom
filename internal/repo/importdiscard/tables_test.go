@@ -1,6 +1,6 @@
 package importdiscard_test
 
-import "retrom/internal/service/importdiscard"
+import "retrom/internal/model/importdiscard"
 
 func batchTable(kind string) (string, error) {
 	switch kind {

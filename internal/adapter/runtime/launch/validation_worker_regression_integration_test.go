@@ -17,8 +17,9 @@ import (
 
 	"retrom/internal/testkit/testsupport"
 
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
+	launchservice "retrom/internal/service/launch"
 )
 
 type validationWorkerFixture struct {
@@ -168,9 +169,9 @@ func TestValidationWorkerFailureEventIsAtomic(t *testing.T) {
 	}
 }
 
-func assertValidationRejectsRetiredBIOS(t *testing.T, ctx context.Context, database *sql.DB, selected application.ProductSnapshot, variantID string) {
+func assertValidationRejectsRetiredBIOS(t *testing.T, ctx context.Context, database *sql.DB, selected launchmodel.ProductSnapshot, variantID string) {
 	t.Helper()
-	inputs, err := application.ProductValidationInputs(selected, variantID)
+	inputs, err := launchservice.ProductValidationInputs(selected, variantID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +179,7 @@ func assertValidationRejectsRetiredBIOS(t *testing.T, ctx context.Context, datab
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := application.EvaluateValidation(inputs, facts); !errors.Is(err, application.ErrValidationGameChanged) {
+	if _, err := launchservice.EvaluateValidation(inputs, facts); !errors.Is(err, launchservice.ErrValidationGameChanged) {
 		t.Fatalf("late validation revived retired BIOS: %v", err)
 	}
 }
@@ -348,7 +349,7 @@ func corruptValidationWorkerSnapshot(t *testing.T, fixture validationWorkerFixtu
 
 func assertValidationJSONCause(t *testing.T, err error, kind string) {
 	t.Helper()
-	if !errors.Is(err, application.ErrValidationInput) {
+	if !errors.Is(err, launchservice.ErrValidationInput) {
 		t.Fatalf("lost stable malformed-input category: %v", err)
 	}
 	var syntax *json.SyntaxError

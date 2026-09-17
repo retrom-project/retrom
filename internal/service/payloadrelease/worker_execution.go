@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/payloadrelease"
 	"time"
 )
 
 func (worker *Worker) RunOnce(parent context.Context) (bool, error) {
 	ctx, done, accepted := worker.register(parent)
 	if !accepted {
-		return false, ErrWorkerClosed
+		return false, model.ErrWorkerClosed
 	}
 	defer done()
 	unit, found, err := worker.Claim(ctx)
@@ -19,23 +20,23 @@ func (worker *Worker) RunOnce(parent context.Context) (bool, error) {
 	}
 	input, err := DecodeWork(unit)
 	if err == nil {
-		err = worker.execute(ctx, Execution{Work: unit, Input: input})
+		err = worker.execute(ctx, model.Execution{Work: unit, Input: input})
 	}
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	finishErr := worker.Finish(cleanup, unit, err)
-	if errors.Is(finishErr, ErrExecutionLost) {
+	if errors.Is(finishErr, model.ErrExecutionLost) {
 		finishErr = errors.Join(finishErr, worker.Recover(cleanup))
 	}
 	return true, errors.Join(err, finishErr)
 }
 
-func (worker *Worker) execute(parent context.Context, execution Execution) error {
+func (worker *Worker) execute(parent context.Context, execution model.Execution) error {
 	remaining := execution.Work.Deadline.Value - worker.now().UnixMilli()
 	if remaining <= 0 {
-		return ErrExecutionTimeout
+		return model.ErrExecutionTimeout
 	}
-	timed, timeout := context.WithTimeoutCause(parent, time.Duration(remaining)*time.Millisecond, ErrExecutionTimeout)
+	timed, timeout := context.WithTimeoutCause(parent, time.Duration(remaining)*time.Millisecond, model.ErrExecutionTimeout)
 	defer timeout()
 	ctx, cancel := context.WithCancelCause(timed)
 	defer cancel(context.Canceled)
@@ -51,7 +52,7 @@ func (worker *Worker) execute(parent context.Context, execution Execution) error
 	return nil
 }
 
-func (worker *Worker) monitor(ctx context.Context, cancel context.CancelCauseFunc, unit Work) error {
+func (worker *Worker) monitor(ctx context.Context, cancel context.CancelCauseFunc, unit model.Work) error {
 	observe := time.NewTicker(time.Second)
 	heartbeat := time.NewTicker(workerHeartbeat)
 	defer observe.Stop()
@@ -64,7 +65,7 @@ func (worker *Worker) monitor(ctx context.Context, cancel context.CancelCauseFun
 		case <-heartbeat.C:
 			err = worker.Renew(ctx, unit)
 		case <-observe.C:
-			err = worker.repository.WithWorker(ctx, func(scope WorkerScope) error {
+			err = worker.repository.WithWorker(ctx, func(scope model.WorkerScope) error {
 				return worker.CheckInScope(ctx, scope, unit)
 			})
 		}

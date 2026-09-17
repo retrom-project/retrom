@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/jobs"
 )
 
 type DomainCancellation struct {
@@ -11,7 +12,7 @@ type DomainCancellation struct {
 }
 
 type DomainCanceller interface {
-	CancelJob(context.Context, DomainCancellation) (Result, bool, error)
+	CancelJob(context.Context, DomainCancellation) (model.Result, bool, error)
 }
 
 // WithDomainCancellation returns a service with a copied registry, preserving
@@ -36,10 +37,10 @@ type domainDispatch struct {
 	command DomainCancellation
 }
 
-func (dispatch domainDispatch) cancel(ctx context.Context) (Result, bool, error) {
+func (dispatch domainDispatch) cancel(ctx context.Context) (model.Result, bool, error) {
 	result, pending, err := dispatch.handler.CancelJob(ctx, dispatch.command)
 	if err != nil {
-		return Result{}, false, fmt.Errorf("cancel domain job: %w", err)
+		return model.Result{}, false, fmt.Errorf("cancel domain job: %w", err)
 	}
 	return result, pending, nil
 }

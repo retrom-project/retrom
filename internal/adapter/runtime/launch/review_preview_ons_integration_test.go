@@ -34,8 +34,9 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
+	uploadsmodel "retrom/internal/model/uploads"
 	retromsaves "retrom/internal/service/saves"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -331,10 +332,10 @@ func createONSReviewItem(
 ) (string, *libraryimport.Service) {
 	t.Helper()
 	archive := onsReviewArchive(t)
-	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	uploadService := uploadsservice.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "ons", RelativePath: "ons-review.zip", SizeBytes: int64(len(archive)),
 		}},
 	})

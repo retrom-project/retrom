@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/files/serversource"
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func startSourceEvidence(t *testing.T) (Root, application.GamelistEvidence) {

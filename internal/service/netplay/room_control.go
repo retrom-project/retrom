@@ -3,6 +3,7 @@ package netplay
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/netplay"
 	"time"
 
 	validation "retrom/internal/service/corevalidation"
@@ -10,7 +11,7 @@ import (
 )
 
 type RoomControl struct {
-	repository             RoomControlRepository
+	repository             model.RoomControlRepository
 	registry               *profile.Registry
 	draftIdle, waitingIdle time.Duration
 	now                    func() time.Time
@@ -18,7 +19,7 @@ type RoomControl struct {
 }
 
 func NewRoomControl(
-	repository RoomControlRepository,
+	repository model.RoomControlRepository,
 	registry *profile.Registry,
 	draftIdle, waitingIdle time.Duration,
 	now func() time.Time,
@@ -43,10 +44,10 @@ type roomMutation struct {
 func (service *RoomControl) mutate(
 	ctx context.Context,
 	request roomMutation,
-	apply func(RoomControlScope, RoomControlSnapshot, int64) error,
-) (Room, error) {
+	apply func(model.RoomControlScope, model.RoomControlSnapshot, int64) error,
+) (model.Room, error) {
 	now := service.now().UnixMilli()
-	result, err := service.repository.CommitMutation(ctx, MutationCommand{
+	result, err := service.repository.CommitMutation(ctx, model.MutationCommand{
 		RoomID:   request.roomID,
 		ActorID:  request.actorID,
 		Version:  request.version,
@@ -56,16 +57,16 @@ func (service *RoomControl) mutate(
 		Apply:    apply,
 	})
 	if err != nil {
-		return Room{}, fmt.Errorf("netplay/mutate room: %w", err)
+		return model.Room{}, fmt.Errorf("netplay/mutate room: %w", err)
 	}
 	return roomForViewer(result, request.actorID, now), nil
 }
 
 func (service *RoomControl) eligible(
 	ctx context.Context,
-	scope RoomControlScope,
+	scope model.RoomControlScope,
 	gameID string,
-) ([]EligibleProfile, error) {
+) ([]model.EligibleProfile, error) {
 	eligibility := NewEligibility(scope.Eligibility, service.registry, nil, validation.New(scope.BIOS))
 	profiles, err := eligibility.Profiles(ctx, gameID)
 	if err != nil {
@@ -76,12 +77,12 @@ func (service *RoomControl) eligible(
 
 func (service *RoomControl) selection(
 	ctx context.Context,
-	scope RoomControlScope,
+	scope model.RoomControlScope,
 	gameID, profileID string,
-) (RoomSelection, error) {
+) (model.RoomSelection, error) {
 	profiles, err := service.eligible(ctx, scope, gameID)
 	if err != nil {
-		return RoomSelection{}, err
+		return model.RoomSelection{}, err
 	}
 	for _, candidate := range profiles {
 		if candidate.Manifest.ID != profileID {
@@ -89,9 +90,9 @@ func (service *RoomControl) selection(
 		}
 		frozen, err := freezeRoomProfile(service.registry, gameID, candidate)
 		if err != nil {
-			return RoomSelection{}, err
+			return model.RoomSelection{}, err
 		}
 		return frozen.Selection, nil
 	}
-	return RoomSelection{}, ErrInvalidProfile
+	return model.RoomSelection{}, model.ErrInvalidProfile
 }

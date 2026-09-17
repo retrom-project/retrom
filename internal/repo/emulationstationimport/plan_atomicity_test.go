@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func TestPlanDeletionRollsBackEveryProjectionOnFailure(t *testing.T) {
@@ -18,14 +18,14 @@ func TestPlanDeletionRollsBackEveryProjectionOnFailure(t *testing.T) {
 			t.Parallel()
 			db, before := planDatabase(t)
 			original := planRows(t, db)
-			plan := application.PlanDeletion{Before: before, ActorID: "actor", AuditID: "delete-audit", NowMS: 10}
+			plan := emulationstationimportmodel.PlanDeletion{Before: before, ActorID: "actor", AuditID: "delete-audit", NowMS: 10}
 			if phase == "stale" {
 				plan.Before.Version++
 			}
 			if phase == "audit" {
 				plan.AuditID = creationPlan(0).AuditID
 			}
-			err := NewPlanLifecycle(db).WithPlanWrite(t.Context(), func(records application.PlanRecords) error {
+			err := NewPlanLifecycle(db).WithPlanWrite(t.Context(), func(records emulationstationimportmodel.PlanRecords) error {
 				if err := records.Delete(t.Context(), plan); err != nil {
 					return err
 				}
@@ -37,7 +37,7 @@ func TestPlanDeletionRollsBackEveryProjectionOnFailure(t *testing.T) {
 			if phase == "after deletion" && !errors.Is(err, cause) {
 				t.Fatalf("lost deletion cause: %v", err)
 			}
-			if phase == "stale" && !errors.Is(err, application.ErrInvalid) {
+			if phase == "stale" && !errors.Is(err, emulationstationimportmodel.ErrInvalid) {
 				t.Fatalf("stale deletion cause: %v", err)
 			}
 			if got := planRows(t, db); !reflect.DeepEqual(got, original) {
@@ -55,20 +55,20 @@ func TestPlanExpiryRollsBackChildrenAndCounts(t *testing.T) {
 			t.Parallel()
 			db, before := planDatabase(t)
 			original := planRows(t, db)
-			plan := application.PlanExpiry{Before: before, NowMS: before.ExpiresAtMS}
+			plan := emulationstationimportmodel.PlanExpiry{Before: before, NowMS: before.ExpiresAtMS}
 			if phase == "stale" {
 				plan.Before.Version++
 			}
 			if phase == "early" {
 				plan.NowMS--
 			}
-			err := NewPlanLifecycle(db).WithPlanWrite(t.Context(), func(records application.PlanRecords) error {
+			err := NewPlanLifecycle(db).WithPlanWrite(t.Context(), func(records emulationstationimportmodel.PlanRecords) error {
 				if err := records.Expire(t.Context(), plan); err != nil {
 					return err
 				}
 				return cause
 			})
-			want := application.ErrInvalid
+			want := emulationstationimportmodel.ErrInvalid
 			if phase == "after expiry" {
 				want = cause
 			}
@@ -86,7 +86,7 @@ func TestPlanExpiryUpdatesItemsOnceAtDeadline(t *testing.T) {
 	t.Parallel()
 	db, before := planDatabase(t)
 	now := time.UnixMilli(before.ExpiresAtMS - 1)
-	service := application.NewPlanLifecycle(NewPlanLifecycle(db), func() time.Time { return now })
+	service := emulationstationimportservice.NewPlanLifecycle(NewPlanLifecycle(db), func() time.Time { return now })
 	original := planRows(t, db)
 	if err := service.Expire(t.Context()); err != nil {
 		t.Fatal(err)

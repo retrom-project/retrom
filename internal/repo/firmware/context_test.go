@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	firmwareservice "retrom/internal/service/firmware"
 	"testing"
 	"time"
 
-	firmwareservice "retrom/internal/service/firmware"
+	firmwaremodel "retrom/internal/model/firmware"
 
 	_ "modernc.org/sqlite"
 )
@@ -24,7 +25,7 @@ func TestBIOSPreparationPreservesCancelledRead(t *testing.T) {
 	})
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, err = firmwareservice.New(New(database), time.Now).Install(ctx, "requirement", 1, firmwareservice.InstallRequest{UploadFileID: "upload"})
+	_, err = firmwareservice.New(New(database), time.Now).Install(ctx, "requirement", 1, firmwaremodel.InstallRequest{UploadFileID: "upload"})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled catalog read was lost: %v", err)
 	}

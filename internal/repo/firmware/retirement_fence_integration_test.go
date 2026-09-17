@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	application "retrom/internal/model/payloadrelease"
 	retirement "retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/payloadrelease"
 )
 
 func TestRetirementRejectsReactivatedBIOS(t *testing.T) {

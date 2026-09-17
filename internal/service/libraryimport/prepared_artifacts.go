@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	model "retrom/internal/model/libraryimport"
 	"slices"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -26,8 +27,8 @@ func NewImportArtifacts(blobs ImportArtifactBlobs) *ImportArtifacts {
 }
 
 func (service *ImportArtifacts) Prepare(
-	ctx context.Context, groups []PreparedGroup, archives []PreparedArchive,
-) ([]PreparedGroup, error) {
+	ctx context.Context, groups []model.PreparedGroup, archives []model.PreparedArchive,
+) ([]model.PreparedGroup, error) {
 	result := slices.Clone(groups)
 	for index := range result {
 		group := &result[index]
@@ -40,7 +41,7 @@ func (service *ImportArtifacts) Prepare(
 }
 
 func (service *ImportArtifacts) prepareRPG(
-	ctx context.Context, group *PreparedGroup, archives []PreparedArchive,
+	ctx context.Context, group *model.PreparedGroup, archives []model.PreparedArchive,
 ) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("prepare RPG artifact: %w", err)
@@ -56,7 +57,7 @@ func (service *ImportArtifacts) prepareRPG(
 		return nil
 	}
 	if service.blobs == nil {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	sources, err := service.rpgSources(ctx, group.Sources, archives)
 	if err != nil {
@@ -69,14 +70,14 @@ func (service *ImportArtifacts) prepareRPG(
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("complete RPG artifact: %w", err)
 	}
-	group.ValidationFiles = append(group.ValidationFiles, PreparedValidationFile{
+	group.ValidationFiles = append(group.ValidationFiles, model.PreparedValidationFile{
 		Role: role, LogicalName: name, SortOrder: len(group.ValidationFiles), Artifact: &metadata,
 	})
 	return nil
 }
 
 func (service *ImportArtifacts) rpgSources(
-	ctx context.Context, sources []PreparedSource, archives []PreparedArchive,
+	ctx context.Context, sources []model.PreparedSource, archives []model.PreparedArchive,
 ) ([]materializer.SourceFile, error) {
 	result := make([]materializer.SourceFile, 0, len(sources))
 	for _, source := range sources {
@@ -101,10 +102,10 @@ func (service *ImportArtifacts) rpgSources(
 	return result, nil
 }
 
-func preparedSourceIdentity(source PreparedSource, archives []PreparedArchive) (string, int64, error) {
+func preparedSourceIdentity(source model.PreparedSource, archives []model.PreparedArchive) (string, int64, error) {
 	if source.ArchiveOrdinal == nil {
 		if source.File.SHA256 == "" || source.File.Size < 0 {
-			return "", 0, ErrInvalid
+			return "", 0, model.ErrInvalid
 		}
 		return source.File.SHA256, source.File.Size, nil
 	}
@@ -114,11 +115,11 @@ func preparedSourceIdentity(source PreparedSource, archives []PreparedArchive) (
 		}
 		metadata, present := archive.Materialized[*source.ArchiveOrdinal]
 		if !present || metadata.SHA256 == "" || metadata.Size < 0 {
-			return "", 0, ErrInvalid
+			return "", 0, model.ErrInvalid
 		}
 		return metadata.SHA256, metadata.Size, nil
 	}
-	return "", 0, ErrInvalid
+	return "", 0, model.ErrInvalid
 }
 
 type preparedMKXPZResult struct {
@@ -141,7 +142,7 @@ func (service *ImportArtifacts) writeMKXPZ(sources []materializer.SourceFile) (b
 		return blobstore.Metadata{}, fmt.Errorf("materialize RPG MKXPZ: %w", err)
 	}
 	if metadata.SHA256 != build.result.SHA256 || metadata.Size != build.result.SizeBytes {
-		return blobstore.Metadata{}, ErrInvalid
+		return blobstore.Metadata{}, model.ErrInvalid
 	}
 	return metadata, nil
 }
@@ -155,7 +156,7 @@ func rpgArtifactIdentity(generation detector.Generation) (string, string, error)
 	case detector.RPGMV, detector.RPGMZ:
 		return "", "", nil
 	default:
-		return "", "", ErrInvalid
+		return "", "", model.ErrInvalid
 	}
 }
 

@@ -9,22 +9,23 @@ import (
 	"strings"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
-func typedImportExecutions(service *Service) *application.ImportExecutions {
-	return application.NewImportExecutions(repository.NewImportExecutions(service.database), service.now)
+func typedImportExecutions(service *Service) *libraryimportservice.ImportExecutions {
+	return libraryimportservice.NewImportExecutions(repository.NewImportExecutions(service.database), service.now)
 }
 
 func TestTypedImportWorkerClaimsFrozenInput(t *testing.T) {
 	service, plan := preparedCommitFixture(t)
-	admission := application.NewImportAdmissions(
+	admission := libraryimportservice.NewImportAdmissions(
 		repository.NewImportAdmissions(service.database),
 		nil,
 		service.tags,
-		application.ImportAdmissionOptions{Now: service.now},
+		libraryimportmodel.ImportAdmissionOptions{Now: service.now},
 	)
 	created, err := admission.Queue(t.Context(), plan.Request)
 	if err != nil {
@@ -35,7 +36,7 @@ func TestTypedImportWorkerClaimsFrozenInput(t *testing.T) {
 		work.Execution.WorkerID == "" ||
 		work.Execution.Attempt != 1 ||
 		work.Request.UploadID != plan.Upload.ID ||
-		work.Execution.DeadlineMS-work.Execution.StartedAtMS != application.ImportExecutionBudget.Milliseconds() {
+		work.Execution.DeadlineMS-work.Execution.StartedAtMS != libraryimportmodel.ImportExecutionBudget.Milliseconds() {
 		t.Fatalf("claim work=%+v found=%t error=%v", work, found, err)
 	}
 }

@@ -22,7 +22,8 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -48,10 +49,10 @@ func TestCreateKiriKiriArchiveReachesTrialRequiredReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	archive := kirikiriProjectArchive(t)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "kirikiri", RelativePath: "fixture.zip", SizeBytes: int64(len(archive)),
 		}},
 	})

@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/format/importing"
+	application "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
 )
 
 // Every accepted artifact and audit row must commit atomically. The legacy

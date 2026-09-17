@@ -3,10 +3,11 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/payloadrelease"
 )
 
 // CheckInScope validates the originally claimed execution inside each effect transaction.
-func (worker *Worker) CheckInScope(ctx context.Context, scope WorkerScope, unit Work) error {
+func (worker *Worker) CheckInScope(ctx context.Context, scope model.WorkerScope, unit model.Work) error {
 	current, err := worker.current(ctx, scope, unit)
 	if err != nil {
 		return err
@@ -17,20 +18,20 @@ func (worker *Worker) CheckInScope(ctx context.Context, scope WorkerScope, unit 
 	return nil
 }
 
-func (worker *Worker) current(ctx context.Context, scope WorkerScope, unit Work) (Work, error) {
+func (worker *Worker) current(ctx context.Context, scope model.WorkerScope, unit model.Work) (model.Work, error) {
 	before, found, err := scope.Read.Current(ctx, unit.ID)
 	if err != nil {
-		return Work{}, fmt.Errorf("read payload authority: %w", err)
+		return model.Work{}, fmt.Errorf("read payload authority: %w", err)
 	}
 	now := worker.now().UnixMilli()
 	if !found || !validWork(before) || !sameExecution(before, unit) || !before.Lease.Set || before.Lease.Value <= now ||
 		!before.Deadline.Set || before.Deadline.Value <= now {
-		return Work{}, ErrExecutionLost
+		return model.Work{}, model.ErrExecutionLost
 	}
 	return before, nil
 }
 
-func sameExecution(current, original Work) bool {
+func sameExecution(current, original model.Work) bool {
 	return current.ID == original.ID && current.Kind == original.Kind && current.Scope == original.Scope &&
 		current.State == "RUNNING" && original.State == "RUNNING" && current.WorkerID != "" &&
 		current.WorkerID == original.WorkerID && current.ExecutionNo == original.ExecutionNo &&
@@ -40,8 +41,8 @@ func sameExecution(current, original Work) bool {
 		current.InputJSON == original.InputJSON && current.InputDigest == original.InputDigest
 }
 
-func (worker *Worker) Renew(ctx context.Context, unit Work) error {
-	err := worker.repository.WithWorker(ctx, func(scope WorkerScope) error {
+func (worker *Worker) Renew(ctx context.Context, unit model.Work) error {
+	err := worker.repository.WithWorker(ctx, func(scope model.WorkerScope) error {
 		before, err := worker.current(ctx, scope, unit)
 		if err != nil {
 			return err
@@ -49,9 +50,9 @@ func (worker *Worker) Renew(ctx context.Context, unit Work) error {
 		now := worker.now().UnixMilli()
 		after := before
 		after.Version++
-		after.Heartbeat = WorkTime{Set: true, Value: now}
-		after.Lease = WorkTime{Set: true, Value: min(now+workerLease.Milliseconds(), before.Deadline.Value)}
-		if err := scope.Write.Change(ctx, WorkChange{Before: before, After: after, NowMS: now}); err != nil {
+		after.Heartbeat = model.WorkTime{Set: true, Value: now}
+		after.Lease = model.WorkTime{Set: true, Value: min(now+workerLease.Milliseconds(), before.Deadline.Value)}
+		if err := scope.Write.Change(ctx, model.WorkChange{Before: before, After: after, NowMS: now}); err != nil {
 			return fmt.Errorf("renew payload worker: %w", err)
 		}
 		return nil

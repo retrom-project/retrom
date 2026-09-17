@@ -6,10 +6,10 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/model/importprogress"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	repository "retrom/internal/repo/libraryimport"
-	"retrom/internal/service/importprogress"
-	application "retrom/internal/service/libraryimport"
 )
 
 func TestDiscardWriterRequiresCurrentParentAggregate(t *testing.T) {

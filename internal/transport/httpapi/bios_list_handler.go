@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"retrom/internal/foundation/cursor"
-	biosservice "retrom/internal/service/bios"
+	biosservice "retrom/internal/model/bios"
 )
 
 type biosQuery struct {

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	model "retrom/internal/model/launch"
 	"slices"
 	"strings"
 
@@ -18,12 +19,12 @@ const (
 	MKXPArchivePublicName       = "game.mkxpz"
 )
 
-func ProjectIdentity(files []ConfigFile) (string, error) {
+func ProjectIdentity(files []model.ConfigFile) (string, error) {
 	if len(files) == 0 || len(files) > MaximumProjectFiles {
-		return "", ErrBlocked
+		return "", model.ErrBlocked
 	}
 	ordered := slices.Clone(files)
-	slices.SortFunc(ordered, func(left, right ConfigFile) int {
+	slices.SortFunc(ordered, func(left, right model.ConfigFile) int {
 		return strings.Compare(left.LogicalName, right.LogicalName)
 	})
 	digest := sha256.New()
@@ -38,7 +39,7 @@ func ProjectIdentity(files []ConfigFile) (string, error) {
 		if pathErr != nil || normalized != file.LogicalName || previous == file.LogicalName || duplicate ||
 			file.Format != expectedFormat || !validProjectContentFormat(file.Format) ||
 			!validContentDigest(file.Digest) {
-			return "", ErrBlocked
+			return "", model.ErrBlocked
 		}
 		seen[folded] = struct{}{}
 		_, _ = fmt.Fprintf(
@@ -56,7 +57,7 @@ func validProjectContentFormat(value string) bool {
 
 func RuntimeProjectContentRoot(identity string) (string, error) {
 	if !validContentDigest(identity) {
-		return "", ErrBlocked
+		return "", model.ErrBlocked
 	}
 	return RuntimeProjectContentPrefix + identity + "/", nil
 }

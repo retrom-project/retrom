@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	service "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
 	"retrom/internal/repo/store"
-	service "retrom/internal/service/netplay"
 )
 
 func TestRoomCreationRollsBackRoomHostAndEventTogether(t *testing.T) {

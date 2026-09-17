@@ -2,6 +2,7 @@ package payloadrelease
 
 import (
 	"context"
+	model "retrom/internal/model/payloadrelease"
 	"time"
 )
 
@@ -10,7 +11,7 @@ func (worker *Worker) register(parent context.Context) (context.Context, func(),
 	worker.mutex.Lock()
 	defer worker.mutex.Unlock()
 	if worker.closed {
-		cancel(ErrWorkerClosed)
+		cancel(model.ErrWorkerClosed)
 		return ctx, func() {}, false
 	}
 	run := &workerRun{cancel: cancel}
@@ -55,7 +56,7 @@ func (worker *Worker) Close() {
 	}
 	worker.mutex.Unlock()
 	for _, run := range pending {
-		run.cancel(ErrWorkerClosed)
+		run.cancel(model.ErrWorkerClosed)
 	}
 	worker.wait.Wait()
 }

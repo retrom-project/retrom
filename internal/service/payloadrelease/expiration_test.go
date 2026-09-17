@@ -4,42 +4,43 @@ import (
 	"context"
 	"errors"
 	"math"
+	model "retrom/internal/model/payloadrelease"
 	"testing"
 	"time"
 )
 
 type expirationMemory struct {
-	providers []ProviderExpiration
-	previews  []PreviewExpiration
-	released  []ProviderExpiration
-	expired   []PreviewExpiry
+	providers []model.ProviderExpiration
+	previews  []model.PreviewExpiration
+	released  []model.ProviderExpiration
+	expired   []model.PreviewExpiry
 	staged    []string
 	fail      error
 }
 
-func (memory *expirationMemory) WithExpiration(_ context.Context, run func(ExpirationScope) error) error {
-	return run(ExpirationScope{Read: memory, Write: memory})
+func (memory *expirationMemory) WithExpiration(_ context.Context, run func(model.ExpirationScope) error) error {
+	return run(model.ExpirationScope{Read: memory, Write: memory})
 }
 
-func (memory *expirationMemory) Providers(context.Context, int64, int) ([]ProviderExpiration, error) {
+func (memory *expirationMemory) Providers(context.Context, int64, int) ([]model.ProviderExpiration, error) {
 	return memory.providers, nil
 }
 
-func (memory *expirationMemory) Previews(context.Context, int64, int) ([]PreviewExpiration, error) {
+func (memory *expirationMemory) Previews(context.Context, int64, int) ([]model.PreviewExpiration, error) {
 	return memory.previews, nil
 }
 
-func (memory *expirationMemory) ReleaseProvider(_ context.Context, before ProviderExpiration, _ int64) error {
+func (memory *expirationMemory) ReleaseProvider(_ context.Context, before model.ProviderExpiration, _ int64) error {
 	memory.released = append(memory.released, before)
 	return nil
 }
 
-func (memory *expirationMemory) ExpirePreview(_ context.Context, change PreviewExpiry) error {
+func (memory *expirationMemory) ExpirePreview(_ context.Context, change model.PreviewExpiry) error {
 	memory.expired = append(memory.expired, change)
 	return nil
 }
 
-func (memory *expirationMemory) StageInScope(_ context.Context, _ GCScope, ids []string) error {
+func (memory *expirationMemory) StageInScope(_ context.Context, _ model.GCScope, ids []string) error {
 	memory.staged = append(memory.staged, ids...)
 	return memory.fail
 }
@@ -49,7 +50,7 @@ func TestExpirationServiceOwnsPreviewPolicy(t *testing.T) {
 	for _, state := range []string{"CREATED", "ACTIVE", "FINISHED", "EXPIRED", "REVOKED"} {
 		t.Run(state, func(t *testing.T) {
 			t.Parallel()
-			memory := &expirationMemory{previews: []PreviewExpiration{{
+			memory := &expirationMemory{previews: []model.PreviewExpiration{{
 				ID: "preview", State: state, Version: 1, BootstrapExpiresMS: 5, HardExpiresMS: 10,
 				CheckpointBlobID: "checkpoint", RestoreBlobID: "restore",
 			}}}
@@ -71,17 +72,17 @@ func TestExpirationServiceOwnsPreviewPolicy(t *testing.T) {
 
 func TestExpirationRejectsStaleFactsAndOverflowBeforeWriting(t *testing.T) {
 	t.Parallel()
-	for _, preview := range []PreviewExpiration{
+	for _, preview := range []model.PreviewExpiration{
 		{ID: "active", State: "ACTIVE", Version: 1, BootstrapExpiresMS: 5, HardExpiresMS: 11},
 		{ID: "expired", State: "EXPIRED", Version: 1, HardExpiresMS: 10},
 		{ID: "overflow", State: "CREATED", Version: math.MaxInt64, HardExpiresMS: 10},
 	} {
 		t.Run(preview.ID, func(t *testing.T) {
 			t.Parallel()
-			memory := &expirationMemory{previews: []PreviewExpiration{preview}}
+			memory := &expirationMemory{previews: []model.PreviewExpiration{preview}}
 			service := NewExpirations(memory, memory, func() time.Time { return time.UnixMilli(10) })
 			count, err := service.PreviewBatch(t.Context())
-			if !errors.Is(err, ErrExpirationSnapshotChanged) || count != 0 || len(memory.expired) != 0 {
+			if !errors.Is(err, model.ErrExpirationSnapshotChanged) || count != 0 || len(memory.expired) != 0 {
 				t.Fatalf("invalid preview facts wrote expiry: count=%d writes=%v err=%v", count, memory.expired, err)
 			}
 		})
@@ -91,7 +92,7 @@ func TestExpirationRejectsStaleFactsAndOverflowBeforeWriting(t *testing.T) {
 func TestExpirationReturnsNoSuccessWhenGCStagingFails(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("stage expired response failed")
-	memory := &expirationMemory{providers: []ProviderExpiration{{
+	memory := &expirationMemory{providers: []model.ProviderExpiration{{
 		ID: "response", BlobID: "payload", State: "RETAINED", ExpiresMS: 10,
 	}}, fail: cause}
 	service := NewExpirations(memory, memory, func() time.Time { return time.UnixMilli(10) })

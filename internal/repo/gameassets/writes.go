@@ -164,4 +164,3 @@ func (scope writeScope) ScheduleConsumption(ctx context.Context, id string, now 
 	}
 	return nil
 }
-

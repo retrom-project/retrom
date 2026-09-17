@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/tagging"
 )
 
 func TestChildListsRejectUnknownImport(t *testing.T) {

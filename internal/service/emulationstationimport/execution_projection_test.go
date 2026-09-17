@@ -1,15 +1,18 @@
 package emulationstationimport
 
-import "testing"
+import (
+	model "retrom/internal/model/emulationstationimport"
+	"testing"
+)
 
 func TestExecutionProjectionPolicyBelongsToService(t *testing.T) {
 	before := newExecutionMemory().before
-	change, err := planExecutionFailure(before, ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}, 0, 2000)
+	change, err := planExecutionFailure(before, model.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}, 0, 2000)
 	if err != nil || !change.ClearScan || change.TerminalItems || change.SchedulePayload {
 		t.Fatalf("scan retry=%#v %v", change, err)
 	}
 	before.Kind = "SERVER_EMULATIONSTATION_IMPORT"
-	change, err = planExecutionFailure(before, ExecutionFailure{Code: "INTERNAL_ERROR"}, 1, 2000)
+	change, err = planExecutionFailure(before, model.ExecutionFailure{Code: "INTERNAL_ERROR"}, 1, 2000)
 	if err != nil || change.ClearScan || !change.TerminalItems || !change.SchedulePayload || !change.RetryFailedItems {
 		t.Fatalf("import failure=%#v %v", change, err)
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/netplay"
 )
 
 func (service *RoomControl) SetSeat(
@@ -12,12 +13,12 @@ func (service *RoomControl) SetSeat(
 	roomID, actorID string,
 	playerNo int,
 	version int64,
-) (Room, error) {
+) (model.Room, error) {
 	if playerNo < 2 || playerNo > 4 {
-		return Room{}, ErrInvalidSeat
+		return model.Room{}, model.ErrInvalidSeat
 	}
-	request := roomMutation{roomID: roomID, actorID: actorID, version: version, states: []string{RoomStateWaiting}}
-	return service.mutate(ctx, request, func(scope RoomControlScope, before RoomControlSnapshot, now int64) error {
+	request := roomMutation{roomID: roomID, actorID: actorID, version: version, states: []string{model.RoomStateWaiting}}
+	return service.mutate(ctx, request, func(scope model.RoomControlScope, before model.RoomControlSnapshot, now int64) error {
 		if err := validateSeat(before, playerNo, actorID); err != nil {
 			return err
 		}
@@ -32,35 +33,35 @@ func (service *RoomControl) SetSeat(
 	})
 }
 
-func validateSeat(before RoomControlSnapshot, playerNo int, actorID string) error {
+func validateSeat(before model.RoomControlSnapshot, playerNo int, actorID string) error {
 	if before.Selection == nil {
-		return ErrProfileStale
+		return model.ErrProfileStale
 	}
 	if playerNo > before.Selection.MaxPlayers {
-		return ErrInvalidSeat
+		return model.ErrInvalidSeat
 	}
 	if before.Member != nil {
 		if before.Member.Ready {
-			return ErrRoomConflict
+			return model.ErrRoomConflict
 		}
 		if before.Member.Role == "HOST" {
-			return ErrForbidden
+			return model.ErrForbidden
 		}
 	}
 	for _, member := range before.Occupants {
 		if member.PlayerNo == playerNo && member.ProfileID != actorID {
-			return ErrSeatTaken
+			return model.ErrSeatTaken
 		}
 	}
 	return nil
 }
 
 func (service *RoomControl) seatPlan(
-	before RoomControlSnapshot,
+	before model.RoomControlSnapshot,
 	actorID string,
 	playerNo int,
 	now int64,
-) (RoomSeatPlan, error) {
+) (model.RoomSeatPlan, error) {
 	memberID, eventType := "", "SEAT_CHANGED"
 	var fromPlayer *int
 	if before.Member != nil {
@@ -72,7 +73,7 @@ func (service *RoomControl) seatPlan(
 		var err error
 		memberID, err = service.newID()
 		if err != nil {
-			return RoomSeatPlan{}, fmt.Errorf("netplay/new member identity: %w", err)
+			return model.RoomSeatPlan{}, fmt.Errorf("netplay/new member identity: %w", err)
 		}
 	}
 	data, err := json.Marshal(struct {
@@ -81,13 +82,13 @@ func (service *RoomControl) seatPlan(
 		FromPlayerNo  *int `json:"fromPlayerNo,omitempty"`
 	}{1, playerNo, fromPlayer})
 	if err != nil {
-		return RoomSeatPlan{}, fmt.Errorf("netplay/seat event: %w", err)
+		return model.RoomSeatPlan{}, fmt.Errorf("netplay/seat event: %w", err)
 	}
-	return RoomSeatPlan{
+	return model.RoomSeatPlan{
 		Before:   before,
 		MemberID: memberID,
 		PlayerNo: playerNo,
-		Evidence: RoomControlEvidence{
+		Evidence: model.RoomControlEvidence{
 			ActorID:     actorID,
 			Type:        eventType,
 			PlayerNo:    &playerNo,
@@ -103,11 +104,11 @@ func (service *RoomControl) SetReady(
 	roomID, actorID string,
 	ready bool,
 	version int64,
-) (Room, error) {
-	request := roomMutation{roomID: roomID, actorID: actorID, version: version, states: []string{RoomStateWaiting}}
-	return service.mutate(ctx, request, func(scope RoomControlScope, before RoomControlSnapshot, now int64) error {
+) (model.Room, error) {
+	request := roomMutation{roomID: roomID, actorID: actorID, version: version, states: []string{model.RoomStateWaiting}}
+	return service.mutate(ctx, request, func(scope model.RoomControlScope, before model.RoomControlSnapshot, now int64) error {
 		if before.Member == nil || before.Member.LeftAtMS != nil {
-			return ErrForbidden
+			return model.ErrForbidden
 		}
 		if ready {
 			if err := service.requireCurrentSelection(ctx, scope, before.Selection); err != nil {
@@ -123,10 +124,10 @@ func (service *RoomControl) SetReady(
 		}
 		err = scope.Write.Ready(
 			ctx,
-			RoomReadyPlan{
+			model.RoomReadyPlan{
 				Before: before,
 				Ready:  ready,
-				Evidence: RoomControlEvidence{
+				Evidence: model.RoomControlEvidence{
 					ActorID:     actorID,
 					Type:        "READY_CHANGED",
 					Data:        data,
@@ -144,21 +145,21 @@ func (service *RoomControl) SetReady(
 
 func (service *RoomControl) requireCurrentSelection(
 	ctx context.Context,
-	scope RoomControlScope,
-	locked *RoomSelection,
+	scope model.RoomControlScope,
+	locked *model.RoomSelection,
 ) error {
 	if locked == nil {
-		return ErrProfileStale
+		return model.ErrProfileStale
 	}
 	current, err := service.selection(ctx, scope, locked.GameID, locked.ProfileID)
-	if errors.Is(err, ErrInvalidProfile) {
-		return ErrProfileStale
+	if errors.Is(err, model.ErrInvalidProfile) {
+		return model.ErrProfileStale
 	}
 	if err != nil {
 		return err
 	}
 	if current != *locked {
-		return ErrProfileStale
+		return model.ErrProfileStale
 	}
 	return nil
 }

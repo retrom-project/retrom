@@ -3,43 +3,44 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 	"time"
 )
 
 type WorkerSettlement struct {
-	repository WorkerSettlementRepository
-	metadata   ReviewMetadataSeeder
+	repository model.WorkerSettlementRepository
+	metadata   model.ReviewMetadataSeeder
 	now        func() time.Time
 }
 
 func NewWorkerSettlement(
-	repository WorkerSettlementRepository,
-	metadata ReviewMetadataSeeder,
+	repository model.WorkerSettlementRepository,
+	metadata model.ReviewMetadataSeeder,
 	now func() time.Time,
 ) *WorkerSettlement {
 	return &WorkerSettlement{repository: repository, metadata: metadata, now: now}
 }
 
-func (service *WorkerSettlement) Fail(ctx context.Context, id ExecutionIdentity, failure ExecutionFailure) error {
+func (service *WorkerSettlement) Fail(ctx context.Context, id model.ExecutionIdentity, failure model.ExecutionFailure) error {
 	if failure.Code == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	_, err := service.settle(ctx, id, &failure)
 	return err
 }
 
-func (service *WorkerSettlement) Cancelled(ctx context.Context, id ExecutionIdentity) (bool, error) {
+func (service *WorkerSettlement) Cancelled(ctx context.Context, id model.ExecutionIdentity) (bool, error) {
 	return service.settle(ctx, id, nil)
 }
 
 func (service *WorkerSettlement) settle(
 	ctx context.Context,
-	id ExecutionIdentity,
-	failure *ExecutionFailure,
+	id model.ExecutionIdentity,
+	failure *model.ExecutionFailure,
 ) (bool, error) {
 	for {
 		closed, more := false, false
-		err := service.repository.WithSettlement(ctx, func(scope WorkerSettlementScope) error {
+		err := service.repository.WithSettlement(ctx, func(scope model.WorkerSettlementScope) error {
 			var err error
 			closed, more, err = service.settleInScope(ctx, scope, id, failure)
 			return err
@@ -55,27 +56,27 @@ func (service *WorkerSettlement) settle(
 
 func (service *WorkerSettlement) current(
 	ctx context.Context,
-	read WorkerSettlementReader,
-	id ExecutionIdentity,
-) (ExecutionSnapshot, error) {
+	read model.WorkerSettlementReader,
+	id model.ExecutionIdentity,
+) (model.ExecutionSnapshot, error) {
 	before, err := read.Current(ctx, id.JobID)
 	if err != nil {
-		return ExecutionSnapshot{}, fmt.Errorf("read Pegasus settlement owner: %w", err)
+		return model.ExecutionSnapshot{}, fmt.Errorf("read Pegasus settlement owner: %w", err)
 	}
 	if err := ValidateExecution(before, id, service.now().UnixMilli()); err != nil {
-		return ExecutionSnapshot{}, err
+		return model.ExecutionSnapshot{}, err
 	}
 	if before.Kind != "SERVER_PEGASUS_IMPORT" && before.Kind != "SERVER_PEGASUS_SCAN" {
-		return ExecutionSnapshot{}, ErrInvalid
+		return model.ExecutionSnapshot{}, model.ErrInvalid
 	}
 	return before, nil
 }
 
 func (service *WorkerSettlement) reconcile(
 	ctx context.Context,
-	scope WorkerSettlementScope,
-	id ExecutionIdentity,
-	before ExecutionSnapshot,
+	scope model.WorkerSettlementScope,
+	id model.ExecutionIdentity,
+	before model.ExecutionSnapshot,
 ) (bool, error) {
 	if before.Kind == "SERVER_PEGASUS_SCAN" {
 		return false, nil
@@ -103,9 +104,9 @@ func (service *WorkerSettlement) reconcile(
 
 func (service *WorkerSettlement) settleInScope(
 	ctx context.Context,
-	scope WorkerSettlementScope,
-	id ExecutionIdentity,
-	failure *ExecutionFailure,
+	scope model.WorkerSettlementScope,
+	id model.ExecutionIdentity,
+	failure *model.ExecutionFailure,
 ) (bool, bool, error) {
 	before, err := service.current(ctx, scope.Read, id)
 	if err != nil {
@@ -123,7 +124,7 @@ func (service *WorkerSettlement) settleInScope(
 	if err != nil {
 		return false, false, err
 	}
-	change := WorkerSettlementChange{Before: current, State: "CANCELLED", NowMS: service.now().UnixMilli()}
+	change := model.WorkerSettlementChange{Before: current, State: "CANCELLED", NowMS: service.now().UnixMilli()}
 	if !cancel {
 		change.State = "FAILED"
 		change.Failure = *failure

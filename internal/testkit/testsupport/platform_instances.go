@@ -19,8 +19,9 @@ import (
 
 	"retrom/internal/capability/runtime/platformcatalog"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	platforminstancemodel "retrom/internal/model/platforminstance"
 	"retrom/internal/repo/store"
-	"retrom/internal/service/platforminstance"
+	platforminstanceservice "retrom/internal/service/platforminstance"
 )
 
 type PlatformInstanceReference struct {
@@ -123,9 +124,9 @@ func MustPlatformInstanceID(t testing.TB, database *sql.DB, templateKey string) 
 }
 
 func fixturePlatformSlug(ctx context.Context, database *sql.DB, platformID, name string) (string, error) {
-	base := platforminstance.SlugBase(name, platformID)
+	base := platforminstanceservice.SlugBase(name, platformID)
 	var slugs []string
-	err := platformpersistence.New(database).WithRead(ctx, func(reader platforminstance.Reader) error {
+	err := platformpersistence.New(database).WithRead(ctx, func(reader platforminstancemodel.Reader) error {
 		var err error
 		slugs, err = reader.UsedSlugs(ctx, platformID, base)
 		if err != nil {
@@ -136,7 +137,7 @@ func fixturePlatformSlug(ctx context.Context, database *sql.DB, platformID, name
 	if err != nil {
 		return "", fmt.Errorf("testsupport: read platform: %w", err)
 	}
-	slug, err := platforminstance.NextSlug(base, slugs)
+	slug, err := platforminstanceservice.NextSlug(base, slugs)
 	if err != nil {
 		return "", fmt.Errorf("testsupport: select slug: %w", err)
 	}

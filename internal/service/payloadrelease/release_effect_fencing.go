@@ -3,10 +3,11 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/payloadrelease"
 )
 
-func recheckEffectMutations(ctx context.Context, reader EffectReader, scope Scope) error {
-	if scope.Type != ScopeGame {
+func recheckEffectMutations(ctx context.Context, reader model.EffectReader, scope model.Scope) error {
+	if scope.Type != model.ScopeGame {
 		return nil
 	}
 	active, err := reader.Mutations(ctx, scope)
@@ -19,8 +20,8 @@ func recheckEffectMutations(ctx context.Context, reader EffectReader, scope Scop
 	return nil
 }
 
-func (run *effectRun) execute(ctx context.Context, before EffectOwner, reason Reason) error {
-	if before.Owner.Scope.Type == ScopeUploadConsumption {
+func (run *effectRun) execute(ctx context.Context, before model.EffectOwner, reason model.Reason) error {
+	if before.Owner.Scope.Type == model.ScopeUploadConsumption {
 		return run.consumption(ctx, before, reason)
 	}
 	return run.release(ctx, before)
@@ -33,7 +34,7 @@ func (run *effectRun) confirm(ctx context.Context) error {
 			return fmt.Errorf("confirm payload owner: %w", err)
 		}
 		if current != before {
-			return ErrEffectConflict
+			return model.ErrEffectConflict
 		}
 	}
 	return nil

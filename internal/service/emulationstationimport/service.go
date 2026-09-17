@@ -3,20 +3,21 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 
 	"retrom/internal/capability/security/authn"
 )
 
 type PlanCreator interface {
-	Create(context.Context, CreateRequest, string) (Summary, error)
+	Create(context.Context, model.CreateRequest, string) (model.Summary, error)
 }
 type ImportStarter interface {
-	Start(context.Context, string, int64, string) (Summary, bool, error)
+	Start(context.Context, string, int64, string) (model.Summary, bool, error)
 }
 type PlanController interface {
-	Cancel(context.Context, string, int64, string, string) (Summary, bool, error)
+	Cancel(context.Context, string, int64, string, string) (model.Summary, bool, error)
 	CancelJob(context.Context, JobCancellationRequest) (JobCancellationResult, bool, error)
-	Retry(context.Context, string, int64, string) (Summary, error)
+	Retry(context.Context, string, int64, string) (model.Summary, error)
 }
 type PlanAdministration interface {
 	Delete(context.Context, string, int64, string) error
@@ -41,19 +42,19 @@ type Service struct{ dependencies ServiceDependencies }
 func New(dependencies ServiceDependencies) *Service { return &Service{dependencies: dependencies} }
 func (service *Service) Start()                     { service.dependencies.Worker.Start() }
 func (service *Service) Close()                     { service.dependencies.Worker.Close() }
-func (service *Service) Create(ctx context.Context, request CreateRequest, actor string) (Summary, error) {
+func (service *Service) Create(ctx context.Context, request model.CreateRequest, actor string) (model.Summary, error) {
 	result, err := service.dependencies.Creation.Create(ctx, request, actor)
 	if err != nil {
-		return Summary{}, fmt.Errorf("create EmulationStation scan plan: %w", err)
+		return model.Summary{}, fmt.Errorf("create EmulationStation scan plan: %w", err)
 	}
 	service.dependencies.Worker.Signal()
 	return result, nil
 }
 
-func (service *Service) StartImport(ctx context.Context, id string, version int64) (Summary, error) {
+func (service *Service) StartImport(ctx context.Context, id string, version int64) (model.Summary, error) {
 	result, queued, err := service.dependencies.Starter.Start(ctx, id, version, contextActor(ctx))
 	if err != nil {
-		return Summary{}, fmt.Errorf("start EmulationStation import: %w", err)
+		return model.Summary{}, fmt.Errorf("start EmulationStation import: %w", err)
 	}
 	if queued {
 		service.dependencies.Worker.Signal()
@@ -65,8 +66,8 @@ func (service *Service) UpdateMappings(
 	ctx context.Context,
 	id string,
 	version int64,
-	mappings []Mapping,
-) (Summary, error) {
+	mappings []model.Mapping,
+) (model.Summary, error) {
 	return service.dependencies.Mappings.Update(ctx, id, version, mappings, contextActor(ctx))
 }
 

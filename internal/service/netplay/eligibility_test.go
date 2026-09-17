@@ -3,17 +3,18 @@ package netplay
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/netplay"
 	"slices"
 	"testing"
 
 	"retrom/internal/capability/content/corevalidation"
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/tagging"
 	"retrom/internal/transport/netplay/profile"
 )
 
 type eligibilityMemory struct {
-	pages   [][]GameSummary
-	rows    map[string][]EligibilityRow
+	pages   [][]model.GameSummary
+	rows    map[string][]model.EligibilityRow
 	cursors []string
 	limits  []int
 	reads   []string
@@ -21,7 +22,7 @@ type eligibilityMemory struct {
 	failure error
 }
 
-func (memory *eligibilityMemory) GamePage(_ context.Context, _ string, title, id string, limit int) ([]GameSummary, bool, error) {
+func (memory *eligibilityMemory) GamePage(_ context.Context, _ string, title, id string, limit int) ([]model.GameSummary, bool, error) {
 	memory.cursors = append(memory.cursors, title+":"+id)
 	memory.limits = append(memory.limits, limit)
 	if memory.failure != nil {
@@ -32,12 +33,12 @@ func (memory *eligibilityMemory) GamePage(_ context.Context, _ string, title, id
 	return page, len(memory.pages) > 0, nil
 }
 
-func (memory *eligibilityMemory) Rows(_ context.Context, id string) ([]EligibilityRow, error) {
+func (memory *eligibilityMemory) Rows(_ context.Context, id string) ([]model.EligibilityRow, error) {
 	memory.reads = append(memory.reads, id)
 	return memory.rows[id], memory.failure
 }
 
-func (memory *eligibilityMemory) ArcadeDependencies(context.Context, string, string) ([]ArcadeDependencyRow, error) {
+func (memory *eligibilityMemory) ArcadeDependencies(context.Context, string, string) ([]model.ArcadeDependencyRow, error) {
 	return nil, memory.failure
 }
 
@@ -68,8 +69,8 @@ func eligibilityRegistry() *profile.Registry {
 	}}
 }
 
-func readyEligibilityRow() EligibilityRow {
-	return EligibilityRow{VariantID: "variant", CoreID: "core", ProviderID: "provider", TargetID: "target", PlatformID: "platform", ContentKind: "SINGLE_FILE", LogicalName: "game.rom", DependencyJSON: `{"schemaVersion":1,"kind":"STATIC","bios":[]}`}
+func readyEligibilityRow() model.EligibilityRow {
+	return model.EligibilityRow{VariantID: "variant", CoreID: "core", ProviderID: "provider", TargetID: "target", PlatformID: "platform", ContentKind: "SINGLE_FILE", LogicalName: "game.rom", DependencyJSON: `{"schemaVersion":1,"kind":"STATIC","bios":[]}`}
 }
 
 func TestEligibilityRejectsInvalidPageBeforeReading(t *testing.T) {
@@ -83,7 +84,7 @@ func TestEligibilityRejectsInvalidPageBeforeReading(t *testing.T) {
 		memory := &eligibilityMemory{}
 		service := NewEligibility(memory, nil, memory, nil)
 		_, _, err := service.GamePage(t.Context(), "actor", test.availability, test.title, test.id, test.limit)
-		if !errors.Is(err, ErrInvalidProfile) || len(memory.cursors) != 0 {
+		if !errors.Is(err, model.ErrInvalidProfile) || len(memory.cursors) != 0 {
 			t.Fatalf("invalid page: error=%v, reads=%v", err, memory.cursors)
 		}
 	}
@@ -91,10 +92,10 @@ func TestEligibilityRejectsInvalidPageBeforeReading(t *testing.T) {
 
 func TestSupportedPageBoundsEligibilityAndTagsAfterFiltering(t *testing.T) {
 	t.Parallel()
-	memory := &eligibilityMemory{pages: [][]GameSummary{
+	memory := &eligibilityMemory{pages: [][]model.GameSummary{
 		{{GameID: "hidden", Title: "A"}, {GameID: "one", Title: "B"}},
 		{{GameID: "two", Title: "C"}, {GameID: "unused", Title: "D"}},
-	}, rows: map[string][]EligibilityRow{"one": {readyEligibilityRow()}, "two": {readyEligibilityRow()}}}
+	}, rows: map[string][]model.EligibilityRow{"one": {readyEligibilityRow()}, "two": {readyEligibilityRow()}}}
 	bios := &eligibilityBIOS{status: "READY"}
 	service := NewEligibility(memory, eligibilityRegistry(), memory, bios)
 	page, more, err := service.GamePage(t.Context(), "actor", "SUPPORTED", "", "", 1)
@@ -110,23 +111,23 @@ func TestEligibilityRequiresCurrentDependenciesAndExactTarget(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name            string
-		change          func(*EligibilityRow)
+		change          func(*model.EligibilityRow)
 		status, blocker string
 		biosCalls       int
 	}{
 		{name: "ready", status: "READY", biosCalls: 1},
 		{name: "dependency changed", status: "BLOCKED", blocker: "DEPENDENCY_STALE", biosCalls: 1},
-		{name: "bad snapshot", status: "READY", change: func(row *EligibilityRow) { row.DependencyJSON = "broken" }, blocker: "DEPENDENCY_STALE"},
-		{name: "wrong platform", change: func(row *EligibilityRow) { row.PlatformID = "other" }, blocker: "CORE_NOT_ALLOWLISTED"},
-		{name: "wrong provider", change: func(row *EligibilityRow) { row.ProviderID = "other" }, blocker: "CORE_NOT_ALLOWLISTED"},
-		{name: "wrong content", change: func(row *EligibilityRow) { row.ContentKind = "MULTI_FILE" }, blocker: "CONTENT_NOT_ALLOWLISTED"},
+		{name: "bad snapshot", status: "READY", change: func(row *model.EligibilityRow) { row.DependencyJSON = "broken" }, blocker: "DEPENDENCY_STALE"},
+		{name: "wrong platform", change: func(row *model.EligibilityRow) { row.PlatformID = "other" }, blocker: "CORE_NOT_ALLOWLISTED"},
+		{name: "wrong provider", change: func(row *model.EligibilityRow) { row.ProviderID = "other" }, blocker: "CORE_NOT_ALLOWLISTED"},
+		{name: "wrong content", change: func(row *model.EligibilityRow) { row.ContentKind = "MULTI_FILE" }, blocker: "CONTENT_NOT_ALLOWLISTED"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			row := readyEligibilityRow()
 			if test.change != nil {
 				test.change(&row)
 			}
-			memory := &eligibilityMemory{rows: map[string][]EligibilityRow{"game": {row}}}
+			memory := &eligibilityMemory{rows: map[string][]model.EligibilityRow{"game": {row}}}
 			bios := &eligibilityBIOS{status: test.status}
 			service := NewEligibility(memory, eligibilityRegistry(), memory, bios)
 			result, blocker, err := service.profileEligibility(t.Context(), "game")
@@ -153,7 +154,7 @@ func TestEligibilityPreservesRepositoryAndBIOSFailures(t *testing.T) {
 		t.Fatalf("repository failure=%v", err)
 	}
 	memory.failure = nil
-	memory.rows = map[string][]EligibilityRow{"game": {readyEligibilityRow()}}
+	memory.rows = map[string][]model.EligibilityRow{"game": {readyEligibilityRow()}}
 	service.bios = &eligibilityBIOS{failure: sentinel}
 	if _, err := service.Profiles(t.Context(), "game"); !errors.Is(err, sentinel) {
 		t.Fatalf("BIOS failure=%v", err)

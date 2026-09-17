@@ -2,6 +2,7 @@ package emulationstationimport
 
 import (
 	"errors"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
 )
@@ -26,7 +27,7 @@ func TestExecutionFailurePolicyKeepsExistingTerminalAndBackoffBoundaries(t *test
 			memory.before.Attempt, memory.before.MaxAttempts, memory.before.DeadlineAtMS = test.attempt, test.max, test.deadline
 			memory.terminal = test.terminal
 			state, err := NewExecutionControl(memory, func() time.Time { return time.UnixMilli(2000) }).Fail(t.Context(),
-				memory.before.Execution, ExecutionFailure{Code: "SOURCE_CHANGED", Retryable: test.retryable})
+				memory.before.Execution, model.ExecutionFailure{Code: "SOURCE_CHANGED", Retryable: test.retryable})
 			if err != nil || state != test.state || memory.finish.Code != test.code {
 				t.Fatalf(
 					"state=%s error=%v change=%#v",
@@ -43,11 +44,11 @@ func TestExecutionObservationAndCancellationCommitPreserveCauses(t *testing.T) {
 	memory := newExecutionMemory()
 	service := NewExecutionControl(memory, func() time.Time { return time.UnixMilli(2000) })
 	state, err := service.Observe(t.Context(), memory.before.Execution)
-	if err != nil || state != LeaseActive {
+	if err != nil || state != model.LeaseActive {
 		t.Fatalf("observation=%v error=%v", state, err)
 	}
-	_, err = service.Fail(t.Context(), Execution{JobID: "job"}, ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true})
-	if !errors.Is(err, ErrVersionConflict) || memory.finish.JobState != "" {
+	_, err = service.Fail(t.Context(), model.Execution{JobID: "job"}, model.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true})
+	if !errors.Is(err, model.ErrVersionConflict) || memory.finish.JobState != "" {
 		t.Fatalf("stale identity failure=%v", err)
 	}
 	memory.before.JobState, memory.before.ImportState = "CANCEL_REQUESTED", "CANCEL_REQUESTED"
@@ -57,7 +58,7 @@ func TestExecutionObservationAndCancellationCommitPreserveCauses(t *testing.T) {
 		t.Fatalf("commit cancellation=%v error=%v", closed, err)
 	}
 	state, err = service.Observe(t.Context(), memory.before.Execution)
-	if state != LeaseLost || !errors.Is(err, memory.err) {
+	if state != model.LeaseLost || !errors.Is(err, memory.err) {
 		t.Fatalf("failed observation=%v error=%v", state, err)
 	}
 }

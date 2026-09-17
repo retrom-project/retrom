@@ -6,10 +6,11 @@ import (
 	"reflect"
 	"testing"
 
+	application "retrom/internal/model/libraryimport"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/libraryimport"
-	payloadservice "retrom/internal/service/payloadrelease"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 )
 
 func TestOwnedESSourceDuplicateReplaysAfterPayloadCleanup(t *testing.T) {
@@ -51,7 +52,7 @@ func finishOwnedESDuplicate(t *testing.T, fixture deduplicateFixture, gameID str
  existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='es-owner-source'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadservice.Scope{Type: payloadservice.ScopeEmulationStationImportItem, ID: "es-owner-source"}, ownedSourceNow().UnixMilli()); err != nil {
+	if _, err := payloadreleaseservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadreleasemodel.Scope{Type: payloadreleasemodel.ScopeEmulationStationImportItem, ID: "es-owner-source"}, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

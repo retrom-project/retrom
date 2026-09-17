@@ -4,25 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 )
 
 type EvidenceProcessor struct {
-	evidence EvidenceReader
-	lookup   EvidenceLookup
-	results  EvidenceResults
+	evidence model.EvidenceReader
+	lookup   model.EvidenceLookup
+	results  model.EvidenceResults
 }
 
 func NewProcessor(
-	evidence EvidenceReader,
-	lookup EvidenceLookup,
-	results EvidenceResults,
+	evidence model.EvidenceReader,
+	lookup model.EvidenceLookup,
+	results model.EvidenceResults,
 ) *EvidenceProcessor {
 	return &EvidenceProcessor{evidence: evidence, lookup: lookup, results: results}
 }
 
 func (processor *EvidenceProcessor) Process(
 	ctx context.Context,
-	claim WorkerClaim,
+	claim model.WorkerClaim,
 	payloadJSON string,
 ) (int, string, error) {
 	var payload struct {

@@ -3,13 +3,13 @@ package emulationstationimport
 import (
 	"database/sql"
 	"reflect"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/emulationstationimport"
 )
 
-func itemWorkDatabase(t *testing.T) (*sql.DB, application.Execution) {
+func itemWorkDatabase(t *testing.T) (*sql.DB, emulationstationimportmodel.Execution) {
 	t.Helper()
 	db, _ := leaseDatabase(t, true)
 	if _, err := db.ExecContext(
@@ -19,7 +19,7 @@ func itemWorkDatabase(t *testing.T) (*sql.DB, application.Execution) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	unit, found, err := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(
+	unit, found, err := emulationstationimportservice.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(
 		t.Context(),
 	)
 	if err != nil || !found {
@@ -28,8 +28,8 @@ func itemWorkDatabase(t *testing.T) (*sql.DB, application.Execution) {
 	return db, unit
 }
 
-func itemWorkService(db *sql.DB) *application.ItemWork {
-	return application.NewItemWork(NewItemWork(db), func() time.Time { return time.UnixMilli(1100) })
+func itemWorkService(db *sql.DB) *emulationstationimportservice.ItemWork {
+	return emulationstationimportservice.NewItemWork(NewItemWork(db), func() time.Time { return time.UnixMilli(1100) })
 }
 
 func TestItemWorkClaimsResumesAndPersistsAtomicProgress(t *testing.T) {
@@ -48,7 +48,7 @@ func TestItemWorkClaimsResumesAndPersistsAtomicProgress(t *testing.T) {
 		t.Context(),
 		unit,
 		item.ID,
-		application.ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true},
+		emulationstationimportmodel.ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +60,7 @@ func TestItemWorkClaimsResumesAndPersistsAtomicProgress(t *testing.T) {
 	}
 }
 
-func assertItemWorkOutcome(t *testing.T, db *sql.DB, unit application.Execution, itemID string) {
+func assertItemWorkOutcome(t *testing.T, db *sql.DB, unit emulationstationimportmodel.Execution, itemID string) {
 	t.Helper()
 	summary, err := NewQueries(db).Get(t.Context(), unit.ImportID)
 	if err != nil || summary.Counts.Failed != 1 || summary.Counts.Blocked != 1 || summary.Counts.SkippedMapping != 1 {
@@ -85,9 +85,9 @@ func assertItemWorkOutcome(t *testing.T, db *sql.DB, unit application.Execution,
 func assertItemWorkResume(
 	t *testing.T,
 	db *sql.DB,
-	service *application.ItemWork,
-	unit application.Execution,
-	item application.ExecutionItem,
+	service *emulationstationimportservice.ItemWork,
+	unit emulationstationimportmodel.Execution,
+	item emulationstationimportmodel.ExecutionItem,
 ) {
 	t.Helper()
 	before := planRows(t, db)

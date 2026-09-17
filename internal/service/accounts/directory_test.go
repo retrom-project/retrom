@@ -3,29 +3,30 @@ package accounts
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/accounts"
 	"testing"
 	"time"
 )
 
 type directoryMemory struct {
-	query UserQuery
+	query model.UserQuery
 	calls int
-	user  AdminUser
+	user  model.AdminUser
 	cause error
 }
 
-func (memory *directoryMemory) Get(context.Context, string, int64) (AdminUser, bool, error) {
+func (memory *directoryMemory) Get(context.Context, string, int64) (model.AdminUser, bool, error) {
 	return memory.user, true, memory.cause
 }
 
-func (memory *directoryMemory) List(_ context.Context, query UserQuery) ([]AdminUser, error) {
+func (memory *directoryMemory) List(_ context.Context, query model.UserQuery) ([]model.AdminUser, error) {
 	memory.query = query
 	memory.calls++
-	return []AdminUser{memory.user}, memory.cause
+	return []model.AdminUser{memory.user}, memory.cause
 }
 
 func TestDirectoryRejectsMalformedPaginationBeforeQuery(t *testing.T) {
-	for _, filter := range []UserListFilter{
+	for _, filter := range []model.UserListFilter{
 		{Sort: "LAST_LOGIN_DESC", AfterID: "user", AfterValues: []string{"1"}},
 		{Sort: "CREATED_DESC", AfterValues: []string{"1"}},
 		{Sort: "LAST_LOGIN_DESC", AfterID: "user", AfterValues: []string{"-2", "1"}},
@@ -37,15 +38,15 @@ func TestDirectoryRejectsMalformedPaginationBeforeQuery(t *testing.T) {
 	} {
 		memory := &directoryMemory{}
 		_, err := NewDirectory(memory, time.Now).List(t.Context(), filter)
-		if !errors.Is(err, ErrUserQuery) || memory.calls != 0 {
+		if !errors.Is(err, model.ErrUserQuery) || memory.calls != 0 {
 			t.Fatalf("invalid filter %+v: %v", filter, err)
 		}
 	}
 }
 
 func TestDirectoryNormalizesFilterAndProjectsDeletedUser(t *testing.T) {
-	memory := &directoryMemory{user: AdminUser{UserID: "deleted", Status: "DELETED", DisplayName: "old name"}}
-	items, err := NewDirectory(memory, func() time.Time { return time.UnixMilli(100) }).List(t.Context(), UserListFilter{Query: "  Cafe\u0301  ", Sort: "LAST_LOGIN_DESC", AfterID: "user", AfterValues: []string{"-1", "42"}, Limit: 51})
+	memory := &directoryMemory{user: model.AdminUser{UserID: "deleted", Status: "DELETED", DisplayName: "old name"}}
+	items, err := NewDirectory(memory, func() time.Time { return time.UnixMilli(100) }).List(t.Context(), model.UserListFilter{Query: "  Cafe\u0301  ", Sort: "LAST_LOGIN_DESC", AfterID: "user", AfterValues: []string{"-1", "42"}, Limit: 51})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,8 +61,8 @@ func TestDirectoryNormalizesFilterAndProjectsDeletedUser(t *testing.T) {
 
 func TestDirectoryPreservesStorageFailure(t *testing.T) {
 	memory := &directoryMemory{cause: context.Canceled}
-	_, err := NewDirectory(memory, time.Now).List(t.Context(), UserListFilter{Limit: 51})
-	if !errors.Is(err, context.Canceled) || errors.Is(err, ErrUserQuery) {
+	_, err := NewDirectory(memory, time.Now).List(t.Context(), model.UserListFilter{Limit: 51})
+	if !errors.Is(err, context.Canceled) || errors.Is(err, model.ErrUserQuery) {
 		t.Fatalf("storage failure converted to invalid query: %v", err)
 	}
 }

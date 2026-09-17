@@ -3,6 +3,7 @@ package serverimport_test
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/serverimport"
 	"testing"
 
 	importpersistence "retrom/internal/repo/serverimport"
@@ -10,11 +11,11 @@ import (
 )
 
 type failingCreationRepository struct {
-	importservice.CreationRepository
+	model.CreationRepository
 }
 
-func (repository failingCreationRepository) WithCreate(ctx context.Context, work func(importservice.CreationWriter) error) error {
-	return repository.CreationRepository.WithCreate(ctx, func(writer importservice.CreationWriter) error {
+func (repository failingCreationRepository) WithCreate(ctx context.Context, work func(model.CreationWriter) error) error {
+	return repository.CreationRepository.WithCreate(ctx, func(writer model.CreationWriter) error {
 		if err := work(writer); err != nil {
 			return err
 		}
@@ -26,7 +27,7 @@ func TestCreationLateFailureRollsBackTaskSnapshotItemsAndEvidence(t *testing.T) 
 	legacy, database, _ := archiveImportFixture(t)
 	repository := failingCreationRepository{importpersistence.NewCreation(database)}
 	creation := importservice.NewCreation(repository, legacy.SourceSelectorForTest(), legacy.NowForTest)
-	result, err := creation.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	result, err := creation.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if !errors.Is(err, context.Canceled) || result.ID != "" {
 		t.Fatalf("late creation failure: %+v %v", result, err)
 	}
@@ -48,13 +49,13 @@ func TestCreationLateFailureRollsBackTaskSnapshotItemsAndEvidence(t *testing.T) 
 
 func TestCreateConflictDoesNotLeaveOrphanJob(t *testing.T) {
 	service, database, _ := archiveImportFixture(t)
-	request := CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}
+	request := model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}
 	created, err := service.Create(t.Context(), request, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	result, err := service.Create(t.Context(), request, controlActorID)
-	if !errors.Is(err, ErrActive) || result.ID != "" {
+	if !errors.Is(err, model.ErrActive) || result.ID != "" {
 		t.Fatalf("duplicate import: %+v %v", result, err)
 	}
 	var jobs, snapshots int64

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	model "retrom/internal/model/libraryimport"
 	"sort"
 	"strings"
 
@@ -14,7 +15,7 @@ import (
 )
 
 type arcadePreparedArchive struct {
-	file           ImportFile
+	file           model.ImportFile
 	machine        string
 	classification string
 	entries        []importing.ArchiveEntry
@@ -24,7 +25,7 @@ type arcadePreparedArchive struct {
 
 func (service *ImportPreparation) ArcadeRequirements(
 	ctx context.Context, datID, machine string,
-) ([]ArcadeROMRequirement, bool, error) {
+) ([]model.ArcadeROMRequirement, bool, error) {
 	facts, err := service.catalog.ArcadeRequirements(ctx, datID, machine)
 	if err != nil {
 		return nil, false, fmt.Errorf("read arcade preparation requirements: %w", err)
@@ -32,8 +33,8 @@ func (service *ImportPreparation) ArcadeRequirements(
 	return SelectedArcadeRequirements(facts), facts.HasDisk, nil
 }
 
-func SelectedArcadeRequirements(facts ArcadeCatalogRequirements) []ArcadeROMRequirement {
-	selected := make([]ArcadeROMRequirement, 0, len(facts.ROMs))
+func SelectedArcadeRequirements(facts model.ArcadeCatalogRequirements) []model.ArcadeROMRequirement {
+	selected := make([]model.ArcadeROMRequirement, 0, len(facts.ROMs))
 	for _, rom := range facts.ROMs {
 		if rom.Status == "NODUMP" ||
 			rom.BIOSName != nil && (facts.DefaultBIOS == nil || *rom.BIOSName != *facts.DefaultBIOS) {
@@ -46,7 +47,7 @@ func SelectedArcadeRequirements(facts ArcadeCatalogRequirements) []ArcadeROMRequ
 
 func MatchArcadeRequirements(
 	entries map[string]importing.ArchiveEntry,
-	requirements []ArcadeROMRequirement,
+	requirements []model.ArcadeROMRequirement,
 ) ([]string, []string, []string) {
 	foldedEntries := make(map[string]importing.ArchiveEntry, len(entries))
 	for name, entry := range entries {
@@ -69,13 +70,13 @@ func MatchArcadeRequirements(
 	return missing, mismatched, warnings
 }
 
-func arcadeEntryMatchesRequirement(entry importing.ArchiveEntry, requirement ArcadeROMRequirement) bool {
+func arcadeEntryMatchesRequirement(entry importing.ArchiveEntry, requirement model.ArcadeROMRequirement) bool {
 	return entry.Size == requirement.Size &&
 		(requirement.CRC32 == nil || strings.EqualFold(entry.CRC32, *requirement.CRC32)) &&
 		(requirement.SHA1 == nil || strings.EqualFold(entry.SHA1, *requirement.SHA1))
 }
 
-func containsMergedArcadeEntries(entries map[string]importing.ArchiveEntry, requirements []ArcadeROMRequirement) bool {
+func containsMergedArcadeEntries(entries map[string]importing.ArchiveEntry, requirements []model.ArcadeROMRequirement) bool {
 	rootEntries := make(map[string]importing.ArchiveEntry, len(entries))
 	nestedEntries := make(map[string][]importing.ArchiveEntry)
 	for entryPath, entry := range entries {
@@ -103,7 +104,7 @@ func containsMergedArcadeEntries(entries map[string]importing.ArchiveEntry, requ
 func (service *ImportPreparation) arcadeDependencyClosure(
 	ctx context.Context,
 	datID, machine string,
-) ([]string, []string, []ArcadeClosureNode, bool, error) {
+) ([]string, []string, []model.ArcadeClosureNode, bool, error) {
 	nodes, cyclic, err := LoadArcadeClosure(ctx, service.catalog, datID, machine)
 	if err != nil {
 		return nil, nil, nil, false, fmt.Errorf("libraryimport/service: %w", err)
@@ -124,9 +125,9 @@ func (service *ImportPreparation) arcadeDependencyClosure(
 // Contract branches stay contiguous for a single auditable decision.
 func (service *ImportPreparation) PrepareArcadeFiles(
 	ctx context.Context,
-	files []ImportFile,
+	files []model.ImportFile,
 	datID string,
-) ([]PreparedDisposition, []PreparedGroup, []PreparedArchive, error) {
+) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
 	prepared, archives, err := service.prepareArcadeArchives(ctx, files, datID)
 	if err != nil {
 		return nil, nil, nil, err
@@ -137,7 +138,7 @@ func (service *ImportPreparation) PrepareArcadeFiles(
 		return nil, nil, nil, err
 	}
 	referenced := make(map[string]struct{})
-	groups := make([]PreparedGroup, 0)
+	groups := make([]model.PreparedGroup, 0)
 	for index := range prepared {
 		primary := &prepared[index]
 		if !isPrimaryArcadeArchive(primary, dependencyCandidates) {
@@ -155,11 +156,11 @@ func (service *ImportPreparation) PrepareArcadeFiles(
 
 func (service *ImportPreparation) prepareArcadeArchives(
 	ctx context.Context,
-	files []ImportFile,
+	files []model.ImportFile,
 	datID string,
-) ([]arcadePreparedArchive, []PreparedArchive, error) {
+) ([]arcadePreparedArchive, []model.PreparedArchive, error) {
 	prepared := make([]arcadePreparedArchive, 0, len(files))
-	archives := make([]PreparedArchive, 0, len(files))
+	archives := make([]model.PreparedArchive, 0, len(files))
 	for _, file := range files {
 		candidate, archive, err := service.prepareArcadeArchive(ctx, file, datID)
 		if err != nil {
@@ -175,9 +176,9 @@ func (service *ImportPreparation) prepareArcadeArchives(
 
 func (service *ImportPreparation) prepareArcadeArchive(
 	ctx context.Context,
-	file ImportFile,
+	file model.ImportFile,
 	datID string,
-) (arcadePreparedArchive, *PreparedArchive, error) {
+) (arcadePreparedArchive, *model.PreparedArchive, error) {
 	candidate := arcadePreparedArchive{
 		file: file, machine: strings.TrimSuffix(filepath.Base(file.Path), filepath.Ext(file.Path)),
 	}
@@ -199,7 +200,7 @@ func (service *ImportPreparation) prepareArcadeArchive(
 	for _, entry := range entries {
 		candidate.entryByName[entry.NormalizedPath] = entry
 	}
-	archive := &PreparedArchive{BlobID: file.BlobID, Entries: entries}
+	archive := &model.PreparedArchive{BlobID: file.BlobID, Entries: entries}
 	if datID == "" {
 		candidate.reason = "ARCADE_DAT_UNAVAILABLE"
 		return candidate, archive, nil
@@ -241,7 +242,7 @@ func (service *ImportPreparation) findUploadedArcadeDependencies(
 			continue
 		}
 		parents, bases, _, cyclic, err := service.arcadeDependencyClosure(ctx, datID, candidate.machine)
-		if err != nil && !errors.Is(err, ErrInvalid) {
+		if err != nil && !errors.Is(err, model.ErrInvalid) {
 			return nil, err
 		}
 		if err != nil || cyclic {
@@ -277,8 +278,8 @@ type arcadeGroupBuilder struct {
 	referenced       map[string]struct{}
 	parents          []string
 	bases            []string
-	closure          []ArcadeClosureNode
-	closureByMachine map[string]ArcadeClosureNode
+	closure          []model.ArcadeClosureNode
+	closureByMachine map[string]model.ArcadeClosureNode
 	status           string
 	code             string
 	missing          []string
@@ -286,8 +287,8 @@ type arcadeGroupBuilder struct {
 	warnings         []string
 	dependencies     []map[string]any
 	mergedROMSet     bool
-	sources          []PreparedSource
-	validationFiles  []PreparedValidationFile
+	sources          []model.PreparedSource
+	validationFiles  []model.PreparedValidationFile
 }
 
 func newArcadeGroupBuilder(
@@ -302,14 +303,14 @@ func newArcadeGroupBuilder(
 		service: service, ctx: ctx, datID: datID, primary: primary,
 		byMachine: byMachine, referenced: referenced, status: "READY", code: "READY",
 		missing: make([]string, 0), mismatched: make([]string, 0), warnings: make([]string, 0),
-		dependencies: make([]map[string]any, 0), validationFiles: make([]PreparedValidationFile, 0),
-		sources: []PreparedSource{{
+		dependencies: make([]map[string]any, 0), validationFiles: make([]model.PreparedValidationFile, 0),
+		sources: []model.PreparedSource{{
 			File: primary.file, Role: "CONTENT", LogicalName: primary.machine + ".zip",
 		}},
 	}
 }
 
-func (builder *arcadeGroupBuilder) build() (PreparedGroup, error) {
+func (builder *arcadeGroupBuilder) build() (model.PreparedGroup, error) {
 	builder.loadClosure()
 	builder.validatePrimary()
 	builder.addDependencies(builder.parents, "PARENT", "PARENT")
@@ -318,7 +319,7 @@ func (builder *arcadeGroupBuilder) build() (PreparedGroup, error) {
 		builder.status, builder.code = "BLOCKED", "UNSUPPORTED_MERGED_ROMSET"
 	}
 	if builder.failure != nil {
-		return PreparedGroup{}, builder.failure
+		return model.PreparedGroup{}, builder.failure
 	}
 	return builder.result(), nil
 }
@@ -330,14 +331,14 @@ func (builder *arcadeGroupBuilder) loadClosure() {
 	builder.parents, builder.bases, builder.closure = parents, bases, closure
 	if err != nil {
 		builder.status, builder.code = "INCOMPATIBLE", "ARCADE_DAT_UNAVAILABLE"
-		if !errors.Is(err, ErrInvalid) {
+		if !errors.Is(err, model.ErrInvalid) {
 			builder.failure = errors.Join(builder.failure, err)
 		}
 	}
 	if cyclic {
 		builder.status, builder.code = "INCOMPATIBLE", "ARCADE_DEPENDENCY_CYCLE"
 	}
-	builder.closureByMachine = make(map[string]ArcadeClosureNode, len(closure))
+	builder.closureByMachine = make(map[string]model.ArcadeClosureNode, len(closure))
 	for _, node := range closure {
 		builder.closureByMachine[node.Machine] = node
 	}
@@ -352,7 +353,7 @@ func (builder *arcadeGroupBuilder) validatePrimary() {
 	)
 	if err != nil {
 		builder.status, builder.code = "INCOMPATIBLE", "ARCADE_DAT_UNAVAILABLE"
-		if !errors.Is(err, ErrInvalid) {
+		if !errors.Is(err, model.ErrInvalid) {
 			builder.failure = errors.Join(builder.failure, err)
 		}
 	} else if hasDisk {
@@ -371,9 +372,9 @@ func (builder *arcadeGroupBuilder) validatePrimary() {
 
 func directArcadeRequirements(
 	entries map[string]importing.ArchiveEntry,
-	requirements []ArcadeROMRequirement,
-) []ArcadeROMRequirement {
-	result := make([]ArcadeROMRequirement, 0, len(requirements))
+	requirements []model.ArcadeROMRequirement,
+) []model.ArcadeROMRequirement {
+	result := make([]model.ArcadeROMRequirement, 0, len(requirements))
 	for _, requirement := range requirements {
 		if requirement.MergeName == nil {
 			result = append(result, requirement)
@@ -396,7 +397,7 @@ func (builder *arcadeGroupBuilder) addDependency(name, kind, role string) {
 	requiredEntries := arcadeRequirementNames(requirements)
 	if err != nil {
 		builder.status, builder.code = "INCOMPATIBLE", "ARCADE_DAT_UNAVAILABLE"
-		if !errors.Is(err, ErrInvalid) {
+		if !errors.Is(err, model.ErrInvalid) {
 			builder.failure = errors.Join(builder.failure, err)
 		}
 		return
@@ -421,7 +422,7 @@ func (builder *arcadeGroupBuilder) addDependency(name, kind, role string) {
 	builder.recordExternalDependency(node, name, kind, role, requirements, requiredEntries, companion)
 }
 
-func arcadeRequirementNames(requirements []ArcadeROMRequirement) []string {
+func arcadeRequirementNames(requirements []model.ArcadeROMRequirement) []string {
 	result := make([]string, 0, len(requirements))
 	for _, requirement := range requirements {
 		result = append(result, requirement.Name)
@@ -430,7 +431,7 @@ func arcadeRequirementNames(requirements []ArcadeROMRequirement) []string {
 }
 
 func (builder *arcadeGroupBuilder) recordMissingDependency(
-	node ArcadeClosureNode,
+	node model.ArcadeClosureNode,
 	name, kind string,
 	requiredEntries []string,
 ) {
@@ -447,9 +448,9 @@ func (builder *arcadeGroupBuilder) recordMissingDependency(
 }
 
 func (builder *arcadeGroupBuilder) recordExternalDependency(
-	node ArcadeClosureNode,
+	node model.ArcadeClosureNode,
 	name, kind, role string,
-	requirements []ArcadeROMRequirement,
+	requirements []model.ArcadeROMRequirement,
 	requiredEntries []string,
 	companion *arcadePreparedArchive,
 ) {
@@ -469,10 +470,10 @@ func (builder *arcadeGroupBuilder) recordExternalDependency(
 	}
 	builder.warnings = append(builder.warnings, warnings...)
 	builder.referenced[companion.file.ID] = struct{}{}
-	builder.sources = append(builder.sources, PreparedSource{
+	builder.sources = append(builder.sources, model.PreparedSource{
 		File: companion.file, Role: "COMPANION", LogicalName: name + ".zip",
 	})
-	builder.validationFiles = append(builder.validationFiles, PreparedValidationFile{
+	builder.validationFiles = append(builder.validationFiles, model.PreparedValidationFile{
 		Role: role, LogicalName: name + ".zip", BlobID: companion.file.BlobID,
 		SortOrder: len(builder.validationFiles),
 	})
@@ -480,7 +481,7 @@ func (builder *arcadeGroupBuilder) recordExternalDependency(
 }
 
 func (builder *arcadeGroupBuilder) appendDependency(
-	node ArcadeClosureNode,
+	node model.ArcadeClosureNode,
 	name, kind, state string,
 	requiredEntries []string,
 ) {
@@ -491,7 +492,7 @@ func (builder *arcadeGroupBuilder) appendDependency(
 	})
 }
 
-func (builder *arcadeGroupBuilder) result() PreparedGroup {
+func (builder *arcadeGroupBuilder) result() model.PreparedGroup {
 	sort.Strings(builder.missing)
 	sort.Strings(builder.mismatched)
 	sort.Strings(builder.warnings)
@@ -503,7 +504,7 @@ func (builder *arcadeGroupBuilder) result() PreparedGroup {
 		"missingEntries": builder.missing, "mismatchedEntries": builder.mismatched,
 		"warnings": builder.warnings,
 	})
-	return PreparedGroup{
+	return model.PreparedGroup{
 		Sources: builder.sources, ValidationStatus: builder.status, CompatibilityCode: builder.code,
 		DependencySnapshot: string(snapshot), ValidationFiles: builder.validationFiles,
 	}
@@ -530,8 +531,8 @@ func sortArcadeDependencies(dependencies []map[string]any) {
 func arcadeDispositions(
 	prepared []arcadePreparedArchive,
 	referenced map[string]struct{},
-) []PreparedDisposition {
-	result := make([]PreparedDisposition, 0, len(prepared))
+) []model.PreparedDisposition {
+	result := make([]model.PreparedDisposition, 0, len(prepared))
 	for index := range prepared {
 		candidate := &prepared[index]
 		switch {

@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -16,7 +17,7 @@ func TestWorkerOwnerLossAndStorageErrorsStopWithoutSettlement(t *testing.T) {
 				cause := errors.New("worker storage failed")
 				switch kind {
 				case "lost":
-					fixture.observe(LeaseLost)
+					fixture.observe(model.LeaseLost)
 				case "read":
 					fixture.observeErr = cause
 				case "renew":
@@ -24,7 +25,7 @@ func TestWorkerOwnerLossAndStorageErrorsStopWithoutSettlement(t *testing.T) {
 				}
 				done := make(chan struct{})
 				go func() {
-					worker.Run(context.Background(), Execution{DeadlineAtMS: time.Now().Add(time.Hour).UnixMilli()})
+					worker.Run(context.Background(), model.Execution{DeadlineAtMS: time.Now().Add(time.Hour).UnixMilli()})
 					close(done)
 				}()
 				synctest.Wait()
@@ -49,7 +50,7 @@ func TestWorkerDurableLeaseLossInterruptsExecutingWork(t *testing.T) {
 		worker, fixture := newWorkerFixture()
 		worker.Start()
 		synctest.Wait()
-		fixture.observe(LeaseLost)
+		fixture.observe(model.LeaseLost)
 		worker.Signal()
 		synctest.Wait()
 		worker.Close()
@@ -64,7 +65,7 @@ func TestWorkerAcknowledgementFailureAndTimeoutRetainCause(t *testing.T) {
 		t.Run(map[bool]string{false: "storage", true: "timeout"}[timeout], func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				worker, fixture := newWorkerFixture()
-				fixture.observe(LeaseCancelled)
+				fixture.observe(model.LeaseCancelled)
 				cause := errors.New("acknowledgement commit failed")
 				fixture.ackErr = cause
 				if timeout {
@@ -72,7 +73,7 @@ func TestWorkerAcknowledgementFailureAndTimeoutRetainCause(t *testing.T) {
 					fixture.settle = func(ctx context.Context) error { <-ctx.Done(); return ctx.Err() }
 				}
 				before := time.Now()
-				worker.Run(context.Background(), Execution{DeadlineAtMS: time.Now().Add(time.Hour).UnixMilli()})
+				worker.Run(context.Background(), model.Execution{DeadlineAtMS: time.Now().Add(time.Hour).UnixMilli()})
 				if fixture.executed.Load() != 0 || fixture.acknowledged.Load() != 1 || fixture.failed.Load() != 0 {
 					t.Fatal("cancelled execution ran")
 				}
@@ -90,7 +91,7 @@ func TestWorkerOriginalBudgetUsesInjectedClockAndJoinsRenewal(t *testing.T) {
 		worker, fixture := newWorkerFixture()
 		worker.now = func() time.Time { return time.UnixMilli(1000) }
 		done := make(chan struct{})
-		go func() { worker.Run(context.Background(), Execution{DeadlineAtMS: 18000}); close(done) }()
+		go func() { worker.Run(context.Background(), model.Execution{DeadlineAtMS: 18000}); close(done) }()
 		synctest.Wait()
 		time.Sleep(15 * time.Second)
 		synctest.Wait()
@@ -115,7 +116,7 @@ func TestWorkerParentDeadlineDoesNotBecomeExecutionFailure(t *testing.T) {
 		worker, fixture := newWorkerFixture()
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		worker.Run(ctx, Execution{DeadlineAtMS: time.Now().Add(time.Hour).UnixMilli()})
+		worker.Run(ctx, model.Execution{DeadlineAtMS: time.Now().Add(time.Hour).UnixMilli()})
 		if fixture.acknowledged.Load() != 0 || fixture.failed.Load() != 0 {
 			t.Fatal("parent deadline wrote execution outcome")
 		}
@@ -125,10 +126,10 @@ func TestWorkerParentDeadlineDoesNotBecomeExecutionFailure(t *testing.T) {
 func TestWorkerExpiredAuthorityUsesRecoveryAndReportsFailure(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		worker, fixture := newWorkerFixture()
-		fixture.errorFailure = ErrExpired
+		fixture.errorFailure = model.ErrExpired
 		cause := errors.New("recovery transaction failed")
 		fixture.maintain = func(context.Context) error { return cause }
-		worker.Run(context.Background(), Execution{DeadlineAtMS: time.Now().UnixMilli()})
+		worker.Run(context.Background(), model.Execution{DeadlineAtMS: time.Now().UnixMilli()})
 		if fixture.executed.Load() != 0 || fixture.failed.Load() != 1 || fixture.maintained.Load() != 1 {
 			t.Fatal("expired execution bypassed recovery")
 		}

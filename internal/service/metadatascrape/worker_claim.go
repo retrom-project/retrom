@@ -3,19 +3,20 @@ package metadatascrape
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 )
 
-func (worker *Worker) claim(ctx context.Context, run WorkerRun) (WorkerClaim, bool, error) {
+func (worker *Worker) claim(ctx context.Context, run model.WorkerRun) (model.WorkerClaim, bool, error) {
 	workerID, err := scheduleID()
 	if err != nil {
-		return WorkerClaim{}, false, err
+		return model.WorkerClaim{}, false, err
 	}
-	claim := WorkerClaim{
+	claim := model.WorkerClaim{
 		RunID: run.RunID, JobID: run.JobID, ExecutionNo: run.ExecutionNo,
 		WorkerID: workerID, Version: run.Version, AttemptCount: run.AttemptCount,
 	}
 	claimed := false
-	err = worker.repository.CommitWrite(ctx, func(scope WorkerScope) error {
+	err = worker.repository.CommitWrite(ctx, func(scope model.WorkerScope) error {
 		claim.Now = worker.now().UnixMilli()
 		claim.Deadline = run.Deadline
 		if claim.Deadline == 0 {

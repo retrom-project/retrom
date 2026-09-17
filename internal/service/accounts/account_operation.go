@@ -5,18 +5,19 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/accounts"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-func newAccountOperation(operation, principal, key string, value any, now int64) (AccountOperation, error) {
+func newAccountOperation(operation, principal, key string, value any, now int64) (model.AccountOperation, error) {
 	encoded, err := json.Marshal(map[string]any{"operationId": operation, "principalId": principal, "value": value})
 	if err != nil {
-		return AccountOperation{}, fmt.Errorf("encode account operation: %w", err)
+		return model.AccountOperation{}, fmt.Errorf("encode account operation: %w", err)
 	}
 	digest := sha256.Sum256(encoded)
-	return AccountOperation{
+	return model.AccountOperation{
 		PrincipalID: principal,
 		Operation:   operation,
 		Key:         key,
@@ -27,8 +28,8 @@ func newAccountOperation(operation, principal, key string, value any, now int64)
 	}, nil
 }
 
-func accountReceipt(operation AccountOperation, status int, body []byte) AccountReceipt {
-	return AccountReceipt{
+func accountReceipt(operation model.AccountOperation, status int, body []byte) model.AccountReceipt {
+	return model.AccountReceipt{
 		Operation: operation,
 		Status:    status,
 		Body:      body,
@@ -42,13 +43,13 @@ func newAccountAudit(
 	actorID, action, resourceType, resourceID string,
 	before, after any,
 	now int64,
-) (AccountAudit, error) {
+) (model.AccountAudit, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return AccountAudit{}, fmt.Errorf("create account audit identity: %w", err)
+		return model.AccountAudit{}, fmt.Errorf("create account audit identity: %w", err)
 	}
 
-	result := AccountAudit{
+	result := model.AccountAudit{
 		ID:           id.String(),
 		ActorID:      actorID,
 		Action:       action,
@@ -59,14 +60,14 @@ func newAccountAudit(
 	if before != nil {
 		value, err := auditJSON(before)
 		if err != nil {
-			return AccountAudit{}, err
+			return model.AccountAudit{}, err
 		}
 		result.BeforeJSON = &value
 	}
 	if after != nil {
 		value, err := auditJSON(after)
 		if err != nil {
-			return AccountAudit{}, err
+			return model.AccountAudit{}, err
 		}
 		result.AfterJSON = &value
 	}
@@ -88,9 +89,9 @@ func auditJSON(value any) (string, error) {
 	), nil
 }
 
-func checkAccountReplay(replay AccountReplay, operation AccountOperation) error {
+func checkAccountReplay(replay model.AccountReplay, operation model.AccountOperation) error {
 	if replay.Found && replay.Digest != operation.Digest {
-		return ErrIdempotencyReused
+		return model.ErrIdempotencyReused
 	}
 	return nil
 }

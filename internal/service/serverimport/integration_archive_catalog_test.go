@@ -9,6 +9,7 @@ import (
 	"hash/crc32"
 	"os"
 	"path/filepath"
+	model "retrom/internal/model/serverimport"
 	"strings"
 	"testing"
 	"time"
@@ -133,7 +134,7 @@ func testServerArchiveImport(t *testing.T, complete bool) {
 	ctx := context.Background()
 	service, database, root := archiveImportFixture(t)
 	writeArchiveCandidate(t, root, complete)
-	created, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
+	created, err := service.Create(ctx, model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	if err != nil {
 		t.Fatal(err)
 	}

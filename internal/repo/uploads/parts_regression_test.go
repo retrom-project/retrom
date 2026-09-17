@@ -10,8 +10,9 @@ import (
 	"time"
 
 	uploadpersistence "retrom/internal/repo/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
 
 	_ "modernc.org/sqlite"
 )
@@ -31,7 +32,7 @@ func TestCanceledUploadCannotAcceptNewParts(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := service.PutPart(t.Context(), session.ID, session.Files[0].ID, 0, "bytes 0-4/5", digest([]byte("bytes")), bytes.NewReader([]byte("bytes")))
-	if !errors.Is(err, uploads.ErrInvalid) {
+	if !errors.Is(err, uploadsmodel.ErrInvalid) {
 		t.Errorf("terminal upload accepted a part: %v", err)
 	}
 	assertNoPartProgress(t, database, session, "CANCELLED")
@@ -40,7 +41,7 @@ func TestCanceledUploadCannotAcceptNewParts(t *testing.T) {
 func TestPartOffsetsMustMatchPartNumberExactly(t *testing.T) {
 	service, database, session := partFixture(t, true)
 	err := service.PutPart(t.Context(), session.ID, session.Files[0].ID, 0, "bytes 1-4/5", digest([]byte("ytes")), bytes.NewReader([]byte("ytes")))
-	if !errors.Is(err, uploads.ErrInvalid) {
+	if !errors.Is(err, uploadsmodel.ErrInvalid) {
 		t.Errorf("misaligned part accepted: %v", err)
 	}
 	assertNoPartProgress(t, database, session, "CREATED")
@@ -51,7 +52,7 @@ func digest(data []byte) string {
 	return "sha-256=:" + base64.StdEncoding.EncodeToString(sum[:]) + ":"
 }
 
-func assertNoPartProgress(t *testing.T, database *sql.DB, session uploads.Session, state string) {
+func assertNoPartProgress(t *testing.T, database *sql.DB, session uploadsmodel.Session, state string) {
 	t.Helper()
 	var count, received int64
 	var actual string
@@ -69,7 +70,7 @@ func assertNoPartProgress(t *testing.T, database *sql.DB, session uploads.Sessio
 	}
 }
 
-func partFixture(t *testing.T, allowProgress bool) (*uploads.Service, *sql.DB, uploads.Session) {
+func partFixture(t *testing.T, allowProgress bool) (*uploadsservice.Service, *sql.DB, uploadsmodel.Session) {
 	t.Helper()
 	database, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -98,8 +99,8 @@ CREATE TABLE upload_consumptions (upload_session_id TEXT);
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := uploads.New(uploadpersistence.New(database), nil, t.TempDir(), func() time.Time { return time.UnixMilli(1000) })
-	session, err := service.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{
+	service := uploadsservice.New(uploadpersistence.New(database), nil, t.TempDir(), func() time.Time { return time.UnixMilli(1000) })
+	session, err := service.Create(t.Context(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{
 		{ClientFileID: "file", RelativePath: "fixture.bin", SizeBytes: 5},
 	}})
 	if err != nil {

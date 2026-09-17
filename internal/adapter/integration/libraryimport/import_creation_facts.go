@@ -1,6 +1,6 @@
 package libraryimport
 
-import application "retrom/internal/service/libraryimport"
+import application "retrom/internal/model/libraryimport"
 
 func importTargetFacts(target creationTarget) application.ImportTarget    { return target }
 func legacyCreationTarget(target application.ImportTarget) creationTarget { return target }

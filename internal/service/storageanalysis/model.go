@@ -3,6 +3,7 @@ package storageanalysis
 import (
 	"errors"
 	"math"
+	model "retrom/internal/model/storageanalysis"
 )
 
 const Scope = "REGISTERED_CAS_PAYLOAD_V1"
@@ -82,11 +83,11 @@ type Snapshot struct {
 	Excluded      []string
 }
 
-const durableUsage = UsageGame | UsageBIOS | UsageSaves | UsageMedia
+const durableUsage = model.UsageGame | model.UsageBIOS | model.UsageSaves | model.UsageMedia
 
 var errIntegerOverflow = errors.New("STORAGE_ANALYSIS_INTEGER_OVERFLOW")
 
-func classify(protected bool, flags Usage) CategoryCode {
+func classify(protected bool, flags model.Usage) CategoryCode {
 	if !protected {
 		return CategoryUnreferenced
 	}
@@ -95,17 +96,17 @@ func classify(protected bool, flags Usage) CategoryCode {
 		return CategorySharedDurable
 	}
 	switch {
-	case durable&UsageGame != 0:
+	case durable&model.UsageGame != 0:
 		return CategoryGameContent
-	case durable&UsageBIOS != 0:
+	case durable&model.UsageBIOS != 0:
 		return CategoryBIOS
-	case durable&UsageSaves != 0:
+	case durable&model.UsageSaves != 0:
 		return CategorySaves
-	case durable&UsageMedia != 0:
+	case durable&model.UsageMedia != 0:
 		return CategoryMedia
-	case flags&UsageWorkflow != 0:
+	case flags&model.UsageWorkflow != 0:
 		return CategoryWorkflow
-	case flags&UsageRuntime != 0:
+	case flags&model.UsageRuntime != 0:
 		return CategoryRuntimeSnapshot
 	default:
 		return CategoryOtherReferenced

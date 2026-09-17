@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	model "retrom/internal/model/serverimport"
 	"strings"
 	"time"
 
@@ -13,12 +14,12 @@ import (
 )
 
 type Control struct {
-	repository ControlRepository
+	repository model.ControlRepository
 	roots      map[string]string
 	now        func() time.Time
 }
 
-func NewControl(repository ControlRepository, roots map[string]string, now func() time.Time) *Control {
+func NewControl(repository model.ControlRepository, roots map[string]string, now func() time.Time) *Control {
 	return &Control{repository: repository, roots: maps.Clone(roots), now: now}
 }
 
@@ -27,17 +28,17 @@ func (service *Control) Cancel(
 	id string,
 	version int64,
 	reason, actorID string,
-) (Summary, bool, error) {
+) (model.Summary, bool, error) {
 	reason = strings.TrimSpace(reason)
 	if reason == "" || len([]rune(reason)) > 500 {
-		return Summary{}, false, ErrNotCancellable
+		return model.Summary{}, false, model.ErrNotCancellable
 	}
-	var result Summary
+	var result model.Summary
 	var pending bool
-	err := service.repository.CommitWrite(ctx, func(scope ControlScope) error {
+	err := service.repository.CommitWrite(ctx, func(scope model.ControlScope) error {
 		before, err := scope.Read.Current(ctx, id)
-		if errors.Is(err, ErrNotFound) {
-			return ErrNotCancellable
+		if errors.Is(err, model.ErrNotFound) {
+			return model.ErrNotCancellable
 		}
 		if err != nil {
 			return fmt.Errorf("read import cancellation state: %w", err)
@@ -45,13 +46,13 @@ func (service *Control) Cancel(
 		if before.Summary.Version != version || version == math.MaxInt64 ||
 			before.JobState != before.Summary.State ||
 			(before.Summary.State != "QUEUED" && before.Summary.State != "RUNNING") {
-			return ErrNotCancellable
+			return model.ErrNotCancellable
 		}
 		evidence, err := newControlEvidence(actorID, service.now().UnixMilli(), []byte(`{"schemaVersion":1}`))
 		if err != nil {
 			return err
 		}
-		plan := Cancellation{
+		plan := model.Cancellation{
 			Before:         before,
 			Pending:        before.Summary.State == "RUNNING",
 			State:          "CANCEL_REQUESTED",
@@ -77,23 +78,23 @@ func (service *Control) Cancel(
 		return nil
 	})
 	if err != nil {
-		return Summary{}, false, fmt.Errorf("commit server import cancellation: %w", err)
+		return model.Summary{}, false, fmt.Errorf("commit server import cancellation: %w", err)
 	}
 	return result, pending, nil
 }
 
-func (service *Control) Retry(ctx context.Context, id string, version int64, actorID string) (Summary, error) {
-	var result Summary
-	err := service.repository.CommitWrite(ctx, func(scope ControlScope) error {
+func (service *Control) Retry(ctx context.Context, id string, version int64, actorID string) (model.Summary, error) {
+	var result model.Summary
+	err := service.repository.CommitWrite(ctx, func(scope model.ControlScope) error {
 		before, err := scope.Read.Current(ctx, id)
-		if errors.Is(err, ErrNotFound) {
-			return ErrNotRetryable
+		if errors.Is(err, model.ErrNotFound) {
+			return model.ErrNotRetryable
 		}
 		if err != nil {
 			return fmt.Errorf("read import retry state: %w", err)
 		}
 		if !service.retryable(before, version) {
-			return ErrNotRetryable
+			return model.ErrNotRetryable
 		}
 		plan, err := newManualRetry(before, actorID, service.now().UnixMilli())
 		if err != nil {
@@ -110,12 +111,12 @@ func (service *Control) Retry(ctx context.Context, id string, version int64, act
 		return nil
 	})
 	if err != nil {
-		return Summary{}, fmt.Errorf("commit server import retry: %w", err)
+		return model.Summary{}, fmt.Errorf("commit server import retry: %w", err)
 	}
 	return result, nil
 }
 
-func (service *Control) retryable(before ControlSnapshot, version int64) bool {
+func (service *Control) retryable(before model.ControlSnapshot, version int64) bool {
 	summary := before.Summary
 	if before.OtherActive || summary.Version != version || version == math.MaxInt64 ||
 		before.Execution < 1 || before.Execution == math.MaxInt64 ||
@@ -129,10 +130,10 @@ func (service *Control) retryable(before ControlSnapshot, version int64) bool {
 	return found && digest == before.RootDigest
 }
 
-func newControlEvidence(actorID string, now int64, event []byte) (ControlEvidence, error) {
+func newControlEvidence(actorID string, now int64, event []byte) (model.ControlEvidence, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return ControlEvidence{}, fmt.Errorf("create import audit identity: %w", err)
+		return model.ControlEvidence{}, fmt.Errorf("create import audit identity: %w", err)
 	}
-	return ControlEvidence{ActorID: actorID, AuditID: id.String(), Event: event, Now: now}, nil
+	return model.ControlEvidence{ActorID: actorID, AuditID: id.String(), Event: event, Now: now}, nil
 }

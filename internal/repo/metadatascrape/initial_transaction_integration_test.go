@@ -8,14 +8,17 @@ import (
 	"errors"
 	"testing"
 
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/repo/dbexec"
 	initialpersistence "retrom/internal/repo/metadatascrape"
-	initialservice "retrom/internal/service/metadatascrape"
+	metadatascrapeservice "retrom/internal/service/metadatascrape"
 )
 
-type failingInitialWriter struct{ initialservice.InitialWriter }
+type failingInitialWriter struct {
+	metadatascrapemodel.InitialWriter
+}
 
-func (writer failingInitialWriter) Advance(ctx context.Context, change initialservice.InitialProgressChange) error {
+func (writer failingInitialWriter) Advance(ctx context.Context, change metadatascrapemodel.InitialProgressChange) error {
 	if err := writer.InitialWriter.Advance(ctx, change); err != nil {
 		return err
 	}
@@ -32,7 +35,7 @@ func assertInitialProgressRollback(t *testing.T, database *sql.DB, runID, itemID
 	defer dbexec.Rollback(transaction)
 	scope := initialpersistence.BindInitialReview(transaction)
 	scope.Write = failingInitialWriter{scope.Write}
-	err = initialservice.NewInitialReview(scope).Complete(t.Context(), runID, 100)
+	err = metadatascrapeservice.NewInitialReview(scope).Complete(t.Context(), runID, 100)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("late initial progress failure: %v", err)
 	}

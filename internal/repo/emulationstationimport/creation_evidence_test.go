@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func TestCreationPersistsFrozenYearAndInputDigestWithResponse(t *testing.T) {

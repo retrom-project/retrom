@@ -3,28 +3,29 @@ package libraryimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 	"time"
 )
 
 type sourceRecordsStub struct {
-	snapshot          SourceCreationSnapshot
+	snapshot          model.SourceCreationSnapshot
 	readErr, writeErr error
-	changes           []SourceBindingChange
+	changes           []model.SourceBindingChange
 }
 
-func (records *sourceRecordsStub) ReadSource(context.Context, SourceCreationIntent) (SourceCreationSnapshot, error) {
+func (records *sourceRecordsStub) ReadSource(context.Context, model.SourceCreationIntent) (model.SourceCreationSnapshot, error) {
 	return records.snapshot, records.readErr
 }
 
-func (records *sourceRecordsStub) BindSource(_ context.Context, change SourceBindingChange) error {
+func (records *sourceRecordsStub) BindSource(_ context.Context, change model.SourceBindingChange) error {
 	records.changes = append(records.changes, change)
 	return records.writeErr
 }
 
-func sourceOwnershipFixture() (SourceCreationIntent, SourceCreationSnapshot) {
-	intent := SourceCreationIntent{Kind: SourceOwnerPegasus, ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{"games/main.gba"}}
-	snapshot := SourceCreationSnapshot{Kind: SourceOwnerPegasus, ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, SourceVersion: 2, ImportVersion: 3, JobVersion: 4, SourceState: "COPYING", ImportState: "RUNNING", JobState: "RUNNING", LeaseUntilMS: 100, DeadlineMS: 200, TargetPlatformInstanceID: "target", TargetVersion: 1, MappingAction: "IMPORT", PrimaryPaths: []string{"games/main.gba"}}
+func sourceOwnershipFixture() (model.SourceCreationIntent, model.SourceCreationSnapshot) {
+	intent := model.SourceCreationIntent{Kind: model.SourceOwnerPegasus, ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{"games/main.gba"}}
+	snapshot := model.SourceCreationSnapshot{Kind: model.SourceOwnerPegasus, ImportID: "plan", ItemID: "source", JobID: "work", WorkerID: "worker", ExecutionNo: 1, Attempt: 1, SourceVersion: 2, ImportVersion: 3, JobVersion: 4, SourceState: "COPYING", ImportState: "RUNNING", JobState: "RUNNING", LeaseUntilMS: 100, DeadlineMS: 200, TargetPlatformInstanceID: "target", TargetVersion: 1, MappingAction: "IMPORT", PrimaryPaths: []string{"games/main.gba"}}
 	return intent, snapshot
 }
 
@@ -53,7 +54,7 @@ func TestSourceOwnershipRejectsStaleExecutionBeforeCreation(t *testing.T) {
 			}
 			service := NewSourceOwnership(func() time.Time { return time.UnixMilli(10) })
 			result, err := service.Prepare(t.Context(), &sourceRecordsStub{snapshot: snapshot}, intent, "target")
-			if !errors.Is(err, ErrVersionConflict) || result.ItemID != "" {
+			if !errors.Is(err, model.ErrVersionConflict) || result.ItemID != "" {
 				t.Fatalf("stale %s accepted: %#v %v", kind, result, err)
 			}
 		})
@@ -67,7 +68,7 @@ func TestSourceOwnershipRevalidatesSourceVersionAfterPreparation(t *testing.T) {
 	after.SourceVersion++
 	service := NewSourceOwnership(func() time.Time { return time.UnixMilli(10) })
 	result, err := service.Revalidate(t.Context(), &sourceRecordsStub{snapshot: after}, intent, before, "target")
-	if !errors.Is(err, ErrVersionConflict) || result.ItemID != "" {
+	if !errors.Is(err, model.ErrVersionConflict) || result.ItemID != "" {
 		t.Fatalf("changed source accepted: %#v %v", result, err)
 	}
 }
@@ -82,7 +83,7 @@ func TestSourceOwnershipPreservesStorageErrors(t *testing.T) {
 		t.Fatalf("read failure lost: %#v %v", result, err)
 	}
 	records := &sourceRecordsStub{writeErr: failure}
-	err = service.Attach(t.Context(), records, before, ServerCreated{ImportJobID: "library"}, ServerImportItem{ItemID: "item", ContentKind: "SINGLE_FILE", SourceManifestJSON: "{}", SourceManifestDigest: "digest"})
+	err = service.Attach(t.Context(), records, before, model.ServerCreated{ImportJobID: "library"}, model.ServerImportItem{ItemID: "item", ContentKind: "SINGLE_FILE", SourceManifestJSON: "{}", SourceManifestDigest: "digest"})
 	if !errors.Is(err, failure) {
 		t.Fatalf("bind failure lost: %v", err)
 	}
@@ -92,11 +93,11 @@ func TestOwnedSourceRequiresOneDeclaredPrimaryGroup(t *testing.T) {
 	t.Parallel()
 	wanted := []string{"games/main.zip"}
 	for _, paths := range [][][]string{nil, {{"parent.zip"}}, {{"games/main.zip"}, {"parent.zip"}}, {{"games/main.zip"}, {"games/main.zip"}}} {
-		if err := ValidateOwnedSourceGroups(wanted, paths); !errors.Is(err, ErrInvalid) || !errors.Is(err, ErrSourceGrouping) {
+		if err := ValidateOwnedSourceGroups(wanted, paths); !errors.Is(err, model.ErrInvalid) || !errors.Is(err, model.ErrSourceGrouping) {
 			t.Fatalf("unowned groups accepted: %#v %v", paths, err)
 		}
 	}
-	if err := ValidateOwnedSourceGroups(nil, [][]string{{"games/main.zip"}}); !errors.Is(err, ErrInvalid) || !errors.Is(err, ErrSourceGrouping) {
+	if err := ValidateOwnedSourceGroups(nil, [][]string{{"games/main.zip"}}); !errors.Is(err, model.ErrInvalid) || !errors.Is(err, model.ErrSourceGrouping) {
 		t.Fatalf("missing primary paths lack grouping classification: %v", err)
 	}
 	if err := ValidateOwnedSourceGroups(wanted, [][]string{{"games/main.zip"}}); err != nil {
@@ -119,19 +120,19 @@ func TestSourceOwnershipAcceptsLeaseRenewalForSameExecution(t *testing.T) {
 
 func TestOwnedSourceFilesMatchCopiedPrimaryButAllowDependencies(t *testing.T) {
 	t.Parallel()
-	source := ServerSourceFile{RelativePath: "main.zip", BlobID: "primary", SizeBytes: 1}
-	snapshot := SourceCreationSnapshot{Files: []SourceCreationFile{{File: source, State: "COPIED"}}}
-	inputs := []ServerSourceFile{source, {RelativePath: "parent.zip", BlobID: "parent", SizeBytes: 2}}
+	source := model.ServerSourceFile{RelativePath: "main.zip", BlobID: "primary", SizeBytes: 1}
+	snapshot := model.SourceCreationSnapshot{Files: []model.SourceCreationFile{{File: source, State: "COPIED"}}}
+	inputs := []model.ServerSourceFile{source, {RelativePath: "parent.zip", BlobID: "parent", SizeBytes: 2}}
 	if err := ValidateOwnedSourceFiles(snapshot, inputs); err != nil {
 		t.Fatal(err)
 	}
 	inputs[0].BlobID = "other"
-	if err := ValidateOwnedSourceFiles(snapshot, inputs); !errors.Is(err, ErrVersionConflict) || errors.Is(err, ErrSourceGrouping) {
+	if err := ValidateOwnedSourceFiles(snapshot, inputs); !errors.Is(err, model.ErrVersionConflict) || errors.Is(err, model.ErrSourceGrouping) {
 		t.Fatalf("different copied blob accepted: %v", err)
 	}
 	inputs[0] = source
 	snapshot.Files[0].State = "SOURCE_CHANGED"
-	if err := ValidateOwnedSourceFiles(snapshot, inputs); !errors.Is(err, ErrVersionConflict) {
+	if err := ValidateOwnedSourceFiles(snapshot, inputs); !errors.Is(err, model.ErrVersionConflict) {
 		t.Fatalf("changed source accepted: %v", err)
 	}
 }

@@ -4,25 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/diagnostics"
 )
 
 var ErrUnavailable = errors.New("diagnostics repository unavailable")
 
 // Service assembles a diagnostics report from one repository snapshot.
 type Service struct {
-	repository Repository
+	repository model.Repository
 }
 
-func New(repository Repository) *Service {
+func New(repository model.Repository) *Service {
 	return &Service{repository: repository}
 }
 
-func (service *Service) Report(ctx context.Context) (Report, error) {
+func (service *Service) Report(ctx context.Context) (model.Report, error) {
 	if service.repository == nil {
-		return Report{}, ErrUnavailable
+		return model.Report{}, ErrUnavailable
 	}
-	var report Report
-	err := service.repository.WithRead(ctx, func(scope ReadScope) error {
+	var report model.Report
+	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
 		var err error
 		report.DatabaseSchemaVersion, err = scope.SchemaVersion(ctx)
 		if err != nil {
@@ -39,7 +40,7 @@ func (service *Service) Report(ctx context.Context) (Report, error) {
 		return nil
 	})
 	if err != nil {
-		return Report{}, fmt.Errorf("diagnostics report: %w", err)
+		return model.Report{}, fmt.Errorf("diagnostics report: %w", err)
 	}
 	return report, nil
 }

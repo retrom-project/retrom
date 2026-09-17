@@ -3,23 +3,24 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/payloadrelease"
 	"time"
 )
 
-func (service *ReleaseEffects) Execute(ctx context.Context, unit Execution) error {
+func (service *ReleaseEffects) Execute(ctx context.Context, unit model.Execution) error {
 	frozen, err := DecodeWork(unit.Work)
 	if err != nil {
 		return err
 	}
 	if frozen != unit.Input || unit.Work.Kind != "PAYLOAD_RELEASE" {
-		return ErrInputInvalid
+		return model.ErrInputInvalid
 	}
-	if unit.Work.Scope.Type == ScopeGame {
+	if unit.Work.Scope.Type == model.ScopeGame {
 		if err := service.waitForMutations(ctx, unit.Work.Scope); err != nil {
 			return err
 		}
 	}
-	err = service.repository.WithEffects(ctx, func(scope EffectScope) error {
+	err = service.repository.WithEffects(ctx, func(scope model.EffectScope) error {
 		if err := service.authority.CheckInScope(ctx, scope.Worker, unit.Work); err != nil {
 			return fmt.Errorf("check reference release authority: %w", err)
 		}
@@ -33,7 +34,7 @@ func (service *ReleaseEffects) Execute(ctx context.Context, unit Execution) erro
 		if err := recheckEffectMutations(ctx, scope.Read, unit.Work.Scope); err != nil {
 			return err
 		}
-		run := effectRun{scope: scope, nowMS: service.now().UnixMilli(), visited: make(map[Scope]bool)}
+		run := effectRun{scope: scope, nowMS: service.now().UnixMilli(), visited: make(map[model.Scope]bool)}
 		if err := run.execute(ctx, before, unit.Input.Inputs.Reason); err != nil {
 			return err
 		}
@@ -54,7 +55,7 @@ func (service *ReleaseEffects) Execute(ctx context.Context, unit Execution) erro
 	return nil
 }
 
-func (service *ReleaseEffects) waitForMutations(ctx context.Context, scope Scope) error {
+func (service *ReleaseEffects) waitForMutations(ctx context.Context, scope model.Scope) error {
 	for {
 		active, err := service.repository.ActiveMutations(ctx, scope)
 		if err != nil {
@@ -70,14 +71,14 @@ func (service *ReleaseEffects) waitForMutations(ctx context.Context, scope Scope
 }
 
 type effectRun struct {
-	scope     EffectScope
+	scope     model.EffectScope
 	nowMS     int64
 	blobs     []string
-	visited   map[Scope]bool
-	completed []EffectOwner
+	visited   map[model.Scope]bool
+	completed []model.EffectOwner
 }
 
-func (run *effectRun) release(ctx context.Context, before EffectOwner) error {
+func (run *effectRun) release(ctx context.Context, before model.EffectOwner) error {
 	owner := before.Owner
 	if owner.PayloadState == "RELEASED" || run.visited[owner.Scope] {
 		return nil
@@ -88,17 +89,17 @@ func (run *effectRun) release(ctx context.Context, before EffectOwner) error {
 		return err
 	}
 	switch owner.Scope.Type {
-	case ScopeGame:
+	case model.ScopeGame:
 		return run.game(ctx, before)
-	case ScopeImportItem:
+	case model.ScopeImportItem:
 		return run.item(ctx, before)
-	case ScopeImportJob:
+	case model.ScopeImportJob:
 		return run.aggregate(ctx, before)
-	case ScopePegasusImportItem, ScopeEmulationStationImportItem:
+	case model.ScopePegasusImportItem, model.ScopeEmulationStationImportItem:
 		return run.source(ctx, before)
-	case ScopeUploadConsumption, ScopeBlob:
-		return ErrScopeInvalid
+	case model.ScopeUploadConsumption, model.ScopeBlob:
+		return model.ErrScopeInvalid
 	default:
-		return ErrScopeInvalid
+		return model.ErrScopeInvalid
 	}
 }

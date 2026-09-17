@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func (source *Sources) checkSourceExecution(ctx context.Context, unit application.Execution) error {

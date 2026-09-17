@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func (server *Server) createReviewAsset(writer http.ResponseWriter, request *http.Request) {

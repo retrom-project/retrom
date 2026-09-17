@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	model "retrom/internal/model/dependencies"
 	"testing"
 	"time"
 
@@ -26,7 +27,7 @@ func TestTargetRequiresUniqueProviderBinding(t *testing.T) {
 		{CoreID: "core", ProviderID: "provider", TargetID: "target"},
 		{CoreID: "core", ProviderID: "provider", TargetID: "target"},
 	}}, "core")
-	if err != nil || target != (RuntimeTarget{ProviderID: "provider", TargetID: "target"}) {
+	if err != nil || target != (model.RuntimeTarget{ProviderID: "provider", TargetID: "target"}) {
 		t.Fatalf("duplicate identical binding must be accepted: %+v %v", target, err)
 	}
 }
@@ -53,7 +54,7 @@ func TestClaimFailureStopsDirectoryTransition(t *testing.T) {
 
 func TestRetainedFailedJobIsNotRecreated(t *testing.T) {
 	for _, state := range []string{"FAILED", "CANCELLED"} {
-		repository := &workflowRepository{job: Job{ID: "existing", State: state}, found: true}
+		repository := &workflowRepository{job: model.Job{ID: "existing", State: state}, found: true}
 		_, err := ensureBuiltInDATJob(t.Context(), repository, "dat", "sha", "parser", time.UnixMilli(1000))
 		if !errors.Is(err, ErrDATParseFailed) || len(repository.calls) != 0 {
 			t.Fatalf("retained %s evidence overwritten: calls=%v error=%v", state, repository.calls, err)
@@ -73,30 +74,30 @@ func TestPublicationStopsBeforeActivationAfterWriteFailure(t *testing.T) {
 type workflowRepository struct {
 	transactions                 int
 	calls                        []string
-	claim                        JobClaim
+	claim                        model.JobClaim
 	claimError, publicationError error
-	job                          Job
+	job                          model.Job
 	found                        bool
 }
 
-func (repository *workflowRepository) CommitWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *workflowRepository) CommitWrite(_ context.Context, work func(model.WriteScope) error) error {
 	repository.transactions++
-	return work(WriteScope{Jobs: repository, Catalog: repository})
+	return work(model.WriteScope{Jobs: repository, Catalog: repository})
 }
 
-func (*workflowRepository) TargetExists(context.Context, RuntimeTarget) (bool, error) {
+func (*workflowRepository) TargetExists(context.Context, model.RuntimeTarget) (bool, error) {
 	panic("unexpected target read")
 }
 
-func (*workflowRepository) FindDAT(context.Context, DATLookup) (DATState, error) {
+func (*workflowRepository) FindDAT(context.Context, model.DATLookup) (model.DATState, error) {
 	panic("unexpected DAT read")
 }
 
-func (repository *workflowRepository) Find(context.Context, string) (Job, bool, error) {
+func (repository *workflowRepository) Find(context.Context, string) (model.Job, bool, error) {
 	return repository.job, repository.found, nil
 }
 
-func (*workflowRepository) Create(context.Context, JobCreation) error {
+func (*workflowRepository) Create(context.Context, model.JobCreation) error {
 	panic("unexpected job creation")
 }
 
@@ -104,19 +105,21 @@ func (*workflowRepository) Requeue(context.Context, string, int64) error {
 	panic("unexpected job recovery")
 }
 
-func (repository *workflowRepository) Claim(_ context.Context, claim JobClaim) error {
+func (repository *workflowRepository) Claim(_ context.Context, claim model.JobClaim) error {
 	repository.calls = append(repository.calls, "claim")
 	repository.claim = claim
 	return repository.claimError
 }
 
-func (*workflowRepository) Finish(context.Context, JobFinish) error { panic("unexpected completion") }
+func (*workflowRepository) Finish(context.Context, model.JobFinish) error {
+	panic("unexpected completion")
+}
 
 func (*workflowRepository) Version(context.Context, string) (int64, error) {
 	panic("unexpected version read")
 }
 
-func (repository *workflowRepository) Publish(context.Context, CatalogPublication) error {
+func (repository *workflowRepository) Publish(context.Context, model.CatalogPublication) error {
 	repository.calls = append(repository.calls, "publish")
 	return repository.publicationError
 }

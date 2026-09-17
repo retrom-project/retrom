@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/engine/rpgmaker/detector"
 )
@@ -23,7 +24,7 @@ type creationRTPRequirement struct {
 
 func (run *creationCommit) persistRPG(
 	ctx context.Context,
-	scope ImportCreationScope,
+	scope model.ImportCreationScope,
 	record *creationGroup,
 ) error {
 	profile := record.group.RPGProfile
@@ -32,7 +33,7 @@ func (run *creationCommit) persistRPG(
 	}
 	target := run.plan.Target
 	if target.CoreID != detector.VirtualCoreID || target.ProviderID == "" || target.TargetID == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	summary, err := CreationRPGManifestSummary([]byte(record.manifestJSON), len(record.group.Sources))
 	if err != nil {
@@ -47,7 +48,7 @@ func (run *creationCommit) persistRPG(
 		return creationError("persist r p g", err)
 	}
 	dependency := sha256.Sum256([]byte(record.group.DependencySnapshot))
-	change := CreationRPGProfile{
+	change := model.CreationRPGProfile{
 		DraftID:            record.draftID,
 		Generation:         string(profile.ExpectedGeneration),
 		EvidenceFamily:     profile.EvidenceFamily,
@@ -79,7 +80,7 @@ func CreationRPGManifestSummary(contents []byte, expectedFiles int) (CreationRPG
 		return CreationRPGManifest{}, fmt.Errorf("decode creation RPG manifest: %w", err)
 	}
 	if summary.FileCount != expectedFiles || len(summary.FilesDigest) != 64 {
-		return CreationRPGManifest{}, ErrInvalid
+		return CreationRPGManifest{}, model.ErrInvalid
 	}
 	return summary, nil
 }

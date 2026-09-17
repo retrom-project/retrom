@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
-	payloadservice "retrom/internal/service/payloadrelease"
+	payloadservice "retrom/internal/model/payloadrelease"
 )
 
 func TestDeleteRemovesBlobAndTreatsMissingAsSuccess(t *testing.T) {

@@ -10,12 +10,13 @@ import (
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/runtime/runtimelaunch"
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
+	launchservice "retrom/internal/service/launch"
 )
 
 type configBuildHook struct {
-	application.ConfigBuilder
+	launchmodel.ConfigBuilder
 	after func()
 }
 
@@ -28,15 +29,15 @@ func (builder configBuildHook) Build(input runtimelaunch.Input) ([]byte, error) 
 }
 
 type configRollbackRepository struct {
-	application.ConfigRepository
+	launchmodel.ConfigRepository
 	cause error
 }
 
 func (repository configRollbackRepository) WithActivation(
 	ctx context.Context,
-	work func(application.ConfigActivation) error,
+	work func(launchmodel.ConfigActivation) error,
 ) error {
-	return repository.ConfigRepository.WithActivation(ctx, func(transaction application.ConfigActivation) error {
+	return repository.ConfigRepository.WithActivation(ctx, func(transaction launchmodel.ConfigActivation) error {
 		if err := work(transaction); err != nil {
 			return err
 		}
@@ -46,15 +47,15 @@ func (repository configRollbackRepository) WithActivation(
 
 func fixtureConfigIssuer(
 	fixture reviewCheckpointFixture,
-	repository application.ConfigRepository,
-	builder application.ConfigBuilder,
-) *application.ConfigIssuer {
-	return application.NewConfigIssuer(repository, builder, application.ConfigEnvironment{
+	repository launchmodel.ConfigRepository,
+	builder launchmodel.ConfigBuilder,
+) *launchservice.ConfigIssuer {
+	return launchservice.NewConfigIssuer(repository, builder, launchmodel.ConfigEnvironment{
 		Now: fixture.launcher.now, Matches: retromruntime.MatchesCapability,
 		PublicOrigin: fixture.launcher.publicOrigin,
-		SignIsolation: func(id string) (application.IsolationTicket, error) {
+		SignIsolation: func(id string) (launchmodel.IsolationTicket, error) {
 			origin, ticket, hash, err := fixture.launcher.isolatedRuntimeTicket(id)
-			return application.IsolationTicket{Origin: origin, Ticket: ticket, Hash: hash}, err
+			return launchmodel.IsolationTicket{Origin: origin, Ticket: ticket, Hash: hash}, err
 		},
 	})
 }
@@ -76,8 +77,8 @@ func TestConfigSnapshotRetainsSourceAuthority(t *testing.T) {
 			fixture, created := newPlaySourceFixture(t, preview, false)
 			snapshot, found, err := persistence.NewConfig(fixture.database).Load(
 				t.Context(),
-				application.SessionRef{ID: created.LaunchID, Preview: preview},
-				func(application.ConfigSource) error { return nil },
+				launchmodel.SessionRef{ID: created.LaunchID, Preview: preview},
+				func(launchmodel.ConfigSource) error { return nil },
 			)
 			if err != nil || !found {
 				t.Fatalf("snapshot found=%v error=%v", found, err)
@@ -120,7 +121,7 @@ func TestConfigFinishDuringEnvelopeBuildPreventsIssuance(t *testing.T) {
 			issuer := fixtureConfigIssuer(fixture, persistence.NewConfig(fixture.database), builder)
 			configuration, err := issuer.Issue(
 				t.Context(),
-				application.SessionRef{ID: created.LaunchID, Preview: preview},
+				launchmodel.SessionRef{ID: created.LaunchID, Preview: preview},
 				created.Capability,
 			)
 			assertNoConfig(t, configuration, err, ErrCredential)
@@ -140,7 +141,7 @@ func TestConfigActivationFailureRollsBackAllOwners(t *testing.T) {
 			issuer := fixtureConfigIssuer(fixture, repository, fixture.launcher.runtimeBuilder)
 			configuration, err := issuer.Issue(
 				t.Context(),
-				application.SessionRef{ID: created.LaunchID, Preview: preview},
+				launchmodel.SessionRef{ID: created.LaunchID, Preview: preview},
 				created.Capability,
 			)
 			assertNoConfig(t, configuration, err, cause)
@@ -164,7 +165,7 @@ func TestConfigConcurrentActivationIsIdempotent(t *testing.T) {
 			issuer := fixtureConfigIssuer(fixture, persistence.NewConfig(fixture.database), builder)
 			configuration, err := issuer.Issue(
 				t.Context(),
-				application.SessionRef{ID: created.LaunchID, Preview: preview},
+				launchmodel.SessionRef{ID: created.LaunchID, Preview: preview},
 				created.Capability,
 			)
 			if err != nil {
@@ -190,7 +191,7 @@ func TestConfigCancellationAfterBuildDoesNotActivate(t *testing.T) {
 	defer cancel()
 	builder := configBuildHook{ConfigBuilder: fixture.launcher.runtimeBuilder, after: cancel}
 	issuer := fixtureConfigIssuer(fixture, persistence.NewConfig(fixture.database), builder)
-	configuration, err := issuer.Issue(ctx, application.SessionRef{ID: created.LaunchID}, created.Capability)
+	configuration, err := issuer.Issue(ctx, launchmodel.SessionRef{ID: created.LaunchID}, created.Capability)
 	assertNoConfig(t, configuration, err, context.Canceled)
 	configDraftUnchanged(t, fixture, before)
 }

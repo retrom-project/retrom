@@ -147,4 +147,3 @@ func validateCheckpointFormats(
 	}
 	return nil
 }
-

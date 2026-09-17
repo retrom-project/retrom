@@ -3,35 +3,36 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 	"strings"
 )
 
 func (service *Materialization) Copy(
 	ctx context.Context,
-	id ExecutionIdentity,
-	source MaterialSource,
-	blob VerifiedBlob,
+	id model.ExecutionIdentity,
+	source model.MaterialSource,
+	blob model.VerifiedBlob,
 ) (string, error) {
 	if blob.Size < 0 || blob.Size != source.Size || blob.SHA256 == "" {
-		return "", ErrInvalid
+		return "", model.ErrInvalid
 	}
 	var result string
-	err := service.repository.WithMaterialization(ctx, func(scope MaterialScope) error {
+	err := service.repository.WithMaterialization(ctx, func(scope model.MaterialScope) error {
 		before, now, err := service.source(ctx, scope.Read, id, source)
 		if err != nil {
 			return err
 		}
 		if before.State == "COPIED" {
 			if before.BlobID == "" || before.Blob != blob {
-				return ErrVersionConflict
+				return model.ErrVersionConflict
 			}
 			result = before.BlobID
 			return nil
 		}
 		if before.State != "DISCOVERED" {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
-		result, err = scope.Write.Bind(ctx, MaterialBinding{Before: before, Blob: blob, NowMS: now})
+		result, err = scope.Write.Bind(ctx, model.MaterialBinding{Before: before, Blob: blob, NowMS: now})
 		if err != nil {
 			return fmt.Errorf("write material binding: %w", err)
 		}
@@ -45,28 +46,28 @@ func (service *Materialization) Copy(
 
 func (service *Materialization) source(
 	ctx context.Context,
-	reader MaterialReader,
-	id ExecutionIdentity,
-	source MaterialSource,
-) (MaterialSnapshot, int64, error) {
+	reader model.MaterialReader,
+	id model.ExecutionIdentity,
+	source model.MaterialSource,
+) (model.MaterialSnapshot, int64, error) {
 	before, err := reader.Source(ctx, source.Key)
 	if err != nil {
-		return MaterialSnapshot{}, 0, fmt.Errorf("read Pegasus material: %w", err)
+		return model.MaterialSnapshot{}, 0, fmt.Errorf("read Pegasus material: %w", err)
 	}
 	now := service.now().UnixMilli()
 	if err := ValidateExecution(before.Before.Execution, id, now); err != nil {
-		return MaterialSnapshot{}, 0, err
+		return model.MaterialSnapshot{}, 0, err
 	}
 	if before.Before.Execution.Kind != "SERVER_PEGASUS_IMPORT" || before.Before.Execution.JobState != "RUNNING" ||
 		before.Before.Item.State != "COPYING" || before.Before.Item.ID != source.Key.ItemID ||
 		before.Before.Item.ImportID != id.ImportID ||
 		!validItemVersion(before.Before.Item.Version) || !sameMaterialSource(before.Source, source) {
-		return MaterialSnapshot{}, 0, ErrVersionConflict
+		return model.MaterialSnapshot{}, 0, model.ErrVersionConflict
 	}
 	return before, now, nil
 }
 
-func sameMaterialSource(left, right MaterialSource) bool {
+func sameMaterialSource(left, right model.MaterialSource) bool {
 	return left.Key == right.Key && left.Path == right.Path && left.Facts == right.Facts && left.Size == right.Size &&
 		left.MediaType == right.MediaType && equalDimension(
 		left.Width,
@@ -83,14 +84,14 @@ func equalDimension(left, right *int64) bool {
 
 func (service *Materialization) Warning(
 	ctx context.Context,
-	id ExecutionIdentity,
-	source MaterialSource,
+	id model.ExecutionIdentity,
+	source model.MaterialSource,
 	code string,
 ) error {
 	if !validMaterialWarning(source.Key.Kind, code) {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
-	err := service.repository.WithMaterialization(ctx, func(scope MaterialScope) error {
+	err := service.repository.WithMaterialization(ctx, func(scope model.MaterialScope) error {
 		before, now, err := service.source(ctx, scope.Read, id, source)
 		if err != nil {
 			return err
@@ -103,7 +104,7 @@ func (service *Materialization) Warning(
 			return nil
 		}
 		if before.State != "DISCOVERED" {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		warnings := append([]map[string]any{}, before.Warnings...)
 		field := strings.ToLower(source.Key.Kind)
@@ -117,7 +118,7 @@ func (service *Materialization) Warning(
 		if !found {
 			warnings = append(warnings, map[string]any{"code": code, "field": field})
 		}
-		return scope.Write.Warn(ctx, MaterialWarning{
+		return scope.Write.Warn(ctx, model.MaterialWarning{
 			Before: before, State: state, Code: code, Warnings: warnings, NowMS: now,
 		})
 	})

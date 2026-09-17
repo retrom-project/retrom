@@ -3,10 +3,11 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	payload "retrom/internal/model/payloadrelease"
 )
 
 type payloadLinksMemory struct {
@@ -33,8 +34,8 @@ type completionPayloadMemory struct {
 	committed bool
 }
 
-func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(CompletionScope) error) error {
-	if err := run(CompletionScope{Read: memory.completionMemory, Write: memory.completionMemory, Payload: payload.ReleaseScope{Links: memory.links}}); err != nil {
+func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(model.CompletionScope) error) error {
+	if err := run(model.CompletionScope{Read: memory.completionMemory, Write: memory.completionMemory, Payload: payload.ReleaseScope{Links: memory.links}}); err != nil {
 		return err
 	}
 	memory.committed = true

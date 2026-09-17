@@ -81,7 +81,7 @@ func TestReviewDraftValidationRejectsStaleExplicitSelection(t *testing.T) {
 	_, err := resolver.ResolveSelected(t.Context(), ReviewDraftSelectedValidationRequest{
 		ItemID: "item", TargetPlatformInstanceID: "platform", ValidationID: "validation",
 	})
-	if !errors.Is(err, ErrInvalid) {
+	if !errors.Is(err, application.ErrInvalid) {
 		t.Fatalf("error = %v, want ErrInvalid", err)
 	}
 	if reader.selectedSeen != "validation" {
@@ -143,7 +143,7 @@ func selectedValidationFixture(
 	if missing {
 		selectedStatus, selectedCode = "READY", "READY"
 	}
-	prepublishDigest := PrepublishDigest(application.PrepublishDigestInput{
+	prepublishDigest := application.PrepublishDigest(application.PrepublishDigestInput{
 		SchemaVersion: 1, SourceSnapshotID: inputs.EffectiveSnapshotID,
 		SourceManifestDigest: inputs.EffectiveManifestDigest, ContentKind: inputs.ContentKind,
 		TargetPlatformInstanceID: "platform", ProviderID: inputs.ProviderID, TargetID: inputs.RuntimeTargetID,
@@ -175,7 +175,7 @@ func selectedValidationFixture(
 		}
 		reader.selected.DependencySnapshot = string(oldJSON)
 		reader.selected.Status, reader.selected.CompatibilityCode = oldStatus, oldCode
-		reader.selected.PrepublishInputDigest = PrepublishDigest(application.PrepublishDigestInput{
+		reader.selected.PrepublishInputDigest = application.PrepublishDigest(application.PrepublishDigestInput{
 			SchemaVersion: 1, SourceSnapshotID: inputs.EffectiveSnapshotID,
 			SourceManifestDigest: inputs.EffectiveManifestDigest, ContentKind: inputs.ContentKind,
 			TargetPlatformInstanceID: "platform", ProviderID: inputs.ProviderID, TargetID: inputs.RuntimeTargetID,

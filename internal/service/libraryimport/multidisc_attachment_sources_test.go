@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 
 	"retrom/internal/capability/content/multidisc"
@@ -10,29 +11,29 @@ import (
 
 type multiDiscAttachmentSourceFixture struct {
 	baseCalls, uploadCalls int
-	base                   MultiDiscAttachmentBaseFiles
-	upload                 MultiDiscAttachmentUploadFiles
+	base                   model.MultiDiscAttachmentBaseFiles
+	upload                 model.MultiDiscAttachmentUploadFiles
 	err                    error
 }
 
 func (fixture *multiDiscAttachmentSourceFixture) BaseFiles(
 	context.Context, string,
-) (MultiDiscAttachmentBaseFiles, error) {
+) (model.MultiDiscAttachmentBaseFiles, error) {
 	fixture.baseCalls++
 	return fixture.base, fixture.err
 }
 
 func (fixture *multiDiscAttachmentSourceFixture) UploadFiles(
 	context.Context, string,
-) (MultiDiscAttachmentUploadFiles, error) {
+) (model.MultiDiscAttachmentUploadFiles, error) {
 	fixture.uploadCalls++
 	return fixture.upload, fixture.err
 }
 
 func TestMultiDiscAttachmentSourcesDelegatesTypedReads(t *testing.T) {
 	fixture := &multiDiscAttachmentSourceFixture{
-		base:   MultiDiscAttachmentBaseFiles{Entries: []multidisc.Entry{{State: multidisc.EntryMissing}}},
-		upload: MultiDiscAttachmentUploadFiles{State: "COMPLETE", SourceType: "FILES"},
+		base:   model.MultiDiscAttachmentBaseFiles{Entries: []multidisc.Entry{{State: multidisc.EntryMissing}}},
+		upload: model.MultiDiscAttachmentUploadFiles{State: "COMPLETE", SourceType: "FILES"},
 	}
 	service := NewMultiDiscAttachmentSources(fixture)
 
@@ -51,10 +52,10 @@ func TestMultiDiscAttachmentSourcesRejectsInvalidIDsAndPreservesErrors(t *testin
 	fixture := &multiDiscAttachmentSourceFixture{err: cause}
 	service := NewMultiDiscAttachmentSources(fixture)
 
-	if _, err := service.BaseFiles(t.Context(), ""); !errors.Is(err, ErrInvalid) || fixture.baseCalls != 0 {
+	if _, err := service.BaseFiles(t.Context(), ""); !errors.Is(err, model.ErrInvalid) || fixture.baseCalls != 0 {
 		t.Fatalf("invalid base read err=%v calls=%d", err, fixture.baseCalls)
 	}
-	if _, err := service.UploadFiles(t.Context(), ""); !errors.Is(err, ErrInvalid) || fixture.uploadCalls != 0 {
+	if _, err := service.UploadFiles(t.Context(), ""); !errors.Is(err, model.ErrInvalid) || fixture.uploadCalls != 0 {
 		t.Fatalf("invalid upload read err=%v calls=%d", err, fixture.uploadCalls)
 	}
 	if _, err := service.BaseFiles(t.Context(), "snapshot"); !errors.Is(err, cause) {

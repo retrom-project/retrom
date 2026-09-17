@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/service/jobs"
+	"retrom/internal/model/jobs"
 )
 
 func (server *Server) streamJobEvents(writer http.ResponseWriter, request *http.Request, jobID string) {

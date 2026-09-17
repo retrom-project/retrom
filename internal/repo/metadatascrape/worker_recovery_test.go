@@ -3,10 +3,10 @@ package metadatascrape
 import (
 	"context"
 	"errors"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+	metadatascrapeservice "retrom/internal/service/metadatascrape"
 	"testing"
 	"time"
-
-	"retrom/internal/service/metadatascrape"
 )
 
 func TestMetadataRecoveryFinalizesExpiredOrExhaustedQueuedExecution(t *testing.T) {
@@ -18,16 +18,16 @@ func TestMetadataRecoveryFinalizesExpiredOrExhaustedQueuedExecution(t *testing.T
 		code     string
 	}{
 		{"deadline", 1, recoveryTime.UnixMilli(), context.DeadlineExceeded, "METADATA_EXECUTION_EXPIRED"},
-		{"attempts", 4, recoveryTime.Add(time.Hour).UnixMilli(), metadatascrape.ErrAttemptsExhausted, "METADATA_ATTEMPTS_EXHAUSTED"},
+		{"attempts", 4, recoveryTime.Add(time.Hour).UnixMilli(), metadatascrapemodel.ErrAttemptsExhausted, "METADATA_ATTEMPTS_EXHAUSTED"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			database := recoveryDatabase(t)
 			recoveryExec(t, database, `UPDATE jobs SET attempt_count=?,execution_started_at_ms=?,execution_deadline_at_ms=? WHERE id='job'`, test.attempts, recoveryTime.Add(-time.Hour).UnixMilli(), test.deadline)
-			processor := recoveryProcess(func(context.Context, metadatascrape.WorkerClaim, string) (int, string, error) {
+			processor := recoveryProcess(func(context.Context, metadatascrapemodel.WorkerClaim, string) (int, string, error) {
 				t.Fatal("terminal execution processed")
 				return 0, "", nil
 			})
-			err := metadatascrape.NewWorker(NewWorker(database), processor, recoveryNow).Run(t.Context(), "run")
+			err := metadatascrapeservice.NewWorker(NewWorker(database), processor, recoveryNow).Run(t.Context(), "run")
 			if !errors.Is(err, test.cause) {
 				t.Fatalf("terminal cause=%v", err)
 			}
@@ -52,11 +52,11 @@ func TestMetadataRecoveryCancelsExpiredRequestedExecution(t *testing.T) {
 	recoveryExec(t, database, `UPDATE jobs SET state='CANCEL_REQUESTED',attempt_count=1,worker_id='old',
  execution_started_at_ms=?,execution_deadline_at_ms=?,leased_until_ms=?,cancel_requested_at_ms=?,cancel_reason='stop'
  WHERE id='job'`, now-60001, now+1000, now-1, now)
-	processor := recoveryProcess(func(context.Context, metadatascrape.WorkerClaim, string) (int, string, error) {
+	processor := recoveryProcess(func(context.Context, metadatascrapemodel.WorkerClaim, string) (int, string, error) {
 		t.Fatal("cancelled execution processed")
 		return 0, "", nil
 	})
-	_ = metadatascrape.NewWorker(NewWorker(database), processor, recoveryNow).Run(t.Context(), "run")
+	_ = metadatascrapeservice.NewWorker(NewWorker(database), processor, recoveryNow).Run(t.Context(), "run")
 	var state, run string
 	if err := database.QueryRowContext(t.Context(), `SELECT j.state,r.state FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id='job'`).Scan(&state, &run); err != nil {
 		t.Fatal(err)
@@ -89,7 +89,7 @@ func TestExpiredMetadataDeadlineIsSettledBeforeFutureAvailability(t *testing.T) 
 	if err != nil || len(ids) != 1 {
 		t.Fatalf("expired queued execution hidden until availability: %v/%v", ids, err)
 	}
-	err = metadatascrape.NewWorker(repository, nil, recoveryNow).Run(t.Context(), "run")
+	err = metadatascrapeservice.NewWorker(repository, nil, recoveryNow).Run(t.Context(), "run")
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expired delayed execution=%v", err)
 	}
@@ -105,7 +105,7 @@ func TestMetadataHardDeadlineExpiresBeforeLease(t *testing.T) {
 	if err != nil || len(ids) != 1 {
 		t.Fatalf("hard expiry waited for lease: %v/%v", ids, err)
 	}
-	err = metadatascrape.NewWorker(repository, nil, recoveryNow).Run(t.Context(), "run")
+	err = metadatascrapeservice.NewWorker(repository, nil, recoveryNow).Run(t.Context(), "run")
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("hard expiry=%v", err)
 	}

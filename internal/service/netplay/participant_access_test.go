@@ -5,22 +5,23 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	model "retrom/internal/model/netplay"
 	"testing"
 
 	"github.com/google/uuid"
 )
 
 type participantAccessMemory struct {
-	socket     SocketAccessRecord
-	credential ParticipantCredentialRecord
+	socket     model.SocketAccessRecord
+	credential model.ParticipantCredentialRecord
 	failure    error
 }
 
-func (memory *participantAccessMemory) Socket(context.Context, string, string) (SocketAccessRecord, error) {
+func (memory *participantAccessMemory) Socket(context.Context, string, string) (model.SocketAccessRecord, error) {
 	return memory.socket, memory.failure
 }
 
-func (memory *participantAccessMemory) Credential(context.Context, string, string) (ParticipantCredentialRecord, error) {
+func (memory *participantAccessMemory) Credential(context.Context, string, string) (model.ParticipantCredentialRecord, error) {
 	return memory.credential, memory.failure
 }
 
@@ -41,7 +42,7 @@ func accessFixture() (*ParticipantAccess, *participantAccessMemory, *participant
 	signer := &participantSigner{value: [32]byte{1, 2, 3}}
 	encoded := base64.RawURLEncoding.EncodeToString(signer.value[:])
 	hash := sha256.Sum256(signer.value[:])
-	memory := &participantAccessMemory{socket: SocketAccessRecord{Participant: SocketParticipant{RoomID: "room", SessionID: "session", ProfileID: "profile", PlayerNo: 2, CredentialGeneration: 3}, LaunchState: "ACTIVE", CredentialHash: hash[:]}, credential: ParticipantCredentialRecord{Generation: 3, CredentialHash: hash[:]}}
+	memory := &participantAccessMemory{socket: model.SocketAccessRecord{Participant: model.SocketParticipant{RoomID: "room", SessionID: "session", ProfileID: "profile", PlayerNo: 2, CredentialGeneration: 3}, LaunchState: "ACTIVE", CredentialHash: hash[:]}, credential: model.ParticipantCredentialRecord{Generation: 3, CredentialHash: hash[:]}}
 	return NewParticipantAccess(memory, signer), memory, signer, encoded
 }
 
@@ -54,13 +55,13 @@ func TestParticipantAccessAuthenticatesOnlyActiveMatchingCapability(t *testing.T
 	}
 	for _, state := range []string{"CREATED", "REVOKED", "EXPIRED"} {
 		memory.socket.LaunchState = state
-		if peer, err := service.Authenticate(t.Context(), "room", "profile", encoded); !errors.Is(err, ErrForbidden) || peer.RoomID != "" {
+		if peer, err := service.Authenticate(t.Context(), "room", "profile", encoded); !errors.Is(err, model.ErrForbidden) || peer.RoomID != "" {
 			t.Fatalf("inactive peer=%+v error=%v", peer, err)
 		}
 	}
 	memory.socket.LaunchState = "ACTIVE"
 	for _, invalid := range []string{"invalid", encoded + "=", base64.RawURLEncoding.EncodeToString(make([]byte, 32))} {
-		if _, err := service.Authenticate(t.Context(), "room", "profile", invalid); !errors.Is(err, ErrForbidden) {
+		if _, err := service.Authenticate(t.Context(), "room", "profile", invalid); !errors.Is(err, model.ErrForbidden) {
 			t.Fatalf("invalid token error=%v", err)
 		}
 	}
@@ -83,13 +84,13 @@ func TestParticipantAccessRejectsMalformedOrOverflowedGeneration(t *testing.T) {
 			service, memory, signer, _ := accessFixture()
 			memory.credential.Generation = generation
 			_, err := service.Capability(t.Context(), "01980000-0000-7000-8000-000000000001", "01980000-0000-7000-8000-000000000002")
-			if !errors.Is(err, ErrForbidden) || signer.generation != 0 {
+			if !errors.Is(err, model.ErrForbidden) || signer.generation != 0 {
 				t.Fatalf("generation=%d error=%v", generation, err)
 			}
 		})
 	}
 	service, _, signer, _ := accessFixture()
-	if _, err := service.Capability(t.Context(), "invalid", "invalid"); !errors.Is(err, ErrForbidden) || signer.generation != 0 {
+	if _, err := service.Capability(t.Context(), "invalid", "invalid"); !errors.Is(err, model.ErrForbidden) || signer.generation != 0 {
 		t.Fatalf("invalid identity=%v", err)
 	}
 }
@@ -107,7 +108,7 @@ func TestParticipantAccessPreservesStorageFailuresAndReturnsNoCredentials(t *tes
 	}
 	memory.failure = nil
 	memory.credential.CredentialHash = make([]byte, 32)
-	if credential, err := service.Capability(t.Context(), "01980000-0000-7000-8000-000000000001", "01980000-0000-7000-8000-000000000002"); !errors.Is(err, ErrForbidden) || credential != "" {
+	if credential, err := service.Capability(t.Context(), "01980000-0000-7000-8000-000000000001", "01980000-0000-7000-8000-000000000002"); !errors.Is(err, model.ErrForbidden) || credential != "" {
 		t.Fatalf("mismatched credential leaked=%v error=%v", credential != "", err)
 	}
 }

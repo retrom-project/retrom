@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"math"
+	model "retrom/internal/model/emulationstationimport"
 )
 
-func (service *ExecutionControl) Fail(ctx context.Context, unit Execution, failure ExecutionFailure) (string, error) {
+func (service *ExecutionControl) Fail(ctx context.Context, unit model.Execution, failure model.ExecutionFailure) (string, error) {
 	for {
 		state, more := "", false
-		err := service.repository.WithExecution(ctx, func(scope ExecutionScope) error {
+		err := service.repository.WithExecution(ctx, func(scope model.ExecutionScope) error {
 			var err error
 			state, more, err = service.failInScope(ctx, scope, unit, failure)
 			return err
@@ -24,7 +25,7 @@ func (service *ExecutionControl) Fail(ctx context.Context, unit Execution, failu
 }
 
 func (service *ExecutionControl) failInScope(
-	ctx context.Context, scope ExecutionScope, unit Execution, failure ExecutionFailure,
+	ctx context.Context, scope model.ExecutionScope, unit model.Execution, failure model.ExecutionFailure,
 ) (string, bool, error) {
 	before, err := currentExecution(ctx, scope.Read, unit)
 	if err != nil {
@@ -32,11 +33,11 @@ func (service *ExecutionControl) failInScope(
 	}
 	now := service.now().UnixMilli()
 	ownership := ExecutionState(before, unit, now)
-	if ownership == LeaseDeadline {
-		return "", false, ErrExpired
+	if ownership == model.LeaseDeadline {
+		return "", false, model.ErrExpired
 	}
-	if ownership != LeaseActive {
-		return "", false, ErrVersionConflict
+	if ownership != model.LeaseActive {
+		return "", false, model.ErrVersionConflict
 	}
 	terminal, err := scope.Read.TerminalCount(ctx, unit.ImportID)
 	if err != nil {
@@ -50,7 +51,7 @@ func (service *ExecutionControl) failInScope(
 		var more bool
 		before, more, err = completeExecutionReviews(
 			ctx,
-			ExecutionReviewScope{Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata},
+			model.ExecutionReviewScope{Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata},
 			before,
 			service.now,
 		)
@@ -71,14 +72,14 @@ func (service *ExecutionControl) failInScope(
 }
 
 func planExecutionFailure(
-	before LeaseSnapshot,
-	failure ExecutionFailure,
+	before model.LeaseSnapshot,
+	failure model.ExecutionFailure,
 	terminal, now int64,
-) (ExecutionFinish, error) {
+) (model.ExecutionFinish, error) {
 	if failure.Code == "" || terminal < 0 || before.MaxAttempts <= 0 {
-		return ExecutionFinish{}, ErrInvalid
+		return model.ExecutionFinish{}, model.ErrInvalid
 	}
-	change := ExecutionFinish{
+	change := model.ExecutionFinish{
 		Before: before, NowMS: now, JobState: "FAILED", ImportState: "FAILED",
 		ItemState: "COMMIT_FAILED", Code: failure.Code, Retryable: failure.Retryable,
 	}
@@ -103,7 +104,7 @@ func planExecutionFailure(
 	return change, nil
 }
 
-func planExecutionProjection(change *ExecutionFinish) {
+func planExecutionProjection(change *model.ExecutionFinish) {
 	scan := change.Before.Kind == "SERVER_EMULATIONSTATION_SCAN"
 	change.ClearScan = scan && change.JobState != "FAILED"
 	change.TerminalItems = !scan && change.JobState != "QUEUED"

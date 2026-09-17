@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/format/pegasusmeta"
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/model/pegasusimport"
 )
 
 func TestMetadataVerificationAllowsOnlyOversizedInvalidFactsWithoutContentDigest(t *testing.T) {

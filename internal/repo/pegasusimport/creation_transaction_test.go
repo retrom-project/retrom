@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/store"
-	application "retrom/internal/service/pegasusimport"
 )
 
 var errCreationWrite = errors.New("creation write failed")

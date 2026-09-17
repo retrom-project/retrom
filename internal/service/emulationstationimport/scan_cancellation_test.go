@@ -2,6 +2,7 @@ package emulationstationimport
 
 import (
 	"errors"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
 )
@@ -58,7 +59,7 @@ func assertScanJobCancellation(t *testing.T, memory *workflowMemory, result JobC
 	} else if err == nil || pending || result.JobID != "" || memory.cancel != nil {
 		t.Fatalf("invalid cancel=%#v pending=%v err=%v", result, pending, err)
 	}
-	if scenario == "stale job version" && !errors.Is(err, ErrVersionConflict) {
+	if scenario == "stale job version" && !errors.Is(err, model.ErrVersionConflict) {
 		t.Fatalf("ETag error=%v", err)
 	}
 }

@@ -11,7 +11,7 @@ import (
 	"retrom/internal/capability/security/authn"
 
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/pegasusimport"
+	"retrom/internal/model/pegasusimport"
 )
 
 func (server *Server) createPegasusImport(writer http.ResponseWriter, request *http.Request) {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func (server *Server) approveReview(writer http.ResponseWriter, request *http.Request) {

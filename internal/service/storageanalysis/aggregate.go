@@ -3,6 +3,7 @@ package storageanalysis
 import (
 	"errors"
 	"fmt"
+	model "retrom/internal/model/storageanalysis"
 )
 
 var (
@@ -16,7 +17,7 @@ var (
 func aggregate(
 	blobs map[string]int64,
 	protected map[string]struct{},
-	usageByID map[string]Usage,
+	usageByID map[string]model.Usage,
 ) (Snapshot, error) {
 	index := make(map[CategoryCode]int, len(categoryOrder))
 	categories := make([]Category, len(categoryOrder))

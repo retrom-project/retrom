@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
 

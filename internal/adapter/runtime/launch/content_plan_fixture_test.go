@@ -1,6 +1,6 @@
 package launch
 
-import application "retrom/internal/service/launch"
+import application "retrom/internal/model/launch"
 
 type (
 	lockedDisc        = application.ProductDisc

@@ -3,16 +3,17 @@ package maintenance
 import (
 	"context"
 	"fmt"
-
-	release "retrom/internal/service/payloadrelease"
+	model "retrom/internal/model/maintenance"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 )
 
 // ScheduleRestoredPayloads runs after source termination in the same restore transaction.
 // The shared scheduler keeps materialized reviews and retryable sources retained.
-func ScheduleRestoredPayloads(ctx context.Context, scope RestoredPayloadScope, now int64) error {
-	scheduler := release.NewScheduler(nil)
-	for _, kind := range []release.ScopeType{release.ScopePegasusImportItem, release.ScopeEmulationStationImportItem} {
-		query := RestoredPayloadQuery{Kind: kind, Limit: 100}
+func ScheduleRestoredPayloads(ctx context.Context, scope model.RestoredPayloadScope, now int64) error {
+	scheduler := payloadreleaseservice.NewScheduler(nil)
+	for _, kind := range []payloadreleasemodel.ScopeType{payloadreleasemodel.ScopePegasusImportItem, payloadreleasemodel.ScopeEmulationStationImportItem} {
+		query := model.RestoredPayloadQuery{Kind: kind, Limit: 100}
 		for {
 			ids, err := scope.Records.RetainedSources(ctx, query)
 			if err != nil {
@@ -23,9 +24,9 @@ func ScheduleRestoredPayloads(ctx context.Context, scope RestoredPayloadScope, n
 			}
 			for _, id := range ids {
 				if id <= query.AfterID {
-					return ErrInvalidBundle
+					return model.ErrInvalidBundle
 				}
-				if _, err := scheduler.TerminalSource(ctx, scope.Scheduling, release.Scope{Type: kind, ID: id}, now); err != nil {
+				if _, err := scheduler.TerminalSource(ctx, scope.Scheduling, payloadreleasemodel.Scope{Type: kind, ID: id}, now); err != nil {
 					return fmt.Errorf("schedule restored source payload: %w", err)
 				}
 				query.AfterID = id

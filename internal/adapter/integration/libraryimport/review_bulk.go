@@ -20,7 +20,7 @@ import (
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/security/authn"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/model/libraryimport"
 )
 
 const (

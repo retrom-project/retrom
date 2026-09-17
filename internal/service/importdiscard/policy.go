@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/importdiscard"
 )
 
-func legacyOwner(ctx context.Context, ownership Ownership, id string) (string, error) {
+func legacyOwner(ctx context.Context, ownership model.Ownership, id string) (string, error) {
 	candidates, err := ownership.LegacyCandidates(ctx, id)
 	if err != nil {
 		return "", failure("recover source ownership", err)
@@ -23,7 +24,7 @@ func legacyOwner(ctx context.Context, ownership Ownership, id string) (string, e
 			continue
 		}
 		if match != "" {
-			return "", ErrAmbiguousOwner
+			return "", model.ErrAmbiguousOwner
 		}
 		match = candidate.ImportID
 	}
@@ -35,12 +36,12 @@ func legacyOwner(ctx context.Context, ownership Ownership, id string) (string, e
 		return "", failure("recover source ownership", err)
 	}
 	if count != 1 {
-		return "", ErrAmbiguousOwner
+		return "", model.ErrAmbiguousOwner
 	}
 	return match, nil
 }
 
-func internalEnvelope(envelope Envelope) (bool, error) {
+func internalEnvelope(envelope model.Envelope) (bool, error) {
 	if !envelope.Complete || len(envelope.Files) == 0 {
 		return false, nil
 	}
@@ -52,7 +53,7 @@ func internalEnvelope(envelope Envelope) (bool, error) {
 	return envelope.Digest == hex.EncodeToString(sum[:]), nil
 }
 
-func available(kind string, batch Batch) bool {
+func available(kind string, batch model.Batch) bool {
 	if !batch.Started || batch.State == "SCANNING" || batch.State == "AWAITING_MAPPING" {
 		return false
 	}
@@ -67,7 +68,7 @@ func available(kind string, batch Batch) bool {
 	return false
 }
 
-func retainedImport(batch Batch) bool {
+func retainedImport(batch model.Batch) bool {
 	switch batch.State {
 	case "QUEUED", "RUNNING", "CANCEL_REQUESTED":
 		return true

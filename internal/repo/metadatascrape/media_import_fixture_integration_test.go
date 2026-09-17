@@ -18,12 +18,13 @@ import (
 	"retrom/internal/adapter/metadata/hasheous"
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/bootstrap/composition"
+	uploadsmodel "retrom/internal/model/uploads"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	"retrom/internal/repo/store"
 	uploadpersistence "retrom/internal/repo/uploads"
 	dependencyservice "retrom/internal/service/dependencies"
 	metadataservice "retrom/internal/service/metadatascrape"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -85,8 +86,8 @@ func createMediaImportFixture(t *testing.T, client hasheous.HTTPDoer) mediaImpor
 func uploadMediaContent(t *testing.T, database *store.DB, blobs *blobstore.Store, root string) string {
 	t.Helper()
 	contents := []byte("deterministic Retrom metadata media fixture")
-	service := uploads.New(uploadpersistence.New(database.SQL), blobs, root, mediaFixtureNow)
-	upload, err := service.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{
+	service := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, root, mediaFixtureNow)
+	upload, err := service.Create(t.Context(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{
 		{ClientFileID: "game", RelativePath: "Media.gba", SizeBytes: int64(len(contents))},
 	}})
 	if err != nil {

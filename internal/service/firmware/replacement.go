@@ -3,17 +3,18 @@ package firmware
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/firmware"
 
 	"retrom/internal/capability/content/firmware"
 )
 
-func evaluateExistingInstallation(ctx context.Context, records ArchiveReader, request ServerInstallRequest,
-	version int64, active ActiveInstallation, exists bool,
-) (ServerInstallResult, bool, error) {
+func evaluateExistingInstallation(ctx context.Context, records model.ArchiveReader, request model.ServerInstallRequest,
+	version int64, active model.ActiveInstallation, exists bool,
+) (model.ServerInstallResult, bool, error) {
 	if !exists {
-		return ServerInstallResult{}, false, nil
+		return model.ServerInstallResult{}, false, nil
 	}
-	result := ServerInstallResult{PreviousInstallationID: active.ID}
+	result := model.ServerInstallResult{PreviousInstallationID: active.ID}
 	if !request.ReplaceIfBetter {
 		result.Outcome = "SKIPPED_EXISTING"
 		return result, true, nil
@@ -34,7 +35,7 @@ func evaluateExistingInstallation(ctx context.Context, records ArchiveReader, re
 	}
 	better, complete, err := candidateStrictlyBetter(ctx, records, request, active.BlobID, facts)
 	if err != nil {
-		return ServerInstallResult{}, false, err
+		return model.ServerInstallResult{}, false, err
 	}
 	if complete && better {
 		return result, false, nil
@@ -46,7 +47,7 @@ func evaluateExistingInstallation(ctx context.Context, records ArchiveReader, re
 	return result, true, nil
 }
 
-func candidateStrictlyBetter(ctx context.Context, records ArchiveReader, request ServerInstallRequest,
+func candidateStrictlyBetter(ctx context.Context, records model.ArchiveReader, request model.ServerInstallRequest,
 	activeBlobID string, facts firmware.FileFacts,
 ) (bool, bool, error) {
 	if request.SourceKind == "STATIC" && request.ArchiveMembersJSON == nil {

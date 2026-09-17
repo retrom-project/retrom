@@ -3,6 +3,7 @@ package payloadrelease
 import (
 	"errors"
 	"fmt"
+	model "retrom/internal/model/payloadrelease"
 	"sort"
 )
 
@@ -81,7 +82,7 @@ func OwnershipRegistry() []OwnershipEdge {
 	return result
 }
 
-func ValidateOwnershipRegistry(edges []BlobEdge) error {
+func ValidateOwnershipRegistry(edges []model.BlobEdge) error {
 	want := make(map[string]struct{}, len(edges))
 	for _, edge := range edges {
 		want[edge.Table+"."+edge.Column] = struct{}{}

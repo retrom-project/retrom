@@ -18,8 +18,8 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
-	"retrom/internal/service/serverimport"
+	"retrom/internal/model/accounts"
+	"retrom/internal/model/serverimport"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )

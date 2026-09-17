@@ -1,10 +1,14 @@
 package maintenance
 
+import model "retrom/internal/model/maintenance"
+
 import "time"
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	now        func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service { return &Service{repository, now} }
+func New(repository model.Repository, now func() time.Time) *Service {
+	return &Service{repository, now}
+}

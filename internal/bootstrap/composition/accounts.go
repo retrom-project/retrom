@@ -10,8 +10,9 @@ import (
 	"retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
+	accountsmodel "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
-	"retrom/internal/service/accounts"
+	accountsservice "retrom/internal/service/accounts"
 )
 
 func NewAccounts(
@@ -21,20 +22,20 @@ func NewAccounts(
 	mode config.Mode,
 	blocklist authn.Blocklist,
 	now func() time.Time,
-) (*accounts.Service, error) {
+) (*accountsservice.Service, error) {
 	hasher := authn.NewPasswordHasher()
 	dummy, err := hasher.Hash(ctx, "retrom dummy credential")
 	if err != nil {
 		return nil, fmt.Errorf("prepare dummy credential: %w", err)
 	}
-	mint := func() (accounts.SessionMaterial, error) { return accounts.MintSession(rand.Reader) }
+	mint := func() (accountsmodel.SessionMaterial, error) { return accountsservice.MintSession(rand.Reader) }
 	links := accountpersistence.NewLinks(database)
-	modules := accounts.Modules{
-		Initialization: accounts.NewInitialization(
+	modules := accountsservice.Modules{
+		Initialization: accountsservice.NewInitialization(
 			accountpersistence.NewInitialization(
 				database,
 			),
-			accounts.InitializationOptions{
+			accountsmodel.InitializationOptions{
 				Mode:        mode,
 				Credentials: credentials,
 				Hasher:      hasher,
@@ -43,16 +44,16 @@ func NewAccounts(
 				Now:         now,
 			},
 		),
-		Authentication: accounts.NewAuthentication(accountpersistence.NewAuthentication(database), hasher, mint, dummy, now),
-		Passwords:      accounts.NewPasswords(accountpersistence.NewPasswords(database), hasher, blocklist, mint, now),
-		Recovery:       accounts.NewRecovery(accountpersistence.NewRecovery(database), hasher, blocklist, now),
-		Directory:      accounts.NewDirectory(accountpersistence.NewDirectory(database), now),
-		Administration: accounts.NewAdministration(accountpersistence.NewAdministration(database), now),
-		Links:          accounts.NewLinks(links, credentials, now),
-		Issuance:       accounts.NewLinkIssuance(links, credentials, now),
-		Consumption: accounts.NewLinkConsumption(
+		Authentication: accountsservice.NewAuthentication(accountpersistence.NewAuthentication(database), hasher, mint, dummy, now),
+		Passwords:      accountsservice.NewPasswords(accountpersistence.NewPasswords(database), hasher, blocklist, mint, now),
+		Recovery:       accountsservice.NewRecovery(accountpersistence.NewRecovery(database), hasher, blocklist, now),
+		Directory:      accountsservice.NewDirectory(accountpersistence.NewDirectory(database), now),
+		Administration: accountsservice.NewAdministration(accountpersistence.NewAdministration(database), now),
+		Links:          accountsservice.NewLinks(links, credentials, now),
+		Issuance:       accountsservice.NewLinkIssuance(links, credentials, now),
+		Consumption: accountsservice.NewLinkConsumption(
 			links,
-			accounts.LinkConsumptionOptions{
+			accountsmodel.LinkConsumptionOptions{
 				Tokens:    credentials,
 				Hasher:    hasher,
 				Blocklist: blocklist,
@@ -60,17 +61,17 @@ func NewAccounts(
 				Now:       now,
 			},
 		),
-		Limiter: accounts.NewLimiter(accountpersistence.NewRateLimits(database), credentials, now),
+		Limiter: accountsservice.NewLimiter(accountpersistence.NewRateLimits(database), credentials, now),
 	}
-	return accounts.New(modules, mode), nil
+	return accountsservice.New(modules, mode), nil
 }
 
 func ReadAccountSetupCode(ctx context.Context, database *sql.DB, credentials *runtime.Credentials) (string, error) {
-	value, err := accounts.NewInitialization(
+	value, err := accountsservice.NewInitialization(
 		accountpersistence.NewInitialization(
 			database,
 		),
-		accounts.InitializationOptions{
+		accountsmodel.InitializationOptions{
 			Credentials: credentials,
 		},
 	).ReadSetupCode(

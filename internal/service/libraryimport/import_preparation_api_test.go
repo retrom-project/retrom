@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 )
 
@@ -17,21 +18,21 @@ func (catalog preparationCatalogStub) MachineClassification(context.Context, str
 	return "", false, catalog.failure
 }
 
-func (catalog preparationCatalogStub) ArcadeRequirements(context.Context, string, string) (ArcadeCatalogRequirements, error) {
-	return ArcadeCatalogRequirements{}, catalog.failure
+func (catalog preparationCatalogStub) ArcadeRequirements(context.Context, string, string) (model.ArcadeCatalogRequirements, error) {
+	return model.ArcadeCatalogRequirements{}, catalog.failure
 }
 
-func (catalog preparationCatalogStub) MachineRelation(context.Context, string, string) (ArcadeMachineRelation, bool, error) {
-	return ArcadeMachineRelation{}, false, catalog.failure
+func (catalog preparationCatalogStub) MachineRelation(context.Context, string, string) (model.ArcadeMachineRelation, bool, error) {
+	return model.ArcadeMachineRelation{}, false, catalog.failure
 }
 
 func TestImportPreparationPreservesCatalogFailure(t *testing.T) {
 	t.Parallel()
 	_, facts, request := admissionServiceFixture()
 	cause := errors.New("catalog read unavailable")
-	preparation := NewImportPreparation(facts, preparationCatalogStub{failure: cause}, nil, ImportPreparationOptions{})
+	preparation := NewImportPreparation(facts, preparationCatalogStub{failure: cause}, nil, model.ImportPreparationOptions{})
 	result, err := preparation.Prepare(t.Context(), request)
-	if !errors.Is(err, cause) || !reflect.DeepEqual(result, PreparedImport{}) {
+	if !errors.Is(err, cause) || !reflect.DeepEqual(result, model.PreparedImport{}) {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
 	if len(facts.events) != 0 {
@@ -42,7 +43,7 @@ func TestImportPreparationPreservesCatalogFailure(t *testing.T) {
 func TestImportPreparationRetainsResolvedInputAndSourceGroups(t *testing.T) {
 	t.Parallel()
 	_, facts, request := admissionServiceFixture()
-	preparation := NewImportPreparation(facts, preparationCatalogStub{}, nil, ImportPreparationOptions{})
+	preparation := NewImportPreparation(facts, preparationCatalogStub{}, nil, model.ImportPreparationOptions{})
 	result, err := preparation.Prepare(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)

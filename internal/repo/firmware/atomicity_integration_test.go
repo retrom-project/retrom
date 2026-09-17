@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"retrom/internal/model/firmware"
+	firmwaremodel "retrom/internal/model/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 )
 
@@ -26,7 +27,7 @@ func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 		if err := firmwareservice.SupersedeInScope(t.Context(), scope.Retirements, requirementID, now); err != nil {
 			return err
 		}
-		if err := scope.Installations.Create(t.Context(), firmwareservice.InstallationWrite{
+		if err := scope.Installations.Create(t.Context(), firmwaremodel.InstallationWrite{
 			ID: "replacement", RequirementID: requirementID, BlobID: active.BlobID, Filename: active.Filename,
 			Size: active.Size, MD5: active.MD5, SHA1: active.SHA1, SHA256: active.SHA256,
 			Status: active.Status, RequirementVersion: active.ValidatedVersion, DetailsJSON: []byte(`{}`),
@@ -35,7 +36,7 @@ func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 			return err
 		}
 		created = true
-		return scope.Installations.Consume(t.Context(), firmwareservice.Consumption{
+		return scope.Installations.Consume(t.Context(), firmwaremodel.Consumption{
 			ID: "consumption", UploadID: "missing-upload", FileID: "missing-file", InstallationID: "replacement", AtMS: now,
 		})
 	})

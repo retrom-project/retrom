@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	application "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 func TestConfigConcurrentActivationThenPlayKeepsValidIssuance(t *testing.T) {

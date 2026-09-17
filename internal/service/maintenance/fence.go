@@ -3,6 +3,7 @@ package maintenance
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/maintenance"
 
 	"github.com/google/uuid"
 )
@@ -14,7 +15,7 @@ func (service *Service) fenceRestore(ctx context.Context, path string) error {
 	if err != nil {
 		return fmt.Errorf("create restore audit identity: %w", err)
 	}
-	err = service.repository.WithRestore(ctx, path, func(records RestoreRecords) error {
+	err = service.repository.WithRestore(ctx, path, func(records model.RestoreRecords) error {
 		access, err := records.RevokeAccess(ctx, now)
 		if err != nil {
 			return fmt.Errorf("revoke restored access: %w", err)
@@ -33,7 +34,7 @@ func (service *Service) fenceRestore(ctx context.Context, path string) error {
 		if err := records.StopBulkApprovals(ctx, now); err != nil {
 			return fmt.Errorf("stop restored bulk approvals: %w", err)
 		}
-		if err := records.Audit(ctx, FenceAudit{ID: id.String(), Now: now, Counts: FenceCounts{
+		if err := records.Audit(ctx, model.FenceAudit{ID: id.String(), Now: now, Counts: model.FenceCounts{
 			Sessions: access.Sessions, Links: access.Links, Launches: access.Launches,
 			BIOS: imports.BIOS, Pegasus: imports.Pegasus, EmulationStation: imports.EmulationStation,
 		}}); err != nil {

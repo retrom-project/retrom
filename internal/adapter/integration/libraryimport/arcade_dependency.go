@@ -1,6 +1,6 @@
 package libraryimport
 
-import application "retrom/internal/service/libraryimport"
+import application "retrom/internal/model/libraryimport"
 
 const maxArcadeDependencyNodes = application.MaxArcadeDependencyNodes
 

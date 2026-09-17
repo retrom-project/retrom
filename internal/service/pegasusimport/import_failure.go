@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/pegasusimport"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 // ReviewPreparationError retains the permanent identities already returned by source creation.
@@ -21,8 +22,8 @@ func (failure *ReviewPreparationError) Unwrap() error { return failure.Cause }
 
 func DescribeFailure(
 	diagnostics FailureDiagnostics, stage, operation string, err error, relativePath string,
-) *FailureDetails {
-	details := &FailureDetails{
+) *model.FailureDetails {
+	details := &model.FailureDetails{
 		SchemaVersion: 1, Stage: stage, Operation: operation, CauseCode: "INTERNAL_OPERATION_FAILED",
 		TechnicalDetail: diagnostics.Sanitize(err),
 	}
@@ -56,7 +57,7 @@ func DescribeFailure(
 
 func LibraryFailureDetails(
 	diagnostics FailureDiagnostics, err error, files []library.ServerSourceFile,
-) *FailureDetails {
+) *model.FailureDetails {
 	relativePath := ""
 	if len(files) > 0 {
 		relativePath = files[0].RelativePath

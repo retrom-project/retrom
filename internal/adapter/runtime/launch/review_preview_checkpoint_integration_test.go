@@ -20,14 +20,15 @@ import (
 	"retrom/internal/adapter/integration/payloadrelease"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/saves"
+	savesmodel "retrom/internal/model/saves"
+	savesservice "retrom/internal/service/saves"
 	"retrom/internal/testkit/testsupport"
 )
 
 type reviewCheckpointFixture struct {
 	database *sql.DB
 	launcher *Service
-	saver    *saves.Service
+	saver    *savesservice.Service
 	releaser *payloadrelease.Service
 	now      *time.Time
 	itemID   string
@@ -63,7 +64,7 @@ VALUES('reviewer','local','reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	return reviewCheckpointFixture{
 		database: database.SQL, now: &now, itemID: source.itemID,
 		launcher: newRPGReviewLaunchService(t, t.Context(), database.SQL, credentials, clock),
-		saver:    saves.New(savepersistence.New(database.SQL), blobs, clock), releaser: releaser,
+		saver:    savesservice.New(savepersistence.New(database.SQL), blobs, clock), releaser: releaser,
 	}
 }
 
@@ -81,7 +82,7 @@ func (fixture reviewCheckpointFixture) preview(t *testing.T, key string) ReviewP
 	return preview
 }
 
-func reviewCheckpointRequest(t *testing.T, contents string) saves.ManualUpload {
+func reviewCheckpointRequest(t *testing.T, contents string) savesservice.ManualUpload {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -100,7 +101,7 @@ func reviewCheckpointRequest(t *testing.T, contents string) saves.ManualUpload {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/", &body)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	return saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
+	return savesservice.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
 }
 
 func TestOrdinaryReviewPlayerCanReplaceItsTemporaryCheckpoint(t *testing.T) {
@@ -172,7 +173,7 @@ func TestReviewCheckpointRejectsCrossSessionIdempotencyReplay(t *testing.T) {
 		t.Fatalf("idempotent trial checkpoint: %+v %v", repeated, err)
 	}
 	if _, _, err := fixture.saver.CreateManual(t.Context(), another.PreviewID, another.Capability,
-		"save-once", reviewCheckpointRequest(t, "point-B")); !errors.Is(err, saves.ErrSequenceReused) {
+		"save-once", reviewCheckpointRequest(t, "point-B")); !errors.Is(err, savesmodel.ErrSequenceReused) {
 		t.Fatalf("save key replayed across preview sessions: %v", err)
 	}
 }
@@ -207,7 +208,7 @@ func TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC(t *testing.T) {
 		t.Fatalf("expired checkpoint can start another restore: %v", err)
 	}
 	if _, _, err := fixture.saver.CreateManual(t.Context(), original.PreviewID, original.Capability,
-		"expired", reviewCheckpointRequest(t, "point-C")); !errors.Is(err, saves.ErrCredential) {
+		"expired", reviewCheckpointRequest(t, "point-C")); !errors.Is(err, savesmodel.ErrCredential) {
 		t.Fatalf("expired trial can write checkpoint: %v", err)
 	}
 	if err := fixture.releaser.ReconcileGC(t.Context()); err != nil {

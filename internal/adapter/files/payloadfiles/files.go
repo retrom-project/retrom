@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
-	payloadservice "retrom/internal/service/payloadrelease"
+	payloadservice "retrom/internal/model/payloadrelease"
 )
 
 // Store adapts the blob store to payload release's file and wait ports.

@@ -10,9 +10,10 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/integration/libraryimport"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
 	tagpersistence "retrom/internal/repo/tagging"
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"retrom/internal/service/tagging"
 )
 
@@ -25,10 +26,10 @@ type Service struct {
 	now          func() time.Time
 	tags         *tagging.Service
 	workerOnce   sync.Once
-	worker       *application.Worker
+	worker       *pegasusimportservice.Worker
 }
 
-type work = application.Work
+type work = pegasusimportmodel.Work
 
 func New(database *sql.DB, blobs *blobstore.Store, importer *libraryimport.Service, credentials *retromruntime.Credentials, configured []serversource.Root, now func() time.Time) *Service {
 	sources := NewSources(blobs, credentials, configured)
@@ -49,11 +50,11 @@ func (service *Service) execute(ctx context.Context, unit work) {
 }
 
 func (service *Service) claim(ctx context.Context) (work, bool, error) {
-	return application.NewLeases(repository.NewLeases(service.database), service.now).Claim(ctx)
+	return pegasusimportservice.NewLeases(repository.NewLeases(service.database), service.now).Claim(ctx)
 }
 
 func (service *Service) scan(ctx context.Context, root Root, path string) (scanResult, error) {
-	return application.NewScanner(scanSource{root: root, selectedPath: path, acquire: service.acquireSourceReader}).Scan(ctx)
+	return pegasusimportservice.NewScanner(scanSource{root: root, selectedPath: path, acquire: service.acquireSourceReader}).Scan(ctx)
 }
 
 func (service *Service) acquireSourceReader(ctx context.Context) (func(), error) {
@@ -69,5 +70,5 @@ func (service *Service) copySource(ctx context.Context, root Root, selectedPath,
 }
 
 func (service *Service) nextItem(ctx context.Context, unit work) (executionItem, bool, error) {
-	return application.NewItemWork(repository.NewItemWork(service.database), service.now).Next(ctx, unit.Identity())
+	return pegasusimportservice.NewItemWork(repository.NewItemWork(service.database), service.now).Next(ctx, unit.Identity())
 }

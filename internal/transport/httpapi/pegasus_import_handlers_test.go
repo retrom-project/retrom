@@ -15,7 +15,7 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/bootstrap/composition"
-	"retrom/internal/service/pegasusimport"
+	"retrom/internal/model/pegasusimport"
 	"retrom/internal/testkit/testassert"
 )
 

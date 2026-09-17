@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	model "retrom/internal/model/serverimport"
 	"testing"
 
 	"retrom/internal/capability/content/firmware"
@@ -13,7 +14,7 @@ import (
 func discoveryWriteFixture(t *testing.T) (*Service, *sql.DB, work, *evaluatedCandidate) {
 	t.Helper()
 	service, database, _ := archiveImportFixture(t)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}

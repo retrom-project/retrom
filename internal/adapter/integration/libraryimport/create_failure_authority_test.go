@@ -5,16 +5,17 @@ package libraryimport
 import (
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
 func TestImportCreationFailureCannotMutateReplacementExecution(t *testing.T) {
 	for _, column := range []string{"execution_no", "attempt_count"} {
 		t.Run(column, func(t *testing.T) {
 			service, plan := preparedCommitFixture(t)
-			admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-				application.ImportAdmissionOptions{Now: service.now})
+			admissions := libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+				libraryimportmodel.ImportAdmissionOptions{Now: service.now})
 			created, err := admissions.Queue(t.Context(), plan.Request)
 			if err != nil {
 				t.Fatal(err)

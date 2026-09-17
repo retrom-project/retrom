@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"strings"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/pegasusimport"
 )
 
-func materialDatabase(t *testing.T) (*sql.DB, application.MaterialKey, application.VerifiedBlob) {
+func materialDatabase(t *testing.T) (*sql.DB, pegasusimportmodel.MaterialKey, pegasusimportmodel.VerifiedBlob) {
 	t.Helper()
 	db := itemWorkDatabase(t)
 	if _, err := db.ExecContext(
@@ -24,10 +24,10 @@ VALUES('item-0','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaa
 	); err != nil {
 		t.Fatal(err)
 	}
-	return db, application.MaterialKey{
+	return db, pegasusimportmodel.MaterialKey{
 			ItemID:  "item-0",
 			Ordinal: 0,
-		}, application.VerifiedBlob{
+		}, pegasusimportmodel.VerifiedBlob{
 			SHA256: strings.Repeat("c", 64),
 			MD5:    strings.Repeat("c", 32),
 			SHA1:   strings.Repeat("c", 40),
@@ -81,7 +81,7 @@ func assertMaterialFence(t *testing.T, operation, field string) {
 		key.Kind = "COVER"
 	}
 	beforeRows := materialRows(t, db)
-	err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope application.MaterialScope) error {
+	err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope pegasusimportmodel.MaterialScope) error {
 		before, err := scope.Read.Source(t.Context(), key)
 		if err != nil {
 			return err
@@ -106,7 +106,7 @@ func assertMaterialFence(t *testing.T, operation, field string) {
 		if operation == "warning" {
 			return scope.Write.Warn(
 				t.Context(),
-				application.MaterialWarning{
+				pegasusimportmodel.MaterialWarning{
 					Before:   before,
 					State:    "READ_FAILED",
 					Code:     "PEGASUS_IMAGE_INVALID",
@@ -115,10 +115,10 @@ func assertMaterialFence(t *testing.T, operation, field string) {
 				},
 			)
 		}
-		_, err = scope.Write.Bind(t.Context(), application.MaterialBinding{Before: before, Blob: blob, NowMS: 10})
+		_, err = scope.Write.Bind(t.Context(), pegasusimportmodel.MaterialBinding{Before: before, Blob: blob, NowMS: 10})
 		return err
 	})
-	if !errors.Is(err, application.ErrVersionConflict) {
+	if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 		t.Fatalf("%s %s error=%v", operation, field, err)
 	}
 	if !reflect.DeepEqual(beforeRows, materialRows(t, db)) {
@@ -141,7 +141,7 @@ func assertMaterialRollback(t *testing.T, operation string) {
 	}
 	beforeRows := materialRows(t, db)
 	cause := errors.New("failure after actual writes")
-	err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope application.MaterialScope) error {
+	err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope pegasusimportmodel.MaterialScope) error {
 		assertMaterialWriteVisible(t, scope, operation, key, blob)
 		return cause
 	})
@@ -155,10 +155,10 @@ func assertMaterialRollback(t *testing.T, operation string) {
 
 func assertMaterialWriteVisible(
 	t *testing.T,
-	scope application.MaterialScope,
+	scope pegasusimportmodel.MaterialScope,
 	operation string,
-	key application.MaterialKey,
-	blob application.VerifiedBlob,
+	key pegasusimportmodel.MaterialKey,
+	blob pegasusimportmodel.VerifiedBlob,
 ) {
 	t.Helper()
 	if operation == "phase" {
@@ -171,12 +171,12 @@ func assertMaterialWriteVisible(
 	}
 	id := ""
 	if operation == "warning" {
-		err = scope.Write.Warn(t.Context(), application.MaterialWarning{
+		err = scope.Write.Warn(t.Context(), pegasusimportmodel.MaterialWarning{
 			Before: before, State: "READ_FAILED", Code: "PEGASUS_IMAGE_INVALID",
 			Warnings: []map[string]any{{"code": "PEGASUS_IMAGE_INVALID", "field": "cover"}}, NowMS: 10,
 		})
 	} else {
-		id, err = scope.Write.Bind(t.Context(), application.MaterialBinding{Before: before, Blob: blob, NowMS: 10})
+		id, err = scope.Write.Bind(t.Context(), pegasusimportmodel.MaterialBinding{Before: before, Blob: blob, NowMS: 10})
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -194,7 +194,7 @@ func assertMaterialWriteVisible(
 	}
 }
 
-func assertMaterialPhaseVisible(t *testing.T, scope application.MaterialScope) {
+func assertMaterialPhaseVisible(t *testing.T, scope pegasusimportmodel.MaterialScope) {
 	t.Helper()
 	phase, err := scope.Read.Execution(t.Context(), "work")
 	if err != nil {
@@ -202,7 +202,7 @@ func assertMaterialPhaseVisible(t *testing.T, scope application.MaterialScope) {
 	}
 	if err := scope.Write.Phase(
 		t.Context(),
-		application.PhaseChange{Before: phase, Phase: "VALIDATING", NowMS: 10},
+		pegasusimportmodel.PhaseChange{Before: phase, Phase: "VALIDATING", NowMS: 10},
 	); err != nil {
 		t.Fatal(
 			err,
@@ -217,16 +217,16 @@ func assertMaterialPhaseVisible(t *testing.T, scope application.MaterialScope) {
 func TestMaterializationReplayAcceptsHeartbeatButRejectsDifferentCASFacts(t *testing.T) {
 	t.Parallel()
 	db, key, blob := materialDatabase(t)
-	var source application.MaterialSource
-	if err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope application.MaterialScope) error {
+	var source pegasusimportmodel.MaterialSource
+	if err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope pegasusimportmodel.MaterialScope) error {
 		snapshot, err := scope.Read.Source(t.Context(), key)
 		source = snapshot.Source
 		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
-	service := application.NewMaterialization(NewMaterialization(db), func() time.Time { return time.UnixMilli(10) })
-	identity := application.ExecutionIdentity{
+	service := pegasusimportservice.NewMaterialization(NewMaterialization(db), func() time.Time { return time.UnixMilli(10) })
+	identity := pegasusimportmodel.ExecutionIdentity{
 		JobID:       "work",
 		ImportID:    "import-0",
 		WorkerID:    "old-worker",
@@ -256,7 +256,7 @@ func TestMaterializationReplayAcceptsHeartbeatButRejectsDifferentCASFacts(t *tes
 		blob,
 	); result != "" || !errors.Is(
 		err,
-		application.ErrVersionConflict,
+		pegasusimportmodel.ErrVersionConflict,
 	) {
 		t.Fatalf("different replay=%s %v", result, err)
 	}
@@ -276,7 +276,7 @@ func TestMaterializationWarningPreservesMalformedJSONCauseAndRows(t *testing.T) 
 		t.Fatal(err)
 	}
 	before := materialRows(t, db)
-	err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope application.MaterialScope) error {
+	err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope pegasusimportmodel.MaterialScope) error {
 		_, err := scope.Read.Source(t.Context(), key)
 		return err
 	})

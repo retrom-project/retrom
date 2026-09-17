@@ -7,14 +7,15 @@ import (
 	"strings"
 
 	librarypersistence "retrom/internal/repo/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/capability/security/authn"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
-type ServerSourceFile = libraryservice.ServerSourceFile
+type ServerSourceFile = libraryimportmodel.ServerSourceFile
 
-const ServerSourceFileLimit = libraryservice.ServerSourceFileLimit
+const ServerSourceFileLimit = libraryimportmodel.ServerSourceFileLimit
 
 const (
 	reviewHandoffDirect           = "DIRECT"
@@ -22,14 +23,14 @@ const (
 )
 
 type (
-	ServerImportItem     = libraryservice.ServerImportItem
-	ServerDuplicateMatch = libraryservice.ServerDuplicateMatch
-	ServerImportResult   = libraryservice.ServerImportResult
+	ServerImportItem     = libraryimportmodel.ServerImportItem
+	ServerDuplicateMatch = libraryimportmodel.ServerDuplicateMatch
+	ServerImportResult   = libraryimportmodel.ServerImportResult
 )
 
 type (
-	ServerMetadata        = libraryservice.ServerMetadata
-	ServerMetadataWarning = libraryservice.ServerMetadataWarning
+	ServerMetadata        = libraryimportmodel.ServerMetadata
+	ServerMetadataWarning = libraryimportmodel.ServerMetadataWarning
 )
 
 // CreateServerSource adopts already verified CAS blobs into the established
@@ -199,7 +200,7 @@ func (service *Service) SeedServerReviewMetadataAtYear(
 	metadata ServerMetadata,
 	maximumYear int,
 ) (int64, []ServerMetadataWarning, error) {
-	version, warnings, err := libraryservice.NewMetadataSeeder(
+	version, warnings, err := libraryimportservice.NewMetadataSeeder(
 		librarypersistence.NewMetadata(service.database), service.now,
 	).Seed(ctx, importItemID, metadata, maximumYear)
 	if err != nil {

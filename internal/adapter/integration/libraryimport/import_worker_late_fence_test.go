@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 

@@ -11,8 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -48,8 +49,8 @@ func TestImportAdmissionLateEventFailureRollsBackAllRecords(t *testing.T) {
 		},
 	})
 	notification := &admissionNotification{}
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(faulty), notification, service.tags,
-		application.ImportAdmissionOptions{Now: service.now})
+	admissions := libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(faulty), notification, service.tags,
+		libraryimportmodel.ImportAdmissionOptions{Now: service.now})
 	result, err := admissions.Queue(t.Context(), request)
 	if !errors.Is(err, cause) || result != (Created{}) || eventHits != 1 || pendingWrites != 1 || len(notification.jobs) != 0 {
 		t.Fatalf("result=%+v err=%v events=%d writes=%d notify=%v", result, err, eventHits, pendingWrites, notification.jobs)
@@ -58,8 +59,8 @@ func TestImportAdmissionLateEventFailureRollsBackAllRecords(t *testing.T) {
 	if !reflect.DeepEqual(before, after) {
 		t.Fatalf("failed admission changed database before=%v after=%v", before, after)
 	}
-	admissions = application.NewImportAdmissions(repository.NewImportAdmissions(service.database), notification, service.tags,
-		application.ImportAdmissionOptions{Now: service.now})
+	admissions = libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), notification, service.tags,
+		libraryimportmodel.ImportAdmissionOptions{Now: service.now})
 	result, err = admissions.Queue(t.Context(), request)
 	if err != nil || result.JobID == "" || len(notification.jobs) != 1 || notification.jobs[0] != result.JobID {
 		t.Fatalf("retry result=%+v err=%v notify=%v", result, err, notification.jobs)
@@ -108,7 +109,7 @@ func TestImportAdmissionAffectedRowsFailureKeepsCause(t *testing.T) {
 			return result, nil
 		},
 	})
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(faulty), nil, service.tags, application.ImportAdmissionOptions{Now: service.now})
+	admissions := libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(faulty), nil, service.tags, libraryimportmodel.ImportAdmissionOptions{Now: service.now})
 	result, err := admissions.Queue(t.Context(), request)
 	if !errors.Is(err, cause) || errors.Is(err, ErrVersionConflict) || result != (Created{}) || hits != 1 {
 		t.Fatalf("result=%+v err=%v hits=%d", result, err, hits)
@@ -135,8 +136,8 @@ func TestImportAdmissionLostFenceRollsBack(t *testing.T) {
 					return result, nil
 				},
 			})
-			admissions := application.NewImportAdmissions(repository.NewImportAdmissions(faulty), nil, service.tags,
-				application.ImportAdmissionOptions{Now: service.now})
+			admissions := libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(faulty), nil, service.tags,
+				libraryimportmodel.ImportAdmissionOptions{Now: service.now})
 			result, err := admissions.Queue(t.Context(), request)
 			if !errors.Is(err, ErrVersionConflict) || result != (Created{}) || hits != 1 {
 				t.Fatalf("result=%+v err=%v hits=%d", result, err, hits)

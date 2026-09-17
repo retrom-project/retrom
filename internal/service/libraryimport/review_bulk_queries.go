@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,13 +15,13 @@ import (
 	"github.com/google/uuid"
 )
 
-type ReviewBulkQueries struct{ repository ReviewBulkRepository }
+type ReviewBulkQueries struct{ repository model.ReviewBulkRepository }
 
-func NewReviewBulkQueries(repository ReviewBulkRepository) *ReviewBulkQueries {
+func NewReviewBulkQueries(repository model.ReviewBulkRepository) *ReviewBulkQueries {
 	return &ReviewBulkQueries{repository: repository}
 }
 
-func NormalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
+func NormalizeReviewBulkScope(scope model.ReviewBulkScope) (model.ReviewBulkScope, error) {
 	scope.Q = strings.ToLower(strings.Join(strings.Fields(scope.Q), " "))
 	scope.TagID = strings.TrimSpace(scope.TagID)
 	scope.ImportJobID = strings.TrimSpace(scope.ImportJobID)
@@ -29,7 +30,7 @@ func NormalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
 	scope.PlatformInstanceID = strings.TrimSpace(scope.PlatformInstanceID)
 	scope.BlockerCode = strings.TrimSpace(scope.BlockerCode)
 	if !utf8.ValidString(scope.Q) || len([]rune(scope.Q)) > 200 || len(scope.BlockerCode) > 120 {
-		return ReviewBulkScope{}, ErrReviewBulkQuery
+		return model.ReviewBulkScope{}, model.ErrReviewBulkQuery
 	}
 	sourceFilters := []string{scope.ImportJobID, scope.PegasusImportID, scope.EmulationStationImportID}
 	count := 0
@@ -39,7 +40,7 @@ func NormalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
 		}
 	}
 	if count > 1 {
-		return ReviewBulkScope{}, ErrReviewBulkQuery
+		return model.ReviewBulkScope{}, model.ErrReviewBulkQuery
 	}
 	for _, value := range []string{
 		scope.TagID, scope.ImportJobID, scope.PegasusImportID,
@@ -50,32 +51,32 @@ func NormalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
 		}
 		parsed, err := uuid.Parse(value)
 		if err != nil || parsed.String() != value {
-			return ReviewBulkScope{}, ErrReviewBulkQuery
+			return model.ReviewBulkScope{}, model.ErrReviewBulkQuery
 		}
 	}
 	return scope, nil
 }
 
-func normalizeReviewBulkCandidateQuery(query ReviewBulkCandidateQuery) (ReviewBulkCandidateQuery, error) {
+func normalizeReviewBulkCandidateQuery(query model.ReviewBulkCandidateQuery) (model.ReviewBulkCandidateQuery, error) {
 	normalized, err := NormalizeReviewBulkScope(query.Scope)
 	if err != nil {
-		return ReviewBulkCandidateQuery{}, err
+		return model.ReviewBulkCandidateQuery{}, err
 	}
 	query.Scope = normalized
 	if query.Limit == 0 {
-		query.Limit = ReviewBulkQueryLimit
+		query.Limit = model.ReviewBulkQueryLimit
 	}
-	if query.Limit < 1 || query.Limit > ReviewBulkQueryLimit {
-		return ReviewBulkCandidateQuery{}, ErrReviewBulkQuery
+	if query.Limit < 1 || query.Limit > model.ReviewBulkQueryLimit {
+		return model.ReviewBulkCandidateQuery{}, model.ErrReviewBulkQuery
 	}
 	if err := validateReviewBulkCursor(query.AfterItemID); err != nil {
-		return ReviewBulkCandidateQuery{}, err
+		return model.ReviewBulkCandidateQuery{}, err
 	}
 	if err := validateReviewBulkCursor(query.ThroughItemID); err != nil {
-		return ReviewBulkCandidateQuery{}, err
+		return model.ReviewBulkCandidateQuery{}, err
 	}
 	if query.AfterItemID != "" && (query.ThroughItemID == "" || query.AfterItemID >= query.ThroughItemID) {
-		return ReviewBulkCandidateQuery{}, ErrReviewBulkQuery
+		return model.ReviewBulkCandidateQuery{}, model.ErrReviewBulkQuery
 	}
 	return query, nil
 }
@@ -87,20 +88,20 @@ func validateReviewBulkCursor(value string) error {
 	parsed, err := uuid.Parse(value)
 
 	if err != nil || parsed.String() != value {
-		return ErrReviewBulkQuery
+		return model.ErrReviewBulkQuery
 	}
 	return nil
 }
 
 func (service *ReviewBulkQueries) Candidates(
-	ctx context.Context, scope ReviewBulkScope,
-) ([]ReviewBulkCandidate, error) {
-	return service.CandidatesPage(ctx, ReviewBulkCandidateQuery{Scope: scope})
+	ctx context.Context, scope model.ReviewBulkScope,
+) ([]model.ReviewBulkCandidate, error) {
+	return service.CandidatesPage(ctx, model.ReviewBulkCandidateQuery{Scope: scope})
 }
 
 func (service *ReviewBulkQueries) CandidatesPage(
-	ctx context.Context, query ReviewBulkCandidateQuery,
-) ([]ReviewBulkCandidate, error) {
+	ctx context.Context, query model.ReviewBulkCandidateQuery,
+) ([]model.ReviewBulkCandidate, error) {
 	normalized, err := normalizeReviewBulkCandidateQuery(query)
 	if err != nil {
 		return nil, err
@@ -114,34 +115,34 @@ func (service *ReviewBulkQueries) CandidatesPage(
 
 func (service *ReviewBulkQueries) Items(
 	ctx context.Context, bulkID, outcome, cursor string, limit int,
-) (ReviewBulkItemPage, error) {
+) (model.ReviewBulkItemPage, error) {
 	if err := validateReviewBulkCursor(bulkID); err != nil {
-		return ReviewBulkItemPage{}, err
+		return model.ReviewBulkItemPage{}, err
 	}
 	if outcome != "" && !validReviewBulkItemOutcome(outcome) {
-		return ReviewBulkItemPage{}, ErrReviewBulkQuery
+		return model.ReviewBulkItemPage{}, model.ErrReviewBulkQuery
 	}
 	if limit == 0 {
-		limit = ReviewBulkItemLimit
+		limit = model.ReviewBulkItemLimit
 	}
-	if limit < 1 || limit > ReviewBulkItemLimit {
-		return ReviewBulkItemPage{}, ErrReviewBulkQuery
+	if limit < 1 || limit > model.ReviewBulkItemLimit {
+		return model.ReviewBulkItemPage{}, model.ErrReviewBulkQuery
 	}
 	after := -1
 	if cursor != "" {
 		parsed, err := strconv.Atoi(cursor)
 		if err != nil || parsed < 0 {
-			return ReviewBulkItemPage{}, ErrReviewBulkQuery
+			return model.ReviewBulkItemPage{}, model.ErrReviewBulkQuery
 		}
 		after = parsed
 	}
-	rows, err := service.repository.Items(ctx, ReviewBulkItemQuery{
+	rows, err := service.repository.Items(ctx, model.ReviewBulkItemQuery{
 		BulkApprovalID: bulkID, Outcome: outcome, AfterOrdinal: after, Limit: limit + 1,
 	})
 	if err != nil {
-		return ReviewBulkItemPage{}, fmt.Errorf("read review bulk items: %w", err)
+		return model.ReviewBulkItemPage{}, fmt.Errorf("read review bulk items: %w", err)
 	}
-	page := ReviewBulkItemPage{Items: make([]ReviewBulkItemRecord, 0, minInt(limit, len(rows)))}
+	page := model.ReviewBulkItemPage{Items: make([]model.ReviewBulkItemRecord, 0, minInt(limit, len(rows)))}
 	if len(rows) > limit {
 		rows = rows[:limit]
 		last := rows[len(rows)-1].Ordinal
@@ -152,26 +153,26 @@ func (service *ReviewBulkQueries) Items(
 	return page, nil
 }
 
-func (service *ReviewBulkQueries) Summary(ctx context.Context, bulkID string) (ReviewBulkSummary, error) {
+func (service *ReviewBulkQueries) Summary(ctx context.Context, bulkID string) (model.ReviewBulkSummary, error) {
 	if err := validateReviewBulkCursor(bulkID); err != nil {
-		return ReviewBulkSummary{}, err
+		return model.ReviewBulkSummary{}, err
 	}
 	result, err := service.repository.Summary(ctx, bulkID)
 	if err != nil {
-		return ReviewBulkSummary{}, fmt.Errorf("read review bulk summary: %w", err)
+		return model.ReviewBulkSummary{}, fmt.Errorf("read review bulk summary: %w", err)
 	}
 	return result, nil
 }
 
-func (service *ReviewBulkQueries) ActiveSummary(ctx context.Context) (ReviewBulkSummary, bool, error) {
+func (service *ReviewBulkQueries) ActiveSummary(ctx context.Context) (model.ReviewBulkSummary, bool, error) {
 	result, found, err := service.repository.ActiveSummary(ctx)
 	if err != nil {
-		return ReviewBulkSummary{}, false, fmt.Errorf("read active review bulk summary: %w", err)
+		return model.ReviewBulkSummary{}, false, fmt.Errorf("read active review bulk summary: %w", err)
 	}
 	return result, found, nil
 }
 
-func ReviewBulkScopeDigest(scope ReviewBulkScope) (string, string, error) {
+func ReviewBulkScopeDigest(scope model.ReviewBulkScope) (string, string, error) {
 	normalized, err := NormalizeReviewBulkScope(scope)
 	if err != nil {
 		return "", "", err
@@ -184,8 +185,8 @@ func ReviewBulkScopeDigest(scope ReviewBulkScope) (string, string, error) {
 	return string(encoded), hex.EncodeToString(digest[:]), nil
 }
 
-func ReviewBulkCandidateManifestDigest(candidates []ReviewBulkCandidate) string {
-	ordered := append([]ReviewBulkCandidate(nil), candidates...)
+func ReviewBulkCandidateManifestDigest(candidates []model.ReviewBulkCandidate) string {
+	ordered := append([]model.ReviewBulkCandidate(nil), candidates...)
 	sort.Slice(ordered, func(left, right int) bool { return ordered[left].ItemID < ordered[right].ItemID })
 	digest := sha256.New()
 	for _, candidate := range ordered {

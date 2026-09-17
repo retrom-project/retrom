@@ -3,29 +3,30 @@ package storageanalysis
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/storageanalysis"
 	"testing"
 	"time"
 )
 
 type snapshotRepository struct {
-	value ReadModel
+	value model.ReadModel
 	err   error
 	reads int
 }
 
-func (repository *snapshotRepository) Read(context.Context) (ReadModel, error) {
+func (repository *snapshotRepository) Read(context.Context) (model.ReadModel, error) {
 	repository.reads++
 	return repository.value, repository.err
 }
 
 func TestAnalyzePropagatesArchiveUsageWithinOneSnapshot(t *testing.T) {
 	t.Parallel()
-	repository := &snapshotRepository{value: ReadModel{
-		Blobs:     map[string]int64{"archive": 100, "member": 80, "orphan": 20},
-		Protected: map[string]struct{}{"archive": {}, "member": {}},
-		Usage:     map[string]Usage{"archive": UsageGame},
-		Archives:  []ArchiveMember{{ArchiveID: "archive", MemberID: "member"}},
-		Saves:     SaveReferences{ActiveCount: 1, PayloadIDs: []string{"member"}}, CleanupCandidates: []string{"orphan"},
+	repository := &snapshotRepository{value: model.ReadModel{
+		Blobs:       map[string]int64{"archive": 100, "member": 80, "orphan": 20},
+		Protected:   map[string]struct{}{"archive": {}, "member": {}},
+		Usage: map[string]model.Usage{"archive": model.UsageGame},
+		Archives:    []model.ArchiveMember{{ArchiveID: "archive", MemberID: "member"}},
+		Saves:       model.SaveReferences{ActiveCount: 1, PayloadIDs: []string{"member"}}, CleanupCandidates: []string{"orphan"},
 	}}
 	snapshot, err := New(repository, func() time.Time { return time.UnixMilli(1234) }).Analyze(t.Context())
 	if err != nil {
@@ -47,7 +48,7 @@ func TestAnalyzePropagatesArchiveUsageWithinOneSnapshot(t *testing.T) {
 
 func TestAnalyzeRejectsMissingProtectedBlob(t *testing.T) {
 	t.Parallel()
-	repository := &snapshotRepository{value: ReadModel{Blobs: map[string]int64{}, Protected: map[string]struct{}{"missing": {}}}}
+	repository := &snapshotRepository{value: model.ReadModel{Blobs: map[string]int64{}, Protected: map[string]struct{}{"missing": {}}}}
 	if _, err := New(repository, time.Now).Analyze(t.Context()); !errors.Is(err, errProtectedBlobMissing) {
 		t.Fatalf("missing protected blob: %v", err)
 	}

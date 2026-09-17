@@ -6,7 +6,7 @@ import (
 	"errors"
 	"os"
 
-	libraryimport "retrom/internal/service/libraryimport"
+	libraryimport "retrom/internal/model/libraryimport"
 )
 
 func (source *Sources) Sanitize(err error) string {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"reflect"
+	model "retrom/internal/model/launch"
 	"testing"
 	"time"
 )
@@ -12,12 +13,12 @@ import (
 const validationFixtureID = "01980000-0000-7000-8000-000000000081"
 
 func validationSchedulerFixture(repository *validationJobMemory) *ValidationScheduler {
-	return NewValidationScheduler(repository, ValidationEnvironment{Now: func() time.Time { return time.UnixMilli(100) }, NewID: func() (string, error) { return validationFixtureID, nil }})
+	return NewValidationScheduler(repository, model.ValidationEnvironment{Now: func() time.Time { return time.UnixMilli(100) }, NewID: func() (string, error) { return validationFixtureID, nil }})
 }
 
-func validationRetrySnapshot(t *testing.T) ValidationSnapshot {
+func validationRetrySnapshot(t *testing.T) model.ValidationSnapshot {
 	t.Helper()
-	return ValidationSnapshot{SchemaVersion: 1, Kind: "VARIANT_VALIDATE", Scope: ValidationScope{Type: "GAME_VARIANT", ID: "variant"}, ExecutionID: "previous", Inputs: ValidationInputs{GameID: "old-game", GameVariantID: "variant", GameVersion: 7, SourceManifestDigest: "frozen-content", ValidationInputDigest: "frozen-digest"}}
+	return model.ValidationSnapshot{SchemaVersion: 1, Kind: "VARIANT_VALIDATE", Scope: model.ValidationScope{Type: "GAME_VARIANT", ID: "variant"}, ExecutionID: "previous", Inputs: model.ValidationInputs{GameID: "old-game", GameVariantID: "variant", GameVersion: 7, SourceManifestDigest: "frozen-content", ValidationInputDigest: "frozen-digest"}}
 }
 
 func TestValidationSchedulerRetainsRetryInputs(t *testing.T) {
@@ -26,13 +27,13 @@ func TestValidationSchedulerRetainsRetryInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repository := &validationJobMemory{found: true, current: ValidationJob{ID: validationFixtureID, State: "FAILED", Retryable: true, Version: 5, ExecutionNo: 3, SnapshotJSON: string(encoded)}}
-	result, err := validationSchedulerFixture(repository).Queue(t.Context(), ValidationInputs{GameID: "replacement-game", GameVariantID: "variant", ValidationInputDigest: "new-digest"})
+	repository := &validationJobMemory{found: true, current: model.ValidationJob{ID: validationFixtureID, State: "FAILED", Retryable: true, Version: 5, ExecutionNo: 3, SnapshotJSON: string(encoded)}}
+	result, err := validationSchedulerFixture(repository).Queue(t.Context(), model.ValidationInputs{GameID: "replacement-game", GameVariantID: "variant", ValidationInputDigest: "new-digest"})
 	if err != nil || !result.Queued || result.JobID != validationFixtureID || len(repository.writes) != 1 {
 		t.Fatalf("result=%+v error=%v writes=%d", result, err, len(repository.writes))
 	}
 	plan := repository.writes[0]
-	var actual ValidationSnapshot
+	var actual model.ValidationSnapshot
 	if err := json.Unmarshal([]byte(plan.SnapshotJSON), &actual); err != nil {
 		t.Fatal(err)
 	}
@@ -54,9 +55,9 @@ func TestValidationSchedulerReusesCurrentAndRejectsTerminalJobs(t *testing.T) {
 		{"CANCELLED", true, true},
 	} {
 		t.Run(test.state+map[bool]string{true: "-retryable", false: ""}[test.retryable], func(t *testing.T) {
-			repository := &validationJobMemory{found: true, current: ValidationJob{ID: validationFixtureID, State: test.state, Retryable: test.retryable}}
-			result, err := validationSchedulerFixture(repository).Queue(t.Context(), ValidationInputs{GameVariantID: "variant"})
-			if errors.Is(err, ErrBlocked) != test.blocked || result.Queued || len(repository.writes) != 0 {
+			repository := &validationJobMemory{found: true, current: model.ValidationJob{ID: validationFixtureID, State: test.state, Retryable: test.retryable}}
+			result, err := validationSchedulerFixture(repository).Queue(t.Context(), model.ValidationInputs{GameVariantID: "variant"})
+			if errors.Is(err, model.ErrBlocked) != test.blocked || result.Queued || len(repository.writes) != 0 {
 				t.Fatalf("result=%+v error=%v writes=%d", result, err, len(repository.writes))
 			}
 			if !test.blocked && result.JobID != validationFixtureID {
@@ -83,8 +84,8 @@ func TestValidationSchedulerRejectsInvalidRetriesAndIdentities(t *testing.T) {
 		{"zero execution", string(encoded), 0, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			repository := &validationJobMemory{found: true, current: ValidationJob{ID: validationFixtureID, State: "FAILED", Retryable: true, SnapshotJSON: test.body, ExecutionNo: test.execution, Version: test.version}}
-			result, err := validationSchedulerFixture(repository).Queue(t.Context(), ValidationInputs{GameVariantID: "variant"})
+			repository := &validationJobMemory{found: true, current: model.ValidationJob{ID: validationFixtureID, State: "FAILED", Retryable: true, SnapshotJSON: test.body, ExecutionNo: test.execution, Version: test.version}}
+			result, err := validationSchedulerFixture(repository).Queue(t.Context(), model.ValidationInputs{GameVariantID: "variant"})
 			if err == nil || result.JobID != "" || len(repository.writes) != 0 {
 				t.Fatalf("result=%+v error=%v writes=%d", result, err, len(repository.writes))
 			}
@@ -95,8 +96,8 @@ func TestValidationSchedulerRejectsInvalidRetriesAndIdentities(t *testing.T) {
 			repository := &validationJobMemory{}
 			scheduler := validationSchedulerFixture(repository)
 			scheduler.environment.NewID = func() (string, error) { return id, nil }
-			_, err := scheduler.Queue(t.Context(), ValidationInputs{GameVariantID: "variant"})
-			if !errors.Is(err, ErrBlocked) || len(repository.writes) != 0 {
+			_, err := scheduler.Queue(t.Context(), model.ValidationInputs{GameVariantID: "variant"})
+			if !errors.Is(err, model.ErrBlocked) || len(repository.writes) != 0 {
 				t.Fatalf("error=%v writes=%d", err, len(repository.writes))
 			}
 		})

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
+	accountservice "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
-	accountservice "retrom/internal/service/accounts"
 )
 
 func TestUserDeletionLateFailureRollsBackSecurityAndAudit(t *testing.T) {

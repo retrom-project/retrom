@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/launch"
+	application "retrom/internal/model/launch"
 )
 
 func (service *Service) ProviderAssetAuthorized(

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/service/importdiscard"
+	"retrom/internal/model/importdiscard"
 )
 
 func TestDiscardRequestAndAuditRollbackTogether(t *testing.T) {

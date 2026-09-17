@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentprofile"
@@ -14,7 +15,7 @@ import (
 )
 
 func (service *ImportPreparation) rpgMakerNestedArchiveFormat(
-	file ImportFile,
+	file model.ImportFile,
 ) (importing.NestedArchiveFormat, error) {
 	reader, err := os.Open(service.blobs.Path(file.SHA256))
 	if err != nil {
@@ -32,7 +33,7 @@ func (service *ImportPreparation) rpgMakerNestedArchiveFormat(
 
 func (service *ImportPreparation) scanProjectArchive(
 	ctx context.Context,
-	file ImportFile,
+	file model.ImportFile,
 	archiveFormat contentprofile.ArchiveFormat,
 ) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, error) {
 	return service.scanProjectArchivePath(ctx, service.blobs.Path(file.SHA256), archiveFormat)
@@ -86,7 +87,7 @@ func (service *ImportPreparation) scanProjectArchivePath(
 
 func (service *ImportPreparation) projectArchiveReadMetadata(
 	ctx context.Context,
-	file ImportFile,
+	file model.ImportFile,
 	entries []importing.ArchiveEntry,
 	candidates map[int]*blobstore.Candidate,
 ) (map[int]blobstore.Metadata, error) {

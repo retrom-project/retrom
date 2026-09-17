@@ -13,8 +13,8 @@ import (
 	"modernc.org/sqlite"
 
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 type productWriteFaultRepository struct {

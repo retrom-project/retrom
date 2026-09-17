@@ -3,43 +3,44 @@ package gamelist
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/gamelist"
 )
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 }
 
-func New(repository Repository) *Service {
+func New(repository model.Repository) *Service {
 	return &Service{repository: repository}
 }
 
-func (service *Service) Detail(ctx context.Context, profileID, gameID string) (Detail, error) {
+func (service *Service) Detail(ctx context.Context, profileID, gameID string) (model.Detail, error) {
 	if service.repository == nil || profileID == "" || gameID == "" {
-		return Detail{}, ErrInvalid
+		return model.Detail{}, model.ErrInvalid
 	}
 	result, err := service.repository.Detail(ctx, profileID, gameID)
 	if err != nil {
-		return Detail{}, fmt.Errorf("read game detail: %w", err)
+		return model.Detail{}, fmt.Errorf("read game detail: %w", err)
 	}
 	return result, nil
 }
 
-func (service *Service) List(ctx context.Context, request ListRequest) (ListResult, error) {
+func (service *Service) List(ctx context.Context, request model.ListRequest) (model.ListResult, error) {
 	if service.repository == nil || request.ProfileID == "" || request.Limit < 1 || !validSort(request.Sort) {
-		return ListResult{}, ErrInvalid
+		return model.ListResult{}, model.ErrInvalid
 	}
 	fetch := request
 	fetch.Limit++
 	result, err := service.repository.List(ctx, fetch)
 	if err != nil {
-		return ListResult{}, fmt.Errorf("list games: %w", err)
+		return model.ListResult{}, fmt.Errorf("list games: %w", err)
 	}
 	if len(result.Items) <= request.Limit {
 		return result, nil
 	}
 	last := result.Items[request.Limit-1]
 	result.Items = result.Items[:request.Limit]
-	result.NextCursor = &Cursor{
+	result.NextCursor = &model.Cursor{
 		SortValues: cursorSortValues(last, request.Sort),
 		ID:         last.ID,
 	}
@@ -48,16 +49,16 @@ func (service *Service) List(ctx context.Context, request ListRequest) (ListResu
 
 func validSort(sort string) bool {
 	switch sort {
-	case SortTitleAsc, SortAddedDesc, SortRecentDesc, SortUpdatedDesc:
+	case model.SortTitleAsc, model.SortAddedDesc, model.SortRecentDesc, model.SortUpdatedDesc:
 		return true
 	default:
 		return false
 	}
 }
 
-func cursorSortValues(item GameItem, sort string) []string {
+func cursorSortValues(item model.GameItem, sort string) []string {
 	switch sort {
-	case SortRecentDesc:
+	case model.SortRecentDesc:
 		lastPlayed := int64(-1)
 		if item.LastPlayedAtMS != nil {
 			lastPlayed = *item.LastPlayedAtMS
@@ -65,9 +66,9 @@ func cursorSortValues(item GameItem, sort string) []string {
 		return []string{
 			formatInt64(lastPlayed), formatInt64(item.CreatedAtMS), item.Title,
 		}
-	case SortAddedDesc:
+	case model.SortAddedDesc:
 		return []string{formatInt64(item.CreatedAtMS), item.Title}
-	case SortUpdatedDesc:
+	case model.SortUpdatedDesc:
 		return []string{formatInt64(item.UpdatedAtMS), item.Title}
 	default:
 		return []string{item.Title}

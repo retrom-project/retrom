@@ -3,21 +3,22 @@ package launch
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/launch"
 	"time"
 )
 
 type ProductCreator struct {
-	repository  ProductCreationRepository
-	provider    PreviewProvider
-	blobs       ProductBlobVerifier
-	environment ProductEnvironment
+	repository  model.ProductCreationRepository
+	provider    model.PreviewProvider
+	blobs       model.ProductBlobVerifier
+	environment model.ProductEnvironment
 }
 
 func NewProductCreator(
-	repository ProductCreationRepository,
-	provider PreviewProvider,
-	blobs ProductBlobVerifier,
-	environment ProductEnvironment,
+	repository model.ProductCreationRepository,
+	provider model.PreviewProvider,
+	blobs model.ProductBlobVerifier,
+	environment model.ProductEnvironment,
 ) *ProductCreator {
 	if environment.NewID == nil {
 		environment.NewID = newProductID
@@ -29,24 +30,24 @@ func NewProductCreator(
 }
 
 type productPreparation struct {
-	snapshot   ProductSnapshot
-	plan       ProductCreatePlan
+	snapshot   model.ProductSnapshot
+	plan       model.ProductCreatePlan
 	capability string
 	validation bool
 }
 type productAttempt struct {
-	receipt ProductReceipt
+	receipt model.ProductReceipt
 	ready   bool
 	resume  string
 }
 
-func (service *ProductCreator) Create(ctx context.Context, command ProductCreateCommand) (ProductReceipt, error) {
+func (service *ProductCreator) Create(ctx context.Context, command model.ProductCreateCommand) (model.ProductReceipt, error) {
 	if !validProductRequest(command) {
-		return ProductReceipt{}, ErrBlocked
+		return model.ProductReceipt{}, model.ErrBlocked
 	}
 	stored, found, err := service.repository.Replay(ctx, command)
 	if err != nil {
-		return ProductReceipt{}, fmt.Errorf("read product replay: %w", err)
+		return model.ProductReceipt{}, fmt.Errorf("read product replay: %w", err)
 	}
 	if found {
 		return service.replay(command, stored)
@@ -54,16 +55,16 @@ func (service *ProductCreator) Create(ctx context.Context, command ProductCreate
 	for range 2 {
 		preparation, err := service.prepare(ctx, command)
 		if err != nil {
-			return ProductReceipt{}, err
+			return model.ProductReceipt{}, err
 		}
 		var outcome productAttempt
-		err = service.repository.WithCreation(ctx, func(scope ProductCreationScope) error {
+		err = service.repository.WithCreation(ctx, func(scope model.ProductCreationScope) error {
 			var commitErr error
 			outcome, commitErr = service.commit(ctx, scope, command, preparation)
 			return commitErr
 		})
 		if err != nil {
-			return ProductReceipt{}, fmt.Errorf("create product: %w", err)
+			return model.ProductReceipt{}, fmt.Errorf("create product: %w", err)
 		}
 		if outcome.ready {
 			continue
@@ -73,10 +74,10 @@ func (service *ProductCreator) Create(ctx context.Context, command ProductCreate
 		}
 		return outcome.receipt, nil
 	}
-	return ProductReceipt{}, ErrBlocked
+	return model.ProductReceipt{}, model.ErrBlocked
 }
 
-func (service *ProductCreator) prepare(ctx context.Context, command ProductCreateCommand) (productPreparation, error) {
+func (service *ProductCreator) prepare(ctx context.Context, command model.ProductCreateCommand) (productPreparation, error) {
 	snapshot, err := service.repository.Snapshot(ctx, command)
 	if err != nil {
 		return productPreparation{}, fmt.Errorf("read product snapshot: %w", err)
@@ -106,18 +107,18 @@ func (service *ProductCreator) prepare(ctx context.Context, command ProductCreat
 	return preparation, nil
 }
 
-func (service *ProductCreator) validateProvider(source ProductSource, capabilities Capabilities) error {
+func (service *ProductCreator) validateProvider(source model.ProductSource, capabilities model.Capabilities) error {
 	if service.provider == nil {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	target, found := service.provider.Target(source.ProviderID, source.TargetID)
 	bundle, hasBundle := service.provider.BundleSHA256(source.ProviderID, source.TargetID)
 	if !found || !hasBundle || bundle != source.BundleSHA256 {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	if target.Capabilities.RequiresThreads && (!capabilities.SecureContext ||
 		!capabilities.CrossOriginIsolated || !capabilities.SharedArrayBuffer) {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	return nil
 }

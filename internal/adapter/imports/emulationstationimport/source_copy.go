@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/mediaasset"

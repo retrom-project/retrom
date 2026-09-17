@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	ErrConflict        = errors.New("JOB_CONFLICT")
-	ErrNotFound        = errors.New("JOB_NOT_FOUND")
-	ErrRetryViaDomain  = errors.New("RETRY_VIA_DOMAIN_ACTION")
+	ErrConflict       = errors.New("JOB_CONFLICT")
+	ErrNotFound       = errors.New("JOB_NOT_FOUND")
+	ErrRetryViaDomain = errors.New("RETRY_VIA_DOMAIN_ACTION")
 )
 
 const EventBatchSize = 1000

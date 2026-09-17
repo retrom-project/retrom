@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	model "retrom/internal/model/pegasusimport"
 	"strings"
 
 	"retrom/internal/adapter/files/mediaasset"
@@ -139,7 +140,7 @@ func (service *Scanner) resolveAssetCandidate(
 	if ctx.Err() != nil {
 		return nil, nil, fmt.Errorf("inspect Pegasus asset: %w", ctx.Err())
 	}
-	if errors.Is(err, ErrSourceChanged) {
+	if errors.Is(err, model.ErrSourceChanged) {
 		return nil, nil, nil
 	}
 	if err != nil {

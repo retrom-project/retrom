@@ -1,6 +1,7 @@
 package platforminstance
 
 import (
+	model "retrom/internal/model/platforminstance"
 	"strconv"
 	"strings"
 	"unicode"
@@ -60,7 +61,7 @@ func NextSlug(base string, slugs []string) (string, error) {
 			return candidate, nil
 		}
 	}
-	return "", ErrSlugExhausted
+	return "", model.ErrSlugExhausted
 }
 
 func validText(value string, minimum, maximum int, allowNewline bool) bool {

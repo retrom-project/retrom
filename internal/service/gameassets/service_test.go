@@ -16,8 +16,8 @@ type memoryRepository struct {
 	deleteCmd  *model.DeleteCommand
 }
 
-func (repository *memoryRepository) Upload(context.Context, string) (UploadedFile, bool, error) {
-	return UploadedFile{}, false, nil
+func (repository *memoryRepository) Upload(context.Context, string) (model.UploadedFile, bool, error) {
+	return model.UploadedFile{}, false, nil
 }
 
 func (repository *memoryRepository) CommitCreate(

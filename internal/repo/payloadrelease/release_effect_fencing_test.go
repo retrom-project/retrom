@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/payloadrelease"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
 	"retrom/internal/testkit/testsupport"
+
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 
 	"modernc.org/sqlite"
 )
@@ -40,7 +42,7 @@ func effectRepositoryDatabase(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	defer dbexec.Rollback(tx)
-	if _, err := application.NewScheduler(nil).DeleteGame(t.Context(), BindScheduling(tx), "effect-game", 1, 10); err != nil {
+	if _, err := payloadreleaseservice.NewScheduler(nil).DeleteGame(t.Context(), BindScheduling(tx), "effect-game", 1, 10); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -59,7 +61,7 @@ func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
 			}
 			defer dbexec.Rollback(tx)
 			scope := BindEffects(tx)
-			before, err := scope.Read.Owner(t.Context(), application.Scope{Type: application.ScopeGame, ID: "effect-game"})
+			before, err := scope.Read.Owner(t.Context(), payloadreleasemodel.Scope{Type: payloadreleasemodel.ScopeGame, ID: "effect-game"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -69,8 +71,8 @@ func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
 			after := before.Owner
 			after.PayloadState = "RELEASED"
 			after.Version++
-			err = scope.Write.ChangeOwner(t.Context(), application.EffectOwnerChange{Before: before, After: after, Released: true, NowMS: 10})
-			if !errors.Is(err, application.ErrEffectConflict) {
+			err = scope.Write.ChangeOwner(t.Context(), payloadreleasemodel.EffectOwnerChange{Before: before, After: after, Released: true, NowMS: 10})
+			if !errors.Is(err, payloadreleasemodel.ErrEffectConflict) {
 				t.Fatalf("late drift error=%v", err)
 			}
 		})
@@ -79,15 +81,15 @@ func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
 
 func TestEffectCommitFailurePreservesCauseAndRollsBackOwner(t *testing.T) {
 	db := effectRepositoryDatabase(t)
-	err := NewReleaseEffects(db).WithEffects(t.Context(), func(scope application.EffectScope) error {
-		before, err := scope.Read.Owner(t.Context(), application.Scope{Type: application.ScopeGame, ID: "effect-game"})
+	err := NewReleaseEffects(db).WithEffects(t.Context(), func(scope payloadreleasemodel.EffectScope) error {
+		before, err := scope.Read.Owner(t.Context(), payloadreleasemodel.Scope{Type: payloadreleasemodel.ScopeGame, ID: "effect-game"})
 		if err != nil {
 			return err
 		}
 		after := before.Owner
 		after.PayloadState = "RELEASED"
 		after.Version++
-		if err := scope.Write.ChangeOwner(t.Context(), application.EffectOwnerChange{Before: before, After: after, Released: true, NowMS: 10}); err != nil {
+		if err := scope.Write.ChangeOwner(t.Context(), payloadreleasemodel.EffectOwnerChange{Before: before, After: after, Released: true, NowMS: 10}); err != nil {
 			return err
 		}
 		records, ok := scope.Read.(effectRecords)

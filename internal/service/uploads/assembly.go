@@ -9,26 +9,27 @@ import (
 	"hash"
 	"io"
 	"io/fs"
+	model "retrom/internal/model/uploads"
 	"sort"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/uploadfiles"
 )
 
-func (service *Service) assembleFile(ctx context.Context, file Candidate, parts []Part) (blobstore.Metadata, error) {
+func (service *Service) assembleFile(ctx context.Context, file model.Candidate, parts []model.Part) (blobstore.Metadata, error) {
 	sort.Slice(parts, func(i, j int) bool { return parts[i].Offset < parts[j].Offset })
 	var offset int64
 	for _, part := range parts {
-		if part.Offset != offset || part.Size != min(PartSize, file.Size-offset) || part.Size <= 0 {
-			return blobstore.Metadata{}, &BrokenPart{
-				FileID: file.ID, Number: int(offset / PartSize), Missing: true, Cause: errPartMissing,
+		if part.Offset != offset || part.Size != min(model.PartSize, file.Size-offset) || part.Size <= 0 {
+			return blobstore.Metadata{}, &model.BrokenPart{
+				FileID: file.ID, Number: int(offset / model.PartSize), Missing: true, Cause: errPartMissing,
 			}
 		}
 		offset += part.Size
 	}
 	if offset != file.Size {
-		return blobstore.Metadata{}, &BrokenPart{
-			FileID: file.ID, Number: int(offset / PartSize), Missing: true, Cause: errPartMissing,
+		return blobstore.Metadata{}, &model.BrokenPart{
+			FileID: file.ID, Number: int(offset / model.PartSize), Missing: true, Cause: errPartMissing,
 		}
 	}
 	reader := &assemblyReader{ctx: ctx, source: service.source, fileID: file.ID, parts: parts}
@@ -47,7 +48,7 @@ type assemblyReader struct {
 	ctx    context.Context
 	source *uploadfiles.Store
 	fileID string
-	parts  []Part
+	parts  []model.Part
 	index  int
 	handle io.ReadCloser
 	reader *partReader
@@ -75,7 +76,7 @@ func (reader *assemblyReader) Read(buffer []byte) (int, error) {
 			handle, err := reader.source.Open(part.Path)
 			if err != nil {
 				if errors.Is(err, fs.ErrNotExist) {
-					return 0, &BrokenPart{
+					return 0, &model.BrokenPart{
 						FileID: reader.fileID, Number: part.Number, Part: part, Cause: errors.Join(errPartMissing, err),
 					}
 				}
@@ -88,7 +89,7 @@ func (reader *assemblyReader) Read(buffer []byte) (int, error) {
 		}
 		count, err := reader.reader.Read(buffer)
 		if errors.Is(err, errPartCorrupt) {
-			return count, &BrokenPart{FileID: reader.fileID, Number: part.Number, Part: part, Cause: err}
+			return count, &model.BrokenPart{FileID: reader.fileID, Number: part.Number, Part: part, Cause: err}
 		}
 		if !errors.Is(err, io.EOF) {
 			return count, err
@@ -108,7 +109,7 @@ type partReader struct {
 	ctx      context.Context
 	reader   io.Reader
 	hash     hash.Hash
-	expected Part
+	expected model.Part
 	read     int64
 }
 

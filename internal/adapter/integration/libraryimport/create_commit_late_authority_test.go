@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -20,8 +21,8 @@ func TestImportCreationRollsBackWhenLeaseExpiresAfterSourceWrite(t *testing.T) {
 	var clock atomic.Int64
 	clock.Store(time.Now().UnixMilli())
 	service.now = func() time.Time { return time.UnixMilli(clock.Load()) }
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
-		application.ImportAdmissionOptions{Now: service.now})
+	admissions := libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(service.database), nil, service.tags,
+		libraryimportmodel.ImportAdmissionOptions{Now: service.now})
 	created, err := admissions.Queue(t.Context(), plan.Request)
 	if err != nil {
 		t.Fatal(err)

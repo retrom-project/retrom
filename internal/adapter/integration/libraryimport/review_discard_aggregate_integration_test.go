@@ -5,7 +5,7 @@ package libraryimport
 import (
 	"testing"
 
-	"retrom/internal/service/importprogress"
+	"retrom/internal/model/importprogress"
 )
 
 type discardAggregateCase struct {

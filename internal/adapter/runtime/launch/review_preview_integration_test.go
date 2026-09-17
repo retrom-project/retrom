@@ -27,7 +27,8 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -58,12 +59,12 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	importService := libraryimport.New(database.SQL, time.Now)
 	createReview := func(name string, contents []byte, targetID string) string {
 		t.Helper()
-		upload, createErr := uploadService.Create(ctx, uploads.CreateRequest{
-			SourceType: "FILES", Files: []uploads.FileDeclaration{{
+		upload, createErr := uploadService.Create(ctx, uploadsmodel.CreateRequest{
+			SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{
 				ClientFileID: name, RelativePath: name, SizeBytes: int64(len(contents)),
 			}},
 		})

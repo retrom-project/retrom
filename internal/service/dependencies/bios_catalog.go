@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/dependencies"
 	"strings"
 	"time"
 
@@ -268,9 +269,9 @@ var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 // Static BIOS definitions are synchronized atomically with their aliases and version provenance.
 func bootstrapStaticBIOS(
 	ctx context.Context,
-	records BIOSRecords,
+	records model.BIOSRecords,
 	versionName string,
-	selectedTargets map[string]RuntimeTarget,
+	selectedTargets map[string]model.RuntimeTarget,
 	now time.Time,
 ) error {
 	catalog, err := completeStaticBIOSCatalog()
@@ -312,7 +313,7 @@ func bootstrapStaticBIOS(
 		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
 			"retrom:bios:"+target.ProviderID+":"+target.TargetID+":"+requirement.logical,
 		)).String()
-		err := records.Upsert(ctx, BIOSRequirement{
+		err := records.Upsert(ctx, model.BIOSRequirement{
 			ID: id, CoreID: requirement.coreID, ProviderID: target.ProviderID, TargetID: target.TargetID,
 			LogicalName: requirement.logical, Mode: requirement.mode, ConditionCode: requirement.condition,
 			Options: nullableOptions(

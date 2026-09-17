@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/service/isolation"
+	"retrom/internal/model/isolation"
 )
 
 const rpgRuntimeCookieName = "retrom_rpg_runtime"

@@ -4,18 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 	"time"
 )
 
 const metadataExecutionTimeout = time.Hour
 
 type Worker struct {
-	repository WorkerRepository
-	processor  WorkerProcessor
+	repository model.WorkerRepository
+	processor  model.WorkerProcessor
 	now        func() time.Time
 }
 
-func NewWorker(repository WorkerRepository, processor WorkerProcessor, now func() time.Time) *Worker {
+func NewWorker(repository model.WorkerRepository, processor model.WorkerProcessor, now func() time.Time) *Worker {
 	return &Worker{repository: repository, processor: processor, now: now}
 }
 
@@ -27,7 +28,7 @@ func (worker *Worker) Run(parent context.Context, runID string) error {
 	if run.Provider == "NONE" || run.State != "RUNNING" {
 		return nil
 	}
-	claim := WorkerClaim{RunID: runID, JobID: run.JobID, ExecutionNo: run.ExecutionNo}
+	claim := model.WorkerClaim{RunID: runID, JobID: run.JobID, ExecutionNo: run.ExecutionNo}
 	if run.JobState == "CANCELLED" {
 		return worker.settle(parent, claim, 0, "", nil)
 	}
@@ -43,7 +44,7 @@ func (worker *Worker) Run(parent context.Context, runID string) error {
 		cause := context.DeadlineExceeded
 		if run.Deadline == 0 || run.Deadline > claim.Now {
 			code = "METADATA_ATTEMPTS_EXHAUSTED"
-			cause = ErrAttemptsExhausted
+			cause = model.ErrAttemptsExhausted
 		}
 		return worker.settle(parent, claim, 0, code, cause)
 	}
@@ -65,7 +66,7 @@ func (worker *Worker) Run(parent context.Context, runID string) error {
 func (worker *Worker) heartbeat(
 	ctx context.Context,
 	cancel context.CancelCauseFunc,
-	claim WorkerClaim,
+	claim model.WorkerClaim,
 	stopped chan<- struct{},
 ) {
 	defer close(stopped)
@@ -77,7 +78,7 @@ func (worker *Worker) heartbeat(
 			return
 		case <-ticker.C:
 			current := false
-			err := worker.repository.CommitWrite(ctx, func(scope WorkerScope) error {
+			err := worker.repository.CommitWrite(ctx, func(scope model.WorkerScope) error {
 				var err error
 				current, err = scope.Leases.Refresh(ctx, claim, worker.now().UnixMilli())
 				if err != nil {
@@ -90,7 +91,7 @@ func (worker *Worker) heartbeat(
 				return
 			}
 			if !current {
-				cancel(ErrExecutionLost)
+				cancel(model.ErrExecutionLost)
 				return
 			}
 		}

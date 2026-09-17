@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	model "retrom/internal/model/launch"
 	"strings"
 	"testing"
 	"time"
@@ -28,16 +29,16 @@ func TestProjectIndexesPreservesFormatDocumentsAndPreviewOrder(t *testing.T) {
 				memory := indexMemoryFixture()
 				memory.snapshot.Source.ContentKind, memory.snapshot.Source.DependencyJSON = item.format, item.raw
 				memory.snapshot.Source.Title = "Retrom title"
-				memory.snapshot.Files = []ProjectIndexRecord{
-					{Content: ConfigFile{LogicalName: "! assets/first#.bin", Format: item.format, Digest: strings.Repeat("b", 64), Size: 3, Role: "PROJECT_FILE"}, Order: 2},
-					{Content: ConfigFile{LogicalName: item.marker, Format: item.format, Digest: strings.Repeat("a", 64), Size: 16, Role: "GAME"}, Primary: preview},
+				memory.snapshot.Files = []model.ProjectIndexRecord{
+					{Content: model.ConfigFile{LogicalName: "! assets/first#.bin", Format: item.format, Digest: strings.Repeat("b", 64), Size: 3, Role: "PROJECT_FILE"}, Order: 2},
+					{Content: model.ConfigFile{LogicalName: item.marker, Format: item.format, Digest: strings.Repeat("a", 64), Size: 16, Role: "GAME"}, Primary: preview},
 				}
 				if preview {
 					memory.snapshot.Source.Purpose = "REVIEW_PREVIEW"
 				}
 				if item.font != "" {
-					memory.snapshot.Files = append(memory.snapshot.Files, ProjectIndexRecord{
-						Content: ConfigFile{LogicalName: item.font, Format: item.format, Digest: strings.Repeat("c", 64), Size: 8, Role: "RUNTIME_FILE"}, Order: 1,
+					memory.snapshot.Files = append(memory.snapshot.Files, model.ProjectIndexRecord{
+						Content: model.ConfigFile{LogicalName: item.font, Format: item.format, Digest: strings.Repeat("c", 64), Size: 8, Role: "RUNTIME_FILE"}, Order: 1,
 					})
 				}
 				assertProjectIndexDocument(t, memory, preview, item.marker, item.font)
@@ -52,7 +53,7 @@ func assertProjectIndexDocument(t *testing.T, memory *projectIndexMemory, previe
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), ProjectIndexReference{ID: "session"}, "valid")
+	result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), model.ProjectIndexReference{ID: "session"}, "valid")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,12 +93,12 @@ func TestProjectIndexesOnlyStaticFormatsPermitFallback(t *testing.T) {
 	memory.snapshot.Source.ContentKind = "RPG_MAKER_PROJECT"
 	memory.snapshot.Files[0].Content.Format = "RPG_MAKER_PROJECT"
 	service := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) })
-	result, err := service.Index(t.Context(), ProjectIndexReference{ID: "session"}, "valid")
-	if !errors.Is(err, ErrProjectIndexUnavailable) || len(result.Contents) != 0 {
+	result, err := service.Index(t.Context(), model.ProjectIndexReference{ID: "session"}, "valid")
+	if !errors.Is(err, model.ErrProjectIndexUnavailable) || len(result.Contents) != 0 {
 		t.Fatalf("static index=%v", err)
 	}
 	memory.snapshot.Files[0].Content.Digest = "corrupt"
-	if _, err := service.Index(t.Context(), ProjectIndexReference{ID: "session"}, "valid"); !errors.Is(err, ErrCredential) || errors.Is(err, ErrProjectIndexUnavailable) {
+	if _, err := service.Index(t.Context(), model.ProjectIndexReference{ID: "session"}, "valid"); !errors.Is(err, model.ErrCredential) || errors.Is(err, model.ErrProjectIndexUnavailable) {
 		t.Fatalf("corruption fell back: %v", err)
 	}
 }
@@ -108,8 +109,8 @@ func TestProjectIndexesRetainsProfileFailure(t *testing.T) {
 		memory := indexMemoryFixture()
 		memory.snapshot.Source.ContentKind, memory.snapshot.Source.DependencyJSON = format, "{"
 		memory.snapshot.Files[0].Content.Format = format
-		_, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), ProjectIndexReference{ID: "session"}, "valid")
-		if !errors.Is(err, ErrCredential) || errors.Is(err, ErrProjectIndexUnavailable) {
+		_, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), model.ProjectIndexReference{ID: "session"}, "valid")
+		if !errors.Is(err, model.ErrCredential) || errors.Is(err, model.ErrProjectIndexUnavailable) {
 			t.Fatalf("%s corruption fell back: %v", format, err)
 		}
 		if format == "SCUMMVM_PROJECT" && !errors.Is(err, scummvm.ErrResultInvalid) {
@@ -133,8 +134,8 @@ func TestProjectIndexesRejectsValidScummVMSnapshotWithoutSelectedGame(t *testing
 	memory := indexMemoryFixture()
 	memory.snapshot.Source.ContentKind, memory.snapshot.Source.DependencyJSON = "SCUMMVM_PROJECT", string(raw)
 	memory.snapshot.Files[0].Content.Format = "SCUMMVM_PROJECT"
-	result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), ProjectIndexReference{}, "valid")
-	if !errors.Is(err, ErrCredential) || !errors.Is(err, scummvm.ErrResultInvalid) || len(result.Contents) != 0 {
+	result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), model.ProjectIndexReference{}, "valid")
+	if !errors.Is(err, model.ErrCredential) || !errors.Is(err, scummvm.ErrResultInvalid) || len(result.Contents) != 0 {
 		t.Fatalf("unselected ScummVM index=%v", err)
 	}
 }
@@ -153,11 +154,11 @@ func TestProjectIndexesKeepsEngineEmptyFileRules(t *testing.T) {
 		memory.snapshot.Source.ContentKind, memory.snapshot.Source.DependencyJSON = item.format, item.raw
 		memory.snapshot.Files[0].Content.Format, memory.snapshot.Files[0].Content.LogicalName = item.format, item.path
 		memory.snapshot.Files[0].Content.Size = 0
-		result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), ProjectIndexReference{}, "valid")
+		result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), model.ProjectIndexReference{}, "valid")
 		if item.allowed && (err != nil || len(result.Contents) == 0) {
 			t.Fatalf("%s empty file rejected: %v", item.format, err)
 		}
-		if !item.allowed && (!errors.Is(err, ErrCredential) || len(result.Contents) != 0) {
+		if !item.allowed && (!errors.Is(err, model.ErrCredential) || len(result.Contents) != 0) {
 			t.Fatalf("%s empty file accepted: %v", item.format, err)
 		}
 	}
@@ -172,14 +173,14 @@ func TestProjectIndexesRejectsNXEngineFileCountBeyondContract(t *testing.T) {
 		memory.snapshot.Files = append(memory.snapshot.Files, file)
 	}
 	service := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) })
-	if _, err := service.Index(t.Context(), ProjectIndexReference{}, "valid"); err != nil {
+	if _, err := service.Index(t.Context(), model.ProjectIndexReference{}, "valid"); err != nil {
 		t.Fatalf("maximum permitted NXEngine tree rejected: %v", err)
 	}
 	file := memory.snapshot.Files[0]
 	file.Content.LogicalName = "overflow.bin"
 	memory.snapshot.Files = append(memory.snapshot.Files, file)
-	result, err := service.Index(t.Context(), ProjectIndexReference{}, "valid")
-	if !errors.Is(err, ErrCredential) || len(result.Contents) != 0 || result.SHA256 != "" {
+	result, err := service.Index(t.Context(), model.ProjectIndexReference{}, "valid")
+	if !errors.Is(err, model.ErrCredential) || len(result.Contents) != 0 || result.SHA256 != "" {
 		t.Fatalf("oversized NXEngine tree published: %v", err)
 	}
 }

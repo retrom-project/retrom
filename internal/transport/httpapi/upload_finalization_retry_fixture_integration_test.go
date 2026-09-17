@@ -21,10 +21,11 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
+	uploadsmodel "retrom/internal/model/uploads"
 	jobpersistence "retrom/internal/repo/jobs"
 	uploadpersistence "retrom/internal/repo/uploads"
 	"retrom/internal/service/jobs"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -61,14 +62,14 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	uploader := uploads.New(uploadpersistence.New(database.SQL), &retryUploadBlobs{blobs: blobs}, root, now)
+	uploader := uploadsservice.New(uploadpersistence.New(database.SQL), &retryUploadBlobs{blobs: blobs}, root, now)
 	t.Cleanup(uploader.Close)
 	server := &Server{
 		database: database.SQL, now: now, uploads: uploader, jobService: jobs.New(jobpersistence.New(database.SQL), now),
 		importer: libraryimport.New(database.SQL, now),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
-	session, err := uploader.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{
+	session, err := uploader.Create(t.Context(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{
 		{ClientFileID: "fixture", RelativePath: "fixture.bin", SizeBytes: 5},
 	}})
 	if err != nil {

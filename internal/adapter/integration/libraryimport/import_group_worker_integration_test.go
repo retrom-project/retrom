@@ -23,8 +23,9 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/foundation/cleanup"
+	uploadsmodel "retrom/internal/model/uploads"
 	"retrom/internal/repo/store"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -305,10 +306,10 @@ func completeProjectUpload(
 	archive []byte,
 ) string {
 	t.Helper()
-	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	uploadService := uploadsservice.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: purpose, SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "ons", RelativePath: "fixture.zip", SizeBytes: int64(len(archive)),
 		}},
 	})

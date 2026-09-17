@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func TestReviewDependencyCompatibilityKeepsScalarValues(t *testing.T) {

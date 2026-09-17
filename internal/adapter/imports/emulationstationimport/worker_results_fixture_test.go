@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func (service *Service) closeItem(ctx context.Context, unit work, itemID, state, code string,

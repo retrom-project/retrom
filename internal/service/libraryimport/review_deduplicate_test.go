@@ -3,16 +3,17 @@ package libraryimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 )
 
 type reviewDeduplicateRepositoryStub struct {
-	scope ReviewDeduplicateScope
+	scope model.ReviewDeduplicateScope
 	calls int
 }
 
 func (repository *reviewDeduplicateRepositoryStub) WithDeduplicate(
-	_ context.Context, work func(ReviewDeduplicateScope) error,
+	_ context.Context, work func(model.ReviewDeduplicateScope) error,
 ) error {
 	repository.calls++
 	return work(repository.scope)
@@ -20,8 +21,8 @@ func (repository *reviewDeduplicateRepositoryStub) WithDeduplicate(
 
 type reviewDeduplicateReaderStub struct {
 	through    *string
-	candidates []ReviewBulkCandidate
-	query      ReviewBulkCandidateQuery
+	candidates []model.ReviewBulkCandidate
+	query      model.ReviewBulkCandidateQuery
 }
 
 func (reader *reviewDeduplicateReaderStub) LatestReviewItemID(context.Context) (*string, error) {
@@ -29,34 +30,34 @@ func (reader *reviewDeduplicateReaderStub) LatestReviewItemID(context.Context) (
 }
 
 func (reader *reviewDeduplicateReaderStub) Candidates(
-	_ context.Context, query ReviewBulkCandidateQuery,
-) ([]ReviewBulkCandidate, error) {
+	_ context.Context, query model.ReviewBulkCandidateQuery,
+) ([]model.ReviewBulkCandidate, error) {
 	reader.query = query
 	return reader.candidates, nil
 }
 
 type reviewDeduplicateDuplicatesStub struct {
-	gamesByItem map[string][]DuplicateGame
+	gamesByItem map[string][]model.DuplicateGame
 	matched     []string
 }
 
 func (reader *reviewDeduplicateDuplicatesStub) Snapshot(
 	_ context.Context, itemID string,
-) (ContentSnapshot, error) {
-	return ContentSnapshot{ID: itemID, Kind: "SINGLE_FILE"}, nil
+) (model.ContentSnapshot, error) {
+	return model.ContentSnapshot{ID: itemID, Kind: "SINGLE_FILE"}, nil
 }
 
-func (*reviewDeduplicateDuplicatesStub) IdentityParts(context.Context, string) ([]ContentIdentityPart, error) {
-	return []ContentIdentityPart{{Role: "ROM", SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Count: 1}}, nil
+func (*reviewDeduplicateDuplicatesStub) IdentityParts(context.Context, string) ([]model.ContentIdentityPart, error) {
+	return []model.ContentIdentityPart{{Role: "ROM", SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Count: 1}}, nil
 }
 
-func (*reviewDeduplicateDuplicatesStub) OrderedDiscs(context.Context, string) ([]ContentIdentityDisc, error) {
+func (*reviewDeduplicateDuplicatesStub) OrderedDiscs(context.Context, string) ([]model.ContentIdentityDisc, error) {
 	return nil, nil
 }
 
 func (reader *reviewDeduplicateDuplicatesStub) PublishedMatches(
-	_ context.Context, query DuplicateQuery,
-) ([]DuplicateGame, error) {
+	_ context.Context, query model.DuplicateQuery,
+) ([]model.DuplicateGame, error) {
 	reader.matched = append(reader.matched, query.SnapshotID)
 	return reader.gamesByItem[query.SnapshotID], nil
 }
@@ -66,41 +67,41 @@ func (*reviewDeduplicateDuplicatesStub) ReviewPlatform(context.Context, string) 
 }
 
 type reviewDeduplicateDiscarderStub struct {
-	requests []ReviewDiscardRequest
+	requests []model.ReviewDiscardRequest
 	err      error
 }
 
 func (discarder *reviewDeduplicateDiscarderStub) DiscardInScope(
-	_ context.Context, _ ReviewDiscardScope, request ReviewDiscardRequest,
-) (ReviewDecisionResult, error) {
+	_ context.Context, _ model.ReviewDiscardScope, request model.ReviewDiscardRequest,
+) (model.ReviewDecisionResult, error) {
 	discarder.requests = append(discarder.requests, request)
 	if discarder.err != nil {
-		return ReviewDecisionResult{}, discarder.err
+		return model.ReviewDecisionResult{}, discarder.err
 	}
-	return ReviewDecisionResult{ItemID: request.ItemID, Status: "DISCARDED"}, nil
+	return model.ReviewDecisionResult{ItemID: request.ItemID, Status: "DISCARDED"}, nil
 }
 
 func TestReviewDeduplicatorUsesFrozenPageAndDiscardsPublishedMatches(t *testing.T) {
 	through := "01990000-0000-7000-8000-000000000099"
 	reader := &reviewDeduplicateReaderStub{
 		through: &through,
-		candidates: []ReviewBulkCandidate{
+		candidates: []model.ReviewBulkCandidate{
 			{ItemID: "01990000-0000-7000-8000-000000000001", PlatformID: "gba", ReviewVersion: 3},
 			{ItemID: "01990000-0000-7000-8000-000000000002", PlatformID: "gba", ReviewVersion: 4, AttachmentActive: true},
 		},
 	}
-	duplicates := &reviewDeduplicateDuplicatesStub{gamesByItem: map[string][]DuplicateGame{
+	duplicates := &reviewDeduplicateDuplicatesStub{gamesByItem: map[string][]model.DuplicateGame{
 		"01990000-0000-7000-8000-000000000001": {{GameID: "published"}},
 	}}
 	discarder := &reviewDeduplicateDiscarderStub{}
-	repository := &reviewDeduplicateRepositoryStub{scope: ReviewDeduplicateScope{
-		Reader: reader, Duplicates: duplicates, Discard: ReviewDiscardScope{},
+	repository := &reviewDeduplicateRepositoryStub{scope: model.ReviewDeduplicateScope{
+		Reader: reader, Duplicates: duplicates, Discard: model.ReviewDiscardScope{},
 	}}
 	service := NewReviewDeduplicator(repository, nil)
 	service.discarder = discarder
 
-	result, err := service.Deduplicate(t.Context(), ReviewDeduplicateRequest{
-		Scope: ReviewBulkScope{Q: "  Test   Game  "}, AfterItemID: "01990000-0000-7000-8000-000000000000",
+	result, err := service.Deduplicate(t.Context(), model.ReviewDeduplicateRequest{
+		Scope: model.ReviewBulkScope{Q: "  Test   Game  "}, AfterItemID: "01990000-0000-7000-8000-000000000000",
 		ThroughItemID: through,
 	})
 	if err != nil {
@@ -124,22 +125,22 @@ func TestReviewDeduplicatorPropagatesDiscardFailureWithoutResult(t *testing.T) {
 	through := "01990000-0000-7000-8000-000000000099"
 	want := errors.New("discard failed")
 	discarder := &reviewDeduplicateDiscarderStub{err: want}
-	repository := &reviewDeduplicateRepositoryStub{scope: ReviewDeduplicateScope{
-		Reader: &reviewDeduplicateReaderStub{through: &through, candidates: []ReviewBulkCandidate{{
+	repository := &reviewDeduplicateRepositoryStub{scope: model.ReviewDeduplicateScope{
+		Reader: &reviewDeduplicateReaderStub{through: &through, candidates: []model.ReviewBulkCandidate{{
 			ItemID: "01990000-0000-7000-8000-000000000001", PlatformID: "gba", ReviewVersion: 1,
 		}}},
-		Duplicates: &reviewDeduplicateDuplicatesStub{gamesByItem: map[string][]DuplicateGame{
+		Duplicates: &reviewDeduplicateDuplicatesStub{gamesByItem: map[string][]model.DuplicateGame{
 			"01990000-0000-7000-8000-000000000001": {{GameID: "published"}},
 		}},
 	}}
 	service := NewReviewDeduplicator(repository, nil)
 	service.discarder = discarder
 
-	result, err := service.Deduplicate(t.Context(), ReviewDeduplicateRequest{ThroughItemID: through})
+	result, err := service.Deduplicate(t.Context(), model.ReviewDeduplicateRequest{ThroughItemID: through})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v", err)
 	}
-	if result != (ReviewDeduplicateResult{}) {
+	if result != (model.ReviewDeduplicateResult{}) {
 		t.Fatalf("result = %+v", result)
 	}
 }

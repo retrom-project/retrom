@@ -3,12 +3,13 @@ package libraryimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 )
 
 type importWorkerRepositoryProbe struct{ writes int }
 
-func (probe *importWorkerRepositoryProbe) WithExecution(context.Context, func(ImportExecutionScope) error) error {
+func (probe *importWorkerRepositoryProbe) WithExecution(context.Context, func(model.ImportExecutionScope) error) error {
 	probe.writes++
 	return errors.New("unexpected worker write")
 }

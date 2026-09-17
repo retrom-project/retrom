@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/capability/security/authn"
 )
@@ -15,13 +16,13 @@ func (scheduler *Scheduler) ScheduleReview(
 	provider string,
 ) (Scheduled, int64, error) {
 	var scheduled Scheduled
-	err := scheduler.repository.CommitWrite(ctx, func(scope ScheduleScope) error {
+	err := scheduler.repository.CommitWrite(ctx, func(scope model.ScheduleScope) error {
 		draft, found, err := scope.Subjects.Review(ctx, itemID)
 		if err != nil {
 			return fmt.Errorf("read review scrape subject: %w", err)
 		}
 		if !found || draft.Version != version {
-			return ErrReviewVersionConflict
+			return model.ErrReviewVersionConflict
 		}
 		nonce, err := scheduleID()
 		if err != nil {
@@ -51,9 +52,9 @@ func (scheduler *Scheduler) ScheduleReview(
 
 func recordReviewRequest(
 	ctx context.Context,
-	writer ScheduleWriter,
+	writer model.ScheduleWriter,
 	itemID, provider string,
-	draft ReviewSubject,
+	draft model.ReviewSubject,
 	scheduled Scheduled,
 	now int64,
 ) error {
@@ -75,7 +76,7 @@ func recordReviewRequest(
 	if err != nil {
 		return err
 	}
-	err = writer.Review(ctx, ReviewChange{
+	err = writer.Review(ctx, model.ReviewChange{
 		ID: id, ItemID: itemID, BeforeJSON: string(before), AfterJSON: string(after),
 		Actor: authn.ActorFromContext(ctx, "release-setup"), Version: draft.Version, Now: now,
 	})
@@ -87,17 +88,17 @@ func recordReviewRequest(
 
 func (scheduler *Scheduler) ScheduleGame(ctx context.Context, id string, version int64) (Scheduled, int64, error) {
 	var scheduled Scheduled
-	err := scheduler.repository.CommitWrite(ctx, func(scope ScheduleScope) error {
+	err := scheduler.repository.CommitWrite(ctx, func(scope model.ScheduleScope) error {
 		game, found, err := scope.Subjects.Game(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read game scrape subject: %w", err)
 		}
 		if !found || game.Version != version {
-			return ErrGameVersionConflict
+			return model.ErrGameVersionConflict
 		}
 		now := scheduler.now().UnixMilli()
 		plan, err := newSchedulePlan(
-			Subject{
+			model.Subject{
 				Kind: "GAME",
 				ID:   id,
 			},

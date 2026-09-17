@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,17 +12,17 @@ import (
 const reviewDeduplicatePageSize = 50
 
 type reviewInScopeDiscarder interface {
-	DiscardInScope(context.Context, ReviewDiscardScope, ReviewDiscardRequest) (ReviewDecisionResult, error)
+	DiscardInScope(context.Context, model.ReviewDiscardScope, model.ReviewDiscardRequest) (model.ReviewDecisionResult, error)
 }
 
 // ReviewDeduplicator applies the duplicate review policy while the repository
 // keeps all SQL and transaction lifecycle details behind typed ports.
 type ReviewDeduplicator struct {
-	repository ReviewDeduplicateRepository
+	repository model.ReviewDeduplicateRepository
 	discarder  reviewInScopeDiscarder
 }
 
-func NewReviewDeduplicator(repository ReviewDeduplicateRepository, now func() time.Time) *ReviewDeduplicator {
+func NewReviewDeduplicator(repository model.ReviewDeduplicateRepository, now func() time.Time) *ReviewDeduplicator {
 	return &ReviewDeduplicator{
 		repository: repository,
 		discarder:  NewReviewDiscards(nil, now),
@@ -29,46 +30,46 @@ func NewReviewDeduplicator(repository ReviewDeduplicateRepository, now func() ti
 }
 
 func (service *ReviewDeduplicator) Deduplicate(
-	ctx context.Context, request ReviewDeduplicateRequest,
-) (ReviewDeduplicateResult, error) {
+	ctx context.Context, request model.ReviewDeduplicateRequest,
+) (model.ReviewDeduplicateResult, error) {
 	request, err := normalizeReviewDeduplicateRequest(request)
 	if err != nil {
-		return ReviewDeduplicateResult{}, err
+		return model.ReviewDeduplicateResult{}, err
 	}
-	var result ReviewDeduplicateResult
-	err = service.repository.WithDeduplicate(ctx, func(scope ReviewDeduplicateScope) error {
+	var result model.ReviewDeduplicateResult
+	err = service.repository.WithDeduplicate(ctx, func(scope model.ReviewDeduplicateScope) error {
 		var deduplicateErr error
 		result, deduplicateErr = service.deduplicateInScope(ctx, scope, request)
 		return deduplicateErr
 	})
 	if err != nil {
-		return ReviewDeduplicateResult{}, fmt.Errorf("deduplicate review items: %w", err)
+		return model.ReviewDeduplicateResult{}, fmt.Errorf("deduplicate review items: %w", err)
 	}
 	return result, nil
 }
 
 func (service *ReviewDeduplicator) deduplicateInScope(
-	ctx context.Context, scope ReviewDeduplicateScope, request ReviewDeduplicateRequest,
-) (ReviewDeduplicateResult, error) {
+	ctx context.Context, scope model.ReviewDeduplicateScope, request model.ReviewDeduplicateRequest,
+) (model.ReviewDeduplicateResult, error) {
 	through, err := reviewDeduplicateThrough(ctx, scope.Reader, request.ThroughItemID)
 	if err != nil || through == "" {
-		return ReviewDeduplicateResult{}, err
+		return model.ReviewDeduplicateResult{}, err
 	}
-	candidates, err := scope.Reader.Candidates(ctx, ReviewBulkCandidateQuery{
+	candidates, err := scope.Reader.Candidates(ctx, model.ReviewBulkCandidateQuery{
 		Scope:         request.Scope,
 		AfterItemID:   request.AfterItemID,
 		ThroughItemID: through,
 		Limit:         reviewDeduplicatePageSize + 1,
 	})
 	if err != nil {
-		return ReviewDeduplicateResult{}, fmt.Errorf("read review duplicate candidates: %w", err)
+		return model.ReviewDeduplicateResult{}, fmt.Errorf("read review duplicate candidates: %w", err)
 	}
-	result := ReviewDeduplicateResult{ThroughItemID: &through}
+	result := model.ReviewDeduplicateResult{ThroughItemID: &through}
 	if len(candidates) > reviewDeduplicatePageSize {
 		candidates = candidates[:reviewDeduplicatePageSize]
 		result.NextAfterItemID = &candidates[len(candidates)-1].ItemID
 	}
-	duplicates := NewContentDuplicates(scope.Duplicates)
+	duplicates := model.NewContentDuplicates(scope.Duplicates)
 	for _, candidate := range candidates {
 		result.ScannedCount++
 		if candidate.AttachmentActive {
@@ -77,7 +78,7 @@ func (service *ReviewDeduplicator) deduplicateInScope(
 		}
 		discarded, err := service.discardDuplicate(ctx, scope, duplicates, candidate)
 		if err != nil {
-			return ReviewDeduplicateResult{}, err
+			return model.ReviewDeduplicateResult{}, err
 		}
 		if discarded {
 			result.DiscardedCount++
@@ -87,7 +88,7 @@ func (service *ReviewDeduplicator) deduplicateInScope(
 }
 
 func reviewDeduplicateThrough(
-	ctx context.Context, reader ReviewDeduplicateReader, through string,
+	ctx context.Context, reader model.ReviewDeduplicateReader, through string,
 ) (string, error) {
 	if through != "" {
 		return through, nil
@@ -104,9 +105,9 @@ func reviewDeduplicateThrough(
 
 func (service *ReviewDeduplicator) discardDuplicate(
 	ctx context.Context,
-	scope ReviewDeduplicateScope,
-	duplicates *ContentDuplicates,
-	candidate ReviewBulkCandidate,
+	scope model.ReviewDeduplicateScope,
+	duplicates *model.ContentDuplicates,
+	candidate model.ReviewBulkCandidate,
 ) (bool, error) {
 	games, err := duplicates.Matches(ctx, candidate.ItemID, candidate.PlatformID)
 	if err != nil {
@@ -115,19 +116,19 @@ func (service *ReviewDeduplicator) discardDuplicate(
 	if len(games) == 0 {
 		return false, nil
 	}
-	if _, err := service.discarder.DiscardInScope(ctx, scope.Discard, ReviewDiscardRequest{
+	if _, err := service.discarder.DiscardInScope(ctx, scope.Discard, model.ReviewDiscardRequest{
 		ItemID: candidate.ItemID, ExpectedVersion: candidate.ReviewVersion,
-		Reason: "快速去重：游戏内容已发布", Mode: ReviewDiscardSingle,
+		Reason: "快速去重：游戏内容已发布", Mode: model.ReviewDiscardSingle,
 	}); err != nil {
 		return false, fmt.Errorf("discard duplicate review: %w", err)
 	}
 	return true, nil
 }
 
-func normalizeReviewDeduplicateRequest(request ReviewDeduplicateRequest) (ReviewDeduplicateRequest, error) {
+func normalizeReviewDeduplicateRequest(request model.ReviewDeduplicateRequest) (model.ReviewDeduplicateRequest, error) {
 	scope, err := NormalizeReviewBulkScope(request.Scope)
 	if err != nil {
-		return ReviewDeduplicateRequest{}, err
+		return model.ReviewDeduplicateRequest{}, err
 	}
 	request.Scope = scope
 	for _, value := range []string{request.AfterItemID, request.ThroughItemID} {
@@ -136,11 +137,11 @@ func normalizeReviewDeduplicateRequest(request ReviewDeduplicateRequest) (Review
 		}
 		parsed, err := uuid.Parse(value)
 		if err != nil || parsed.String() != value {
-			return ReviewDeduplicateRequest{}, ErrReviewBulkQuery
+			return model.ReviewDeduplicateRequest{}, model.ErrReviewBulkQuery
 		}
 	}
 	if request.AfterItemID != "" && (request.ThroughItemID == "" || request.AfterItemID >= request.ThroughItemID) {
-		return ReviewDeduplicateRequest{}, ErrReviewBulkQuery
+		return model.ReviewDeduplicateRequest{}, model.ErrReviewBulkQuery
 	}
 	return request, nil
 }

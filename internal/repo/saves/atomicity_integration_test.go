@@ -5,10 +5,10 @@ package saves
 import (
 	"context"
 	"errors"
+	savesmodel "retrom/internal/model/saves"
+	savesservice "retrom/internal/service/saves"
 	"testing"
 	"time"
-
-	saveservice "retrom/internal/service/saves"
 )
 
 func TestCheckpointLateFailureRollsBackAllRecords(t *testing.T) {
@@ -21,7 +21,7 @@ func TestCheckpointLateFailureRollsBackAllRecords(t *testing.T) {
 		before := savePersistenceEvidence(t, fixture)
 		failure := errors.New("idempotency storage failed")
 		repository := lateSaveFailure{Repository: New(fixture.database.SQL), failure: failure}
-		service := saveservice.New(repository, fixture.blobs, func() time.Time { return *fixture.now })
+		service := savesservice.New(repository, fixture.blobs, func() time.Time { return *fixture.now })
 		_, _, err := service.CreateManual(fixture.ctx, launch.LaunchID, launch.Capability, "failed-write",
 			manualRequest(t, "replacement", []byte("replacement"), screenshotPNG(t)))
 		if !errors.Is(err, failure) {
@@ -52,23 +52,23 @@ func savePersistenceEvidence(t *testing.T, fixture *saveFixture) [7]int64 {
 }
 
 type lateSaveFailure struct {
-	saveservice.Repository
+	savesmodel.Repository
 	failure error
 }
 
-func (repository lateSaveFailure) WithWrite(ctx context.Context, work func(saveservice.WriteScope) error) error {
-	return repository.Repository.CommitWrite(ctx, func(scope saveservice.WriteScope) error {
+func (repository lateSaveFailure) WithWrite(ctx context.Context, work func(savesmodel.WriteScope) error) error {
+	return repository.Repository.CommitWrite(ctx, func(scope savesmodel.WriteScope) error {
 		scope.Idempotency = lateSaveReplay{IdempotencyRecords: scope.Idempotency, failure: repository.failure}
 		return work(scope)
 	})
 }
 
 type lateSaveReplay struct {
-	saveservice.IdempotencyRecords
+	savesmodel.IdempotencyRecords
 	failure error
 }
 
-func (records lateSaveReplay) Remember(ctx context.Context, replay saveservice.ReplayWrite) error {
+func (records lateSaveReplay) Remember(ctx context.Context, replay savesmodel.ReplayWrite) error {
 	if err := records.IdempotencyRecords.Remember(ctx, replay); err != nil {
 		return err
 	}

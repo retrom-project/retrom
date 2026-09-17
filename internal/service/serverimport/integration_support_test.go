@@ -1,6 +1,7 @@
 package serverimport_test
 
 import (
+	model "retrom/internal/model/serverimport"
 	"database/sql"
 	"fmt"
 	"os"
@@ -16,20 +17,20 @@ import (
 
 type (
 	Service            = importservice.Service
-	Summary            = importservice.Summary
-	CreateRequest      = importservice.CreateRequest
-	work               = importservice.Work
+	Summary            = model.Summary
+	CreateRequest      = model.CreateRequest
+	work               = model.Work
 	evaluatedCandidate = importservice.EvaluatedCandidate
 	discoveredFile     = serversource.File
 	walkCounts         = serversource.Counts
 )
 
 var (
-	ErrQuery             = importservice.ErrQuery
-	ErrNotCancellable    = importservice.ErrNotCancellable
-	ErrNotRetryable      = importservice.ErrNotRetryable
-	ErrCatalogInvalid    = importservice.ErrCatalogInvalid
-	ErrActive            = importservice.ErrActive
+	ErrQuery = model.ErrQuery
+	ErrNotCancellable = model.ErrNotCancellable
+	ErrNotRetryable = model.ErrNotRetryable
+	ErrCatalogInvalid = model.ErrCatalogInvalid
+	ErrActive = model.ErrActive
 	ErrPathInvalid       = importservice.ErrPathInvalid
 	ValidateRelativePath = importservice.ValidateRelativePath
 	rankCandidates       = importservice.RankCandidates

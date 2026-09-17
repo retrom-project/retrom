@@ -3,62 +3,63 @@ package emulationstationimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 	"time"
 )
 
 type startMemory struct {
-	snapshot                     StartSnapshot
+	snapshot                     model.StartSnapshot
 	readErr, writeErr, commitErr error
-	queue                        *StartPlan
+	queue                        *model.StartPlan
 	onWrite                      func()
 	writeScopes                  int
 	currentErr, responseErr      error
 }
 
-func (m *startMemory) Inspect(context.Context, string) (StartSnapshot, error) {
+func (m *startMemory) Inspect(context.Context, string) (model.StartSnapshot, error) {
 	return m.snapshot, m.readErr
 }
 
-func (m *startMemory) WithStart(_ context.Context, work func(StartScope) error) error {
+func (m *startMemory) WithStart(_ context.Context, work func(model.StartScope) error) error {
 	m.writeScopes++
 	if m.onWrite != nil {
 		m.onWrite()
 	}
-	if err := work(StartScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
+	if err := work(model.StartScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
 		return err
 	}
 	return m.commitErr
 }
 
-func (m *startMemory) Current(context.Context, string) (StartSnapshot, error) {
+func (m *startMemory) Current(context.Context, string) (model.StartSnapshot, error) {
 	if m.currentErr != nil {
-		return StartSnapshot{}, m.currentErr
+		return model.StartSnapshot{}, m.currentErr
 	}
 	if m.queue != nil && m.responseErr != nil {
-		return StartSnapshot{}, m.responseErr
+		return model.StartSnapshot{}, m.responseErr
 	}
 	return m.snapshot, m.readErr
 }
 
-func (m *startMemory) Queue(_ context.Context, plan StartPlan) error {
+func (m *startMemory) Queue(_ context.Context, plan model.StartPlan) error {
 	m.queue = &plan
 	m.snapshot.Summary.State = "QUEUED"
 	return m.writeErr
 }
 
 type startSources struct {
-	root     SelectedRoot
+	root     model.SelectedRoot
 	err      error
 	verified bool
 	verify   func()
 }
 
-func (s *startSources) Select(context.Context, string, string) (SelectedRoot, error) {
+func (s *startSources) Select(context.Context, string, string) (model.SelectedRoot, error) {
 	return s.root, s.err
 }
 
-func (s *startSources) VerifyGamelists(context.Context, string, string, []GamelistEvidence) error {
+func (s *startSources) VerifyGamelists(context.Context, string, string, []model.GamelistEvidence) error {
 	s.verified = true
 	if s.verify != nil {
 		s.verify()
@@ -67,7 +68,7 @@ func (s *startSources) VerifyGamelists(context.Context, string, string, []Gameli
 }
 
 func startApplicationFixture() (*startMemory, *startSources) {
-	return &startMemory{snapshot: StartSnapshot{Summary: Summary{ID: "import", State: "AWAITING_MAPPING", Version: 4, ExpiresAtMS: 100, CreatedBy: CreatedBy{ID: "actor"}, Root: RootRef{ID: "root"}, SourceRelativePath: "Roms", Counts: Counts{Collections: 2, MappedCollections: 1, SkippedCollections: 1}}, TagsValid: true, TargetsValid: true, FrozenSourceSnapshot: FrozenSourceSnapshot{RootConfigDigest: "digest", SourceSnapshotDigest: "snapshot", ReleaseYearMax: 2027, Gamelists: []GamelistEvidence{{RelativePath: "gamelist.xml", SizeBytes: 10, ContentDigest: stringPointer("dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"), FactsDigest: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", ParseState: "VALID"}}}}}, &startSources{root: SelectedRoot{ID: "root", Digest: "digest"}}
+	return &startMemory{snapshot: model.StartSnapshot{Summary: model.Summary{ID: "import", State: "AWAITING_MAPPING", Version: 4, ExpiresAtMS: 100, CreatedBy: model.CreatedBy{ID: "actor"}, Root: model.RootRef{ID: "root"}, SourceRelativePath: "Roms", Counts: model.Counts{Collections: 2, MappedCollections: 1, SkippedCollections: 1}}, TagsValid: true, TargetsValid: true, FrozenSourceSnapshot: model.FrozenSourceSnapshot{RootConfigDigest: "digest", SourceSnapshotDigest: "snapshot", ReleaseYearMax: 2027, Gamelists: []model.GamelistEvidence{{RelativePath: "gamelist.xml", SizeBytes: 10, ContentDigest: stringPointer("dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"), FactsDigest: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", ParseState: "VALID"}}}}}, &startSources{root: model.SelectedRoot{ID: "root", Digest: "digest"}}
 }
 
 func TestStartVerifiesSourcesBeforeAtomicQueue(t *testing.T) {
@@ -110,23 +111,23 @@ func TestStartRechecksExpiryVersionTagsAndCapacityAfterSourceVerification(t *tes
 			t.Parallel()
 			m, sources := startApplicationFixture()
 			now := int64(10)
-			want := ErrVersionConflict
+			want := model.ErrVersionConflict
 			sources.verify = func() {
 				switch change {
 				case "expiry":
 					now = 100
-					want = ErrExpired
+					want = model.ErrExpired
 				case "version":
 					m.snapshot.Summary.Version++
 				case "tags":
 					m.snapshot.TagsValid = false
-					want = ErrMapping
+					want = model.ErrMapping
 				case "capacity":
 					m.snapshot.OtherActive = true
-					want = ErrActive
+					want = model.ErrActive
 				case "digest":
 					m.snapshot.SourceSnapshotDigest = "changed"
-					want = ErrSourceChanged
+					want = model.ErrSourceChanged
 				}
 			}
 			result, queued, err := NewStarter(m, sources, func() time.Time { return time.UnixMilli(now) }).Start(t.Context(), "import", 4, "editor")
@@ -142,7 +143,7 @@ func TestStartRejectsRootDigestDriftBeforeReadingMetadata(t *testing.T) {
 	m, sources := startApplicationFixture()
 	sources.root.Digest = "changed"
 	result, queued, err := NewStarter(m, sources, func() time.Time { return time.UnixMilli(10) }).Start(t.Context(), "import", 4, "editor")
-	if !errors.Is(err, ErrSourceChanged) || result.ID != "" || queued || sources.verified || m.writeScopes != 0 {
+	if !errors.Is(err, model.ErrSourceChanged) || result.ID != "" || queued || sources.verified || m.writeScopes != 0 {
 		t.Fatalf("changed root accepted: %#v %v", result, err)
 	}
 }

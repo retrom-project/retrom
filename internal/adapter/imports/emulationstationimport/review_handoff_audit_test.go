@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 

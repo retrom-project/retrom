@@ -22,7 +22,7 @@ import (
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
+	"retrom/internal/model/accounts"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )

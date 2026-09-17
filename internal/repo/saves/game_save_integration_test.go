@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	saveservice "retrom/internal/service/saves"
+	saveservice "retrom/internal/model/saves"
 
 	"github.com/google/uuid"
 )

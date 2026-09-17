@@ -3,23 +3,24 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/pegasusimport"
 	"testing"
 	"time"
 )
 
 type companionMemory struct {
-	before       OwnedItem
+	before       model.OwnedItem
 	dependencies []string
-	candidates   []CompanionCandidate
+	candidates   []model.CompanionCandidate
 	registered   bool
 	failure      error
 }
 
-func (memory *companionMemory) WithCompanions(_ context.Context, work func(CompanionScope) error) error {
-	return work(CompanionScope{Read: memory, Write: memory})
+func (memory *companionMemory) WithCompanions(_ context.Context, work func(model.CompanionScope) error) error {
+	return work(model.CompanionScope{Read: memory, Write: memory})
 }
 
-func (memory *companionMemory) Owner(context.Context, string) (OwnedItem, error) {
+func (memory *companionMemory) Owner(context.Context, string) (model.OwnedItem, error) {
 	return memory.before, memory.failure
 }
 
@@ -27,11 +28,11 @@ func (memory *companionMemory) Dependencies(context.Context, string, string) ([]
 	return memory.dependencies, memory.failure
 }
 
-func (memory *companionMemory) Candidates(context.Context, ExecutionItem) ([]CompanionCandidate, error) {
+func (memory *companionMemory) Candidates(context.Context, model.ExecutionItem) ([]model.CompanionCandidate, error) {
 	return memory.candidates, memory.failure
 }
 
-func (memory *companionMemory) Register(context.Context, CompanionRegistration) (string, error) {
+func (memory *companionMemory) Register(context.Context, model.CompanionRegistration) (string, error) {
 	memory.registered = true
 	return "companion-blob", memory.failure
 }
@@ -41,18 +42,18 @@ func TestCompanionPolicySelectsOnlyRequiredArchivesAndRechecksFrozenFacts(t *tes
 	item, id := itemWorkFixture()
 	item.item.State = "COPYING"
 	item.item.TargetDATVersionID = "dat"
-	item.item.Files = []ExecutionFile{{Path: "child.zip"}}
-	candidate := CompanionCandidate{
+	item.item.Files = []model.ExecutionFile{{Path: "child.zip"}}
+	candidate := model.CompanionCandidate{
 		ItemID: "parent",
-		File:   ExecutionFile{Path: "sub/parent.ZIP", Facts: "frozen", Size: 4},
+		File:   model.ExecutionFile{Path: "sub/parent.ZIP", Facts: "frozen", Size: 4},
 	}
 	memory := &companionMemory{
-		before:       OwnedItem{Execution: item.execution, Item: item.item},
+		before:       model.OwnedItem{Execution: item.execution, Item: item.item},
 		dependencies: []string{"parent"},
-		candidates: []CompanionCandidate{
+		candidates: []model.CompanionCandidate{
 			candidate,
-			{ItemID: "unsupported", File: ExecutionFile{Path: "parent.7z"}},
-			{ItemID: "unrelated", File: ExecutionFile{Path: "unrelated.zip"}},
+			{ItemID: "unsupported", File: model.ExecutionFile{Path: "parent.7z"}},
+			{ItemID: "unrelated", File: model.ExecutionFile{Path: "unrelated.zip"}},
 		},
 	}
 	service := NewCompanions(memory, func() time.Time { return time.UnixMilli(10) })
@@ -62,7 +63,7 @@ func TestCompanionPolicySelectsOnlyRequiredArchivesAndRechecksFrozenFacts(t *tes
 	}
 	changed := candidate
 	changed.File.Facts = "changed"
-	blob := VerifiedBlob{SHA256: "sha", Size: 4}
+	blob := model.VerifiedBlob{SHA256: "sha", Size: 4}
 	if result, err := service.Record(
 		t.Context(),
 		id,
@@ -71,7 +72,7 @@ func TestCompanionPolicySelectsOnlyRequiredArchivesAndRechecksFrozenFacts(t *tes
 		blob,
 	); result != "" || !errors.Is(
 		err,
-		ErrVersionConflict,
+		model.ErrVersionConflict,
 	) || memory.registered {
 		t.Fatalf("changed candidate=%s %v", result, err)
 	}

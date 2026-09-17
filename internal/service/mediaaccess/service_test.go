@@ -3,20 +3,21 @@ package mediaaccess
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/mediaaccess"
 	"testing"
 )
 
 func TestReviewAccessPreservesPrimaryPriorityAndRejectsAmbiguousSource(t *testing.T) {
-	primary := ReviewAsset{Resource: Resource{Digest: "primary"}, Kind: "CANDIDATE", State: "READY", ItemState: "REVIEW_PENDING"}
-	memory := &accessMemory{primary: []ReviewAsset{primary}}
+	primary := model.ReviewAsset{Resource: model.Resource{Digest: "primary"}, Kind: "CANDIDATE", State: "READY", ItemState: "REVIEW_PENDING"}
+	memory := &accessMemory{primary: []model.ReviewAsset{primary}}
 	actual, err := New(memory).Review(t.Context(), "asset", "invalid-source-kind")
 	if err != nil || actual.Digest != "primary" || memory.sourceReads != 0 {
 		t.Fatalf("primary priority changed: %+v %v reads=%d", actual, err, memory.sourceReads)
 	}
 	memory.primary = nil
-	memory.sources = []ReviewAsset{
-		{Resource: Resource{Digest: "first"}, Kind: "PEGASUS", State: "COPIED", ItemState: "REVIEW_PENDING"},
-		{Resource: Resource{Digest: "second"}, Kind: "EMULATIONSTATION", State: "COPIED", TerminalReview: true},
+	memory.sources = []model.ReviewAsset{
+		{Resource: model.Resource{Digest: "first"}, Kind: "PEGASUS", State: "COPIED", ItemState: "REVIEW_PENDING"},
+		{Resource: model.Resource{Digest: "second"}, Kind: "EMULATIONSTATION", State: "COPIED", TerminalReview: true},
 	}
 	if _, err := New(memory).Review(t.Context(), "source", "COVER"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("ambiguous source was published: %v", err)
@@ -47,32 +48,32 @@ func TestMediaAccessPreservesCausesAndDoesNotFallbackAfterStorageFailure(t *test
 }
 
 type accessMemory struct {
-	game        GameAsset
-	save        SaveScreenshot
-	primary     []ReviewAsset
-	sources     []ReviewAsset
+	game        model.GameAsset
+	save        model.SaveScreenshot
+	primary     []model.ReviewAsset
+	sources     []model.ReviewAsset
 	cause       error
 	sourceReads int
 	lastKind    string
 }
 
-func (memory *accessMemory) WithRead(_ context.Context, work func(Reader) error) error {
+func (memory *accessMemory) WithRead(_ context.Context, work func(model.Reader) error) error {
 	return work(memory)
 }
 
-func (memory *accessMemory) Game(context.Context, string) (GameAsset, bool, error) {
+func (memory *accessMemory) Game(context.Context, string) (model.GameAsset, bool, error) {
 	return memory.game, true, memory.cause
 }
 
-func (memory *accessMemory) Save(context.Context, string) (SaveScreenshot, bool, error) {
+func (memory *accessMemory) Save(context.Context, string) (model.SaveScreenshot, bool, error) {
 	return memory.save, true, memory.cause
 }
 
-func (memory *accessMemory) Review(context.Context, string) ([]ReviewAsset, error) {
+func (memory *accessMemory) Review(context.Context, string) ([]model.ReviewAsset, error) {
 	return memory.primary, memory.cause
 }
 
-func (memory *accessMemory) Sources(_ context.Context, _, kind string) ([]ReviewAsset, error) {
+func (memory *accessMemory) Sources(_ context.Context, _, kind string) ([]model.ReviewAsset, error) {
 	memory.sourceReads++
 	memory.lastKind = kind
 	return memory.sources, memory.cause

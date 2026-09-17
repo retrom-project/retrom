@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/launch"
+	application "retrom/internal/model/launch"
 )
 
 var (

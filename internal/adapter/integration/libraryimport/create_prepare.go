@@ -6,25 +6,26 @@ import (
 
 	composition "retrom/internal/bootstrap/composition/libraryimport"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
-type creationTarget = application.ImportTarget
+type creationTarget = libraryimportmodel.ImportTarget
 
 type creationOptions struct {
 	reviewHandoffKind string
 	sourceCreation    *ownedSourceCreation
 }
 
-func (service *Service) importPreparation() *application.ImportPreparation {
+func (service *Service) importPreparation() *libraryimportservice.ImportPreparation {
 	return composition.NewPreparation(service.database, service.creationDependencies())
 }
 
 func normalizeTargetCreateRequest(
 	request CreateRequest, contentMode, purpose, sourceType string, files []importSourceFile, target creationTarget,
 ) (CreateRequest, string, error) {
-	normalized, mode, err := application.NormalizeTargetImport(
+	normalized, mode, err := libraryimportservice.NormalizeTargetImport(
 		request, contentMode, purpose, sourceType, importFileFacts(files), importTargetFacts(target),
 	)
 	if err != nil {
@@ -34,11 +35,11 @@ func normalizeTargetCreateRequest(
 }
 
 func normalizeTargetContentMode(platformID, contentMode string) string {
-	return application.NormalizeTargetImportMode(platformID, contentMode)
+	return libraryimportservice.NormalizeTargetImportMode(platformID, contentMode)
 }
 
 func (service *Service) loadCreationTarget(ctx context.Context, instanceID string) (creationTarget, error) {
-	target, err := application.ReadImportTarget(ctx, repository.BindImportFacts(service.database), instanceID)
+	target, err := libraryimportservice.ReadImportTarget(ctx, repository.BindImportFacts(service.database), instanceID)
 	if err != nil {
 		return creationTarget{}, fmt.Errorf("read creation target: %w", err)
 	}

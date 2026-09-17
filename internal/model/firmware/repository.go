@@ -23,8 +23,8 @@ type BrowserInstallCommand struct {
 
 // ServerInstallCommand wraps a ServerInstallRequest with timing for atomic commit.
 type ServerInstallCommand struct {
-	Request   ServerInstallRequest
-	NowFn     func() int64
+	Request ServerInstallRequest
+	NowFn   func() int64
 }
 
 type Repository interface {

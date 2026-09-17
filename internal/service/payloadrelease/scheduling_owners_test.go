@@ -3,19 +3,20 @@ package payloadrelease
 import (
 	"errors"
 	"math"
+	model "retrom/internal/model/payloadrelease"
 	"testing"
 )
 
 func TestTerminalSourceEligibilityAndSharedRelease(t *testing.T) {
 	t.Parallel()
-	for _, kind := range []ScopeType{ScopePegasusImportItem, ScopeEmulationStationImportItem} {
+	for _, kind := range []model.ScopeType{model.ScopePegasusImportItem, model.ScopeEmulationStationImportItem} {
 		for _, state := range []string{"REVIEW_PENDING", "COMMIT_FAILED", "REVIEW_DISCARDED"} {
 			for _, retryable := range []bool{false, true} {
 				t.Run(string(kind)+"/"+state+"/retryable="+boolName(retryable), func(t *testing.T) {
 					t.Parallel()
-					ref := Scope{Type: kind, ID: "source"}
-					owner := Owner{Scope: ref, Version: 3, State: state, Retryable: retryable, PayloadState: "RETAINED"}
-					records := &scheduleMemory{owners: map[Scope]Owner{ref: owner}}
+					ref := model.Scope{Type: kind, ID: "source"}
+					owner := model.Owner{Scope: ref, Version: 3, State: state, Retryable: retryable, PayloadState: "RETAINED"}
+					records := &scheduleMemory{owners: map[model.Scope]model.Owner{ref: owner}}
 					id, err := NewScheduler(scheduleIDs()).TerminalSource(t.Context(), records, ref, 10)
 					eligible := state == "REVIEW_DISCARDED" || state == "COMMIT_FAILED" && !retryable
 					if err != nil || (id != "") != eligible || (len(records.changes) == 1) != eligible {
@@ -42,15 +43,15 @@ func TestBoundSourceSharesOrdinaryReleaseWithoutNewJob(t *testing.T) {
 	for _, state := range []string{"RELEASING", "RELEASED", "FAILED"} {
 		t.Run(state, func(t *testing.T) {
 			t.Parallel()
-			ref := Scope{Type: ScopeEmulationStationImportItem, ID: "source"}
-			ordinary := Scope{Type: ScopeImportItem, ID: "ordinary"}
-			owner := Owner{Scope: ref, Version: 9, State: "PUBLISHED", PayloadState: "RETAINED", PublicID: ordinary.ID}
-			records := &scheduleMemory{owners: map[Scope]Owner{
+			ref := model.Scope{Type: model.ScopeEmulationStationImportItem, ID: "source"}
+			ordinary := model.Scope{Type: model.ScopeImportItem, ID: "ordinary"}
+			owner := model.Owner{Scope: ref, Version: 9, State: "PUBLISHED", PayloadState: "RETAINED", PublicID: ordinary.ID}
+			records := &scheduleMemory{owners: map[model.Scope]model.Owner{
 				ref: owner, ordinary: {Scope: ordinary, Version: 5, State: "PUBLISHED", PayloadState: state, ReleaseJobID: "shared"},
 			}}
 			id, err := NewScheduler(scheduleIDs()).TerminalSource(t.Context(), records, ref, 10)
 			if err != nil || id != "shared" || len(records.jobs) != 0 || len(records.changes) != 1 ||
-				records.changes[0] != (OwnerRelease{Before: owner, JobID: "shared", NowMS: 10}) {
+				records.changes[0] != (model.OwnerRelease{Before: owner, JobID: "shared", NowMS: 10}) {
 				t.Fatalf("source duplicated release: %q/%v records=%+v", id, err, records)
 			}
 		})
@@ -59,15 +60,15 @@ func TestBoundSourceSharesOrdinaryReleaseWithoutNewJob(t *testing.T) {
 
 func TestSchedulerReplaysOwnerReleaseAndRejectsVersionOverflow(t *testing.T) {
 	t.Parallel()
-	ref := Scope{Type: ScopeImportItem, ID: "item"}
+	ref := model.Scope{Type: model.ScopeImportItem, ID: "item"}
 	for _, state := range []string{"RELEASING", "RELEASED", "FAILED", "RETAINED"} {
 		t.Run(state, func(t *testing.T) {
 			t.Parallel()
-			owner := Owner{Scope: ref, State: "PUBLISHED", Version: math.MaxInt64, PayloadState: state, ReleaseJobID: "existing"}
-			records := &scheduleMemory{owners: map[Scope]Owner{ref: owner}}
-			id, err := NewScheduler(scheduleIDs()).TerminalItem(t.Context(), records, ref.ID, ReasonImportPublished, 10)
+			owner := model.Owner{Scope: ref, State: "PUBLISHED", Version: math.MaxInt64, PayloadState: state, ReleaseJobID: "existing"}
+			records := &scheduleMemory{owners: map[model.Scope]model.Owner{ref: owner}}
+			id, err := NewScheduler(scheduleIDs()).TerminalItem(t.Context(), records, ref.ID, model.ReasonImportPublished, 10)
 			if state == "RETAINED" {
-				if !errors.Is(err, ErrScopeInvalid) || id != "" {
+				if !errors.Is(err, model.ErrScopeInvalid) || id != "" {
 					t.Fatalf("overflow accepted: %q/%v", id, err)
 				}
 			} else if err != nil || id != "existing" {
@@ -88,10 +89,10 @@ func TestImportReleaseWaitsForChildrenAndGameDeletionFencesVersion(t *testing.T)
 	if id != "" || err != nil || len(records.reads) != 0 || len(records.jobs) != 0 {
 		t.Fatalf("live children scheduled: %q/%v %+v", id, err, records)
 	}
-	ref := Scope{Type: ScopeGame, ID: "game"}
-	owner := Owner{Scope: ref, Version: 5, State: "PUBLISHED", PayloadState: "RETAINED"}
-	records = &scheduleMemory{owners: map[Scope]Owner{ref: owner}}
-	if id, err := scheduler.DeleteGame(t.Context(), records, ref.ID, 4, 10); id != "" || !errors.Is(err, ErrScopeInvalid) {
+	ref := model.Scope{Type: model.ScopeGame, ID: "game"}
+	owner := model.Owner{Scope: ref, Version: 5, State: "PUBLISHED", PayloadState: "RETAINED"}
+	records = &scheduleMemory{owners: map[model.Scope]model.Owner{ref: owner}}
+	if id, err := scheduler.DeleteGame(t.Context(), records, ref.ID, 4, 10); id != "" || !errors.Is(err, model.ErrScopeInvalid) {
 		t.Fatalf("stale game scheduled: %q/%v", id, err)
 	}
 	if len(records.jobs) != 0 {
@@ -106,7 +107,7 @@ func TestImportReleaseWaitsForChildrenAndGameDeletionFencesVersion(t *testing.T)
 
 func TestConsumptionReleaseRespectsExistingTerminalFacts(t *testing.T) {
 	t.Parallel()
-	for _, before := range []Consumption{
+	for _, before := range []model.Consumption{
 		{Version: 3, Released: true}, {Version: 3, ExistingJobID: "existing"}, {Version: 3},
 	} {
 		records := &scheduleMemory{consumption: before}

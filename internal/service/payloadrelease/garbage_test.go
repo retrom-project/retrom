@@ -3,19 +3,20 @@ package payloadrelease
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/payloadrelease"
 	"testing"
 )
 
 type garbageFixture struct {
-	facts                     GarbageFacts
+	facts                     model.GarbageFacts
 	commitErr                 error
 	removed, cancelled, files int
 	checks                    int
 	checkErr                  error
 }
 
-func (fixture *garbageFixture) WithGarbage(_ context.Context, run func(GarbageScope) error) error {
-	err := run(GarbageScope{Read: fixture, Write: fixture})
+func (fixture *garbageFixture) WithGarbage(_ context.Context, run func(model.GarbageScope) error) error {
+	err := run(model.GarbageScope{Read: fixture, Write: fixture})
 	if err == nil {
 		err = fixture.commitErr
 	}
@@ -25,22 +26,22 @@ func (fixture *garbageFixture) WithGarbage(_ context.Context, run func(GarbageSc
 	return err
 }
 
-func (fixture *garbageFixture) Facts(context.Context, string, string) (GarbageFacts, error) {
+func (fixture *garbageFixture) Facts(context.Context, string, string) (model.GarbageFacts, error) {
 	return fixture.facts, nil
 }
 
-func (fixture *garbageFixture) Remove(context.Context, GarbageFacts) error {
+func (fixture *garbageFixture) Remove(context.Context, model.GarbageFacts) error {
 	fixture.removed++
 	return nil
 }
 
-func (fixture *garbageFixture) Cancel(context.Context, GarbageFacts) error {
+func (fixture *garbageFixture) Cancel(context.Context, model.GarbageFacts) error {
 	fixture.cancelled++
 	return nil
 }
 
 func (fixture *garbageFixture) Delete(context.Context, string) error { fixture.files++; return nil }
-func (fixture *garbageFixture) CheckInScope(context.Context, WorkerScope, Work) error {
+func (fixture *garbageFixture) CheckInScope(context.Context, model.WorkerScope, model.Work) error {
 	fixture.checks++
 	if fixture.checks == 2 {
 		return fixture.checkErr
@@ -59,12 +60,12 @@ func TestGarbageCommitFailureCannotRemovePhysicalFile(t *testing.T) {
 	}
 }
 
-func garbageTestExecution() Execution {
-	return Execution{
-		Work: Work{ID: "garbage-job", Scope: Scope{Type: ScopeBlob, ID: "garbage-blob"}},
-		Input: Input{
-			SchemaVersion: 1, Kind: "BLOB_GC", Scope: Scope{Type: ScopeBlob, ID: "garbage-blob"},
-			Inputs: ScopeInputs{SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+func garbageTestExecution() model.Execution {
+	return model.Execution{
+		Work: model.Work{ID: "garbage-job", Scope: model.Scope{Type: model.ScopeBlob, ID: "garbage-blob"}},
+		Input: model.Input{
+			SchemaVersion: 1, Kind: "BLOB_GC", Scope: model.Scope{Type: model.ScopeBlob, ID: "garbage-blob"},
+			Inputs: model.ScopeInputs{SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 		},
 	}
 }
@@ -72,7 +73,7 @@ func garbageTestExecution() Execution {
 func TestGarbageDoesNotDeleteExistingBlobWithoutItsCandidate(t *testing.T) {
 	t.Parallel()
 	unit := garbageTestExecution()
-	fixture := &garbageFixture{facts: GarbageFacts{Found: true, Blob: GCBlob{
+	fixture := &garbageFixture{facts: model.GarbageFacts{Found: true, Blob: model.GCBlob{
 		ID: unit.Work.Scope.ID, Digest: unit.Input.Inputs.SHA256,
 	}}}
 	err := NewGarbageCollector(fixture, fixture, fixture).Execute(t.Context(), unit)
@@ -84,12 +85,12 @@ func TestGarbageDoesNotDeleteExistingBlobWithoutItsCandidate(t *testing.T) {
 func TestGarbageRejectsLostAuthorityBeforePublishingRemoval(t *testing.T) {
 	t.Parallel()
 	unit := garbageTestExecution()
-	fixture := &garbageFixture{checkErr: ErrExecutionLost, facts: GarbageFacts{Found: true, Blob: GCBlob{
+	fixture := &garbageFixture{checkErr: model.ErrExecutionLost, facts: model.GarbageFacts{Found: true, Blob: model.GCBlob{
 		ID: unit.Work.Scope.ID, Digest: unit.Input.Inputs.SHA256, HasCandidate: true,
-		Candidate: GCCandidate{Work: unit.Work},
+		Candidate: model.GCCandidate{Work: unit.Work},
 	}}}
 	err := NewGarbageCollector(fixture, fixture, fixture).Execute(t.Context(), unit)
-	if !errors.Is(err, ErrExecutionLost) || fixture.files != 0 || fixture.removed != 0 || fixture.checks != 2 {
+	if !errors.Is(err, model.ErrExecutionLost) || fixture.files != 0 || fixture.removed != 0 || fixture.checks != 2 {
 		t.Fatalf("late authority failure removed bytes: %v files=%d catalog=%d", err, fixture.files, fixture.removed)
 	}
 }
@@ -100,16 +101,16 @@ func TestGarbageProtectsCurrentReferencesAndReplacementCandidate(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
 			unit := garbageTestExecution()
-			blob := GCBlob{
+			blob := model.GCBlob{
 				ID: unit.Work.Scope.ID, Digest: unit.Input.Inputs.SHA256, HasCandidate: true,
-				Candidate: GCCandidate{Work: unit.Work},
+				Candidate: model.GCCandidate{Work: unit.Work},
 			}
 			if scenario == "protected" {
 				blob.Protected = true
 			} else {
 				blob.Candidate.Work.ID = "replacement-job"
 			}
-			fixture := &garbageFixture{facts: GarbageFacts{Found: true, Blob: blob}}
+			fixture := &garbageFixture{facts: model.GarbageFacts{Found: true, Blob: blob}}
 			err := NewGarbageCollector(fixture, fixture, fixture).Execute(t.Context(), unit)
 			if err != nil || fixture.files != 0 || fixture.removed != 0 || (fixture.cancelled == 1) != blob.Protected {
 				t.Fatalf("garbage protection=%s error=%v files=%d catalog=%d cancelled=%d",

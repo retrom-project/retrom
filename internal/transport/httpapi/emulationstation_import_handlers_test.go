@@ -15,7 +15,7 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/bootstrap/composition"
-	"retrom/internal/service/emulationstationimport"
+	"retrom/internal/model/emulationstationimport"
 	"retrom/internal/testkit/testassert"
 )
 

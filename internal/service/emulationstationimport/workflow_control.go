@@ -4,46 +4,47 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 	"time"
 )
 
 type WorkflowControl struct {
-	repository WorkflowRepository
-	sources    FrozenSources
+	repository model.WorkflowRepository
+	sources    model.FrozenSources
 	now        func() time.Time
 }
 
-func NewWorkflowControl(repository WorkflowRepository, sources FrozenSources, now func() time.Time) *WorkflowControl {
+func NewWorkflowControl(repository model.WorkflowRepository, sources model.FrozenSources, now func() time.Time) *WorkflowControl {
 	return &WorkflowControl{repository: repository, sources: sources, now: now}
 }
 
-func (service *WorkflowControl) Retry(ctx context.Context, id string, version int64, actor string) (Summary, error) {
+func (service *WorkflowControl) Retry(ctx context.Context, id string, version int64, actor string) (model.Summary, error) {
 	before, err := service.repository.InspectRetry(ctx, id)
-	if errors.Is(err, ErrNotFound) {
-		return Summary{}, ErrNotRetryable
+	if errors.Is(err, model.ErrNotFound) {
+		return model.Summary{}, model.ErrNotRetryable
 	}
 	if err != nil {
-		return Summary{}, fmt.Errorf("inspect EmulationStation retry: %w", err)
+		return model.Summary{}, fmt.Errorf("inspect EmulationStation retry: %w", err)
 	}
 	if err := validateRetry(before, version); err != nil {
-		return Summary{}, err
+		return model.Summary{}, err
 	}
 	if err := verifyFrozenSource(ctx, service.sources, before.Summary, before.FrozenSourceSnapshot); err != nil {
-		return Summary{}, err
+		return model.Summary{}, err
 	}
 	plan, err := newRetryPlan(before, actor)
 	if err != nil {
-		return Summary{}, err
+		return model.Summary{}, err
 	}
 	return service.queueRetry(ctx, plan, version)
 }
 
-func (service *WorkflowControl) queueRetry(ctx context.Context, plan RetryPlan, version int64) (Summary, error) {
-	var result Summary
-	err := service.repository.WithControl(ctx, func(scope WorkflowScope) error {
+func (service *WorkflowControl) queueRetry(ctx context.Context, plan model.RetryPlan, version int64) (model.Summary, error) {
+	var result model.Summary
+	err := service.repository.WithControl(ctx, func(scope model.WorkflowScope) error {
 		current, err := scope.Read.RetryCurrent(ctx, plan.Before.Summary.ID)
-		if errors.Is(err, ErrNotFound) {
-			return ErrNotRetryable
+		if errors.Is(err, model.ErrNotFound) {
+			return model.ErrNotRetryable
 		}
 		if err != nil {
 			return fmt.Errorf("reread EmulationStation retry: %w", err)
@@ -52,7 +53,7 @@ func (service *WorkflowControl) queueRetry(ctx context.Context, plan RetryPlan, 
 			return err
 		}
 		if !sameRetryExecution(plan.Before, current) {
-			return ErrNotRetryable
+			return model.ErrNotRetryable
 		}
 		if !sameFrozenSource(
 			plan.Before.Summary,
@@ -60,7 +61,7 @@ func (service *WorkflowControl) queueRetry(ctx context.Context, plan RetryPlan, 
 			plan.Before.FrozenSourceSnapshot,
 			current.FrozenSourceSnapshot,
 		) {
-			return ErrSourceChanged
+			return model.ErrSourceChanged
 		}
 		plan.Before = current
 		plan.NowMS = service.now().UnixMilli()
@@ -75,7 +76,7 @@ func (service *WorkflowControl) queueRetry(ctx context.Context, plan RetryPlan, 
 		return nil
 	})
 	if err != nil {
-		return Summary{}, fmt.Errorf("finish EmulationStation retry: %w", err)
+		return model.Summary{}, fmt.Errorf("finish EmulationStation retry: %w", err)
 	}
 	return result, nil
 }

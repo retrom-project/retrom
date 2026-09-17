@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,18 +21,18 @@ func (scheduled Scheduled) ScrapeRunID() string { return scheduled.RunID }
 func (scheduled Scheduled) IsNoop() bool        { return scheduled.Noop }
 
 type Scheduler struct {
-	repository ScheduleRepository
-	runner     ScrapeDispatcher
+	repository model.ScheduleRepository
+	runner     model.ScrapeDispatcher
 	now        func() time.Time
 }
 
-func NewScheduler(repository ScheduleRepository, runner ScrapeDispatcher, now func() time.Time) *Scheduler {
+func NewScheduler(repository model.ScheduleRepository, runner model.ScrapeDispatcher, now func() time.Time) *Scheduler {
 	return &Scheduler{repository: repository, runner: runner, now: now}
 }
 
 func (scheduler *Scheduler) ScheduleImport(
 	ctx context.Context,
-	scope ScheduleScope,
+	scope model.ScheduleScope,
 	itemID, provider string,
 ) (Scheduled, error) {
 	return scheduler.scheduleImport(
@@ -47,16 +48,16 @@ func (scheduler *Scheduler) ScheduleImport(
 
 func (scheduler *Scheduler) scheduleImport(
 	ctx context.Context,
-	scope ScheduleScope,
+	scope model.ScheduleScope,
 	itemID, provider, dedupe string,
 	bypass bool,
 	now int64,
 ) (Scheduled, error) {
 	if provider != "HASHEOUS" && provider != "NONE" {
-		return Scheduled{}, ErrProviderInvalid
+		return Scheduled{}, model.ErrProviderInvalid
 	}
 	plan, err := newSchedulePlan(
-		Subject{
+		model.Subject{
 			Kind: "IMPORT_ITEM",
 			ID:   itemID,
 		},
@@ -88,28 +89,28 @@ func (scheduler *Scheduler) scheduleImport(
 }
 
 func newSchedulePlan(
-	subject Subject,
+	subject model.Subject,
 	provider, dedupe string,
 	payload map[string]any,
 	now int64,
-) (SchedulePlan, error) {
+) (model.SchedulePlan, error) {
 	runID, err := scheduleID()
 	if err != nil {
-		return SchedulePlan{}, err
+		return model.SchedulePlan{}, err
 	}
 	jobID, err := scheduleID()
 	if err != nil {
-		return SchedulePlan{}, err
+		return model.SchedulePlan{}, err
 	}
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
-		return SchedulePlan{}, fmt.Errorf("encode scrape payload: %w", err)
+		return model.SchedulePlan{}, fmt.Errorf("encode scrape payload: %w", err)
 	}
 	if subject.Kind == "GAME" {
 		dedupe += ":" + runID
 	}
 	digest := sha256.Sum256([]byte(dedupe))
-	plan := SchedulePlan{
+	plan := model.SchedulePlan{
 		Subject: subject, RunID: runID, JobID: jobID, Provider: provider, Dedupe: hex.EncodeToString(digest[:]),
 		PayloadJSON: string(
 			payloadJSON,

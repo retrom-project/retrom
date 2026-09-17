@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 func TestESReviewPreparationRejectsFrozenTargetDrift(t *testing.T) {

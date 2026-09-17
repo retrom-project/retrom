@@ -3,35 +3,36 @@ package accounts
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/accounts"
 	"time"
 )
 
 type LinkService struct {
-	repository LinkRepository
-	tokens     LinkTokenReader
+	repository model.LinkRepository
+	tokens     model.LinkTokenReader
 	now        func() time.Time
 }
 
-func NewLinks(repository LinkRepository, tokens LinkTokenReader, now func() time.Time) *LinkService {
+func NewLinks(repository model.LinkRepository, tokens model.LinkTokenReader, now func() time.Time) *LinkService {
 	return &LinkService{repository, tokens, now}
 }
 
-func (service *LinkService) Inspect(ctx context.Context, kind, token string) (LinkInspection, error) {
+func (service *LinkService) Inspect(ctx context.Context, kind, token string) (model.LinkInspection, error) {
 	if !validLinkKind(kind) {
-		return LinkInspection{}, ErrAccountLinkUnavailable
+		return model.LinkInspection{}, model.ErrAccountLinkUnavailable
 	}
 	id, valid := service.tokens.ParseAccountLinkToken(kind, token)
 	if !valid {
-		return LinkInspection{}, ErrAccountLinkUnavailable
+		return model.LinkInspection{}, model.ErrAccountLinkUnavailable
 	}
 	record, found, err := service.repository.Current(ctx, id.String())
 	if err != nil {
-		return LinkInspection{}, fmt.Errorf("inspect account link: %w", err)
+		return model.LinkInspection{}, fmt.Errorf("inspect account link: %w", err)
 	}
 	if !found || record.Link.Kind != kind || accountLinkState(record.Link, service.now().UnixMilli()) != "ACTIVE" {
-		return LinkInspection{}, ErrAccountLinkUnavailable
+		return model.LinkInspection{}, model.ErrAccountLinkUnavailable
 	}
-	return LinkInspection{
+	return model.LinkInspection{
 		Kind:        kind,
 		Role:        record.Link.Role,
 		Username:    record.TargetUsername,
@@ -39,17 +40,17 @@ func (service *LinkService) Inspect(ctx context.Context, kind, token string) (Li
 	}, nil
 }
 
-func (service *LinkService) List(ctx context.Context, filter LinkListFilter) ([]AccountLink, error) {
+func (service *LinkService) List(ctx context.Context, filter model.LinkListFilter) ([]model.AccountLink, error) {
 	filter, err := validateLinkFilter(filter)
 	if err != nil {
 		return nil, err
 	}
 	now := service.now().UnixMilli()
-	records, err := service.repository.List(ctx, LinkQuery{Filter: filter, Now: now})
+	records, err := service.repository.List(ctx, model.LinkQuery{Filter: filter, Now: now})
 	if err != nil {
 		return nil, fmt.Errorf("list account links: %w", err)
 	}
-	result := make([]AccountLink, len(records))
+	result := make([]model.AccountLink, len(records))
 	for index, record := range records {
 		result[index] = record.Link
 		result[index].State = accountLinkState(record.Link, now)
@@ -57,7 +58,7 @@ func (service *LinkService) List(ctx context.Context, filter LinkListFilter) ([]
 	return result, nil
 }
 
-func accountLinkState(link AccountLink, now int64) string {
+func accountLinkState(link model.AccountLink, now int64) string {
 	switch {
 	case link.ConsumedAtMS != nil:
 		return "CONSUMED"
@@ -70,9 +71,9 @@ func accountLinkState(link AccountLink, now int64) string {
 	}
 }
 func validLinkKind(kind string) bool { return kind == "INVITATION" || kind == "PASSWORD_RESET" }
-func validateLinkFilter(filter LinkListFilter) (LinkListFilter, error) {
+func validateLinkFilter(filter model.LinkListFilter) (model.LinkListFilter, error) {
 	if !validLinkKind(filter.Kind) {
-		return filter, ErrAccountLinkUnavailable
+		return filter, model.ErrAccountLinkUnavailable
 	}
 	if filter.State == "" {
 		filter.State = "ACTIVE"
@@ -80,16 +81,16 @@ func validateLinkFilter(filter LinkListFilter) (LinkListFilter, error) {
 	switch filter.State {
 	case "ACTIVE", "CONSUMED", "REVOKED", "EXPIRED", "ALL":
 	default:
-		return filter, ErrAccountLinkUnavailable
+		return filter, model.ErrAccountLinkUnavailable
 	}
 	if filter.Limit == 0 {
 		filter.Limit = 51
 	}
 	if filter.Limit < 1 || filter.Limit > 101 || filter.AfterAtMS < 0 {
-		return filter, ErrAccountLinkUnavailable
+		return filter, model.ErrAccountLinkUnavailable
 	}
 	if filter.AfterID == "" && filter.AfterAtMS != 0 {
-		return filter, ErrAccountLinkUnavailable
+		return filter, model.ErrAccountLinkUnavailable
 	}
 	return filter, nil
 }

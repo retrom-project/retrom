@@ -7,13 +7,13 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	gamecontentmodel "retrom/internal/model/gamecontent"
+	gamecontentservice "retrom/internal/service/gamecontent"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"retrom/internal/service/gamecontent"
-	"retrom/internal/testkit/testsupport"
 )
 
 func TestContentRetirementDrainsReferencesAcrossBatchBoundary(t *testing.T) {
@@ -28,10 +28,10 @@ WHERE launch_session_id=? ORDER BY logical_name LIMIT 1`, fmt.Sprintf("companion
 			t.Fatal(err)
 		}
 	}
-	var impact gamecontent.RetirementImpact
-	err := New(fixture.db).CommitWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	var impact gamecontentmodel.RetirementImpact
+	err := New(fixture.db).CommitWrite(t.Context(), func(scope gamecontentmodel.WriteScope) error {
 		var err error
-		impact, err = gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
+		impact, err = gamecontentservice.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
 		return err
 	})
 	if err != nil || impact.SaveStateCount != 1 {
@@ -64,8 +64,8 @@ func TestContentRetirementPreservesLateReadCauseAndRollsBack(t *testing.T) {
 			return nil
 		},
 	})
-	err := New(fault).CommitWrite(t.Context(), func(scope gamecontent.WriteScope) error {
-		_, err := gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
+	err := New(fault).CommitWrite(t.Context(), func(scope gamecontentmodel.WriteScope) error {
+		_, err := gamecontentservice.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
 		return err
 	})
 	if !errors.Is(err, cause) || hits.Load() != 1 {

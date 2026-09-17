@@ -2,12 +2,13 @@ package metadatascrape
 
 import (
 	"context"
+	model "retrom/internal/model/metadatascrape"
 	"testing"
 )
 
 type cancelledInitialMemory struct{ initialMemory }
 
-func (memory *cancelledInitialMemory) Candidates(context.Context, string) ([]InitialCandidate, error) {
+func (memory *cancelledInitialMemory) Candidates(context.Context, string) ([]model.InitialCandidate, error) {
 	panic("cancelled run must not apply candidates")
 }
 
@@ -22,8 +23,8 @@ func TestInitialCancellationDistinguishesParentFromIndividualRequest(t *testing.
 		{true, 1, "CANCELLED", "CANCELLED", 0, 1},
 		{true, 2, "CANCELLED", "CANCEL_REQUESTED", 0, 1},
 	} {
-		memory := &cancelledInitialMemory{initialMemory{found: true, item: InitialImport{ItemState: "SCRAPING", Running: test.running}}}
-		if err := NewInitialReview(InitialReviewScope{Read: memory, Write: memory}).Cancel(t.Context(), "run", test.parent, 100); err != nil {
+		memory := &cancelledInitialMemory{initialMemory{found: true, item: model.InitialImport{ItemState: "SCRAPING", Running: test.running}}}
+		if err := NewInitialReview(model.InitialReviewScope{Read: memory, Write: memory}).Cancel(t.Context(), "run", test.parent, 100); err != nil {
 			t.Fatal(err)
 		}
 		change := memory.changes[0]

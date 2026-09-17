@@ -3,25 +3,25 @@ package metadatascrape
 import (
 	"context"
 	"errors"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+	metadatascrapeservice "retrom/internal/service/metadatascrape"
 	"testing"
 	"time"
-
-	"retrom/internal/service/metadatascrape"
 )
 
 func TestMetadataStartupDispatchesDurableJobAndCloseJoinsWork(t *testing.T) {
 	database := recoveryDatabase(t)
 	entered := make(chan struct{})
 	finished := make(chan error, 1)
-	processor := recoveryProcess(func(ctx context.Context, _ metadatascrape.WorkerClaim, _ string) (int, string, error) {
+	processor := recoveryProcess(func(ctx context.Context, _ metadatascrapemodel.WorkerClaim, _ string) (int, string, error) {
 		close(entered)
 		<-ctx.Done()
 		err := context.Cause(ctx)
 		finished <- err
 		return 0, "METADATA_EXECUTION_INTERRUPTED", err
 	})
-	worker := metadatascrape.NewWorker(NewWorker(database), processor, recoveryNow)
-	service := metadatascrape.New(NewScheduler(database), worker, recoveryNow)
+	worker := metadatascrapeservice.NewWorker(NewWorker(database), processor, recoveryNow)
+	service := metadatascrapeservice.New(NewScheduler(database), worker, recoveryNow)
 	t.Cleanup(service.Close)
 	service.Start(t.Context())
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -32,7 +32,7 @@ func TestMetadataStartupDispatchesDurableJobAndCloseJoinsWork(t *testing.T) {
 		t.Fatal("durable queued work was not started")
 	}
 	service.Close()
-	if err := <-finished; !errors.Is(err, metadatascrape.ErrWorkerClosed) {
+	if err := <-finished; !errors.Is(err, metadatascrapeservice.ErrWorkerClosed) {
 		t.Fatalf("worker cancellation=%v", err)
 	}
 	var state, run string

@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/pegasusimport"
 )
 
 func queuedLeaseDatabase(t *testing.T) *sql.DB {
@@ -26,8 +26,8 @@ type failingLeaseRepository struct {
 	failure error
 }
 
-func (repository failingLeaseRepository) WithLease(ctx context.Context, work func(application.LeaseRecords) error) error {
-	return repository.base.WithLease(ctx, func(records application.LeaseRecords) error {
+func (repository failingLeaseRepository) WithLease(ctx context.Context, work func(pegasusimportmodel.LeaseRecords) error) error {
+	return repository.base.WithLease(ctx, func(records pegasusimportmodel.LeaseRecords) error {
 		if err := work(records); err != nil {
 			return err
 		}
@@ -40,9 +40,9 @@ func TestLeaseClaimRollsBackJobParentAndStartedEvent(t *testing.T) {
 	db := queuedLeaseDatabase(t)
 	before := workflowRows(t, db)
 	cause := errors.New("late lease write failure")
-	service := application.NewLeases(failingLeaseRepository{NewLeases(db), cause}, func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewLeases(failingLeaseRepository{NewLeases(db), cause}, func() time.Time { return time.UnixMilli(10) })
 	unit, found, err := service.Claim(t.Context())
-	if !errors.Is(err, cause) || found || unit != (application.Work{}) {
+	if !errors.Is(err, cause) || found || unit != (pegasusimportmodel.Work{}) {
 		t.Fatalf("claim returned %+v %v %v", unit, found, err)
 	}
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {
@@ -53,7 +53,7 @@ func TestLeaseClaimRollsBackJobParentAndStartedEvent(t *testing.T) {
 func TestLeaseClaimPreservesBudgetAndRenewsCurrentOwner(t *testing.T) {
 	t.Parallel()
 	db := queuedLeaseDatabase(t)
-	service := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(10) })
 	unit, found, err := service.Claim(t.Context())
 	if err != nil || !found || unit.WorkerID == "" || unit.DeadlineAtMS != 100 || unit.Attempt != 2 {
 		t.Fatalf("claim=%+v found=%v err=%v", unit, found, err)
@@ -79,19 +79,19 @@ func TestLeaseRenewalSQLRejectsEveryStaleFence(t *testing.T) {
 			t.Parallel()
 			db := queuedLeaseDatabase(t)
 			repository := NewLeases(db)
-			if _, _, err := application.NewLeases(repository, func() time.Time { return time.UnixMilli(10) }).Claim(t.Context()); err != nil {
+			if _, _, err := pegasusimportservice.NewLeases(repository, func() time.Time { return time.UnixMilli(10) }).Claim(t.Context()); err != nil {
 				t.Fatal(err)
 			}
 			before := workflowRows(t, db)
-			err := repository.WithLease(t.Context(), func(records application.LeaseRecords) error {
+			err := repository.WithLease(t.Context(), func(records pegasusimportmodel.LeaseRecords) error {
 				current, err := records.Current(t.Context(), "work")
 				if err != nil {
 					return err
 				}
 				invalidateRecovery(&current, field)
-				return records.Renew(t.Context(), application.LeaseRenewal{Before: current, NowMS: 10, LeaseUntilMS: 100})
+				return records.Renew(t.Context(), pegasusimportmodel.LeaseRenewal{Before: current, NowMS: 10, LeaseUntilMS: 100})
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 				t.Fatalf("stale %s: %v", field, err)
 			}
 			if !reflect.DeepEqual(before, workflowRows(t, db)) {
@@ -109,7 +109,7 @@ func TestQueuedRecoveryClosesBudgetWithoutAnotherClaim(t *testing.T) {
 			setQueuedRecoveryBudget(t, db, scenario)
 			originalInput := queuedExecutionInput(t, db)
 			before := workflowRows(t, db)
-			service := application.NewRecovery(NewRecovery(db), nil, func() time.Time { return time.UnixMilli(10) })
+			service := pegasusimportservice.NewRecovery(NewRecovery(db), nil, func() time.Time { return time.UnixMilli(10) })
 			if err := service.Recover(t.Context()); err != nil {
 				t.Fatal(err)
 			}

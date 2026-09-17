@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	model "retrom/internal/model/maintenance"
 	"sort"
 
 	"retrom/internal/adapter/runtime/dependencies"
@@ -102,7 +103,7 @@ func (service *Service) Backup(
 func validateBackupConfiguration(configuration config.Maintenance, output string) error {
 	if !filepath.IsAbs(output) || filepath.Clean(output) != output || pathWithin(configuration.DataDir, output) ||
 		exists(output) {
-		return ErrInvalidBundle
+		return model.ErrInvalidBundle
 	}
 	if _, err := dependencies.Load(
 		configuration.DependencyRoot,
@@ -150,7 +151,7 @@ func removeBackupSidecars(staging string) error {
 		path := filepath.Join(staging, "retrom.db"+suffix)
 		if info, err := os.Lstat(path); err == nil {
 			if !info.Mode().IsRegular() || suffix == "-wal" && info.Size() != 0 {
-				return ErrInvalidBundle
+				return model.ErrInvalidBundle
 			}
 			if err := os.Remove(path); err != nil {
 				return fmt.Errorf("maintenance/bundle: %w", err)
@@ -174,7 +175,7 @@ func stageBackupSecrets(configuration config.Maintenance, staging string, manife
 			"",
 		)
 		if err != nil || entry.SizeBytes != 32 {
-			return ErrInvalidBundle
+			return model.ErrInvalidBundle
 		}
 		manifest.Files = append(manifest.Files, entry)
 	}

@@ -3,6 +3,7 @@ package serverimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/serverimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
@@ -10,9 +11,9 @@ import (
 )
 
 type RecoveryRepository interface {
-	Items(context.Context, string) ([]CatalogItem, error)
+	Items(context.Context, string) ([]model.CatalogItem, error)
 	Phase(context.Context, string) (string, error)
-	Candidates(context.Context, string) ([]CandidateEvidence, error)
+	Candidates(context.Context, string) ([]model.CandidateEvidence, error)
 	DATEntries(context.Context, string, string) ([]firmware.ExpectedDATEntry, error)
 }
 type (
@@ -27,7 +28,7 @@ func NewRecovery(repository RecoveryRepository, blobs BlobLocator) *Recovery {
 	return &Recovery{repository, blobs}
 }
 
-func (service *Recovery) Items(ctx context.Context, id string) ([]CatalogItem, error) {
+func (service *Recovery) Items(ctx context.Context, id string) ([]model.CatalogItem, error) {
 	items, err := service.repository.Items(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("read frozen import catalog: %w", err)
@@ -50,7 +51,7 @@ func (service *Recovery) DiscoveryWasPersisted(ctx context.Context, id string) (
 
 func (service *Recovery) ExpectedDATEntries(
 	ctx context.Context,
-	item CatalogItem,
+	item model.CatalogItem,
 ) ([]firmware.ExpectedDATEntry, error) {
 	if item.ArchiveMembersJSON != nil {
 		members, err := firmware.StaticArchiveExpectations(*item.ArchiveMembersJSON)
@@ -60,14 +61,14 @@ func (service *Recovery) ExpectedDATEntries(
 		return members, nil
 	}
 	if item.DATVersionID == nil || item.DATMachineName == nil {
-		return nil, ErrCatalogInvalid
+		return nil, model.ErrCatalogInvalid
 	}
 	entries, err := service.repository.DATEntries(ctx, *item.DATVersionID, *item.DATMachineName)
 	if err != nil {
 		return nil, fmt.Errorf("read expected DAT entries: %w", err)
 	}
 	if len(entries) == 0 {
-		return nil, ErrCatalogInvalid
+		return nil, model.ErrCatalogInvalid
 	}
 	return entries, nil
 }
@@ -75,9 +76,9 @@ func (service *Recovery) ExpectedDATEntries(
 func (service *Recovery) Candidates(
 	ctx context.Context,
 	id string,
-	items []CatalogItem,
+	items []model.CatalogItem,
 ) (map[string][]*EvaluatedCandidate, error) {
-	itemByID := make(map[string]CatalogItem, len(items))
+	itemByID := make(map[string]model.CatalogItem, len(items))
 	for _, item := range items {
 		itemByID[item.RequirementID] = item
 	}
@@ -90,7 +91,7 @@ func (service *Recovery) Candidates(
 	for _, record := range records {
 		item, ok := itemByID[record.RequirementID]
 		if !ok {
-			return nil, ErrCatalogInvalid
+			return nil, model.ErrCatalogInvalid
 		}
 		candidate, err := restoreCandidate(record, item)
 		if err != nil {
@@ -115,7 +116,7 @@ func (service *Recovery) Candidates(
 	return result, nil
 }
 
-func restoreCandidate(record CandidateEvidence, item CatalogItem) (*EvaluatedCandidate, error) {
+func restoreCandidate(record model.CandidateEvidence, item model.CatalogItem) (*EvaluatedCandidate, error) {
 	facts := record.Facts
 	candidate := &EvaluatedCandidate{
 		ID: record.ID, Item: item, Association: record.Association, State: record.State, Details: record.Details,
@@ -145,7 +146,7 @@ func restoreCandidate(record CandidateEvidence, item CatalogItem) (*EvaluatedCan
 		candidate.DAT = &value
 	}
 	if record.State == "ELIGIBLE" && candidate.Static == nil && candidate.DAT == nil {
-		return nil, ErrCatalogInvalid
+		return nil, model.ErrCatalogInvalid
 	}
 	return candidate, nil
 }

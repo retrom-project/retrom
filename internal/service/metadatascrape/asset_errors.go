@@ -2,6 +2,7 @@ package metadatascrape
 
 import (
 	"errors"
+	model "retrom/internal/model/metadatascrape"
 
 	"retrom/internal/adapter/metadata/hasheous"
 )
@@ -30,7 +31,7 @@ func stableAssetError(err error) string {
 
 func mediaRetryable(cause error) bool {
 	for _, permanent := range []error{
-		ErrMediaInput, ErrAssetStateConflict,
+		model.ErrMediaInput, model.ErrAssetStateConflict,
 		hasheous.ErrAssetURLInvalid, hasheous.ErrAssetURLRejected, hasheous.ErrAssetIPRejected,
 		hasheous.ErrAssetRedirectLimit, hasheous.ErrAssetTooLarge, hasheous.ErrAssetReadLimit,
 		hasheous.ErrAssetMediaTypeInvalid, hasheous.ErrAssetMediaTypeMismatch,

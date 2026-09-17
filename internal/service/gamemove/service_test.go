@@ -3,20 +3,21 @@ package gamemove
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/gamemove"
 	"testing"
 
 	"retrom/internal/capability/content/corevalidation"
 )
 
 type memoryRepository struct {
-	subject        ImpactSubject
-	variant        VariantState
+	subject        model.ImpactSubject
+	variant        model.VariantState
 	variantFound   bool
 	variantErr     error
 	jobState       string
 	runID          string
 	runFound       bool
-	candidates     []CandidateRecord
+	candidates     []model.CandidateRecord
 	updated        bool
 	updateErr      error
 	auditErr       error
@@ -24,14 +25,14 @@ type memoryRepository struct {
 	updatedTarget  string
 	updatedVersion int64
 	updatedAt      int64
-	audit          AuditEvent
+	audit          model.AuditEvent
 }
 
-func (memory *memoryRepository) ImpactSubject(context.Context, string, string) (ImpactSubject, error) {
+func (memory *memoryRepository) ImpactSubject(context.Context, string, string) (model.ImpactSubject, error) {
 	return memory.subject, nil
 }
 
-func (memory *memoryRepository) Variant(context.Context, VariantQuery) (VariantState, bool, error) {
+func (memory *memoryRepository) Variant(context.Context, model.VariantQuery) (model.VariantState, bool, error) {
 	return memory.variant, memory.variantFound, memory.variantErr
 }
 
@@ -43,11 +44,11 @@ func (memory *memoryRepository) LatestScrapeRun(context.Context, string) (string
 	return memory.runID, memory.runFound, nil
 }
 
-func (memory *memoryRepository) ScrapeCandidates(context.Context, string) ([]CandidateRecord, error) {
+func (memory *memoryRepository) ScrapeCandidates(context.Context, string) ([]model.CandidateRecord, error) {
 	return memory.candidates, nil
 }
 
-func (memory *memoryRepository) WithMove(_ context.Context, work func(MoveScope) error) error {
+func (memory *memoryRepository) WithMove(_ context.Context, work func(model.MoveScope) error) error {
 	return work(memory)
 }
 
@@ -61,7 +62,7 @@ func (memory *memoryRepository) UpdateGame(
 	return memory.updated, memory.updateErr
 }
 
-func (memory *memoryRepository) Audit(_ context.Context, event AuditEvent) error {
+func (memory *memoryRepository) Audit(_ context.Context, event model.AuditEvent) error {
 	memory.audit = event
 	return memory.auditErr
 }
@@ -86,8 +87,8 @@ func testSnapshot() corevalidation.Snapshot {
 	}
 }
 
-func testSubject() ImpactSubject {
-	return ImpactSubject{
+func testSubject() model.ImpactSubject {
+	return model.ImpactSubject{
 		GameID:                   "game",
 		SourcePlatformInstanceID: "source",
 		SourcePlatformID:         "gbc",
@@ -105,13 +106,13 @@ func testSubject() ImpactSubject {
 func TestPreviewNormalizesPendingVariantAndBuildsBlocker(t *testing.T) {
 	repository := &memoryRepository{
 		subject:      testSubject(),
-		variant:      VariantState{Status: "BLOCKED", CompatibilityCode: "VALIDATION_PENDING"},
+		variant:      model.VariantState{Status: "BLOCKED", CompatibilityCode: "VALIDATION_PENDING"},
 		variantFound: true,
 	}
 	validation := &memoryValidation{snapshot: testSnapshot()}
 	service := New(repository, validation)
 
-	impact, err := service.Preview(context.Background(), PreviewRequest{
+	impact, err := service.Preview(context.Background(), model.PreviewRequest{
 		GameID: "game", TargetPlatformInstanceID: "target", ExpectedVersion: 3,
 	})
 	if err != nil {
@@ -131,10 +132,10 @@ func TestPreviewRejectsStaleSubjectBeforeResolvingValidation(t *testing.T) {
 	validation := &memoryValidation{snapshot: testSnapshot()}
 	service := New(repository, validation)
 
-	_, err := service.Preview(context.Background(), PreviewRequest{
+	_, err := service.Preview(context.Background(), model.PreviewRequest{
 		GameID: "game", TargetPlatformInstanceID: "target", ExpectedVersion: 4,
 	})
-	if !errors.Is(err, ErrImpactStale) {
+	if !errors.Is(err, model.ErrImpactStale) {
 		t.Fatalf("stale preview error = %v", err)
 	}
 	if validation.calls != 0 {
@@ -145,16 +146,16 @@ func TestPreviewRejectsStaleSubjectBeforeResolvingValidation(t *testing.T) {
 func TestMoveUpdatesGameAndAuditsWithinOneScope(t *testing.T) {
 	repository := &memoryRepository{updated: true}
 	service := New(repository, &memoryValidation{snapshot: testSnapshot()})
-	impact := Impact{
+	impact := model.Impact{
 		Action: "MOVE_GAME", GameID: "game", GameVersion: 3,
 		SourcePlatformInstanceID: "source", TargetPlatformInstanceID: "target",
 		TargetCoreID: "core", TargetProviderID: "provider", TargetID: "runtime-target",
 		VariantStatus: "READY",
 	}
 
-	result, err := service.Move(context.Background(), MoveRequest{
+	result, err := service.Move(context.Background(), model.MoveRequest{
 		GameID: "game", TargetPlatformInstanceID: "target", ExpectedVersion: 3, NowMS: 100,
-		Impact: impact, Actor: AuditActor{Kind: "SYSTEM", Label: "release-setup", RequestID: "request"},
+		Impact: impact, Actor: model.AuditActor{Kind: "SYSTEM", Label: "release-setup", RequestID: "request"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -175,15 +176,15 @@ func TestMoveUpdatesGameAndAuditsWithinOneScope(t *testing.T) {
 func TestMoveMapsOptimisticLockFailure(t *testing.T) {
 	repository := &memoryRepository{updated: false}
 	service := New(repository, &memoryValidation{snapshot: testSnapshot()})
-	_, err := service.Move(context.Background(), MoveRequest{
+	_, err := service.Move(context.Background(), model.MoveRequest{
 		GameID: "game", TargetPlatformInstanceID: "target", ExpectedVersion: 3, NowMS: 100,
-		Impact: Impact{
+		Impact: model.Impact{
 			Action: "MOVE_GAME", GameID: "game", GameVersion: 3,
 			SourcePlatformInstanceID: "source", TargetPlatformInstanceID: "target",
 			TargetCoreID: "core", TargetProviderID: "provider", TargetID: "runtime-target",
 		},
 	})
-	if !errors.Is(err, ErrVersionConflict) {
+	if !errors.Is(err, model.ErrVersionConflict) {
 		t.Fatalf("move conflict error = %v", err)
 	}
 	if repository.audit.ID != "" {

@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/service/tagging"
+	"retrom/internal/model/tagging"
 	"retrom/internal/testkit/testassert"
 )
 

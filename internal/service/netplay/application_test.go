@@ -2,6 +2,7 @@ package netplay
 
 import (
 	"context"
+	model "retrom/internal/model/netplay"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -12,7 +13,7 @@ type countingMaintenance struct {
 	reads int
 }
 
-func (repository *countingMaintenance) Passive(ctx context.Context, cutoffs ExpiryCutoffs) ([]ExpiryCandidate, error) {
+func (repository *countingMaintenance) Passive(ctx context.Context, cutoffs model.ExpiryCutoffs) ([]model.ExpiryCandidate, error) {
 	repository.reads++
 	return repository.roomMaintenanceMemory.Passive(ctx, cutoffs)
 }

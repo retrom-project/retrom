@@ -5,45 +5,46 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	model "retrom/internal/model/serverimport"
 	"slices"
 	"strings"
 	"time"
 )
 
 type Creation struct {
-	repository CreationRepository
-	sources    SourceSelector
+	repository model.CreationRepository
+	sources    model.SourceSelector
 	now        func() time.Time
 }
 
-func NewCreation(repository CreationRepository, sources SourceSelector, now func() time.Time) *Creation {
+func NewCreation(repository model.CreationRepository, sources model.SourceSelector, now func() time.Time) *Creation {
 	return &Creation{repository: repository, sources: sources, now: now}
 }
 
-func (service *Creation) Create(ctx context.Context, request CreateRequest, actorID string) (Summary, error) {
+func (service *Creation) Create(ctx context.Context, request model.CreateRequest, actorID string) (model.Summary, error) {
 	if request.Kind != "BIOS_DIRECTORY" {
-		return Summary{}, ErrCatalogInvalid
+		return model.Summary{}, model.ErrCatalogInvalid
 	}
 	root, err := service.sources.Select(ctx, request.RootID, request.SourceRelativePath)
 	if err != nil {
-		return Summary{}, fmt.Errorf("select import source: %w", err)
+		return model.Summary{}, fmt.Errorf("select import source: %w", err)
 	}
 	items, digest, err := service.freezeCatalog(ctx)
 	if err != nil {
-		return Summary{}, err
+		return model.Summary{}, err
 	}
 	plan, err := newCreationPlan(request, actorID, root, items, digest, service.now().UnixMilli())
 	if err != nil {
-		return Summary{}, err
+		return model.Summary{}, err
 	}
-	var result Summary
-	err = service.repository.WithCreate(ctx, func(writer CreationWriter) error {
+	var result model.Summary
+	err = service.repository.WithCreate(ctx, func(writer model.CreationWriter) error {
 		active, err := writer.Active(ctx, request.Kind)
 		if err != nil {
 			return fmt.Errorf("check active imports: %w", err)
 		}
 		if active {
-			return ErrActive
+			return model.ErrActive
 		}
 		result, err = writer.Insert(ctx, plan)
 		if err != nil {
@@ -52,28 +53,28 @@ func (service *Creation) Create(ctx context.Context, request CreateRequest, acto
 		return nil
 	})
 	if err != nil {
-		return Summary{}, fmt.Errorf("create server import: %w", err)
+		return model.Summary{}, fmt.Errorf("create server import: %w", err)
 	}
 	return result, nil
 }
 
-func (service *Creation) freezeCatalog(ctx context.Context) ([]CatalogItem, string, error) {
+func (service *Creation) freezeCatalog(ctx context.Context) ([]model.CatalogItem, string, error) {
 	entries, err := service.repository.Catalog(ctx)
 	if err != nil {
 		return nil, "", fmt.Errorf("read import catalog: %w", err)
 	}
 	if len(entries) == 0 {
-		return nil, "", ErrCatalogEmpty
+		return nil, "", model.ErrCatalogEmpty
 	}
-	items := make([]CatalogItem, 0, len(entries))
+	items := make([]model.CatalogItem, 0, len(entries))
 	for _, entry := range entries {
 		if err := entry.Item.ValidateSource(entry.DATReady); err != nil {
 			return nil, "", fmt.Errorf("validate catalog item %s: %w", entry.Item.RequirementID, err)
 		}
 		items = append(items, entry.Item)
 	}
-	slices.SortFunc(items, func(a, b CatalogItem) int { return strings.Compare(a.RequirementID, b.RequirementID) })
-	encoded, err := CanonicalCatalogJSON(items)
+	slices.SortFunc(items, func(a, b model.CatalogItem) int { return strings.Compare(a.RequirementID, b.RequirementID) })
+	encoded, err := model.CanonicalCatalogJSON(items)
 	if err != nil {
 		return nil, "", err
 	}

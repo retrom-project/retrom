@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/importdiscard"
+	"retrom/internal/model/importdiscard"
 )
 
 func (server *Server) getImportBatchDiscard(writer http.ResponseWriter, request *http.Request) {

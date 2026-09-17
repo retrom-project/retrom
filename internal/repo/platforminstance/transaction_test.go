@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/model/platforminstance"
 	platformpersistence "retrom/internal/repo/platforminstance"
-	"retrom/internal/service/platforminstance"
 )
 
 func TestCanceledCommitRollsBackAndReleasesConnection(t *testing.T) {

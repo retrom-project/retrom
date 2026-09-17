@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	model "retrom/internal/model/gamecontent"
 
 	"retrom/internal/capability/content/contentcapability"
 
@@ -13,7 +14,7 @@ import (
 
 func (service *Service) scheduleFresh(
 	ctx context.Context,
-	scope WriteScope,
+	scope model.WriteScope,
 	gameID, uploadID, contentMode string,
 	expectedVersion, now int64,
 ) (Scheduled, error) {
@@ -22,20 +23,20 @@ func (service *Service) scheduleFresh(
 		return Scheduled{}, fmt.Errorf("load replacement binding: %w", err)
 	}
 	if binding.Version != expectedVersion {
-		return Scheduled{}, ErrInvalid
+		return Scheduled{}, model.ErrInvalid
 	}
 	instanceID, platformID := binding.InstanceID, binding.PlatformID
 	coreID, contentPolicy := binding.CoreID, binding.ContentPolicy
 	platformVersion, datID := binding.PlatformVersion, binding.DATID
 	if platformID == "rpgmaker" && contentMode != contentcapability.ModeRPGMakerProject ||
 		platformID != "rpgmaker" && contentMode == contentcapability.ModeRPGMakerProject {
-		return Scheduled{}, ErrInvalid
+		return Scheduled{}, model.ErrInvalid
 	}
 	capabilities := contentcapability.Resolve(
 		platformID, true, service.multiDiscImportEnabled, contentPolicy,
 	)
 	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
-		return Scheduled{}, ErrInvalid
+		return Scheduled{}, model.ErrInvalid
 	}
 	upload, err := scope.Content.Upload(ctx, uploadID)
 	if err != nil {
@@ -56,7 +57,7 @@ func (service *Service) scheduleFresh(
 		contentMode, pointerText(datID),
 	)
 	configDigest := sha256.Sum256([]byte(configInput))
-	snapshot := JobSnapshot{
+	snapshot := model.JobSnapshot{
 		ExecutionID:             executionID,
 		GameID:                  gameID,
 		GameVersion:             expectedVersion,

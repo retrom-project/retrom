@@ -3,22 +3,23 @@ package platforminstance
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/platforminstance"
 	"testing"
 	"time"
 )
 
 type boundaryRepository struct {
-	Repository
-	scope  WriteScope
+	model.Repository
+	scope  model.WriteScope
 	writes int
 }
 
-func (repository *boundaryRepository) CommitWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *boundaryRepository) CommitWrite(_ context.Context, work func(model.WriteScope) error) error {
 	repository.writes++
 	return work(repository.scope)
 }
 
-type unavailableCore struct{ Reader }
+type unavailableCore struct{ model.Reader }
 
 func (unavailableCore) CoreEnabled(context.Context, string, string) (bool, error) { return false, nil }
 
@@ -26,8 +27,8 @@ func TestInvalidCreateNeverOpensTransaction(t *testing.T) {
 	t.Parallel()
 	repository := &boundaryRepository{}
 	service := New(repository, time.Now)
-	for _, input := range []CreateInput{{Name: ""}, {Name: " leading"}, {Name: "Valid", Description: "\x00"}} {
-		if _, err := service.Create(t.Context(), AuditActor{}, input); !errors.Is(err, ErrInvalid) {
+	for _, input := range []model.CreateInput{{Name: ""}, {Name: " leading"}, {Name: "Valid", Description: "\x00"}} {
+		if _, err := service.Create(t.Context(), model.AuditActor{}, input); !errors.Is(err, model.ErrInvalid) {
 			t.Fatalf("invalid input: %v", err)
 		}
 	}
@@ -46,7 +47,7 @@ func TestInvalidPatchNeverOpensTransaction(t *testing.T) {
 		{ID: "directory", ExpectedVersion: 0, Enabled: boolPointer(true)},
 		{ID: "directory", ExpectedVersion: 1},
 	} {
-		if _, err := service.Patch(t.Context(), input); !errors.Is(err, ErrInvalid) {
+		if _, err := service.Patch(t.Context(), input); !errors.Is(err, model.ErrInvalid) {
 			t.Fatalf("invalid patch: %v", err)
 		}
 	}
@@ -57,9 +58,9 @@ func TestInvalidPatchNeverOpensTransaction(t *testing.T) {
 
 func TestUnavailableCoreCannotCreateDirectory(t *testing.T) {
 	t.Parallel()
-	repository := &boundaryRepository{scope: WriteScope{Reader: unavailableCore{}}}
+	repository := &boundaryRepository{scope: model.WriteScope{Reader: unavailableCore{}}}
 	service := New(repository, time.Now)
-	if _, err := service.Create(t.Context(), AuditActor{}, CreateInput{Name: "Library", PlatformID: "gba", DefaultCoreID: "disabled"}); !errors.Is(err, ErrDefaultCoreInvalid) {
+	if _, err := service.Create(t.Context(), model.AuditActor{}, model.CreateInput{Name: "Library", PlatformID: "gba", DefaultCoreID: "disabled"}); !errors.Is(err, model.ErrDefaultCoreInvalid) {
 		t.Fatalf("unavailable core: %v", err)
 	}
 	if repository.writes != 1 {
@@ -81,12 +82,12 @@ func TestSlugSelectionKeepsReservedNames(t *testing.T) {
 func TestCoreImpactProjectionClassifiesVariantStates(t *testing.T) {
 	t.Parallel()
 	blockedCode := "LAUNCH_CORE_UNAVAILABLE"
-	result := projectCoreImpact("gba-directory", "mgba", CoreImpactFacts{
+	result := projectCoreImpact("gba-directory", "mgba", model.CoreImpactFacts{
 		PlatformInstanceVersion: 3,
 		ProviderID:              "provider",
 		TargetID:                "target",
 		BundleSHA256:            "bundle",
-		Games: []CoreImpactGame{
+		Games: []model.CoreImpactGame{
 			{GameID: "ready", GameVersion: 2, VariantID: stringPointer("variant-ready"), VariantStatus: stringPointer("READY")},
 			{GameID: "blocked", GameVersion: 4, VariantID: stringPointer("variant-blocked"), VariantStatus: stringPointer("BLOCKED"), TargetCompatibilityCode: &blockedCode},
 			{GameID: "pending", GameVersion: 1},

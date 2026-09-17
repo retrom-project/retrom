@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/store"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 var errCreationWrite = errors.New("creation write failed")

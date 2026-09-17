@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 const planDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

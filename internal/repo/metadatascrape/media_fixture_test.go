@@ -9,7 +9,8 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/metadata/hasheous"
-	"retrom/internal/service/metadatascrape"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+	metadatascrapeservice "retrom/internal/service/metadatascrape"
 )
 
 type mediaFixture struct {
@@ -40,14 +41,14 @@ func newMediaFixture(t *testing.T, assets ...hasheous.AssetRef) *mediaFixture {
 }
 
 func (fixture *mediaFixture) clock() time.Time { return fixture.now }
-func (fixture *mediaFixture) worker(source mediaSource) *metadatascrape.MediaWorker {
-	return metadatascrape.NewMediaWorker(NewMedia(fixture.database), source, fixture.blobs, fixture.clock)
+func (fixture *mediaFixture) worker(source mediaSource) *metadatascrapeservice.MediaWorker {
+	return metadatascrapeservice.NewMediaWorker(NewMedia(fixture.database), source, fixture.blobs, fixture.clock)
 }
 
-func (fixture *mediaFixture) snapshot(t *testing.T) metadatascrape.MediaSnapshot {
+func (fixture *mediaFixture) snapshot(t *testing.T) metadatascrapemodel.MediaSnapshot {
 	t.Helper()
-	var snapshot metadatascrape.MediaSnapshot
-	err := NewMedia(fixture.database).CommitWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
+	var snapshot metadatascrapemodel.MediaSnapshot
+	err := NewMedia(fixture.database).CommitWrite(t.Context(), func(scope metadatascrapemodel.MediaScope) error {
 		var err error
 		snapshot, err = scope.Read.Snapshot(t.Context(), fixture.jobID)
 		return err
@@ -73,15 +74,15 @@ func newEmptyMediaFixture(t *testing.T) *mediaFixture {
 }
 
 func (fixture *mediaFixture) record(ctx context.Context, repository *ResultRepository) error {
-	recorder := metadatascrape.NewRecorder(repository, fixture.blobs, fixture.clock)
+	recorder := metadatascrapeservice.NewRecorder(repository, fixture.blobs, fixture.clock)
 	assets := fixture.assets
 	if len(assets) == 0 {
 		assets = []hasheous.AssetRef{{ProviderAssetID: "cover", Kind: "COVER", Path: "/api/v1/images/cover"}}
 	}
-	processor := recoveryProcess(func(ctx context.Context, claim metadatascrape.WorkerClaim, _ string) (int, string, error) {
-		created, err := recorder.Record(ctx, metadatascrape.LookupAttempt{
+	processor := recoveryProcess(func(ctx context.Context, claim metadatascrapemodel.WorkerClaim, _ string) (int, string, error) {
+		created, err := recorder.Record(ctx, metadatascrapemodel.LookupAttempt{
 			Claim: claim, EvidenceID: "evidence", AttemptNo: 1,
-			AllowCandidate: true, Lookup: metadatascrape.ResolvedLookup{Result: hasheous.LookupResult{
+			AllowCandidate: true, Lookup: metadatascrapemodel.ResolvedLookup{Result: hasheous.LookupResult{
 				Outcome: hasheous.OutcomeHit, RequestDigest: strings.Repeat("d", 64), Candidate: &hasheous.Candidate{
 					ProviderGameID: "17", Assets: assets,
 				},
@@ -92,5 +93,5 @@ func (fixture *mediaFixture) record(ctx context.Context, repository *ResultRepos
 		}
 		return 1, "", nil
 	})
-	return metadatascrape.NewWorker(NewWorker(fixture.database), processor, fixture.clock).Run(ctx, "run")
+	return metadatascrapeservice.NewWorker(NewWorker(fixture.database), processor, fixture.clock).Run(ctx, "run")
 }

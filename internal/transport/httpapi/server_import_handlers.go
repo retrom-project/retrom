@@ -9,7 +9,8 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/serverimport"
+	serverimportmodel "retrom/internal/model/serverimport"
+	serverimportservice "retrom/internal/service/serverimport"
 )
 
 func (server *Server) serverImportRoots(writer http.ResponseWriter, _ *http.Request) {
@@ -73,7 +74,7 @@ func (server *Server) serverImportDirectories(writer http.ResponseWriter, reques
 }
 
 func (server *Server) createServerImport(writer http.ResponseWriter, request *http.Request) {
-	var body serverimport.CreateRequest
+	var body serverimportmodel.CreateRequest
 	if err := decodeJSON(writer, request, &body, 64<<10); err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "服务器导入配置无效", map[string]any{})
 		return
@@ -352,9 +353,9 @@ func validServerImportState(value string) bool {
 
 func (server *Server) writeServerImportError(writer http.ResponseWriter, request *http.Request, err error) {
 	switch {
-	case errors.Is(err, serverimport.ErrQuery):
+	case errors.Is(err, serverimportmodel.ErrQuery):
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "服务器导入筛选无效", map[string]any{})
-	case errors.Is(err, serverimport.ErrRootIDInvalid):
+	case errors.Is(err, serverimportservice.ErrRootIDInvalid):
 		writeError(
 			writer,
 			request,
@@ -363,13 +364,13 @@ func (server *Server) writeServerImportError(writer http.ResponseWriter, request
 			"服务器位置标识无效",
 			map[string]any{},
 		)
-	case errors.Is(err, serverimport.ErrPathInvalid):
+	case errors.Is(err, serverimportservice.ErrPathInvalid):
 		writeError(writer, request, http.StatusBadRequest, "SERVER_IMPORT_PATH_INVALID", "服务器目录无效", map[string]any{})
-	case errors.Is(err, serverimport.ErrRootNotFound):
+	case errors.Is(err, serverimportservice.ErrRootNotFound):
 		writeError(writer, request, http.StatusNotFound, "SERVER_IMPORT_ROOT_NOT_FOUND", "服务器导入资源不存在", map[string]any{})
-	case errors.Is(err, serverimport.ErrNotFound):
+	case errors.Is(err, serverimportmodel.ErrNotFound):
 		writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "请求的资源不存在", map[string]any{})
-	case errors.Is(err, serverimport.ErrRootUnavailable):
+	case errors.Is(err, serverimportservice.ErrRootUnavailable):
 		writeError(
 			writer,
 			request,
@@ -378,7 +379,7 @@ func (server *Server) writeServerImportError(writer http.ResponseWriter, request
 			"服务器位置当前不可用",
 			map[string]any{},
 		)
-	case errors.Is(err, serverimport.ErrActive):
+	case errors.Is(err, serverimportmodel.ErrActive):
 		writeError(
 			writer,
 			request,
@@ -387,13 +388,13 @@ func (server *Server) writeServerImportError(writer http.ResponseWriter, request
 			"已有 BIOS 服务器导入正在运行",
 			map[string]any{},
 		)
-	case errors.Is(err, serverimport.ErrCatalogEmpty):
+	case errors.Is(err, serverimportmodel.ErrCatalogEmpty):
 		writeError(writer, request, http.StatusConflict, "BIOS_CATALOG_EMPTY", "当前 BIOS 目录为空", map[string]any{})
-	case errors.Is(err, serverimport.ErrCatalogInvalid):
+	case errors.Is(err, serverimportmodel.ErrCatalogInvalid):
 		writeError(writer, request, http.StatusConflict, "BIOS_CATALOG_INVALID", "BIOS 目录证据无效", map[string]any{})
-	case errors.Is(err, serverimport.ErrNotCancellable):
+	case errors.Is(err, serverimportmodel.ErrNotCancellable):
 		writeError(writer, request, http.StatusConflict, "SERVER_IMPORT_NOT_CANCELLABLE", "任务当前不可取消", map[string]any{})
-	case errors.Is(err, serverimport.ErrNotRetryable):
+	case errors.Is(err, serverimportmodel.ErrNotRetryable):
 		writeError(writer, request, http.StatusConflict, "SERVER_IMPORT_NOT_RETRYABLE", "任务当前不可重试", map[string]any{})
 	default:
 		server.databaseError(writer, request, err)

@@ -3,6 +3,7 @@ package firmware
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/firmware"
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -10,13 +11,13 @@ import (
 )
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	blobs      *blobstore.Store
-	releases   ReleaseSignal
+	releases   model.ReleaseSignal
 	now        func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service {
+func New(repository model.Repository, now func() time.Time) *Service {
 	return &Service{repository: repository, now: now}
 }
 
@@ -25,7 +26,7 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 	return service
 }
 
-func (service *Service) WithPayloadRelease(releases ReleaseSignal) *Service {
+func (service *Service) WithPayloadRelease(releases model.ReleaseSignal) *Service {
 	service.releases = releases
 	return service
 }
@@ -45,20 +46,20 @@ func (service *Service) prepareInstall(
 	fileID string,
 ) (preparedInstall, error) {
 	var prepared preparedInstall
-	err := service.repository.WithRead(ctx, func(scope ReadScope) error {
+	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
 		requirement, found, err := scope.Requirements.Get(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read BIOS requirement: %w", err)
 		}
 		if !found || !requirement.Enabled || requirement.Version != version {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		upload, found, err := scope.Uploads.Get(ctx, fileID)
 		if err != nil {
 			return fmt.Errorf("read BIOS upload: %w", err)
 		}
 		if !found || upload.State != "COMPLETE" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		prepared.sourceKind = requirement.SourceKind
 		prepared.fileKind = requirement.FileKind
@@ -71,7 +72,7 @@ func (service *Service) prepareInstall(
 	}
 	if prepared.fileKind == "ARCHIVE" {
 		if service.blobs == nil {
-			return preparedInstall{}, ErrInvalid
+			return preparedInstall{}, model.ErrInvalid
 		}
 		entries, err := importing.ScanZIP(
 			ctx,
@@ -79,7 +80,7 @@ func (service *Service) prepareInstall(
 			importing.DefaultArchiveLimits(),
 		)
 		if err != nil {
-			return preparedInstall{}, fmt.Errorf("%w: inspect BIOS archive: %w", ErrInvalid, err)
+			return preparedInstall{}, fmt.Errorf("%w: inspect BIOS archive: %w", model.ErrInvalid, err)
 		}
 		prepared.entries = entries
 	}
@@ -90,13 +91,13 @@ func (service *Service) Install(
 	ctx context.Context,
 	id string,
 	version int64,
-	request InstallRequest,
-) (Installation, error) {
+	request model.InstallRequest,
+) (model.Installation, error) {
 	prepared, err := service.prepareInstall(ctx, id, version, request.UploadFileID)
 	if err != nil {
-		return Installation{}, err
+		return model.Installation{}, err
 	}
-	result, err := service.repository.CommitBrowserInstall(ctx, BrowserInstallCommand{
+	result, err := service.repository.CommitBrowserInstall(ctx, model.BrowserInstallCommand{
 		RequirementID:      id,
 		FileID:             request.UploadFileID,
 		Version:            version,
@@ -108,7 +109,7 @@ func (service *Service) Install(
 		NowMS:              service.now().UnixMilli(),
 	})
 	if err != nil {
-		return Installation{}, fmt.Errorf("install BIOS: %w", err)
+		return model.Installation{}, fmt.Errorf("install BIOS: %w", err)
 	}
 	service.signalRelease()
 	return result, nil

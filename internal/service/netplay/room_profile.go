@@ -2,6 +2,7 @@ package netplay
 
 import (
 	"fmt"
+	model "retrom/internal/model/netplay"
 
 	"retrom/internal/transport/netplay/profile"
 )
@@ -9,8 +10,8 @@ import (
 func freezeRoomProfile(
 	registry *profile.Registry,
 	gameID string,
-	candidate EligibleProfile,
-) (FrozenRoomProfile, error) {
+	candidate model.EligibleProfile,
+) (model.FrozenRoomProfile, error) {
 	canonical, digest, err := registry.CanonicalProfile(profile.CanonicalProfileInput{
 		ManifestProfile:        candidate.Manifest,
 		BundleSHA256:           candidate.BundleSHA256,
@@ -18,10 +19,10 @@ func freezeRoomProfile(
 		DependencySnapshotJSON: candidate.DependencySnapshotJSON,
 	})
 	if err != nil {
-		return FrozenRoomProfile{}, fmt.Errorf("%w: %w", ErrInvalidProfile, err)
+		return model.FrozenRoomProfile{}, fmt.Errorf("%w: %w", model.ErrInvalidProfile, err)
 	}
-	return FrozenRoomProfile{
-		Selection: RoomSelection{
+	return model.FrozenRoomProfile{
+		Selection: model.RoomSelection{
 			GameID:     gameID,
 			VariantID:  candidate.VariantID,
 			ProfileID:  candidate.Manifest.ID,

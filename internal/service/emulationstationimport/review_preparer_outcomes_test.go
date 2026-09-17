@@ -3,9 +3,10 @@ package emulationstationimport
 import (
 	"errors"
 	"reflect"
+	model "retrom/internal/model/emulationstationimport"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 func TestReviewPreparerReplaysDuplicateAfterSourcePayloadCleanup(t *testing.T) {
@@ -45,7 +46,7 @@ func TestReviewPreparerKeepsDeterministicFailureDiagnostics(t *testing.T) {
 				code = "MULTI_DISC_MODE_UNAVAILABLE"
 			case "limit":
 				memory.createErr = library.ErrInvalid
-				item.Files = make([]ExecutionFile, library.ServerSourceFileLimit+1)
+				item.Files = make([]model.ExecutionFile, library.ServerSourceFileLimit+1)
 				expected = "COMMIT_FAILED"
 				code = "EMULATIONSTATION_LIBRARY_IMPORT_FAILED"
 			case "handoff":
@@ -64,7 +65,7 @@ func TestReviewPreparerKeepsDeterministicFailureDiagnostics(t *testing.T) {
 	}
 }
 
-func assertReviewFailureDetails(t *testing.T, kind string, outcome ItemOutcome) {
+func assertReviewFailureDetails(t *testing.T, kind string, outcome model.ItemOutcome) {
 	t.Helper()
 	if kind == "metadata" {
 		assertReviewMetadataFailure(t, outcome.Failure)
@@ -77,21 +78,21 @@ func assertReviewFailureDetails(t *testing.T, kind string, outcome ItemOutcome) 
 	}
 }
 
-func assertReviewMetadataFailure(t *testing.T, details *FailureDetails) {
+func assertReviewMetadataFailure(t *testing.T, details *model.FailureDetails) {
 	t.Helper()
 	if details == nil || details.CauseCode != "METADATA_JSON_INVALID" || details.LibraryImportItemID == nil || *details.LibraryImportItemID != "ordinary-item" {
 		t.Fatalf("metadata failure=%#v", details)
 	}
 }
 
-func assertReviewLimitFailure(t *testing.T, details *FailureDetails) {
+func assertReviewLimitFailure(t *testing.T, details *model.FailureDetails) {
 	t.Helper()
 	if details == nil || details.CauseCode != "SOURCE_FILE_LIMIT_EXCEEDED" || details.ObservedFileCount == nil || *details.ObservedFileCount != 66 || details.AllowedFileCount == nil || *details.AllowedFileCount != 64 {
 		t.Fatalf("file count failure=%#v", details)
 	}
 }
 
-func assertReviewHandoffFailure(t *testing.T, outcome ItemOutcome) {
+func assertReviewHandoffFailure(t *testing.T, outcome model.ItemOutcome) {
 	t.Helper()
 	details := outcome.Failure
 	if !outcome.Retryable || details == nil || details.LibraryImportJobID == nil || *details.LibraryImportJobID != "ordinary-job" || details.TechnicalDetail != "safe diagnostic" {

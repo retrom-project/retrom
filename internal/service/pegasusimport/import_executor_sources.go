@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	model "retrom/internal/model/pegasusimport"
 	"strings"
 
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 func (executor *ImportExecutor) sourceFiles(
-	ctx context.Context, unit Work, item ExecutionItem,
+	ctx context.Context, unit model.Work, item model.ExecutionItem,
 ) ([]library.ServerSourceFile, error) {
 	files := make([]library.ServerSourceFile, 0, len(item.Files))
 	for _, file := range item.Files {
@@ -29,7 +30,7 @@ func (executor *ImportExecutor) sourceFiles(
 }
 
 func (executor *ImportExecutor) CompanionFiles(
-	ctx context.Context, unit Work, item ExecutionItem,
+	ctx context.Context, unit model.Work, item model.ExecutionItem,
 ) ([]library.ServerSourceFile, error) {
 	candidates, err := executor.dependencies.Companions.Find(ctx, unit.Identity(), item.ID)
 	if err != nil {
@@ -41,7 +42,7 @@ func (executor *ImportExecutor) CompanionFiles(
 		if stop := importStopCause(ctx, err); stop != nil {
 			return nil, stop
 		}
-		if errors.Is(err, ErrSourceChanged) {
+		if errors.Is(err, model.ErrSourceChanged) {
 			continue
 		}
 		if err != nil {

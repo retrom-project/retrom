@@ -7,8 +7,9 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/engine/scummvm"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
 )
@@ -21,17 +22,17 @@ type CreationOptions struct {
 	MultiDiscEnabled bool
 }
 
-func NewCreations(database *sql.DB, now func() time.Time, options CreationOptions) *application.ImportCreations {
-	return application.NewImportCreations(
+func NewCreations(database *sql.DB, now func() time.Time, options CreationOptions) *libraryimportservice.ImportCreations {
+	return libraryimportservice.NewImportCreations(
 		repository.NewImportCreations(database), NewPreparation(database, options), options.Tags, options.Scraper,
-		application.ImportCreationSettings{Now: now, MultiDiscEnabled: options.MultiDiscEnabled},
+		libraryimportmodel.ImportCreationSettings{Now: now, MultiDiscEnabled: options.MultiDiscEnabled},
 	)
 }
 
-func NewPreparation(database *sql.DB, options CreationOptions) *application.ImportPreparation {
-	return application.NewImportPreparation(
+func NewPreparation(database *sql.DB, options CreationOptions) *libraryimportservice.ImportPreparation {
+	return libraryimportservice.NewImportPreparation(
 		repository.BindImportFacts(database), repository.BindPreparationCatalog(database),
-		options.Blobs, application.ImportPreparationOptions{
+		options.Blobs, libraryimportmodel.ImportPreparationOptions{
 			MultiDiscEnabled: options.MultiDiscEnabled, MetadataScraperAvailable: options.Scraper != nil,
 			ScummVMDetector: options.ScummVMDetector,
 		},

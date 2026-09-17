@@ -1,16 +1,16 @@
 package pegasusimport
 
 import (
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/pegasusimport"
 )
 
 func TestCancellingScanDoesNotReserveImportExecutionCapacity(t *testing.T) {
 	t.Parallel()
 	db := workflowDatabase(t)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	if err := NewCreation(db).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 		_, err := writer.Insert(t.Context(), creationPlan(1))
 		return err
 	}); err != nil {
@@ -23,14 +23,14 @@ leased_until_ms=90,heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadlin
 	); err != nil {
 		t.Fatal(err)
 	}
-	service := application.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
-	if _, pending, err := service.CancelJob(t.Context(), application.JobCancellationRequest{
+	service := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(db), func() time.Time { return time.UnixMilli(10) })
+	if _, pending, err := service.CancelJob(t.Context(), pegasusimportservice.JobCancellationRequest{
 		JobID: "job-1", ScopeID: "import-1", Kind: "SERVER_PEGASUS_SCAN", ExpectedVersion: 1, Reason: "Stop", ActorID: "actor",
 	}); err != nil || !pending {
 		t.Fatalf("request scan cancellation: %v %v", pending, err)
 	}
-	var before application.WorkflowSnapshot
-	if err := NewWorkflowControl(db).WithControl(t.Context(), func(scope application.WorkflowScope) error {
+	var before pegasusimportmodel.WorkflowSnapshot
+	if err := NewWorkflowControl(db).WithControl(t.Context(), func(scope pegasusimportmodel.WorkflowScope) error {
 		var err error
 		before, err = scope.Read.Current(t.Context(), "import-0")
 		return err

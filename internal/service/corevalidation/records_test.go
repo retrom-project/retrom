@@ -2,6 +2,7 @@ package corevalidation
 
 import (
 	"errors"
+	model "retrom/internal/model/corevalidation"
 	"testing"
 
 	"retrom/internal/capability/content/corevalidation"
@@ -9,7 +10,7 @@ import (
 
 func TestFrozenBIOSRecordsDoNotMutateTheirSource(t *testing.T) {
 	options := `{"boot":"bios"}`
-	records := []BIOSRecord{{Dependency: corevalidation.BIOSDependency{
+	records := []model.BIOSRecord{{Dependency: corevalidation.BIOSDependency{
 		BIOSCatalogEntry:  corevalidation.BIOSCatalogEntry{RequirementID: "bios", RequirementMode: "OPTIONAL"},
 		ActivationOptions: map[string]string{"original": "frozen"},
 	}, ActivationOptions: &options}}

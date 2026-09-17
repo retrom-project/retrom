@@ -13,12 +13,12 @@ var (
 
 // CreateCommand captures all inputs for an atomic asset creation.
 type CreateCommand struct {
-	GameID, UploadFileID    string
-	ExpectedVersion, NowMS  int64
-	Kind                    string
-	Ordinal                 int64
-	AssetID, ConsumptionID  string
-	Asset                   PreparedAsset
+	GameID, UploadFileID   string
+	ExpectedVersion, NowMS int64
+	Kind                   string
+	Ordinal                int64
+	AssetID, ConsumptionID string
+	Asset                  PreparedAsset
 }
 
 // DeleteCommand captures all inputs for an atomic asset deletion.
@@ -48,7 +48,6 @@ type Repository interface {
 	CommitCreate(context.Context, CreateCommand) error
 	CommitDelete(context.Context, DeleteCommand) (DeleteResult, error)
 }
-
 
 type UploadedFile struct {
 	UploadID, BlobID, Digest string

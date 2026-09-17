@@ -2,6 +2,7 @@ package launch
 
 import (
 	"errors"
+	model "retrom/internal/model/launch"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )
@@ -9,9 +10,9 @@ import (
 var errConfigInputMissing = errors.New("launch input absent")
 
 func providerResources(
-	snapshot ConfigSnapshot,
+	snapshot model.ConfigSnapshot,
 	target runtimebundle.Target,
-	ticket IsolationTicket,
+	ticket model.IsolationTicket,
 ) ([]map[string]any, error) {
 	resources := make([]map[string]any, 0, len(target.Inputs))
 	for _, input := range target.Inputs {
@@ -20,7 +21,7 @@ func providerResources(
 			continue
 		}
 		if errors.Is(err, errConfigInputMissing) {
-			return nil, ErrCredential
+			return nil, model.ErrCredential
 		}
 		if err != nil {
 			return nil, err
@@ -32,9 +33,9 @@ func providerResources(
 }
 
 func providerInputResource(
-	snapshot ConfigSnapshot,
+	snapshot model.ConfigSnapshot,
 	input runtimebundle.Input,
-	ticket IsolationTicket,
+	ticket model.IsolationTicket,
 ) (map[string]any, error) {
 	source := snapshot.Authority.Source
 	switch input.Role {
@@ -53,14 +54,14 @@ func providerInputResource(
 		if source.ContentKind == "RPG_MAKER_PROJECT" {
 			return nil, errConfigInputMissing
 		}
-		return nil, ErrCredential
+		return nil, model.ErrCredential
 	default:
-		return nil, ErrCredential
+		return nil, model.ErrCredential
 	}
 }
 
-func configFilesWithRole(files []ConfigFile, role string) []ConfigFile {
-	result := make([]ConfigFile, 0)
+func configFilesWithRole(files []model.ConfigFile, role string) []model.ConfigFile {
+	result := make([]model.ConfigFile, 0)
 	for _, file := range files {
 		if file.Role == role {
 			result = append(result, file)
@@ -70,10 +71,10 @@ func configFilesWithRole(files []ConfigFile, role string) []ConfigFile {
 }
 
 func providerGameResource(
-	source ConfigSource,
+	source model.ConfigSource,
 	kind string,
-	files []ConfigFile,
-	ticket IsolationTicket,
+	files []model.ConfigFile,
+	ticket model.IsolationTicket,
 ) (map[string]any, error) {
 	if len(files) == 0 {
 		return nil, errConfigInputMissing
@@ -105,13 +106,13 @@ func providerGameResource(
 }
 
 func providerWebResource(
-	source ConfigSource,
+	source model.ConfigSource,
 	kind string,
-	files []ConfigFile,
-	ticket IsolationTicket,
+	files []model.ConfigFile,
+	ticket model.IsolationTicket,
 ) (map[string]any, error) {
 	if ticket.Origin == "" || ticket.Ticket == "" {
-		return nil, ErrBlocked
+		return nil, model.ErrBlocked
 	}
 	identity, err := ProjectIdentity(files)
 	if err != nil {

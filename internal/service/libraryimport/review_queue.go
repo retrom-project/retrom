@@ -3,19 +3,20 @@ package libraryimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/libraryimport"
+	taggingmodel "retrom/internal/model/tagging"
+	taggingservice "retrom/internal/service/tagging"
 	"strings"
-
-	"retrom/internal/service/tagging"
 )
 
-func NewReviewQueue(repository ReviewQueueRepository, tags ReviewQueueTags) *ReviewQueue {
+func NewReviewQueue(repository model.ReviewQueueRepository, tags model.ReviewQueueTags) *ReviewQueue {
 	return &ReviewQueue{repository: repository, tags: tags}
 }
 
-func NormalizeReviewQueueFilter(filter ReviewQueueFilter) (ReviewQueueFilter, error) {
+func NormalizeReviewQueueFilter(filter model.ReviewQueueFilter) (model.ReviewQueueFilter, error) {
 	filter.Query = strings.ToLower(strings.Join(strings.Fields(filter.Query), " "))
-	if len([]rune(filter.Query)) > 200 || filter.TagID != "" && !tagging.ValidID(filter.TagID) {
-		return ReviewQueueFilter{}, ErrReviewQuery
+	if len([]rune(filter.Query)) > 200 || filter.TagID != "" && !taggingservice.ValidID(filter.TagID) {
+		return model.ReviewQueueFilter{}, model.ErrReviewQuery
 	}
 	sourceCount := 0
 	for _, id := range []string{filter.ImportJobID, filter.PegasusImportID, filter.EmulationStationImportID} {
@@ -24,42 +25,42 @@ func NormalizeReviewQueueFilter(filter ReviewQueueFilter) (ReviewQueueFilter, er
 		}
 	}
 	if sourceCount > 1 {
-		return ReviewQueueFilter{}, ErrReviewQuery
+		return model.ReviewQueueFilter{}, model.ErrReviewQuery
 	}
 	if filter.Sort == "" {
 		filter.Sort = "UPDATED_ASC"
 	}
 	if filter.Sort != "UPDATED_ASC" && filter.Sort != "UPDATED_DESC" {
-		return ReviewQueueFilter{}, ErrReviewQuery
+		return model.ReviewQueueFilter{}, model.ErrReviewQuery
 	}
 	if filter.Limit == 0 {
-		filter.Limit = ReviewQueuePageLimit
+		filter.Limit = model.ReviewQueuePageLimit
 	}
-	if filter.Limit < 1 || filter.Limit > ReviewQueuePageLimit {
-		return ReviewQueueFilter{}, ErrReviewQuery
+	if filter.Limit < 1 || filter.Limit > model.ReviewQueuePageLimit {
+		return model.ReviewQueueFilter{}, model.ErrReviewQuery
 	}
 	return filter, nil
 }
 
 func (service *ReviewQueue) List(
-	ctx context.Context, filter ReviewQueueFilter, after *ReviewQueuePosition,
-) (ReviewQueuePage, error) {
+	ctx context.Context, filter model.ReviewQueueFilter, after *model.ReviewQueuePosition,
+) (model.ReviewQueuePage, error) {
 	filter, err := NormalizeReviewQueueFilter(filter)
 	if err != nil {
-		return ReviewQueuePage{}, err
+		return model.ReviewQueuePage{}, err
 	}
 	if after != nil && (after.ItemID == "" || after.UpdatedAtMS < 0) {
-		return ReviewQueuePage{}, ErrReviewQuery
+		return model.ReviewQueuePage{}, model.ErrReviewQuery
 	}
-	records, err := service.repository.List(ctx, ReviewQueueQuery{Filter: filter, After: after, Limit: filter.Limit + 1})
+	records, err := service.repository.List(ctx, model.ReviewQueueQuery{Filter: filter, After: after, Limit: filter.Limit + 1})
 	if err != nil {
-		return ReviewQueuePage{}, fmt.Errorf("read review queue: %w", err)
+		return model.ReviewQueuePage{}, fmt.Errorf("read review queue: %w", err)
 	}
-	page := ReviewQueuePage{Items: make([]ReviewQueueItem, 0, min(len(records), filter.Limit))}
+	page := model.ReviewQueuePage{Items: make([]model.ReviewQueueItem, 0, min(len(records), filter.Limit))}
 	if len(records) > filter.Limit {
 		records = records[:filter.Limit]
 		last := records[len(records)-1]
-		page.Next = &ReviewQueuePosition{UpdatedAtMS: last.UpdatedAtMS, ItemID: last.ItemID}
+		page.Next = &model.ReviewQueuePosition{UpdatedAtMS: last.UpdatedAtMS, ItemID: last.ItemID}
 	}
 	ids := make([]string, 0, len(records))
 	for _, record := range records {
@@ -71,21 +72,21 @@ func (service *ReviewQueue) List(
 	}
 	references, err := service.tags.ReviewReferences(ctx, ids)
 	if err != nil {
-		return ReviewQueuePage{}, fmt.Errorf("read review queue tags: %w", err)
+		return model.ReviewQueuePage{}, fmt.Errorf("read review queue tags: %w", err)
 	}
 	for index := range page.Items {
-		page.Items[index].Tags = append([]tagging.Reference{}, references[page.Items[index].ItemID]...)
+		page.Items[index].Tags = append([]taggingmodel.Reference{}, references[page.Items[index].ItemID]...)
 	}
 	return page, nil
 }
 
-func projectReviewQueueItem(record ReviewQueueRecord) ReviewQueueItem {
-	item := ReviewQueueItem{
+func projectReviewQueueItem(record model.ReviewQueueRecord) model.ReviewQueueItem {
+	item := model.ReviewQueueItem{
 		ItemID: record.ItemID, ReviewVersion: record.Version, ImportJobID: record.ImportJobID,
 		SourceDisplayName: record.SourceName, DraftTitle: record.DraftTitle, PlatformInstance: record.Platform,
 		ValidationStatus: "NEEDS_VALIDATION", BlockerCodes: []string{}, CandidateCount: record.CandidateCount,
 		SourceTotalSizeBytes: record.SourceTotalSizeBytes, SourceMD5: record.SourceMD5, UpdatedAtMS: record.UpdatedAtMS,
-		SourceKind: "STANDARD", Tags: []tagging.Reference{},
+		SourceKind: "STANDARD", Tags: []taggingmodel.Reference{},
 	}
 	if record.ValidationStatus != nil && *record.ValidationStatus != "" {
 		item.ValidationStatus = *record.ValidationStatus
@@ -109,7 +110,7 @@ func projectReviewQueueItem(record ReviewQueueRecord) ReviewQueueItem {
 	return item
 }
 
-func projectReviewQueueSource(item *ReviewQueueItem, source *ReviewQueueSource) {
+func projectReviewQueueSource(item *model.ReviewQueueItem, source *model.ReviewQueueSource) {
 	item.SourceLabel = source.Label
 	if item.CoverURL == nil && source.HasCover {
 		url := "/api/v1/admin/review-assets/" + source.ItemID + "?kind=COVER"

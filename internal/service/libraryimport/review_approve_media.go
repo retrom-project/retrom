@@ -1,12 +1,15 @@
 package libraryimport
 
-import "fmt"
+import (
+	"fmt"
+	model "retrom/internal/model/libraryimport"
+)
 
 func (run *reviewApprovalRun) prepareOrigin() error {
 	decision := run.request.Decision
-	run.origin = ApprovalOrigin{Kind: "IMPORT_REVIEW", RefID: run.request.ItemID}
+	run.origin = model.ApprovalOrigin{Kind: "IMPORT_REVIEW", RefID: run.request.ItemID}
 	if decision.SourceKind != "" {
-		run.origin = ApprovalOrigin{
+		run.origin = model.ApprovalOrigin{
 			Kind: decision.SourceKind, RefID: decision.SourceRefID,
 			Assets: decision.ExternalAssets,
 		}
@@ -53,7 +56,7 @@ func (run *reviewApprovalRun) prepareAssets() error {
 }
 
 func (run *reviewApprovalRun) appendSelectedAsset(id, kind string, ordinal int, uploaded bool) error {
-	var asset ApprovalExternalAsset
+	var asset model.ApprovalExternalAsset
 	var found bool
 	var err error
 	if uploaded {
@@ -65,15 +68,15 @@ func (run *reviewApprovalRun) appendSelectedAsset(id, kind string, ordinal int, 
 		return fmt.Errorf("read selected approval asset: %w", err)
 	}
 	if !found {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	asset.Kind = kind
-	run.assets = append(run.assets, ApprovalAsset{ApprovalExternalAsset: asset, Ordinal: ordinal})
+	run.assets = append(run.assets, model.ApprovalAsset{ApprovalExternalAsset: asset, Ordinal: ordinal})
 	return nil
 }
 
 func (run *reviewApprovalRun) appendExternalAssets() error {
-	selected := make([]ApprovalExternalAsset, 0, len(run.origin.Assets))
+	selected := make([]model.ApprovalExternalAsset, 0, len(run.origin.Assets))
 	for _, asset := range run.origin.Assets {
 		if run.request.Decision.SourceKind == "" && asset.Kind == "COVER" &&
 			(run.head.CoverID != nil || run.head.UploadedCoverID != nil) {
@@ -82,7 +85,7 @@ func (run *reviewApprovalRun) appendExternalAssets() error {
 		selected = append(selected, asset)
 	}
 	if !ValidApprovalExternalAssets(selected) {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	for _, asset := range selected {
 		found, err := run.scope.Media.BlobExists(run.ctx, asset.BlobID)
@@ -90,9 +93,9 @@ func (run *reviewApprovalRun) appendExternalAssets() error {
 			return fmt.Errorf("read approval source asset: %w", err)
 		}
 		if !found {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
-		run.assets = append(run.assets, ApprovalAsset{ApprovalExternalAsset: asset})
+		run.assets = append(run.assets, model.ApprovalAsset{ApprovalExternalAsset: asset})
 	}
 	return nil
 }

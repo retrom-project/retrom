@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
-func (service *Service) queries() *application.Queries {
-	return application.NewQueries(repository.NewQueries(service.database), service.tags)
+func (service *Service) queries() *pegasusimportservice.Queries {
+	return pegasusimportservice.NewQueries(repository.NewQueries(service.database), service.tags)
 }
 
 func (service *Service) Get(ctx context.Context, importID string) (Summary, error) {
@@ -26,7 +27,7 @@ func (service *Service) List(
 ) ([]Summary, error) {
 	values, err := service.queries().List(
 		ctx,
-		application.ListQuery{State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit},
+		pegasusimportmodel.ListQuery{State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit},
 	)
 	return values, queryError(err)
 }
@@ -40,7 +41,7 @@ func (service *Service) Collections(
 ) ([]Collection, error) {
 	values, err := service.queries().Collections(
 		ctx,
-		application.CollectionQuery{
+		pegasusimportmodel.CollectionQuery{
 			ImportID:     importID,
 			AfterPath:    afterPath,
 			AfterOrdinal: afterOrdinal,
@@ -58,7 +59,7 @@ func (service *Service) Items(
 ) ([]Item, error) {
 	values, err := service.queries().Items(
 		ctx,
-		application.ItemQuery{
+		pegasusimportmodel.ItemQuery{
 			ImportID:     importID,
 			Text:         query,
 			Outcome:      outcome,

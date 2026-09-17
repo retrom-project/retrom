@@ -15,9 +15,9 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
+	application "retrom/internal/model/launch"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
-	application "retrom/internal/service/launch"
 	"retrom/internal/testkit/testsupport"
 )
 

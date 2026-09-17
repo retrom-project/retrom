@@ -4,39 +4,40 @@ import (
 	"context"
 	"errors"
 	"math"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 	"time"
 
-	"retrom/internal/service/importprogress"
+	"retrom/internal/model/importprogress"
 )
 
 type approvalHeadStub struct {
-	ReviewApprovalReader
-	head  ReviewApprovalHead
+	model.ReviewApprovalReader
+	head  model.ReviewApprovalHead
 	found bool
 	cause error
 }
 
-func (stub approvalHeadStub) Head(context.Context, string) (ReviewApprovalHead, bool, error) {
+func (stub approvalHeadStub) Head(context.Context, string) (model.ReviewApprovalHead, bool, error) {
 	return stub.head, stub.found, stub.cause
 }
 
 type approvalScopeStub struct {
-	scope ReviewApprovalScope
+	scope model.ReviewApprovalScope
 	calls int
 }
 
-func (stub *approvalScopeStub) WithApproval(_ context.Context, work func(ReviewApprovalScope) error) error {
+func (stub *approvalScopeStub) WithApproval(_ context.Context, work func(model.ReviewApprovalScope) error) error {
 	stub.calls++
 	return work(stub.scope)
 }
 
 func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
-	valid := ReviewApprovalHead{State: "REVIEW_PENDING", DraftVersion: 1, ValidationStatus: "READY", ValidationID: "validation", SourceSnapshotID: "snapshot"}
+	valid := model.ReviewApprovalHead{State: "REVIEW_PENDING", DraftVersion: 1, ValidationStatus: "READY", ValidationID: "validation", SourceSnapshotID: "snapshot"}
 	for _, name := range []string{"missing", "wrong state", "version", "source busy", "bulk status", "bulk validation", "bulk snapshot"} {
 		t.Run(name, func(t *testing.T) {
 			head, found := valid, true
-			request := ReviewApprovalRequest{ItemID: "item", ExpectedVersion: 1}
+			request := model.ReviewApprovalRequest{ItemID: "item", ExpectedVersion: 1}
 			switch name {
 			case "missing":
 				found = false
@@ -47,7 +48,7 @@ func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
 			case "source busy":
 				head.SourceBusy = true
 			default:
-				request.Bulk = &BulkPublicationIntent{BulkID: "bulk", JobID: "job", WorkerID: "worker", ValidationID: "validation", SourceSnapshotID: "snapshot"}
+				request.Bulk = &model.BulkPublicationIntent{BulkID: "bulk", JobID: "job", WorkerID: "worker", ValidationID: "validation", SourceSnapshotID: "snapshot"}
 				switch name {
 				case "bulk status":
 					head.ValidationStatus = "BLOCKED"
@@ -57,9 +58,9 @@ func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
 					head.SourceSnapshotID = "changed"
 				}
 			}
-			repo := &approvalScopeStub{scope: ReviewApprovalScope{Reader: approvalHeadStub{head: head, found: found}}}
+			repo := &approvalScopeStub{scope: model.ReviewApprovalScope{Reader: approvalHeadStub{head: head, found: found}}}
 			result, err := NewReviewApprovals(repo, nil, nil).Approve(t.Context(), request)
-			if !errors.Is(err, ErrInvalid) || result != (ReviewApproved{}) || repo.calls != 1 {
+			if !errors.Is(err, model.ErrInvalid) || result != (model.ReviewApproved{}) || repo.calls != 1 {
 				t.Fatalf("result=%+v err=%v calls=%d", result, err, repo.calls)
 			}
 		})
@@ -68,9 +69,9 @@ func TestReviewApprovalRejectsAuthorityBeforeReadingChildren(t *testing.T) {
 
 func TestReviewApprovalPreservesReadAndContextErrors(t *testing.T) {
 	for _, cause := range []error{errors.New("repository unavailable"), context.Canceled} {
-		repo := &approvalScopeStub{scope: ReviewApprovalScope{Reader: approvalHeadStub{cause: cause}}}
-		result, err := NewReviewApprovals(repo, nil, nil).Approve(t.Context(), ReviewApprovalRequest{ItemID: "item", ExpectedVersion: 1})
-		if !errors.Is(err, cause) || errors.Is(err, ErrInvalid) || result != (ReviewApproved{}) {
+		repo := &approvalScopeStub{scope: model.ReviewApprovalScope{Reader: approvalHeadStub{cause: cause}}}
+		result, err := NewReviewApprovals(repo, nil, nil).Approve(t.Context(), model.ReviewApprovalRequest{ItemID: "item", ExpectedVersion: 1})
+		if !errors.Is(err, cause) || errors.Is(err, model.ErrInvalid) || result != (model.ReviewApproved{}) {
 			t.Fatalf("result=%+v err=%v", result, err)
 		}
 	}
@@ -88,7 +89,7 @@ func TestReviewApprovalAllocatesEveryIdentityBeforePublication(t *testing.T) {
 			}
 			return "identity", nil
 		}
-		run := reviewApprovalRun{service: service, assets: make([]ApprovalAsset, 2)}
+		run := reviewApprovalRun{service: service, assets: make([]model.ApprovalAsset, 2)}
 		if err := run.allocateIDs(); !errors.Is(err, cause) || calls != failAt {
 			t.Fatalf("allocation %d: calls=%d err=%v", failAt, calls, err)
 		}
@@ -107,7 +108,7 @@ func TestReviewApprovalProjectsSharedProgressWithoutMutatingSnapshot(t *testing.
 		{"queued", "RUNNING", importprogress.Counts{ReviewPending: 1, Queued: 1}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			run := reviewApprovalRun{now: 123, head: ReviewApprovalHead{ParentVersion: 7, Progress: importprogress.Snapshot{State: "REVIEW_PENDING", Counts: test.counts}}}
+			run := reviewApprovalRun{now: 123, head: model.ReviewApprovalHead{ParentVersion: 7, Progress: importprogress.Snapshot{State: "REVIEW_PENDING", Counts: test.counts}}}
 			if err := run.projectAggregate(); err != nil {
 				t.Fatal(err)
 			}
@@ -119,13 +120,13 @@ func TestReviewApprovalProjectsSharedProgressWithoutMutatingSnapshot(t *testing.
 }
 
 func TestReviewApprovalRejectsInvalidParentBeforePublication(t *testing.T) {
-	for _, head := range []ReviewApprovalHead{
+	for _, head := range []model.ReviewApprovalHead{
 		{ParentVersion: 0, Progress: importprogress.Snapshot{Counts: importprogress.Counts{ReviewPending: 1}}},
 		{ParentVersion: math.MaxInt64, Progress: importprogress.Snapshot{Counts: importprogress.Counts{ReviewPending: 1}}},
 		{ParentVersion: 1},
 	} {
 		run := reviewApprovalRun{head: head, now: time.Unix(1, 0).UnixMilli()}
-		if err := run.projectAggregate(); !errors.Is(err, ErrInvalid) {
+		if err := run.projectAggregate(); !errors.Is(err, model.ErrInvalid) {
 			t.Fatalf("head=%+v err=%v", head, err)
 		}
 	}

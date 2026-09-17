@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	application "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func TestESCompanionWriterRepeatsFrozenAuthority(t *testing.T) {

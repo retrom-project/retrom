@@ -2,26 +2,27 @@ package immersive
 
 import (
 	"context"
+	model "retrom/internal/model/immersive"
 )
 
 func libraryName(kind string) string {
 	switch kind {
-	case LibraryAll:
+	case model.LibraryAll:
 		return "全部游戏"
-	case LibraryRecent:
+	case model.LibraryRecent:
 		return "最近游玩"
-	case LibraryFavorites:
+	case model.LibraryFavorites:
 		return "收藏游戏"
-	case LibrarySaves:
+	case model.LibrarySaves:
 		return "我的存档"
 	default:
 		return ""
 	}
 }
 
-func (service *Service) Destinations(ctx context.Context, profileID string) ([]Destination, error) {
-	var result []Destination
-	err := service.repository.WithRead(ctx, func(scope ReadScope) error {
+func (service *Service) Destinations(ctx context.Context, profileID string) ([]model.Destination, error) {
+	var result []model.Destination
+	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
 		var err error
 		result, err = readDestinations(ctx, scope, profileID)
 		return err
@@ -29,9 +30,9 @@ func (service *Service) Destinations(ctx context.Context, profileID string) ([]D
 	return result, repositoryError("destinations", err)
 }
 
-func readDestinations(ctx context.Context, scope ReadScope, profileID string) ([]Destination, error) {
-	destinations := make([]Destination, 0, 4)
-	for _, kind := range []string{LibraryAll, LibraryRecent, LibraryFavorites, LibrarySaves} {
+func readDestinations(ctx context.Context, scope model.ReadScope, profileID string) ([]model.Destination, error) {
+	destinations := make([]model.Destination, 0, 4)
+	for _, kind := range []string{model.LibraryAll, model.LibraryRecent, model.LibraryFavorites, model.LibrarySaves} {
 		destination, queryErr := scope.Libraries.Summary(ctx, profileID, kind, "")
 		if queryErr != nil {
 			return nil, repositoryError("read destination", queryErr)
@@ -58,7 +59,7 @@ func readDestinations(ctx context.Context, scope ReadScope, profileID string) ([
 	}
 	attachFeaturedGames(platforms, featuredGames)
 	for _, platform := range platforms {
-		destinations = append(destinations, Destination{
+		destinations = append(destinations, model.Destination{
 			ID:             platform.ID,
 			Kind:           "platform",
 			Name:           platform.Name,

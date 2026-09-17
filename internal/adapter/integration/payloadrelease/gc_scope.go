@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/model/payloadrelease"
 )
 
 func (service *Service) StageInScope(ctx context.Context, scope application.GCScope, ids []string) error {

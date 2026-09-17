@@ -26,7 +26,8 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -89,9 +90,9 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 			t.Fatal(err)
 		}
 	}
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
-		SourceType: "FILES", Files: []uploads.FileDeclaration{{
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
+		SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "pong", RelativePath: input.filename, SizeBytes: int64(len(cart)),
 		}},
 	})

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	model "retrom/internal/model/payloadrelease"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -16,13 +17,13 @@ type synchronizedWork struct {
 	records *workerRepositoryFixture
 }
 
-func (r *synchronizedWork) WithWorker(ctx context.Context, run func(WorkerScope) error) error {
+func (r *synchronizedWork) WithWorker(ctx context.Context, run func(model.WorkerScope) error) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	return r.records.WithWorker(ctx, run)
 }
 
-func (r *synchronizedWork) snapshot() Work {
+func (r *synchronizedWork) snapshot() model.Work {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	return r.records.work
@@ -35,9 +36,9 @@ func (r *synchronizedWork) replaceWorker() {
 	r.records.work.Version++
 }
 
-type workerExecuteFunc func(context.Context, Execution) error
+type workerExecuteFunc func(context.Context, model.Execution) error
 
-func (run workerExecuteFunc) Execute(ctx context.Context, execution Execution) error {
+func (run workerExecuteFunc) Execute(ctx context.Context, execution model.Execution) error {
 	return run(ctx, execution)
 }
 
@@ -46,7 +47,7 @@ type workerRunResult struct {
 	err error
 }
 
-func concurrentWorker(t *testing.T, limit time.Duration) (*Worker, *synchronizedWork, <-chan Execution) {
+func concurrentWorker(t *testing.T, limit time.Duration) (*Worker, *synchronizedWork, <-chan model.Execution) {
 	t.Helper()
 	w, records := workerPolicyFixture()
 	now := time.Now().UnixMilli()
@@ -56,13 +57,13 @@ func concurrentWorker(t *testing.T, limit time.Duration) (*Worker, *synchronized
 	records.work.InputJSON = input
 	records.work.InputDigest = hex.EncodeToString(digest[:])
 	records.work.InputFound = true
-	records.work.Started = WorkTime{Set: true, Value: now}
-	records.work.Deadline = WorkTime{Set: true, Value: now + limit.Milliseconds()}
+	records.work.Started = model.WorkTime{Set: true, Value: now}
+	records.work.Deadline = model.WorkTime{Set: true, Value: now + limit.Milliseconds()}
 	repository := &synchronizedWork{records: records}
 	w.repository = repository
 	w.now = time.Now
-	entered := make(chan Execution, 1)
-	w.executor = workerExecuteFunc(func(ctx context.Context, execution Execution) error {
+	entered := make(chan model.Execution, 1)
+	w.executor = workerExecuteFunc(func(ctx context.Context, execution model.Execution) error {
 		entered <- execution
 		<-ctx.Done()
 		return ctx.Err()
@@ -85,7 +86,7 @@ func TestWorkerCloseCancelsAndJoinsDirectRunAndRejectsRestart(t *testing.T) {
 		unit := <-entered
 		w.Close()
 		outcome := <-result
-		if !outcome.did || !errors.Is(outcome.err, ErrWorkerClosed) {
+		if !outcome.did || !errors.Is(outcome.err, model.ErrWorkerClosed) {
 			t.Fatalf("close did not retain cause: %+v", outcome)
 		}
 		after := r.snapshot()
@@ -93,7 +94,7 @@ func TestWorkerCloseCancelsAndJoinsDirectRunAndRejectsRestart(t *testing.T) {
 			t.Fatalf("close lost durable resumable budget: %+v", after)
 		}
 		w.Start()
-		if did, err := w.RunOnce(t.Context()); did || !errors.Is(err, ErrWorkerClosed) || r.snapshot() != after {
+		if did, err := w.RunOnce(t.Context()); did || !errors.Is(err, model.ErrWorkerClosed) || r.snapshot() != after {
 			t.Fatalf("closed worker restarted: %t/%v", did, err)
 		}
 	})
@@ -109,7 +110,7 @@ func TestWorkerShortCallerDeadlineDoesNotConsumeExecutionBudget(t *testing.T) {
 		unit := <-entered
 		outcome := <-result
 		after := r.snapshot()
-		if !outcome.did || !errors.Is(outcome.err, context.DeadlineExceeded) || errors.Is(outcome.err, ErrExecutionTimeout) ||
+		if !outcome.did || !errors.Is(outcome.err, context.DeadlineExceeded) || errors.Is(outcome.err, model.ErrExecutionTimeout) ||
 			after.State != "QUEUED" || after.Started != unit.Work.Started || after.Deadline != unit.Work.Deadline {
 			t.Fatalf("caller timeout replaced original budget: %+v %+v", outcome, after)
 		}
@@ -124,7 +125,7 @@ func TestWorkerOriginalDeadlineTerminatesTheExecution(t *testing.T) {
 		unit := <-entered
 		outcome := <-result
 		after := r.snapshot()
-		if !outcome.did || !errors.Is(outcome.err, ErrExecutionTimeout) || after.State != "FAILED" ||
+		if !outcome.did || !errors.Is(outcome.err, model.ErrExecutionTimeout) || after.State != "FAILED" ||
 			after.Attempt != 1 || after.Deadline != unit.Work.Deadline {
 			t.Fatalf("execution timeout extended: %+v %+v", outcome, after)
 		}
@@ -140,7 +141,7 @@ func TestWorkerMonitorCancelsReplacedOwnerWithoutSettlingReplacement(t *testing.
 		r.replaceWorker()
 		before := r.snapshot()
 		outcome := <-result
-		if !outcome.did || !errors.Is(outcome.err, ErrExecutionLost) || r.snapshot() != before {
+		if !outcome.did || !errors.Is(outcome.err, model.ErrExecutionLost) || r.snapshot() != before {
 			t.Fatalf("monitor failed to stop stale owner: %+v %+v", outcome, r.snapshot())
 		}
 	})
@@ -160,7 +161,7 @@ func TestWorkerHeartbeatKeepsLongExecutionOwnedUntilClose(t *testing.T) {
 		}
 		w.Close()
 		outcome := <-result
-		if !errors.Is(outcome.err, ErrWorkerClosed) {
+		if !errors.Is(outcome.err, model.ErrWorkerClosed) {
 			t.Fatalf("long worker outlived close: %+v", outcome)
 		}
 	})

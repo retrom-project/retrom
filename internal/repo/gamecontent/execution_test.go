@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/service/gamecontent"
+	"retrom/internal/model/gamecontent"
 	"retrom/internal/testkit/testsupport"
 )
 

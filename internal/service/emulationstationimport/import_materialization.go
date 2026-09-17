@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 )
 
-func (executor *ImportExecutor) CopyFiles(ctx context.Context, unit Execution, item *ExecutionItem) (bool, error) {
+func (executor *ImportExecutor) CopyFiles(ctx context.Context, unit model.Execution, item *model.ExecutionItem) (bool, error) {
 	for index, file := range item.Files {
 		if file.State == "COPIED" && file.BlobID != "" {
 			continue
 		}
 		if file.State != "DISCOVERED" {
-			return false, ErrVersionConflict
+			return false, model.ErrVersionConflict
 		}
 		blob, err := executor.dependencies.Sources.CopyFile(ctx, unit, file)
 		if err != nil {
@@ -27,7 +28,7 @@ func (executor *ImportExecutor) CopyFiles(ctx context.Context, unit Execution, i
 	return true, nil
 }
 
-func (executor *ImportExecutor) copyAssets(ctx context.Context, unit Execution, item *ExecutionItem) error {
+func (executor *ImportExecutor) copyAssets(ctx context.Context, unit model.Execution, item *model.ExecutionItem) error {
 	for index, asset := range item.Assets {
 		blob, valid, err := executor.dependencies.Sources.CopyAsset(ctx, unit, asset)
 		if stop := importStopCause(ctx, err); stop != nil {
@@ -65,18 +66,18 @@ func (executor *ImportExecutor) copyAssets(ctx context.Context, unit Execution, 
 	return nil
 }
 
-func fileMaterialSource(itemID string, file ExecutionFile) MaterialSource {
-	return MaterialSource{
-		Key:   MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
+func fileMaterialSource(itemID string, file model.ExecutionFile) model.MaterialSource {
+	return model.MaterialSource{
+		Key:   model.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
 		Path:  file.Path,
 		Facts: file.Facts,
 		Size:  file.Size,
 	}
 }
 
-func assetMaterialSource(itemID string, asset ExecutionAsset) MaterialSource {
-	return MaterialSource{
-		Key:       MaterialKey{ItemID: itemID, Kind: asset.Kind},
+func assetMaterialSource(itemID string, asset model.ExecutionAsset) model.MaterialSource {
+	return model.MaterialSource{
+		Key:       model.MaterialKey{ItemID: itemID, Kind: asset.Kind},
 		Path:      asset.Path,
 		Facts:     asset.Facts,
 		Size:      asset.Size,
@@ -87,7 +88,7 @@ func assetMaterialSource(itemID string, asset ExecutionAsset) MaterialSource {
 }
 
 func importMediaWarning(kind string, err error) string {
-	if errors.Is(err, ErrSourceChanged) {
+	if errors.Is(err, model.ErrSourceChanged) {
 		return "EMULATIONSTATION_SOURCE_CHANGED"
 	}
 	if kind == "COVER" {
@@ -98,21 +99,21 @@ func importMediaWarning(kind string, err error) string {
 
 func (executor *ImportExecutor) sourceFailure(
 	ctx context.Context,
-	unit Execution,
-	item ExecutionItem,
+	unit model.Execution,
+	item model.ExecutionItem,
 	path string,
 	cause error,
 ) error {
 	if stop := importStopCause(ctx, cause); stop != nil {
 		return stop
 	}
-	outcome := ItemOutcome{
+	outcome := model.ItemOutcome{
 		State:     "READ_FAILED",
 		Code:      "READ_FAILED",
 		Retryable: true,
 		Failure:   executor.failure("SOURCE", "COPY_SOURCE", cause, path),
 	}
-	if errors.Is(cause, ErrSourceChanged) {
+	if errors.Is(cause, model.ErrSourceChanged) {
 		outcome.State, outcome.Code, outcome.Retryable = "SOURCE_CHANGED", "EMULATIONSTATION_SOURCE_CHANGED", false
 	}
 	return executor.finishFailure(ctx, unit, item.ID, outcome, cause)
@@ -120,15 +121,15 @@ func (executor *ImportExecutor) sourceFailure(
 
 func (executor *ImportExecutor) storageFailure(
 	ctx context.Context,
-	unit Execution,
-	item ExecutionItem,
+	unit model.Execution,
+	item model.ExecutionItem,
 	path, operation string,
 	cause error,
 ) error {
 	if stop := importStopCause(ctx, cause); stop != nil {
 		return stop
 	}
-	outcome := ItemOutcome{
+	outcome := model.ItemOutcome{
 		State:     "COMMIT_FAILED",
 		Code:      "INTERNAL_ERROR",
 		Retryable: true,
@@ -139,9 +140,9 @@ func (executor *ImportExecutor) storageFailure(
 
 func (executor *ImportExecutor) finishFailure(
 	ctx context.Context,
-	unit Execution,
+	unit model.Execution,
 	id string,
-	outcome ItemOutcome,
+	outcome model.ItemOutcome,
 	cause error,
 ) error {
 	if err := executor.dependencies.Items.Finish(ctx, unit, id, outcome); err != nil {
@@ -150,8 +151,8 @@ func (executor *ImportExecutor) finishFailure(
 	return nil
 }
 
-func (executor *ImportExecutor) failure(stage, operation string, cause error, path string) *FailureDetails {
-	details := &FailureDetails{
+func (executor *ImportExecutor) failure(stage, operation string, cause error, path string) *model.FailureDetails {
+	details := &model.FailureDetails{
 		SchemaVersion:   1,
 		Stage:           stage,
 		Operation:       operation,

@@ -3,20 +3,21 @@ package netplay
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/netplay"
 	"testing"
 	"time"
 
-	launch "retrom/internal/service/launch"
+	launch "retrom/internal/model/launch"
 )
 
 type preparationMemory struct {
-	before, current                                          PreparationSnapshot
+	before, current                                          model.PreparationSnapshot
 	reads, writes                                            int
-	plan                                                     PreparationPlan
+	plan                                                     model.PreparationPlan
 	readFailure, currentFailure, writeFailure, commitFailure error
 }
 
-func (memory *preparationMemory) Snapshot(context.Context, string, string, string) (PreparationSnapshot, error) {
+func (memory *preparationMemory) Snapshot(context.Context, string, string, string) (model.PreparationSnapshot, error) {
 	memory.reads++
 	if memory.reads == 1 {
 		return memory.before, memory.readFailure
@@ -24,14 +25,14 @@ func (memory *preparationMemory) Snapshot(context.Context, string, string, strin
 	return memory.current, memory.currentFailure
 }
 
-func (memory *preparationMemory) WithPreparation(_ context.Context, work func(PreparationScope) error) error {
-	if err := work(PreparationScope{Read: memory, Write: memory}); err != nil {
+func (memory *preparationMemory) WithPreparation(_ context.Context, work func(model.PreparationScope) error) error {
+	if err := work(model.PreparationScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.commitFailure
 }
 
-func (memory *preparationMemory) Record(_ context.Context, plan PreparationPlan) error {
+func (memory *preparationMemory) Record(_ context.Context, plan model.PreparationPlan) error {
 	memory.plan = plan
 	memory.writes++
 	return memory.writeFailure
@@ -66,9 +67,9 @@ func (aborter *preparationAborter) AbortPreparation(ctx context.Context, roomID,
 	return aborter.failure
 }
 
-func preparationFixture() (*ParticipantPreparation, *preparationMemory, *preparationLauncher, *preparationAborter, PreparationRequest) {
-	request := PreparationRequest{RoomID: "room", SessionID: "01980000-0000-7000-8000-000000000001", ProfileID: "01980000-0000-7000-8000-000000000002", Capabilities: launch.Capabilities{SecureContext: true, SharedArrayBuffer: true, CrossOriginIsolated: true}}
-	before := PreparationSnapshot{Control: SessionControlSnapshot{RoomID: request.RoomID, SessionID: request.SessionID, State: "PREPARING", Version: 3, RoomVersion: 5}, Peer: SessionPeer{ProfileID: request.ProfileID, State: "LOCKED", PlayerNo: 2}, GameID: "game", VariantID: "variant", ProviderID: "provider", TargetID: "target", BundleSHA256: "bundle", Locked: 1}
+func preparationFixture() (*ParticipantPreparation, *preparationMemory, *preparationLauncher, *preparationAborter, model.PreparationRequest) {
+	request := model.PreparationRequest{RoomID: "room", SessionID: "01980000-0000-7000-8000-000000000001", ProfileID: "01980000-0000-7000-8000-000000000002", Capabilities: launch.Capabilities{SecureContext: true, SharedArrayBuffer: true, CrossOriginIsolated: true}}
+	before := model.PreparationSnapshot{Control: model.SessionControlSnapshot{RoomID: request.RoomID, SessionID: request.SessionID, State: "PREPARING", Version: 3, RoomVersion: 5}, Peer: model.SessionPeer{ProfileID: request.ProfileID, State: "LOCKED", PlayerNo: 2}, GameID: "game", VariantID: "variant", ProviderID: "provider", TargetID: "target", BundleSHA256: "bundle", Locked: 1}
 	current := before
 	current.Peer.State = "LAUNCH_READY"
 	current.Peer.CredentialGeneration = 1
@@ -160,12 +161,12 @@ func TestParticipantPreparationRejectsReplacementCredential(t *testing.T) {
 	service, memory, launcher, aborter, request := preparationFixture()
 	memory.current.Peer.CredentialGeneration = 2
 	result, err := service.Launch(t.Context(), launcher, request)
-	if !errors.Is(err, ErrRoomConflict) || result.RoomCapability != "" || memory.writes != 0 || aborter.calls != 1 {
+	if !errors.Is(err, model.ErrRoomConflict) || result.RoomCapability != "" || memory.writes != 0 || aborter.calls != 1 {
 		t.Fatalf("replacement writes=%d aborts=%d error=%v", memory.writes, aborter.calls, err)
 	}
 }
 
-func assertFrozenPreparationLaunch(t *testing.T, sent launch.NetplayCreateRequest, request PreparationRequest) {
+func assertFrozenPreparationLaunch(t *testing.T, sent launch.NetplayCreateRequest, request model.PreparationRequest) {
 	t.Helper()
 	if sent.GameID != "game" || sent.GameVariantID != "variant" || sent.PlayerNo != 2 || sent.CredentialGeneration != 1 || sent.ReturnTo != "/netplay/rooms/room" || len(sent.NetplayCredentialSHA256) != 32 || sent.ClientCapabilities != request.Capabilities {
 		t.Fatalf("invalid frozen launch game=%s variant=%s generation=%d", sent.GameID, sent.GameVariantID, sent.CredentialGeneration)

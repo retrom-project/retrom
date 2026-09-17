@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"retrom/internal/service/jobs"
+	"retrom/internal/model/jobs"
 )
 
 func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Request) {

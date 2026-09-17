@@ -6,34 +6,35 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/multidisc"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
 const (
-	multiDiscAttachmentDeadline  = application.MultiDiscAttachmentDeadline
-	multiDiscAttachmentReadChunk = application.MultiDiscAttachmentReadChunk
+	multiDiscAttachmentDeadline  = libraryimportmodel.MultiDiscAttachmentDeadline
+	multiDiscAttachmentReadChunk = libraryimportmodel.MultiDiscAttachmentReadChunk
 )
 
 const (
-	MultiDiscAttachmentErrorInvalid         = application.MultiDiscAttachmentErrorInvalid
-	MultiDiscAttachmentErrorNotFound        = application.MultiDiscAttachmentErrorNotFound
-	MultiDiscAttachmentErrorVersion         = application.MultiDiscAttachmentErrorVersion
-	MultiDiscAttachmentErrorInProgress      = application.MultiDiscAttachmentErrorInProgress
-	MultiDiscAttachmentErrorRetryRequired   = application.MultiDiscAttachmentErrorRetryRequired
-	MultiDiscAttachmentErrorInputStale      = application.MultiDiscAttachmentErrorInputStale
-	MultiDiscAttachmentErrorFinalized       = application.MultiDiscAttachmentErrorFinalized
-	MultiDiscAttachmentErrorContentInvalid  = application.MultiDiscAttachmentErrorContentInvalid
-	MultiDiscAttachmentErrorSetMismatch     = application.MultiDiscAttachmentErrorSetMismatch
-	MultiDiscAttachmentErrorModeUnavailable = application.MultiDiscAttachmentErrorModeUnavailable
-	MultiDiscAttachmentErrorUnavailable     = application.MultiDiscAttachmentErrorUnavailable
+	MultiDiscAttachmentErrorInvalid         = libraryimportmodel.MultiDiscAttachmentErrorInvalid
+	MultiDiscAttachmentErrorNotFound        = libraryimportmodel.MultiDiscAttachmentErrorNotFound
+	MultiDiscAttachmentErrorVersion         = libraryimportmodel.MultiDiscAttachmentErrorVersion
+	MultiDiscAttachmentErrorInProgress      = libraryimportmodel.MultiDiscAttachmentErrorInProgress
+	MultiDiscAttachmentErrorRetryRequired   = libraryimportmodel.MultiDiscAttachmentErrorRetryRequired
+	MultiDiscAttachmentErrorInputStale      = libraryimportmodel.MultiDiscAttachmentErrorInputStale
+	MultiDiscAttachmentErrorFinalized       = libraryimportmodel.MultiDiscAttachmentErrorFinalized
+	MultiDiscAttachmentErrorContentInvalid  = libraryimportmodel.MultiDiscAttachmentErrorContentInvalid
+	MultiDiscAttachmentErrorSetMismatch     = libraryimportmodel.MultiDiscAttachmentErrorSetMismatch
+	MultiDiscAttachmentErrorModeUnavailable = libraryimportmodel.MultiDiscAttachmentErrorModeUnavailable
+	MultiDiscAttachmentErrorUnavailable     = libraryimportmodel.MultiDiscAttachmentErrorUnavailable
 )
 
 type (
-	MultiDiscAttachmentError   = application.MultiDiscAttachmentError
-	MultiDiscAttachmentRequest = application.MultiDiscAttachmentRequest
-	MultiDiscAttachmentCreated = application.MultiDiscAttachmentCreated
-	multiDiscAttachmentInput   = application.MultiDiscAttachmentInput
+	MultiDiscAttachmentError   = libraryimportmodel.MultiDiscAttachmentError
+	MultiDiscAttachmentRequest = libraryimportmodel.MultiDiscAttachmentRequest
+	MultiDiscAttachmentCreated = libraryimportmodel.MultiDiscAttachmentCreated
+	multiDiscAttachmentInput   = libraryimportmodel.MultiDiscAttachmentInput
 )
 
 func multiDiscAttachmentError(code string, cause error) error {
@@ -41,7 +42,7 @@ func multiDiscAttachmentError(code string, cause error) error {
 }
 
 func MultiDiscAttachmentErrorCode(err error) string {
-	return application.MultiDiscAttachmentErrorCode(err)
+	return libraryimportmodel.MultiDiscAttachmentErrorCode(err)
 }
 
 func multiDiscAttachmentStoreError(operation string, err error) error {
@@ -84,8 +85,8 @@ func (service *Service) CreateMultiDiscAttachment(
 	version int64,
 	request MultiDiscAttachmentRequest,
 ) (MultiDiscAttachmentCreated, error) {
-	attachments := application.NewMultiDiscAttachments(
-		repository.NewMultiDiscAttachments(service.database), application.MultiDiscAttachmentOptions{
+	attachments := libraryimportservice.NewMultiDiscAttachments(
+		repository.NewMultiDiscAttachments(service.database), libraryimportmodel.MultiDiscAttachmentOptions{
 			Now: service.now, StorageAvailable: service.blobs != nil,
 		},
 	)

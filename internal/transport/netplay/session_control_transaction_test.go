@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
+	netplaymodel "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
-	application "retrom/internal/service/netplay"
+	netplayservice "retrom/internal/service/netplay"
 )
 
-func controlledSessionFixture(t *testing.T, state string) (controlFixture, application.PeerIdentity) {
+func controlledSessionFixture(t *testing.T, state string) (controlFixture, netplaymodel.PeerIdentity) {
 	t.Helper()
 	fixture := readyControlFixture(t)
 	room, err := fixture.service.Start(t.Context(), fixture.room.RoomID, "host", fixture.room.Version)
@@ -45,17 +46,17 @@ WHERE session.id=? AND participant.profile_id=?`, launchID, profileID, credentia
 	if _, err := fixture.database.ExecContext(t.Context(), `UPDATE netplay_sessions SET state=? WHERE id=?`, state, sessionID); err != nil {
 		t.Fatal(err)
 	}
-	return fixture, application.PeerIdentity{RoomID: room.RoomID, SessionID: sessionID, ProfileID: "guest", PlayerNo: 2, CredentialGeneration: 1}
+	return fixture, netplaymodel.PeerIdentity{RoomID: room.RoomID, SessionID: sessionID, ProfileID: "guest", PlayerNo: 2, CredentialGeneration: 1}
 }
 
 type failedSessionControl struct {
-	repository application.SessionControlRepository
+	repository netplaymodel.SessionControlRepository
 	failure    error
 	stale      string
 }
 
-func (failed failedSessionControl) WithControl(ctx context.Context, work func(application.SessionControlScope) error) error {
-	return failed.repository.WithControl(ctx, func(scope application.SessionControlScope) error {
+func (failed failedSessionControl) WithControl(ctx context.Context, work func(netplaymodel.SessionControlScope) error) error {
+	return failed.repository.WithControl(ctx, func(scope netplaymodel.SessionControlScope) error {
 		scope.Write = staleSessionControlWriter{scope.Write, failed.stale}
 		if err := work(scope); err != nil {
 			return err
@@ -65,18 +66,18 @@ func (failed failedSessionControl) WithControl(ctx context.Context, work func(ap
 }
 
 type staleSessionControlWriter struct {
-	application.SessionControlWriter
+	netplaymodel.SessionControlWriter
 	stale string
 }
 
-func (writer staleSessionControlWriter) Session(ctx context.Context, plan application.SessionTransitionPlan) error {
+func (writer staleSessionControlWriter) Session(ctx context.Context, plan netplaymodel.SessionTransitionPlan) error {
 	if writer.stale == "session" {
 		plan.Before.Version++
 	}
 	return writer.SessionControlWriter.Session(ctx, plan)
 }
 
-func (writer staleSessionControlWriter) Peer(ctx context.Context, plan application.PeerTransitionPlan) error {
+func (writer staleSessionControlWriter) Peer(ctx context.Context, plan netplaymodel.PeerTransitionPlan) error {
 	if writer.stale == "peer" {
 		plan.Peer.CredentialGeneration++
 	}
@@ -115,13 +116,13 @@ func assertSessionControlRollback(t *testing.T, action string) {
 	case "stale peer":
 		stale = "peer"
 	}
-	service := application.NewSessionControl(failedSessionControl{repository.NewSessionControl(fixture.database), sentinel, stale}, 10*time.Second, func() time.Time { return fixture.now })
+	service := netplayservice.NewSessionControl(failedSessionControl{repository.NewSessionControl(fixture.database), sentinel, stale}, 10*time.Second, func() time.Time { return fixture.now })
 	var err error
 	switch action {
 	case "pause", "stale session":
 		err = service.SetState(t.Context(), peer.RoomID, peer.SessionID, "host", "PAUSED_RECONNECT")
 	case "resync":
-		err = service.Resync(t.Context(), peer.RoomID, peer.SessionID, application.ResyncHash)
+		err = service.Resync(t.Context(), peer.RoomID, peer.SessionID, netplaymodel.ResyncHash)
 	case "run":
 		err = service.Running(t.Context(), peer.RoomID, peer.SessionID)
 	case "ready":
@@ -155,7 +156,7 @@ func sessionControlRecordsSnapshot(t *testing.T, fixture controlFixture) []strin
 func TestSessionControlReadyAndReconnectPersistCoherentState(t *testing.T) {
 	t.Parallel()
 	fixture, guest := controlledSessionFixture(t, "LOADING")
-	service := application.NewSessionControl(repository.NewSessionControl(fixture.database), 10*time.Second, func() time.Time { return fixture.now })
+	service := netplayservice.NewSessionControl(repository.NewSessionControl(fixture.database), 10*time.Second, func() time.Time { return fixture.now })
 	host := guest
 	host.ProfileID = "host"
 	host.PlayerNo = 1
@@ -178,7 +179,7 @@ func TestSessionControlReadyAndReconnectPersistCoherentState(t *testing.T) {
 	if after := sessionControlRecordsSnapshot(t, fixture); !reflect.DeepEqual(before, after) {
 		t.Fatal("duplicate disconnect changed records")
 	}
-	if err := service.Resync(t.Context(), guest.RoomID, guest.SessionID, application.ResyncReconnect); err != nil {
+	if err := service.Resync(t.Context(), guest.RoomID, guest.SessionID, netplaymodel.ResyncReconnect); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.Running(t.Context(), guest.RoomID, guest.SessionID); err != nil {

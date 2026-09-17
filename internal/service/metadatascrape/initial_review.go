@@ -4,12 +4,13 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 	"slices"
 )
 
-type InitialReviewService struct{ scope InitialReviewScope }
+type InitialReviewService struct{ scope model.InitialReviewScope }
 
-func NewInitialReview(scope InitialReviewScope) *InitialReviewService {
+func NewInitialReview(scope model.InitialReviewScope) *InitialReviewService {
 	return &InitialReviewService{scope: scope}
 }
 
@@ -24,7 +25,7 @@ func (service *InitialReviewService) Complete(ctx context.Context, runID string,
 	return service.advanceReview(ctx, item, now)
 }
 
-func (service *InitialReviewService) advanceReview(ctx context.Context, item InitialImport, now int64) error {
+func (service *InitialReviewService) advanceReview(ctx context.Context, item model.InitialImport, now int64) error {
 	change := initialProgress(item, now)
 	change.ItemState = "REVIEW_PENDING"
 	change.ReviewDelta = 1
@@ -62,22 +63,22 @@ func (service *InitialReviewService) Fail(ctx context.Context, runID, code strin
 	return nil
 }
 
-func (service *InitialReviewService) active(ctx context.Context, runID string) (InitialImport, bool, error) {
+func (service *InitialReviewService) active(ctx context.Context, runID string) (model.InitialImport, bool, error) {
 	item, found, err := service.scope.Read.Import(ctx, runID)
 	if err != nil {
-		return InitialImport{}, false, fmt.Errorf("read initial scrape owner: %w", err)
+		return model.InitialImport{}, false, fmt.Errorf("read initial scrape owner: %w", err)
 	}
 	if !found || item.ItemState != "SCRAPING" {
 		return item, false, nil
 	}
 	if item.Running < 1 {
-		return InitialImport{}, false, ErrInitialProgressState
+		return model.InitialImport{}, false, model.ErrInitialProgressState
 	}
 	return item, true, nil
 }
 
-func initialProgress(item InitialImport, now int64) InitialProgressChange {
-	return InitialProgressChange{
+func initialProgress(item model.InitialImport, now int64) model.InitialProgressChange {
+	return model.InitialProgressChange{
 		ItemID:          item.ItemID,
 		ImportJobID:     item.ImportJobID,
 		ExpectedRunning: item.Running,
@@ -107,7 +108,7 @@ func (service *InitialReviewService) applyCandidate(ctx context.Context, runID, 
 	if err != nil {
 		return fmt.Errorf("read initial candidate assets: %w", err)
 	}
-	change := InitialDraftChange{
+	change := model.InitialDraftChange{
 		ItemID:       itemID,
 		DraftID:      draft.ID,
 		CandidateID:  candidate.ID,
@@ -122,9 +123,9 @@ func (service *InitialReviewService) applyCandidate(ctx context.Context, runID, 
 	return nil
 }
 
-func selectInitialCandidate(candidates []InitialCandidate) (InitialCandidate, bool) {
+func selectInitialCandidate(candidates []model.InitialCandidate) (model.InitialCandidate, bool) {
 	if len(candidates) == 0 {
-		return InitialCandidate{}, false
+		return model.InitialCandidate{}, false
 	}
 	best := candidates[0]
 	for _, candidate := range candidates[1:] {
@@ -135,7 +136,7 @@ func selectInitialCandidate(candidates []InitialCandidate) (InitialCandidate, bo
 	return best, true
 }
 
-func compareInitialCandidate(left, right InitialCandidate) int {
+func compareInitialCandidate(left, right model.InitialCandidate) int {
 	if order := cmp.Compare(right.HitCount, left.HitCount); order != 0 {
 		return order
 	}
@@ -148,9 +149,9 @@ func compareInitialCandidate(left, right InitialCandidate) int {
 	return cmp.Compare(left.ID, right.ID)
 }
 
-func selectInitialAssets(change *InitialDraftChange, assets []InitialAsset) {
+func selectInitialAssets(change *model.InitialDraftChange, assets []model.InitialAsset) {
 	assets = slices.Clone(assets)
-	slices.SortFunc(assets, func(left, right InitialAsset) int {
+	slices.SortFunc(assets, func(left, right model.InitialAsset) int {
 		if order := cmp.Compare(left.Ordinal, right.Ordinal); order != 0 {
 			return order
 		}

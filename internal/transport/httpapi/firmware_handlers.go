@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	firmwareservice "retrom/internal/service/firmware"
+	firmwareservice "retrom/internal/model/firmware"
 
 	"retrom/internal/capability/content/firmware"
 )

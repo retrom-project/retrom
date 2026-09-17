@@ -2,14 +2,15 @@ package readiness
 
 import (
 	"context"
+	model "retrom/internal/model/readiness"
 	"time"
 )
 
 const probeTimeout = 2 * time.Second
 
-type Service struct{ repository Repository }
+type Service struct{ repository model.Repository }
 
-func New(repository Repository) *Service { return &Service{repository: repository} }
+func New(repository model.Repository) *Service { return &Service{repository: repository} }
 
 func (service *Service) Reason(ctx context.Context) string {
 	if service == nil || service.repository == nil {

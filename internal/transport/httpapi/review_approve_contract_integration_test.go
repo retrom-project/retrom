@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func TestReviewApprovalHTTPKeepsSuccessConflictAndDuplicateContracts(t *testing.T) {

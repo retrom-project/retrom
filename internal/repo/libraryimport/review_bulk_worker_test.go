@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	application "retrom/internal/model/libraryimport"
 )
 
 func TestReviewBulkWorkerClaimsCompletesAndFinishesInTypedScope(t *testing.T) {

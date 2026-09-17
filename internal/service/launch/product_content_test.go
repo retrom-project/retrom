@@ -2,6 +2,7 @@ package launch
 
 import (
 	"errors"
+	model "retrom/internal/model/launch"
 	"testing"
 
 	"retrom/internal/capability/content/corevalidation"
@@ -22,16 +23,16 @@ func TestProductContentSelectsDeclaredDeliveryFiles(t *testing.T) {
 		{"unsupported delivery", "UNKNOWN", "SINGLE_FILE", "CONTENT", "game.bin", "", false, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			snapshot := ProductSnapshot{Source: ProductSource{DeliveryProfile: test.delivery, ContentKind: test.kind}}
-			file := ProductFile{Role: test.role, BlobID: "blob", LogicalName: test.file}
+			snapshot := model.ProductSnapshot{Source: model.ProductSource{DeliveryProfile: test.delivery, ContentKind: test.kind}}
+			file := model.ProductFile{Role: test.role, BlobID: "blob", LogicalName: test.file}
 			if test.variant {
-				snapshot.VariantFiles = []ProductFile{file}
+				snapshot.VariantFiles = []model.ProductFile{file}
 			} else {
-				snapshot.GameFiles = []ProductFile{file}
+				snapshot.GameFiles = []model.ProductFile{file}
 			}
 			content, err := BuildProductContent(snapshot)
 			if test.blocked {
-				if !errors.Is(err, ErrBlocked) || len(content.Files) != 0 {
+				if !errors.Is(err, model.ErrBlocked) || len(content.Files) != 0 {
 					t.Fatalf("files=%+v error=%v", content.Files, err)
 				}
 			} else if err != nil || len(content.Files) != 1 || content.Files[0].Format != test.format || content.Files[0].BlobID != "blob" {
@@ -59,7 +60,7 @@ func TestProductExternalBIOSRetainsOptionalAndCollisionPolicy(t *testing.T) {
 				dependency.BlobID, dependency.InstallationStatus = &blob, &status
 			}
 			files, err := productExternalBIOS("game.bin", nil, []corevalidation.BIOSDependency{dependency}, test.allowedMissing)
-			if errors.Is(err, ErrBlocked) != test.blocked || (test.present && !test.blocked) != (len(files) == 1) {
+			if errors.Is(err, model.ErrBlocked) != test.blocked || (test.present && !test.blocked) != (len(files) == 1) {
 				t.Fatalf("files=%+v error=%v", files, err)
 			}
 		})

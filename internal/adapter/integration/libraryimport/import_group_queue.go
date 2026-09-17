@@ -4,17 +4,18 @@ import (
 	"context"
 	"fmt"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
 // QueueCreate is the compatibility entry to the import admission use case.
 func (service *Service) QueueCreate(ctx context.Context, request CreateRequest) (Created, error) {
-	admissions := application.NewImportAdmissions(
+	admissions := libraryimportservice.NewImportAdmissions(
 		repository.NewImportAdmissions(service.database),
 		service,
 		service.tags,
-		application.ImportAdmissionOptions{
+		libraryimportmodel.ImportAdmissionOptions{
 			Now:                      service.now,
 			MultiDiscEnabled:         service.multiDiscImportEnabled,
 			MetadataScraperAvailable: service.scraper != nil,
@@ -27,6 +28,6 @@ func (service *Service) QueueCreate(ctx context.Context, request CreateRequest) 
 	return result, nil
 }
 
-func targetGuard(target creationTarget) application.ImportTargetGuard {
-	return application.TargetImportGuard(importTargetFacts(target))
+func targetGuard(target creationTarget) libraryimportmodel.ImportTargetGuard {
+	return libraryimportservice.TargetImportGuard(importTargetFacts(target))
 }

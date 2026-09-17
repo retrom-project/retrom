@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	service "retrom/internal/service/runtimeprovider"
+	service "retrom/internal/model/runtimeprovider"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"

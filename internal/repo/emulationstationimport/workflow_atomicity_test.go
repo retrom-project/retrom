@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 var errWorkflowStep = errors.New("workflow step failed")
@@ -21,8 +22,8 @@ type workflowFaultRepository struct {
 	phase string
 }
 
-func (repository workflowFaultRepository) WithControl(ctx context.Context, work func(application.WorkflowScope) error) error {
-	return repository.WorkflowControl.WithControl(ctx, func(scope application.WorkflowScope) error {
+func (repository workflowFaultRepository) WithControl(ctx context.Context, work func(emulationstationimportmodel.WorkflowScope) error) error {
+	return repository.WorkflowControl.WithControl(ctx, func(scope emulationstationimportmodel.WorkflowScope) error {
 		records, ok := scope.Write.(workflowRecords)
 		if !ok {
 			return errors.New("unexpected workflow records")
@@ -36,12 +37,12 @@ func (repository workflowFaultRepository) WithControl(ctx context.Context, work 
 }
 
 type workflowFaultWriter struct {
-	application.WorkflowWriter
+	emulationstationimportmodel.WorkflowWriter
 	executor dbexec.Executor
 	phase    string
 }
 
-func (writer workflowFaultWriter) Cancel(ctx context.Context, plan application.CancellationPlan) error {
+func (writer workflowFaultWriter) Cancel(ctx context.Context, plan emulationstationimportmodel.CancellationPlan) error {
 	switch writer.phase {
 	case "job CAS":
 		plan.Before.JobVersion++
@@ -56,7 +57,7 @@ func (writer workflowFaultWriter) Cancel(ctx context.Context, plan application.C
 	return writer.afterWrite(ctx)
 }
 
-func (writer workflowFaultWriter) Retry(ctx context.Context, plan application.RetryPlan) error {
+func (writer workflowFaultWriter) Retry(ctx context.Context, plan emulationstationimportmodel.RetryPlan) error {
 	switch writer.phase {
 	case "job CAS":
 		plan.Before.JobVersion++
@@ -133,8 +134,8 @@ func assertWorkflowRollback(t *testing.T, operation, phase string) {
 	t.Helper()
 	db, before := workflowDatabase(t, operation == "retry")
 	rows := planRows(t, db)
-	service := application.NewWorkflowControl(workflowFaultRepository{WorkflowControl: NewWorkflowControl(db), phase: phase}, verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) })
-	var result application.Summary
+	service := emulationstationimportservice.NewWorkflowControl(workflowFaultRepository{WorkflowControl: NewWorkflowControl(db), phase: phase}, verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(12) })
+	var result emulationstationimportmodel.Summary
 	var err error
 	var pending bool
 	if operation == "cancel" {
@@ -154,9 +155,9 @@ func assertWorkflowRollback(t *testing.T, operation, phase string) {
 func assertWorkflowFault(t *testing.T, operation, phase string, err error) {
 	t.Helper()
 	if strings.HasSuffix(phase, "CAS") || phase == "item count" {
-		want := application.ErrNotRetryable
+		want := emulationstationimportmodel.ErrNotRetryable
 		if operation == "cancel" {
-			want = application.ErrNotCancellable
+			want = emulationstationimportmodel.ErrNotCancellable
 		}
 		if !errors.Is(err, want) {
 			t.Fatalf("wrong CAS failure: %v", err)

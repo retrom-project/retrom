@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/config"
-	accountservice "retrom/internal/service/accounts"
+	accountservice "retrom/internal/model/accounts"
 )
 
 func TestSessionRefreshFailureCannotReportExtendedSession(t *testing.T) {

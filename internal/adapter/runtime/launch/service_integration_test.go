@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
+	application "retrom/internal/model/launch"
 	validationpersistence "retrom/internal/repo/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
-	application "retrom/internal/service/launch"
 
 	uploadpersistence "retrom/internal/repo/uploads"
 
@@ -35,7 +35,8 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/uploads"
+	uploadsmodel "retrom/internal/model/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -59,12 +60,12 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	}
 	blobs, _ := blobstore.Open(dataDir)
 	contents := []byte("launchable-gba")
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
 		ctx,
-		uploads.CreateRequest{
+		uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "g", RelativePath: "Launch.gba", SizeBytes: int64(len(contents))},
 			},
 		},

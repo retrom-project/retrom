@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/adapter/integration/payloadrelease"
 	"retrom/internal/adapter/metadata/hasheous"
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 )
 
 func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {

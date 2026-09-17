@@ -3,14 +3,15 @@ package firmware
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/firmware"
 
 	"retrom/internal/capability/content/firmware"
 )
 
 func expectedArchive(
 	ctx context.Context,
-	records RequirementRecords,
-	requirement Requirement,
+	records model.RequirementRecords,
+	requirement model.Requirement,
 ) ([]firmware.ExpectedDATEntry, error) {
 	if requirement.ArchiveMembersJSON != nil {
 		entries, err := firmware.StaticArchiveExpectations(*requirement.ArchiveMembersJSON)
@@ -26,22 +27,22 @@ func expectedArchive(
 	return entries, nil
 }
 
-func (service *Service) InspectArchive(ctx context.Context, id string) (ArchiveInspection, error) {
-	var inspection ArchiveInspection
-	err := service.repository.WithRead(ctx, func(scope ReadScope) error {
+func (service *Service) InspectArchive(ctx context.Context, id string) (model.ArchiveInspection, error) {
+	var inspection model.ArchiveInspection
+	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
 		requirement, found, err := scope.Requirements.Get(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read BIOS inspection requirement: %w", err)
 		}
 		if !found || !requirement.Enabled || requirement.FileKind != "ARCHIVE" {
-			return ErrArchiveFactsNotFound
+			return model.ErrArchiveFactsNotFound
 		}
 		active, found, err := scope.Installations.Active(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read active BIOS inspection: %w", err)
 		}
 		if !found {
-			return ErrArchiveFactsNotFound
+			return model.ErrArchiveFactsNotFound
 		}
 		expected, err := expectedArchive(ctx, scope.Requirements, requirement)
 		if err != nil {
@@ -52,14 +53,14 @@ func (service *Service) InspectArchive(ctx context.Context, id string) (ArchiveI
 			return fmt.Errorf("read BIOS archive inspection: %w", err)
 		}
 		comparisons, _, _, _ := firmware.CompareArchiveEntries(expected, actual)
-		inspection = ArchiveInspection{
+		inspection = model.ArchiveInspection{
 			RequirementID: id, LogicalName: requirement.LogicalName,
 			InstallationID: active.ID, InstallationStatus: active.Status, Entries: comparisons,
 		}
 		return nil
 	})
 	if err != nil {
-		return ArchiveInspection{}, fmt.Errorf("inspect BIOS archive: %w", err)
+		return model.ArchiveInspection{}, fmt.Errorf("inspect BIOS archive: %w", err)
 	}
 	return inspection, nil
 }

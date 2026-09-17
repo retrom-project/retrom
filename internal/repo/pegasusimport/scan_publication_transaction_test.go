@@ -4,17 +4,17 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"strings"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/pegasusimport"
 )
 
-func publicationDatabase(t *testing.T) (*sql.DB, application.ExecutionIdentity, application.ScanProjection) {
+func publicationDatabase(t *testing.T) (*sql.DB, pegasusimportmodel.ExecutionIdentity, pegasusimportmodel.ScanProjection) {
 	t.Helper()
 	db := creationDatabase(t)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	if err := NewCreation(db).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 		_, err := writer.Insert(t.Context(), creationPlan(0))
 		return err
 	}); err != nil {
@@ -28,24 +28,24 @@ leased_until_ms=90,heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadlin
 		t.Fatal(err)
 	}
 	digest := strings.Repeat("a", 64)
-	id := application.ExecutionIdentity{
+	id := pegasusimportmodel.ExecutionIdentity{
 		JobID:       "job-0",
 		ImportID:    "import-0",
 		WorkerID:    "scanner",
 		ExecutionNo: 1,
 		Attempt:     1,
 	}
-	projection := application.ScanProjection{
-		Headers: application.ScanHeaders{Metadata: []application.ScanMetadata{
+	projection := pegasusimportmodel.ScanProjection{
+		Headers: pegasusimportmodel.ScanHeaders{Metadata: []pegasusimportmodel.ScanMetadata{
 			{Path: "metadata.pegasus.txt", Size: 1, Digest: digest, Facts: digest, State: "VALID"},
 		}},
-		Items: []application.ScanItem{{
+		Items: []pegasusimportmodel.ScanItem{{
 			ID: "scanned", MetadataPath: "metadata.pegasus.txt", SourceKey: digest, Title: "Game",
 			DiscoveryState: "READY", MetadataJSON: "{}", WarningsJSON: "[]", SourceManifestJSON: "{}", SourceManifestDigest: digest,
-			Files: []application.ScanFile{{Ordinal: 0, Kind: "FILE", Path: "game.gba", Size: 1, Facts: digest}},
+			Files: []pegasusimportmodel.ScanFile{{Ordinal: 0, Kind: "FILE", Path: "game.gba", Size: 1, Facts: digest}},
 		}},
 
-		Summary: application.ScanSummary{SnapshotDigest: digest, Shape: application.ScanShape{Metadata: 1, Items: 1, EstimatedBytes: 1}},
+		Summary: pegasusimportmodel.ScanSummary{SnapshotDigest: digest, Shape: pegasusimportmodel.ScanShape{Metadata: 1, Items: 1, EstimatedBytes: 1}},
 	}
 	return db, id, projection
 }
@@ -86,13 +86,13 @@ func assertScanPublicationFence(t *testing.T, stage, field string) {
 	t.Helper()
 	db, id, projection := publicationDatabase(t)
 	before := publicationRows(t, db)
-	err := NewScanPublication(db).WithScan(t.Context(), func(scope application.ScanScope) error {
+	err := NewScanPublication(db).WithScan(t.Context(), func(scope pegasusimportmodel.ScanScope) error {
 		current, err := scope.Read.Current(t.Context(), id.JobID)
 		if err != nil {
 			return err
 		}
 		invalidateRecovery(&current, field)
-		owner := application.ScanLease{Before: current, NowMS: 10}
+		owner := pegasusimportmodel.ScanLease{Before: current, NowMS: 10}
 		switch stage {
 		case "headers":
 			return scope.Write.Headers(t.Context(), owner, projection.Headers)
@@ -102,7 +102,7 @@ func assertScanPublicationFence(t *testing.T, stage, field string) {
 			return scope.Write.Finish(t.Context(), owner, projection.Summary)
 		}
 	})
-	if !errors.Is(err, application.ErrVersionConflict) {
+	if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 		t.Fatalf("%s %s: %v", stage, field, err)
 	}
 	if !reflect.DeepEqual(before, publicationRows(t, db)) {
@@ -113,11 +113,11 @@ func assertScanPublicationFence(t *testing.T, stage, field string) {
 func stagePublication(
 	t *testing.T,
 	db *sql.DB,
-	id application.ExecutionIdentity,
-	projection application.ScanProjection,
+	id pegasusimportmodel.ExecutionIdentity,
+	projection pegasusimportmodel.ScanProjection,
 ) {
 	t.Helper()
-	service := application.NewScanPublication(NewScanPublication(db), func() time.Time { return time.UnixMilli(10) })
+	service := pegasusimportservice.NewScanPublication(NewScanPublication(db), func() time.Time { return time.UnixMilli(10) })
 	if err := service.Headers(t.Context(), id, projection.Headers); err != nil {
 		t.Fatal(err)
 	}
@@ -132,14 +132,14 @@ func TestScanPublicationLateFailureRollsBackStateEventAndProjection(t *testing.T
 	stagePublication(t, db, id, projection)
 	before := publicationRows(t, db)
 	cause := errors.New("abort after actual publication")
-	err := NewScanPublication(db).WithScan(t.Context(), func(scope application.ScanScope) error {
+	err := NewScanPublication(db).WithScan(t.Context(), func(scope pegasusimportmodel.ScanScope) error {
 		current, err := scope.Read.Current(t.Context(), id.JobID)
 		if err != nil {
 			return err
 		}
 		if err := scope.Write.Finish(
 			t.Context(),
-			application.ScanLease{Before: current, NowMS: 10},
+			pegasusimportmodel.ScanLease{Before: current, NowMS: 10},
 			projection.Summary,
 		); err != nil {
 			return err

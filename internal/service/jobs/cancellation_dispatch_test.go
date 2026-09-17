@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/jobs"
 	"testing"
 	"time"
 )
@@ -14,14 +15,14 @@ type dispatchRepository struct {
 }
 
 func (repository *dispatchRepository) CommitCancel(
-	ctx context.Context, cmd CancelCommand,
-) (CancelResult, error) {
+	ctx context.Context, cmd model.CancelCommand,
+) (model.CancelResult, error) {
 	result, err := repository.memoryJobs.CommitCancel(ctx, cmd)
 	if err != nil {
 		return result, err
 	}
 	if repository.commitErr != nil {
-		return CancelResult{}, repository.commitErr
+		return model.CancelResult{}, repository.commitErr
 	}
 	repository.completed = true
 	return result, nil
@@ -37,14 +38,14 @@ type dispatchHandler struct {
 
 func (handler *dispatchHandler) CancelJob(
 	ctx context.Context, command DomainCancellation,
-) (Result, bool, error) {
+) (model.Result, bool, error) {
 	if !handler.repository.completed {
-		return Result{}, false, errors.New("dispatch before commit completed")
+		return model.Result{}, false, errors.New("dispatch before commit completed")
 	}
 	handler.called = true
 	handler.command = command
 	handler.context = ctx
-	return Result{
+	return model.Result{
 		JobID: command.JobID, State: "CANCEL_REQUESTED",
 		ExecutionNo: 7, Version: command.ExpectedVersion + 1,
 	}, true, handler.failure
@@ -52,7 +53,7 @@ func (handler *dispatchHandler) CancelJob(
 
 func dispatchFixture() (*dispatchRepository, *dispatchHandler) {
 	repository := &dispatchRepository{memoryJobs: &memoryJobs{
-		job: Job{
+		job: model.Job{
 			Kind: "SERVER_EMULATIONSTATION_SCAN", ScopeType: "EMULATIONSTATION_IMPORT",
 			ScopeID: "plan", State: "RUNNING", Cancellable: true, Version: 4, ExecutionNo: 7,
 		},
@@ -137,7 +138,7 @@ func TestDomainCancellationPreconditionsNeverCallHandler(t *testing.T) {
 			repository, handler := dispatchFixture()
 			version := int64(4)
 			reason := "stop"
-			want := ErrConflict
+			want := model.ErrConflict
 			switch scenario {
 			case "version":
 				version++

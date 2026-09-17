@@ -3,18 +3,19 @@ package libraryimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/libraryimport"
 	"testing"
 
-	"retrom/internal/service/importprogress"
+	"retrom/internal/model/importprogress"
 )
 
-func workerPolicySnapshot() ImportWorkerSnapshot {
-	return ImportWorkerSnapshot{
-		Creation: CreationQueuedSnapshot{
+func workerPolicySnapshot() model.ImportWorkerSnapshot {
+	return model.ImportWorkerSnapshot{
+		Creation: model.CreationQueuedSnapshot{
 			JobState:    "RUNNING",
 			ImportState: "RUNNING",
 			MaxAttempts: 3,
-			Execution: QueuedImportExecution{
+			Execution: model.QueuedImportExecution{
 				JobID:       "job",
 				ImportID:    "import",
 				WorkerID:    "worker",
@@ -41,7 +42,7 @@ func TestImportWorkerFailurePolicy(t *testing.T) {
 		code              string
 	}{
 		{"transient", "RUNNING", errors.New("storage failed"), 1, 100000, "QUEUED", false, "IMPORT_GROUP_FAILED"},
-		{"permanent", "RUNNING", ErrInvalid, 1, 100000, "FAILED", true, "IMPORT_INPUT_INVALID"},
+		{"permanent", "RUNNING", model.ErrInvalid, 1, 100000, "FAILED", true, "IMPORT_INPUT_INVALID"},
 		{"exhausted", "RUNNING", errors.New("storage failed"), 3, 100000, "FAILED", false, "IMPORT_GROUP_FAILED"},
 		{
 			"retry exceeds budget",
@@ -98,22 +99,22 @@ func TestImportWorkerFailurePolicy(t *testing.T) {
 func TestImportWorkerRecoveryPolicy(t *testing.T) {
 	cases := []struct {
 		name    string
-		change  func(*ImportWorkerSnapshot)
+		change  func(*model.ImportWorkerSnapshot)
 		want    string
 		release bool
 	}{
-		{"expired lease", func(v *ImportWorkerSnapshot) { v.Creation.LeaseUntilMS = 1000 }, "QUEUED", false},
-		{"expired budget", func(v *ImportWorkerSnapshot) { v.DeadlineAtMS = importMoment(1000) }, "FAILED", false},
-		{"cancel requested", func(v *ImportWorkerSnapshot) {
+		{"expired lease", func(v *model.ImportWorkerSnapshot) { v.Creation.LeaseUntilMS = 1000 }, "QUEUED", false},
+		{"expired budget", func(v *model.ImportWorkerSnapshot) { v.DeadlineAtMS = importMoment(1000) }, "FAILED", false},
+		{"cancel requested", func(v *model.ImportWorkerSnapshot) {
 			v.Creation.JobState = "CANCEL_REQUESTED"
 			v.Creation.LeaseUntilMS = 1000
 		}, "CANCELLED", true},
-		{"committed review", func(v *ImportWorkerSnapshot) {
+		{"committed review", func(v *model.ImportWorkerSnapshot) {
 			v.ItemCount = 1
 			v.Counts = importprogress.Counts{ReviewPending: 1}
 			v.Creation.LeaseUntilMS = 1000
 		}, "SUCCEEDED", true},
-		{"committed rejected file", func(v *ImportWorkerSnapshot) {
+		{"committed rejected file", func(v *model.ImportWorkerSnapshot) {
 			v.ResolvedFiles = 1
 			v.Counts = importprogress.Counts{Rejected: 1}
 			v.Creation.LeaseUntilMS = 1000

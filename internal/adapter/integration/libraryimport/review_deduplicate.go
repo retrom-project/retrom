@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	librarycomposition "retrom/internal/bootstrap/composition/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryservice "retrom/internal/model/libraryimport"
 
 	"github.com/google/uuid"
 )

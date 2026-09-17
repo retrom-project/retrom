@@ -5,9 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	model "retrom/internal/model/serverimport"
 	"time"
 
-	firmwareservice "retrom/internal/service/firmware"
+	firmwareservice "retrom/internal/model/firmware"
 
 	"retrom/internal/foundation/cleanup"
 )
@@ -19,7 +20,7 @@ var (
 	errExecutionDeadline = errors.New("server import execution deadline exceeded")
 )
 
-type work = Work
+type work = model.Work
 
 type evaluatedCandidate = EvaluatedCandidate
 

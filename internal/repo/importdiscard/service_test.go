@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/composition"
-	"retrom/internal/service/importdiscard"
+	importdiscardservice "retrom/internal/service/importdiscard"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -24,6 +24,7 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
+	importdiscardmodel "retrom/internal/model/importdiscard"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -34,7 +35,7 @@ type fixture struct {
 	db       *sql.DB
 	blobs    *blobstore.Store
 	importer *libraryimport.Service
-	service  *importdiscard.Service
+	service  *importdiscardservice.Service
 	releases *payloadrelease.Service
 	now      func() time.Time
 }
@@ -268,7 +269,7 @@ func TestDiscardUnavailableWhenEveryItemAlreadyDecided(t *testing.T) {
 	if err != nil || status.State != "UNAVAILABLE" {
 		t.Fatalf("already decided availability=%+v error=%v", status, err)
 	}
-	if _, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID); !errors.Is(err, importdiscard.ErrInvalid) {
+	if _, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID); !errors.Is(err, importdiscardmodel.ErrInvalid) {
 		t.Fatalf("already decided request=%v", err)
 	}
 }

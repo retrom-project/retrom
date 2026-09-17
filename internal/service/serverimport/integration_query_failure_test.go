@@ -1,12 +1,13 @@
 package serverimport_test
 
 import (
+	model "retrom/internal/model/serverimport"
 	"testing"
 )
 
 func TestServerImportQueriesRejectBrokenEvidence(t *testing.T) {
 	service, database, _ := archiveImportFixture(t)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root", SourceRelativePath: ""}, "01980000-0000-7000-8000-00000000b001")
+	created, err := service.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root", SourceRelativePath: ""}, "01980000-0000-7000-8000-00000000b001")
 	if err != nil {
 		t.Fatal(err)
 	}

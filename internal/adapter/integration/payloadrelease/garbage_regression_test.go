@@ -6,14 +6,14 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
+	payloadreleaseservice "retrom/internal/service/payloadrelease"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/payloadrelease"
-	"retrom/internal/testkit/testsupport"
 )
 
 func claimedGarbage(t *testing.T) (gcSchedulingFixture, claimedJob) {
@@ -74,7 +74,7 @@ func TestGarbagePhysicalFailureRetainsFilesystemCause(t *testing.T) {
 	fixture, job := claimedGarbage(t)
 	obstructGarbageFile(t, fixture.blobs.Path(job.Input.Inputs.SHA256))
 	err := fixture.service.execute(t.Context(), job)
-	if !errors.Is(err, syscall.ENOTEMPTY) || application.WorkErrorCode(err) != "BLOB_GC_PHYSICAL_DELETE_FAILED" {
+	if !errors.Is(err, syscall.ENOTEMPTY) || payloadreleaseservice.WorkErrorCode(err) != "BLOB_GC_PHYSICAL_DELETE_FAILED" {
 		t.Fatalf("physical garbage error lost its cause or domain code: %v", err)
 	}
 }
@@ -84,7 +84,7 @@ func TestGarbageRetryKeepsReRegisteredDigestOwnedByAnotherBlob(t *testing.T) {
 	fixture, job := claimedGarbage(t)
 	filename := fixture.blobs.Path(job.Input.Inputs.SHA256)
 	obstructGarbageFile(t, filename)
-	if err := fixture.service.execute(t.Context(), job); application.WorkErrorCode(err) != "BLOB_GC_PHYSICAL_DELETE_FAILED" {
+	if err := fixture.service.execute(t.Context(), job); payloadreleaseservice.WorkErrorCode(err) != "BLOB_GC_PHYSICAL_DELETE_FAILED" {
 		t.Fatalf("expected failed physical removal: %v", err)
 	}
 	if err := os.Remove(filepath.Join(filename, "obstruction")); err != nil {
@@ -171,7 +171,7 @@ func TestGarbageRollsBackWhenOriginalLeaseExpiresAfterCatalogDelete(t *testing.T
  (SELECT count(*) FROM blobs WHERE id='manual-gc-blob'),
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob')`).Scan(&blobs, &candidates)
 	_, physicalErr := os.Stat(fixture.blobs.Path(job.Input.Inputs.SHA256))
-	if !errors.Is(err, application.ErrExecutionLost) || hits.Load() != 1 || readErr != nil ||
+	if !errors.Is(err, payloadreleasemodel.ErrExecutionLost) || hits.Load() != 1 || readErr != nil ||
 		blobs != 1 || candidates != 1 || physicalErr != nil {
 		t.Fatalf("expired garbage escaped: error=%v hits=%d blobs=%d candidates=%d read=%v physical=%v",
 			err, hits.Load(), blobs, candidates, readErr, physicalErr)

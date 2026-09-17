@@ -2,11 +2,11 @@ package maintenance
 
 import (
 	"database/sql"
+	maintenancemodel "retrom/internal/model/maintenance"
+	maintenanceservice "retrom/internal/service/maintenance"
 	"strings"
 	"testing"
 	"time"
-
-	application "retrom/internal/service/maintenance"
 )
 
 func restoredPegasusReview(t *testing.T) (*sql.DB, string) {
@@ -61,8 +61,8 @@ func restoredPegasusReview(t *testing.T) (*sql.DB, string) {
 func TestRestoreRetainsPegasusReviewCreatedBeforeSourceHandoff(t *testing.T) {
 	t.Parallel()
 	db, path := restoredPegasusReview(t)
-	err := New().WithRestore(t.Context(), path, func(records application.RestoreRecords) error {
-		if err := application.CompleteRestoredReviews(t.Context(), records.Imports().Reviews, time.UnixMilli(10)); err != nil {
+	err := New().WithRestore(t.Context(), path, func(records maintenancemodel.RestoreRecords) error {
+		if err := maintenanceservice.CompleteRestoredReviews(t.Context(), records.Imports().Reviews, time.UnixMilli(10)); err != nil {
 			return err
 		}
 		_, err := records.StopExternalImports(t.Context(), 10)

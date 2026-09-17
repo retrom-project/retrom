@@ -4,42 +4,43 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	model "retrom/internal/model/netplay"
 	"testing"
 	"time"
 )
 
 type roomExitMemory struct {
-	before                 RoomExitSnapshot
-	end                    *RoomEndPlan
-	removal                *RoomRemovalPlan
+	before                 model.RoomExitSnapshot
+	end                    *model.RoomEndPlan
+	removal                *model.RoomRemovalPlan
 	failure, commitFailure error
 }
 
-func (memory *roomExitMemory) WithExit(_ context.Context, work func(RoomExitScope) error) error {
-	if err := work(RoomExitScope{Read: memory, Write: memory}); err != nil {
+func (memory *roomExitMemory) WithExit(_ context.Context, work func(model.RoomExitScope) error) error {
+	if err := work(model.RoomExitScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.commitFailure
 }
 
-func (memory *roomExitMemory) Current(context.Context, string, string) (RoomExitSnapshot, error) {
+func (memory *roomExitMemory) Current(context.Context, string, string) (model.RoomExitSnapshot, error) {
 	return memory.before, memory.failure
 }
 
-func (memory *roomExitMemory) End(_ context.Context, plan RoomEndPlan) error {
+func (memory *roomExitMemory) End(_ context.Context, plan model.RoomEndPlan) error {
 	memory.end = &plan
 	return memory.failure
 }
 
-func (memory *roomExitMemory) Remove(_ context.Context, plan RoomRemovalPlan) error {
+func (memory *roomExitMemory) Remove(_ context.Context, plan model.RoomRemovalPlan) error {
 	memory.removal = &plan
 	return memory.failure
 }
 
 func roomExitFixture() (*RoomExit, *roomExitMemory) {
 	session := "session"
-	guest := SeatMember{ID: "guest-member", ProfileID: "guest", Role: "GUEST", PlayerNo: 2, Version: 3}
-	before := RoomExitSnapshot{Room: RoomControlSnapshot{RoomID: "room", HostID: "host", State: RoomStateRunning, Version: 7, Selection: &RoomSelection{GameID: "game"}, Member: &guest, Occupants: []SeatMember{guest}}, SessionID: &session}
+	guest := model.SeatMember{ID: "guest-member", ProfileID: "guest", Role: "GUEST", PlayerNo: 2, Version: 3}
+	before := model.RoomExitSnapshot{Room: model.RoomControlSnapshot{RoomID: "room", HostID: "host", State: model.RoomStateRunning, Version: 7, Selection: &model.RoomSelection{GameID: "game"}, Member: &guest, Occupants: []model.SeatMember{guest}}, SessionID: &session}
 	memory := &roomExitMemory{before: before}
 	return NewRoomExit(memory, time.Hour, func() time.Time { return time.UnixMilli(1786000000000) }), memory
 }
@@ -51,7 +52,7 @@ func TestRoomExitAuthorizationAndVersions(t *testing.T) {
 			service, memory := roomExitFixture()
 			version := int64(7)
 			actor, reason := "guest", "USER_EXIT"
-			want := ErrForbidden
+			want := model.ErrForbidden
 			switch name {
 			case "guest close":
 				reason = "HOST_CLOSED"
@@ -59,11 +60,11 @@ func TestRoomExitAuthorizationAndVersions(t *testing.T) {
 				memory.before.Room.Member = nil
 			case "stale":
 				version--
-				want = ErrPrecondition
+				want = model.ErrPrecondition
 			case "draft":
-				memory.before.Room.State = RoomStateDraft
+				memory.before.Room.State = model.RoomStateDraft
 				memory.before.Room.Selection = nil
-				want = ErrRoomConflict
+				want = model.ErrRoomConflict
 			}
 			var err error
 			switch name {
@@ -152,7 +153,7 @@ func TestRoomExitWaitingRemovesOnlyGuest(t *testing.T) {
 	for _, kick := range []bool{false, true} {
 		t.Run(map[bool]string{false: "leave", true: "kick"}[kick], func(t *testing.T) {
 			service, memory := roomExitFixture()
-			memory.before.Room.State = RoomStateWaiting
+			memory.before.Room.State = model.RoomStateWaiting
 			memory.before.SessionID = nil
 			var err error
 			if kick {

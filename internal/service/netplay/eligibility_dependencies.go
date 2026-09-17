@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	model "retrom/internal/model/netplay"
 	"slices"
 	"sort"
 	"strings"
@@ -14,7 +15,7 @@ import (
 	"retrom/internal/transport/netplay/profile"
 )
 
-func (service *Eligibility) dependencySnapshotCurrent(ctx context.Context, row EligibilityRow) (bool, error) {
+func (service *Eligibility) dependencySnapshotCurrent(ctx context.Context, row model.EligibilityRow) (bool, error) {
 	if row.DATVersionID != nil {
 		return service.ArcadeSnapshotRunnable(ctx, row)
 	}
@@ -74,7 +75,7 @@ type netplayLockedArcadeDependency struct {
 	requiredEntries []string
 }
 
-func (service *Eligibility) ArcadeSnapshotRunnable(ctx context.Context, row EligibilityRow) (bool, error) {
+func (service *Eligibility) ArcadeSnapshotRunnable(ctx context.Context, row model.EligibilityRow) (bool, error) {
 	snapshot, valid := parseNetplayArcadeSnapshot(row)
 	if !valid {
 		return false, nil
@@ -104,7 +105,7 @@ func validArcadeRuntimeSnapshot(raw string) bool {
 	return err == nil
 }
 
-func parseNetplayArcadeSnapshot(row EligibilityRow) (netplayArcadeSnapshot, bool) {
+func parseNetplayArcadeSnapshot(row model.EligibilityRow) (netplayArcadeSnapshot, bool) {
 	var snapshot netplayArcadeSnapshot
 	decoder := json.NewDecoder(strings.NewReader(row.DependencyJSON))
 	decoder.DisallowUnknownFields()
@@ -141,7 +142,7 @@ func netplayArcadeClosureIndex(
 }
 
 func (service *Eligibility) loadNetplayArcadeDependencies(
-	ctx context.Context, row EligibilityRow,
+	ctx context.Context, row model.EligibilityRow,
 ) (map[string]netplayLockedArcadeDependency, bool, error) {
 	rows, err := service.repository.ArcadeDependencies(ctx, row.VariantID, *row.DATVersionID)
 	if err != nil {
@@ -244,12 +245,12 @@ func lockedSnapshotJSON(raw string) ([]byte, bool) {
 	return encoded, err == nil
 }
 
-func (service *Eligibility) profileEligibility(ctx context.Context, gameID string) ([]EligibleProfile, string, error) {
+func (service *Eligibility) profileEligibility(ctx context.Context, gameID string) ([]model.EligibleProfile, string, error) {
 	lockedRows, err := service.repository.Rows(ctx, gameID)
 	if err != nil {
 		return nil, "", serviceError("eligible profiles", err)
 	}
-	result := make([]EligibleProfile, 0)
+	result := make([]model.EligibleProfile, 0)
 	seen := make(map[string]struct{})
 	contentKindAllowed, coreAllowed := false, false
 	for _, row := range lockedRows {
@@ -269,7 +270,7 @@ func (service *Eligibility) profileEligibility(ctx context.Context, gameID strin
 			}
 		}
 	}
-	slices.SortFunc(result, func(left, right EligibleProfile) int {
+	slices.SortFunc(result, func(left, right model.EligibleProfile) int {
 		return strings.Compare(left.Summary.ID, right.Summary.ID)
 	})
 	return result, EligibilityBlocker(len(lockedRows) > 0, contentKindAllowed, coreAllowed), nil
@@ -277,22 +278,22 @@ func (service *Eligibility) profileEligibility(ctx context.Context, gameID strin
 
 func (service *Eligibility) matchEligibleProfile(
 	ctx context.Context,
-	row EligibilityRow,
+	row model.EligibilityRow,
 	candidate profile.ManifestProfile,
-) (EligibleProfile, bool, bool, bool, error) {
+) (model.EligibleProfile, bool, bool, bool, error) {
 	contentKindAllowed, targetMatches := service.MatchesTargetProfile(row, candidate)
 	if !contentKindAllowed {
-		return EligibleProfile{}, false, false, false, nil
+		return model.EligibleProfile{}, false, false, false, nil
 	}
 	if !targetMatches {
-		return EligibleProfile{}, contentKindAllowed, false, false, nil
+		return model.EligibleProfile{}, contentKindAllowed, false, false, nil
 	}
 	current, err := service.dependencySnapshotCurrent(ctx, row)
 	if err != nil {
-		return EligibleProfile{}, contentKindAllowed, true, false, fmt.Errorf("netplay/dependency snapshot: %w", err)
+		return model.EligibleProfile{}, contentKindAllowed, true, false, fmt.Errorf("netplay/dependency snapshot: %w", err)
 	}
-	return EligibleProfile{
-		Summary: ProfileSummary{
+	return model.EligibleProfile{
+		Summary: model.ProfileSummary{
 			ID: candidate.ID, CoreID: row.CoreID, CoreName: row.CoreName,
 			ProviderID: row.ProviderID, TargetID: row.TargetID,
 			MaxPlayers: candidate.MaxPlayers,
@@ -302,7 +303,7 @@ func (service *Eligibility) matchEligibleProfile(
 	}, contentKindAllowed, true, current, nil
 }
 
-func (service *Eligibility) MatchesTargetProfile(row EligibilityRow, candidate profile.ManifestProfile) (bool, bool) {
+func (service *Eligibility) MatchesTargetProfile(row model.EligibilityRow, candidate profile.ManifestProfile) (bool, bool) {
 	contentKindAllowed := slices.Contains(service.registry.Manifest.Protocol.AllowedContentKinds, row.ContentKind)
 	targetMatches := contentKindAllowed && slices.Contains(candidate.PlatformIDs, row.PlatformID) &&
 		candidate.CoreID == row.CoreID && candidate.ProviderID == row.ProviderID &&

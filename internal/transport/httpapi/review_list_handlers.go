@@ -8,17 +8,18 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
 var (
-	errInvalidReviewQuery  = libraryservice.ErrReviewQuery
+	errInvalidReviewQuery  = libraryimportmodel.ErrReviewQuery
 	errInvalidReviewCursor = errors.New("invalid review cursor")
 )
 
 type reviewListSpec struct {
-	filter       libraryservice.ReviewQueueFilter
-	after        *libraryservice.ReviewQueuePosition
+	filter       libraryimportmodel.ReviewQueueFilter
+	after        *libraryimportmodel.ReviewQueuePosition
 	filterDigest string
 }
 
@@ -37,10 +38,10 @@ func validReviewQueryKeys(values url.Values) bool {
 
 func reviewListLimit(values url.Values) (int, error) {
 	if values.Get("limit") == "" {
-		return libraryservice.ReviewQueuePageLimit, nil
+		return libraryimportmodel.ReviewQueuePageLimit, nil
 	}
 	parsed, err := strconv.Atoi(values.Get("limit"))
-	if err != nil || parsed < 1 || parsed > libraryservice.ReviewQueuePageLimit {
+	if err != nil || parsed < 1 || parsed > libraryimportmodel.ReviewQueuePageLimit {
 		return 0, errInvalidReviewQuery
 	}
 	return parsed, nil
@@ -54,7 +55,7 @@ func (server *Server) prepareReviewList(values url.Values, principalID string) (
 	if err != nil {
 		return reviewListSpec{}, err
 	}
-	filter, err := libraryservice.NormalizeReviewQueueFilter(libraryservice.ReviewQueueFilter{
+	filter, err := libraryimportservice.NormalizeReviewQueueFilter(libraryimportmodel.ReviewQueueFilter{
 		Query: values.Get("q"), TagID: values.Get("tagId"), ImportJobID: values.Get("importJobId"),
 		PegasusImportID: values.Get("pegasusImportId"), EmulationStationImportID: values.Get("emulationStationImportId"),
 		PlatformInstanceID: values.Get("platformInstanceId"), BlockerCode: values.Get("blockerCode"),
@@ -86,7 +87,7 @@ func (server *Server) applyReviewListCursor(spec *reviewListSpec, token string) 
 	if err != nil || updatedAt < 0 {
 		return errInvalidReviewCursor
 	}
-	spec.after = &libraryservice.ReviewQueuePosition{UpdatedAtMS: updatedAt, ItemID: payload.ID}
+	spec.after = &libraryimportmodel.ReviewQueuePosition{UpdatedAtMS: updatedAt, ItemID: payload.ID}
 	return nil
 }
 
@@ -119,7 +120,7 @@ func (server *Server) reviews(writer http.ResponseWriter, request *http.Request)
 		nextCursor = &token
 	}
 	writeJSON(writer, http.StatusOK, struct {
-		Items      []libraryservice.ReviewQueueItem `json:"items"`
-		NextCursor *string                          `json:"nextCursor"`
+		Items      []libraryimportmodel.ReviewQueueItem `json:"items"`
+		NextCursor *string                              `json:"nextCursor"`
 	}{Items: page.Items, NextCursor: nextCursor})
 }

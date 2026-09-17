@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/serverimport"
 )
 
 func retryExecution(
 	ctx context.Context,
-	scope OutcomeScope,
-	unit Work,
+	scope model.OutcomeScope,
+	unit model.Work,
 	counts map[string]int64,
 	code string,
 	now int64,
@@ -39,7 +40,7 @@ func retryExecution(
 	if err != nil {
 		return 0, fmt.Errorf("encode automatic retry: %w", err)
 	}
-	if err := scope.Write.Retry(ctx, AutomaticRetry{Unit: unit, AvailableAt: at, Now: now, Event: event}); err != nil {
+	if err := scope.Write.Retry(ctx, model.AutomaticRetry{Unit: unit, AvailableAt: at, Now: now, Event: event}); err != nil {
 		return 0, fmt.Errorf("write automatic retry: %w", err)
 	}
 	return at, nil

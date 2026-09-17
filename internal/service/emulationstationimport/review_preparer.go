@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 
 	"retrom/internal/capability/content/contentcapability"
-	library "retrom/internal/service/libraryimport"
+	library "retrom/internal/model/libraryimport"
 )
 
 type ReviewSourceCreator interface {
@@ -14,17 +15,17 @@ type ReviewSourceCreator interface {
 	CreateOwnedServerSource(context.Context, library.OwnedServerSourceRequest) (library.ServerImportResult, error)
 }
 type ReviewCompanions interface {
-	Files(context.Context, Execution, ExecutionItem) ([]library.ServerSourceFile, error)
+	Files(context.Context, model.Execution, model.ExecutionItem) ([]library.ServerSourceFile, error)
 }
 type ReviewItemTransitions interface {
-	Resume(context.Context, Execution, string, string, string) error
-	Finish(context.Context, Execution, string, ItemOutcome) error
+	Resume(context.Context, model.Execution, string, string, string) error
+	Finish(context.Context, model.Execution, string, model.ItemOutcome) error
 }
 type ReviewPhases interface {
-	SetPhase(context.Context, Execution, string) error
+	SetPhase(context.Context, model.Execution, string) error
 }
 type ReviewCompleter interface {
-	Complete(context.Context, ReviewHandoffRequest) error
+	Complete(context.Context, model.ReviewHandoffRequest) error
 }
 type ReviewPreparerDependencies struct {
 	Sources     ReviewSourceCreator
@@ -40,7 +41,7 @@ func NewReviewPreparer(dependencies ReviewPreparerDependencies) *ReviewPreparer 
 	return &ReviewPreparer{dependencies: dependencies}
 }
 
-func reviewSourceIntent(unit Execution, item ExecutionItem) library.SourceCreationIntent {
+func reviewSourceIntent(unit model.Execution, item model.ExecutionItem) library.SourceCreationIntent {
 	paths := make([]string, 0, len(item.Files))
 	for _, file := range item.Files {
 		paths = append(paths, file.Path)
@@ -53,7 +54,7 @@ func reviewSourceIntent(unit Execution, item ExecutionItem) library.SourceCreati
 }
 
 // Resume checks permanent bindings before any source or CAS materialization.
-func (service *ReviewPreparer) Resume(ctx context.Context, unit Execution, item ExecutionItem) (bool, error) {
+func (service *ReviewPreparer) Resume(ctx context.Context, unit model.Execution, item model.ExecutionItem) (bool, error) {
 	result, found, err := service.dependencies.Sources.LookupOwnedServerSource(ctx, reviewSourceIntent(unit, item))
 	if err != nil {
 		return false, fmt.Errorf("lookup EmulationStation owned review: %w", err)
@@ -67,7 +68,7 @@ func (service *ReviewPreparer) Resume(ctx context.Context, unit Execution, item 
 	return true, nil
 }
 
-func (service *ReviewPreparer) Create(ctx context.Context, unit Execution, item ExecutionItem) error {
+func (service *ReviewPreparer) Create(ctx context.Context, unit model.Execution, item model.ExecutionItem) error {
 	files, err := service.files(ctx, unit, item)
 	if err != nil {
 		return service.recordFailure(ctx, unit, item, "INTERNAL_ERROR",
@@ -92,8 +93,8 @@ func (service *ReviewPreparer) Create(ctx context.Context, unit Execution, item 
 
 func (service *ReviewPreparer) files(
 	ctx context.Context,
-	unit Execution,
-	item ExecutionItem,
+	unit model.Execution,
+	item model.ExecutionItem,
 ) ([]library.ServerSourceFile, error) {
 	result := make([]library.ServerSourceFile, 0, len(item.Files))
 	for _, file := range item.Files {
@@ -106,7 +107,7 @@ func (service *ReviewPreparer) files(
 	return append(result, companions...), nil
 }
 
-func (service *ReviewPreparer) creationFailure(ctx context.Context, unit Execution, item ExecutionItem,
+func (service *ReviewPreparer) creationFailure(ctx context.Context, unit model.Execution, item model.ExecutionItem,
 	files []library.ServerSourceFile, cause error,
 ) error {
 	if errors.Is(cause, library.ErrMultiDiscModeUnavailable) {

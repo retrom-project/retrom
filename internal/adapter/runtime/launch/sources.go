@@ -14,7 +14,7 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimelaunch"
-	application "retrom/internal/service/launch"
+	application "retrom/internal/model/launch"
 )
 
 // Sources supplies host IO and credentials to the application. Configure it before serving requests.

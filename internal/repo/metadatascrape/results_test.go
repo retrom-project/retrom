@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"retrom/internal/adapter/metadata/hasheous"
-	"retrom/internal/service/metadatascrape"
+	"retrom/internal/model/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
 

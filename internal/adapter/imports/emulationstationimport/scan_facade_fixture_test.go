@@ -4,15 +4,16 @@ import (
 	"context"
 
 	"retrom/internal/capability/format/emulationstationmeta"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 const maxGamelistBytes = int64(emulationstationmeta.MaxGameListBytes)
 
 type (
-	discoveredFile = application.DiscoveredFile
-	scannedItem    = application.ScanItem
-	scanResult     application.ScanProjection
+	discoveredFile = emulationstationimportservice.DiscoveredFile
+	scannedItem    = emulationstationimportmodel.ScanItem
+	scanResult     emulationstationimportmodel.ScanProjection
 )
 
 func (service *Service) scan(
@@ -21,6 +22,6 @@ func (service *Service) scan(
 	selectedPath string,
 	releaseYearMax int,
 ) (scanResult, error) {
-	result, err := application.NewScanner(scannerSource{root: root, selectedPath: selectedPath}).Scan(ctx, releaseYearMax)
+	result, err := emulationstationimportservice.NewScanner(scannerSource{root: root, selectedPath: selectedPath}).Scan(ctx, releaseYearMax)
 	return scanResult(result), err
 }

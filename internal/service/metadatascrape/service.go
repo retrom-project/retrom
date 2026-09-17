@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	model "retrom/internal/model/metadatascrape"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -35,11 +36,11 @@ type Service struct {
 	stopping       atomic.Bool
 }
 
-func New(repository ScheduleRepository, runner ManagedRunner, now func() time.Time) *Service {
+func New(repository model.ScheduleRepository, runner ManagedRunner, now func() time.Time) *Service {
 	return NewWithMedia(repository, runner, nil, now)
 }
 
-func NewWithMedia(repository ScheduleRepository, runner, media ManagedRunner, now func() time.Time) *Service {
+func NewWithMedia(repository model.ScheduleRepository, runner, media ManagedRunner, now func() time.Time) *Service {
 	service := &Service{}
 	service.scrapes = newExecutionSupervisor(runner, &service.stopping)
 	service.media = newExecutionSupervisor(media, &service.stopping)

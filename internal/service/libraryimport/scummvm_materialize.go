@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentmanifest"
@@ -21,7 +22,7 @@ func (service *ImportPreparation) detectScummVMTree(
 	ctx context.Context,
 	files []fileset.SourceFile,
 	metadata map[int]blobstore.Metadata,
-	archive *ImportFile,
+	archive *model.ImportFile,
 ) (scummvm.Snapshot, error) {
 	root, err := os.MkdirTemp("", "retrom-scummvm-input-")
 	if err != nil {
@@ -52,7 +53,7 @@ func materializeScummVMInputs(
 	root string,
 	files []fileset.SourceFile,
 	metadata map[int]blobstore.Metadata,
-	archive *ImportFile,
+	archive *model.ImportFile,
 ) ([]contentmanifest.File, error) {
 	manifest := make([]contentmanifest.File, 0, len(files))
 	limits := importing.DefaultArchiveLimits()

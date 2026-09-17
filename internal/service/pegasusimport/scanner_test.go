@@ -3,6 +3,7 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/pegasusimport"
 	"strings"
 	"testing"
 
@@ -31,7 +32,7 @@ func (source *scanSourceMemory) Metadata(_ context.Context, file DiscoveredFile)
 }
 
 func (*scanSourceMemory) Asset(context.Context, DiscoveredFile, string) (ScanAssetInspection, error) {
-	return ScanAssetInspection{}, ErrSourceChanged
+	return ScanAssetInspection{}, model.ErrSourceChanged
 }
 
 func scannerSourceFixture() *scanSourceMemory {

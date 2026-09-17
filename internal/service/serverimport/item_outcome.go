@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	model "retrom/internal/model/serverimport"
 )
 
 func (service *Outcomes) CompleteItem(
 	ctx context.Context,
-	unit Work,
+	unit model.Work,
 	requirementID, state string,
 	candidate *EvaluatedCandidate,
 	code string,
@@ -17,8 +18,8 @@ func (service *Outcomes) CompleteItem(
 	if err != nil {
 		return err
 	}
-	err = service.repository.CommitWrite(ctx, func(scope OutcomeScope) error {
-		if err := scope.Write.Lock(ctx, unit, plan.Now, RunningWorker); err != nil {
+	err = service.repository.CommitWrite(ctx, func(scope model.OutcomeScope) error {
+		if err := scope.Write.Lock(ctx, unit, plan.Now, model.RunningWorker); err != nil {
 			return fmt.Errorf("lock item outcome: %w", err)
 		}
 		if err := scope.Write.Item(ctx, plan); err != nil {
@@ -33,22 +34,22 @@ func (service *Outcomes) CompleteItem(
 }
 
 func itemOutcome(
-	unit Work,
+	unit model.Work,
 	requirementID, state string,
 	candidate *EvaluatedCandidate,
 	code string,
 	now int64,
-) (ItemOutcome, error) {
-	plan := ItemOutcome{Unit: unit, RequirementID: requirementID, State: state, Code: code, Now: now}
+) (model.ItemOutcome, error) {
+	plan := model.ItemOutcome{Unit: unit, RequirementID: requirementID, State: state, Code: code, Now: now}
 	if candidate != nil {
 		if candidate.Item.RequirementID != requirementID || candidate.Static == nil && candidate.DAT == nil {
-			return ItemOutcome{}, ErrCatalogInvalid
+			return model.ItemOutcome{}, model.ErrCatalogInvalid
 		}
 		_, method := SelectedStatus(candidate)
 		plan.Method = &method
 		details, err := json.Marshal(candidate.Details)
 		if err != nil {
-			return ItemOutcome{}, fmt.Errorf("encode item outcome evidence: %w", err)
+			return model.ItemOutcome{}, fmt.Errorf("encode item outcome evidence: %w", err)
 		}
 		plan.Details = details
 		id, candidateState := candidate.ID, candidate.State
@@ -59,7 +60,7 @@ func itemOutcome(
 	}
 	event, err := json.Marshal(map[string]any{"schemaVersion": 1, "phase": "INSTALLING", "result": state})
 	if err != nil {
-		return ItemOutcome{}, fmt.Errorf("encode item outcome event: %w", err)
+		return model.ItemOutcome{}, fmt.Errorf("encode item outcome event: %w", err)
 	}
 	plan.Event = event
 	return plan, nil

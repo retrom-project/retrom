@@ -3,34 +3,35 @@ package accounts
 import (
 	"context"
 	"errors"
+	model "retrom/internal/model/accounts"
 	"testing"
 	"time"
 )
 
 type limitMemory struct {
-	values    map[RateLimitKey]RateLimitBucket
+	values    map[model.RateLimitKey]model.RateLimitBucket
 	lateError error
 	writes    int
-	cleared   RateLimitKey
+	cleared   model.RateLimitKey
 }
 
-func (memory *limitMemory) Read(_ context.Context, key RateLimitKey) (RateLimitBucket, bool, error) {
+func (memory *limitMemory) Read(_ context.Context, key model.RateLimitKey) (model.RateLimitBucket, bool, error) {
 	value, found := memory.values[key]
 	return value, found, nil
 }
 
-func (memory *limitMemory) Write(_ context.Context, value RateLimitBucket) error {
+func (memory *limitMemory) Write(_ context.Context, value model.RateLimitBucket) error {
 	memory.writes++
 	memory.values[value.Key] = value
 	return nil
 }
 func (memory *limitMemory) Prune(context.Context, int64, int64) error { return nil }
-func (memory *limitMemory) Clear(_ context.Context, key RateLimitKey) error {
+func (memory *limitMemory) Clear(_ context.Context, key model.RateLimitKey) error {
 	memory.cleared = key
 	return nil
 }
 
-func (memory *limitMemory) CommitWrite(_ context.Context, work func(RateLimitRecords) error) error {
+func (memory *limitMemory) CommitWrite(_ context.Context, work func(model.RateLimitRecords) error) error {
 	if err := work(memory); err != nil {
 		return err
 	}
@@ -47,13 +48,13 @@ func (limitHasher) RateLimitSubject(scope, subject string) [32]byte {
 
 func TestRateLimitThresholdAndExpiryUseInjectedClock(t *testing.T) {
 	now := time.UnixMilli(100)
-	memory := &limitMemory{values: map[RateLimitKey]RateLimitBucket{}}
+	memory := &limitMemory{values: map[model.RateLimitKey]model.RateLimitBucket{}}
 	limiter := NewLimiter(memory, limitHasher{}, func() time.Time { return now })
-	subject := RateLimitSubject{Scope: "LOGIN_ACCOUNT", Subject: "alice", Threshold: 2}
+	subject := model.RateLimitSubject{Scope: "LOGIN_ACCOUNT", Subject: "alice", Threshold: 2}
 	if err := limiter.Record(t.Context(), subject); err != nil {
 		t.Fatal(err)
 	}
-	if err := limiter.Record(t.Context(), subject); !errors.Is(err, ErrRateLimited) || RateLimitRetryAfter(err) != 900 {
+	if err := limiter.Record(t.Context(), subject); !errors.Is(err, model.ErrRateLimited) || RateLimitRetryAfter(err) != 900 {
 		t.Fatalf("threshold: %v", err)
 	}
 	writes := memory.writes
@@ -76,23 +77,23 @@ func TestRateLimitThresholdAndExpiryUseInjectedClock(t *testing.T) {
 }
 
 func TestRateLimitCommitErrorIsNotReportedAsThrottle(t *testing.T) {
-	memory := &limitMemory{values: map[RateLimitKey]RateLimitBucket{}, lateError: context.Canceled}
-	err := NewLimiter(memory, limitHasher{}, time.Now).Record(t.Context(), RateLimitSubject{Scope: "LOGIN_ACCOUNT", Subject: "alice", Threshold: 1})
-	if !errors.Is(err, context.Canceled) || errors.Is(err, ErrRateLimited) {
+	memory := &limitMemory{values: map[model.RateLimitKey]model.RateLimitBucket{}, lateError: context.Canceled}
+	err := NewLimiter(memory, limitHasher{}, time.Now).Record(t.Context(), model.RateLimitSubject{Scope: "LOGIN_ACCOUNT", Subject: "alice", Threshold: 1})
+	if !errors.Is(err, context.Canceled) || errors.Is(err, model.ErrRateLimited) {
 		t.Fatalf("lost commit failure: %v", err)
 	}
 }
 
 func TestRateLimitCheckUsesLongestBlockAndClearUsesHashedSubject(t *testing.T) {
-	memory := &limitMemory{values: map[RateLimitKey]RateLimitBucket{}}
+	memory := &limitMemory{values: map[model.RateLimitKey]model.RateLimitBucket{}}
 	limiter := NewLimiter(memory, limitHasher{}, func() time.Time { return time.UnixMilli(100) })
-	subjects := []RateLimitSubject{{Scope: "LOGIN_ACCOUNT", Subject: "alice", Threshold: 2}, {Scope: "LOGIN_IP", Subject: "192.0.2.1", Threshold: 30}}
+	subjects := []model.RateLimitSubject{{Scope: "LOGIN_ACCOUNT", Subject: "alice", Threshold: 2}, {Scope: "LOGIN_IP", Subject: "192.0.2.1", Threshold: 30}}
 	for i, subject := range subjects {
-		key := RateLimitKey{Scope: subject.Scope, Digest: (limitHasher{}).RateLimitSubject(subject.Scope, subject.Subject)}
+		key := model.RateLimitKey{Scope: subject.Scope, Digest: (limitHasher{}).RateLimitSubject(subject.Scope, subject.Subject)}
 		until := int64(1100 + i*1000)
-		memory.values[key] = RateLimitBucket{Key: key, BlockedUntil: &until}
+		memory.values[key] = model.RateLimitBucket{Key: key, BlockedUntil: &until}
 	}
-	if err := limiter.Check(t.Context(), subjects...); !errors.Is(err, ErrRateLimited) || RateLimitRetryAfter(err) != 2 {
+	if err := limiter.Check(t.Context(), subjects...); !errors.Is(err, model.ErrRateLimited) || RateLimitRetryAfter(err) != 2 {
 		t.Fatalf("combined block: %v", err)
 	}
 	if err := limiter.Clear(t.Context(), subjects[0]); err != nil {

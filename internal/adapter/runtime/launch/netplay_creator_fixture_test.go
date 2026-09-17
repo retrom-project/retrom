@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
+	launchservice "retrom/internal/service/launch"
 )
 
 func (service *Service) CreateNetplay(ctx context.Context, request NetplayCreateRequest) (Created, error) {
@@ -16,16 +17,16 @@ func (service *Service) CreateNetplay(ctx context.Context, request NetplayCreate
 	return result, nil
 }
 
-func (service *Service) netplayCreator(repository application.NetplayCreationRepository) *application.NetplayCreator {
-	var provider application.PreviewProvider
+func (service *Service) netplayCreator(repository launchmodel.NetplayCreationRepository) *launchservice.NetplayCreator {
+	var provider launchmodel.PreviewProvider
 	if service.runtimeBuilder != nil {
 		provider = service.runtimeBuilder
 	}
-	return application.NewNetplayCreator(
+	return launchservice.NewNetplayCreator(
 		repository,
 		provider,
 		productBlobVerifier{blobs: service.blobs},
-		application.NetplayCreationEnvironment{
+		launchmodel.NetplayCreationEnvironment{
 			Now: service.now, SignCapability: service.signPreviewCapability,
 		},
 	)

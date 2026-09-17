@@ -3,21 +3,22 @@ package launch
 import (
 	"cmp"
 	"fmt"
+	model "retrom/internal/model/launch"
 	"slices"
 	"strings"
 )
 
-func projectIndexProjection(snapshot ProjectIndexSnapshot) ([]runtimeProjectIndexFile, string, string, error) {
+func projectIndexProjection(snapshot model.ProjectIndexSnapshot) ([]runtimeProjectIndexFile, string, string, error) {
 	root, format, err := projectIndexRoot(snapshot)
 	if err != nil {
 		return nil, "", "", err
 	}
 	preview := snapshot.Source.Purpose == "REVIEW_PREVIEW"
 	if preview && snapshot.Source.ContentKind != format {
-		return nil, "", "", ErrCredential
+		return nil, "", "", model.ErrCredential
 	}
 	ordered := slices.Clone(snapshot.Files)
-	slices.SortFunc(ordered, func(left, right ProjectIndexRecord) int {
+	slices.SortFunc(ordered, func(left, right model.ProjectIndexRecord) int {
 		if preview && format != "SCUMMVM_PROJECT" {
 			return comparePreviewIndexFiles(left, right)
 		}
@@ -31,31 +32,31 @@ func projectIndexProjection(snapshot ProjectIndexSnapshot) ([]runtimeProjectInde
 		files = append(files, runtimeProjectIndexFile{Path: file.Content.LogicalName, SizeBytes: file.Content.Size})
 	}
 	if preview && format == "ONS_PROJECT" && !ordered[0].Primary {
-		return nil, "", "", ErrCredential
+		return nil, "", "", model.ErrCredential
 	}
 	return files, root, format, nil
 }
 
-func projectIndexRoot(snapshot ProjectIndexSnapshot) (string, string, error) {
+func projectIndexRoot(snapshot model.ProjectIndexSnapshot) (string, string, error) {
 	if len(snapshot.Files) == 0 {
-		return "", "", ErrCredential
+		return "", "", model.ErrCredential
 	}
-	identityFiles := make([]ConfigFile, 0, len(snapshot.Files))
+	identityFiles := make([]model.ConfigFile, 0, len(snapshot.Files))
 	for _, file := range snapshot.Files {
 		identityFiles = append(identityFiles, file.Content)
 	}
 	identity, err := ProjectIdentity(identityFiles)
 	if err != nil {
-		return "", "", fmt.Errorf("%w: project identity: %w", ErrCredential, err)
+		return "", "", fmt.Errorf("%w: project identity: %w", model.ErrCredential, err)
 	}
 	root, err := RuntimeProjectContentRoot(identity)
 	if err != nil {
-		return "", "", fmt.Errorf("%w: project root: %w", ErrCredential, err)
+		return "", "", fmt.Errorf("%w: project root: %w", model.ErrCredential, err)
 	}
 	return root, identityFiles[0].Format, nil
 }
 
-func comparePreviewIndexFiles(left, right ProjectIndexRecord) int {
+func comparePreviewIndexFiles(left, right model.ProjectIndexRecord) int {
 	if left.Primary != right.Primary {
 		if left.Primary {
 			return -1

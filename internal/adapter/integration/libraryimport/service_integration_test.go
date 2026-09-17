@@ -35,8 +35,9 @@ import (
 	"retrom/internal/capability/format/importing"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
+	uploadsmodel "retrom/internal/model/uploads"
 	"retrom/internal/service/tagging"
-	"retrom/internal/service/uploads"
+	uploadsservice "retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -72,10 +73,10 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "archive", RelativePath: "fixture.7z", SizeBytes: int64(len(archiveBytes)),
 		}},
 	})
@@ -193,13 +194,13 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 	defaultTag, err := tagSvc.Create(ctx, adminID, "待通关")
 	testassert.False(t, err != nil, err)
 	blobs, _ := blobstore.Open(dataDir)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadService := uploadsservice.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	contents := []byte("deterministic gba fixture")
 	upload, err := uploadService.Create(
 		ctx,
-		uploads.CreateRequest{
+		uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "game", RelativePath: "Sudoku.gba", SizeBytes: int64(len(contents))},
 				{ClientFileID: "discard", RelativePath: "Discarded.gba", SizeBytes: int64(len(contents))},
 			},

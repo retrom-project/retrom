@@ -3,34 +3,35 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+	model "retrom/internal/model/emulationstationimport"
 	"time"
 )
 
 type ScanPublication struct {
-	repository ScanRepository
+	repository model.ScanRepository
 	now        func() time.Time
 }
 
-func NewScanPublication(repository ScanRepository, now func() time.Time) *ScanPublication {
+func NewScanPublication(repository model.ScanRepository, now func() time.Time) *ScanPublication {
 	return &ScanPublication{repository: repository, now: now}
 }
 
-func (service *ScanPublication) Reset(ctx context.Context, unit Execution) error {
-	return service.withOwner(ctx, unit, func(scope ScanScope, change ScanMutation) error {
+func (service *ScanPublication) Reset(ctx context.Context, unit model.Execution) error {
+	return service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
 		return scope.Write.Clear(ctx, change)
 	})
 }
 
-func (service *ScanPublication) Headers(ctx context.Context, unit Execution, value ScanProjection) error {
-	return service.withOwner(ctx, unit, func(scope ScanScope, change ScanMutation) error {
+func (service *ScanPublication) Headers(ctx context.Context, unit model.Execution, value model.ScanProjection) error {
+	return service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
 		return scope.Write.Headers(ctx, change, value)
 	})
 }
 
-func (service *ScanPublication) Items(ctx context.Context, unit Execution, items []ScanItem) error {
+func (service *ScanPublication) Items(ctx context.Context, unit model.Execution, items []model.ScanItem) error {
 	for offset := 0; offset < len(items); offset += 500 {
 		batch := items[offset:min(offset+500, len(items))]
-		if err := service.withOwner(ctx, unit, func(scope ScanScope, change ScanMutation) error {
+		if err := service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
 			return scope.Write.Items(ctx, change, batch)
 		}); err != nil {
 			return err
@@ -39,14 +40,14 @@ func (service *ScanPublication) Items(ctx context.Context, unit Execution, items
 	return nil
 }
 
-func (service *ScanPublication) Finish(ctx context.Context, unit Execution, value ScanProjection) error {
-	return service.withOwner(ctx, unit, func(scope ScanScope, change ScanMutation) error {
+func (service *ScanPublication) Finish(ctx context.Context, unit model.Execution, value model.ScanProjection) error {
+	return service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
 		return scope.Write.Complete(ctx, change, value)
 	})
 }
 
-func (service *ScanPublication) Rejected(ctx context.Context, unit Execution, value ScanProjection) error {
-	return service.withOwner(ctx, unit, func(scope ScanScope, change ScanMutation) error {
+func (service *ScanPublication) Rejected(ctx context.Context, unit model.Execution, value model.ScanProjection) error {
+	return service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
 		if err := scope.Write.Headers(ctx, change, value); err != nil {
 			return fmt.Errorf("persist rejected scan headers: %w", err)
 		}
@@ -54,7 +55,7 @@ func (service *ScanPublication) Rejected(ctx context.Context, unit Execution, va
 	})
 }
 
-func (service *ScanPublication) Publish(ctx context.Context, unit Execution, value ScanProjection) error {
+func (service *ScanPublication) Publish(ctx context.Context, unit model.Execution, value model.ScanProjection) error {
 	if err := service.Headers(ctx, unit, value); err != nil {
 		return err
 	}
@@ -66,29 +67,29 @@ func (service *ScanPublication) Publish(ctx context.Context, unit Execution, val
 
 func (service *ScanPublication) withOwner(
 	ctx context.Context,
-	unit Execution,
-	write func(ScanScope, ScanMutation) error,
+	unit model.Execution,
+	write func(model.ScanScope, model.ScanMutation) error,
 ) error {
 	if unit.Kind != "SERVER_EMULATIONSTATION_SCAN" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
-	err := service.repository.WithScan(ctx, func(scope ScanScope) error {
+	err := service.repository.WithScan(ctx, func(scope model.ScanScope) error {
 		current, found, err := scope.Read.Current(ctx, unit.JobID)
 		if err != nil {
 			return fmt.Errorf("read EmulationStation scan owner: %w", err)
 		}
 		if !found {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		now := service.now().UnixMilli()
 		switch ExecutionState(current, unit, now) {
-		case LeaseActive:
-		case LeaseDeadline:
-			return ErrExpired
-		case LeaseLost, LeaseCancelled:
-			return ErrVersionConflict
+		case model.LeaseActive:
+		case model.LeaseDeadline:
+			return model.ErrExpired
+		case model.LeaseLost, model.LeaseCancelled:
+			return model.ErrVersionConflict
 		}
-		return write(scope, ScanMutation{Before: current, NowMS: now})
+		return write(scope, model.ScanMutation{Before: current, NowMS: now})
 	})
 	if err != nil {
 		return fmt.Errorf("publish EmulationStation scan projection: %w", err)

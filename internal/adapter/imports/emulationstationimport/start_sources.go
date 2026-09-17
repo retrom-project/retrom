@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/emulationstationimport"
+	application "retrom/internal/model/emulationstationimport"
 )
 
 func (source *Sources) VerifyGamelists(

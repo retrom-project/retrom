@@ -1,12 +1,15 @@
 package emulationstationimport
 
-import "time"
+import (
+	model "retrom/internal/model/emulationstationimport"
+	"time"
+)
 
 type ItemWork struct {
-	repository ItemWorkRepository
+	repository model.ItemWorkRepository
 	now        func() time.Time
 }
 
-func NewItemWork(repository ItemWorkRepository, now func() time.Time) *ItemWork {
+func NewItemWork(repository model.ItemWorkRepository, now func() time.Time) *ItemWork {
 	return &ItemWork{repository: repository, now: now}
 }

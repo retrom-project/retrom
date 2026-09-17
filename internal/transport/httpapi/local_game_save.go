@@ -5,7 +5,8 @@ import (
 	"net/http"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/saves"
+	savesmodel "retrom/internal/model/saves"
+	savesservice "retrom/internal/service/saves"
 )
 
 func (server *Server) createLocalGameSave(writer http.ResponseWriter, request *http.Request) {
@@ -14,16 +15,16 @@ func (server *Server) createLocalGameSave(writer http.ResponseWriter, request *h
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
 		return
 	}
-	if request.ContentLength > saves.MaxRequestBytes {
+	if request.ContentLength > savesservice.MaxRequestBytes {
 		writeError(writer, request, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "存档内容超过限制", map[string]any{})
 		return
 	}
-	request.Body = http.MaxBytesReader(writer, request.Body, saves.MaxRequestBytes)
+	request.Body = http.MaxBytesReader(writer, request.Body, savesservice.MaxRequestBytes)
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	result, replayed, err := server.saveService.CreateLocalDraft(request.Context(), request.PathValue("launchId"),
 		principal.UserID, principal.ProfileID, key,
-		saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body})
-	if errors.Is(err, saves.ErrCredential) {
+		savesservice.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body})
+	if errors.Is(err, savesmodel.ErrCredential) {
 		writeError(writer, request, http.StatusForbidden, "FORBIDDEN", "本地草稿对应的游戏会话不可用", map[string]any{})
 		return
 	}

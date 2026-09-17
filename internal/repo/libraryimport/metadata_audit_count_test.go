@@ -5,11 +5,11 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
+	"retrom/internal/testkit/testsupport"
 	"strings"
 	"testing"
-
-	application "retrom/internal/service/libraryimport"
-	"retrom/internal/testkit/testsupport"
 )
 
 func TestMetadataAuditZeroReturnedKeysRollsBackDraftSearchAndEvent(t *testing.T) {
@@ -39,9 +39,9 @@ func TestMetadataAuditZeroReturnedKeysRollsBackDraftSearchAndEvent(t *testing.T)
 			return metadataHiddenAuditKeys{Rows: rows}, nil
 		},
 	})
-	service := application.NewMetadataSeeder(NewMetadata(intercepted), metadataNow)
-	version, warnings, err := service.Seed(t.Context(), "item", application.ServerMetadata{Title: "Changed"}, 2027)
-	if !errors.Is(err, application.ErrVersionConflict) || version != 0 || warnings != nil || precedingWrites != 2 || auditWrites != 1 {
+	service := libraryimportservice.NewMetadataSeeder(NewMetadata(intercepted), metadataNow)
+	version, warnings, err := service.Seed(t.Context(), "item", libraryimportmodel.ServerMetadata{Title: "Changed"}, 2027)
+	if !errors.Is(err, libraryimportmodel.ErrVersionConflict) || version != 0 || warnings != nil || precedingWrites != 2 || auditWrites != 1 {
 		t.Fatalf("version=%d warnings=%+v preceding=%d audit=%d state=%+v err=%v", version, warnings, precedingWrites, auditWrites, readMetadataState(t, db), err)
 	}
 	if after := readMetadataState(t, db); after != before {
