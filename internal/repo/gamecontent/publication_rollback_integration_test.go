@@ -10,24 +10,9 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/payloadrelease"
-	gamecontentmodel "retrom/internal/model/gamecontent"
 	gamecontentservice "retrom/internal/service/gamecontent"
 	"retrom/internal/service/uploads"
 )
-
-type failingPublicationRepository struct {
-	*Repository
-}
-
-func (repository failingPublicationRepository) CommitPublish(
-	ctx context.Context, cmd gamecontentmodel.PublishCommand,
-) (gamecontentmodel.PublishResult, error) {
-	result, err := repository.Repository.CommitPublish(ctx, cmd)
-	if err != nil {
-		return result, err
-	}
-	return gamecontentmodel.PublishResult{}, context.DeadlineExceeded
-}
 
 func assertLatePublicationRollback(t *testing.T, database *sql.DB, blobs *blobstore.Store, uploadService *uploads.Service,
 	releases *payloadrelease.Service, gameID string, version int64, blobID, saveID string,
@@ -35,8 +20,8 @@ func assertLatePublicationRollback(t *testing.T, database *sql.DB, blobs *blobst
 	t.Helper()
 	upload := completeUpload(t, t.Context(), database, uploadService, "rollback.gba", []byte("late failure content"))
 	repo := New(database).WithGCStager(releases)
-	repository := failingPublicationRepository{repo}
-	service := gamecontentservice.New(repository, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
+	WithPublishPreCommitHook(repo, func() error { return context.DeadlineExceeded })
+	service := gamecontentservice.New(repo, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
 	result, err := service.Schedule(t.Context(), gameID, upload, version)
 	if err != nil {
 		t.Fatal(err)

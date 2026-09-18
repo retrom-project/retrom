@@ -48,11 +48,14 @@ func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, ru
 		t.Fatalf("partial initial review: before=%+v after=%+v", before, after)
 	}
 	var state, runState string
-	var events int
-	if err := database.QueryRowContext(t.Context(), `SELECT j.state,r.state,(SELECT count(*) FROM job_events WHERE job_id=j.id AND event_type<>'QUEUED') FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id=?`, jobID).Scan(&state, &runState, &events); err != nil {
+	var started, completed int
+	if err := database.QueryRowContext(t.Context(), `SELECT j.state,r.state,
+(SELECT count(*) FROM job_events WHERE job_id=j.id AND event_type='STARTED'),
+(SELECT count(*) FROM job_events WHERE job_id=j.id AND event_type IN ('SUCCEEDED','FAILED'))
+FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id=?`, jobID).Scan(&state, &runState, &started, &completed); err != nil {
 		t.Fatal(err)
 	}
-	if state != "QUEUED" || runState != "RUNNING" || events != 0 {
-		t.Fatalf("partial execution: state=%s run=%s events=%d", state, runState, events)
+	if state != "RUNNING" || runState != "RUNNING" || started != 1 || completed != 0 {
+		t.Fatalf("partial execution: state=%s run=%s started=%d completed=%d", state, runState, started, completed)
 	}
 }
