@@ -145,7 +145,7 @@ func copyOwnerReferences(
 	from, to model.Owner,
 	actorUserID string, now int64,
 ) ([]model.Reference, error) {
-	if !model.ValidID(from.ID) || !model.ValidID(to.ID) || !model.ValidID(actorUserID) {
+	if !model.ValidID(from.ID) || !model.ValidID(to.ID) {
 		return nil, model.ErrInvalid
 	}
 	refs, err := readOwnerReferences(ctx, executor, from)
@@ -154,6 +154,9 @@ func copyOwnerReferences(
 	}
 	if len(refs) == 0 {
 		return refs, nil
+	}
+	if !model.ValidID(actorUserID) {
+		return nil, model.ErrInvalid
 	}
 	if err := assignReferences(ctx, executor, to, refs, actorUserID, now); err != nil {
 		return nil, err
