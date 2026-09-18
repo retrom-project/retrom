@@ -18,20 +18,14 @@ type importRetryFixture struct {
 	write                model.ImportItemRetryWrite
 }
 
-func (fixture *importRetryFixture) WithRetry(
-	_ context.Context, work func(model.ImportItemRetryScope) error,
-) error {
-	fixture.transactions++
-	return work(fixture)
-}
-
-func (fixture *importRetryFixture) Current(
-	context.Context, string,
+func (fixture *importRetryFixture) LoadRetrySnapshot(
+	_ context.Context, _ string,
 ) (model.ImportItemRetrySnapshot, bool, error) {
+	fixture.transactions++
 	return fixture.snapshot, fixture.found, fixture.currentErr
 }
 
-func (fixture *importRetryFixture) Retry(
+func (fixture *importRetryFixture) CommitRetry(
 	_ context.Context, write model.ImportItemRetryWrite,
 ) error {
 	fixture.write = write
