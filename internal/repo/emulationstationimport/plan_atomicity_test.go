@@ -26,12 +26,11 @@ func TestPlanDeletionRollsBackEveryProjectionOnFailure(t *testing.T) {
 			if phase == "audit" {
 				plan.AuditID = creationPlan(0).AuditID
 			}
-			err := NewPlanLifecycle(db).WithPlanWrite(t.Context(), func(records emulationstationimportmodel.PlanRecords) error {
-				if err := records.Delete(t.Context(), plan); err != nil {
-					return err
-				}
-				return cause
-			})
+			repo := NewPlanLifecycle(db)
+			if phase == "after deletion" {
+				repo.WithPreCommitHook(func() error { return cause })
+			}
+			err := repo.CommitPlanDeletion(t.Context(), plan)
 			if err == nil {
 				t.Fatal("failed deletion committed")
 			}
@@ -63,12 +62,11 @@ func TestPlanExpiryRollsBackChildrenAndCounts(t *testing.T) {
 			if phase == "early" {
 				plan.NowMS--
 			}
-			err := NewPlanLifecycle(db).WithPlanWrite(t.Context(), func(records emulationstationimportmodel.PlanRecords) error {
-				if err := records.Expire(t.Context(), plan); err != nil {
-					return err
-				}
-				return cause
-			})
+			repo := NewPlanLifecycle(db)
+			if phase == "after expiry" {
+				repo.WithPreCommitHook(func() error { return cause })
+			}
+			err := repo.CommitPlanExpiry(t.Context(), plan)
 			want := emulationstationimportmodel.ErrInvalid
 			if phase == "after expiry" {
 				want = cause

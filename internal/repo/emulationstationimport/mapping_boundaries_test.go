@@ -66,10 +66,7 @@ func rejectedMapping(t *testing.T, db *sql.DB, instance, kind string) (emulation
 			t.Fatal(err)
 		}
 	case "foreign collection":
-		if err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
-			_, err := writer.Insert(t.Context(), creationPlan(1))
-			return err
-		}); err != nil {
+		if _, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(1)); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := db.ExecContext(t.Context(), `INSERT INTO emulationstation_import_gamelists(import_id,relative_path,size_bytes,source_facts_digest,content_digest,parse_state,game_count,created_at_ms) SELECT 'import-1',relative_path,size_bytes,source_facts_digest,content_digest,parse_state,game_count,created_at_ms FROM emulationstation_import_gamelists WHERE import_id='import-0'`); err != nil {

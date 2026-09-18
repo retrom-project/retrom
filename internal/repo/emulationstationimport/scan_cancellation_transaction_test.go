@@ -12,12 +12,7 @@ import (
 
 func insertScanPlan(t *testing.T, db *sql.DB, index int) emulationstationimportmodel.Summary {
 	t.Helper()
-	var summary emulationstationimportmodel.Summary
-	err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
-		var err error
-		summary, err = writer.Insert(t.Context(), creationPlan(index))
-		return err
-	})
+	summary, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(index))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,25 +78,20 @@ func assertPendingScanCapacity(t *testing.T, stage string) {
 	for index := 1; index < 20; index++ {
 		insertScanPlan(t, db, index)
 	}
-	err = NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
-		if stage == "read" {
-			count, err := writer.PendingPlans(t.Context())
-			if err != nil {
-				return err
-			}
-			if count != 20 {
-				t.Fatalf("pending capacity=%d", count)
-			}
-			return nil
+	repo := NewCreation(db)
+	if stage == "read" {
+		count, err := repo.LoadPendingPlanCount(t.Context())
+		if err != nil {
+			t.Fatal(err)
 		}
-		_, err := writer.Insert(t.Context(), creationPlan(20))
-		return err
-	})
-	if stage == "insert" && !errors.Is(err, emulationstationimportmodel.ErrActive) {
-		t.Fatalf("capacity cause=%v", err)
-	}
-	if stage == "read" && err != nil {
-		t.Fatal(err)
+		if count != 20 {
+			t.Fatalf("pending capacity=%d", count)
+		}
+	} else {
+		_, err = repo.CommitCreation(t.Context(), creationPlan(20))
+		if !errors.Is(err, emulationstationimportmodel.ErrActive) {
+			t.Fatalf("capacity cause=%v", err)
+		}
 	}
 }
 

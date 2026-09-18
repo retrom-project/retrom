@@ -10,43 +10,46 @@ import (
 )
 
 type planLifecycleMemory struct {
-	summary             model.Summary
-	candidates          []model.ExpiredPlan
-	err, commitErr      error
-	lookupErr, writeErr error
-	candidateLimit      int
-	candidateTime       int64
-	deleted             *model.PlanDeletion
-	expired             *model.PlanExpiry
+	summary        model.Summary
+	candidates     []model.ExpiredPlan
+	err            error
+	lookupErr      error
+	candidateLimit int
+	candidateTime  int64
+	deleted        *model.PlanDeletion
+	expired        *model.PlanExpiry
+	commitErr      error
 }
 
-func (m *planLifecycleMemory) WithPlanWrite(_ context.Context, work func(model.PlanRecords) error) error {
-	if err := work(m); err != nil {
-		return err
+func (m *planLifecycleMemory) LoadPlanSummary(_ context.Context, _ string) (model.Summary, error) {
+	if m.lookupErr != nil {
+		return model.Summary{}, m.lookupErr
 	}
-	return m.commitErr
+	if m.err != nil {
+		return model.Summary{}, m.err
+	}
+	return m.summary, nil
+}
+
+func (m *planLifecycleMemory) CommitPlanDeletion(_ context.Context, plan model.PlanDeletion) error {
+	m.deleted = &plan
+	if m.commitErr != nil {
+		return m.commitErr
+	}
+	return nil
+}
+
+func (m *planLifecycleMemory) CommitPlanExpiry(_ context.Context, plan model.PlanExpiry) error {
+	m.expired = &plan
+	if m.commitErr != nil {
+		return m.commitErr
+	}
+	return nil
 }
 
 func (m *planLifecycleMemory) ExpiredPlans(_ context.Context, now int64, limit int) ([]model.ExpiredPlan, error) {
 	m.candidateLimit, m.candidateTime = limit, now
 	return m.candidates, m.err
-}
-
-func (m *planLifecycleMemory) Get(context.Context, string) (model.Summary, error) {
-	if m.lookupErr != nil {
-		return model.Summary{}, m.lookupErr
-	}
-	return m.summary, m.err
-}
-
-func (m *planLifecycleMemory) Delete(_ context.Context, plan model.PlanDeletion) error {
-	m.deleted = &plan
-	return m.writeErr
-}
-
-func (m *planLifecycleMemory) Expire(_ context.Context, plan model.PlanExpiry) error {
-	m.expired = &plan
-	return m.writeErr
 }
 
 func TestPlanDeletionUsesCurrentVersionAndActor(t *testing.T) {
@@ -140,7 +143,7 @@ func TestPlanExpiryBoundsCandidateReadAndSkipsMissingPlans(t *testing.T) {
 func TestPlanExpiryPreservesFailuresFromEveryStage(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("expiry failed")
-	for _, phase := range []string{"candidates", "read", "write", "commit"} {
+	for _, phase := range []string{"candidates", "read", "commit"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
 			repo := &planLifecycleMemory{summary: model.Summary{ID: "plan", Version: 1, State: "AWAITING_MAPPING", ExpiresAtMS: 10}, candidates: []model.ExpiredPlan{{ID: "plan", Version: 1}}}
@@ -149,8 +152,6 @@ func TestPlanExpiryPreservesFailuresFromEveryStage(t *testing.T) {
 				repo.err = cause
 			case "read":
 				repo.lookupErr = cause
-			case "write":
-				repo.writeErr = cause
 			case "commit":
 				repo.commitErr = cause
 			}

@@ -21,10 +21,6 @@ type CreationPlan struct {
 }
 
 type CreationRepository interface {
-	WithCreate(context.Context, func(CreationWriter) error) error
-}
-
-type CreationWriter interface {
-	PendingPlans(context.Context) (int, error)
-	Insert(context.Context, CreationPlan) (Summary, error)
+	LoadPendingPlanCount(context.Context) (int, error)
+	CommitCreation(context.Context, CreationPlan) (Summary, error)
 }

@@ -10,36 +10,39 @@ import (
 )
 
 type planLifecycleMemory struct {
-	summary        model.Summary
-	candidates     []model.ExpiredPlan
-	err, commitErr error
-	deleted        *model.PlanDeletion
-	expired        *model.PlanExpiry
+	summary    model.Summary
+	candidates []model.ExpiredPlan
+	err        error
+	deleted    *model.PlanDeletion
+	expired    *model.PlanExpiry
+	commitErr  error
 }
 
-func (m *planLifecycleMemory) WithPlanWrite(_ context.Context, work func(model.PlanRecords) error) error {
-	if err := work(m); err != nil {
-		return err
+func (m *planLifecycleMemory) LoadPlanSummary(_ context.Context, _ string) (model.Summary, error) {
+	if m.err != nil {
+		return model.Summary{}, m.err
 	}
-	return m.commitErr
+	return m.summary, nil
+}
+
+func (m *planLifecycleMemory) CommitPlanDeletion(_ context.Context, plan model.PlanDeletion) error {
+	m.deleted = &plan
+	if m.commitErr != nil {
+		return m.commitErr
+	}
+	return nil
+}
+
+func (m *planLifecycleMemory) CommitPlanExpiry(_ context.Context, plan model.PlanExpiry) error {
+	m.expired = &plan
+	if m.commitErr != nil {
+		return m.commitErr
+	}
+	return nil
 }
 
 func (m *planLifecycleMemory) ExpiredPlans(context.Context, int64, int) ([]model.ExpiredPlan, error) {
 	return m.candidates, m.err
-}
-
-func (m *planLifecycleMemory) Get(context.Context, string) (model.Summary, error) {
-	return m.summary, m.err
-}
-
-func (m *planLifecycleMemory) Delete(_ context.Context, plan model.PlanDeletion) error {
-	m.deleted = &plan
-	return m.err
-}
-
-func (m *planLifecycleMemory) Expire(_ context.Context, plan model.PlanExpiry) error {
-	m.expired = &plan
-	return m.err
 }
 
 func TestPlanDeletionUsesCurrentVersionAndActor(t *testing.T) {

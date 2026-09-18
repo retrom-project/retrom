@@ -10,23 +10,24 @@ import (
 )
 
 type creationMemory struct {
-	count          int
-	err, commitErr error
-	inserted       bool
-	plan           model.CreationPlan
+	count    int
+	err      error
+	writeErr error
+	inserted bool
+	plan     model.CreationPlan
 }
 
-func (m *creationMemory) WithCreate(_ context.Context, work func(model.CreationWriter) error) error {
-	if err := work(m); err != nil {
-		return err
-	}
-	return m.commitErr
+func (m *creationMemory) LoadPendingPlanCount(context.Context) (int, error) {
+	return m.count, m.err
 }
-func (m *creationMemory) PendingPlans(context.Context) (int, error) { return m.count, m.err }
-func (m *creationMemory) Insert(_ context.Context, plan model.CreationPlan) (model.Summary, error) {
+
+func (m *creationMemory) CommitCreation(_ context.Context, plan model.CreationPlan) (model.Summary, error) {
 	m.inserted = true
 	m.plan = plan
-	return model.Summary{ID: plan.ImportID}, m.err
+	if m.writeErr != nil {
+		return model.Summary{}, m.writeErr
+	}
+	return model.Summary{ID: plan.ImportID}, nil
 }
 
 type creationSource struct {
@@ -78,7 +79,7 @@ func TestCreationRejectsCapacityWithinWriteScope(t *testing.T) {
 func TestCreationFailureReturnsNoPartialPlan(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("failed")
-	for _, phase := range []string{"source", "count", "commit"} {
+	for _, phase := range []string{"source", "count", "write"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
 			repo := &creationMemory{}
@@ -88,14 +89,14 @@ func TestCreationFailureReturnsNoPartialPlan(t *testing.T) {
 				source.err = cause
 			case "count":
 				repo.err = cause
-			case "commit":
-				repo.commitErr = cause
+			case "write":
+				repo.writeErr = cause
 			}
 			value, err := NewCreation(repo, source, time.Now).Create(t.Context(), model.CreateRequest{}, "actor")
 			if !errors.Is(err, cause) || value.ID != "" {
 				t.Fatalf("failed creation: %#v, %v", value, err)
 			}
-			if phase != "commit" && repo.inserted {
+			if phase != "write" && repo.inserted {
 				t.Fatal("creation continued after failure")
 			}
 		})

@@ -15,10 +15,7 @@ import (
 func publicationDatabase(t *testing.T) (*sql.DB, pegasusimportmodel.ExecutionIdentity, pegasusimportmodel.ScanProjection) {
 	t.Helper()
 	db := creationDatabase(t)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), creationPlan(0))
-		return err
-	}); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(0)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(

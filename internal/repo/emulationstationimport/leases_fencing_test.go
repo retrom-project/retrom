@@ -88,10 +88,7 @@ func assertLeaseCASRollback(t *testing.T, operation, scenario string) {
 	t.Helper()
 	db, _ := leaseDatabase(t, false)
 	seedLeaseOrphan(t, db)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), creationPlan(1))
-		return err
-	}); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(1)); err != nil {
 		t.Fatal(err)
 	}
 	var unit emulationstationimportmodel.Execution
