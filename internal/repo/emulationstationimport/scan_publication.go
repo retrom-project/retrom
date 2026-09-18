@@ -9,21 +9,54 @@ import (
 	"retrom/internal/repo/dbexec"
 )
 
-type ScanPublication struct{ database *sql.DB }
+type ScanPublication struct {
+	database      *sql.DB
+	preCommitHook func(dbexec.Executor) error
+}
 
 func NewScanPublication(database *sql.DB) *ScanPublication {
 	return &ScanPublication{database: database}
 }
 
-func (repository *ScanPublication) WithScan(ctx context.Context, work func(application.ScanScope) error) error {
+func (repository *ScanPublication) WithPreCommitHook(hook func(dbexec.Executor) error) {
+	repository.preCommitHook = hook
+}
+
+func (repository *ScanPublication) LoadScanOwner(
+	ctx context.Context, jobID string,
+) (application.LeaseSnapshot, bool, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return application.LeaseSnapshot{}, false,
+			fmt.Errorf("begin EmulationStation scan read: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	snapshot, found, err := leaseRecords{executor: tx}.Current(ctx, jobID)
+	if err != nil {
+		return application.LeaseSnapshot{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return application.LeaseSnapshot{}, false,
+			fmt.Errorf("commit EmulationStation scan read: %w", err)
+	}
+	return snapshot, found, nil
+}
+
+func (repository *ScanPublication) commitScan(
+	ctx context.Context, fn func(scanRecords) error,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin EmulationStation scan transaction: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	records := scanRecords{executor: tx}
-	if err := work(application.ScanScope{Read: records, Write: records}); err != nil {
+	if err := fn(scanRecords{executor: tx}); err != nil {
 		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(tx); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit EmulationStation scan transaction: %w", err)
@@ -31,11 +64,50 @@ func (repository *ScanPublication) WithScan(ctx context.Context, work func(appli
 	return nil
 }
 
-type scanRecords struct{ executor dbexec.Executor }
-
-func (records scanRecords) Current(ctx context.Context, id string) (application.LeaseSnapshot, bool, error) {
-	return leaseRecords(records).Current(ctx, id)
+func (repository *ScanPublication) CommitScanClear(
+	ctx context.Context, change application.ScanMutation,
+) error {
+	return repository.commitScan(ctx, func(r scanRecords) error {
+		return r.Clear(ctx, change)
+	})
 }
+
+func (repository *ScanPublication) CommitScanHeaders(
+	ctx context.Context, change application.ScanMutation, proj application.ScanProjection,
+) error {
+	return repository.commitScan(ctx, func(r scanRecords) error {
+		return r.Headers(ctx, change, proj)
+	})
+}
+
+func (repository *ScanPublication) CommitScanItems(
+	ctx context.Context, change application.ScanMutation, items []application.ScanItem,
+) error {
+	return repository.commitScan(ctx, func(r scanRecords) error {
+		return r.Items(ctx, change, items)
+	})
+}
+
+func (repository *ScanPublication) CommitScanComplete(
+	ctx context.Context, change application.ScanMutation, proj application.ScanProjection,
+) error {
+	return repository.commitScan(ctx, func(r scanRecords) error {
+		return r.Complete(ctx, change, proj)
+	})
+}
+
+func (repository *ScanPublication) CommitScanRejection(
+	ctx context.Context, change application.ScanMutation, proj application.ScanProjection,
+) error {
+	return repository.commitScan(ctx, func(r scanRecords) error {
+		if err := r.Headers(ctx, change, proj); err != nil {
+			return fmt.Errorf("persist rejected scan headers: %w", err)
+		}
+		return r.Reject(ctx, change, proj)
+	})
+}
+
+type scanRecords struct{ executor dbexec.Executor }
 
 func (records scanRecords) fence(ctx context.Context, change application.ScanMutation) error {
 	before := change.Before

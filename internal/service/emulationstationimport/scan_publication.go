@@ -18,45 +18,74 @@ func NewScanPublication(repository model.ScanRepository, now func() time.Time) *
 }
 
 func (service *ScanPublication) Reset(ctx context.Context, unit model.Execution) error {
-	return service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
-		return scope.Write.Clear(ctx, change)
-	})
+	change, err := service.ownerChange(ctx, unit)
+	if err != nil {
+		return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+	}
+	if err := service.repository.CommitScanClear(ctx, change); err != nil {
+		return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+	}
+	return nil
 }
 
-func (service *ScanPublication) Headers(ctx context.Context, unit model.Execution, value model.ScanProjection) error {
-	return service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
-		return scope.Write.Headers(ctx, change, value)
-	})
+func (service *ScanPublication) Headers(
+	ctx context.Context, unit model.Execution, value model.ScanProjection,
+) error {
+	change, err := service.ownerChange(ctx, unit)
+	if err != nil {
+		return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+	}
+	if err := service.repository.CommitScanHeaders(ctx, change, value); err != nil {
+		return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+	}
+	return nil
 }
 
-func (service *ScanPublication) Items(ctx context.Context, unit model.Execution, items []model.ScanItem) error {
+func (service *ScanPublication) Items(
+	ctx context.Context, unit model.Execution, items []model.ScanItem,
+) error {
 	for offset := 0; offset < len(items); offset += 500 {
 		batch := items[offset:min(offset+500, len(items))]
-		if err := service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
-			return scope.Write.Items(ctx, change, batch)
-		}); err != nil {
-			return err
+		change, err := service.ownerChange(ctx, unit)
+		if err != nil {
+			return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+		}
+		if err := service.repository.CommitScanItems(ctx, change, batch); err != nil {
+			return fmt.Errorf("publish EmulationStation scan projection: %w", err)
 		}
 	}
 	return nil
 }
 
-func (service *ScanPublication) Finish(ctx context.Context, unit model.Execution, value model.ScanProjection) error {
-	return service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
-		return scope.Write.Complete(ctx, change, value)
-	})
+func (service *ScanPublication) Finish(
+	ctx context.Context, unit model.Execution, value model.ScanProjection,
+) error {
+	change, err := service.ownerChange(ctx, unit)
+	if err != nil {
+		return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+	}
+	if err := service.repository.CommitScanComplete(ctx, change, value); err != nil {
+		return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+	}
+	return nil
 }
 
-func (service *ScanPublication) Rejected(ctx context.Context, unit model.Execution, value model.ScanProjection) error {
-	return service.withOwner(ctx, unit, func(scope model.ScanScope, change model.ScanMutation) error {
-		if err := scope.Write.Headers(ctx, change, value); err != nil {
-			return fmt.Errorf("persist rejected scan headers: %w", err)
-		}
-		return scope.Write.Reject(ctx, change, value)
-	})
+func (service *ScanPublication) Rejected(
+	ctx context.Context, unit model.Execution, value model.ScanProjection,
+) error {
+	change, err := service.ownerChange(ctx, unit)
+	if err != nil {
+		return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+	}
+	if err := service.repository.CommitScanRejection(ctx, change, value); err != nil {
+		return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+	}
+	return nil
 }
 
-func (service *ScanPublication) Publish(ctx context.Context, unit model.Execution, value model.ScanProjection) error {
+func (service *ScanPublication) Publish(
+	ctx context.Context, unit model.Execution, value model.ScanProjection,
+) error {
 	if err := service.Headers(ctx, unit, value); err != nil {
 		return err
 	}
@@ -66,34 +95,28 @@ func (service *ScanPublication) Publish(ctx context.Context, unit model.Executio
 	return service.Finish(ctx, unit, value)
 }
 
-func (service *ScanPublication) withOwner(
-	ctx context.Context,
-	unit model.Execution,
-	write func(model.ScanScope, model.ScanMutation) error,
-) error {
+func (service *ScanPublication) ownerChange(
+	ctx context.Context, unit model.Execution,
+) (model.ScanMutation, error) {
 	if unit.Kind != "SERVER_EMULATIONSTATION_SCAN" {
-		return model.ErrInvalid
+		return model.ScanMutation{}, model.ErrInvalid
 	}
-	err := service.repository.WithScan(ctx, func(scope model.ScanScope) error {
-		current, found, err := scope.Read.Current(ctx, unit.JobID)
-		if err != nil {
-			return fmt.Errorf("read EmulationStation scan owner: %w", err)
-		}
-		if !found {
-			return model.ErrVersionConflict
-		}
-		now := service.now().UnixMilli()
-		switch ExecutionState(current, unit, now) {
-		case model.LeaseActive:
-		case model.LeaseDeadline:
-			return model.ErrExpired
-		case model.LeaseLost, model.LeaseCancelled:
-			return model.ErrVersionConflict
-		}
-		return write(scope, model.ScanMutation{Before: current, NowMS: now})
-	})
+	current, found, err := service.repository.LoadScanOwner(ctx, unit.JobID)
 	if err != nil {
-		return fmt.Errorf("publish EmulationStation scan projection: %w", err)
+		return model.ScanMutation{}, fmt.Errorf(
+			"read EmulationStation scan owner: %w", err,
+		)
 	}
-	return nil
+	if !found {
+		return model.ScanMutation{}, model.ErrVersionConflict
+	}
+	now := service.now().UnixMilli()
+	switch ExecutionState(current, unit, now) {
+	case model.LeaseActive:
+	case model.LeaseDeadline:
+		return model.ScanMutation{}, model.ErrExpired
+	case model.LeaseLost, model.LeaseCancelled:
+		return model.ScanMutation{}, model.ErrVersionConflict
+	}
+	return model.ScanMutation{Before: current, NowMS: now}, nil
 }
