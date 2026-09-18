@@ -8,15 +8,14 @@ import (
 	model "retrom/internal/model/launch"
 )
 
-func readPreviewRestore(
+func (service *PreviewCreator) readRestore(
 	ctx context.Context,
-	scope model.PreviewCreationScope,
 	request model.ReviewPreviewRequest,
 ) (model.PreviewRestore, error) {
 	if request.RestoreFromPreviewID == nil {
 		return model.PreviewRestore{}, nil
 	}
-	restore, found, err := scope.Restore(ctx, *request.RestoreFromPreviewID)
+	restore, found, err := service.repository.LoadPreviewRestore(ctx, *request.RestoreFromPreviewID)
 	if err != nil {
 		return model.PreviewRestore{}, fmt.Errorf("read preview restore: %w", err)
 	}

@@ -52,20 +52,18 @@ func (monitor *validationMonitor) Close() error {
 }
 
 func (service *ValidationWorker) heartbeat(ctx context.Context, claim model.ValidationClaim) error {
-	err := service.repository.WithWorker(ctx, func(scope model.ValidationWorkerScope) error {
-		current, found, err := scope.Jobs.Read(ctx, claim.Job.ID)
-		if err != nil {
-			return validationStageError("read heartbeat owner", err)
-		}
-		now := service.environment.Now().UnixMilli()
-		if !found {
-			return model.ErrValidationOwnership
-		}
-		if err := validationOwnerError(current, claim, now); err != nil {
-			return err
-		}
-		lease := min(now+int64(validationLease/time.Millisecond), *current.DeadlineMS)
-		return scope.Jobs.Renew(ctx, claim, now, lease)
-	})
+	current, found, err := service.repository.LoadValidationWork(ctx, claim.Job.ID)
+	if err != nil {
+		return validationStageError("heartbeat validation", validationStageError("read heartbeat owner", err))
+	}
+	now := service.environment.Now().UnixMilli()
+	if !found {
+		return validationStageError("heartbeat validation", model.ErrValidationOwnership)
+	}
+	if err := validationOwnerError(current, claim, now); err != nil {
+		return validationStageError("heartbeat validation", err)
+	}
+	lease := min(now+int64(validationLease/time.Millisecond), *current.DeadlineMS)
+	err = service.repository.CommitValidationRenewal(ctx, claim, now, lease)
 	return validationStageError("heartbeat validation", err)
 }

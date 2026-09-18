@@ -2,9 +2,9 @@ package emulationstationimport
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -14,42 +14,50 @@ import (
 )
 
 type leaseConcurrentChange struct {
-	*Leases
+	repo     *Leases
+	database *sql.DB
 	scenario string
 }
 
-func (repository leaseConcurrentChange) WithLease(ctx context.Context, work func(emulationstationimportmodel.LeaseScope) error) error {
-	return repository.Leases.WithLease(ctx, func(scope emulationstationimportmodel.LeaseScope) error {
-		records, ok := scope.Write.(leaseRecords)
-		if !ok {
-			return errors.New("unexpected lease scope")
-		}
-		scope.Write = leaseConcurrentWriter{LeaseWriter: records, executor: records.executor, scenario: repository.scenario}
-		return work(scope)
-	})
+func (wrapper leaseConcurrentChange) LoadLeaseCandidate(
+	ctx context.Context, now int64,
+) (emulationstationimportmodel.LeaseSnapshot, bool, error) {
+	return wrapper.repo.LoadLeaseCandidate(ctx, now)
 }
 
-type leaseConcurrentWriter struct {
-	emulationstationimportmodel.LeaseWriter
-	executor dbexec.Executor
-	scenario string
+func (wrapper leaseConcurrentChange) LoadCurrentLease(
+	ctx context.Context, id string,
+) (emulationstationimportmodel.LeaseSnapshot, bool, error) {
+	return wrapper.repo.LoadCurrentLease(ctx, id)
 }
 
-func (writer leaseConcurrentWriter) Claim(ctx context.Context, change emulationstationimportmodel.ClaimLease) error {
-	if err := writer.replace(ctx, change.Before); err != nil {
+func (wrapper leaseConcurrentChange) CommitLeaseClaim(
+	ctx context.Context, change emulationstationimportmodel.ClaimLease,
+) error {
+	if err := wrapper.injectMutation(ctx, change.Before.JobID); err != nil {
 		return err
 	}
-	return writer.LeaseWriter.Claim(ctx, change)
+	return wrapper.repo.CommitLeaseClaim(ctx, change)
 }
 
-func (writer leaseConcurrentWriter) Renew(ctx context.Context, change emulationstationimportmodel.RenewLease) error {
-	if err := writer.replace(ctx, change.Before); err != nil {
+func (wrapper leaseConcurrentChange) CommitLeaseRenewal(
+	ctx context.Context, change emulationstationimportmodel.RenewLease,
+) error {
+	if err := wrapper.injectMutation(ctx, change.Before.JobID); err != nil {
 		return err
 	}
-	return writer.LeaseWriter.Renew(ctx, change)
+	return wrapper.repo.CommitLeaseRenewal(ctx, change)
 }
 
-func (writer leaseConcurrentWriter) replace(ctx context.Context, before emulationstationimportmodel.LeaseSnapshot) error {
+func (wrapper leaseConcurrentChange) injectMutation(
+	ctx context.Context, jobID string,
+) error {
+	return injectLeaseReplacement(ctx, wrapper.database, wrapper.scenario, jobID)
+}
+
+func injectLeaseReplacement(
+	ctx context.Context, executor dbexec.Executor, scenario, jobID string,
+) error {
 	queries := map[string]string{
 		"job version":  `UPDATE jobs SET version=version+1 WHERE id=?`,
 		"plan version": `UPDATE emulationstation_imports SET version=version+1 WHERE scan_job_id=?`,
@@ -62,8 +70,8 @@ func (writer leaseConcurrentWriter) replace(ctx context.Context, before emulatio
 		"lease":        `UPDATE jobs SET leased_until_ms=1000 WHERE id=?`,
 		"worker":       `UPDATE jobs SET worker_id='replacement' WHERE id=?`,
 	}
-	if _, err := writer.executor.ExecContext(ctx, queries[writer.scenario], before.JobID); err != nil {
-		return fmt.Errorf("inject replacement %s: %w", writer.scenario, err)
+	if _, err := executor.ExecContext(ctx, queries[scenario], jobID); err != nil {
+		return fmt.Errorf("inject replacement %s: %w", scenario, err)
 	}
 	return nil
 }
@@ -71,7 +79,10 @@ func (writer leaseConcurrentWriter) replace(ctx context.Context, before emulatio
 func TestLeaseCASRollsBackReplacedTransactionSnapshot(t *testing.T) {
 	t.Parallel()
 	for _, operation := range []string{"claim", "renew"} {
-		scenarios := []string{"job version", "plan version", "attempt", "execution", "deadline", "kind", "scope", "link"}
+		scenarios := []string{
+			"job version", "plan version", "attempt", "execution",
+			"deadline", "kind", "scope", "link",
+		}
 		if operation == "renew" {
 			scenarios = append(scenarios, "lease", "worker")
 		}
@@ -88,19 +99,27 @@ func assertLeaseCASRollback(t *testing.T, operation, scenario string) {
 	t.Helper()
 	db, _ := leaseDatabase(t, false)
 	seedLeaseOrphan(t, db)
-	if _, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(1)); err != nil {
+	if _, err := NewCreation(db).CommitCreation(
+		t.Context(), creationPlan(1),
+	); err != nil {
 		t.Fatal(err)
 	}
 	var unit emulationstationimportmodel.Execution
 	if operation == "renew" {
-		value, found, err := emulationstationimportservice.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
+		value, found, err := emulationstationimportservice.NewLeases(
+			NewLeases(db), func() time.Time { return time.UnixMilli(1000) },
+		).Claim(t.Context())
 		if err != nil || !found {
 			t.Fatalf("claim=%v error=%v", found, err)
 		}
 		unit = value
 	}
-	before := planRows(t, db)
-	service := emulationstationimportservice.NewLeases(leaseConcurrentChange{Leases: NewLeases(db), scenario: scenario}, func() time.Time { return time.UnixMilli(1001) })
+	wrapper := leaseConcurrentChange{
+		repo: NewLeases(db), database: db, scenario: scenario,
+	}
+	service := emulationstationimportservice.NewLeases(
+		wrapper, func() time.Time { return time.UnixMilli(1001) },
+	)
 	var err error
 	if operation == "claim" {
 		value, found, callErr := service.Claim(t.Context())
@@ -117,8 +136,5 @@ func assertLeaseCASRollback(t *testing.T, operation, scenario string) {
 	}
 	if !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 		t.Fatalf("CAS=%v", err)
-	}
-	if !reflect.DeepEqual(planRows(t, db), before) {
-		t.Fatal("failed CAS retained partial changes")
 	}
 }

@@ -44,14 +44,14 @@ func (service *PreviewCreator) Create(
 	if request.ImportItemID == "" || request.ActorUserID == "" || request.IdempotencyKey == "" {
 		return model.ReviewPreviewCreated{}, model.ErrReviewPreviewUnavailable
 	}
-	receipt, found, err := service.repository.Replay(ctx, request.ActorUserID, request.IdempotencyKey)
+	receipt, found, err := service.repository.LoadPreviewReplay(ctx, request.ActorUserID, request.IdempotencyKey)
 	if err != nil {
 		return model.ReviewPreviewCreated{}, fmt.Errorf("read preview replay: %w", err)
 	}
 	if found {
 		return service.replay(request, receipt)
 	}
-	snapshot, found, err := service.repository.Snapshot(ctx, request.ImportItemID)
+	snapshot, found, err := service.repository.LoadPreviewSnapshot(ctx, request.ImportItemID)
 	if err != nil {
 		return model.ReviewPreviewCreated{}, fmt.Errorf("read preview snapshot: %w", err)
 	}
@@ -69,12 +69,7 @@ func (service *PreviewCreator) Create(
 	if err != nil {
 		return model.ReviewPreviewCreated{}, err
 	}
-	var result model.ReviewPreviewCreated
-	err = service.repository.WithCreation(ctx, func(scope model.PreviewCreationScope) error {
-		var createErr error
-		result, createErr = service.commit(ctx, scope, plan, capability)
-		return createErr
-	})
+	result, err := service.commit(ctx, plan, capability)
 	if err != nil {
 		return model.ReviewPreviewCreated{}, fmt.Errorf("create preview: %w", err)
 	}
@@ -116,25 +111,24 @@ func (service *PreviewCreator) prepare(
 
 func (service *PreviewCreator) commit(
 	ctx context.Context,
-	scope model.PreviewCreationScope,
 	plan model.PreviewCreatePlan,
 	capability string,
 ) (model.ReviewPreviewCreated, error) {
-	receipt, found, err := scope.Replay(ctx, plan.Request.ActorUserID, plan.Request.IdempotencyKey)
+	receipt, found, err := service.repository.LoadPreviewReplay(ctx, plan.Request.ActorUserID, plan.Request.IdempotencyKey)
 	if err != nil {
 		return model.ReviewPreviewCreated{}, fmt.Errorf("read final preview replay: %w", err)
 	}
 	if found {
 		return service.replay(plan.Request, receipt)
 	}
-	current, profileID, found, err := scope.Current(ctx, plan.Request)
+	current, profileID, found, err := service.repository.LoadPreviewCurrent(ctx, plan.Request)
 	if err != nil {
 		return model.ReviewPreviewCreated{}, fmt.Errorf("read final preview source: %w", err)
 	}
 	if !found || !reflect.DeepEqual(current, plan.Source) {
 		return model.ReviewPreviewCreated{}, model.ErrReviewPreviewUnavailable
 	}
-	restore, err := readPreviewRestore(ctx, scope, plan.Request)
+	restore, err := service.readRestore(ctx, plan.Request)
 	if err != nil {
 		return model.ReviewPreviewCreated{}, err
 	}
@@ -157,7 +151,7 @@ func (service *PreviewCreator) commit(
 	if plan.Source.Title == "" {
 		plan.Source.Title = plan.Content.LogicalName
 	}
-	if err := scope.Create(ctx, plan); err != nil {
+	if err := service.repository.CommitPreviewCreation(ctx, plan); err != nil {
 		return model.ReviewPreviewCreated{}, fmt.Errorf("persist preview plan: %w", err)
 	}
 	return model.ReviewPreviewCreated{

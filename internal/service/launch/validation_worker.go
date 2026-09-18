@@ -69,7 +69,7 @@ func (service *ValidationWorker) Run(ctx context.Context, id string) error {
 	evaluation, stopEvaluation := context.WithCancelCause(evaluation)
 	defer stopEvaluation(context.Canceled)
 	monitor := service.monitor(evaluation, claim, stopEvaluation)
-	facts, err := service.repository.Facts(evaluation, claim.Snapshot.Inputs)
+	facts, err := service.repository.LoadValidationFacts(evaluation, claim.Snapshot.Inputs)
 	var outcome model.ValidationOutcome
 	if err == nil {
 		outcome, err = EvaluateValidation(claim.Snapshot.Inputs, facts)
@@ -85,37 +85,31 @@ func (service *ValidationWorker) Run(ctx context.Context, id string) error {
 }
 
 func (service *ValidationWorker) claim(ctx context.Context, id string) (model.ValidationClaim, bool, error) {
-	var claim model.ValidationClaim
-	claimed := false
-	err := service.repository.WithWorker(ctx, func(scope model.ValidationWorkerScope) error {
-		work, found, err := scope.Jobs.Read(ctx, id)
-		if err != nil {
-			return validationStageError("validation operation", err)
-		}
-		now := service.environment.Now().UnixMilli()
-		if !found || work.Kind != "VARIANT_VALIDATE" || work.State != "QUEUED" || work.AvailableMS > now {
-			return nil
-		}
-		if validationExhausted(work, now) {
-			return scope.Jobs.Recover(ctx, model.ValidationRecovery{Before: work, NowMS: now, Terminal: true})
-		}
-		plan, err := service.claimPlan(work, now)
-		if err != nil {
-			return err
-		}
-		if err := scope.Jobs.Claim(ctx, plan); err != nil {
-			return fmt.Errorf("claim validation attempt: %w", err)
-		}
+	work, found, err := service.repository.LoadValidationWork(ctx, id)
+	if err != nil {
+		return model.ValidationClaim{}, false, validationStageError("validation operation", err)
+	}
+	now := service.environment.Now().UnixMilli()
+	if !found || work.Kind != "VARIANT_VALIDATE" || work.State != "QUEUED" || work.AvailableMS > now {
+		return model.ValidationClaim{}, false, nil
+	}
+	if validationExhausted(work, now) {
+		err := service.repository.CommitValidationRecovery(ctx, model.ValidationRecovery{Before: work, NowMS: now, Terminal: true})
+		return model.ValidationClaim{}, false, validationStageError("claim validation transaction", err)
+	}
+	plan, err := service.claimPlan(work, now)
+	if err != nil {
+		return model.ValidationClaim{}, false, validationStageError("claim validation transaction", err)
+	}
+	if err := service.repository.CommitValidationClaim(ctx, plan); err != nil {
+		return model.ValidationClaim{}, false, validationStageError("claim validation transaction", fmt.Errorf("claim validation attempt: %w", err))
+	}
 
-		work.WorkerID, work.State = plan.WorkerID, "RUNNING"
-		work.Attempt++
-		work.Version++
-		work.StartedMS, work.DeadlineMS, work.LeaseMS = &plan.StartedMS, &plan.DeadlineMS, &plan.LeaseMS
-		claim.Job = work
-		claimed = true
-		return nil
-	})
-	return claim, claimed, validationStageError("claim validation transaction", err)
+	work.WorkerID, work.State = plan.WorkerID, "RUNNING"
+	work.Attempt++
+	work.Version++
+	work.StartedMS, work.DeadlineMS, work.LeaseMS = &plan.StartedMS, &plan.DeadlineMS, &plan.LeaseMS
+	return model.ValidationClaim{Job: work}, true, nil
 }
 
 // Decode only after claiming, so corrupt input can settle the owned attempt.
@@ -172,41 +166,36 @@ func (service *ValidationWorker) settle(
 	before model.ValidationFacts,
 	outcome model.ValidationOutcome,
 ) error {
-	err := service.repository.WithWorker(ctx, func(scope model.ValidationWorkerScope) error {
-		current, found, err := scope.Jobs.Read(ctx, claim.Job.ID)
-		if err != nil {
-			return validationStageError("validation operation", err)
-		}
-		now := service.environment.Now().UnixMilli()
-		if !found {
-			return model.ErrValidationOwnership
-		}
-		if err := validationOwnerError(current, claim, now); err != nil {
-			return err
-		}
-		after, err := scope.Facts.Facts(ctx, claim.Snapshot.Inputs)
-		if err != nil {
-			return validationStageError("validation operation", err)
-		}
-		if err = validateFinalValidation(claim.Snapshot.Inputs, before, after); err != nil {
-			return validationStageError("validation operation", err)
-		}
-		if err = scope.Variants.Apply(
-			ctx,
-			model.ValidationVariantWrite{Inputs: claim.Snapshot.Inputs, Outcome: outcome, NowMS: now},
-		); err != nil {
-			return validationStageError("validation operation", err)
-		}
-		state, code := "FAILED", outcome.Code
-		if outcome.Status == "READY" {
-			state = "SUCCEEDED"
-		}
-		return scope.Jobs.Finish(
-			ctx,
-			model.ValidationTerminal{Claim: claim, State: state, Code: code, NowMS: now, Evaluated: true},
-		)
-	})
-	return validationStageError("settle validation transaction", err)
+	current, found, err := service.repository.LoadValidationWork(ctx, claim.Job.ID)
+	if err != nil {
+		return validationStageError("settle validation transaction", validationStageError("validation operation", err))
+	}
+	now := service.environment.Now().UnixMilli()
+	if !found {
+		return validationStageError("settle validation transaction", model.ErrValidationOwnership)
+	}
+	if err := validationOwnerError(current, claim, now); err != nil {
+		return validationStageError("settle validation transaction", err)
+	}
+	after, err := service.repository.LoadValidationFacts(ctx, claim.Snapshot.Inputs)
+	if err != nil {
+		return validationStageError("settle validation transaction", validationStageError("validation operation", err))
+	}
+	if err = validateFinalValidation(claim.Snapshot.Inputs, before, after); err != nil {
+		return validationStageError("settle validation transaction", validationStageError("validation operation", err))
+	}
+	state, code := "FAILED", outcome.Code
+	if outcome.Status == "READY" {
+		state = "SUCCEEDED"
+	}
+	settlement := model.ValidationSettlement{
+		Variant: model.ValidationVariantWrite{Inputs: claim.Snapshot.Inputs, Outcome: outcome, NowMS: now},
+		Finish:  model.ValidationTerminal{Claim: claim, State: state, Code: code, NowMS: now, Evaluated: true},
+	}
+	if err := service.repository.CommitValidationSettlement(ctx, settlement); err != nil {
+		return validationStageError("settle validation transaction", validationStageError("validation operation", err))
+	}
+	return nil
 }
 
 func (service *ValidationWorker) fail(parent context.Context, claim model.ValidationClaim, cause error) error {
@@ -215,33 +204,30 @@ func (service *ValidationWorker) fail(parent context.Context, claim model.Valida
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
-	err := service.repository.WithWorker(ctx, func(scope model.ValidationWorkerScope) error {
-		current, found, err := scope.Jobs.Read(ctx, claim.Job.ID)
-		if err != nil {
-			return validationStageError("validation operation", err)
-		}
-		// Cleanup may close its own expired attempt, but never a replacement owner.
-		if !found || !sameValidationAttempt(current, claim.Job) {
-			return nil
-		}
-		state, code, retryable := "FAILED", validationUnavailable, true
-		if errors.Is(cause, ErrValidationGameChanged) {
-			state, code, retryable = "CANCELLED", "GAME_STATE_CHANGED", false
-		}
-		if errors.Is(cause, ErrValidationInput) {
-			retryable = false
-		}
-		return scope.Jobs.Finish(
-			ctx,
-			model.ValidationTerminal{
-				Claim:     claim,
-				State:     state,
-				Code:      code,
-				Retryable: retryable,
-				NowMS:     service.environment.Now().UnixMilli(),
-			},
-		)
-	})
+	current, found, err := service.repository.LoadValidationWork(ctx, claim.Job.ID)
+	if err != nil {
+		return errors.Join(cause, validationStageError("validation operation", err))
+	}
+	if !found || !sameValidationAttempt(current, claim.Job) {
+		return cause
+	}
+	state, code, retryable := "FAILED", validationUnavailable, true
+	if errors.Is(cause, ErrValidationGameChanged) {
+		state, code, retryable = "CANCELLED", "GAME_STATE_CHANGED", false
+	}
+	if errors.Is(cause, ErrValidationInput) {
+		retryable = false
+	}
+	err = service.repository.CommitValidationFinish(
+		ctx,
+		model.ValidationTerminal{
+			Claim:     claim,
+			State:     state,
+			Code:      code,
+			Retryable: retryable,
+			NowMS:     service.environment.Now().UnixMilli(),
+		},
+	)
 	return errors.Join(cause, err)
 }
 
@@ -257,7 +243,7 @@ func sameValidationAttempt(current, expected model.ValidationWork) bool {
 }
 
 func (service *ValidationWorker) Recover(ctx context.Context) ([]string, error) {
-	candidates, err := service.repository.Candidates(ctx, service.environment.Now().UnixMilli())
+	candidates, err := service.repository.LoadValidationCandidates(ctx, service.environment.Now().UnixMilli())
 	if err != nil {
 		return nil, fmt.Errorf("read validation recovery candidates: %w", err)
 	}
@@ -275,31 +261,26 @@ func (service *ValidationWorker) Recover(ctx context.Context) ([]string, error) 
 }
 
 func (service *ValidationWorker) recoverOne(ctx context.Context, id string) (bool, error) {
-	queued := false
-	err := service.repository.WithWorker(ctx, func(scope model.ValidationWorkerScope) error {
-		current, found, err := scope.Jobs.Read(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read recovery execution: %w", err)
+	current, found, err := service.repository.LoadValidationWork(ctx, id)
+	if err != nil {
+		return false, validationStageError("recover validation transaction", fmt.Errorf("read recovery execution: %w", err))
+	}
+	if !found || current.Kind != "VARIANT_VALIDATE" {
+		return false, nil
+	}
+	now := service.environment.Now().UnixMilli()
+	stale := current.State == "RUNNING" && current.LeaseMS != nil && *current.LeaseMS <= now
+	if current.State != "QUEUED" && !stale {
+		return false, nil
+	}
+	exhausted := validationExhausted(current, now)
+	if stale || exhausted {
+		recovery := model.ValidationRecovery{Before: current, NowMS: now, Terminal: exhausted}
+		if err := service.repository.CommitValidationRecovery(ctx, recovery); err != nil {
+			return false, validationStageError("recover validation transaction", fmt.Errorf("recover validation execution: %w", err))
 		}
-		if !found || current.Kind != "VARIANT_VALIDATE" {
-			return nil
-		}
-		now := service.environment.Now().UnixMilli()
-		stale := current.State == "RUNNING" && current.LeaseMS != nil && *current.LeaseMS <= now
-		if current.State != "QUEUED" && !stale {
-			return nil
-		}
-		exhausted := validationExhausted(current, now)
-		if stale || exhausted {
-			recovery := model.ValidationRecovery{Before: current, NowMS: now, Terminal: exhausted}
-			if err := scope.Jobs.Recover(ctx, recovery); err != nil {
-				return fmt.Errorf("recover validation execution: %w", err)
-			}
-		}
-		queued = !exhausted && (stale || current.AvailableMS <= now)
-		return nil
-	})
-	return queued, validationStageError("recover validation transaction", err)
+	}
+	return !exhausted && (stale || current.AvailableMS <= now), nil
 }
 
 func validationExhausted(work model.ValidationWork, now int64) bool {

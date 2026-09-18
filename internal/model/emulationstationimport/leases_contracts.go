@@ -29,23 +29,11 @@ type RenewLease struct {
 	NowMS, UntilMS int64
 }
 
-type LeaseReader interface {
-	Next(context.Context, int64) (LeaseSnapshot, bool, error)
-	Current(context.Context, string) (LeaseSnapshot, bool, error)
-}
-
-type LeaseWriter interface {
-	Claim(context.Context, ClaimLease) error
-	Renew(context.Context, RenewLease) error
-}
-
-type LeaseScope struct {
-	Read  LeaseReader
-	Write LeaseWriter
-}
-
 type LeaseRepository interface {
-	WithLease(context.Context, func(LeaseScope) error) error
+	LoadLeaseCandidate(context.Context, int64) (LeaseSnapshot, bool, error)
+	LoadCurrentLease(context.Context, string) (LeaseSnapshot, bool, error)
+	CommitLeaseClaim(context.Context, ClaimLease) error
+	CommitLeaseRenewal(context.Context, RenewLease) error
 }
 
 type LeaseState string

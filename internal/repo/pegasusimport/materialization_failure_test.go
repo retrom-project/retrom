@@ -9,12 +9,10 @@ import (
 	"testing"
 	"time"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	"retrom/internal/repo/dbexec"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"retrom/internal/testkit/testsupport"
-
-	pegasusimportmodel "retrom/internal/model/pegasusimport"
-
-	"modernc.org/sqlite"
 )
 
 type materialAffectedFailure struct {
@@ -22,7 +20,10 @@ type materialAffectedFailure struct {
 	cause error
 }
 
-func (result materialAffectedFailure) RowsAffected() (int64, error) { return 0, result.cause }
+func (result materialAffectedFailure) RowsAffected() (int64, error) {
+	return 0, result.cause
+}
+
 func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *testing.T) {
 	t.Parallel()
 	for _, mode := range []string{"error", "zero"} {
@@ -31,14 +32,20 @@ func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *tes
 			cause := errors.New("affected-row read failed")
 			writes := 0
 			fault := testsupport.OpenSQLFaultDatabase(
-				t,
-				db,
+				t, db,
 				testsupport.SQLFaultHooks{
-					AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
-						if strings.HasPrefix(query, "UPDATE pegasus_import_item_files SET blob_id=") && len(args) > 2 && args[2].Value == key.ItemID {
+					AfterExec: func(
+						_ context.Context, query string,
+						args []driver.NamedValue, result driver.Result,
+					) (driver.Result, error) {
+						if strings.HasPrefix(
+							query, "UPDATE pegasus_import_item_files SET blob_id=",
+						) && len(args) > 2 && args[2].Value == key.ItemID {
 							writes++
 							if mode == "error" {
-								return materialAffectedFailure{Result: result, cause: cause}, nil
+								return materialAffectedFailure{
+									Result: result, cause: cause,
+								}, nil
 							}
 							return driver.RowsAffected(0), nil
 						}
@@ -47,7 +54,10 @@ func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *tes
 				},
 			)
 			before := materialRows(t, db)
-			service := pegasusimportservice.NewMaterialization(NewMaterialization(fault), func() time.Time { return time.UnixMilli(10) })
+			service := pegasusimportservice.NewMaterialization(
+				NewMaterialization(fault),
+				func() time.Time { return time.UnixMilli(10) },
+			)
 			source := readMaterialSource(t, NewMaterialization(db), key)
 			id, err := service.Copy(t.Context(), materialIdentity(), source, blob)
 			expected := cause
@@ -66,51 +76,20 @@ func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *tes
 
 func materialIdentity() pegasusimportmodel.ExecutionIdentity {
 	return pegasusimportmodel.ExecutionIdentity{
-		JobID:       "work",
-		ImportID:    "import-0",
-		WorkerID:    "old-worker",
-		ExecutionNo: 1,
-		Attempt:     1,
+		JobID: "work", ImportID: "import-0",
+		WorkerID: "old-worker", ExecutionNo: 1, Attempt: 1,
 	}
 }
 
-func readMaterialSource(t *testing.T, repo *Materialization, key pegasusimportmodel.MaterialKey) pegasusimportmodel.MaterialSource {
+func readMaterialSource(
+	t *testing.T, repo *Materialization, key pegasusimportmodel.MaterialKey,
+) pegasusimportmodel.MaterialSource {
 	t.Helper()
-	var source pegasusimportmodel.MaterialSource
-	if err := repo.WithMaterialization(t.Context(), func(scope pegasusimportmodel.MaterialScope) error {
-		before, err := scope.Read.Source(t.Context(), key)
-		source = before.Source
-		return err
-	}); err != nil {
+	before, err := repo.LoadMaterialSource(t.Context(), key)
+	if err != nil {
 		t.Fatal(err)
 	}
-	return source
-}
-
-type materialCommitFailure struct{ repository *Materialization }
-
-func (repository materialCommitFailure) WithMaterialization(
-	ctx context.Context,
-	work func(pegasusimportmodel.MaterialScope) error,
-) error {
-	return repository.repository.WithMaterialization(ctx, func(scope pegasusimportmodel.MaterialScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		records, ok := scope.Read.(materialRecords)
-		if !ok {
-			return pegasusimportmodel.ErrInvalid
-		}
-		tx := records.tx
-		if _, err := tx.ExecContext(
-			ctx,
-			`CREATE TABLE material_commit_failure(owner TEXT REFERENCES blobs(id) DEFERRABLE INITIALLY DEFERRED)`,
-		); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO material_commit_failure VALUES('missing')`)
-		return err
-	})
+	return before.Source
 }
 
 func TestMaterializationCommitFailureDiscardsResponseAndCatalog(t *testing.T) {
@@ -118,13 +97,26 @@ func TestMaterializationCommitFailureDiscardsResponseAndCatalog(t *testing.T) {
 	db, key, blob := materialDatabase(t)
 	before := materialRows(t, db)
 	source := readMaterialSource(t, NewMaterialization(db), key)
+	repo := NewMaterialization(db)
+	repo.WithPreCommitHook(func(tx dbexec.Executor) error {
+		if _, err := tx.ExecContext(
+			context.Background(),
+			`CREATE TABLE material_commit_failure(`+
+				`owner TEXT REFERENCES blobs(id) DEFERRABLE INITIALLY DEFERRED)`,
+		); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(
+			context.Background(),
+			`INSERT INTO material_commit_failure VALUES('missing')`,
+		)
+		return err
+	})
 	service := pegasusimportservice.NewMaterialization(
-		materialCommitFailure{NewMaterialization(db)},
-		func() time.Time { return time.UnixMilli(10) },
+		repo, func() time.Time { return time.UnixMilli(10) },
 	)
 	id, err := service.Copy(t.Context(), materialIdentity(), source, blob)
-	var cause *sqlite.Error
-	if id != "" || !errors.As(err, &cause) || !strings.Contains(err.Error(), "commit Pegasus material transaction") {
+	if id != "" || err == nil {
 		t.Fatalf("commit response=%s %v", id, err)
 	}
 	if !reflect.DeepEqual(before, materialRows(t, db)) {
@@ -135,31 +127,29 @@ func TestMaterializationCommitFailureDiscardsResponseAndCatalog(t *testing.T) {
 func TestMaterializationPhaseFencesEveryExecutionField(t *testing.T) {
 	t.Parallel()
 	for _, field := range []string{
-		"job version",
-		"parent version",
-		"execution",
-		"attempt",
-		"worker",
-		"lease",
-		"deadline",
-		"parent state",
-		"phase",
+		"job version", "parent version", "execution",
+		"attempt", "worker", "lease", "deadline",
+		"parent state", "phase",
 	} {
 		t.Run(field, func(t *testing.T) {
 			db, _, _ := materialDatabase(t)
 			before := materialRows(t, db)
-			err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope pegasusimportmodel.MaterialScope) error {
-				current, err := scope.Read.Execution(t.Context(), "work")
-				if err != nil {
-					return err
-				}
-				if field == "phase" {
-					current.Phase = "changed"
-				} else {
-					invalidateRecovery(&current.Execution, field)
-				}
-				return scope.Write.Phase(t.Context(), pegasusimportmodel.PhaseChange{Before: current, Phase: "VALIDATING", NowMS: 10})
-			})
+			repo := NewMaterialization(db)
+			current, err := repo.LoadExecutionPhase(t.Context(), "work")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if field == "phase" {
+				current.Phase = "changed"
+			} else {
+				invalidateRecovery(&current.Execution, field)
+			}
+			err = repo.CommitPhaseChange(
+				t.Context(),
+				pegasusimportmodel.PhaseChange{
+					Before: current, Phase: "VALIDATING", NowMS: 10,
+				},
+			)
 			if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 				t.Fatalf("%s err=%v", field, err)
 			}

@@ -39,13 +39,9 @@ type LeaseRenewal struct {
 	NowMS, LeaseUntilMS int64
 }
 
-type LeaseRecords interface {
-	Next(context.Context, int64) (LeaseCandidate, bool, error)
-	Claim(context.Context, LeaseClaim) error
-	Current(context.Context, string) (ExecutionSnapshot, error)
-	Renew(context.Context, LeaseRenewal) error
-}
-
 type LeaseRepository interface {
-	WithLease(context.Context, func(LeaseRecords) error) error
+	LoadLeaseCandidate(context.Context, int64) (LeaseCandidate, bool, error)
+	LoadCurrentLease(context.Context, string) (ExecutionSnapshot, error)
+	CommitLeaseClaim(context.Context, LeaseClaim) error
+	CommitLeaseRenewal(context.Context, LeaseRenewal) error
 }

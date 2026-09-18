@@ -35,7 +35,7 @@ type recoveryConcurrentWriter struct {
 }
 
 func (writer recoveryConcurrentWriter) Apply(ctx context.Context, change emulationstationimportmodel.RecoveryChange) error {
-	if err := (leaseConcurrentWriter{executor: writer.executor, scenario: writer.scenario}).replace(ctx, change.Before); err != nil {
+	if err := injectLeaseReplacement(ctx, writer.executor, writer.scenario, change.Before.JobID); err != nil {
 		return err
 	}
 	return writer.RecoveryWriter.Apply(ctx, change)

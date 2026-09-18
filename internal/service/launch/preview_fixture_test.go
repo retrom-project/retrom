@@ -19,14 +19,15 @@ type previewTestRepository struct {
 	receipt, finalReceipt                                                               *model.PreviewReceipt
 	replayErr, finalReplayErr, snapshotErr, currentErr, restoreErr, writeErr, commitErr error
 	missingSnapshot, missingCurrent, missingRestore                                     bool
-	inTransaction                                                                       bool
-	transactions, loads                                                                 int
+	replayCount                                                                         int
+	loads                                                                               int
 	writes                                                                              []model.PreviewCreatePlan
 }
 
-func (repository *previewTestRepository) Replay(context.Context, string, string) (model.PreviewReceipt, bool, error) {
+func (repository *previewTestRepository) LoadPreviewReplay(_ context.Context, _, _ string) (model.PreviewReceipt, bool, error) {
+	repository.replayCount++
 	receipt, cause := repository.receipt, repository.replayErr
-	if repository.inTransaction {
+	if repository.replayCount > 1 {
 		receipt, cause = repository.finalReceipt, repository.finalReplayErr
 	}
 	if receipt == nil {
@@ -35,32 +36,25 @@ func (repository *previewTestRepository) Replay(context.Context, string, string)
 	return *receipt, true, cause
 }
 
-func (repository *previewTestRepository) Snapshot(context.Context, string) (model.PreviewSnapshot, bool, error) {
+func (repository *previewTestRepository) LoadPreviewSnapshot(_ context.Context, _ string) (model.PreviewSnapshot, bool, error) {
 	repository.loads++
 	return repository.snapshot, !repository.missingSnapshot, repository.snapshotErr
 }
 
-func (repository *previewTestRepository) WithCreation(_ context.Context, work func(model.PreviewCreationScope) error) error {
-	repository.transactions++
-	repository.inTransaction = true
-	defer func() { repository.inTransaction = false }()
-	if err := work(repository); err != nil {
-		return err
-	}
-	return repository.commitErr
-}
-
-func (repository *previewTestRepository) Current(context.Context, model.ReviewPreviewRequest) (model.PreviewSource, string, bool, error) {
+func (repository *previewTestRepository) LoadPreviewCurrent(_ context.Context, _ model.ReviewPreviewRequest) (model.PreviewSource, string, bool, error) {
 	return repository.current, "profile", !repository.missingCurrent, repository.currentErr
 }
 
-func (repository *previewTestRepository) Restore(context.Context, string) (model.PreviewRestore, bool, error) {
+func (repository *previewTestRepository) LoadPreviewRestore(_ context.Context, _ string) (model.PreviewRestore, bool, error) {
 	return repository.restore, !repository.missingRestore, repository.restoreErr
 }
 
-func (repository *previewTestRepository) Create(_ context.Context, plan model.PreviewCreatePlan) error {
+func (repository *previewTestRepository) CommitPreviewCreation(_ context.Context, plan model.PreviewCreatePlan) error {
 	repository.writes = append(repository.writes, plan)
-	return repository.writeErr
+	if repository.writeErr != nil {
+		return repository.writeErr
+	}
+	return repository.commitErr
 }
 
 type previewTestProvider struct {
@@ -86,11 +80,6 @@ func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository, *pre
 	}
 	repository := &previewTestRepository{snapshot: model.PreviewSnapshot{Source: source, SourceFiles: []model.PreviewFile{{Role: "CONTENT", LogicalName: "game.bin", BlobID: "game"}}}, current: source}
 	provider := &previewTestProvider{target: runtimebundle.Target{Inputs: []runtimebundle.Input{{Role: "game"}}}}
-	provider.before = func() {
-		if repository.inTransaction {
-			t.Fatal("provider called inside creation transaction")
-		}
-	}
 	environment := model.PreviewEnvironment{
 		Now: func() time.Time { return time.UnixMilli(1000) }, NewID: func() (string, error) { return previewTestID, nil },
 		SignCapability: func(string) (string, []byte, error) { return "test", make([]byte, 32), nil },

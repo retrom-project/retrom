@@ -10,44 +10,113 @@ import (
 	"retrom/internal/repo/dbexec"
 )
 
-type Play struct{ database *sql.DB }
+type Play struct {
+	database      *sql.DB
+	preCommitHook func(dbexec.Executor) error
+}
 
 func NewPlay(database *sql.DB) *Play { return &Play{database: database} }
-func (repository *Play) WithPlay(ctx context.Context, work func(application.PlayScope) error) error {
+
+func (repository *Play) WithPreCommitHook(
+	hook func(dbexec.Executor) error,
+) {
+	repository.preCommitHook = hook
+}
+
+func (repository *Play) LoadPlaySource(
+	ctx context.Context, id string,
+) (application.PlaySource, bool, error) {
+	return playRecords{executor: repository.database}.Source(ctx, id)
+}
+
+func (repository *Play) LoadPlayRecord(
+	ctx context.Context, id string,
+) (application.PlayRecord, bool, error) {
+	return playRecords{executor: repository.database}.Current(ctx, id)
+}
+
+func (repository *Play) LoadPlayEvent(
+	ctx context.Context, id string, sequence int64,
+) (application.StoredPlayEvent, bool, error) {
+	return playRecords{executor: repository.database}.Event(ctx, id, sequence)
+}
+
+func (repository *Play) commitPlay(
+	ctx context.Context, label string,
+	execute func(playRecords) error,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin play transaction: %w", err)
+		return fmt.Errorf("begin play %s: %w", label, err)
 	}
 	defer dbexec.Rollback(tx)
-	records := playRecords{transaction: tx}
-	if err := work(application.PlayScope{Read: records, Write: records}); err != nil {
+	records := playRecords{transaction: tx, executor: tx}
+	if err := execute(records); err != nil {
 		return err
 	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(tx); err != nil {
+			return err
+		}
+	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit play transaction: %w", err)
+		return fmt.Errorf("commit play %s: %w", label, err)
 	}
 	return nil
 }
 
-type playRecords struct{ transaction *sql.Tx }
+func (repository *Play) CommitPlayStart(
+	ctx context.Context, plan application.PlayStart,
+) error {
+	return repository.commitPlay(ctx, "start", func(records playRecords) error {
+		return records.Start(ctx, plan)
+	})
+}
 
-func (records playRecords) Source(ctx context.Context, id string) (application.PlaySource, bool, error) {
+func (repository *Play) CommitPlayProgress(
+	ctx context.Context, plan application.PlayProgress,
+) error {
+	return repository.commitPlay(ctx, "progress", func(records playRecords) error {
+		return records.Progress(ctx, plan)
+	})
+}
+
+func (repository *Play) CommitPlayFinish(
+	ctx context.Context, plan application.PlayFinish,
+) error {
+	return repository.commitPlay(ctx, "finish", func(records playRecords) error {
+		return records.Finish(ctx, plan)
+	})
+}
+
+type playRecords struct {
+	transaction *sql.Tx
+	executor    dbexec.Executor
+}
+
+func (records playRecords) Source(
+	ctx context.Context, id string,
+) (application.PlaySource, bool, error) {
 	var source application.PlaySource
 	var idle sql.NullInt64
-	err := records.transaction.QueryRowContext(ctx, `
+	err := records.executor.QueryRowContext(ctx, `
 SELECT id,0,credential_sha256,state,profile_id,game_id,hard_expires_at_ms,idle_expires_at_ms,version
 FROM launch_sessions WHERE id=?
 UNION ALL
 SELECT id,1,credential_sha256,state,'','',hard_expires_at_ms,NULL,version
 FROM review_preview_sessions WHERE id=?`, id, id).Scan(
-		&source.Ref.ID, &source.Ref.Preview, &source.Session.CredentialHash, &source.Session.State,
-		&source.ProfileID, &source.GameID, &source.Session.HardExpiresAtMS, &idle, &source.Version,
+		&source.Ref.ID, &source.Ref.Preview,
+		&source.Session.CredentialHash, &source.Session.State,
+		&source.ProfileID, &source.GameID,
+		&source.Session.HardExpiresAtMS, &idle, &source.Version,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.PlaySource{}, false, nil
 	}
 	if err != nil {
-		return application.PlaySource{}, false, fmt.Errorf("query play source: %w", err)
+		return application.PlaySource{}, false, fmt.Errorf(
+			"query play source: %w", err,
+		)
 	}
 	if idle.Valid {
 		source.IdleExpiresAtMS = &idle.Int64
@@ -55,37 +124,48 @@ FROM review_preview_sessions WHERE id=?`, id, id).Scan(
 	return source, true, nil
 }
 
-func (records playRecords) Current(ctx context.Context, id string) (application.PlayRecord, bool, error) {
+func (records playRecords) Current(
+	ctx context.Context, id string,
+) (application.PlayRecord, bool, error) {
 	var result application.PlayRecord
-	err := records.transaction.QueryRowContext(ctx, `
+	err := records.executor.QueryRowContext(ctx, `
 SELECT id,state,version,last_client_sequence,last_heartbeat_at_ms,active_duration_ms
-FROM play_sessions WHERE launch_session_id=?`, id).Scan(&result.ID, &result.State, &result.Version,
-		&result.LastSequence, &result.LastHeartbeatAtMS, &result.ActiveDurationMS)
+FROM play_sessions WHERE launch_session_id=?`, id).Scan(
+		&result.ID, &result.State, &result.Version,
+		&result.LastSequence, &result.LastHeartbeatAtMS,
+		&result.ActiveDurationMS,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.PlayRecord{}, false, nil
 	}
 	if err != nil {
-		return application.PlayRecord{}, false, fmt.Errorf("query current play: %w", err)
+		return application.PlayRecord{}, false, fmt.Errorf(
+			"query current play: %w", err,
+		)
 	}
 	return result, true, nil
 }
 
 func (records playRecords) Event(
-	ctx context.Context,
-	id string,
-	sequence int64,
+	ctx context.Context, id string, sequence int64,
 ) (application.StoredPlayEvent, bool, error) {
 	var result application.StoredPlayEvent
-	err := records.transaction.QueryRowContext(ctx, `
+	err := records.executor.QueryRowContext(ctx, `
 SELECT event_kind,client_observed_at_ms,accepted_duration_ms,running,visible,paused
-FROM play_session_events WHERE play_session_id=? AND client_sequence=?`, id, sequence).
-		Scan(&result.Kind, &result.ClientObservedAtMS, &result.AcceptedDurationMS,
-			&result.Interval.Running, &result.Interval.Visible, &result.Interval.Paused)
+FROM play_session_events WHERE play_session_id=? AND client_sequence=?`,
+		id, sequence).Scan(
+		&result.Kind, &result.ClientObservedAtMS,
+		&result.AcceptedDurationMS,
+		&result.Interval.Running, &result.Interval.Visible,
+		&result.Interval.Paused,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.StoredPlayEvent{}, false, nil
 	}
 	if err != nil {
-		return application.StoredPlayEvent{}, false, fmt.Errorf("query prior play event: %w", err)
+		return application.StoredPlayEvent{}, false, fmt.Errorf(
+			"query prior play event: %w", err,
+		)
 	}
 	return result, true, nil
 }

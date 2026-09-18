@@ -18,34 +18,55 @@ type materialMemory struct {
 	readErr, writeErr, commitErr error
 }
 
-func (memory *materialMemory) WithMaterialization(_ context.Context, run func(model.MaterialScope) error) error {
-	if err := run(model.MaterialScope{Read: memory, Write: memory}); err != nil {
-		return err
-	}
-	return memory.commitErr
-}
-
-func (memory *materialMemory) Source(context.Context, model.MaterialKey) (model.MaterialSnapshot, error) {
+func (memory *materialMemory) LoadMaterialSource(
+	_ context.Context, _ model.MaterialKey,
+) (model.MaterialSnapshot, error) {
 	return memory.before, memory.readErr
 }
 
-func (memory *materialMemory) Execution(context.Context, string) (model.ExecutionPhase, error) {
+func (memory *materialMemory) LoadExecutionPhase(
+	_ context.Context, _ string,
+) (model.ExecutionPhase, error) {
 	return memory.phase, memory.readErr
 }
 
-func (memory *materialMemory) Bind(_ context.Context, change model.MaterialBinding) (string, error) {
+func (memory *materialMemory) CommitMaterialBinding(
+	_ context.Context, change model.MaterialBinding,
+) (string, error) {
+	if memory.writeErr != nil {
+		return "", memory.writeErr
+	}
+	if memory.commitErr != nil {
+		return "", memory.commitErr
+	}
 	memory.binding = change
-	return "material-blob", memory.writeErr
+	return "material-blob", nil
 }
 
-func (memory *materialMemory) Warn(_ context.Context, change model.MaterialWarning) error {
+func (memory *materialMemory) CommitMaterialWarning(
+	_ context.Context, change model.MaterialWarning,
+) error {
+	if memory.writeErr != nil {
+		return memory.writeErr
+	}
+	if memory.commitErr != nil {
+		return memory.commitErr
+	}
 	memory.warning = change
-	return memory.writeErr
+	return nil
 }
 
-func (memory *materialMemory) Phase(_ context.Context, change model.PhaseChange) error {
+func (memory *materialMemory) CommitPhaseChange(
+	_ context.Context, change model.PhaseChange,
+) error {
+	if memory.writeErr != nil {
+		return memory.writeErr
+	}
+	if memory.commitErr != nil {
+		return memory.commitErr
+	}
 	memory.phaseChange = change
-	return memory.writeErr
+	return nil
 }
 
 func newMaterialMemory() *materialMemory {
@@ -78,7 +99,9 @@ func TestMaterializationRequiresOriginalAuthorityAndFrozenFacts(t *testing.T) {
 			case "state":
 				memory.before.Before.Item.State = "VALIDATING"
 			}
-			result, err := NewMaterialization(memory, func() time.Time { return time.UnixMilli(2000) }).Copy(
+			result, err := NewMaterialization(
+				memory, func() time.Time { return time.UnixMilli(2000) },
+			).Copy(
 				t.Context(),
 				unit,
 				source,
@@ -101,9 +124,13 @@ func TestMaterializationWarningUsesESFieldsAndRetainsBound(t *testing.T) {
 	memory := newMaterialMemory()
 	memory.before.Source.Key.Kind = "COVER"
 	for range 64 {
-		memory.before.Warnings = append(memory.before.Warnings, map[string]any{"code": "PARSE_WARNING"})
+		memory.before.Warnings = append(
+			memory.before.Warnings, map[string]any{"code": "PARSE_WARNING"},
+		)
 	}
-	service := NewMaterialization(memory, func() time.Time { return time.UnixMilli(2000) })
+	service := NewMaterialization(
+		memory, func() time.Time { return time.UnixMilli(2000) },
+	)
 	err := service.Warning(
 		t.Context(),
 		memory.before.Before.Execution.Execution,
@@ -143,7 +170,9 @@ func TestMaterializationPreservesErrorsAndUncommittedResult(t *testing.T) {
 			case "commit":
 				memory.commitErr = cause
 			}
-			result, err := NewMaterialization(memory, func() time.Time { return time.UnixMilli(2000) }).Copy(
+			result, err := NewMaterialization(
+				memory, func() time.Time { return time.UnixMilli(2000) },
+			).Copy(
 				t.Context(),
 				memory.before.Before.Execution.Execution,
 				memory.before.Source,

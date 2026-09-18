@@ -16,51 +16,77 @@ type materialMemory struct {
 	failure                 error
 }
 
-func (m *materialMemory) WithMaterialization(_ context.Context, work func(model.MaterialScope) error) error {
-	return work(model.MaterialScope{Read: m, Write: m})
-}
-
-func (m *materialMemory) Source(context.Context, model.MaterialKey) (model.MaterialSnapshot, error) {
+func (m *materialMemory) LoadMaterialSource(
+	_ context.Context, _ model.MaterialKey,
+) (model.MaterialSnapshot, error) {
 	return m.snapshot, m.failure
 }
 
-func (m *materialMemory) Execution(context.Context, string) (model.ExecutionPhase, error) {
+func (m *materialMemory) LoadExecutionPhase(
+	_ context.Context, _ string,
+) (model.ExecutionPhase, error) {
 	return m.phase, m.failure
 }
 
-func (m *materialMemory) Bind(_ context.Context, _ model.MaterialBinding) (string, error) {
+func (m *materialMemory) CommitMaterialBinding(
+	_ context.Context, _ model.MaterialBinding,
+) (string, error) {
+	if m.failure != nil {
+		return "", m.failure
+	}
 	m.binds++
-	return "blob", m.failure
+	return "blob", nil
 }
 
-func (m *materialMemory) Warn(_ context.Context, _ model.MaterialWarning) error {
+func (m *materialMemory) CommitMaterialWarning(
+	_ context.Context, _ model.MaterialWarning,
+) error {
+	if m.failure != nil {
+		return m.failure
+	}
 	m.warnings++
-	return m.failure
+	return nil
 }
 
-func (m *materialMemory) Phase(_ context.Context, _ model.PhaseChange) error {
+func (m *materialMemory) CommitPhaseChange(
+	_ context.Context, _ model.PhaseChange,
+) error {
+	if m.failure != nil {
+		return m.failure
+	}
 	m.phases++
-	return m.failure
+	return nil
 }
 
-func materialMemoryFixture() (*materialMemory, model.ExecutionIdentity, model.MaterialSource, model.VerifiedBlob) {
+func materialMemoryFixture() (
+	*materialMemory, model.ExecutionIdentity, model.MaterialSource, model.VerifiedBlob,
+) {
 	item, id := itemWorkFixture()
 	item.item.State = "COPYING"
-	source := model.MaterialSource{Key: model.MaterialKey{ItemID: "item", Ordinal: 0}, Path: "game.gba", Facts: "facts", Size: 4}
+	source := model.MaterialSource{
+		Key:  model.MaterialKey{ItemID: "item", Ordinal: 0},
+		Path: "game.gba", Facts: "facts", Size: 4,
+	}
 	blob := model.VerifiedBlob{SHA256: "digest", Size: 4}
 	return &materialMemory{
 		snapshot: model.MaterialSnapshot{
-			Before: model.OwnedItem{Execution: item.execution, Item: item.item},
+			Before: model.OwnedItem{
+				Execution: item.execution, Item: item.item,
+			},
 			Source: source,
 			State:  "DISCOVERED",
 		},
-		phase: model.ExecutionPhase{Execution: item.execution, Phase: "COPYING_CONTENT"},
+		phase: model.ExecutionPhase{
+			Execution: item.execution, Phase: "COPYING_CONTENT",
+		},
 	}, id, source, blob
 }
 
 func TestMaterializationPolicyFencesWritesAndCopiedReplay(t *testing.T) {
 	t.Parallel()
-	for _, field := range []string{"worker", "size", "path", "facts", "state", "replay mismatch"} {
+	for _, field := range []string{
+		"worker", "size", "path", "facts", "state", "replay mismatch",
+	} {
 		t.Run(field, func(t *testing.T) {
 			memory, id, source, blob := materialMemoryFixture()
 			switch field {
@@ -79,7 +105,9 @@ func TestMaterializationPolicyFencesWritesAndCopiedReplay(t *testing.T) {
 				memory.snapshot.Blob = model.VerifiedBlob{SHA256: "other", Size: 4}
 				memory.snapshot.BlobID = "other"
 			}
-			service := NewMaterialization(memory, func() time.Time { return time.UnixMilli(10) })
+			service := NewMaterialization(
+				memory, func() time.Time { return time.UnixMilli(10) },
+			)
 			result, err := service.Copy(t.Context(), id, source, blob)
 			if err == nil || result != "" || memory.binds != 0 {
 				t.Fatalf("%s wrote: %s %v binds=%d", field, result, err, memory.binds)
@@ -90,12 +118,11 @@ func TestMaterializationPolicyFencesWritesAndCopiedReplay(t *testing.T) {
 	memory.snapshot.State = "COPIED"
 	memory.snapshot.Blob = blob
 	memory.snapshot.BlobID = "existing"
-	service := NewMaterialization(memory, func() time.Time { return time.UnixMilli(10) })
+	service := NewMaterialization(
+		memory, func() time.Time { return time.UnixMilli(10) },
+	)
 	if result, err := service.Copy(
-		t.Context(),
-		id,
-		source,
-		blob,
+		t.Context(), id, source, blob,
 	); err != nil || result != "existing" || memory.binds != 0 {
 		t.Fatalf("replay=%s %v", result, err)
 	}
@@ -104,7 +131,9 @@ func TestMaterializationPolicyFencesWritesAndCopiedReplay(t *testing.T) {
 func TestMaterializationPhaseAndCancellationPreserveAuthorityAndReadCause(t *testing.T) {
 	t.Parallel()
 	memory, id, _, _ := materialMemoryFixture()
-	service := NewMaterialization(memory, func() time.Time { return time.UnixMilli(10) })
+	service := NewMaterialization(
+		memory, func() time.Time { return time.UnixMilli(10) },
+	)
 	if err := service.SetPhase(t.Context(), id, "COPYING_CONTENT"); err != nil || memory.phases != 0 {
 		t.Fatalf("same phase=%v", err)
 	}
@@ -123,7 +152,9 @@ func TestMaterializationPhaseAndCancellationPreserveAuthorityAndReadCause(t *tes
 		t.Fatalf("cancel checkpoint=%v %v", cancelled, err)
 	}
 	id.WorkerID = "previous"
-	if cancelled, err := service.Cancelled(t.Context(), id); cancelled || !errors.Is(err, model.ErrVersionConflict) {
+	if cancelled, err := service.Cancelled(
+		t.Context(), id,
+	); cancelled || !errors.Is(err, model.ErrVersionConflict) {
 		t.Fatalf("stale checkpoint=%v %v", cancelled, err)
 	}
 }

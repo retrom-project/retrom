@@ -27,37 +27,38 @@ func TestMaterializationRepeatsExecutionItemAndSourceFence(t *testing.T) {
 			db, _, source, blob := materialDatabase(t)
 			source = materialAsset(source)
 			beforeRows := planRows(t, db)
-			err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope application.MaterialScope) error {
-				before, err := scope.Read.Source(t.Context(), source.Key)
-				if err != nil {
-					return err
-				}
-				switch field {
-				case "worker":
-					before.Before.Execution.WorkerID = "changed"
-				case "job version":
-					before.Before.Execution.JobVersion++
-				case "lease":
-					before.Before.Execution.LeaseUntilMS++
-				case "deadline":
-					before.Before.Execution.DeadlineAtMS++
-				case "item version":
-					before.Before.Item.Version++
-				case "root":
-					before.Before.Execution.RootDigest = "changed"
-				case "facts":
-					before.Source.Facts = "changed"
-				case "path":
-					before.Source.Path = "changed.png"
-				case "size":
-					before.Source.Size++
-				case "dimensions":
-					width := int64(2)
-					before.Source.Width = &width
-				}
-				_, err = scope.Write.Bind(t.Context(), application.MaterialBinding{Before: before, Blob: blob, NowMS: 1100})
-				return err
-			})
+			repo := NewMaterialization(db)
+			before, err := repo.LoadMaterialSource(t.Context(), source.Key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch field {
+			case "worker":
+				before.Before.Execution.WorkerID = "changed"
+			case "job version":
+				before.Before.Execution.JobVersion++
+			case "lease":
+				before.Before.Execution.LeaseUntilMS++
+			case "deadline":
+				before.Before.Execution.DeadlineAtMS++
+			case "item version":
+				before.Before.Item.Version++
+			case "root":
+				before.Before.Execution.RootDigest = "changed"
+			case "facts":
+				before.Source.Facts = "changed"
+			case "path":
+				before.Source.Path = "changed.png"
+			case "size":
+				before.Source.Size++
+			case "dimensions":
+				width := int64(2)
+				before.Source.Width = &width
+			}
+			_, err = repo.CommitMaterialBinding(
+				t.Context(),
+				application.MaterialBinding{Before: before, Blob: blob, NowMS: 1100},
+			)
 			if !errors.Is(err, application.ErrVersionConflict) {
 				t.Fatalf("accepted changed authority: %v", err)
 			}

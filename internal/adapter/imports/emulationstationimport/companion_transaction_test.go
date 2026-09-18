@@ -6,13 +6,20 @@ import (
 	"testing"
 
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	"retrom/internal/repo/dbexec"
 	persistence "retrom/internal/repo/emulationstationimport"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
 func companionRecordFixture(
 	t *testing.T,
-) (lifecycleFixture, work, emulationstationimportmodel.CompanionOwner, emulationstationimportmodel.CompanionFile, emulationstationimportmodel.VerifiedBlob) {
+) (
+	lifecycleFixture,
+	work,
+	emulationstationimportmodel.CompanionOwner,
+	emulationstationimportmodel.CompanionFile,
+	emulationstationimportmodel.VerifiedBlob,
+) {
 	t.Helper()
 	fixture, unit, item := companionFixture(t)
 	selection, err := fixture.service.companions().Find(fixture.context, unit, item.ID)
@@ -53,43 +60,28 @@ func TestESCompanionRegistrationReusesOnlyMatchingVerifiedCatalog(t *testing.T) 
 	}
 }
 
-type lateCompanionRepository struct {
-	emulationstationimportmodel.CompanionRepository
-	stop  context.CancelFunc
-	cause error
-}
-
-func (repository lateCompanionRepository) WithCompanions(
-	ctx context.Context,
-	run func(emulationstationimportmodel.CompanionScope) error,
-) error {
-	return repository.CompanionRepository.WithCompanions(ctx, func(scope emulationstationimportmodel.CompanionScope) error {
-		if err := run(scope); err != nil {
-			return err
-		}
-		if repository.stop != nil {
-			repository.stop()
-		}
-		return repository.cause
-	})
-}
-
 func TestESCompanionLateFailureRollsBackCatalogAndResponse(t *testing.T) {
-	for _, stage := range []string{"callback", "commit"} {
+	for _, stage := range []string{"pre-commit hook", "commit"} {
 		t.Run(stage, func(t *testing.T) {
 			fixture, unit, owner, file, blob := companionRecordFixture(t)
 			before := materialAuthoritySnapshot(t, fixture, owner.Before.Item.ID)
 			ctx, cancel := context.WithCancel(fixture.context)
 			defer cancel()
 			cause := errors.New("late companion failure")
-			repository := lateCompanionRepository{CompanionRepository: persistence.NewCompanions(fixture.database), cause: cause}
-			if stage == "commit" {
-				repository.cause = nil
-				repository.stop = cancel
+			repo := persistence.NewCompanions(fixture.database)
+			if stage == "pre-commit hook" {
+				repo.WithPreCommitHook(func(_ dbexec.Executor) error {
+					return cause
+				})
+			} else {
+				repo.WithPreCommitHook(func(_ dbexec.Executor) error {
+					cancel()
+					return nil
+				})
 				cause = context.Canceled
 			}
 			service := emulationstationimportservice.NewCompanions(
-				repository,
+				repo,
 				importExecutorAdapter{service: fixture.service},
 				fixture.service.now,
 			)
@@ -97,7 +89,9 @@ func TestESCompanionLateFailureRollsBackCatalogAndResponse(t *testing.T) {
 			if !errors.Is(err, cause) || id != "" {
 				t.Fatalf("id=%s error=%v", id, err)
 			}
-			if before != materialAuthoritySnapshot(t, fixture, owner.Before.Item.ID) {
+			if before != materialAuthoritySnapshot(
+				t, fixture, owner.Before.Item.ID,
+			) {
 				t.Fatal("failed transaction retained catalog")
 			}
 		})

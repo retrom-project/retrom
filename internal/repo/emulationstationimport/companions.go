@@ -3,29 +3,61 @@ package emulationstationimport
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
 )
 
-type Companions struct{ database *sql.DB }
+type Companions struct {
+	database      *sql.DB
+	preCommitHook func(dbexec.Executor) error
+}
 
-func NewCompanions(database *sql.DB) *Companions { return &Companions{database: database} }
-func (repository *Companions) WithCompanions(ctx context.Context, run func(application.CompanionScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin EmulationStation companions: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	records := companionRecords{transaction: tx, executor: tx}
-	if err := run(application.CompanionScope{Read: records, Write: records}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit EmulationStation companions: %w", err)
-	}
-	return nil
+func NewCompanions(database *sql.DB) *Companions {
+	return &Companions{database: database}
+}
+
+func (repository *Companions) WithPreCommitHook(
+	hook func(dbexec.Executor) error,
+) {
+	repository.preCommitHook = hook
+}
+
+func (repository *Companions) LoadCompanionOwner(
+	ctx context.Context, id string,
+) (application.CompanionOwner, error) {
+	return companionRecords{executor: repository.database}.Owner(ctx, id)
+}
+
+func (repository *Companions) LoadMappingTarget(
+	ctx context.Context, id string,
+) (application.MappingTarget, bool, error) {
+	return companionRecords{executor: repository.database}.Target(ctx, id)
+}
+
+func (repository *Companions) LoadDependencies(
+	ctx context.Context, datVersionID, machine string,
+) ([]string, error) {
+	return companionRecords{executor: repository.database}.Dependencies(
+		ctx, datVersionID, machine,
+	)
+}
+
+func (repository *Companions) LoadCandidates(
+	ctx context.Context, owner application.CompanionOwner,
+) ([]application.CompanionFile, error) {
+	return companionRecords{executor: repository.database}.Candidates(ctx, owner)
+}
+
+func (repository *Companions) CommitCompanionBinding(
+	ctx context.Context, change application.CompanionBinding,
+) (string, error) {
+	return commitResultTx(ctx, repository.database, repository.preCommitHook,
+		"EmulationStation companion binding",
+		func(tx *sql.Tx) (string, error) {
+			return companionRecords{transaction: tx, executor: tx}.Register(ctx, change)
+		},
+	)
 }
 
 type companionRecords struct {

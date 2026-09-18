@@ -18,7 +18,7 @@ func NewPreviewCreation(database *sql.DB) *PreviewCreation {
 
 type previewCreationRecords struct{ executor dbexec.Executor }
 
-func (repository *PreviewCreation) Replay(
+func (repository *PreviewCreation) LoadPreviewReplay(
 	ctx context.Context,
 	actor, key string,
 ) (application.PreviewReceipt, bool, error) {
@@ -42,7 +42,7 @@ FROM review_preview_sessions WHERE actor_user_id=? AND idempotency_key=?`, actor
 	return receipt, true, nil
 }
 
-func (repository *PreviewCreation) Snapshot(
+func (repository *PreviewCreation) LoadPreviewSnapshot(
 	ctx context.Context,
 	itemID string,
 ) (application.PreviewSnapshot, bool, error) {
@@ -71,17 +71,54 @@ func (repository *PreviewCreation) Snapshot(
 	}, true, nil
 }
 
-func (repository *PreviewCreation) WithCreation(
+func (repository *PreviewCreation) LoadPreviewCurrent(
 	ctx context.Context,
-	work func(application.PreviewCreationScope) error,
+	request application.ReviewPreviewRequest,
+) (application.PreviewSource, string, bool, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return application.PreviewSource{}, "", false, fmt.Errorf("begin preview current: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	source, profileID, found, err := (previewCreationRecords{executor: tx}).Current(ctx, request)
+	if err != nil {
+		return application.PreviewSource{}, "", false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return application.PreviewSource{}, "", false, fmt.Errorf("commit preview current: %w", err)
+	}
+	return source, profileID, found, nil
+}
+
+func (repository *PreviewCreation) LoadPreviewRestore(
+	ctx context.Context,
+	id string,
+) (application.PreviewRestore, bool, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return application.PreviewRestore{}, false, fmt.Errorf("begin preview restore: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	restore, found, err := (previewCreationRecords{executor: tx}).Restore(ctx, id)
+	if err != nil {
+		return application.PreviewRestore{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return application.PreviewRestore{}, false, fmt.Errorf("commit preview restore: %w", err)
+	}
+	return restore, found, nil
+}
+
+func (repository *PreviewCreation) CommitPreviewCreation(
+	ctx context.Context,
+	plan application.PreviewCreatePlan,
 ) error {
-	// The application supplies the shared single-writer database handle.
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin preview creation: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(previewCreationRecords{executor: tx}); err != nil {
+	if err := (previewCreationRecords{executor: tx}).Create(ctx, plan); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

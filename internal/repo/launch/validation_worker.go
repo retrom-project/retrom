@@ -20,26 +20,26 @@ func NewValidationWorker(database *sql.DB) *ValidationWorker {
 	return &ValidationWorker{database: database}
 }
 
-func (repository *ValidationWorker) WithWorker(
+func (repository *ValidationWorker) LoadValidationWork(
 	ctx context.Context,
-	work func(application.ValidationWorkerScope) error,
-) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	id string,
+) (application.ValidationWork, bool, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return fmt.Errorf("begin validation worker: %w", err)
+		return application.ValidationWork{}, false, fmt.Errorf("begin validation read: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	records := validationWorkerRecords{executor: tx}
-	if err := work(application.ValidationWorkerScope{Jobs: records, Facts: records, Variants: records}); err != nil {
-		return err
+	work, found, err := (validationWorkerRecords{executor: tx}).Read(ctx, id)
+	if err != nil {
+		return application.ValidationWork{}, false, err
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit validation worker: %w", err)
+		return application.ValidationWork{}, false, fmt.Errorf("commit validation read: %w", err)
 	}
-	return nil
+	return work, found, nil
 }
 
-func (repository *ValidationWorker) Facts(
+func (repository *ValidationWorker) LoadValidationFacts(
 	ctx context.Context,
 	inputs application.ValidationInputs,
 ) (application.ValidationFacts, error) {
@@ -58,7 +58,75 @@ func (repository *ValidationWorker) Facts(
 	return facts, nil
 }
 
-func (repository *ValidationWorker) Candidates(ctx context.Context, now int64) ([]string, error) {
+func (repository *ValidationWorker) commitValidationTx(
+	ctx context.Context,
+	label string,
+	work func(validationWorkerRecords) error,
+) error {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin %s: %w", label, err)
+	}
+	defer dbexec.Rollback(tx)
+	if err := work(validationWorkerRecords{executor: tx}); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit %s: %w", label, err)
+	}
+	return nil
+}
+
+func (repository *ValidationWorker) CommitValidationClaim(
+	ctx context.Context,
+	plan application.ValidationClaimWrite,
+) error {
+	return repository.commitValidationTx(ctx, "validation claim", func(r validationWorkerRecords) error {
+		return r.Claim(ctx, plan)
+	})
+}
+
+func (repository *ValidationWorker) CommitValidationRenewal(
+	ctx context.Context,
+	claim application.ValidationClaim,
+	nowMS, leaseMS int64,
+) error {
+	return repository.commitValidationTx(ctx, "validation renewal", func(r validationWorkerRecords) error {
+		return r.Renew(ctx, claim, nowMS, leaseMS)
+	})
+}
+
+func (repository *ValidationWorker) CommitValidationFinish(
+	ctx context.Context,
+	plan application.ValidationTerminal,
+) error {
+	return repository.commitValidationTx(ctx, "validation finish", func(r validationWorkerRecords) error {
+		return r.Finish(ctx, plan)
+	})
+}
+
+func (repository *ValidationWorker) CommitValidationRecovery(
+	ctx context.Context,
+	plan application.ValidationRecovery,
+) error {
+	return repository.commitValidationTx(ctx, "validation recovery", func(r validationWorkerRecords) error {
+		return r.Recover(ctx, plan)
+	})
+}
+
+func (repository *ValidationWorker) CommitValidationSettlement(
+	ctx context.Context,
+	settlement application.ValidationSettlement,
+) error {
+	return repository.commitValidationTx(ctx, "validation settlement", func(r validationWorkerRecords) error {
+		if err := r.Apply(ctx, settlement.Variant); err != nil {
+			return err
+		}
+		return r.Finish(ctx, settlement.Finish)
+	})
+}
+
+func (repository *ValidationWorker) LoadValidationCandidates(ctx context.Context, now int64) ([]string, error) {
 	rows, err := repository.database.QueryContext(ctx, `SELECT id FROM jobs WHERE kind='VARIANT_VALIDATE'
  AND ((state='QUEUED' AND available_at_ms<=?) OR (state='RUNNING' AND leased_until_ms<=?))
  ORDER BY created_at_ms,id`, now, now)

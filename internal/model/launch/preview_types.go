@@ -64,16 +64,12 @@ type PreviewCreatePlan struct {
 	RestoreBlobID, RestoreFormat *string
 	Isolation                    *IsolationTicket
 }
-type PreviewCreationScope interface {
-	Replay(context.Context, string, string) (PreviewReceipt, bool, error)
-	Current(context.Context, ReviewPreviewRequest) (PreviewSource, string, bool, error)
-	Restore(context.Context, string) (PreviewRestore, bool, error)
-	Create(context.Context, PreviewCreatePlan) error
-}
 type PreviewCreationRepository interface {
-	Replay(context.Context, string, string) (PreviewReceipt, bool, error)
-	Snapshot(context.Context, string) (PreviewSnapshot, bool, error)
-	WithCreation(context.Context, func(PreviewCreationScope) error) error
+	LoadPreviewReplay(context.Context, string, string) (PreviewReceipt, bool, error)
+	LoadPreviewSnapshot(context.Context, string) (PreviewSnapshot, bool, error)
+	LoadPreviewCurrent(context.Context, ReviewPreviewRequest) (PreviewSource, string, bool, error)
+	LoadPreviewRestore(context.Context, string) (PreviewRestore, bool, error)
+	CommitPreviewCreation(context.Context, PreviewCreatePlan) error
 }
 type PreviewProvider interface {
 	Target(string, string) (runtimebundle.Target, bool)

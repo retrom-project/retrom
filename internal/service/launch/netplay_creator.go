@@ -52,12 +52,7 @@ func (service *NetplayCreator) CreateNetplay(
 	if err != nil {
 		return model.Created{}, err
 	}
-	var outcome netplayCreationOutcome
-	err = service.repository.WithCreation(ctx, func(scope model.NetplayCreationScope) error {
-		var commitErr error
-		outcome, commitErr = service.commit(ctx, scope, request, prepared)
-		return commitErr
-	})
+	outcome, err := service.commit(ctx, request, prepared)
 	if err != nil {
 		return model.Created{}, fmt.Errorf("commit netplay creation: %w", err)
 	}
@@ -70,11 +65,10 @@ func (service *NetplayCreator) CreateNetplay(
 
 func (service *NetplayCreator) commit(
 	ctx context.Context,
-	scope model.NetplayCreationScope,
 	request model.NetplayCreateRequest,
 	prepared netplayCreationPrepared,
 ) (netplayCreationOutcome, error) {
-	current, err := scope.Snapshot(ctx, request)
+	current, err := service.repository.LoadNetplaySnapshot(ctx, request)
 	if err != nil {
 		return netplayCreationOutcome{}, fmt.Errorf("read final netplay snapshot: %w", err)
 	}
@@ -100,7 +94,7 @@ func (service *NetplayCreator) commit(
 	plan.NowMS = now
 	plan.BootstrapEnd = now + int64(5*time.Minute/time.Millisecond)
 	plan.HardEnd = now + int64(8*time.Hour/time.Millisecond)
-	if err := scope.Create(ctx, plan); err != nil {
+	if err := service.repository.CommitNetplayCreation(ctx, plan); err != nil {
 		return netplayCreationOutcome{}, fmt.Errorf("persist netplay creation: %w", err)
 	}
 	return netplayCreationOutcome{result: netplayCreated(plan.ID, plan.BootstrapEnd, plan.HardEnd)}, nil

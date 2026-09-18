@@ -38,14 +38,9 @@ type NetplayCreationPlan struct {
 	NowMS, BootstrapEnd, HardEnd int64
 }
 
-type NetplayCreationScope interface {
-	Snapshot(context.Context, NetplayCreateRequest) (NetplayCreationSnapshot, error)
-	Create(context.Context, NetplayCreationPlan) error
-}
-
 type NetplayCreationRepository interface {
-	Snapshot(context.Context, NetplayCreateRequest) (NetplayCreationSnapshot, error)
-	WithCreation(context.Context, func(NetplayCreationScope) error) error
+	LoadNetplaySnapshot(context.Context, NetplayCreateRequest) (NetplayCreationSnapshot, error)
+	CommitNetplayCreation(context.Context, NetplayCreationPlan) error
 }
 
 type NetplayCreationEnvironment struct {

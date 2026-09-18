@@ -24,7 +24,11 @@ func NewPlayController(
 	now func() time.Time,
 	matches model.MatchCapability,
 ) *PlayController {
-	return &PlayController{repository: repository, policy: accessPolicy{now: now, matches: matches}, newID: newPlayID}
+	return &PlayController{
+		repository: repository,
+		policy:     accessPolicy{now: now, matches: matches},
+		newID:      newPlayID,
+	}
 }
 
 func newPlayID() (string, error) {
@@ -43,38 +47,44 @@ func (service *PlayController) RecordPlay(
 	if !validPlayEvent(kind, event) {
 		return model.PlayResult{}, model.ErrBlocked
 	}
+	source, found, err := service.repository.LoadPlaySource(ctx, id)
+	if err != nil {
+		return model.PlayResult{}, fmt.Errorf(
+			"record play event: read play authority: %w", err,
+		)
+	}
+	now := service.policy.now().UnixMilli()
+	if !found || !service.authorized(source, capability, now) {
+		return model.PlayResult{}, model.ErrCredential
+	}
 	var result model.PlayResult
-	err := service.repository.WithPlay(ctx, func(scope model.PlayScope) error {
-		source, found, err := scope.Read.Source(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read play authority: %w", err)
-		}
-		now := service.policy.now().UnixMilli()
-		if !found || !service.authorized(source, capability, now) {
-			return model.ErrCredential
-		}
-		if source.Ref.Preview {
-			result, err = recordPreviewPlay(ctx, scope.Write, source, kind, event, now)
-		} else {
-			result, err = service.recordProductPlay(ctx, scope, source, kind, event, now)
-		}
-		return err
-	})
+	if source.Ref.Preview {
+		result, err = service.recordPreviewPlay(
+			ctx, source, kind, event, now,
+		)
+	} else {
+		result, err = service.recordProductPlay(
+			ctx, source, kind, event, now,
+		)
+	}
 	if err != nil {
 		return model.PlayResult{}, fmt.Errorf("record play event: %w", err)
 	}
 	return result, nil
 }
 
-func (service *PlayController) authorized(source model.PlaySource, capability string, now int64) bool {
+func (service *PlayController) authorized(
+	source model.PlaySource, capability string, now int64,
+) bool {
 	state := source.Session.State
-	return (state == "CREATED" || state == "ACTIVE" || state == "FINISHED") && source.Session.HardExpiresAtMS > now &&
-		service.policy.matches != nil && service.policy.matches(capability, source.Session.CredentialHash)
+	return (state == "CREATED" || state == "ACTIVE" || state == "FINISHED") &&
+		source.Session.HardExpiresAtMS > now &&
+		service.policy.matches != nil &&
+		service.policy.matches(capability, source.Session.CredentialHash)
 }
 
 func (service *PlayController) recordProductPlay(
 	ctx context.Context,
-	scope model.PlayScope,
 	source model.PlaySource,
 	kind string,
 	event model.PlayEvent,
@@ -83,39 +93,51 @@ func (service *PlayController) recordProductPlay(
 	if source.ProfileID == "" || source.GameID == "" {
 		return model.PlayResult{}, model.ErrBlocked
 	}
-	current, found, err := scope.Read.Current(ctx, source.Ref.ID)
+	current, found, err := service.repository.LoadPlayRecord(ctx, source.Ref.ID)
 	if err != nil {
 		return model.PlayResult{}, fmt.Errorf("read current play session: %w", err)
 	}
 	if found && event.ClientSequence <= current.LastSequence {
-		return replayPlayEvent(ctx, scope.Read, current.ID, kind, event)
+		return service.replayPlayEvent(ctx, current.ID, kind, event)
 	}
 	if !found && kind == "finish" && event.ClientSequence == 0 {
-		return finishUnstartedPlay(ctx, scope.Write, source, now)
+		return service.finishUnstartedPlay(ctx, source, now)
 	}
 	if kind == "start" {
-		return service.startPlay(ctx, scope.Write, source, event, now)
+		return service.startPlay(ctx, source, event, now)
 	}
 	if !found || !validPlayProgress(source, current, event, now) {
 		return model.PlayResult{}, model.ErrBlocked
 	}
-	return recordPlayProgress(ctx, scope.Write, source, current, kind, event, now)
+	return service.recordPlayProgress(
+		ctx, source, current, kind, event, now,
+	)
 }
 
-func recordPlayProgress(ctx context.Context, writer model.PlayWriter, source model.PlaySource, current model.PlayRecord,
-	kind string, event model.PlayEvent, now int64,
+func (service *PlayController) recordPlayProgress(
+	ctx context.Context,
+	source model.PlaySource,
+	current model.PlayRecord,
+	kind string,
+	event model.PlayEvent,
+	now int64,
 ) (model.PlayResult, error) {
-	accepted := acceptedPlayDuration(*event.PreviousInterval, current.LastHeartbeatAtMS, now)
-	if !playVersionWritable(source.Version) || !playVersionWritable(current.Version) ||
-		current.ActiveDurationMS < 0 || current.ActiveDurationMS > math.MaxInt64-accepted ||
+	accepted := acceptedPlayDuration(
+		*event.PreviousInterval, current.LastHeartbeatAtMS, now,
+	)
+	if !playVersionWritable(source.Version) ||
+		!playVersionWritable(current.Version) ||
+		current.ActiveDurationMS < 0 ||
+		current.ActiveDurationMS > math.MaxInt64-accepted ||
 		now > math.MaxInt64-playIdleLeaseMS {
 		return model.PlayResult{}, model.ErrBlocked
 	}
 	plan := model.PlayProgress{
 		Source: source, Current: current, Event: event, Kind: kind,
-		AcceptedDurationMS: accepted, NowMS: now, IdleExpiresAtMS: now + playIdleLeaseMS,
+		AcceptedDurationMS: accepted, NowMS: now,
+		IdleExpiresAtMS: now + playIdleLeaseMS,
 	}
-	if err := writer.Progress(ctx, plan); err != nil {
+	if err := service.repository.CommitPlayProgress(ctx, plan); err != nil {
 		return model.PlayResult{}, fmt.Errorf("persist play progress: %w", err)
 	}
 	state := "ACTIVE"
@@ -132,23 +154,29 @@ func recordPlayProgress(ctx context.Context, writer model.PlayWriter, source mod
 
 func (service *PlayController) startPlay(
 	ctx context.Context,
-	writer model.PlayWriter,
 	source model.PlaySource,
 	event model.PlayEvent,
 	now int64,
 ) (model.PlayResult, error) {
-	if source.Session.State != "ACTIVE" || !playVersionWritable(source.Version) || now > math.MaxInt64-playIdleLeaseMS {
+	if source.Session.State != "ACTIVE" ||
+		!playVersionWritable(source.Version) ||
+		now > math.MaxInt64-playIdleLeaseMS {
 		return model.PlayResult{}, model.ErrBlocked
 	}
 	id, err := service.newID()
 	if err != nil {
 		return model.PlayResult{}, fmt.Errorf("prepare play identity: %w", err)
 	}
-	if err := writer.Start(
+	if err := service.repository.CommitPlayStart(
 		ctx,
-		model.PlayStart{Source: source, PlayID: id, Event: event, NowMS: now, IdleExpiresAtMS: now + playIdleLeaseMS},
+		model.PlayStart{
+			Source: source, PlayID: id, Event: event,
+			NowMS: now, IdleExpiresAtMS: now + playIdleLeaseMS,
+		},
 	); err != nil {
 		return model.PlayResult{}, fmt.Errorf("persist play start: %w", err)
 	}
-	return model.PlayResult{PlaySessionID: id, ClientSequence: 0, State: "ACTIVE"}, nil
+	return model.PlayResult{
+		PlaySessionID: id, ClientSequence: 0, State: "ACTIVE",
+	}, nil
 }

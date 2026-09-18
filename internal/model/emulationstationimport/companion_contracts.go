@@ -26,24 +26,12 @@ type CompanionBinding struct {
 	NowMS  int64
 }
 
-type CompanionReader interface {
-	Owner(context.Context, string) (CompanionOwner, error)
-	Target(context.Context, string) (MappingTarget, bool, error)
-	Dependencies(context.Context, string, string) ([]string, error)
-	Candidates(context.Context, CompanionOwner) ([]CompanionFile, error)
-}
-
-type CompanionWriter interface {
-	Register(context.Context, CompanionBinding) (string, error)
-}
-
-type CompanionScope struct {
-	Read  CompanionReader
-	Write CompanionWriter
-}
-
 type CompanionRepository interface {
-	WithCompanions(context.Context, func(CompanionScope) error) error
+	LoadCompanionOwner(context.Context, string) (CompanionOwner, error)
+	LoadMappingTarget(context.Context, string) (MappingTarget, bool, error)
+	LoadDependencies(context.Context, string, string) ([]string, error)
+	LoadCandidates(context.Context, CompanionOwner) ([]CompanionFile, error)
+	CommitCompanionBinding(context.Context, CompanionBinding) (string, error)
 }
 
 type CompanionSources interface {
