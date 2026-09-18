@@ -6,25 +6,30 @@ import (
 	"retrom/internal/model/tagging"
 )
 
-type MappingScope struct {
-	Read  MappingReader
-	Write MappingWriter
-	Tags  tagging.CrossDomainWriter
-}
-
 type MappingReader interface {
 	Import(context.Context, string) (Summary, error)
 	CollectionOwner(context.Context, string) (string, error)
 	EligibleTarget(context.Context, string) (MappingTarget, bool, error)
 }
 
-type MappingWriter interface {
-	Put(context.Context, CollectionMapping) error
-	Advance(context.Context, MappingAdvance) error
+type MappingBatchEntry struct {
+	Change  CollectionMapping
+	Owner   tagging.Owner
+	TagIDs  []string
+	ActorID string
+}
+
+type MappingBatch struct {
+	ImportID string
+	Entries  []MappingBatchEntry
+	Advance  MappingAdvance
 }
 
 type MappingRepository interface {
-	WithMappings(context.Context, func(MappingScope) error) error
+	LoadImportSummary(context.Context, string) (Summary, error)
+	LoadCollectionOwner(context.Context, string) (string, error)
+	LoadEligibleTarget(context.Context, string) (MappingTarget, bool, error)
+	CommitMappingBatch(context.Context, MappingBatch) (Summary, error)
 }
 
 type MappingTarget struct {

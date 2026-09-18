@@ -1,7 +1,6 @@
 package emulationstationimport
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	taggingmodel "retrom/internal/model/tagging"
+	"retrom/internal/repo/dbexec"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -58,26 +58,13 @@ VALUES(?,?,?,1)`, mappingCollection, mappingTag, mappingActor); err != nil {
 	return db
 }
 
-type failingMappingCommit struct {
-	repository *Mappings
-	cause      error
-}
-
-func (r failingMappingCommit) WithMappings(ctx context.Context, work func(emulationstationimportmodel.MappingScope) error) error {
-	return r.repository.WithMappings(ctx, func(scope emulationstationimportmodel.MappingScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		return r.cause
-	})
-}
-
 func TestMappingsRollBackRelationsAndTagVersionsOnLateFailure(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	before := planRows(t, db)
 	cause := errors.New("late mapping failure")
-	service := emulationstationimportservice.NewMappings(failingMappingCommit{repository: NewMappings(db), cause: cause}, func() time.Time { return time.UnixMilli(10) })
+	repo := NewMappings(db, WithMappingsPreCommitHook(func(dbexec.Executor) error { return cause }))
+	service := emulationstationimportservice.NewMappings(repo, func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}}, mappingActor)
 	if !errors.Is(err, cause) || value.ID != "" {
 		t.Fatalf("late mapping failure: %#v %v", value, err)
@@ -91,22 +78,23 @@ func TestMappingsRejectStalePlanAfterUpdatingCollection(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	beforeRows := planRows(t, db)
-	err := NewMappings(db).WithMappings(t.Context(), func(scope emulationstationimportmodel.MappingScope) error {
-		before, err := scope.Read.Import(t.Context(), "import-0")
-		if err != nil {
-			return err
-		}
-		owner := taggingmodel.Owner{Kind: taggingmodel.OwnerEmulationStationCollection, ID: mappingCollection}
-		_, refs, err := scope.Tags.ReplaceOwnerReferences(t.Context(), owner, []string{}, mappingActor, 10)
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Put(t.Context(), emulationstationimportmodel.CollectionMapping{ImportID: "import-0", Mapping: emulationstationimportmodel.Mapping{CollectionID: mappingCollection, Action: "SKIP"}, Tags: refs, NowMS: 10}); err != nil {
-			return err
-		}
-		before.Version++
-		return scope.Write.Advance(t.Context(), emulationstationimportmodel.MappingAdvance{Before: before, NowMS: 10})
-	})
+	repo := NewMappings(db)
+	before, err := repo.LoadImportSummary(t.Context(), "import-0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before.Version++
+	batch := emulationstationimportmodel.MappingBatch{
+		ImportID: "import-0",
+		Entries: []emulationstationimportmodel.MappingBatchEntry{{
+			Change:  emulationstationimportmodel.CollectionMapping{ImportID: "import-0", Mapping: emulationstationimportmodel.Mapping{CollectionID: mappingCollection, Action: "SKIP"}, NowMS: 10},
+			Owner:   taggingmodel.Owner{Kind: taggingmodel.OwnerEmulationStationCollection, ID: mappingCollection},
+			TagIDs:  []string{},
+			ActorID: mappingActor,
+		}},
+		Advance: emulationstationimportmodel.MappingAdvance{Before: before, NowMS: 10},
+	}
+	_, err = repo.CommitMappingBatch(t.Context(), batch)
 	if !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 		t.Fatalf("stale mapping committed: %v", err)
 	}
