@@ -176,7 +176,7 @@ func assertValidationRejectsRetiredBIOS(t *testing.T, ctx context.Context, datab
 	if err != nil {
 		t.Fatal(err)
 	}
-	facts, err := persistence.NewValidationWorker(database).Facts(ctx, inputs)
+	facts, err := persistence.NewValidationWorker(database).LoadValidationFacts(ctx, inputs)
 	if err != nil {
 		t.Fatal(err)
 	}

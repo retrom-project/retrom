@@ -43,13 +43,25 @@ func newMediaRetryFixture(t *testing.T) validationRetryFixture {
 	database := fixture.server.database
 	now := fixture.now().UnixMilli()
 	gameID := "01980000-0000-7000-8000-000000000191"
-	err := metadatapersistence.NewScheduler(database).CommitWrite(t.Context(), func(scope metadatascrapemodel.ScheduleScope) error {
-		return scope.Writes.Create(t.Context(), metadatascrapemodel.SchedulePlan{
-			Subject: metadatascrapemodel.Subject{Kind: "GAME", ID: gameID},
-			RunID:   "media-run", JobID: "metadata-job", Provider: "HASHEOUS", Dedupe: strings.Repeat("8", 64), PayloadJSON: `{}`,
-			JobState: "QUEUED", RunState: "RUNNING", EventJSON: `{}`, Now: now,
+	tx, txErr := database.BeginTx(t.Context(), nil)
+	if txErr != nil {
+		t.Fatal(txErr)
+	}
+	err := metadatapersistence.BindSchedule(tx).Writes.Create(
+		t.Context(), metadatascrapemodel.SchedulePlan{
+			Subject:  metadatascrapemodel.Subject{Kind: "GAME", ID: gameID},
+			RunID:    "media-run", JobID: "metadata-job",
+			Provider: "HASHEOUS",
+			Dedupe:   strings.Repeat("8", 64),
+			PayloadJSON: `{}`,
+			JobState: "QUEUED", RunState: "RUNNING",
+			EventJSON: `{}`, Now: now,
 		})
-	})
+	if err == nil {
+		err = tx.Commit()
+	} else {
+		_ = tx.Rollback()
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

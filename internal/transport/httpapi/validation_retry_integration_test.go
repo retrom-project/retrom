@@ -78,7 +78,7 @@ func seedValidationRetry(t *testing.T, fixture validationRetryFixture) string {
 	validationRetrySQL(t, database, `INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,status,compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms)
  SELECT ?,?,'gambatte',provider_id,target_id,'BLOCKED','VALIDATION_PENDING','{}',1,?,? FROM runtime_target_bindings WHERE core_id='gambatte' LIMIT 1`, variantID, gameID, now, now)
 	provisional := launchmodel.ValidationInputs{GameID: gameID, GameVariantID: variantID}
-	facts, err := launchpersistence.NewValidationWorker(database).Facts(t.Context(), provisional)
+	facts, err := launchpersistence.NewValidationWorker(database).LoadValidationFacts(t.Context(), provisional)
 	if err != nil {
 		t.Fatal(err)
 	}
