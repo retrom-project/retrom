@@ -95,6 +95,12 @@ func (service *NetplayCreator) commit(
 	plan.BootstrapEnd = now + int64(5*time.Minute/time.Millisecond)
 	plan.HardEnd = now + int64(8*time.Hour/time.Millisecond)
 	if err := service.repository.CommitNetplayCreation(ctx, plan); err != nil {
+		// A concurrent creation may have committed between our snapshot read
+		// and this write attempt.  Re-read to detect that case.
+		retry, retryErr := service.repository.LoadNetplaySnapshot(ctx, request)
+		if retryErr == nil && retry.Existing != nil {
+			return netplayCreationOutcome{existing: retry.Existing}, nil
+		}
 		return netplayCreationOutcome{}, fmt.Errorf("persist netplay creation: %w", err)
 	}
 	return netplayCreationOutcome{result: netplayCreated(plan.ID, plan.BootstrapEnd, plan.HardEnd)}, nil
