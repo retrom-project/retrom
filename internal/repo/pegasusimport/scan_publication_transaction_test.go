@@ -9,6 +9,7 @@ import (
 	"time"
 
 	pegasusimportmodel "retrom/internal/model/pegasusimport"
+	"retrom/internal/repo/dbexec"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
 )
 
@@ -83,23 +84,22 @@ func TestScanPublicationRepositoryFencesEveryStage(t *testing.T) {
 func assertScanPublicationFence(t *testing.T, stage, field string) {
 	t.Helper()
 	db, id, projection := publicationDatabase(t)
+	repo := NewScanPublication(db)
+	current, err := repo.LoadScanOwner(t.Context(), id.JobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidateRecovery(&current, field)
+	owner := pegasusimportmodel.ScanLease{Before: current, NowMS: 10}
 	before := publicationRows(t, db)
-	err := NewScanPublication(db).WithScan(t.Context(), func(scope pegasusimportmodel.ScanScope) error {
-		current, err := scope.Read.Current(t.Context(), id.JobID)
-		if err != nil {
-			return err
-		}
-		invalidateRecovery(&current, field)
-		owner := pegasusimportmodel.ScanLease{Before: current, NowMS: 10}
-		switch stage {
-		case "headers":
-			return scope.Write.Headers(t.Context(), owner, projection.Headers)
-		case "items":
-			return scope.Write.Items(t.Context(), owner, projection.Items)
-		default:
-			return scope.Write.Finish(t.Context(), owner, projection.Summary)
-		}
-	})
+	switch stage {
+	case "headers":
+		err = repo.CommitScanHeaders(t.Context(), owner, projection.Headers)
+	case "items":
+		err = repo.CommitScanItems(t.Context(), owner, projection.Items)
+	default:
+		err = repo.CommitScanFinish(t.Context(), owner, projection.Summary)
+	}
 	if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 		t.Fatalf("%s %s: %v", stage, field, err)
 	}
@@ -126,31 +126,19 @@ func stagePublication(
 
 func TestScanPublicationLateFailureRollsBackStateEventAndProjection(t *testing.T) {
 	t.Parallel()
-	db, id, projection := publicationDatabase(t)
-	stagePublication(t, db, id, projection)
+	db, _, projection := publicationDatabase(t)
+	stagePublication(t, db, pegasusimportmodel.ExecutionIdentity{
+		JobID: "job-0", ImportID: "import-0", WorkerID: "scanner", ExecutionNo: 1, Attempt: 1,
+	}, projection)
 	before := publicationRows(t, db)
 	cause := errors.New("abort after actual publication")
-	err := NewScanPublication(db).WithScan(t.Context(), func(scope pegasusimportmodel.ScanScope) error {
-		current, err := scope.Read.Current(t.Context(), id.JobID)
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Finish(
-			t.Context(),
-			pegasusimportmodel.ScanLease{Before: current, NowMS: 10},
-			projection.Summary,
-		); err != nil {
-			return err
-		}
-		after, err := scope.Read.Current(t.Context(), id.JobID)
-		if err != nil {
-			return err
-		}
-		if after.JobState != "SUCCEEDED" || after.ImportState != "AWAITING_MAPPING" {
-			t.Fatalf("publication did not run: %#v", after)
-		}
-		return cause
-	})
+	repo := NewScanPublication(db)
+	repo.WithPreCommitHook(func(_ dbexec.Executor) error { return cause })
+	current, err := repo.LoadScanOwner(t.Context(), "job-0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = repo.CommitScanFinish(t.Context(), pegasusimportmodel.ScanLease{Before: current, NowMS: 10}, projection.Summary)
 	if !errors.Is(err, cause) || !reflect.DeepEqual(before, publicationRows(t, db)) {
 		t.Fatalf("partial publication: %v", err)
 	}

@@ -50,19 +50,11 @@ type ScanLease struct {
 	Before ExecutionSnapshot
 	NowMS  int64
 }
-type ScanReader interface {
-	Current(context.Context, string) (ExecutionSnapshot, error)
-	Shape(context.Context, string) (ScanShape, error)
-}
-type ScanWriter interface {
-	Headers(context.Context, ScanLease, ScanHeaders) error
-	Items(context.Context, ScanLease, []ScanItem) error
-	Finish(context.Context, ScanLease, ScanSummary) error
-}
-type ScanScope struct {
-	Read  ScanReader
-	Write ScanWriter
-}
+
 type ScanRepository interface {
-	WithScan(context.Context, func(ScanScope) error) error
+	LoadScanOwner(context.Context, string) (ExecutionSnapshot, error)
+	LoadScanShape(context.Context, string) (ScanShape, error)
+	CommitScanHeaders(context.Context, ScanLease, ScanHeaders) error
+	CommitScanItems(context.Context, ScanLease, []ScanItem) error
+	CommitScanFinish(context.Context, ScanLease, ScanSummary) error
 }

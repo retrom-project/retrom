@@ -64,18 +64,30 @@ func (service *ScanPublication) headerBatch(
 	id model.ExecutionIdentity,
 	headers model.ScanHeaders,
 ) error {
-	return service.withOwner(ctx, id, func(scope model.ScanScope, owner model.ScanLease) error {
-		return scope.Write.Headers(ctx, owner, headers)
-	})
+	lease, err := service.ownerLease(ctx, id)
+	if err != nil {
+		return fmt.Errorf("persist Pegasus scan: %w", err)
+	}
+	if err := service.repository.CommitScanHeaders(ctx, lease, headers); err != nil {
+		return fmt.Errorf("persist Pegasus scan: %w", err)
+	}
+	return nil
 }
 
-func (service *ScanPublication) Items(ctx context.Context, id model.ExecutionIdentity, items []model.ScanItem) error {
+func (service *ScanPublication) Items(
+	ctx context.Context, id model.ExecutionIdentity, items []model.ScanItem,
+) error {
 	if len(items) > 500 {
 		return model.ErrScanLimit
 	}
-	return service.withOwner(ctx, id, func(scope model.ScanScope, owner model.ScanLease) error {
-		return scope.Write.Items(ctx, owner, items)
-	})
+	lease, err := service.ownerLease(ctx, id)
+	if err != nil {
+		return fmt.Errorf("persist Pegasus scan: %w", err)
+	}
+	if err := service.repository.CommitScanItems(ctx, lease, items); err != nil {
+		return fmt.Errorf("persist Pegasus scan: %w", err)
+	}
+	return nil
 }
 
 func (service *ScanPublication) Finish(
@@ -83,45 +95,43 @@ func (service *ScanPublication) Finish(
 	id model.ExecutionIdentity,
 	summary model.ScanSummary,
 ) error {
-	return service.withOwner(ctx, id, func(scope model.ScanScope, owner model.ScanLease) error {
-		actual, err := scope.Read.Shape(ctx, owner.Before.ImportID)
-		if err != nil {
-			return fmt.Errorf("read persisted Pegasus scan shape: %w", err)
-		}
-		if actual != summary.Shape {
-			return model.ErrVersionConflict
-		}
-		// Count queries may take time; the final write must still own an unexpired execution.
-		owner.NowMS = service.now().UnixMilli()
-		if err := ValidateExecution(owner.Before, id, owner.NowMS); err != nil {
-			return err
-		}
-		return scope.Write.Finish(ctx, owner, summary)
-	})
-}
-
-func (service *ScanPublication) withOwner(
-	ctx context.Context, id model.ExecutionIdentity, work func(model.ScanScope, model.ScanLease) error,
-) error {
-	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("publish Pegasus scan: %w", err)
-	}
-	err := service.repository.WithScan(ctx, func(scope model.ScanScope) error {
-		before, err := scope.Read.Current(ctx, id.JobID)
-		if err != nil {
-			return fmt.Errorf("read Pegasus scanner ownership: %w", err)
-		}
-		now := service.now().UnixMilli()
-		if err := ValidateExecution(before, id, now); err != nil {
-			return err
-		}
-		if before.Kind != "SERVER_PEGASUS_SCAN" || before.JobState != "RUNNING" || before.ImportState != "SCANNING" {
-			return model.ErrVersionConflict
-		}
-		return work(scope, model.ScanLease{Before: before, NowMS: now})
-	})
+	lease, err := service.ownerLease(ctx, id)
 	if err != nil {
 		return fmt.Errorf("persist Pegasus scan: %w", err)
 	}
+	actual, err := service.repository.LoadScanShape(ctx, lease.Before.ImportID)
+	if err != nil {
+		return fmt.Errorf("persist Pegasus scan: %w", err)
+	}
+	if actual != summary.Shape {
+		return model.ErrVersionConflict
+	}
+	lease.NowMS = service.now().UnixMilli()
+	if err := ValidateExecution(lease.Before, id, lease.NowMS); err != nil {
+		return fmt.Errorf("persist Pegasus scan: %w", err)
+	}
+	if err := service.repository.CommitScanFinish(ctx, lease, summary); err != nil {
+		return fmt.Errorf("persist Pegasus scan: %w", err)
+	}
 	return nil
+}
+
+func (service *ScanPublication) ownerLease(
+	ctx context.Context, id model.ExecutionIdentity,
+) (model.ScanLease, error) {
+	if err := ctx.Err(); err != nil {
+		return model.ScanLease{}, fmt.Errorf("publish Pegasus scan: %w", err)
+	}
+	before, err := service.repository.LoadScanOwner(ctx, id.JobID)
+	if err != nil {
+		return model.ScanLease{}, fmt.Errorf("read Pegasus scanner ownership: %w", err)
+	}
+	now := service.now().UnixMilli()
+	if err := ValidateExecution(before, id, now); err != nil {
+		return model.ScanLease{}, err
+	}
+	if before.Kind != "SERVER_PEGASUS_SCAN" || before.JobState != "RUNNING" || before.ImportState != "SCANNING" {
+		return model.ScanLease{}, model.ErrVersionConflict
+	}
+	return model.ScanLease{Before: before, NowMS: now}, nil
 }

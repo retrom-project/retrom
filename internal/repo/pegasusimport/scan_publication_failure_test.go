@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/repo/dbexec"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"retrom/internal/testkit/testsupport"
 
@@ -79,35 +80,21 @@ func TestScanPublicationEventFailurePreservesStagedSnapshot(t *testing.T) {
 	}
 }
 
-type scanCommitFailure struct{ repository *ScanPublication }
-
-func (repository scanCommitFailure) WithScan(ctx context.Context, work func(pegasusimportmodel.ScanScope) error) error {
-	return repository.repository.WithScan(ctx, func(scope pegasusimportmodel.ScanScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		records, ok := scope.Write.(scanRecords)
-		if !ok {
-			return errors.New("unexpected scan records fixture")
-		}
-		if _, err := records.tx.ExecContext(ctx, `CREATE TABLE scan_commit_failure(
-owner TEXT REFERENCES blobs(id) DEFERRABLE INITIALLY DEFERRED)`); err != nil {
-			return err
-		}
-		_, err := records.tx.ExecContext(ctx, `INSERT INTO scan_commit_failure VALUES('missing')`)
-		return err
-	})
-}
-
 func TestScanPublicationCommitFailureRollsBackPublishedOutcome(t *testing.T) {
 	t.Parallel()
 	db, id, projection := publicationDatabase(t)
 	stagePublication(t, db, id, projection)
 	before := publicationRows(t, db)
-	service := pegasusimportservice.NewScanPublication(
-		scanCommitFailure{NewScanPublication(db)},
-		func() time.Time { return time.UnixMilli(10) },
-	)
+	repo := NewScanPublication(db)
+	repo.WithPreCommitHook(func(tx dbexec.Executor) error {
+		if _, err := tx.ExecContext(t.Context(), `CREATE TABLE scan_commit_failure(
+owner TEXT REFERENCES blobs(id) DEFERRABLE INITIALLY DEFERRED)`); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(t.Context(), `INSERT INTO scan_commit_failure VALUES('missing')`)
+		return err
+	})
+	service := pegasusimportservice.NewScanPublication(repo, func() time.Time { return time.UnixMilli(10) })
 	err := service.Finish(t.Context(), id, projection.Summary)
 	var cause *sqlite.Error
 	if !errors.As(err, &cause) || !reflect.DeepEqual(before, publicationRows(t, db)) {

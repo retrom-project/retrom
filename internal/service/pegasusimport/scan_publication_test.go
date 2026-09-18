@@ -17,19 +17,21 @@ type publicationFake struct {
 	batchSizes []int
 }
 
-func (fake *publicationFake) WithScan(_ context.Context, work func(model.ScanScope) error) error {
-	return work(model.ScanScope{Read: fake, Write: fake})
-}
-
-func (fake *publicationFake) Current(context.Context, string) (model.ExecutionSnapshot, error) {
+func (fake *publicationFake) LoadScanOwner(
+	context.Context, string,
+) (model.ExecutionSnapshot, error) {
 	return fake.before, fake.err
 }
 
-func (fake *publicationFake) Shape(context.Context, string) (model.ScanShape, error) {
+func (fake *publicationFake) LoadScanShape(
+	context.Context, string,
+) (model.ScanShape, error) {
 	return fake.shape, fake.err
 }
 
-func (fake *publicationFake) Headers(_ context.Context, _ model.ScanLease, headers model.ScanHeaders) error {
+func (fake *publicationFake) CommitScanHeaders(
+	_ context.Context, _ model.ScanLease, headers model.ScanHeaders,
+) error {
 	fake.writes = append(fake.writes, "headers")
 	fake.batchSizes = append(fake.batchSizes, len(headers.Metadata)+len(headers.Collections))
 	return nil
@@ -52,12 +54,16 @@ func TestScanPublicationBoundsCollectionAndMetadataTransactions(t *testing.T) {
 	}
 }
 
-func (fake *publicationFake) Items(context.Context, model.ScanLease, []model.ScanItem) error {
+func (fake *publicationFake) CommitScanItems(
+	context.Context, model.ScanLease, []model.ScanItem,
+) error {
 	fake.writes = append(fake.writes, "items")
 	return nil
 }
 
-func (fake *publicationFake) Finish(context.Context, model.ScanLease, model.ScanSummary) error {
+func (fake *publicationFake) CommitScanFinish(
+	context.Context, model.ScanLease, model.ScanSummary,
+) error {
 	fake.writes = append(fake.writes, "finish")
 	return nil
 }

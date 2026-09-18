@@ -11,51 +11,51 @@ import (
 )
 
 type scanMemory struct {
-	snapshot     model.LeaseSnapshot
-	writes       []string
-	batches      []int
-	transactions int
-	failure      error
-	stage        string
+	snapshot model.LeaseSnapshot
+	writes   []string
+	batches  []int
+	failure  error
+	stage    string
 }
 
-func (memory *scanMemory) WithScan(_ context.Context, work func(model.ScanScope) error) error {
-	memory.transactions++
-	if err := work(model.ScanScope{Read: memory, Write: memory}); err != nil {
-		return err
-	}
-	if memory.stage == "commit" {
-		return memory.failure
-	}
-	return nil
-}
-
-func (memory *scanMemory) Current(context.Context, string) (model.LeaseSnapshot, bool, error) {
+func (memory *scanMemory) LoadScanOwner(
+	_ context.Context, _ string,
+) (model.LeaseSnapshot, bool, error) {
 	if memory.stage == "read" {
 		return model.LeaseSnapshot{}, false, memory.failure
 	}
 	return memory.snapshot, true, nil
 }
 
-func (memory *scanMemory) Clear(context.Context, model.ScanMutation) error {
+func (memory *scanMemory) CommitScanClear(
+	_ context.Context, _ model.ScanMutation,
+) error {
 	return memory.write("clear")
 }
 
-func (memory *scanMemory) Headers(context.Context, model.ScanMutation, model.ScanProjection) error {
+func (memory *scanMemory) CommitScanHeaders(
+	_ context.Context, _ model.ScanMutation, _ model.ScanProjection,
+) error {
 	return memory.write("headers")
 }
 
-func (memory *scanMemory) Items(_ context.Context, _ model.ScanMutation, items []model.ScanItem) error {
+func (memory *scanMemory) CommitScanItems(
+	_ context.Context, _ model.ScanMutation, items []model.ScanItem,
+) error {
 	memory.batches = append(memory.batches, len(items))
 	return memory.write("items")
 }
 
-func (memory *scanMemory) Complete(context.Context, model.ScanMutation, model.ScanProjection) error {
+func (memory *scanMemory) CommitScanComplete(
+	_ context.Context, _ model.ScanMutation, _ model.ScanProjection,
+) error {
 	return memory.write("complete")
 }
 
-func (memory *scanMemory) Reject(context.Context, model.ScanMutation, model.ScanProjection) error {
-	return memory.write("reject")
+func (memory *scanMemory) CommitScanRejection(
+	_ context.Context, _ model.ScanMutation, _ model.ScanProjection,
+) error {
+	return memory.write("rejection")
 }
 
 func (memory *scanMemory) write(value string) error {
@@ -102,7 +102,7 @@ func TestScanPublicationRejectsLostAndCancelledOwners(t *testing.T) {
 
 func TestScanPublicationPreservesReadWriteCommitCauses(t *testing.T) {
 	t.Parallel()
-	for _, stage := range []string{"read", "headers", "commit"} {
+	for _, stage := range []string{"read", "headers"} {
 		memory := scanMemoryFixture()
 		memory.failure = errors.New("scan storage failed")
 		memory.stage = stage
@@ -120,13 +120,10 @@ func TestScanPublicationUsesBoundedItemTransactions(t *testing.T) {
 	if err := service.Items(t.Context(), memory.snapshot.Execution, make([]model.ScanItem, 1001)); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(memory.batches, []int{500, 500, 1}) || memory.transactions != 3 {
-		t.Fatalf("batches=%v transactions=%d", memory.batches, memory.transactions)
+	if !reflect.DeepEqual(memory.batches, []int{500, 500, 1}) {
+		t.Fatalf("batches=%v", memory.batches)
 	}
 	if err := service.Items(t.Context(), memory.snapshot.Execution, nil); err != nil {
 		t.Fatal(err)
-	}
-	if memory.transactions != 3 {
-		t.Fatal("empty scan batch opened a transaction")
 	}
 }

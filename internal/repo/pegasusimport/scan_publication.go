@@ -9,21 +9,42 @@ import (
 	"retrom/internal/repo/dbexec"
 )
 
-type ScanPublication struct{ database *sql.DB }
+type ScanPublication struct {
+	database      *sql.DB
+	preCommitHook func(dbexec.Executor) error
+}
 
 func NewScanPublication(database *sql.DB) *ScanPublication {
 	return &ScanPublication{database: database}
 }
 
-func (repository *ScanPublication) WithScan(ctx context.Context, work func(application.ScanScope) error) error {
+func (repository *ScanPublication) WithPreCommitHook(hook func(dbexec.Executor) error) {
+	repository.preCommitHook = hook
+}
+
+func (repository *ScanPublication) LoadScanOwner(
+	ctx context.Context, jobID string,
+) (application.ExecutionSnapshot, error) {
+	return scanRecovery(repository.database.QueryRowContext(
+		ctx, recoverySnapshotSQL+` AND job.id=?`, jobID,
+	))
+}
+
+func (repository *ScanPublication) commitScan(
+	ctx context.Context, fn func(scanRecords) error,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin Pegasus scan publication: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	records := scanRecords{tx: tx}
-	if err := work(application.ScanScope{Read: records, Write: records}); err != nil {
+	if err := fn(scanRecords{tx: tx}); err != nil {
 		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(tx); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit Pegasus scan publication: %w", err)
@@ -31,36 +52,35 @@ func (repository *ScanPublication) WithScan(ctx context.Context, work func(appli
 	return nil
 }
 
-type scanRecords struct{ tx *sql.Tx }
-
-func (records scanRecords) Current(ctx context.Context, jobID string) (application.ExecutionSnapshot, error) {
-	return leaseRecords(records).Current(ctx, jobID)
+func (repository *ScanPublication) CommitScanHeaders(
+	ctx context.Context, owner application.ScanLease, headers application.ScanHeaders,
+) error {
+	return repository.commitScan(ctx, func(r scanRecords) error {
+		return r.Headers(ctx, owner, headers)
+	})
 }
 
-const scanOwnerFence = ` WHERE id=? AND version=? AND state=? AND state='RUNNING'
-AND kind=? AND kind='SERVER_PEGASUS_SCAN'
-AND scope_type='PEGASUS_IMPORT' AND scope_id=? AND worker_id=? AND execution_no=? AND attempt_count=?
-AND leased_until_ms=? AND leased_until_ms>? AND execution_deadline_at_ms=? AND execution_deadline_at_ms>?
-AND EXISTS(SELECT 1 FROM pegasus_imports plan WHERE plan.id=jobs.scope_id AND plan.scan_job_id=jobs.id
-AND plan.version=? AND plan.state=? AND plan.state='SCANNING' AND plan.import_job_id IS NULL
-AND plan.scan_completed_at_ms IS NULL)`
-
-func scanOwnerArgs(owner application.ScanLease) []any {
-	b := owner.Before
-	return []any{
-		b.JobID, b.JobVersion, b.JobState, b.Kind, b.ImportID, b.WorkerID, b.ExecutionNo, b.Attempt,
-		b.LeaseUntilMS, owner.NowMS, b.DeadlineMS, owner.NowMS, b.ImportVersion, b.ImportState,
-	}
+func (repository *ScanPublication) CommitScanItems(
+	ctx context.Context, owner application.ScanLease, items []application.ScanItem,
+) error {
+	return repository.commitScan(ctx, func(r scanRecords) error {
+		return r.Items(ctx, owner, items)
+	})
 }
 
-func (records scanRecords) guard(ctx context.Context, owner application.ScanLease) error {
-	result, err := records.tx.ExecContext(ctx, `UPDATE jobs SET version=version`+scanOwnerFence, scanOwnerArgs(owner)...)
-	return requireWorkflowChange(result, err, application.ErrVersionConflict)
+func (repository *ScanPublication) CommitScanFinish(
+	ctx context.Context, owner application.ScanLease, summary application.ScanSummary,
+) error {
+	return repository.commitScan(ctx, func(r scanRecords) error {
+		return r.Finish(ctx, owner, summary)
+	})
 }
 
-func (records scanRecords) Shape(ctx context.Context, importID string) (application.ScanShape, error) {
+func (repository *ScanPublication) LoadScanShape(
+	ctx context.Context, importID string,
+) (application.ScanShape, error) {
 	var result application.ScanShape
-	err := records.tx.QueryRowContext(ctx, `SELECT
+	err := repository.database.QueryRowContext(ctx, `SELECT
 (SELECT count(*) FROM pegasus_import_metadata_files WHERE import_id=?),
 (SELECT count(*) FROM pegasus_import_metadata_files WHERE import_id=? AND parse_state='INVALID'),
 (SELECT count(*) FROM pegasus_import_collections WHERE import_id=?),
@@ -82,4 +102,27 @@ func (records scanRecords) Shape(ctx context.Context, importID string) (applicat
 		return application.ScanShape{}, fmt.Errorf("query persisted Pegasus scan shape: %w", err)
 	}
 	return result, nil
+}
+
+type scanRecords struct{ tx *sql.Tx }
+
+const scanOwnerFence = ` WHERE id=? AND version=? AND state=? AND state='RUNNING'
+AND kind=? AND kind='SERVER_PEGASUS_SCAN'
+AND scope_type='PEGASUS_IMPORT' AND scope_id=? AND worker_id=? AND execution_no=? AND attempt_count=?
+AND leased_until_ms=? AND leased_until_ms>? AND execution_deadline_at_ms=? AND execution_deadline_at_ms>?
+AND EXISTS(SELECT 1 FROM pegasus_imports plan WHERE plan.id=jobs.scope_id AND plan.scan_job_id=jobs.id
+AND plan.version=? AND plan.state=? AND plan.state='SCANNING' AND plan.import_job_id IS NULL
+AND plan.scan_completed_at_ms IS NULL)`
+
+func scanOwnerArgs(owner application.ScanLease) []any {
+	b := owner.Before
+	return []any{
+		b.JobID, b.JobVersion, b.JobState, b.Kind, b.ImportID, b.WorkerID, b.ExecutionNo, b.Attempt,
+		b.LeaseUntilMS, owner.NowMS, b.DeadlineMS, owner.NowMS, b.ImportVersion, b.ImportState,
+	}
+}
+
+func (records scanRecords) guard(ctx context.Context, owner application.ScanLease) error {
+	result, err := records.tx.ExecContext(ctx, `UPDATE jobs SET version=version`+scanOwnerFence, scanOwnerArgs(owner)...)
+	return requireWorkflowChange(result, err, application.ErrVersionConflict)
 }
