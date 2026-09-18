@@ -80,18 +80,23 @@ func assertPendingScanCapacity(t *testing.T, stage string) {
 	}
 	repo := NewCreation(db)
 	if stage == "read" {
-		count, err := repo.LoadPendingPlanCount(t.Context())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if count != 20 {
-			t.Fatalf("pending capacity=%d", count)
-		}
-	} else {
-		_, err = repo.CommitCreation(t.Context(), creationPlan(20))
-		if !errors.Is(err, emulationstationimportmodel.ErrActive) {
-			t.Fatalf("capacity cause=%v", err)
-		}
+		assertPendingCapacityCount(t, repo, 20)
+		return
+	}
+	_, err = repo.CommitCreation(t.Context(), creationPlan(20))
+	if !errors.Is(err, emulationstationimportmodel.ErrActive) {
+		t.Fatalf("capacity cause=%v", err)
+	}
+}
+
+func assertPendingCapacityCount(t *testing.T, repo *Creation, want int) {
+	t.Helper()
+	count, err := repo.LoadPendingPlanCount(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != want {
+		t.Fatalf("pending capacity=%d", count)
 	}
 }
 

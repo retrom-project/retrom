@@ -35,7 +35,9 @@ OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL)
 	return count, nil
 }
 
-func (repository *Creation) CommitCreation(ctx context.Context, plan application.CreationPlan) (application.Summary, error) {
+func (repository *Creation) CommitCreation(
+	ctx context.Context, plan application.CreationPlan,
+) (application.Summary, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return application.Summary{}, fmt.Errorf("begin Pegasus creation: %w", err)
