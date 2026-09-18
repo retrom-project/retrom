@@ -18,10 +18,40 @@ type synchronizedWork struct {
 	records *workerRepositoryFixture
 }
 
-func (r *synchronizedWork) WithWorker(ctx context.Context, run func(model.WorkerScope) error) error {
+func (r *synchronizedWork) LoadNextWork(ctx context.Context, nowMS int64) (model.Work, bool, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	return r.records.WithWorker(ctx, run)
+	return r.records.LoadNextWork(ctx, nowMS)
+}
+
+func (r *synchronizedWork) LoadCurrentWork(ctx context.Context, id string) (model.Work, bool, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	return r.records.LoadCurrentWork(ctx, id)
+}
+
+func (r *synchronizedWork) LoadInterruptedWork(ctx context.Context, nowMS int64, limit int) ([]model.Work, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	return r.records.LoadInterruptedWork(ctx, nowMS, limit)
+}
+
+func (r *synchronizedWork) LoadWorkOwner(ctx context.Context, scope model.Scope) (model.Owner, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	return r.records.LoadWorkOwner(ctx, scope)
+}
+
+func (r *synchronizedWork) CommitWorkChange(ctx context.Context, c model.WorkChange) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	return r.records.CommitWorkChange(ctx, c)
+}
+
+func (r *synchronizedWork) CommitWorkFence(ctx context.Context, work model.Work) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	return r.records.CommitWorkFence(ctx, work)
 }
 
 func (r *synchronizedWork) snapshot() model.Work {

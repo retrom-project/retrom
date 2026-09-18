@@ -27,17 +27,26 @@ func NewMultiDiscAttachmentFinalization(database *sql.DB) *MultiDiscAttachmentFi
 
 type multiDiscAttachmentCommitScope struct{ transaction *sql.Tx }
 
-var _ application.MultiDiscAttachmentCommitScope = multiDiscAttachmentCommitScope{}
+func (repository *MultiDiscAttachmentFinalization) LoadBIOSRecords(
+	ctx context.Context, providerID, targetID string,
+) ([]validationservice.BIOSRecord, error) {
+	result, err := validationpersistence.New(repository.database).BIOS(ctx, providerID, targetID)
+	if err != nil {
+		return nil, fmt.Errorf("read multi-disc BIOS records: %w", err)
+	}
+	return result, nil
+}
 
-func (repository *MultiDiscAttachmentFinalization) WithCommit(
-	ctx context.Context, work func(application.MultiDiscAttachmentCommitScope) error,
+func (repository *MultiDiscAttachmentFinalization) CommitAccepted(
+	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin multi-disc attachment commit: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
-	if err := work(multiDiscAttachmentCommitScope{transaction: transaction}); err != nil {
+	scope := multiDiscAttachmentCommitScope{transaction: transaction}
+	if err := scope.commitAccepted(ctx, write); err != nil {
 		return err
 	}
 	if err := transaction.Commit(); err != nil {
@@ -46,17 +55,7 @@ func (repository *MultiDiscAttachmentFinalization) WithCommit(
 	return nil
 }
 
-func (scope multiDiscAttachmentCommitScope) BIOS(
-	ctx context.Context, providerID, targetID string,
-) ([]validationservice.BIOSRecord, error) {
-	result, err := validationpersistence.New(scope.transaction).BIOS(ctx, providerID, targetID)
-	if err != nil {
-		return nil, fmt.Errorf("read multi-disc BIOS records: %w", err)
-	}
-	return result, nil
-}
-
-func (scope multiDiscAttachmentCommitScope) CommitAccepted(
+func (scope multiDiscAttachmentCommitScope) commitAccepted(
 	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
 ) error {
 	if err := scope.validateCurrentInput(ctx, write.Input); err != nil {

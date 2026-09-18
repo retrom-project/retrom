@@ -20,7 +20,7 @@ func (service *GCScheduler) StageInScope(ctx context.Context, scope model.GCScop
 		if err != nil {
 			return fmt.Errorf("read selected GC blobs: %w", err)
 		}
-		if err := service.stage(ctx, scope, facts); err != nil {
+		if err := service.stageInScopeInternal(ctx, scope, facts); err != nil {
 			return err
 		}
 	}
@@ -33,17 +33,18 @@ func (service *GCScheduler) Reconcile(ctx context.Context) error {
 	}
 	cursor := ""
 	for {
-		var facts []model.GCBlob
-		err := service.repository.WithGC(ctx, func(scope model.GCScope) error {
-			var err error
-			facts, err = scope.Read.Page(ctx, cursor, gcPageSize)
-			if err != nil {
-				return fmt.Errorf("read GC page: %w", err)
-			}
-			return service.stage(ctx, scope, facts)
-		})
+		facts, err := service.repository.LoadGCPage(ctx, cursor, gcPageSize)
+		if err != nil {
+			return fmt.Errorf("reconcile GC page: %w", fmt.Errorf("read GC page: %w", err))
+		}
+		batch, err := service.prepareScheduleBatch(ctx, facts)
 		if err != nil {
 			return fmt.Errorf("reconcile GC page: %w", err)
+		}
+		if len(batch.Queued) > 0 {
+			if err := service.repository.CommitGCSchedule(ctx, batch); err != nil {
+				return fmt.Errorf("reconcile GC page: %w", err)
+			}
 		}
 		if len(facts) < gcPageSize {
 			return nil
@@ -56,7 +57,38 @@ func (service *GCScheduler) Reconcile(ctx context.Context) error {
 	}
 }
 
-func (service *GCScheduler) stage(ctx context.Context, scope model.GCScope, facts []model.GCBlob) error {
+func (service *GCScheduler) prepareScheduleBatch(
+	ctx context.Context, facts []model.GCBlob,
+) (model.GCScheduleBatch, error) {
+	now := service.now().UnixMilli()
+	if now < 0 || now > math.MaxInt64-service.retention.Milliseconds() {
+		return model.GCScheduleBatch{}, model.ErrGCRetentionInvalid
+	}
+	var pending []model.GCQueue
+	var selected []model.GCBlob
+	for _, blob := range facts {
+		if blob.Protected || blob.HasCandidate {
+			continue
+		}
+		job, err := service.prepareJob(blob, now)
+		if err != nil {
+			return model.GCScheduleBatch{}, err
+		}
+		selected = append(selected, blob)
+		pending = append(pending, model.GCQueue{
+			Before: blob, Job: job, AvailableMS: now + service.retention.Milliseconds(),
+			EventJSON: `{"schemaVersion":1,"executionNo":1,"attempt":0}`,
+		})
+	}
+	if len(pending) == 0 {
+		if err := ctx.Err(); err != nil {
+			return model.GCScheduleBatch{}, fmt.Errorf("stop GC scheduling: %w", err)
+		}
+	}
+	return model.GCScheduleBatch{Selected: selected, Queued: pending}, nil
+}
+
+func (service *GCScheduler) stageInScopeInternal(ctx context.Context, scope model.GCScope, facts []model.GCBlob) error {
 	now := service.now().UnixMilli()
 	if now < 0 || now > math.MaxInt64-service.retention.Milliseconds() {
 		return model.ErrGCRetentionInvalid

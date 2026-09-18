@@ -15,8 +15,8 @@ import (
 )
 
 type Mappings struct {
-	database       *sql.DB
-	preCommitHook  func(dbexec.Executor) error
+	database      *sql.DB
+	preCommitHook func(dbexec.Executor) error
 }
 
 type MappingsOption func(*Mappings)
@@ -32,6 +32,7 @@ func NewMappings(database *sql.DB, opts ...MappingsOption) *Mappings {
 	}
 	return m
 }
+
 func (repository *Mappings) LoadImportSummary(ctx context.Context, id string) (application.Summary, error) {
 	return (&Queries{database: repository.database}).Get(ctx, id)
 }
@@ -40,11 +41,15 @@ func (repository *Mappings) LoadCollectionOwner(ctx context.Context, id string) 
 	return (mappingRecords{executor: repository.database}).CollectionOwner(ctx, id)
 }
 
-func (repository *Mappings) LoadEligibleTarget(ctx context.Context, id string) (application.MappingTarget, bool, error) {
+func (repository *Mappings) LoadEligibleTarget(
+	ctx context.Context, id string,
+) (application.MappingTarget, bool, error) {
 	return (mappingRecords{executor: repository.database}).EligibleTarget(ctx, id)
 }
 
-func (repository *Mappings) CommitMappingBatch(ctx context.Context, batch application.MappingBatch) (application.Summary, error) {
+func (repository *Mappings) CommitMappingBatch(
+	ctx context.Context, batch application.MappingBatch,
+) (application.Summary, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return application.Summary{}, fmt.Errorf("begin Pegasus mappings: %w", err)

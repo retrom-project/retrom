@@ -84,12 +84,16 @@ type ArcadeParentAttachmentAdmissionWriter interface {
 	Create(context.Context, ArcadeParentAttachmentWrite) error
 }
 
-type ArcadeParentAttachmentAdmissionRepository interface {
+type ArcadeParentAttachmentSnapshotReader interface {
 	ArcadeRelationReader
 	LoadDraft(context.Context, string) (ArcadeParentAttachmentDraft, bool, error)
 	LoadValidation(context.Context, string, string) (ArcadeParentAttachmentValidation, bool, error)
 	LoadUpload(context.Context, string) (ArcadeParentAttachmentUpload, bool, error)
 	HasActiveAttachment(context.Context, string) (bool, error)
+}
+
+type ArcadeParentAttachmentAdmissionRepository interface {
+	ArcadeParentAttachmentSnapshotReader
 	CommitAttachment(context.Context, ArcadeParentAttachmentWrite) error
 }
 

@@ -35,21 +35,10 @@ FROM review_preview_sessions preview WHERE preview.id=?`, id))
 func (repository *Screenshots) LoadScreenshotSource(
 	ctx context.Context, id string,
 ) (application.ScreenshotSource, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return application.ScreenshotSource{}, false,
-			fmt.Errorf("begin screenshot source read: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	source, found, err := (screenshotRecords{executor: tx}).Current(ctx, id)
-	if err != nil {
-		return application.ScreenshotSource{}, false, err
-	}
-	if err := tx.Commit(); err != nil {
-		return application.ScreenshotSource{}, false,
-			fmt.Errorf("commit screenshot source read: %w", err)
-	}
-	return source, found, nil
+	return readOnlyTx(ctx, repository.database, "screenshot source read",
+		func(tx dbexec.Executor) (application.ScreenshotSource, bool, error) {
+			return (screenshotRecords{executor: tx}).Current(ctx, id)
+		})
 }
 
 func (repository *Screenshots) CommitScreenshot(ctx context.Context, plan application.ScreenshotWrite) error {

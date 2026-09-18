@@ -42,10 +42,10 @@ func (m *mappingMemory) LoadEligibleTarget(_ context.Context, _ string) (model.M
 	return *m.target, true, m.targetErr
 }
 
-func (m *mappingMemory) CommitMappingBatch(_ context.Context, batch model.MappingBatch) (model.Summary, error) {
+func (m *mappingMemory) CommitMappingBatch(ctx context.Context, batch model.MappingBatch) (model.Summary, error) {
 	m.commits++
 	for _, entry := range batch.Entries {
-		_, references, err := m.tags.ReplaceOwnerReferences(nil, entry.Owner, entry.TagIDs, entry.ActorID, entry.Change.NowMS)
+		_, references, err := m.tags.ReplaceOwnerReferences(ctx, entry.Owner, entry.TagIDs, entry.ActorID, entry.Change.NowMS)
 		if errors.Is(err, tagging.ErrInvalid) {
 			return model.Summary{}, fmt.Errorf("%w: %w", model.ErrInvalid, err)
 		}
