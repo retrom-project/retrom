@@ -42,7 +42,7 @@ func executeManualCheckpoint(
 		return saves.ManualResult{}, false, saves.ErrTooLarge
 	}
 
-	payload := blobstore.Metadata{SHA256: cmd.Payload.SHA256, Size: cmd.Payload.Size}
+	payload := payloadMetadata(cmd.Payload)
 	payloadID, err := scope.blobs.Ensure(ctx, payload, cmd.Payload.MediaType, now)
 	if err != nil {
 		return saves.ManualResult{}, false, fmt.Errorf("register checkpoint payload: %w", err)
@@ -122,7 +122,7 @@ func insertProduct(
 ) (saves.ManualResult, error) {
 	var screenshotID *string
 	if cmd.Screenshot != nil {
-		meta := blobstore.Metadata{SHA256: cmd.Screenshot.SHA256, Size: cmd.Screenshot.Size}
+		meta := imageMetadata(*cmd.Screenshot)
 		value, err := scope.blobs.Ensure(ctx, meta, cmd.ScreenshotMediaType, now)
 		if err != nil {
 			return saves.ManualResult{}, fmt.Errorf("register save screenshot: %w", err)
@@ -144,10 +144,11 @@ func insertProduct(
 		ActiveDurationMS: duration.ActiveMS,
 	}
 	result.ScreenshotURL = screenshotURL(result.SaveStateID, screenshotID)
-	payload := blobstore.Metadata{SHA256: cmd.Payload.SHA256, Size: cmd.Payload.Size}
 	if err := scope.checkpoints.CreateSave(ctx, saves.SaveCreation{
-		LaunchID: cmd.LaunchID, ProfileID: cmd.Launch.ProfileID, GameID: cmd.Launch.GameID, PayloadID: payloadID,
-		DOSEntry: cmd.Launch.DOSEntry, ScreenshotID: screenshotID, Payload: payload, Result: result,
+		LaunchID: cmd.LaunchID, ProfileID: cmd.Launch.ProfileID,
+		GameID: cmd.Launch.GameID, PayloadID: payloadID,
+		DOSEntry: cmd.Launch.DOSEntry, ScreenshotID: screenshotID,
+		Payload: payloadMetadata(cmd.Payload), Result: result,
 	}); err != nil {
 		return saves.ManualResult{}, fmt.Errorf("create save: %w", err)
 	}
@@ -175,10 +176,9 @@ func updateProduct(
 	if saved.Digest == cmd.Payload.SHA256 {
 		return result, saved.DataVersion, nil
 	}
-	imageID, err := scope.blobs.Ensure(ctx, blobstore.Metadata{
-		SHA256: cmd.Screenshot.SHA256,
-		Size:   cmd.Screenshot.Size,
-	}, cmd.ScreenshotMediaType, now)
+	imageID, err := scope.blobs.Ensure(
+		ctx, imageMetadata(*cmd.Screenshot), cmd.ScreenshotMediaType, now,
+	)
 	if err != nil {
 		return saves.ManualResult{}, 0, fmt.Errorf("register game save image: %w", err)
 	}
@@ -187,10 +187,11 @@ func updateProduct(
 		return saves.ManualResult{}, 0, fmt.Errorf("read game save duration: %w", err)
 	}
 	result.ActiveDurationMS = duration.InitialMS + duration.ActiveMS
-	payload := blobstore.Metadata{SHA256: cmd.Payload.SHA256, Size: cmd.Payload.Size}
 	if err := scope.gameSaves.UpdateSave(ctx, saves.SaveUpdate{
-		SaveID: result.SaveStateID, LaunchID: cmd.LaunchID, PayloadID: payloadID, ScreenshotID: imageID,
-		Payload: payload, ExpectedDataVersion: binding.ExpectedVersion, AtMS: now,
+		SaveID: result.SaveStateID, LaunchID: cmd.LaunchID,
+		PayloadID: payloadID, ScreenshotID: imageID,
+		Payload:             payloadMetadata(cmd.Payload),
+		ExpectedDataVersion: binding.ExpectedVersion, AtMS: now,
 		ActiveDurationMS: result.ActiveDurationMS,
 	}); err != nil {
 		return saves.ManualResult{}, 0, fmt.Errorf("update saved slot: %w", err)
@@ -206,4 +207,18 @@ func screenshotURL(id string, imageID *string) *string {
 	}
 	value := "/content/save-states/" + id + "/screenshot"
 	return &value
+}
+
+func payloadMetadata(p saves.ManualCheckpointPayload) blobstore.Metadata {
+	return blobstore.Metadata{
+		SHA256: p.SHA256, MD5: p.MD5, SHA1: p.SHA1, CRC32: p.CRC32,
+		Size: p.Size,
+	}
+}
+
+func imageMetadata(img saves.ManualCheckpointImage) blobstore.Metadata {
+	return blobstore.Metadata{
+		SHA256: img.SHA256, MD5: img.MD5, SHA1: img.SHA1, CRC32: img.CRC32,
+		Size: img.Size,
+	}
 }

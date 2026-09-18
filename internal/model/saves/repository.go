@@ -30,13 +30,15 @@ type ManualCheckpointCommand struct {
 }
 
 type ManualCheckpointPayload struct {
-	SHA256, MediaType string
-	Size              int64
+	SHA256, MD5, SHA1, CRC32 string
+	MediaType                string
+	Size                     int64
 }
 
 type ManualCheckpointImage struct {
-	SHA256, MediaType string
-	Size              int64
+	SHA256, MD5, SHA1, CRC32 string
+	MediaType                string
+	Size                     int64
 }
 
 // ListRepository owns the administrator-facing save list projection. It is

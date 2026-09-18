@@ -122,8 +122,12 @@ func failureOutcome(claim model.Claim, snapshot model.JobSnapshot, err error, no
 		Now:       now,
 	}
 	var validation *replacementValidationError
+	var content *model.ContentValidationError
 	if errors.As(err, &validation) {
 		outcome.Code = validation.code
+		outcome.Retryable = false
+	} else if errors.As(err, &content) {
+		outcome.Code = content.Code
 		outcome.Retryable = false
 	}
 	return outcome

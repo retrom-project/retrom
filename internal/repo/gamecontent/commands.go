@@ -783,7 +783,7 @@ func verifyPublishBinding(
 	}
 	if !bindingMatchesSnapshot(binding, cmd.Snapshot) ||
 		pointerText(binding.DATID) != pointerText(cmd.Snapshot.DATVersionID) {
-		return model.Binding{}, &contentValidationError{code: "GAME_CONTENT_CHANGED"}
+		return model.Binding{}, &contentValidationError{Code: "GAME_CONTENT_CHANGED"}
 	}
 	identity, err := scope.Content.Identity(ctx, cmd.Snapshot.GameID)
 	if err != nil {
@@ -795,7 +795,7 @@ func verifyPublishBinding(
 		})
 	}
 	if slices.Equal(identity, preparedIdentity(cmd.Prepared)) {
-		return model.Binding{}, &contentValidationError{code: "GAME_CONTENT_UNCHANGED"}
+		return model.Binding{}, &contentValidationError{Code: "GAME_CONTENT_UNCHANGED"}
 	}
 	return binding, nil
 }
@@ -818,7 +818,7 @@ func resolvePublishDependencies(
 		return nil, fmt.Errorf("resolve replacement dependencies: %w", err)
 	}
 	if status != "READY" {
-		return nil, &contentValidationError{code: code}
+		return nil, &contentValidationError{Code: code}
 	}
 	if cmd.Prepared.ContentKind == multidisc.ContentKind {
 		bios.MultiDisc = &corevalidation.MultiDiscSnapshot{
@@ -849,6 +849,13 @@ func bindingMatchesSnapshot(binding model.Binding, snapshot model.JobSnapshot) b
 }
 
 func preparedIdentity(prepared model.PreparedReplacement) []model.IdentityFile {
+	if prepared.ContentKind == multidisc.ContentKind {
+		identity := make([]model.IdentityFile, 0, len(prepared.OrderedDiscSHA256))
+		for _, digest := range prepared.OrderedDiscSHA256 {
+			identity = append(identity, model.IdentityFile{Role: "DISC", SHA256: digest})
+		}
+		return identity
+	}
 	result := make([]model.IdentityFile, len(prepared.Files))
 	for i, file := range prepared.Files {
 		result[i] = model.IdentityFile{Role: file.Role, SHA256: file.SHA256}
@@ -856,9 +863,7 @@ func preparedIdentity(prepared model.PreparedReplacement) []model.IdentityFile {
 	return result
 }
 
-type contentValidationError struct{ code string }
-
-func (err *contentValidationError) Error() string { return err.code }
+type contentValidationError = model.ContentValidationError
 
 func pointerText(value *string) string {
 	if value == nil {
@@ -868,5 +873,5 @@ func pointerText(value *string) string {
 }
 
 func readOnlyTxOpts() *sql.TxOptions {
-	return &sql.TxOptions{ReadOnly: true}
+	return nil
 }

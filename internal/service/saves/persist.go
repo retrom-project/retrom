@@ -59,7 +59,8 @@ func (service *Service) createManualForLaunch(ctx context.Context, id, key strin
 		ExpiresAtMS: now + int64(24*time.Hour/time.Millisecond),
 		Launch:      launch,
 		Payload: model.ManualCheckpointPayload{
-			SHA256:    parsed.payload.SHA256,
+			SHA256: parsed.payload.SHA256, MD5: parsed.payload.MD5,
+			SHA1: parsed.payload.SHA1, CRC32: parsed.payload.CRC32,
 			MediaType: "application/octet-stream", Size: parsed.payload.Size,
 		},
 		SaveStateID:         saveStateID,
@@ -69,7 +70,8 @@ func (service *Service) createManualForLaunch(ctx context.Context, id, key strin
 	}
 	if parsed.screenshot != nil {
 		cmd.Screenshot = &model.ManualCheckpointImage{
-			SHA256:    parsed.screenshot.SHA256,
+			SHA256: parsed.screenshot.SHA256, MD5: parsed.screenshot.MD5,
+			SHA1: parsed.screenshot.SHA1, CRC32: parsed.screenshot.CRC32,
 			MediaType: parsed.screenshotMediaType,
 			Size:      parsed.screenshot.Size,
 		}
