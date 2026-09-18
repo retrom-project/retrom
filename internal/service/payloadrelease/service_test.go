@@ -10,18 +10,8 @@ import (
 )
 
 type initializationFixture struct {
-	readErr, commitErr error
-	pages              int
-}
-
-func (fixture *initializationFixture) WithLifecycle(ctx context.Context, run func(model.LifecycleReader) error) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := run(fixture); err != nil {
-		return err
-	}
-	return fixture.commitErr
+	readErr error
+	pages   int
 }
 
 func (*initializationFixture) BlobEdges(context.Context) ([]model.BlobEdge, error) {
@@ -40,21 +30,11 @@ func (fixture *initializationFixture) Owners(context.Context, model.Scope, int) 
 
 func TestPayloadServiceInitializationPreservesSnapshotFailure(t *testing.T) {
 	t.Parallel()
-	for _, stage := range []string{"read", "commit"} {
-		t.Run(stage, func(t *testing.T) {
-			t.Parallel()
-			cause := errors.New("startup snapshot unavailable")
-			fixture := &initializationFixture{}
-			if stage == "read" {
-				fixture.readErr = cause
-			} else {
-				fixture.commitErr = cause
-			}
-			service, err := New(t.Context(), Dependencies{Lifecycle: fixture}, Options{Retention: 24 * time.Hour})
-			if service != nil || !errors.Is(err, cause) || fixture.pages != 1 {
-				t.Fatalf("failed initialization exposed service: %t %v pages=%d", service != nil, err, fixture.pages)
-			}
-		})
+	cause := errors.New("startup snapshot unavailable")
+	fixture := &initializationFixture{readErr: cause}
+	service, err := New(t.Context(), Dependencies{Lifecycle: fixture}, Options{Retention: 24 * time.Hour})
+	if service != nil || !errors.Is(err, cause) || fixture.pages != 1 {
+		t.Fatalf("failed initialization exposed service: %t %v pages=%d", service != nil, err, fixture.pages)
 	}
 }
 

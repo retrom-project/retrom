@@ -14,23 +14,20 @@ func NewLifecycleVerifier(repository model.LifecycleRepository) *LifecycleVerifi
 }
 
 func (verifier *LifecycleVerifier) Validate(ctx context.Context) error {
-	err := verifier.repository.WithLifecycle(ctx, func(reader model.LifecycleReader) error {
-		edges, err := reader.BlobEdges(ctx)
-		if err != nil {
-			return fmt.Errorf("read payload ownership registry: %w", err)
-		}
-		if err := ValidateOwnershipRegistry(edges); err != nil {
-			return err
-		}
-		return validateLifecyclePages(ctx, reader)
-	})
+	edges, err := verifier.repository.BlobEdges(ctx)
 	if err != nil {
+		return fmt.Errorf("read payload ownership registry: %w", err)
+	}
+	if err := ValidateOwnershipRegistry(edges); err != nil {
+		return fmt.Errorf("validate payload lifecycle: %w", err)
+	}
+	if err := validateLifecyclePages(ctx, verifier.repository); err != nil {
 		return fmt.Errorf("validate payload lifecycle: %w", err)
 	}
 	return nil
 }
 
-func validateLifecyclePages(ctx context.Context, reader model.LifecycleReader) error {
+func validateLifecyclePages(ctx context.Context, reader model.LifecycleRepository) error {
 	var cursor model.Scope
 	for {
 		owners, err := reader.Owners(ctx, cursor, 200)
