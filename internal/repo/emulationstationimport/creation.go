@@ -35,7 +35,9 @@ AND state IN ('SCANNING','AWAITING_MAPPING','CANCEL_REQUESTED')
 	return count, nil
 }
 
-func (repository *Creation) CommitCreation(ctx context.Context, plan application.CreationPlan) (application.Summary, error) {
+func (repository *Creation) CommitCreation(
+	ctx context.Context, plan application.CreationPlan,
+) (application.Summary, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return application.Summary{}, fmt.Errorf("begin EmulationStation creation: %w", err)
