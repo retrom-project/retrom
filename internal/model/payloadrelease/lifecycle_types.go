@@ -10,11 +10,7 @@ type LifecycleOwner struct {
 	ReleaseScope                                  Scope
 }
 
-type LifecycleReader interface {
+type LifecycleRepository interface {
 	BlobEdges(context.Context) ([]BlobEdge, error)
 	Owners(context.Context, Scope, int) ([]LifecycleOwner, error)
-}
-
-type LifecycleRepository interface {
-	WithLifecycle(context.Context, func(LifecycleReader) error) error
 }
