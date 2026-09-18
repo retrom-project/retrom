@@ -474,6 +474,12 @@ WHERE id=?
 	}
 	assertForeignMetadataExecutionIsUntouched(t, database.SQL, scraper, failureScrape.RunID, failureScrape.JobID)
 	assertMetadataClaimAndCompletionRollback(t, database.SQL, failureScrape.RunID, failureScrape.JobID, failureItemID)
+	// CommitClaim commits independently; reset the job to QUEUED so the next
+	// Run call can re-claim it and process the invalid payload.
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE jobs SET state='QUEUED',version=version+1,updated_at_ms=? WHERE id=?`,
+		mediaFixtureNow().UnixMilli(), failureScrape.JobID); err != nil {
+		t.Fatal(err)
+	}
 	assertInitialProgressRollback(t, database.SQL, failureScrape.RunID, failureItemID)
 	if err := scraper.Run(ctx, failureScrape.RunID); err == nil {
 		t.Fatal("invalid metadata task payload should fail")

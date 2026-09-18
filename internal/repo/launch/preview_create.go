@@ -53,7 +53,7 @@ func (repository *PreviewCreation) LoadPreviewSnapshot(
 	ctx context.Context,
 	itemID string,
 ) (application.PreviewSnapshot, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return application.PreviewSnapshot{}, false, fmt.Errorf("begin preview snapshot: %w", err)
 	}
@@ -82,7 +82,7 @@ func (repository *PreviewCreation) LoadPreviewCurrent(
 	ctx context.Context,
 	request application.ReviewPreviewRequest,
 ) (application.PreviewSource, string, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return application.PreviewSource{}, "", false, fmt.Errorf("begin preview current: %w", err)
 	}

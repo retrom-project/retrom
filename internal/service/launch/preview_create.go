@@ -151,7 +151,25 @@ func (service *PreviewCreator) commit(
 	if plan.Source.Title == "" {
 		plan.Source.Title = plan.Content.LogicalName
 	}
+	result, err := service.commitOrReplay(ctx, plan, capability)
+	if err != nil {
+		return model.ReviewPreviewCreated{}, err
+	}
+	return result, nil
+}
+
+func (service *PreviewCreator) commitOrReplay(
+	ctx context.Context, plan model.PreviewCreatePlan, capability string,
+) (model.ReviewPreviewCreated, error) {
 	if err := service.repository.CommitPreviewCreation(ctx, plan); err != nil {
+		// A concurrent request with the same idempotency key may have
+		// committed between our earlier replay read and this write.
+		receipt, found, readErr := service.repository.LoadPreviewReplay(
+			ctx, plan.Request.ActorUserID, plan.Request.IdempotencyKey,
+		)
+		if readErr == nil && found {
+			return service.replay(plan.Request, receipt)
+		}
 		return model.ReviewPreviewCreated{}, fmt.Errorf("persist preview plan: %w", err)
 	}
 	return model.ReviewPreviewCreated{

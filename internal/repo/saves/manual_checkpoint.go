@@ -11,32 +11,53 @@ import (
 	saves "retrom/internal/model/saves"
 )
 
+func replayCheckpoint(
+	ctx context.Context, scope writeScope, key saves.ReplayKey, digest string,
+) (saves.ManualResult, bool, error) {
+	previous, found, err := scope.idempotency.Replay(ctx, key)
+	if err != nil {
+		return saves.ManualResult{}, false, fmt.Errorf("read checkpoint replay: %w", err)
+	}
+	if !found {
+		return saves.ManualResult{}, false, nil
+	}
+	if subtle.ConstantTimeCompare([]byte(previous.Digest), []byte(digest)) != 1 {
+		return saves.ManualResult{}, false, saves.ErrSequenceReused
+	}
+	var result saves.ManualResult
+	if err := json.Unmarshal(previous.Body, &result); err != nil {
+		return saves.ManualResult{}, false, fmt.Errorf("decode checkpoint replay: %w", err)
+	}
+	return result, true, nil
+}
+
+func verifyCheckpointLaunch(
+	ctx context.Context, scope writeScope, cmd saves.ManualCheckpointCommand, now int64,
+) error {
+	current, err := scope.launches.LoadLaunch(ctx, cmd.LaunchID)
+	if err != nil {
+		return fmt.Errorf("verify launch: %w", err)
+	}
+	if cmd.Launch.LocalDraft {
+		if current.State != "ACTIVE" && current.State != "FINISHED" && current.State != "EXPIRED" {
+			return saves.ErrCredential
+		}
+	} else if current.State != "ACTIVE" || current.HardExpiresAtMS < now {
+		return saves.ErrCredential
+	}
+	return nil
+}
+
 func executeManualCheckpoint(
 	ctx context.Context, scope writeScope, cmd saves.ManualCheckpointCommand,
 ) (saves.ManualResult, bool, error) {
 	now := cmd.IdempotencyKey.AtMS
 
-	previous, found, err := scope.idempotency.Replay(ctx, cmd.IdempotencyKey)
-	if err != nil {
-		return saves.ManualResult{}, false, fmt.Errorf("read checkpoint replay: %w", err)
+	if replay, replayed, err := replayCheckpoint(ctx, scope, cmd.IdempotencyKey, cmd.Digest); err != nil || replayed {
+		return replay, replayed, err
 	}
-	if found {
-		if subtle.ConstantTimeCompare([]byte(previous.Digest), []byte(cmd.Digest)) != 1 {
-			return saves.ManualResult{}, false, saves.ErrSequenceReused
-		}
-		var result saves.ManualResult
-		if err := json.Unmarshal(previous.Body, &result); err != nil {
-			return saves.ManualResult{}, false, fmt.Errorf("decode checkpoint replay: %w", err)
-		}
-		return result, true, nil
-	}
-
-	current, err := scope.launches.LoadLaunch(ctx, cmd.LaunchID)
-	if err != nil {
-		return saves.ManualResult{}, false, fmt.Errorf("verify launch: %w", err)
-	}
-	if current.State != "ACTIVE" || current.HardExpiresAtMS < now {
-		return saves.ManualResult{}, false, saves.ErrCredential
+	if err := verifyCheckpointLaunch(ctx, scope, cmd, now); err != nil {
+		return saves.ManualResult{}, false, err
 	}
 	if cmd.Payload.Size > 16*1024*1024 {
 		return saves.ManualResult{}, false, saves.ErrTooLarge
