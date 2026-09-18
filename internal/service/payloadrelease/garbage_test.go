@@ -12,41 +12,45 @@ type garbageFixture struct {
 	facts                     model.GarbageFacts
 	commitErr                 error
 	removed, cancelled, files int
-	checks                    int
-	checkErr                  error
 }
 
-func (fixture *garbageFixture) WithGarbage(_ context.Context, run func(model.GarbageScope) error) error {
-	err := run(model.GarbageScope{Read: fixture, Write: fixture})
-	if err == nil {
-		err = fixture.commitErr
-	}
-	if err != nil {
-		fixture.removed, fixture.cancelled = 0, 0
-	}
-	return err
-}
-
-func (fixture *garbageFixture) Facts(context.Context, string, string) (model.GarbageFacts, error) {
+func (fixture *garbageFixture) LoadGarbageFacts(
+	_ context.Context, _, _ string,
+) (model.GarbageFacts, error) {
 	return fixture.facts, nil
 }
 
-func (fixture *garbageFixture) Remove(context.Context, model.GarbageFacts) error {
-	fixture.removed++
-	return nil
+func (fixture *garbageFixture) LoadGarbageWork(
+	_ context.Context, _ string,
+) (model.Work, bool, error) {
+	return model.Work{State: "RUNNING", WorkerID: "w", ExecutionNo: 1}, true, nil
 }
 
-func (fixture *garbageFixture) Cancel(context.Context, model.GarbageFacts) error {
-	fixture.cancelled++
-	return nil
-}
-
-func (fixture *garbageFixture) Delete(context.Context, string) error { fixture.files++; return nil }
-func (fixture *garbageFixture) CheckInScope(context.Context, model.WorkerScope, model.Work) error {
-	fixture.checks++
-	if fixture.checks == 2 {
-		return fixture.checkErr
+func (fixture *garbageFixture) CommitGarbage(
+	_ context.Context,
+	cmd model.GarbageCommand,
+	_ model.EffectAuthority,
+) error {
+	if fixture.commitErr != nil {
+		return fixture.commitErr
 	}
+	if cmd.Remove {
+		fixture.removed++
+	}
+	if cmd.Cancel {
+		fixture.cancelled++
+	}
+	return nil
+}
+
+func (fixture *garbageFixture) Delete(context.Context, string) error {
+	fixture.files++
+	return nil
+}
+
+func (fixture *garbageFixture) CheckInScope(
+	context.Context, model.WorkerScope, model.Work,
+) error {
 	return nil
 }
 
@@ -63,9 +67,14 @@ func TestGarbageCommitFailureCannotRemovePhysicalFile(t *testing.T) {
 
 func garbageTestExecution() model.Execution {
 	return model.Execution{
-		Work: model.Work{ID: "garbage-job", Scope: model.Scope{Type: model.ScopeBlob, ID: "garbage-blob"}},
+		Work: model.Work{
+			ID: "garbage-job", State: "RUNNING", WorkerID: "w",
+			ExecutionNo: 1,
+			Scope:       model.Scope{Type: model.ScopeBlob, ID: "garbage-blob"},
+		},
 		Input: model.Input{
-			SchemaVersion: 1, Kind: "BLOB_GC", Scope: model.Scope{Type: model.ScopeBlob, ID: "garbage-blob"},
+			SchemaVersion: 1, Kind: "BLOB_GC",
+			Scope:  model.Scope{Type: model.ScopeBlob, ID: "garbage-blob"},
 			Inputs: model.ScopeInputs{SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 		},
 	}
@@ -83,16 +92,25 @@ func TestGarbageDoesNotDeleteExistingBlobWithoutItsCandidate(t *testing.T) {
 	}
 }
 
+type garbageLostAuthority struct{ garbageFixture }
+
+func (fixture *garbageLostAuthority) LoadGarbageWork(
+	_ context.Context, _ string,
+) (model.Work, bool, error) {
+	return model.Work{}, false, nil
+}
+
 func TestGarbageRejectsLostAuthorityBeforePublishingRemoval(t *testing.T) {
 	t.Parallel()
 	unit := garbageTestExecution()
-	fixture := &garbageFixture{checkErr: model.ErrExecutionLost, facts: model.GarbageFacts{Found: true, Blob: model.GCBlob{
+	inner := &garbageFixture{facts: model.GarbageFacts{Found: true, Blob: model.GCBlob{
 		ID: unit.Work.Scope.ID, Digest: unit.Input.Inputs.SHA256, HasCandidate: true,
 		Candidate: model.GCCandidate{Work: unit.Work},
 	}}}
+	fixture := &garbageLostAuthority{garbageFixture: *inner}
 	err := NewGarbageCollector(fixture, fixture, fixture).Execute(t.Context(), unit)
-	if !errors.Is(err, model.ErrExecutionLost) || fixture.files != 0 || fixture.removed != 0 || fixture.checks != 2 {
-		t.Fatalf("late authority failure removed bytes: %v files=%d catalog=%d", err, fixture.files, fixture.removed)
+	if !errors.Is(err, model.ErrExecutionLost) || fixture.files != 0 || fixture.removed != 0 {
+		t.Fatalf("lost authority allowed removal: %v files=%d catalog=%d", err, fixture.files, fixture.removed)
 	}
 }
 

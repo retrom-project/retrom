@@ -95,28 +95,21 @@ func TestProviderExpirationRepositoryRejectsRenewedExpiry(t *testing.T) {
 	fixture := newGCSchedulingFixture(t)
 	seedExpiredProvider(t, fixture)
 	repo := repository.NewExpiration(fixture.database)
-	var before application.ProviderExpiration
-	err := repo.WithExpiration(t.Context(), func(scope application.ExpirationScope) error {
-		facts, err := scope.Read.Providers(t.Context(), 10, 200)
-		if err != nil {
-			return err
-		}
-		if len(facts) != 1 {
-			return fmt.Errorf("expiry facts count = %d", len(facts))
-		}
-		before = facts[0]
-		return nil
-	})
+	facts, err := repo.LoadExpiredProviders(t.Context(), 10, 200)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(facts) != 1 {
+		t.Fatalf("expiry facts count = %d", len(facts))
+	}
+	before := facts[0]
 	if _, err := fixture.database.ExecContext(t.Context(), `UPDATE metadata_provider_responses SET expires_at_ms=11
 WHERE id='expiry-response'`); err != nil {
 		t.Fatal(err)
 	}
-	err = repo.WithExpiration(t.Context(), func(scope application.ExpirationScope) error {
-		return scope.Write.ReleaseProvider(t.Context(), before, 10)
-	})
+	err = repo.CommitProviderExpiration(t.Context(), application.ProviderExpirationBatch{
+		Releases: []application.ProviderExpirationRelease{{Before: before, NowMS: 10}},
+	}, fixture.service.gc)
 	if !errors.Is(err, application.ErrExpirationSnapshotChanged) {
 		t.Fatalf("renewed response released: %v", err)
 	}
