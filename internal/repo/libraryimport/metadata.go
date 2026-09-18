@@ -16,7 +16,7 @@ type Metadata struct{ database *sql.DB }
 func NewMetadata(database *sql.DB) *Metadata { return &Metadata{database: database} }
 
 func (repository *Metadata) LoadCurrentMetadata(ctx context.Context, itemID string) (application.MetadataDraft, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return application.MetadataDraft{}, fmt.Errorf("begin server review metadata read: %w", err)
 	}

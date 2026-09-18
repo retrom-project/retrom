@@ -14,7 +14,7 @@ func readOnlyTx[T any](
 	label string,
 	read func(dbexec.Executor) (T, bool, error),
 ) (T, bool, error) {
-	tx, err := database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		var zero T
 		return zero, false, fmt.Errorf("begin %s: %w", label, err)
