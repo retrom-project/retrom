@@ -63,12 +63,22 @@ type LaunchRetirementWriter interface {
 	CompleteLaunch(context.Context, RetirementCompletion) error
 }
 
-type RetirementScope struct {
-	Read   RetirementReader
-	BIOS   BIOSRetirementWriter
-	Launch LaunchRetirementWriter
+type BIOSRetirementPlan struct {
+	Before       BIOSRetirement
+	ReleaseFiles bool
+	Complete     bool
+	NowMS        int64
+}
+
+type LaunchRetirementPlan struct {
+	Before   LaunchRetirement
+	End      LaunchRetirementEnd
+	Complete *RetirementCompletion
 }
 
 type RetirementRepository interface {
-	WithRetirement(context.Context, func(RetirementScope) error) error
+	LoadBIOSRetirement(context.Context, int) (BIOSRetirement, error)
+	LoadLaunchRetirement(context.Context, int64, int) (LaunchRetirement, error)
+	CommitBIOSRetirement(context.Context, BIOSRetirementPlan) error
+	CommitLaunchRetirement(context.Context, LaunchRetirementPlan) error
 }

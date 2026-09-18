@@ -84,13 +84,13 @@ type ArcadeParentAttachmentAdmissionWriter interface {
 	Create(context.Context, ArcadeParentAttachmentWrite) error
 }
 
-type ArcadeParentAttachmentAdmissionScope struct {
-	Read  ArcadeParentAttachmentAdmissionReader
-	Write ArcadeParentAttachmentAdmissionWriter
-}
-
 type ArcadeParentAttachmentAdmissionRepository interface {
-	WithAdmission(context.Context, func(ArcadeParentAttachmentAdmissionScope) error) error
+	ArcadeRelationReader
+	LoadDraft(context.Context, string) (ArcadeParentAttachmentDraft, bool, error)
+	LoadValidation(context.Context, string, string) (ArcadeParentAttachmentValidation, bool, error)
+	LoadUpload(context.Context, string) (ArcadeParentAttachmentUpload, bool, error)
+	HasActiveAttachment(context.Context, string) (bool, error)
+	CommitAttachment(context.Context, ArcadeParentAttachmentWrite) error
 }
 
 // ErrArcadeParentAttachmentActive lets a persistence adapter preserve the

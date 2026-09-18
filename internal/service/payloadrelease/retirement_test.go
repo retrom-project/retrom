@@ -18,41 +18,31 @@ type retirementMemory struct {
 	completed                                                model.RetirementCompletion
 }
 
-func (memory *retirementMemory) WithRetirement(_ context.Context, run func(model.RetirementScope) error) error {
-	return run(model.RetirementScope{Read: memory, BIOS: memory, Launch: memory})
-}
-
-func (memory *retirementMemory) BIOS(context.Context, int) (model.BIOSRetirement, error) {
+func (memory *retirementMemory) LoadBIOSRetirement(_ context.Context, _ int) (model.BIOSRetirement, error) {
 	return memory.bios, nil
 }
 
-func (memory *retirementMemory) Launch(context.Context, int64, int) (model.LaunchRetirement, error) {
+func (memory *retirementMemory) LoadLaunchRetirement(_ context.Context, _ int64, _ int) (model.LaunchRetirement, error) {
 	return memory.launch, nil
 }
-func (*retirementMemory) FenceBIOS(context.Context, model.BIOSRetirement) error { return nil }
-func (memory *retirementMemory) ReleaseBIOSFiles(context.Context, model.BIOSRetirement) error {
-	memory.removedBIOS = true
+
+func (memory *retirementMemory) CommitBIOSRetirement(_ context.Context, plan model.BIOSRetirementPlan) error {
+	if plan.ReleaseFiles {
+		memory.removedBIOS = true
+	}
+	if plan.Complete {
+		memory.releasedBIOS = true
+	}
 	return nil
 }
 
-func (memory *retirementMemory) CompleteBIOS(context.Context, model.BIOSRetirement, int64) error {
-	memory.releasedBIOS = true
-	return nil
-}
-func (*retirementMemory) FenceLaunch(context.Context, model.LaunchRetirement) error { return nil }
-func (memory *retirementMemory) TerminateLaunch(_ context.Context, end model.LaunchRetirementEnd) error {
-	memory.end = end
-	return nil
-}
-
-func (memory *retirementMemory) ReleaseLaunchFiles(context.Context, model.LaunchRetirement) error {
+func (memory *retirementMemory) CommitLaunchRetirement(_ context.Context, plan model.LaunchRetirementPlan) error {
+	memory.end = plan.End
 	memory.removedLaunch = true
-	return nil
-}
-
-func (memory *retirementMemory) CompleteLaunch(_ context.Context, change model.RetirementCompletion) error {
-	memory.releasedLaunch = true
-	memory.completed = change
+	memory.releasedLaunch = plan.Complete != nil
+	if plan.Complete != nil {
+		memory.completed = *plan.Complete
+	}
 	return nil
 }
 

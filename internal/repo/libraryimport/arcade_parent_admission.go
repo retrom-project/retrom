@@ -28,17 +28,34 @@ func NewArcadeParentAttachments(database *sql.DB) *ArcadeParentAttachments {
 	return &ArcadeParentAttachments{database: database}
 }
 
-func (repository *ArcadeParentAttachments) WithAdmission(
-	ctx context.Context,
-	work func(application.ArcadeParentAttachmentAdmissionScope) error,
-) error {
+func (repository *ArcadeParentAttachments) LoadDraft(ctx context.Context, itemID string) (application.ArcadeParentAttachmentDraft, bool, error) {
+	return (arcadeParentAttachmentAdmissionRecords{executor: repository.database}).Draft(ctx, itemID)
+}
+
+func (repository *ArcadeParentAttachments) LoadValidation(ctx context.Context, validationID, itemID string) (application.ArcadeParentAttachmentValidation, bool, error) {
+	return (arcadeParentAttachmentAdmissionRecords{executor: repository.database}).Validation(ctx, validationID, itemID)
+}
+
+func (repository *ArcadeParentAttachments) LoadUpload(ctx context.Context, uploadFileID string) (application.ArcadeParentAttachmentUpload, bool, error) {
+	return (arcadeParentAttachmentAdmissionRecords{executor: repository.database}).Upload(ctx, uploadFileID)
+}
+
+func (repository *ArcadeParentAttachments) HasActiveAttachment(ctx context.Context, itemID string) (bool, error) {
+	return (arcadeParentAttachmentAdmissionRecords{executor: repository.database}).HasActive(ctx, itemID)
+}
+
+func (repository *ArcadeParentAttachments) MachineRelation(ctx context.Context, datID, machine string) (application.ArcadeMachineRelation, bool, error) {
+	return BindArcadeRelations(repository.database).MachineRelation(ctx, datID, machine)
+}
+
+func (repository *ArcadeParentAttachments) CommitAttachment(ctx context.Context, write application.ArcadeParentAttachmentWrite) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin arcade parent attachment admission: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := arcadeParentAttachmentAdmissionRecords{executor: tx}
-	if err := work(application.ArcadeParentAttachmentAdmissionScope{Read: records, Write: records}); err != nil {
+	if err := records.Create(ctx, write); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
