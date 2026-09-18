@@ -19,9 +19,11 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
 	uploadsmodel "retrom/internal/model/uploads"
+	corevalidationrepo "retrom/internal/repo/corevalidation"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	netplaypersistence "retrom/internal/repo/netplay"
 	uploadpersistence "retrom/internal/repo/uploads"
+	corevalidationservice "retrom/internal/service/corevalidation"
 	dependencyservice "retrom/internal/service/dependencies"
 	netplayservice "retrom/internal/service/netplay"
 	uploadsservice "retrom/internal/service/uploads"
@@ -172,7 +174,8 @@ func startNetplayFixture(
 	creator := netplayservice.NewRoomCreation(netplaypersistence.NewRoomCreation(database), 16, time.Hour, now)
 	control := netplayservice.NewRoomControl(
 		netplaypersistence.NewRoomControl(database),
-		nil, nil,
+		netplaypersistence.NewEligibility(database),
+		corevalidationservice.New(corevalidationrepo.New(database)),
 		registry,
 		time.Hour,
 		time.Hour,

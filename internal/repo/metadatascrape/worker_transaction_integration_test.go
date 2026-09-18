@@ -17,22 +17,29 @@ func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, ru
 	before := readInitialProgress(t, database, itemID)
 
 	repository := workerpersistence.NewWorker(database)
-	workerpersistence.WithWorkerPreCommitHook(repository, func() error {
-		return context.Canceled
-	})
-
 	snapshot, readErr := repository.Run(t.Context(), runID)
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
+	now := mediaFixtureNow().UnixMilli()
+	claimResult, claimErr := repository.CommitClaim(t.Context(), metadatascrapemodel.WorkerClaimCommand{
+		Run:      snapshot,
+		WorkerID: "transaction-test",
+		Now:      now,
+	})
+	if claimErr != nil {
+		t.Fatal(claimErr)
+	}
+	if !claimResult.Claimed {
+		t.Fatal("metadata execution not claimed")
+	}
 
+	workerpersistence.WithWorkerPreCommitHook(repository, func() error {
+		return context.Canceled
+	})
 	_, err := repository.CommitSettle(t.Context(), metadatascrapemodel.WorkerSettleCommand{
-		Claim: metadatascrapemodel.WorkerClaim{
-			RunID: runID, JobID: jobID, WorkerID: "transaction-test",
-			ExecutionNo: 1, Version: snapshot.Version, AttemptCount: snapshot.AttemptCount,
-			Now: mediaFixtureNow().UnixMilli(), Deadline: mediaFixtureNow().UnixMilli() + 3600000,
-		},
-		Now: mediaFixtureNow().UnixMilli(),
+		Claim: claimResult.Claim,
+		Now:   now,
 	})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("late metadata completion failure: %v", err)

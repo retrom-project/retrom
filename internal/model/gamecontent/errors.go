@@ -9,3 +9,9 @@ var (
 	ErrAdminGameNotFound        = errors.New("GAME_NOT_FOUND")
 	ErrAdminGameVersionConflict = errors.New("GAME_METADATA_VERSION_CONFLICT")
 )
+
+// ContentValidationError is a terminal, non-retryable publication error
+// with a domain-specific code (e.g. GAME_CONTENT_UNCHANGED).
+type ContentValidationError struct{ Code string }
+
+func (err *ContentValidationError) Error() string { return err.Code }
