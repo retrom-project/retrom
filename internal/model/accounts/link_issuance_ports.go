@@ -19,19 +19,20 @@ type LinkIssuePlan struct {
 type LinkIssuer interface {
 	AccountLinkToken(string, uuid.UUID) string
 }
-type LinkIssueReader interface {
-	Target(context.Context, string) (LinkTarget, bool, error)
-	Replay(context.Context, AccountOperation) (AccountReplay, error)
-}
-type LinkIssueWriter interface {
-	Issue(context.Context, LinkIssuePlan) error
-	Audit(context.Context, AccountAudit) error
-	Remember(context.Context, AccountReceipt) error
-}
-type LinkIssueScope struct {
-	Read  LinkIssueReader
-	Write LinkIssueWriter
-}
 type LinkIssueRepository interface {
-	WithIssueWrite(context.Context, func(LinkIssueScope) error) error
+	CommitIssue(context.Context, LinkIssueCommand) (LinkIssueResult, error)
+}
+
+// LinkIssueCommand carries the values for an atomic link issuance.
+type LinkIssueCommand struct {
+	Operation AccountOperation
+	Plan      LinkIssuePlan
+	Audit     AccountAudit
+	Receipt   AccountReceipt
+}
+
+// LinkIssueResult carries the outcome of a link issuance.
+type LinkIssueResult struct {
+	Link     AccountLink
+	Replayed bool
 }

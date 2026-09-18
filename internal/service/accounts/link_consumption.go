@@ -38,67 +38,47 @@ func (service *LinkConsumptionService) AcceptInvitation(
 	if err != nil {
 		return model.Session{}, err
 	}
-	var session model.Session
-	err = service.repository.WithConsumptionWrite(ctx, func(scope model.LinkConsumptionScope) error {
-		now := service.options.Now().UnixMilli()
-		link, found, err := scope.Read.Current(ctx, prepared.linkID)
-		if err != nil {
-			return fmt.Errorf("read invitation: %w", err)
-		}
-		if !activeLink(link, found, "INVITATION", now) || link.Link.Role == nil {
-			return model.ErrAccountLinkUnavailable
-		}
-		exists, err := scope.Read.UsernameExists(ctx, prepared.user.Username)
-		if err != nil {
-			return fmt.Errorf("check invited username: %w", err)
-		}
-		if exists {
-			return model.ErrUsernameUnavailable
-		}
-		user := prepared.user
-		user.Role = *link.Link.Role
-		plan := model.InvitationAcceptance{
-			LinkID:       prepared.linkID,
-			LinkVersion:  link.Link.Version,
-			User:         user,
-			ProfileID:    prepared.profileID,
-			PasswordHash: prepared.passwordHash,
-			Session: prepared.session.Record(
-				user.UserID,
-				1,
-				now,
-			),
-			Now: now,
-		}
-		if err := scope.Write.Accept(ctx, plan); err != nil {
-			return fmt.Errorf("accept invitation: %w", err)
-		}
-		audit, err := newAccountAudit(
-			user.UserID,
-			"INVITATION_ACCEPTED",
-			"ACCOUNT_LINK",
-			prepared.linkID,
-			nil,
-			map[string]any{
-				"role":   user.Role,
-				"status": "CONSUMED",
-				"userId": user.UserID,
-			},
-			now,
-		)
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Audit(ctx, audit); err != nil {
-			return fmt.Errorf("audit invitation acceptance: %w", err)
-		}
-		session = prepared.session.View(user, prepared.profileID, 1, now)
-		return nil
-	})
+	now := service.options.Now().UnixMilli()
+	link, found, err := service.repository.LoadInvitationLink(ctx, prepared.linkID)
 	if err != nil {
+		return model.Session{}, fmt.Errorf("read invitation: %w", err)
+	}
+	if !model.ActiveLink(link, found, "INVITATION", now) || link.Link.Role == nil {
+		return model.Session{}, model.ErrAccountLinkUnavailable
+	}
+	user := prepared.user
+	user.Role = *link.Link.Role
+	plan := model.InvitationAcceptance{
+		LinkID:       prepared.linkID,
+		LinkVersion:  link.Link.Version,
+		User:         user,
+		ProfileID:    prepared.profileID,
+		PasswordHash: prepared.passwordHash,
+		Session:      prepared.session.Record(user.UserID, 1, now),
+		Now:          now,
+	}
+	audit, err := newAccountAudit(
+		user.UserID,
+		"INVITATION_ACCEPTED",
+		"ACCOUNT_LINK",
+		prepared.linkID,
+		nil,
+		map[string]any{
+			"role":   user.Role,
+			"status": "CONSUMED",
+			"userId": user.UserID,
+		},
+		now,
+	)
+	if err != nil {
+		return model.Session{}, err
+	}
+	if err := service.repository.CommitInvitationAcceptance(
+		ctx, model.InvitationAcceptCommand{Plan: plan, Audit: audit},
+	); err != nil {
 		return model.Session{}, fmt.Errorf("commit invitation consumption: %w", err)
 	}
-	return session, nil
+	return prepared.session.View(user, prepared.profileID, 1, now), nil
 }
 
 func (service *LinkConsumptionService) prepareInvitation(
@@ -159,8 +139,4 @@ func (service *LinkConsumptionService) hashPassword(
 		return "", fmt.Errorf("hash account link password: %w", err)
 	}
 	return hash, nil
-}
-
-func activeLink(record model.LinkRecord, found bool, kind string, now int64) bool {
-	return found && record.Link.Kind == kind && model.LinkState(record.Link, now) == "ACTIVE"
 }

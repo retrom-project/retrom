@@ -10,13 +10,15 @@ import (
 )
 
 type consumptionMemory struct {
-	state                           model.ResetState
-	present, exists, inWrite        bool
-	transactions, snapshots, writes int
-	readErr, lateErr                error
-	invitation                      model.InvitationAcceptance
-	reset                           model.ResetConsumption
-	audits                          []model.AccountAudit
+	state                model.ResetState
+	present, exists      bool
+	snapshots, linkReads int
+	commits              int
+	writes               int
+	readErr, lateErr     error
+	invitation           model.InvitationAcceptance
+	reset                model.ResetConsumption
+	audits               []model.AccountAudit
 }
 
 func (memory *consumptionMemory) ResetState(context.Context, string) (model.ResetState, bool, error) {
@@ -24,55 +26,51 @@ func (memory *consumptionMemory) ResetState(context.Context, string) (model.Rese
 	return memory.state, memory.present, memory.readErr
 }
 
-func (memory *consumptionMemory) WithConsumptionWrite(_ context.Context, work func(model.LinkConsumptionScope) error) error {
-	memory.transactions++
-	memory.inWrite = true
-	defer func() { memory.inWrite = false }()
-	if err := work(model.LinkConsumptionScope{Read: memory, Write: memory}); err != nil {
-		return err
-	}
-	return memory.lateErr
-}
-
-func (memory *consumptionMemory) Current(context.Context, string) (model.LinkRecord, bool, error) {
+func (memory *consumptionMemory) LoadInvitationLink(
+	_ context.Context, _ string,
+) (model.LinkRecord, bool, error) {
+	memory.linkReads++
 	return memory.state.Link, memory.present, memory.readErr
 }
 
-func (memory *consumptionMemory) Target(context.Context, string) (model.LinkTarget, bool, error) {
-	return memory.state.Target, memory.present, memory.readErr
-}
-
-func (memory *consumptionMemory) UsernameExists(context.Context, string) (bool, error) {
-	return memory.exists, memory.readErr
-}
-
-func (memory *consumptionMemory) Accept(_ context.Context, plan model.InvitationAcceptance) error {
+func (memory *consumptionMemory) CommitInvitationAcceptance(
+	_ context.Context, cmd model.InvitationAcceptCommand,
+) error {
+	memory.commits++
+	if memory.exists {
+		return model.ErrUsernameUnavailable
+	}
 	memory.writes++
-	memory.invitation = plan
-	return nil
+	memory.invitation = cmd.Plan
+	memory.audits = append(memory.audits, cmd.Audit)
+	return memory.lateErr
 }
 
-func (memory *consumptionMemory) Reset(_ context.Context, plan model.ResetConsumption) error {
+func (memory *consumptionMemory) CommitPasswordReset(
+	_ context.Context, cmd model.PasswordResetCommand,
+) error {
+	memory.commits++
+	if !model.ActiveLink(memory.state.Link, memory.present, "PASSWORD_RESET", cmd.Plan.Now) {
+		return model.ErrAccountLinkUnavailable
+	}
+	if cmd.Plan.LinkVersion != memory.state.Link.Link.Version {
+		return model.ErrAccountLinkUnavailable
+	}
+	if cmd.Plan.Target != memory.state.Target {
+		return model.ErrAccountLinkUnavailable
+	}
 	memory.writes++
-	memory.reset = plan
-	return nil
-}
-
-func (memory *consumptionMemory) Audit(_ context.Context, audit model.AccountAudit) error {
-	memory.audits = append(memory.audits, audit)
-	return nil
+	memory.reset = cmd.Plan
+	memory.audits = append(memory.audits, cmd.Audit)
+	return memory.lateErr
 }
 
 type consumptionHasher struct {
-	onHash  func()
-	calls   int
-	inWrite *bool
+	onHash func()
+	calls  int
 }
 
 func (hasher *consumptionHasher) Hash(context.Context, string) (string, error) {
-	if *hasher.inWrite {
-		return "", errors.New("hash ran inside write scope")
-	}
 	hasher.calls++
 	if hasher.onHash != nil {
 		hasher.onHash()
@@ -91,7 +89,7 @@ func consumptionFixture() (*LinkConsumptionService, *consumptionMemory, *consump
 		Link:   model.LinkRecord{Link: model.AccountLink{AccountLinkID: "link", Kind: "PASSWORD_RESET", Role: &role, TargetUserID: &target, Version: 2, ExpiresAtMS: 200}},
 		Target: model.LinkTarget{User: model.User{UserID: target, Username: "alice", DisplayName: "Alice", Role: "USER"}, ProfileID: "profile", Status: "ENABLED", Version: 3, SessionVersion: 4},
 	}}
-	hasher := &consumptionHasher{inWrite: &memory.inWrite}
+	hasher := &consumptionHasher{}
 	service := NewLinkConsumption(memory, model.LinkConsumptionOptions{Tokens: linkTokens{true}, Hasher: hasher, Now: func() time.Time { return time.UnixMilli(100) }, Mint: func() (model.SessionMaterial, error) {
 		return model.SessionMaterial{ID: "session", Token: "token"}, nil
 	}})
@@ -206,7 +204,7 @@ func TestConsumptionRejectsInvalidTokenWithoutHashOrDatabase(t *testing.T) {
 	service.options.Tokens = linkTokens{}
 	_, resetErr := service.CompleteReset(t.Context(), resetConsumptionRequest())
 	_, inviteErr := service.AcceptInvitation(t.Context(), invitationConsumptionRequest())
-	if !errors.Is(resetErr, model.ErrAccountLinkUnavailable) || !errors.Is(inviteErr, model.ErrAccountLinkUnavailable) || memory.snapshots != 0 || memory.transactions != 0 || hasher.calls != 0 {
+	if !errors.Is(resetErr, model.ErrAccountLinkUnavailable) || !errors.Is(inviteErr, model.ErrAccountLinkUnavailable) || memory.snapshots != 0 || memory.commits != 0 || hasher.calls != 0 {
 		t.Fatalf("invalid capability reached dependencies: %v %v", resetErr, inviteErr)
 	}
 }

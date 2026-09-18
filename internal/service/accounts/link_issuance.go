@@ -48,14 +48,13 @@ func (service *LinkIssuanceService) Invitation(
 	if err != nil {
 		return model.AccountLink{}, false, err
 	}
-	return service.issue(ctx, operation, func(_ model.LinkIssueScope) (model.LinkIssuePlan, error) {
-		link, err := newAccountLink(actor, "INVITATION", operation.Now)
-		if err != nil {
-			return model.LinkIssuePlan{}, err
-		}
-		link.Role = &role
-		return model.LinkIssuePlan{Link: link}, nil
-	})
+	link, err := newAccountLink(actor, "INVITATION", operation.Now)
+	if err != nil {
+		return model.AccountLink{}, false, err
+	}
+	link.Role = &role
+	plan := model.LinkIssuePlan{Link: link}
+	return service.issue(ctx, operation, plan)
 }
 
 func (service *LinkIssuanceService) PasswordReset(
@@ -78,35 +77,18 @@ func (service *LinkIssuanceService) PasswordReset(
 	if err != nil {
 		return model.AccountLink{}, false, err
 	}
-	return service.issue(ctx, operation, func(scope model.LinkIssueScope) (model.LinkIssuePlan, error) {
-		target, found, err := scope.Read.Target(ctx, targetID)
-		if err != nil {
-			return model.LinkIssuePlan{}, fmt.Errorf("read password reset target: %w", err)
-		}
-		if err := validateLinkTarget(target, found, version); err != nil {
-			return model.LinkIssuePlan{}, err
-		}
-		link, err := newAccountLink(actor, "PASSWORD_RESET", operation.Now)
-		if err != nil {
-			return model.LinkIssuePlan{}, err
-		}
-		link.TargetUserID = &targetID
-		link.TargetVersion = target.Version + 1
-		return model.LinkIssuePlan{Link: link, Target: &target, RevokePrevious: true}, nil
-	})
-}
-
-func validateLinkTarget(target model.LinkTarget, found bool, version int64) error {
-	if !found {
-		return model.ErrUserNotFound
+	link, err := newAccountLink(actor, "PASSWORD_RESET", operation.Now)
+	if err != nil {
+		return model.AccountLink{}, false, err
 	}
-	if target.Status == "DELETED" {
-		return model.ErrUserDeleted
+	link.TargetUserID = &targetID
+	link.TargetVersion = version + 1
+	plan := model.LinkIssuePlan{
+		Link:           link,
+		Target:         &model.LinkTarget{User: model.User{UserID: targetID}, Version: version},
+		RevokePrevious: true,
 	}
-	if target.Version != version {
-		return model.ErrUserVersion
-	}
-	return nil
+	return service.issue(ctx, operation, plan)
 }
 
 func newAccountLink(actor model.LinkCreator, kind string, now int64) (model.AccountLink, error) {
@@ -121,74 +103,57 @@ func newAccountLink(actor model.LinkCreator, kind string, now int64) (model.Acco
 		State:         "ACTIVE",
 		Version:       1,
 		CreatedAtMS:   now,
-		ExpiresAtMS: now + int64(
-			time.Hour/time.Millisecond,
-		),
+		ExpiresAtMS:   now + int64(time.Hour/time.Millisecond),
 	}, nil
 }
 
 func (service *LinkIssuanceService) issue(
 	ctx context.Context,
 	operation model.AccountOperation,
-	prepare func(model.LinkIssueScope) (model.LinkIssuePlan, error),
+	plan model.LinkIssuePlan,
 ) (model.AccountLink, bool, error) {
-	var result model.AccountLink
-	var replayed bool
-	err := service.repository.WithIssueWrite(ctx, func(scope model.LinkIssueScope) error {
-		replay, err := scope.Read.Replay(ctx, operation)
-		if err != nil {
-			return fmt.Errorf("read account link replay: %w", err)
-		}
-		if err := checkAccountReplay(replay, operation); err != nil {
-			return err
-		}
-		if replay.Found {
-			replayed = true
-			if err := json.Unmarshal(replay.Body, &result); err != nil {
-				return fmt.Errorf("decode account link replay: %w", err)
-			}
-			return nil
-		}
-		plan, err := prepare(scope)
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Issue(ctx, plan); err != nil {
-			return fmt.Errorf("issue account link: %w", err)
-		}
-		if err := auditLinkIssuance(ctx, scope.Write, plan); err != nil {
-			return err
-		}
-		body, err := json.Marshal(plan.Link)
-		if err != nil {
-			return fmt.Errorf("encode account link receipt: %w", err)
-		}
-		if err := scope.Write.Remember(ctx, accountReceipt(operation, 201, body)); err != nil {
-			return fmt.Errorf("remember account link: %w", err)
-		}
-		result = plan.Link
-		return nil
+	audit, err := auditLinkIssuance(plan)
+	if err != nil {
+		return model.AccountLink{}, false, err
+	}
+	body, err := json.Marshal(plan.Link)
+	if err != nil {
+		return model.AccountLink{}, false, fmt.Errorf("encode account link receipt: %w", err)
+	}
+	result, err := service.repository.CommitIssue(ctx, model.LinkIssueCommand{
+		Operation: operation,
+		Plan:      plan,
+		Audit:     audit,
+		Receipt:   accountReceipt(operation, 201, body),
 	})
 	if err != nil {
-		return model.AccountLink{}, false, fmt.Errorf("commit account link issuance: %w", err)
+		return model.AccountLink{}, false,
+			fmt.Errorf("commit account link issuance: %w", err)
 	}
-	id, err := uuid.Parse(result.AccountLinkID)
+	id, err := uuid.Parse(result.Link.AccountLinkID)
 	if err != nil {
-		return model.AccountLink{}, false, fmt.Errorf("read issued link identity: %w", err)
+		return model.AccountLink{}, false,
+			fmt.Errorf("read issued link identity: %w", err)
 	}
-	result.CapabilityToken = service.tokens.AccountLinkToken(result.Kind, id)
-	return result, replayed, nil
+	result.Link.CapabilityToken = service.tokens.AccountLinkToken(result.Link.Kind, id)
+	return result.Link, result.Replayed, nil
 }
 
-func auditLinkIssuance(ctx context.Context, writer model.LinkIssueWriter, plan model.LinkIssuePlan) error {
+func auditLinkIssuance(plan model.LinkIssuePlan) (model.AccountAudit, error) {
 	link := plan.Link
 	action := "INVITATION_CREATED"
-	after := map[string]any{"kind": "INVITATION", "role": link.Role, "expiresAtMs": link.ExpiresAtMS}
+	after := map[string]any{
+		"kind": "INVITATION", "role": link.Role,
+		"expiresAtMs": link.ExpiresAtMS,
+	}
 	if link.Kind == "PASSWORD_RESET" {
 		action = "PASSWORD_RESET_CREATED"
-		after = map[string]any{"targetUserId": link.TargetUserID, "expiresAtMs": link.ExpiresAtMS}
+		after = map[string]any{
+			"targetUserId": link.TargetUserID,
+			"expiresAtMs":  link.ExpiresAtMS,
+		}
 	}
-	audit, err := newAccountAudit(
+	return newAccountAudit(
 		link.CreatedBy.UserID,
 		action,
 		"ACCOUNT_LINK",
@@ -197,11 +162,4 @@ func auditLinkIssuance(ctx context.Context, writer model.LinkIssueWriter, plan m
 		after,
 		link.CreatedAtMS,
 	)
-	if err != nil {
-		return err
-	}
-	if err := writer.Audit(ctx, audit); err != nil {
-		return fmt.Errorf("audit account link issuance: %w", err)
-	}
-	return nil
 }

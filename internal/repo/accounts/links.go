@@ -12,11 +12,21 @@ import (
 )
 
 type (
-	LinkRepository struct{ database *sql.DB }
-	linkRecords    struct{ accountOperations }
+	LinkRepository struct {
+		database      *sql.DB
+		preCommitHook func() error
+	}
+	linkRecords struct{ accountOperations }
 )
 
-func NewLinks(database *sql.DB) *LinkRepository { return &LinkRepository{database} }
+func NewLinks(database *sql.DB) *LinkRepository { return &LinkRepository{database: database} }
+
+// WithPreCommitHook injects a test hook called right before any transaction
+// commits. This is only for integration tests.
+func (repository *LinkRepository) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
+}
+
 func (repository *LinkRepository) Current(ctx context.Context, id string) (accounts.LinkRecord, bool, error) {
 	return (linkRecords{accountOperations{repository.database}}).Current(ctx, id)
 }

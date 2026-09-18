@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -11,18 +12,75 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-func (repository *LinkRepository) WithIssueWrite(ctx context.Context, work func(accounts.LinkIssueScope) error) error {
+func (repository *LinkRepository) CommitIssue(
+	ctx context.Context, cmd accounts.LinkIssueCommand,
+) (accounts.LinkIssueResult, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin account link issuance: %w", err)
+		return accounts.LinkIssueResult{},
+			fmt.Errorf("begin account link issuance: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := linkRecords{accountOperations{tx}}
-	if err := work(accounts.LinkIssueScope{Read: records, Write: records}); err != nil {
-		return err
+	replay, err := records.Replay(ctx, cmd.Operation)
+	if err != nil {
+		return accounts.LinkIssueResult{},
+			fmt.Errorf("read account link replay: %w", err)
+	}
+	if err := accounts.CheckAccountReplay(replay, cmd.Operation); err != nil {
+		return accounts.LinkIssueResult{}, fmt.Errorf("check account replay: %w", err)
+	}
+	if replay.Found {
+		return commitReplayedIssue(tx, replay)
+	}
+	if err := validateIssueTarget(ctx, records, cmd.Plan); err != nil {
+		return accounts.LinkIssueResult{}, err
+	}
+	if err := records.Issue(ctx, cmd.Plan); err != nil {
+		return accounts.LinkIssueResult{},
+			fmt.Errorf("issue account link: %w", err)
+	}
+	if err := records.Audit(ctx, cmd.Audit); err != nil {
+		return accounts.LinkIssueResult{},
+			fmt.Errorf("audit account link issuance: %w", err)
+	}
+	if err := records.Remember(ctx, cmd.Receipt); err != nil {
+		return accounts.LinkIssueResult{},
+			fmt.Errorf("remember account link: %w", err)
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return accounts.LinkIssueResult{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit account link issuance: %w", err)
+		return accounts.LinkIssueResult{},
+			fmt.Errorf("commit account link issuance: %w", err)
+	}
+	return accounts.LinkIssueResult{Link: cmd.Plan.Link, Replayed: false}, nil
+}
+
+func commitReplayedIssue(tx *sql.Tx, replay accounts.AccountReplay) (accounts.LinkIssueResult, error) {
+	var link accounts.AccountLink
+	if err := json.Unmarshal(replay.Body, &link); err != nil {
+		return accounts.LinkIssueResult{}, fmt.Errorf("decode account link replay: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return accounts.LinkIssueResult{}, fmt.Errorf("commit account link issuance: %w", err)
+	}
+	return accounts.LinkIssueResult{Link: link, Replayed: true}, nil
+}
+
+func validateIssueTarget(ctx context.Context, records linkRecords, plan accounts.LinkIssuePlan) error {
+	if plan.Target == nil {
+		return nil
+	}
+	target, found, err := records.Target(ctx, plan.Target.User.UserID)
+	if err != nil {
+		return fmt.Errorf("read password reset target: %w", err)
+	}
+	if err := accounts.ValidateLinkTarget(target, found, plan.Target.Version); err != nil {
+		return fmt.Errorf("validate link target: %w", err)
 	}
 	return nil
 }

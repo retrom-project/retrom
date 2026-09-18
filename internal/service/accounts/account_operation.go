@@ -81,10 +81,3 @@ func auditJSON(value any) (string, error) {
 	}
 	return string(encoded), nil
 }
-
-func checkAccountReplay(replay model.AccountReplay, operation model.AccountOperation) error {
-	if replay.Found && replay.Digest != operation.Digest {
-		return model.ErrIdempotencyReused
-	}
-	return nil
-}
