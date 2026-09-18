@@ -49,12 +49,12 @@ func newMediaRetryFixture(t *testing.T) validationRetryFixture {
 	}
 	err := metadatapersistence.BindSchedule(tx).Writes.Create(
 		t.Context(), metadatascrapemodel.SchedulePlan{
-			Subject:  metadatascrapemodel.Subject{Kind: "GAME", ID: gameID},
-			RunID:    "media-run", JobID: "metadata-job",
-			Provider: "HASHEOUS",
-			Dedupe:   strings.Repeat("8", 64),
+			Subject: metadatascrapemodel.Subject{Kind: "GAME", ID: gameID},
+			RunID:   "media-run", JobID: "metadata-job",
+			Provider:    "HASHEOUS",
+			Dedupe:      strings.Repeat("8", 64),
 			PayloadJSON: `{}`,
-			JobState: "QUEUED", RunState: "RUNNING",
+			JobState:    "QUEUED", RunState: "RUNNING",
 			EventJSON: `{}`, Now: now,
 		})
 	if err == nil {
