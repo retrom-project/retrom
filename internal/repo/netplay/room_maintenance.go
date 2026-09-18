@@ -11,23 +11,55 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-type RoomMaintenance struct{ database *sql.DB }
+type RoomMaintenance struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
-func NewRoomMaintenance(database *sql.DB) *RoomMaintenance { return &RoomMaintenance{database} }
-func (repository *RoomMaintenance) WithMaintenance(
-	ctx context.Context,
-	work func(netplay.MaintenanceWriter) error,
-) error {
+func NewRoomMaintenance(database *sql.DB) *RoomMaintenance {
+	return &RoomMaintenance{database: database}
+}
+
+func (repository *RoomMaintenance) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
+}
+
+func (repository *RoomMaintenance) CommitExpiry(ctx context.Context, plan netplay.ExpiryPlan) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("netplay/begin room maintenance: %w", err)
+		return fmt.Errorf("netplay/begin room expiry: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(roomMaintenanceRecords{tx}); err != nil {
+	if err := (roomMaintenanceRecords{tx}).Expire(ctx, plan); err != nil {
 		return err
 	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
+	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("netplay/commit room maintenance: %w", err)
+		return fmt.Errorf("netplay/commit room expiry: %w", err)
+	}
+	return nil
+}
+
+func (repository *RoomMaintenance) CommitRecovery(ctx context.Context, plan netplay.RecoveryPlan) error {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("netplay/begin room recovery: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	if err := (roomMaintenanceRecords{tx}).Recover(ctx, plan); err != nil {
+		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("netplay/commit room recovery: %w", err)
 	}
 	return nil
 }
