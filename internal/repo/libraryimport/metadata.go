@@ -15,13 +15,29 @@ type Metadata struct{ database *sql.DB }
 
 func NewMetadata(database *sql.DB) *Metadata { return &Metadata{database: database} }
 
-func (repository *Metadata) WithMetadata(ctx context.Context, work func(application.MetadataScope) error) error {
+func (repository *Metadata) LoadCurrentMetadata(ctx context.Context, itemID string) (application.MetadataDraft, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return application.MetadataDraft{}, fmt.Errorf("begin server review metadata read: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	draft, err := (metadataRecords{executor: tx}).CurrentMetadata(ctx, itemID)
+	if err != nil {
+		return application.MetadataDraft{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return application.MetadataDraft{}, fmt.Errorf("commit server review metadata read: %w", err)
+	}
+	return draft, nil
+}
+
+func (repository *Metadata) CommitMetadataChange(ctx context.Context, change application.MetadataChange) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin server review metadata: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(BindMetadata(tx)); err != nil {
+	if err := (metadataRecords{executor: tx}).SaveMetadata(ctx, change); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

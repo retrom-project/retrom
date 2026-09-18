@@ -33,8 +33,12 @@ func (m *metadataMemory) SaveMetadata(_ context.Context, change model.MetadataCh
 	return m.saveErr
 }
 
-func (m *metadataMemory) WithMetadata(_ context.Context, work func(model.MetadataScope) error) error {
-	if err := work(m); err != nil {
+func (m *metadataMemory) LoadCurrentMetadata(ctx context.Context, itemID string) (model.MetadataDraft, error) {
+	return m.CurrentMetadata(ctx, itemID)
+}
+
+func (m *metadataMemory) CommitMetadataChange(ctx context.Context, change model.MetadataChange) error {
+	if err := m.SaveMetadata(ctx, change); err != nil {
 		return err
 	}
 	return m.commitErr

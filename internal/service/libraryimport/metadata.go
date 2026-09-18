@@ -30,17 +30,42 @@ func NewMetadataSeeder(repository model.MetadataRepository, now func() time.Time
 func (service *MetadataSeeder) Seed(
 	ctx context.Context, itemID string, metadata model.ServerMetadata, maximumYear int,
 ) (int64, []model.ServerMetadataWarning, error) {
-	var version int64
-	var warnings []model.ServerMetadataWarning
-	err := service.repository.WithMetadata(ctx, func(scope model.MetadataScope) error {
-		var err error
-		version, warnings, err = service.SeedInScope(ctx, scope, itemID, metadata, maximumYear)
-		return err
-	})
-	if err != nil {
-		return 0, nil, fmt.Errorf("seed server review metadata: %w", err)
+	if itemID == "" {
+		return 0, nil, model.ErrInvalid
 	}
-	return version, warnings, nil
+	normalized, warnings, err := NormalizeServerReviewMetadata(metadata, maximumYear)
+	if err != nil {
+		return 0, nil, err
+	}
+	before, err := service.repository.LoadCurrentMetadata(ctx, itemID)
+	if err != nil {
+		return 0, nil, fmt.Errorf("seed server review metadata: %w", fmt.Errorf("read server review metadata: %w", err))
+	}
+	if before.Version < 1 {
+		return 0, nil, model.ErrVersionConflict
+	}
+	encoded, err := encodeMetadata(normalized)
+	if err != nil {
+		return 0, nil, err
+	}
+	if before.MetadataJSON == encoded {
+		return before.Version, warnings, nil
+	}
+	if before.Version == math.MaxInt64 {
+		return 0, nil, model.ErrVersionConflict
+	}
+	audit, err := metadataAudit(ctx, before.MetadataJSON, encoded)
+	if err != nil {
+		return 0, nil, err
+	}
+	change := model.MetadataChange{
+		ItemID: itemID, Before: before, MetadataJSON: encoded,
+		SearchText: strings.ToLower(normalized.Title), Audit: audit, NowMS: service.now().UnixMilli(),
+	}
+	if err := service.repository.CommitMetadataChange(ctx, change); err != nil {
+		return 0, nil, fmt.Errorf("seed server review metadata: %w", fmt.Errorf("save server review metadata: %w", err))
+	}
+	return before.Version + 1, warnings, nil
 }
 
 // SeedInScope participates in the caller's transaction. Its result becomes

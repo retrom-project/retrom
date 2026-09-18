@@ -37,5 +37,6 @@ type MetadataScope interface {
 }
 
 type MetadataRepository interface {
-	WithMetadata(context.Context, func(MetadataScope) error) error
+	LoadCurrentMetadata(context.Context, string) (MetadataDraft, error)
+	CommitMetadataChange(context.Context, MetadataChange) error
 }
