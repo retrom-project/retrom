@@ -8,31 +8,79 @@ import (
 	"fmt"
 
 	application "retrom/internal/model/pegasusimport"
+	"retrom/internal/model/tagging"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
 	tagrepository "retrom/internal/repo/tagging"
 )
 
-type Mappings struct{ database *sql.DB }
+type Mappings struct {
+	database       *sql.DB
+	preCommitHook  func(dbexec.Executor) error
+}
 
-func NewMappings(database *sql.DB) *Mappings { return &Mappings{database: database} }
-func (repository *Mappings) WithMappings(ctx context.Context, work func(application.MappingScope) error) error {
+type MappingsOption func(*Mappings)
+
+func WithMappingsPreCommitHook(hook func(dbexec.Executor) error) MappingsOption {
+	return func(m *Mappings) { m.preCommitHook = hook }
+}
+
+func NewMappings(database *sql.DB, opts ...MappingsOption) *Mappings {
+	m := &Mappings{database: database}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+func (repository *Mappings) LoadImportSummary(ctx context.Context, id string) (application.Summary, error) {
+	return (&Queries{database: repository.database}).Get(ctx, id)
+}
+
+func (repository *Mappings) LoadCollectionOwner(ctx context.Context, id string) (string, error) {
+	return (mappingRecords{executor: repository.database}).CollectionOwner(ctx, id)
+}
+
+func (repository *Mappings) LoadEligibleTarget(ctx context.Context, id string) (application.MappingTarget, bool, error) {
+	return (mappingRecords{executor: repository.database}).EligibleTarget(ctx, id)
+}
+
+func (repository *Mappings) CommitMappingBatch(ctx context.Context, batch application.MappingBatch) (application.Summary, error) {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin Pegasus mappings: %w", err)
+		return application.Summary{}, fmt.Errorf("begin Pegasus mappings: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := mappingRecords{executor: tx}
-	scope := application.MappingScope{
-		Read: records, Write: records, Tags: tagrepository.BindCrossDomain(tx),
+	tags := tagrepository.BindCrossDomain(tx)
+	for _, entry := range batch.Entries {
+		_, references, err := tags.ReplaceOwnerReferences(ctx, entry.Owner, entry.TagIDs, entry.ActorID, entry.Change.NowMS)
+		if errors.Is(err, tagging.ErrInvalid) {
+			return application.Summary{}, fmt.Errorf("%w: %w", application.ErrInvalid, err)
+		}
+		if err != nil {
+			return application.Summary{}, fmt.Errorf("replace Pegasus mapping tags: %w", err)
+		}
+		entry.Change.Tags = references
+		if err := records.Put(ctx, entry.Change); err != nil {
+			return application.Summary{}, err
+		}
 	}
-	if err := work(scope); err != nil {
-		return err
+	if err := records.Advance(ctx, batch.Advance); err != nil {
+		return application.Summary{}, err
+	}
+	result, err := records.Import(ctx, batch.ImportID)
+	if err != nil {
+		return application.Summary{}, fmt.Errorf("read updated Pegasus mappings: %w", err)
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(tx); err != nil {
+			return application.Summary{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit Pegasus mappings: %w", err)
+		return application.Summary{}, fmt.Errorf("commit Pegasus mappings: %w", err)
 	}
-	return nil
+	return result, nil
 }
 
 type mappingRecords struct{ executor dbexec.Executor }

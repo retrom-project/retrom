@@ -3,6 +3,7 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,41 +20,46 @@ type mappingMemory struct {
 	readErr, writeErr, commitErr error
 	writes                       []model.CollectionMapping
 	advance                      *model.MappingAdvance
-	scopes                       int
+	commits                      int
 }
 
-func (m *mappingMemory) WithMappings(_ context.Context, work func(model.MappingScope) error) error {
-	m.scopes++
-	if err := work(model.MappingScope{Read: m, Write: m, Tags: m.tags}); err != nil {
-		return err
-	}
-	return m.commitErr
-}
-
-func (m *mappingMemory) Import(context.Context, string) (model.Summary, error) {
+func (m *mappingMemory) LoadImportSummary(_ context.Context, _ string) (model.Summary, error) {
 	return m.before, m.readErr
 }
 
-func (m *mappingMemory) CollectionOwner(context.Context, string) (string, error) {
+func (m *mappingMemory) LoadCollectionOwner(_ context.Context, _ string) (string, error) {
 	return m.owner, m.readErr
 }
 
-func (m *mappingMemory) EligibleTarget(context.Context, string) (model.MappingTarget, bool, error) {
+func (m *mappingMemory) LoadEligibleTarget(_ context.Context, _ string) (model.MappingTarget, bool, error) {
 	if m.target == nil {
 		return model.MappingTarget{}, false, m.readErr
 	}
 	return *m.target, true, m.readErr
 }
 
-func (m *mappingMemory) Put(_ context.Context, change model.CollectionMapping) error {
-	m.writes = append(m.writes, change)
-	return m.writeErr
-}
-
-func (m *mappingMemory) Advance(_ context.Context, change model.MappingAdvance) error {
-	m.advance = &change
+func (m *mappingMemory) CommitMappingBatch(_ context.Context, batch model.MappingBatch) (model.Summary, error) {
+	m.commits++
+	for _, entry := range batch.Entries {
+		_, references, err := m.tags.ReplaceOwnerReferences(nil, entry.Owner, entry.TagIDs, entry.ActorID, entry.Change.NowMS)
+		if errors.Is(err, tagging.ErrInvalid) {
+			return model.Summary{}, fmt.Errorf("%w: %w", model.ErrInvalid, err)
+		}
+		if err != nil {
+			return model.Summary{}, err
+		}
+		entry.Change.Tags = references
+		m.writes = append(m.writes, entry.Change)
+		if m.writeErr != nil {
+			return model.Summary{}, m.writeErr
+		}
+	}
+	m.advance = &batch.Advance
 	m.before.Version++
-	return m.writeErr
+	if m.commitErr != nil {
+		return model.Summary{}, m.commitErr
+	}
+	return m.before, nil
 }
 
 type mappingTagMemory struct {
@@ -109,8 +115,8 @@ func TestMappingsUseCurrentSelectionAndActorWithinOneWriteScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value.Version != 5 || m.scopes != 1 || len(m.writes) != 1 || m.advance == nil {
-		t.Fatalf("mapping result: %#v scope=%d writes=%#v", value, m.scopes, m.writes)
+	if value.Version != 5 || m.commits != 1 || len(m.writes) != 1 || m.advance == nil {
+		t.Fatalf("mapping result: %#v commits=%d writes=%#v", value, m.commits, m.writes)
 	}
 	change := m.writes[0]
 	if change.Target == nil || change.Target.InstanceVersion != 2 || change.Target.CoreID != "mgba" || change.NowMS != 10 || tags.actor != "editor" {
@@ -134,8 +140,8 @@ func TestMappingsRejectInvalidBatchBeforeStorage(t *testing.T) {
 	} {
 		m, _ := mappingFixture()
 		value, err := NewMappings(m, time.Now).Update(t.Context(), "import", 4, mappings, "editor")
-		if !errors.Is(err, model.ErrInvalid) || value.ID != "" || m.scopes != 0 {
-			t.Fatalf("invalid mapping touched storage: %#v %v scopes=%d", mappings, err, m.scopes)
+		if !errors.Is(err, model.ErrInvalid) || value.ID != "" || m.commits != 0 {
+			t.Fatalf("invalid mapping touched storage: %#v %v commits=%d", mappings, err, m.commits)
 		}
 	}
 }

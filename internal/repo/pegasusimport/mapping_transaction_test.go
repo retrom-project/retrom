@@ -1,7 +1,6 @@
 package pegasusimport
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	taggingmodel "retrom/internal/model/tagging"
+	"retrom/internal/repo/dbexec"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -64,26 +64,13 @@ func mappingRows(t *testing.T, db *sql.DB) map[string]string {
 	return result
 }
 
-type failingMappingCommit struct {
-	repository *Mappings
-	cause      error
-}
-
-func (r failingMappingCommit) WithMappings(ctx context.Context, work func(pegasusimportmodel.MappingScope) error) error {
-	return r.repository.WithMappings(ctx, func(scope pegasusimportmodel.MappingScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		return r.cause
-	})
-}
-
 func TestMappingsRollBackRelationsAndTagVersionsOnLateFailure(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	before := mappingRows(t, db)
 	cause := errors.New("late mapping failure")
-	service := pegasusimportservice.NewMappings(failingMappingCommit{repository: NewMappings(db), cause: cause}, func() time.Time { return time.UnixMilli(10) })
+	repo := NewMappings(db, WithMappingsPreCommitHook(func(dbexec.Executor) error { return cause }))
+	service := pegasusimportservice.NewMappings(repo, func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []pegasusimportmodel.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}}, mappingActor)
 	if !errors.Is(err, cause) || value.ID != "" {
 		t.Fatalf("late mapping failure: %#v %v", value, err)
@@ -97,22 +84,23 @@ func TestMappingsRejectStalePlanAfterUpdatingCollection(t *testing.T) {
 	t.Parallel()
 	db := mappingDatabase(t)
 	beforeRows := mappingRows(t, db)
-	err := NewMappings(db).WithMappings(t.Context(), func(scope pegasusimportmodel.MappingScope) error {
-		before, err := scope.Read.Import(t.Context(), "import-0")
-		if err != nil {
-			return err
-		}
-		owner := taggingmodel.Owner{Kind: taggingmodel.OwnerPegasusCollection, ID: mappingCollection}
-		_, refs, err := scope.Tags.ReplaceOwnerReferences(t.Context(), owner, []string{}, mappingActor, 10)
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Put(t.Context(), pegasusimportmodel.CollectionMapping{ImportID: "import-0", Mapping: pegasusimportmodel.Mapping{CollectionID: mappingCollection, Action: "SKIP"}, Tags: refs, NowMS: 10}); err != nil {
-			return err
-		}
-		before.Version++
-		return scope.Write.Advance(t.Context(), pegasusimportmodel.MappingAdvance{Before: before, NowMS: 10})
-	})
+	repo := NewMappings(db)
+	before, err := repo.LoadImportSummary(t.Context(), "import-0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before.Version++
+	batch := pegasusimportmodel.MappingBatch{
+		ImportID: "import-0",
+		Entries: []pegasusimportmodel.MappingBatchEntry{{
+			Change:  pegasusimportmodel.CollectionMapping{ImportID: "import-0", Mapping: pegasusimportmodel.Mapping{CollectionID: mappingCollection, Action: "SKIP"}, NowMS: 10},
+			Owner:   taggingmodel.Owner{Kind: taggingmodel.OwnerPegasusCollection, ID: mappingCollection},
+			TagIDs:  []string{},
+			ActorID: mappingActor,
+		}},
+		Advance: pegasusimportmodel.MappingAdvance{Before: before, NowMS: 10},
+	}
+	_, err = repo.CommitMappingBatch(t.Context(), batch)
 	if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 		t.Fatalf("stale mapping committed: %v", err)
 	}
