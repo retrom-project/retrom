@@ -19,10 +19,7 @@ func leaseDatabase(t *testing.T, importing bool) (*sql.DB, string) {
 		return db, *summary.ImportJobID
 	}
 	db := creationDatabase(t)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), creationPlan(0))
-		return err
-	}); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(0)); err != nil {
 		t.Fatal(err)
 	}
 	return db, "job-0"

@@ -16,7 +16,7 @@ func planDatabase(t *testing.T) (*sql.DB, application.Summary) {
 	t.Helper()
 	db := creationDatabase(t)
 	plan := creationPlan(0)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error { _, err := writer.Insert(t.Context(), plan); return err }); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), plan); err != nil {
 		t.Fatal(err)
 	}
 	seedPlanProjection(t, db)

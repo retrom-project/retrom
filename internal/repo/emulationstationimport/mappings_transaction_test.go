@@ -34,10 +34,7 @@ VALUES(?,'mapping-profile','mapping-admin','Mapping Admin','ADMIN','ENABLED',1,1
 	}
 	plan := creationPlan(0)
 	plan.ActorID = mappingActor
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), plan)
-		return err
-	}); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), plan); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(t.Context(), `UPDATE emulationstation_imports SET state='AWAITING_MAPPING',phase=NULL,source_snapshot_digest='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',scan_completed_at_ms=2,gamelist_count=1,collection_count=1,game_count=1,processable_item_count=1 WHERE id='import-0'`); err != nil {

@@ -39,21 +39,14 @@ func (service *Creation) Create(
 	if err != nil {
 		return model.Summary{}, err
 	}
-	var result model.Summary
-	err = service.repository.WithCreate(ctx, func(writer model.CreationWriter) error {
-		count, err := writer.PendingPlans(ctx)
-		if err != nil {
-			return fmt.Errorf("count pending Pegasus plans: %w", err)
-		}
-		if count >= 20 {
-			return model.ErrActive
-		}
-		result, err = writer.Insert(ctx, plan)
-		if err != nil {
-			return fmt.Errorf("persist Pegasus plan: %w", err)
-		}
-		return nil
-	})
+	count, err := service.repository.LoadPendingPlanCount(ctx)
+	if err != nil {
+		return model.Summary{}, fmt.Errorf("create Pegasus import: %w", err)
+	}
+	if count >= 20 {
+		return model.Summary{}, model.ErrActive
+	}
+	result, err := service.repository.CommitCreation(ctx, plan)
 	if err != nil {
 		return model.Summary{}, fmt.Errorf("create Pegasus import: %w", err)
 	}

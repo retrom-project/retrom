@@ -42,22 +42,32 @@ func creationPlan(index int) application.CreationPlan {
 
 func TestCreationRollsBackWriteAndLateFailures(t *testing.T) {
 	t.Parallel()
-	for _, phase := range []string{"job", "plan", "audit", "after snapshot"} {
+	for _, phase := range []string{"job", "plan", "audit"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
 			assertCreationRollback(t, phase)
 		})
 	}
+	t.Run("after snapshot", func(t *testing.T) {
+		t.Parallel()
+		db := creationDatabase(t)
+		if _, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(0)); err != nil {
+			t.Fatal(err)
+		}
+		repo := NewCreation(db)
+		repo.WithPreCommitHook(func() error { return errCreationWrite })
+		_, err := repo.CommitCreation(t.Context(), creationPlan(1))
+		if !errors.Is(err, errCreationWrite) {
+			t.Fatalf("lost callback cause: %v", err)
+		}
+		assertCreationCounts(t, db, 1)
+	})
 }
 
 func assertCreationRollback(t *testing.T, phase string) {
 	t.Helper()
 	db := creationDatabase(t)
-	repo := NewCreation(db)
-	if err := repo.WithCreate(t.Context(), func(writer application.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), creationPlan(0))
-		return err
-	}); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(0)); err != nil {
 		t.Fatal(err)
 	}
 	plan := creationPlan(1)
@@ -69,24 +79,9 @@ func assertCreationRollback(t *testing.T, phase string) {
 	case "audit":
 		plan.AuditID = creationPlan(0).AuditID
 	}
-	err := repo.WithCreate(t.Context(), func(writer application.CreationWriter) error {
-		value, err := writer.Insert(t.Context(), plan)
-		if err != nil {
-			return err
-		}
-		if value.ID != plan.ImportID || value.State != "SCANNING" {
-			t.Fatalf("transactional snapshot: %#v", value)
-		}
-		if phase == "after snapshot" {
-			return errCreationWrite
-		}
-		return nil
-	})
+	_, err := NewCreation(db).CommitCreation(t.Context(), plan)
 	if err == nil {
 		t.Fatalf("%s failure committed", phase)
-	}
-	if phase == "after snapshot" && !errors.Is(err, errCreationWrite) {
-		t.Fatalf("lost callback cause: %v", err)
 	}
 	assertCreationCounts(t, db, 1)
 }
@@ -107,20 +102,12 @@ func assertCreationCounts(t *testing.T, db *sql.DB, want int) {
 func TestCreationEnforcesTwentyPlanCapacityAtInsert(t *testing.T) {
 	t.Parallel()
 	db := creationDatabase(t)
-	repo := NewCreation(db)
 	for index := 0; index < 20; index++ {
-		err := repo.WithCreate(t.Context(), func(writer application.CreationWriter) error {
-			_, err := writer.Insert(t.Context(), creationPlan(index))
-			return err
-		})
-		if err != nil {
+		if _, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(index)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	err := repo.WithCreate(t.Context(), func(writer application.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), creationPlan(20))
-		return err
-	})
+	_, err := NewCreation(db).CommitCreation(t.Context(), creationPlan(20))
 	if !errors.Is(err, application.ErrActive) {
 		t.Fatalf("capacity: %v", err)
 	}

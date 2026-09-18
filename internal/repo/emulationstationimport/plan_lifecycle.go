@@ -12,20 +12,79 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-type PlanLifecycle struct{ database *sql.DB }
+type PlanLifecycle struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
-func NewPlanLifecycle(database *sql.DB) *PlanLifecycle { return &PlanLifecycle{database: database} }
-func (repository *PlanLifecycle) WithPlanWrite(ctx context.Context, work func(application.PlanRecords) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+func NewPlanLifecycle(database *sql.DB) *PlanLifecycle {
+	return &PlanLifecycle{database: database}
+}
+
+func (repository *PlanLifecycle) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
+}
+
+func (repository *PlanLifecycle) LoadPlanSummary(
+	ctx context.Context, id string,
+) (application.Summary, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return fmt.Errorf("begin EmulationStation plan write: %w", err)
+		return application.Summary{},
+			fmt.Errorf("begin EmulationStation plan read: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(planRecords{executor: tx}); err != nil {
-		return err
+	summary, err := (&Queries{database: tx}).Get(ctx, id)
+	if err != nil {
+		return application.Summary{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit EmulationStation plan write: %w", err)
+		return application.Summary{},
+			fmt.Errorf("commit EmulationStation plan read: %w", err)
+	}
+	return summary, nil
+}
+
+func (repository *PlanLifecycle) CommitPlanDeletion(
+	ctx context.Context, plan application.PlanDeletion,
+) error {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin EmulationStation plan deletion: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	if err := (planRecords{executor: tx}).Delete(ctx, plan); err != nil {
+		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit EmulationStation plan deletion: %w", err)
+	}
+	return nil
+}
+
+func (repository *PlanLifecycle) CommitPlanExpiry(
+	ctx context.Context, plan application.PlanExpiry,
+) error {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin EmulationStation plan expiry: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	if err := (planRecords{executor: tx}).Expire(ctx, plan); err != nil {
+		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit EmulationStation plan expiry: %w", err)
 	}
 	return nil
 }
@@ -70,13 +129,6 @@ WHERE state='AWAITING_MAPPING' AND expires_at_ms<=? ORDER BY expires_at_ms,id LI
 }
 
 type planRecords struct{ executor dbexec.Executor }
-
-func (records planRecords) Get(
-	ctx context.Context,
-	id string,
-) (application.Summary, error) {
-	return (&Queries{database: records.executor}).Get(ctx, id)
-}
 
 func (records planRecords) Delete(ctx context.Context, plan application.PlanDeletion) error {
 	result, err := records.executor.ExecContext(
@@ -151,7 +203,6 @@ VALUES(?,'USER',?,NULL,'EMULATIONSTATION_IMPORT_DELETED','EMULATIONSTATION_IMPOR
 }
 
 func (records planRecords) Expire(ctx context.Context, plan application.PlanExpiry) error {
-	// Fence the candidate before modifying any child projection.
 	result, err := records.executor.ExecContext(
 		ctx,
 		`UPDATE emulationstation_imports SET version=version

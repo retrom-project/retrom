@@ -34,10 +34,7 @@ VALUES(?,'mapping-profile','mapping-admin','Mapping Admin','ADMIN','ENABLED',1,1
 	}
 	plan := creationPlan(0)
 	plan.ActorID = mappingActor
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), plan)
-		return err
-	}); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), plan); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(t.Context(), `UPDATE pegasus_imports SET state='AWAITING_MAPPING',phase=NULL,collection_count=1 WHERE id='import-0'`); err != nil {

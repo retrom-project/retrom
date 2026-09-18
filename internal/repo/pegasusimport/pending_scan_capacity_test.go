@@ -14,17 +14,12 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 	t.Parallel()
 	database := pendingScanCapacityDatabase(t)
 	repository := NewCreation(database)
-	if err := repository.WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
-		count, err := writer.PendingPlans(t.Context())
-		if err != nil {
-			return err
-		}
-		if count != 20 {
-			t.Errorf("canceling scan released plan capacity: got %d, want 20", count)
-		}
-		return nil
-	}); err != nil {
+	count, err := repository.LoadPendingPlanCount(t.Context())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if count != 20 {
+		t.Errorf("canceling scan released plan capacity: got %d, want 20", count)
 	}
 	control := pegasusimportservice.NewWorkflowControl(NewWorkflowControl(database, testPayloadTerminator()), func() time.Time { return time.UnixMilli(10) })
 	if _, pending, err := control.CancelJob(t.Context(), pegasusimportservice.JobCancellationRequest{
@@ -33,17 +28,14 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 	}); err != nil || pending {
 		t.Fatalf("close queued scan: pending=%v err=%v", pending, err)
 	}
-	if err := repository.WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
-		count, err := writer.PendingPlans(t.Context())
-		if err != nil {
-			return err
-		}
-		if count != 19 {
-			t.Errorf("closed scan still occupies capacity or pending scan was omitted: %d", count)
-		}
-		_, err = writer.Insert(t.Context(), creationPlan(20))
-		return err
-	}); err != nil {
+	count, err = repository.LoadPendingPlanCount(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 19 {
+		t.Errorf("closed scan still occupies capacity or pending scan was omitted: %d", count)
+	}
+	if _, err := repository.CommitCreation(t.Context(), creationPlan(20)); err != nil {
 		t.Fatalf("reuse terminal scan capacity: %v", err)
 	}
 	assertScanCapacityCounts(t, database, 21, 2)
@@ -52,10 +44,7 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 func TestCreationFinalInsertCannotBypassPendingScanCapacity(t *testing.T) {
 	t.Parallel()
 	database := pendingScanCapacityDatabase(t)
-	err := NewCreation(database).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), creationPlan(20))
-		return err
-	})
+	_, err := NewCreation(database).CommitCreation(t.Context(), creationPlan(20))
 	if !errors.Is(err, pegasusimportmodel.ErrActive) {
 		t.Fatalf("21st unstarted plan accepted while scan cancellation is pending: %v", err)
 	}
@@ -65,12 +54,8 @@ func TestCreationFinalInsertCannotBypassPendingScanCapacity(t *testing.T) {
 func pendingScanCapacityDatabase(t *testing.T) *sql.DB {
 	t.Helper()
 	database := creationDatabase(t)
-	repository := NewCreation(database)
 	for index := range 20 {
-		if err := repository.WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
-			_, err := writer.Insert(t.Context(), creationPlan(index))
-			return err
-		}); err != nil {
+		if _, err := NewCreation(database).CommitCreation(t.Context(), creationPlan(index)); err != nil {
 			t.Fatal(err)
 		}
 	}

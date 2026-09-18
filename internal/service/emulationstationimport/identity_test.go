@@ -34,8 +34,8 @@ func TestCreationChecksEveryIdentityBeforeOpeningTransaction(t *testing.T) {
 			defer uuid.SetRand(nil)
 			return NewCreation(repo, &creationSource{}, time.Now).Create(t.Context(), model.CreateRequest{}, "actor")
 		}()
-		if !errors.Is(err, errIdentityEntropy) || value.ID != "" || repo.scopes != 0 {
-			t.Fatalf("identity %d produced value=%#v error=%v scopes=%d", allowed, value, err, repo.scopes)
+		if !errors.Is(err, errIdentityEntropy) || value.ID != "" || repo.inserted {
+			t.Fatalf("identity %d produced value=%#v error=%v inserted=%v", allowed, value, err, repo.inserted)
 		}
 	}
 }

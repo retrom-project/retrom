@@ -24,34 +24,25 @@ func NewPlanLifecycle(
 }
 
 func (service *PlanLifecycle) Delete(ctx context.Context, id string, version int64, actorID string) error {
-	err := service.repository.WithPlanWrite(ctx, func(records model.PlanRecords) error {
-		before, err := records.Get(ctx, id)
-		if err != nil {
-			return fmt.Errorf("read Pegasus deletion plan: %w", err)
-		}
-		if before.Version != version || before.ImportJobID != nil ||
-			before.State != "AWAITING_MAPPING" && before.State != "EXPIRED" {
-			return model.ErrInvalid
-		}
-		if actorID == "" {
-			actorID = before.CreatedBy.ID
-		}
-		auditID, err := uuid.NewV7()
-		if err != nil {
-			return fmt.Errorf("generate Pegasus deletion audit: %w", err)
-		}
-		if err := records.Delete(
-			ctx,
-			model.PlanDeletion{Before: before, ActorID: actorID, AuditID: auditID.String(), NowMS: service.now().UnixMilli()},
-		); err != nil {
-			return fmt.Errorf(
-				"delete Pegasus plan: %w",
-				err,
-			)
-		}
-		return nil
-	})
+	before, err := service.repository.LoadPlanSummary(ctx, id)
 	if err != nil {
+		return fmt.Errorf("finish Pegasus deletion: %w", err)
+	}
+	if before.Version != version || before.ImportJobID != nil ||
+		before.State != "AWAITING_MAPPING" && before.State != "EXPIRED" {
+		return model.ErrInvalid
+	}
+	if actorID == "" {
+		actorID = before.CreatedBy.ID
+	}
+	auditID, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("finish Pegasus deletion: %w", err)
+	}
+	if err := service.repository.CommitPlanDeletion(
+		ctx,
+		model.PlanDeletion{Before: before, ActorID: actorID, AuditID: auditID.String(), NowMS: service.now().UnixMilli()},
+	); err != nil {
 		return fmt.Errorf("finish Pegasus deletion: %w", err)
 	}
 	return nil
@@ -72,29 +63,20 @@ func (service *PlanLifecycle) Expire(ctx context.Context) error {
 }
 
 func (service *PlanLifecycle) expireCandidate(ctx context.Context, candidate model.ExpiredPlan, now int64) error {
-	err := service.repository.WithPlanWrite(ctx, func(records model.PlanRecords) error {
-		before, err := records.Get(ctx, candidate.ID)
-		if errors.Is(err, model.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("read Pegasus expiry plan: %w", err)
-		}
-		if before.Version != candidate.Version || before.State != "AWAITING_MAPPING" || before.ExpiresAtMS > now {
-			return nil
-		}
-		if err := records.Expire(
-			ctx,
-			model.PlanExpiry{Before: before, NowMS: now},
-		); err != nil {
-			return fmt.Errorf(
-				"expire Pegasus plan: %w",
-				err,
-			)
-		}
+	before, err := service.repository.LoadPlanSummary(ctx, candidate.ID)
+	if errors.Is(err, model.ErrNotFound) {
 		return nil
-	})
+	}
 	if err != nil {
+		return fmt.Errorf("finish Pegasus expiry: %w", err)
+	}
+	if before.Version != candidate.Version || before.State != "AWAITING_MAPPING" || before.ExpiresAtMS > now {
+		return nil
+	}
+	if err := service.repository.CommitPlanExpiry(
+		ctx,
+		model.PlanExpiry{Before: before, NowMS: now},
+	); err != nil {
 		return fmt.Errorf("finish Pegasus expiry: %w", err)
 	}
 	return nil

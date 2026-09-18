@@ -13,42 +13,51 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-type Creation struct{ database *sql.DB }
-
-func NewCreation(database *sql.DB) *Creation { return &Creation{database: database} }
-func (repository *Creation) WithCreate(ctx context.Context, work func(application.CreationWriter) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin Pegasus creation: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	if err := work(creationRecords{executor: tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit Pegasus creation: %w", err)
-	}
-	return nil
+type Creation struct {
+	database      *sql.DB
+	preCommitHook func() error
 }
 
-type creationRecords struct{ executor dbexec.Executor }
+func NewCreation(database *sql.DB) *Creation { return &Creation{database: database} }
 
-func (records creationRecords) PendingPlans(ctx context.Context) (int, error) {
+func (repository *Creation) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
+}
+
+func (repository *Creation) LoadPendingPlanCount(ctx context.Context) (int, error) {
 	var count int
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := repository.database.QueryRowContext(ctx, `
 SELECT count(*) FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
 OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL)
-`).Scan(
-
-		&count,
-	); err != nil {
-		return 0, fmt.Errorf(
-			"read pending Pegasus plans: %w",
-			err,
-		)
+`).Scan(&count); err != nil {
+		return 0, fmt.Errorf("read pending Pegasus plans: %w", err)
 	}
 	return count, nil
 }
+
+func (repository *Creation) CommitCreation(ctx context.Context, plan application.CreationPlan) (application.Summary, error) {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return application.Summary{}, fmt.Errorf("begin Pegasus creation: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	records := creationRecords{executor: tx}
+	summary, err := records.Insert(ctx, plan)
+	if err != nil {
+		return application.Summary{}, err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return application.Summary{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return application.Summary{}, fmt.Errorf("commit Pegasus creation: %w", err)
+	}
+	return summary, nil
+}
+
+type creationRecords struct{ executor dbexec.Executor }
 
 func (records creationRecords) Insert(ctx context.Context, plan application.CreationPlan) (application.Summary, error) {
 	if err := records.insertScanJob(ctx, plan); err != nil {

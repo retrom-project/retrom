@@ -18,13 +18,9 @@ type PlanExpiry struct {
 	NowMS  int64
 }
 
-type PlanRecords interface {
-	Get(context.Context, string) (Summary, error)
-	Delete(context.Context, PlanDeletion) error
-	Expire(context.Context, PlanExpiry) error
-}
-
 type PlanLifecycleRepository interface {
-	WithPlanWrite(context.Context, func(PlanRecords) error) error
+	LoadPlanSummary(context.Context, string) (Summary, error)
+	CommitPlanDeletion(context.Context, PlanDeletion) error
+	CommitPlanExpiry(context.Context, PlanExpiry) error
 	ExpiredPlans(context.Context, int64, int) ([]ExpiredPlan, error)
 }

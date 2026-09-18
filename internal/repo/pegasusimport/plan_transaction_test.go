@@ -13,10 +13,7 @@ func TestPlanDeletionRollsBackTagVersionAndMutableProjectionOnAuditFailure(t *te
 	t.Parallel()
 	db := creationDatabase(t)
 	created := creationPlan(0)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), created)
-		return err
-	}); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), created); err != nil {
 		t.Fatal(err)
 	}
 	for _, statement := range []string{
@@ -29,13 +26,13 @@ func TestPlanDeletionRollsBackTagVersionAndMutableProjectionOnAuditFailure(t *te
 			t.Fatal(err)
 		}
 	}
-	err := NewPlanLifecycle(db).WithPlanWrite(t.Context(), func(records pegasusimportmodel.PlanRecords) error {
-		before, err := records.Get(t.Context(), created.ImportID)
-		if err != nil {
-			return err
-		}
-		return records.Delete(t.Context(), pegasusimportmodel.PlanDeletion{Before: before, ActorID: "actor", AuditID: created.AuditID, NowMS: 10})
-	})
+	before, err := NewQueries(db).Get(t.Context(), created.ImportID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := NewPlanLifecycle(db)
+	repo.WithPreCommitHook(func() error { return errors.New("audit failure") })
+	err = repo.CommitPlanDeletion(t.Context(), pegasusimportmodel.PlanDeletion{Before: before, ActorID: "actor", AuditID: created.AuditID, NowMS: 10})
 	if err == nil {
 		t.Fatal("duplicate deletion audit committed")
 	}
@@ -53,10 +50,7 @@ func TestPlanExpiryRejectsStaleVersionAndRollsBackLateFailure(t *testing.T) {
 	t.Parallel()
 	db := creationDatabase(t)
 	plan := creationPlan(0)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), plan)
-		return err
-	}); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), plan); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(t.Context(), `UPDATE pegasus_imports SET state='AWAITING_MAPPING' WHERE id='import-0'`); err != nil {
@@ -64,19 +58,18 @@ func TestPlanExpiryRejectsStaleVersionAndRollsBackLateFailure(t *testing.T) {
 	}
 	cause := errors.New("late expiry failure")
 	for _, stale := range []bool{true, false} {
-		err := NewPlanLifecycle(db).WithPlanWrite(t.Context(), func(records pegasusimportmodel.PlanRecords) error {
-			before, err := records.Get(t.Context(), plan.ImportID)
-			if err != nil {
-				return err
-			}
-			if stale {
-				before.Version++
-			}
-			if err := records.Expire(t.Context(), pegasusimportmodel.PlanExpiry{Before: before, NowMS: plan.ExpiresAtMS}); err != nil {
-				return err
-			}
-			return cause
-		})
+		before, err := NewQueries(db).Get(t.Context(), plan.ImportID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if stale {
+			before.Version++
+		}
+		repo := NewPlanLifecycle(db)
+		if !stale {
+			repo.WithPreCommitHook(func() error { return cause })
+		}
+		err = repo.CommitPlanExpiry(t.Context(), pegasusimportmodel.PlanExpiry{Before: before, NowMS: plan.ExpiresAtMS})
 		want := cause
 		if stale {
 			want = pegasusimportmodel.ErrInvalid
@@ -98,10 +91,7 @@ func TestExpiryCommitsAtDeadlineAndDoesNotRepeat(t *testing.T) {
 	t.Parallel()
 	db := creationDatabase(t)
 	plan := creationPlan(0)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
-		_, err := writer.Insert(t.Context(), plan)
-		return err
-	}); err != nil {
+	if _, err := NewCreation(db).CommitCreation(t.Context(), plan); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(t.Context(), `UPDATE pegasus_imports SET state='AWAITING_MAPPING' WHERE id='import-0'`); err != nil {
