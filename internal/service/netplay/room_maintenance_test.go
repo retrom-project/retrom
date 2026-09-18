@@ -28,21 +28,20 @@ func (memory *roomMaintenanceMemory) Active(_ context.Context, cutoffs model.Exp
 	return memory.active, memory.readFailure
 }
 
-func (memory *roomMaintenanceMemory) WithMaintenance(_ context.Context, work func(model.MaintenanceWriter) error) error {
-	if err := work(memory); err != nil {
-		return err
+func (memory *roomMaintenanceMemory) CommitExpiry(_ context.Context, plan model.ExpiryPlan) error {
+	if memory.writeFailure != nil {
+		return memory.writeFailure
 	}
+	memory.expired = append(memory.expired, plan)
 	return memory.commitFailure
 }
 
-func (memory *roomMaintenanceMemory) Expire(_ context.Context, plan model.ExpiryPlan) error {
-	memory.expired = append(memory.expired, plan)
-	return memory.writeFailure
-}
-
-func (memory *roomMaintenanceMemory) Recover(_ context.Context, plan model.RecoveryPlan) error {
+func (memory *roomMaintenanceMemory) CommitRecovery(_ context.Context, plan model.RecoveryPlan) error {
+	if memory.writeFailure != nil {
+		return memory.writeFailure
+	}
 	memory.recovered = append(memory.recovered, plan)
-	return memory.writeFailure
+	return memory.commitFailure
 }
 
 func (memory *roomMaintenanceMemory) EndExpired(_ context.Context, candidate model.ExpiryCandidate, _ int64) error {

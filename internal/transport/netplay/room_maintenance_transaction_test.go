@@ -1,7 +1,6 @@
 package netplay
 
 import (
-	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -11,20 +10,6 @@ import (
 	repository "retrom/internal/repo/netplay"
 	netplayservice "retrom/internal/service/netplay"
 )
-
-type failedRoomMaintenance struct {
-	netplaymodel.MaintenanceRepository
-	failure error
-}
-
-func (wrapper failedRoomMaintenance) WithMaintenance(ctx context.Context, work func(netplaymodel.MaintenanceWriter) error) error {
-	return wrapper.MaintenanceRepository.WithMaintenance(ctx, func(writer netplaymodel.MaintenanceWriter) error {
-		if err := work(writer); err != nil {
-			return err
-		}
-		return wrapper.failure
-	})
-}
 
 func TestRoomMaintenanceRecoveryRollbackIncludesLaunchesAndPlays(t *testing.T) {
 	t.Parallel()
@@ -37,13 +22,16 @@ SELECT 'play-'||profile_id,id,profile_id,game_id,?,?,0,0,'ACTIVE',1,?,? FROM lau
 	}
 	before := maintenanceRecoverySnapshot(t, fixture)
 	sentinel := errors.New("late recovery failure")
-	service := netplayservice.NewRoomMaintenance(failedRoomMaintenance{repository.NewRoomMaintenance(fixture.database), sentinel}, nil, func() time.Time { return fixture.now })
+	repo := repository.NewRoomMaintenance(fixture.database)
+	repo.WithPreCommitHook(func() error { return sentinel })
+	service := netplayservice.NewRoomMaintenance(repo, nil, func() time.Time { return fixture.now })
 	if err := service.Recover(t.Context(), "SERVER_RESTARTED"); !errors.Is(err, sentinel) {
 		t.Fatalf("recovery failure=%v", err)
 	}
 	if after := maintenanceRecoverySnapshot(t, fixture); !reflect.DeepEqual(before, after) {
 		t.Fatalf("recovery rollback before=%v after=%v", before, after)
 	}
+	repo.WithPreCommitHook(nil)
 	if err := fixture.service.Recover(t.Context(), "SERVER_RESTARTED"); err != nil {
 		t.Fatal(err)
 	}
@@ -82,23 +70,23 @@ func TestPassiveRoomExpiryFencesVersionsAndRollsBackEvent(t *testing.T) {
 		t.Fatalf("candidates=%v error=%v", candidates, err)
 	}
 	before := roomExitRecordsSnapshot(t, fixture)
-	candidate := candidates[0]
-	candidate.Version++
-	err = repo.WithMaintenance(t.Context(), func(writer netplaymodel.MaintenanceWriter) error {
-		return writer.Expire(t.Context(), netplaymodel.ExpiryPlan{Before: candidate, Now: now.UnixMilli()})
-	})
-	if err != nil {
+	stale := candidates[0]
+	stale.Version++
+	if err := repo.CommitExpiry(
+		t.Context(),
+		netplaymodel.ExpiryPlan{Before: stale, Now: now.UnixMilli()},
+	); err != nil {
 		t.Fatal(err)
 	}
 	if after := roomExitRecordsSnapshot(t, fixture); !reflect.DeepEqual(before, after) {
 		t.Fatal("stale passive expiry changed room")
 	}
 	sentinel := errors.New("late expiry failure")
-	wrapper := failedRoomMaintenance{repo, sentinel}
-	err = wrapper.WithMaintenance(t.Context(), func(writer netplaymodel.MaintenanceWriter) error {
-		return writer.Expire(t.Context(), netplaymodel.ExpiryPlan{Before: candidates[0], Now: now.UnixMilli()})
-	})
-	if !errors.Is(err, sentinel) {
+	repo.WithPreCommitHook(func() error { return sentinel })
+	if err := repo.CommitExpiry(
+		t.Context(),
+		netplaymodel.ExpiryPlan{Before: candidates[0], Now: now.UnixMilli()},
+	); !errors.Is(err, sentinel) {
 		t.Fatalf("expiry failure=%v", err)
 	}
 	if after := roomExitRecordsSnapshot(t, fixture); !reflect.DeepEqual(before, after) {

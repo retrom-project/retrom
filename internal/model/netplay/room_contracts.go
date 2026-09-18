@@ -76,15 +76,11 @@ type RecoveryPlan struct {
 	Now    int64
 }
 
-type MaintenanceWriter interface {
-	Expire(context.Context, ExpiryPlan) error
-	Recover(context.Context, RecoveryPlan) error
-}
-
 type MaintenanceRepository interface {
 	Passive(context.Context, ExpiryCutoffs) ([]ExpiryCandidate, error)
 	Active(context.Context, ExpiryCutoffs) ([]ExpiryCandidate, error)
-	WithMaintenance(context.Context, func(MaintenanceWriter) error) error
+	CommitExpiry(context.Context, ExpiryPlan) error
+	CommitRecovery(context.Context, RecoveryPlan) error
 }
 
 type ExpiredSessionEnder interface {

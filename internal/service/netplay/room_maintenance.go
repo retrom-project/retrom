@@ -36,13 +36,9 @@ func (service *RoomMaintenance) Expire(ctx context.Context) error {
 		return fmt.Errorf("netplay/read expired rooms: %w", err)
 	}
 	for _, candidate := range passive {
-		err := service.repository.WithMaintenance(ctx, func(writer model.MaintenanceWriter) error {
-			if err := writer.Expire(ctx, model.ExpiryPlan{Before: candidate, Now: cutoffs.Now}); err != nil {
-				return fmt.Errorf("netplay/expire passive room: %w", err)
-			}
-			return nil
-		})
-		if err != nil {
+		if err := service.repository.CommitExpiry(
+			ctx, model.ExpiryPlan{Before: candidate, Now: cutoffs.Now},
+		); err != nil {
 			return fmt.Errorf("netplay/commit passive expiry: %w", err)
 		}
 	}
@@ -64,13 +60,7 @@ func (service *RoomMaintenance) Recover(ctx context.Context, reason string) erro
 		return model.ErrInvalidRecoveryReason
 	}
 	plan := model.RecoveryPlan{Reason: reason, Now: service.now().UnixMilli()}
-	err := service.repository.WithMaintenance(ctx, func(writer model.MaintenanceWriter) error {
-		if err := writer.Recover(ctx, plan); err != nil {
-			return fmt.Errorf("netplay/recover runtime: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
+	if err := service.repository.CommitRecovery(ctx, plan); err != nil {
 		return fmt.Errorf("netplay/commit recovery: %w", err)
 	}
 	return nil
