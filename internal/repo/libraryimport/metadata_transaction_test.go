@@ -109,13 +109,12 @@ type metadataLateFailure struct {
 	cause      error
 }
 
-func (r metadataLateFailure) WithMetadata(ctx context.Context, work func(libraryimportmodel.MetadataScope) error) error {
-	return r.repository.WithMetadata(ctx, func(scope libraryimportmodel.MetadataScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		return r.cause
-	})
+func (r metadataLateFailure) LoadCurrentMetadata(ctx context.Context, itemID string) (libraryimportmodel.MetadataDraft, error) {
+	return r.repository.LoadCurrentMetadata(ctx, itemID)
+}
+
+func (r metadataLateFailure) CommitMetadataChange(_ context.Context, _ libraryimportmodel.MetadataChange) error {
+	return r.cause
 }
 
 func TestMetadataTransactionRollsBackLateFailureWithoutSuccessResult(t *testing.T) {
