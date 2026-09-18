@@ -109,18 +109,14 @@ func (service *Service) CreateArcadeParentAttachment(
 	}
 	var result ParentAttachmentCreated
 	repository := librarypersistence.NewArcadeParentAttachments(service.database)
-	err := repository.WithAdmission(ctx, func(scope libraryimportmodel.ArcadeParentAttachmentAdmissionScope) error {
-		setup := parentAttachmentSetup{
-			service: service, ctx: ctx, scope: scope,
-			itemID: itemID, expectedVersion: expectedVersion, request: request,
-		}
-		if err := setup.load(); err != nil {
-			return err
-		}
-		var err error
+	setup := parentAttachmentSetup{
+		service: service, ctx: ctx, repository: repository,
+		itemID: itemID, expectedVersion: expectedVersion, request: request,
+	}
+	err := setup.load()
+	if err == nil {
 		result, err = setup.persist()
-		return err
-	})
+	}
 	if err != nil {
 		err = fmt.Errorf("admit arcade parent attachment: %w", err)
 		var known *ParentAttachmentError
@@ -153,7 +149,7 @@ func invalidParentAttachmentRequest(
 type parentAttachmentSetup struct {
 	service             *Service
 	ctx                 context.Context
-	scope               libraryimportmodel.ArcadeParentAttachmentAdmissionScope
+	repository          libraryimportmodel.ArcadeParentAttachmentAdmissionRepository
 	itemID              string
 	expectedVersion     int64
 	request             ParentAttachmentRequest
@@ -190,7 +186,7 @@ func (setup *parentAttachmentSetup) load() error {
 }
 
 func (setup *parentAttachmentSetup) loadDraft() error {
-	draft, found, err := setup.scope.Read.Draft(setup.ctx, setup.itemID)
+	draft, found, err := setup.repository.LoadDraft(setup.ctx, setup.itemID)
 	if err != nil {
 		return parentError(ParentErrorUnavailable, err)
 	}
@@ -217,7 +213,7 @@ func (setup *parentAttachmentSetup) loadDraft() error {
 }
 
 func (setup *parentAttachmentSetup) validateSelectedValidation() error {
-	validation, found, err := setup.scope.Read.Validation(setup.ctx, setup.request.ValidationID, setup.itemID)
+	validation, found, err := setup.repository.LoadValidation(setup.ctx, setup.request.ValidationID, setup.itemID)
 	if err != nil {
 		return parentError(ParentErrorInputStale, err)
 	}
@@ -231,7 +227,7 @@ func (setup *parentAttachmentSetup) validateSelectedValidation() error {
 		return parentError(ParentErrorInputStale, ErrInvalid)
 	}
 	snapshot, err := setup.service.canonicalArcadeSnapshotWithQueryer(
-		setup.ctx, setup.scope.Read, validation.DependencySnapshotJSON,
+		setup.ctx, setup.repository, validation.DependencySnapshotJSON,
 	)
 	if err != nil {
 		return parentError(ParentErrorInputStale, err)
@@ -259,7 +255,7 @@ func (setup *parentAttachmentSetup) validationMatches(
 }
 
 func (setup *parentAttachmentSetup) loadUpload() error {
-	upload, found, err := setup.scope.Read.Upload(setup.ctx, setup.request.UploadFileID)
+	upload, found, err := setup.repository.LoadUpload(setup.ctx, setup.request.UploadFileID)
 	if err != nil {
 		return parentError(ParentErrorInvalid, err)
 	}
@@ -277,7 +273,7 @@ func (setup *parentAttachmentSetup) loadUpload() error {
 }
 
 func (setup *parentAttachmentSetup) ensureNoActiveAttachment() error {
-	active, err := setup.scope.Read.HasActive(setup.ctx, setup.itemID)
+	active, err := setup.repository.HasActiveAttachment(setup.ctx, setup.itemID)
 	if err != nil {
 		return parentError(ParentErrorUnavailable, err)
 	}
@@ -302,7 +298,7 @@ func (setup *parentAttachmentSetup) persist() (ParentAttachmentCreated, error) {
 		"attachmentKind": "ARCADE_PARENT", "machine": setup.dependency.Machine,
 		"originalFilename": filepath.Base(setup.originalName), "state": "QUEUED",
 	})
-	err := setup.scope.Write.Create(setup.ctx, libraryimportmodel.ArcadeParentAttachmentWrite{
+	err := setup.repository.CommitAttachment(setup.ctx, libraryimportmodel.ArcadeParentAttachmentWrite{
 		Input: input, InputJSON: string(inputJSON),
 		InputDigest: hex.EncodeToString(inputDigest[:]), DedupeKey: hex.EncodeToString(dedupe[:]),
 		AttachmentID: attachmentID.String(), JobID: jobID.String(), ItemID: setup.itemID,

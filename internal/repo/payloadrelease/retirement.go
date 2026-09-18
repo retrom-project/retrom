@@ -15,15 +15,60 @@ type Retirement struct{ database *sql.DB }
 
 func NewRetirement(database *sql.DB) *Retirement { return &Retirement{database: database} }
 
-func (repository *Retirement) WithRetirement(ctx context.Context, run func(application.RetirementScope) error) error {
+func (repository *Retirement) LoadBIOSRetirement(ctx context.Context, limit int) (application.BIOSRetirement, error) {
+	return (retirementRecords{executor: repository.database}).BIOS(ctx, limit)
+}
+
+func (repository *Retirement) LoadLaunchRetirement(ctx context.Context, now int64, limit int) (application.LaunchRetirement, error) {
+	return (retirementRecords{executor: repository.database}).Launch(ctx, now, limit)
+}
+
+func (repository *Retirement) CommitBIOSRetirement(ctx context.Context, plan application.BIOSRetirementPlan) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin retirement transaction: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := retirementRecords{executor: tx}
-	if err := run(application.RetirementScope{Read: records, BIOS: records, Launch: records}); err != nil {
+	if err := records.FenceBIOS(ctx, plan.Before); err != nil {
 		return err
+	}
+	if plan.ReleaseFiles {
+		if err := records.ReleaseBIOSFiles(ctx, plan.Before); err != nil {
+			return err
+		}
+	}
+	if plan.Complete {
+		if err := records.CompleteBIOS(ctx, plan.Before, plan.NowMS); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit retirement transaction: %w", err)
+	}
+	return nil
+}
+
+func (repository *Retirement) CommitLaunchRetirement(ctx context.Context, plan application.LaunchRetirementPlan) error {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin retirement transaction: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	records := retirementRecords{executor: tx}
+	if err := records.FenceLaunch(ctx, plan.Before); err != nil {
+		return err
+	}
+	if err := records.TerminateLaunch(ctx, plan.End); err != nil {
+		return err
+	}
+	if err := records.ReleaseLaunchFiles(ctx, plan.Before); err != nil {
+		return err
+	}
+	if plan.Complete != nil {
+		if err := records.CompleteLaunch(ctx, *plan.Complete); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit retirement transaction: %w", err)

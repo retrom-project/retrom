@@ -33,39 +33,27 @@ func (service *Retirements) BIOS(ctx context.Context) error {
 }
 
 func (service *Retirements) BIOSBatch(ctx context.Context) (bool, error) {
-	worked := false
-	err := service.repository.WithRetirement(ctx, func(scope model.RetirementScope) error {
-		before, err := scope.Read.BIOS(ctx, retirementBatchSize)
-		if err != nil {
-			return fmt.Errorf("read retiring BIOS: %w", err)
-		}
-		if !before.Found {
-			return nil
-		}
-		if before.ID == "" || before.BlobID == "" || before.Version < 1 || before.Version == math.MaxInt64 ||
-			before.SharedActive && len(before.Files) != 0 {
-			return model.ErrRetirementSnapshotChanged
-		}
-		if err := scope.BIOS.FenceBIOS(ctx, before); err != nil {
-			return fmt.Errorf("fence retiring BIOS: %w", err)
-		}
-		if !before.SharedActive {
-			if err := scope.BIOS.ReleaseBIOSFiles(ctx, before); err != nil {
-				return fmt.Errorf("release stale BIOS files: %w", err)
-			}
-		}
-		if len(before.Files) < retirementBatchSize {
-			if err := scope.BIOS.CompleteBIOS(ctx, before, service.now().UnixMilli()); err != nil {
-				return fmt.Errorf("release retired installation: %w", err)
-			}
-		}
-		worked = true
-		return nil
-	})
+	before, err := service.repository.LoadBIOSRetirement(ctx, retirementBatchSize)
 	if err != nil {
+		return false, fmt.Errorf("commit BIOS retirement: %w", fmt.Errorf("read retiring BIOS: %w", err))
+	}
+	if !before.Found {
+		return false, nil
+	}
+	if before.ID == "" || before.BlobID == "" || before.Version < 1 || before.Version == math.MaxInt64 ||
+		before.SharedActive && len(before.Files) != 0 {
+		return false, fmt.Errorf("commit BIOS retirement: %w", model.ErrRetirementSnapshotChanged)
+	}
+	plan := model.BIOSRetirementPlan{
+		Before:       before,
+		ReleaseFiles: !before.SharedActive,
+		Complete:     len(before.Files) < retirementBatchSize,
+		NowMS:        service.now().UnixMilli(),
+	}
+	if err := service.repository.CommitBIOSRetirement(ctx, plan); err != nil {
 		return false, fmt.Errorf("commit BIOS retirement: %w", err)
 	}
-	return worked, nil
+	return true, nil
 }
 
 func (service *Retirements) Launches(ctx context.Context) error {
@@ -78,50 +66,35 @@ func (service *Retirements) Launches(ctx context.Context) error {
 }
 
 func (service *Retirements) LaunchBatch(ctx context.Context) (int, error) {
-	count := 0
-	err := service.repository.WithRetirement(ctx, func(scope model.RetirementScope) error {
-		now := service.now().UnixMilli()
-		before, err := scope.Read.Launch(ctx, now, retirementBatchSize)
-		if err != nil {
-			return fmt.Errorf("read retiring launch: %w", err)
-		}
-		if !before.Found {
-			return nil
-		}
-		if !validRetirement(before, now) {
-			return model.ErrRetirementSnapshotChanged
-		}
-		if err := scope.Launch.FenceLaunch(ctx, before); err != nil {
-			return fmt.Errorf("fence retiring launch: %w", err)
-		}
-		end := model.LaunchRetirementEnd{Before: before, State: before.State, PlayState: "ABANDONED", NowMS: now}
-		end.Expire = before.State == "CREATED" || before.State == "ACTIVE"
-		if end.Expire {
-			end.State = "EXPIRED"
-		}
-		if err := scope.Launch.TerminateLaunch(ctx, end); err != nil {
-			return fmt.Errorf("terminate retiring launch: %w", err)
-		}
-		if err := scope.Launch.ReleaseLaunchFiles(ctx, before); err != nil {
-			return fmt.Errorf("release launch files: %w", err)
-		}
-		if len(before.Content) < retirementBatchSize && len(before.External) < retirementBatchSize {
-			due := before.DueMS
-			if end.Expire {
-				due = now
-			}
-			completion := model.RetirementCompletion{ID: before.ID, DueMS: due, NowMS: now}
-			if err := scope.Launch.CompleteLaunch(ctx, completion); err != nil {
-				return fmt.Errorf("complete launch retirement: %w", err)
-			}
-		}
-		count = 1
-		return nil
-	})
+	now := service.now().UnixMilli()
+	before, err := service.repository.LoadLaunchRetirement(ctx, now, retirementBatchSize)
 	if err != nil {
+		return 0, fmt.Errorf("commit launch retirement: %w", fmt.Errorf("read retiring launch: %w", err))
+	}
+	if !before.Found {
+		return 0, nil
+	}
+	if !validRetirement(before, now) {
+		return 0, fmt.Errorf("commit launch retirement: %w", model.ErrRetirementSnapshotChanged)
+	}
+	end := model.LaunchRetirementEnd{Before: before, State: before.State, PlayState: "ABANDONED", NowMS: now}
+	end.Expire = before.State == "CREATED" || before.State == "ACTIVE"
+	if end.Expire {
+		end.State = "EXPIRED"
+	}
+	plan := model.LaunchRetirementPlan{Before: before, End: end}
+	if len(before.Content) < retirementBatchSize && len(before.External) < retirementBatchSize {
+		due := before.DueMS
+		if end.Expire {
+			due = now
+		}
+		completion := model.RetirementCompletion{ID: before.ID, DueMS: due, NowMS: now}
+		plan.Complete = &completion
+	}
+	if err := service.repository.CommitLaunchRetirement(ctx, plan); err != nil {
 		return 0, fmt.Errorf("commit launch retirement: %w", err)
 	}
-	return count, nil
+	return 1, nil
 }
 
 func validRetirement(before model.LaunchRetirement, now int64) bool {

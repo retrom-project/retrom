@@ -18,12 +18,7 @@ func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
 	t.Cleanup(releases.Close)
 	seedRetiringInstallation(t, db, "returning-installation", 0, now)
 	repo := retirement.NewRetirement(db)
-	var before application.BIOSRetirement
-	err := repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
-		var err error
-		before, err = scope.Read.BIOS(t.Context(), 200)
-		return err
-	})
+	before, err := repo.LoadBIOSRetirement(t.Context(), 200)
 	if err != nil || !before.Found {
 		t.Fatalf("read retiring BIOS: %+v %v", before, err)
 	}
@@ -31,11 +26,8 @@ func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
 WHERE id='returning-installation'`); err != nil {
 		t.Fatal(err)
 	}
-	err = repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
-		if err := scope.BIOS.FenceBIOS(t.Context(), before); err != nil {
-			return err
-		}
-		return scope.BIOS.ReleaseBIOSFiles(t.Context(), before)
+	err = repo.CommitBIOSRetirement(t.Context(), application.BIOSRetirementPlan{
+		Before: before, ReleaseFiles: true, Complete: false,
 	})
 	if !errors.Is(err, application.ErrRetirementSnapshotChanged) {
 		t.Fatalf("reactivated BIOS accepted: %v", err)
@@ -52,12 +44,7 @@ func TestRetirementRejectsRenewedLaunchAndIncompleteFileDrain(t *testing.T) {
 			t.Cleanup(releases.Close)
 			seedExpiringFirmwarePlay(t, db, now)
 			repo := retirement.NewRetirement(db)
-			var before application.LaunchRetirement
-			err := repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
-				var err error
-				before, err = scope.Read.Launch(t.Context(), now, 200)
-				return err
-			})
+			before, err := repo.LoadLaunchRetirement(t.Context(), now, 200)
 			if err != nil || !before.Found {
 				t.Fatalf("read retiring launch: %+v %v", before, err)
 			}
@@ -75,19 +62,12 @@ FROM launch_external_files WHERE launch_session_id='firmware-launch' AND logical
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
-				if err := scope.Launch.FenceLaunch(t.Context(), before); err != nil {
-					return err
-				}
-				if err := scope.Launch.TerminateLaunch(t.Context(), application.LaunchRetirementEnd{
+			err = repo.CommitLaunchRetirement(t.Context(), application.LaunchRetirementPlan{
+				Before: before,
+				End: application.LaunchRetirementEnd{
 					Before: before, Expire: true, State: "EXPIRED", PlayState: "ABANDONED", NowMS: now,
-				}); err != nil {
-					return err
-				}
-				if err := scope.Launch.ReleaseLaunchFiles(t.Context(), before); err != nil {
-					return err
-				}
-				return scope.Launch.CompleteLaunch(t.Context(), application.RetirementCompletion{ID: before.ID, DueMS: now, NowMS: now})
+				},
+				Complete: &application.RetirementCompletion{ID: before.ID, DueMS: now, NowMS: now},
 			})
 			if !errors.Is(err, application.ErrRetirementSnapshotChanged) {
 				t.Fatalf("stale retirement committed: %v", err)
