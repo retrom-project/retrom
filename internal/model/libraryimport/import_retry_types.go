@@ -38,10 +38,6 @@ type ImportItemRetryWrite struct {
 }
 
 type ImportItemRetryRepository interface {
-	WithRetry(context.Context, func(ImportItemRetryScope) error) error
-}
-
-type ImportItemRetryScope interface {
-	Current(context.Context, string) (ImportItemRetrySnapshot, bool, error)
-	Retry(context.Context, ImportItemRetryWrite) error
+	LoadRetrySnapshot(context.Context, string) (ImportItemRetrySnapshot, bool, error)
+	CommitRetry(context.Context, ImportItemRetryWrite) error
 }
