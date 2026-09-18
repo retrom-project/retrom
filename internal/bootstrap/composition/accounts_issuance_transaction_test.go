@@ -46,7 +46,8 @@ func TestPasswordResetIssuanceLateFailureKeepsOldLinkAndVersion(t *testing.T) {
 		t.Fatalf("failed issuance advanced user version: %d", user.Version)
 	}
 	var links, replays, audits int
-	if err := fixture.database.SQL.QueryRowContext(t.Context(),
+	if err := fixture.database.SQL.QueryRowContext(
+		t.Context(),
 		`SELECT (SELECT count(*) FROM account_links WHERE target_user_id=?),
 (SELECT count(*) FROM idempotency_records WHERE key='new-reset'),
 (SELECT count(*) FROM audit_events WHERE action='PASSWORD_RESET_CREATED')`,
