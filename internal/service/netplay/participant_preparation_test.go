@@ -26,17 +26,13 @@ func (memory *preparationMemory) Snapshot(context.Context, string, string, strin
 	return memory.current, memory.currentFailure
 }
 
-func (memory *preparationMemory) WithPreparation(_ context.Context, work func(model.PreparationScope) error) error {
-	if err := work(model.PreparationScope{Read: memory, Write: memory}); err != nil {
-		return err
-	}
-	return memory.commitFailure
-}
-
-func (memory *preparationMemory) Record(_ context.Context, plan model.PreparationPlan) error {
+func (memory *preparationMemory) CommitPreparation(_ context.Context, plan model.PreparationPlan) error {
 	memory.plan = plan
 	memory.writes++
-	return memory.writeFailure
+	if memory.writeFailure != nil {
+		return memory.writeFailure
+	}
+	return memory.commitFailure
 }
 
 type preparationLauncher struct {

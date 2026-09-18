@@ -16,7 +16,11 @@ func (repository failingScreenshotRepository) Preview(context.Context, string) (
 	return model.ScreenshotSource{}, false, repository.cause
 }
 
-func (failingScreenshotRepository) WithScreenshot(context.Context, func(model.ScreenshotScope) error) error {
+func (failingScreenshotRepository) LoadScreenshotSource(context.Context, string) (model.ScreenshotSource, bool, error) {
+	panic("source must not load after read failure")
+}
+
+func (failingScreenshotRepository) CommitScreenshot(context.Context, model.ScreenshotWrite) error {
 	panic("writer must not open after read failure")
 }
 

@@ -10,9 +10,16 @@ import (
 	"retrom/internal/repo/dbexec"
 )
 
-type Screenshots struct{ database *sql.DB }
+type Screenshots struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
 func NewScreenshots(database *sql.DB) *Screenshots { return &Screenshots{database: database} }
+
+func (repository *Screenshots) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
+}
 
 type screenshotRecords struct{ executor dbexec.Executor }
 
@@ -25,14 +32,39 @@ func (repository *Screenshots) Preview(ctx context.Context, id string) (applicat
 FROM review_preview_sessions preview WHERE preview.id=?`, id))
 }
 
-func (repository *Screenshots) WithScreenshot(ctx context.Context, work func(application.ScreenshotScope) error) error {
+func (repository *Screenshots) LoadScreenshotSource(
+	ctx context.Context, id string,
+) (application.ScreenshotSource, bool, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return application.ScreenshotSource{}, false,
+			fmt.Errorf("begin screenshot source read: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	source, found, err := (screenshotRecords{executor: tx}).Current(ctx, id)
+	if err != nil {
+		return application.ScreenshotSource{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return application.ScreenshotSource{}, false,
+			fmt.Errorf("commit screenshot source read: %w", err)
+	}
+	return source, found, nil
+}
+
+func (repository *Screenshots) CommitScreenshot(ctx context.Context, plan application.ScreenshotWrite) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin review screenshot: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(screenshotRecords{executor: tx}); err != nil {
+	if err := (screenshotRecords{executor: tx}).Replace(ctx, plan); err != nil {
 		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit review screenshot: %w", err)

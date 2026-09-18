@@ -12,44 +12,6 @@ import (
 	netplayservice "retrom/internal/service/netplay"
 )
 
-type failedRoomExit struct {
-	repository netplaymodel.RoomExitRepository
-	failure    error
-	stale      string
-}
-
-func (failed failedRoomExit) WithExit(ctx context.Context, work func(netplaymodel.RoomExitScope) error) error {
-	return failed.repository.WithExit(ctx, func(scope netplaymodel.RoomExitScope) error {
-		scope.Write = staleRoomExitWriter{scope.Write, failed.stale}
-		if err := work(scope); err != nil {
-			return err
-		}
-		return failed.failure
-	})
-}
-
-type staleRoomExitWriter struct {
-	netplaymodel.RoomExitWriter
-	stale string
-}
-
-func (writer staleRoomExitWriter) End(ctx context.Context, plan netplaymodel.RoomEndPlan) error {
-	if writer.stale == "room" {
-		plan.Before.Room.Version++
-	}
-	return writer.RoomExitWriter.End(ctx, plan)
-}
-
-func (writer staleRoomExitWriter) Remove(ctx context.Context, plan netplaymodel.RoomRemovalPlan) error {
-	if writer.stale == "room" {
-		plan.Before.Version++
-	}
-	if writer.stale == "member" {
-		plan.Member.Version++
-	}
-	return writer.RoomExitWriter.Remove(ctx, plan)
-}
-
 func TestRoomExitRollsBackWholeTransaction(t *testing.T) {
 	t.Parallel()
 	for _, action := range []string{"close", "end", "active leave", "waiting leave", "kick", "stale end", "stale room", "stale member"} {
@@ -68,6 +30,7 @@ func assertRoomExitRollback(t *testing.T, action string) {
 		fixture.room = room
 	}
 	before := roomExitRecordsSnapshot(t, fixture)
+
 	sentinel := errors.New("late exit failure")
 	stale := ""
 	switch action {
@@ -76,7 +39,16 @@ func assertRoomExitRollback(t *testing.T, action string) {
 	case "stale member":
 		stale = "member"
 	}
-	service := netplayservice.NewRoomExit(failedRoomExit{repository.NewRoomExit(fixture.database), sentinel, stale}, time.Hour, func() time.Time { return fixture.now })
+
+	repo := repository.NewRoomExit(fixture.database)
+	var exitRepo netplaymodel.RoomExitRepository = repo
+	if stale != "" {
+		exitRepo = staleRoomExitRepo{RoomExit: repo, stale: stale}
+	} else {
+		repo.WithPreCommitHook(func() error { return sentinel })
+	}
+	service := netplayservice.NewRoomExit(exitRepo, time.Hour, func() time.Time { return fixture.now })
+
 	var err error
 	switch action {
 	case "close", "stale end":
@@ -99,6 +71,28 @@ func assertRoomExitRollback(t *testing.T, action string) {
 	if !reflect.DeepEqual(before, after) {
 		t.Fatalf("exit rollback before=%+v after=%+v", before, after)
 	}
+}
+
+type staleRoomExitRepo struct {
+	*repository.RoomExit
+	stale string
+}
+
+func (s staleRoomExitRepo) CommitRoomEnd(ctx context.Context, plan netplaymodel.RoomEndPlan) error {
+	if s.stale == "room" {
+		plan.Before.Room.Version++
+	}
+	return s.RoomExit.CommitRoomEnd(ctx, plan)
+}
+
+func (s staleRoomExitRepo) CommitRoomRemoval(ctx context.Context, plan netplaymodel.RoomRemovalPlan) error {
+	if s.stale == "room" {
+		plan.Before.Version++
+	}
+	if s.stale == "member" {
+		plan.Member.Version++
+	}
+	return s.RoomExit.CommitRoomRemoval(ctx, plan)
 }
 
 func roomExitRecordsSnapshot(t *testing.T, fixture controlFixture) []string {

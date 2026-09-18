@@ -10,10 +10,17 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-type ParticipantPreparation struct{ database *sql.DB }
+type ParticipantPreparation struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
 func NewParticipantPreparation(database *sql.DB) *ParticipantPreparation {
-	return &ParticipantPreparation{database}
+	return &ParticipantPreparation{database: database}
+}
+
+func (repository *ParticipantPreparation) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
 }
 
 func (repository *ParticipantPreparation) Snapshot(
@@ -35,18 +42,22 @@ func (repository *ParticipantPreparation) Snapshot(
 	return before, nil
 }
 
-func (repository *ParticipantPreparation) WithPreparation(
+func (repository *ParticipantPreparation) CommitPreparation(
 	ctx context.Context,
-	work func(netplay.PreparationScope) error,
+	plan netplay.PreparationPlan,
 ) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("netplay/begin preparation record: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	records := preparationRecords{tx}
-	if err := work(netplay.PreparationScope{Read: records, Write: records}); err != nil {
+	if err := (preparationRecords{tx}).Record(ctx, plan); err != nil {
 		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("netplay/commit preparation record: %w", err)

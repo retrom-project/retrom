@@ -35,22 +35,26 @@ func (service *RoomExit) end(ctx context.Context, roomID string, actor *string, 
 		actorID = *actor
 	}
 	now := service.now().UnixMilli()
-	err := service.repository.WithExit(ctx, func(scope model.RoomExitScope) error {
-		before, err := scope.Read.Current(ctx, roomID, actorID)
-		if err != nil {
-			return fmt.Errorf("netplay/read exit state: %w", err)
-		}
-		if actor != nil && actorID != before.Room.HostID {
-			if reason == "HOST_CLOSED" || !activeExitMember(before.Room.Member) {
-				return model.ErrForbidden
-			}
-		}
-		if version != nil && before.Room.Version != *version {
-			return model.ErrPrecondition
-		}
-		return service.finish(ctx, scope.Write, before, actor, reason, now)
-	})
+	before, err := service.repository.LoadRoomExitSnapshot(ctx, roomID, actorID)
 	if err != nil {
+		return fmt.Errorf("netplay/end room: %w", err)
+	}
+	if actor != nil && actorID != before.Room.HostID {
+		if reason == "HOST_CLOSED" || !activeExitMember(before.Room.Member) {
+			return model.ErrForbidden
+		}
+	}
+	if version != nil && before.Room.Version != *version {
+		return model.ErrPrecondition
+	}
+	plan, err := service.buildEndPlan(before, actor, reason, now)
+	if err != nil {
+		return fmt.Errorf("netplay/end room: %w", err)
+	}
+	if plan == nil {
+		return nil
+	}
+	if err := service.repository.CommitRoomEnd(ctx, *plan); err != nil {
 		return fmt.Errorf("netplay/end room: %w", err)
 	}
 	return nil
@@ -58,16 +62,14 @@ func (service *RoomExit) end(ctx context.Context, roomID string, actor *string, 
 
 func activeExitMember(member *model.SeatMember) bool { return member != nil && member.LeftAtMS == nil }
 
-func (service *RoomExit) finish(
-	ctx context.Context,
-	writer model.RoomExitWriter,
+func (service *RoomExit) buildEndPlan(
 	before model.RoomExitSnapshot,
 	actor *string,
 	reason string,
 	now int64,
-) error {
+) (*model.RoomEndPlan, error) {
 	if before.Room.State == "ENDED" || before.Room.State == "EXPIRED" {
-		return nil
+		return nil, nil //nolint:nilnil // nil,nil signals idempotent skip for terminal rooms
 	}
 	host := actor != nil && *actor == before.Room.HostID
 	if reason == "PEER_TIMEOUT" && host {
@@ -75,7 +77,7 @@ func (service *RoomExit) finish(
 	}
 	disposition := EndDisposition(reason, host)
 	if disposition == "WAITING" && before.Room.Selection == nil {
-		return model.ErrRoomConflict
+		return nil, model.ErrRoomConflict
 	}
 	plan := model.RoomEndPlan{
 		Before:       before,
@@ -102,13 +104,10 @@ func (service *RoomExit) finish(
 	}
 	data, err := json.Marshal(event)
 	if err != nil {
-		return fmt.Errorf("netplay/encode end event: %w", err)
+		return nil, fmt.Errorf("netplay/encode end event: %w", err)
 	}
 	plan.Event = data
-	if err := writer.End(ctx, plan); err != nil {
-		return fmt.Errorf("netplay/write end: %w", err)
-	}
-	return nil
+	return &plan, nil
 }
 
 func EndDisposition(reason string, actorIsHost bool) string {
@@ -125,44 +124,51 @@ func EndDisposition(reason string, actorIsHost bool) string {
 
 func (service *RoomExit) Leave(ctx context.Context, roomID, actorID string, version int64) error {
 	now := service.now().UnixMilli()
-	err := service.repository.WithExit(ctx, func(scope model.RoomExitScope) error {
-		before, err := scope.Read.Current(ctx, roomID, actorID)
-		if errors.Is(err, model.ErrRoomNotFound) {
-			return model.ErrForbidden
-		}
-		if err != nil {
-			return fmt.Errorf("netplay/read exit state: %w", err)
-		}
-		member := before.Room.Member
-		if !activeExitMember(member) || member.Role == "HOST" {
-			return model.ErrForbidden
-		}
-		if before.Room.Version != version {
-			return model.ErrPrecondition
-		}
-		if before.Room.State == model.RoomStateStarting || before.Room.State == model.RoomStateRunning {
-			return service.finish(ctx, scope.Write, before, &actorID, "USER_EXIT", now)
-		}
-		if before.Room.State != model.RoomStateWaiting {
-			return model.ErrRoomConflict
-		}
-		return scope.Write.Remove(
-			ctx,
-			model.RoomRemovalPlan{
-				Before: before.Room,
-				Member: *member,
-				Reason: "USER_LEFT",
-				Evidence: model.RoomControlEvidence{
-					ActorID:     actorID,
-					Type:        "MEMBER_LEFT",
-					Data:        []byte(`{"schemaVersion":1}`),
-					Now:         now,
-					ExpiresAtMS: now + service.waitingIdle.Milliseconds(),
-				},
-			},
-		)
-	})
+	before, err := service.repository.LoadRoomExitSnapshot(ctx, roomID, actorID)
+	if errors.Is(err, model.ErrRoomNotFound) {
+		return model.ErrForbidden
+	}
 	if err != nil {
+		return fmt.Errorf("netplay/leave room: %w", err)
+	}
+	member := before.Room.Member
+	if !activeExitMember(member) || member.Role == "HOST" {
+		return model.ErrForbidden
+	}
+	if before.Room.Version != version {
+		return model.ErrPrecondition
+	}
+	if before.Room.State == model.RoomStateStarting || before.Room.State == model.RoomStateRunning {
+		plan, err := service.buildEndPlan(before, &actorID, "USER_EXIT", now)
+		if err != nil {
+			return fmt.Errorf("netplay/leave room: %w", err)
+		}
+		if plan == nil {
+			return nil
+		}
+		if err := service.repository.CommitRoomEnd(ctx, *plan); err != nil {
+			return fmt.Errorf("netplay/leave room: %w", err)
+		}
+		return nil
+	}
+	if before.Room.State != model.RoomStateWaiting {
+		return model.ErrRoomConflict
+	}
+	if err := service.repository.CommitRoomRemoval(
+		ctx,
+		model.RoomRemovalPlan{
+			Before: before.Room,
+			Member: *member,
+			Reason: "USER_LEFT",
+			Evidence: model.RoomControlEvidence{
+				ActorID:     actorID,
+				Type:        "MEMBER_LEFT",
+				Data:        []byte(`{"schemaVersion":1}`),
+				Now:         now,
+				ExpiresAtMS: now + service.waitingIdle.Milliseconds(),
+			},
+		},
+	); err != nil {
 		return fmt.Errorf("netplay/leave room: %w", err)
 	}
 	return nil
@@ -170,47 +176,44 @@ func (service *RoomExit) Leave(ctx context.Context, roomID, actorID string, vers
 
 func (service *RoomExit) Kick(ctx context.Context, roomID, actorID, memberID string, version int64) error {
 	now := service.now().UnixMilli()
-	err := service.repository.WithExit(ctx, func(scope model.RoomExitScope) error {
-		before, err := scope.Read.Current(ctx, roomID, actorID)
-		if err != nil {
-			return fmt.Errorf("netplay/read exit state: %w", err)
-		}
-		if before.Room.HostID != actorID {
-			return model.ErrForbidden
-		}
-		if before.Room.Version != version {
-			return model.ErrPrecondition
-		}
-		if before.Room.State != model.RoomStateWaiting {
-			return model.ErrRoomConflict
-		}
-		for _, member := range before.Room.Occupants {
-			if member.ID != memberID || member.Role != "GUEST" || member.LeftAtMS != nil {
-				continue
-			}
-			return scope.Write.Remove(
-				ctx,
-				model.RoomRemovalPlan{
-					Before: before.Room,
-					Member: member,
-					Reason: "HOST_KICKED",
-					Evidence: model.RoomControlEvidence{
-						ActorID:     member.ProfileID,
-						PlayerNo:    &member.PlayerNo,
-						Type:        "MEMBER_KICKED",
-						Data:        []byte(`{"schemaVersion":1}`),
-						Now:         now,
-						ExpiresAtMS: now + service.waitingIdle.Milliseconds(),
-					},
-				},
-			)
-		}
-		return model.ErrForbidden
-	})
+	before, err := service.repository.LoadRoomExitSnapshot(ctx, roomID, actorID)
 	if err != nil {
 		return fmt.Errorf("netplay/kick member: %w", err)
 	}
-	return nil
+	if before.Room.HostID != actorID {
+		return model.ErrForbidden
+	}
+	if before.Room.Version != version {
+		return model.ErrPrecondition
+	}
+	if before.Room.State != model.RoomStateWaiting {
+		return model.ErrRoomConflict
+	}
+	for _, member := range before.Room.Occupants {
+		if member.ID != memberID || member.Role != "GUEST" || member.LeftAtMS != nil {
+			continue
+		}
+		if err := service.repository.CommitRoomRemoval(
+			ctx,
+			model.RoomRemovalPlan{
+				Before: before.Room,
+				Member: member,
+				Reason: "HOST_KICKED",
+				Evidence: model.RoomControlEvidence{
+					ActorID:     member.ProfileID,
+					PlayerNo:    &member.PlayerNo,
+					Type:        "MEMBER_KICKED",
+					Data:        []byte(`{"schemaVersion":1}`),
+					Now:         now,
+					ExpiresAtMS: now + service.waitingIdle.Milliseconds(),
+				},
+			},
+		); err != nil {
+			return fmt.Errorf("netplay/kick member: %w", err)
+		}
+		return nil
+	}
+	return model.ErrForbidden
 }
 
 func departingGuest(actor *string, host bool, disposition, reason string) (string, string) {

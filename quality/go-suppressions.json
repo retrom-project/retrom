@@ -225,6 +225,15 @@
       "reason": "Named commands replace former WithRead/CommitWrite callbacks. Each command maps to a distinct content lifecycle operation.",
       "invariant": "All gamecontent commands share the same repository and require their own transactional boundary.",
       "reviewAfter": "2027-09-17"
+    },
+    {
+      "path": "internal/service/netplay/room_exit.go",
+      "line": 72,
+      "symbol": "func (service *RoomExit) buildEndPlan(before model.RoomExitSnapshot, actor *string, reason string, now int64) (*model.RoomEndPlan, error)",
+      "linter": "nilnil",
+      "reason": "A nil plan with nil error signals an idempotent skip for rooms already in terminal state (ENDED/EXPIRED).",
+      "invariant": "Callers of buildEndPlan must treat nil plan as a no-op without error, matching the original finish() early return.",
+      "reviewAfter": "2027-09-17"
     }
   ]
 }

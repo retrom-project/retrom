@@ -17,25 +17,24 @@ type roomExitMemory struct {
 	failure, commitFailure error
 }
 
-func (memory *roomExitMemory) WithExit(_ context.Context, work func(model.RoomExitScope) error) error {
-	if err := work(model.RoomExitScope{Read: memory, Write: memory}); err != nil {
-		return err
-	}
-	return memory.commitFailure
-}
-
-func (memory *roomExitMemory) Current(context.Context, string, string) (model.RoomExitSnapshot, error) {
+func (memory *roomExitMemory) LoadRoomExitSnapshot(_ context.Context, _, _ string) (model.RoomExitSnapshot, error) {
 	return memory.before, memory.failure
 }
 
-func (memory *roomExitMemory) End(_ context.Context, plan model.RoomEndPlan) error {
+func (memory *roomExitMemory) CommitRoomEnd(_ context.Context, plan model.RoomEndPlan) error {
 	memory.end = &plan
-	return memory.failure
+	if memory.commitFailure != nil {
+		return memory.commitFailure
+	}
+	return nil
 }
 
-func (memory *roomExitMemory) Remove(_ context.Context, plan model.RoomRemovalPlan) error {
+func (memory *roomExitMemory) CommitRoomRemoval(_ context.Context, plan model.RoomRemovalPlan) error {
 	memory.removal = &plan
-	return memory.failure
+	if memory.commitFailure != nil {
+		return memory.commitFailure
+	}
+	return nil
 }
 
 func roomExitFixture() (*RoomExit, *roomExitMemory) {
@@ -144,6 +143,7 @@ func TestRoomExitLeaveUsesOneVersionedTransaction(t *testing.T) {
 	}
 	sentinel := errors.New("commit failed")
 	memory.commitFailure = sentinel
+	memory.end = nil
 	if err := service.Leave(t.Context(), "room", "guest", 7); !errors.Is(err, sentinel) {
 		t.Fatalf("commit=%v", err)
 	}

@@ -10,21 +10,74 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-type RoomExit struct{ database *sql.DB }
+type RoomExit struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
-func NewRoomExit(database *sql.DB) *RoomExit { return &RoomExit{database} }
-func (repository *RoomExit) WithExit(ctx context.Context, work func(netplay.RoomExitScope) error) error {
+func NewRoomExit(database *sql.DB) *RoomExit { return &RoomExit{database: database} }
+
+func (repository *RoomExit) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
+}
+
+func (repository *RoomExit) LoadRoomExitSnapshot(
+	ctx context.Context, roomID, actorID string,
+) (netplay.RoomExitSnapshot, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return netplay.RoomExitSnapshot{},
+			fmt.Errorf("netplay/begin exit snapshot: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	records := roomExitRecords{tx}
+	snapshot, err := records.Current(ctx, roomID, actorID)
+	if err != nil {
+		return netplay.RoomExitSnapshot{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return netplay.RoomExitSnapshot{},
+			fmt.Errorf("netplay/finish exit snapshot: %w", err)
+	}
+	return snapshot, nil
+}
+
+func (repository *RoomExit) CommitRoomEnd(ctx context.Context, plan netplay.RoomEndPlan) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("netplay/begin room exit: %w", err)
+		return fmt.Errorf("netplay/begin room end: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
-	records := roomExitRecords{transaction}
-	if err := work(netplay.RoomExitScope{Read: records, Write: records}); err != nil {
+	if err := (roomExitRecords{transaction}).End(ctx, plan); err != nil {
 		return err
 	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
+	}
 	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("netplay/commit room exit: %w", err)
+		return fmt.Errorf("netplay/commit room end: %w", err)
+	}
+	return nil
+}
+
+func (repository *RoomExit) CommitRoomRemoval(ctx context.Context, plan netplay.RoomRemovalPlan) error {
+	transaction, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("netplay/begin room removal: %w", err)
+	}
+	defer dbexec.Rollback(transaction)
+	if err := (roomExitRecords{transaction}).Remove(ctx, plan); err != nil {
+		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("netplay/commit room removal: %w", err)
 	}
 	return nil
 }

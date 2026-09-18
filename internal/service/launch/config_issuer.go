@@ -45,20 +45,17 @@ func (service *ConfigIssuer) Issue(ctx context.Context, ref model.SessionRef, ca
 	if err != nil {
 		return Config{}, err
 	}
-	err = service.repository.WithActivation(ctx, func(transaction model.ConfigActivation) error {
-		return service.activate(ctx, transaction, ref, capability, snapshot.Authority, ticket)
-	})
-	if err != nil {
+	if err := service.activate(ctx, ref, capability, snapshot.Authority, ticket); err != nil {
 		return Config{}, fmt.Errorf("finalize config: %w", err)
 	}
 	return configuration, nil
 }
 
 func (service *ConfigIssuer) activate(
-	ctx context.Context, transaction model.ConfigActivation, ref model.SessionRef, capability string,
+	ctx context.Context, ref model.SessionRef, capability string,
 	expected model.ConfigAuthority, ticket model.IsolationTicket,
 ) error {
-	current, found, err := transaction.Current(ctx, ref)
+	current, found, err := service.repository.LoadAuthority(ctx, ref)
 	if err != nil {
 		return fmt.Errorf("read final config authority: %w", err)
 	}
@@ -76,7 +73,7 @@ func (service *ConfigIssuer) activate(
 	if current.Source.Version == math.MaxInt64 {
 		return model.ErrCredential
 	}
-	if err := transaction.Activate(
+	if err := service.repository.CommitActivation(
 		ctx,
 		model.ConfigActivationPlan{Ref: ref, Version: current.Source.Version, NowMS: now},
 	); err != nil {

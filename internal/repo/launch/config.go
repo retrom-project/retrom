@@ -9,9 +9,16 @@ import (
 	"retrom/internal/repo/dbexec"
 )
 
-type Config struct{ database *sql.DB }
+type Config struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
 func NewConfig(database *sql.DB) *Config { return &Config{database: database} }
+
+func (repository *Config) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
+}
 
 func (repository *Config) Load(
 	ctx context.Context,
@@ -45,14 +52,40 @@ func (repository *Config) Load(
 	return application.ConfigSnapshot{Authority: authority, Files: files}, true, nil
 }
 
-func (repository *Config) WithActivation(ctx context.Context, work func(application.ConfigActivation) error) error {
+func (repository *Config) LoadAuthority(
+	ctx context.Context,
+	ref application.SessionRef,
+) (application.ConfigAuthority, bool, error) {
+	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return application.ConfigAuthority{}, false,
+			fmt.Errorf("begin config authority read: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	authority, found, err := (configRecords{executor: tx}).Current(ctx, ref)
+	if err != nil {
+		return application.ConfigAuthority{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return application.ConfigAuthority{}, false,
+			fmt.Errorf("commit config authority read: %w", err)
+	}
+	return authority, found, nil
+}
+
+func (repository *Config) CommitActivation(ctx context.Context, plan application.ConfigActivationPlan) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin config activation: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(configRecords{executor: tx}); err != nil {
+	if err := (configRecords{executor: tx}).Activate(ctx, plan); err != nil {
 		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit config activation: %w", err)

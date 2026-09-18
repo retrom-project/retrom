@@ -29,20 +29,16 @@ func (repository *configTestRepository) Load(_ context.Context, _ model.SessionR
 	return repository.snapshot, true, nil
 }
 
-func (repository *configTestRepository) WithActivation(_ context.Context, work func(model.ConfigActivation) error) error {
-	repository.transactions++
-	if err := work(repository); err != nil {
-		return err
-	}
-	return repository.commitErr
-}
-
-func (repository *configTestRepository) Current(context.Context, model.SessionRef) (model.ConfigAuthority, bool, error) {
+func (repository *configTestRepository) LoadAuthority(_ context.Context, _ model.SessionRef) (model.ConfigAuthority, bool, error) {
 	return repository.current, true, nil
 }
 
-func (repository *configTestRepository) Activate(context.Context, model.ConfigActivationPlan) error {
+func (repository *configTestRepository) CommitActivation(_ context.Context, _ model.ConfigActivationPlan) error {
+	repository.transactions++
 	repository.activations++
+	if repository.commitErr != nil {
+		return repository.commitErr
+	}
 	return nil
 }
 

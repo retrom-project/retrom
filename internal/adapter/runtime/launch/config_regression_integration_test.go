@@ -101,15 +101,13 @@ func TestConfigActivationRejectsAlreadyFinishedSource(t *testing.T) {
 				t.Fatalf("fixture finish state=%s error=%v", result.State, err)
 			}
 			before := playRows(t, fixture.database)
-			err = persistence.NewConfig(fixture.database).WithActivation(
+			err = persistence.NewConfig(fixture.database).CommitActivation(
 				t.Context(),
-				func(transaction application.ConfigActivation) error {
-					return transaction.Activate(t.Context(), application.ConfigActivationPlan{
-						Ref: application.SessionRef{
-							ID:      created.LaunchID,
-							Preview: preview,
-						}, Version: staleVersion, NowMS: fixture.now.UnixMilli(),
-					})
+				application.ConfigActivationPlan{
+					Ref: application.SessionRef{
+						ID:      created.LaunchID,
+						Preview: preview,
+					}, Version: staleVersion, NowMS: fixture.now.UnixMilli(),
 				},
 			)
 			if !errors.Is(err, ErrCredential) {
