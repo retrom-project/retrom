@@ -43,67 +43,65 @@ func (service *Expirations) Previews(ctx context.Context) error {
 }
 
 func (service *Expirations) ProviderBatch(ctx context.Context) (int, error) {
-	count := 0
-	err := service.repository.WithExpiration(ctx, func(scope model.ExpirationScope) error {
-		now := service.now().UnixMilli()
-		responses, err := scope.Read.Providers(ctx, now, expirationBatchSize)
-		if err != nil {
-			return fmt.Errorf("read expired provider payloads: %w", err)
-		}
-		var blobs []string
-		for _, before := range responses {
-			if before.ID == "" || before.State != "RETAINED" || before.BlobID == "" ||
-				before.Running || before.ExpiresMS > now || before.CacheCount < 0 {
-				return model.ErrExpirationSnapshotChanged
-			}
-			if err := scope.Write.ReleaseProvider(ctx, before, now); err != nil {
-				return fmt.Errorf("release expired provider payload: %w", err)
-			}
-			blobs = append(blobs, before.BlobID)
-		}
-		if err := service.gc.StageInScope(ctx, scope.GC, blobs); err != nil {
-			return fmt.Errorf("stage expired provider payloads: %w", err)
-		}
-		count = len(responses)
-		return nil
-	})
+	now := service.now().UnixMilli()
+	responses, err := service.repository.LoadExpiredProviders(ctx, now, expirationBatchSize)
 	if err != nil {
+		return 0, fmt.Errorf("commit provider expiration: read: %w", err)
+	}
+	var releases []model.ProviderExpirationRelease
+	var blobs []string
+	for _, before := range responses {
+		if before.ID == "" || before.State != "RETAINED" || before.BlobID == "" ||
+			before.Running || before.ExpiresMS > now || before.CacheCount < 0 {
+			return 0, fmt.Errorf("commit provider expiration: %w",
+				model.ErrExpirationSnapshotChanged)
+		}
+		releases = append(releases, model.ProviderExpirationRelease{Before: before, NowMS: now})
+		blobs = append(blobs, before.BlobID)
+	}
+	batch := model.ProviderExpirationBatch{
+		Releases: releases, BlobIDs: blobs,
+	}
+	if err := service.repository.CommitProviderExpiration(
+		ctx, batch, service.gc,
+	); err != nil {
 		return 0, fmt.Errorf("commit provider expiration: %w", err)
 	}
-	return count, nil
+	return len(responses), nil
 }
 
 func (service *Expirations) PreviewBatch(ctx context.Context) (int, error) {
-	count := 0
-	err := service.repository.WithExpiration(ctx, func(scope model.ExpirationScope) error {
-		now := service.now().UnixMilli()
-		previews, err := scope.Read.Previews(ctx, now, expirationBatchSize)
-		if err != nil {
-			return fmt.Errorf("read expired previews: %w", err)
-		}
-		for _, before := range previews {
-			if !previewDue(before, now) || before.ID == "" || before.Version < 1 || before.Version == math.MaxInt64 {
-				return model.ErrExpirationSnapshotChanged
-			}
-			state := "EXPIRED"
-			if before.State == "REVOKED" {
-				state = "REVOKED"
-			}
-			if err := scope.Write.ExpirePreview(ctx, model.PreviewExpiry{Before: before, State: state, NowMS: now}); err != nil {
-				return fmt.Errorf("expire review preview: %w", err)
-			}
-			blobs := []string{before.CheckpointBlobID, before.RestoreBlobID}
-			if err := service.gc.StageInScope(ctx, scope.GC, blobs); err != nil {
-				return fmt.Errorf("stage expired preview payloads: %w", err)
-			}
-		}
-		count = len(previews)
-		return nil
-	})
+	now := service.now().UnixMilli()
+	previews, err := service.repository.LoadExpiredPreviews(ctx, now, expirationBatchSize)
 	if err != nil {
+		return 0, fmt.Errorf("commit preview expiration: read: %w", err)
+	}
+	var expiries []model.PreviewExpiry
+	var allBlobs []string
+	for _, before := range previews {
+		if !previewDue(before, now) || before.ID == "" ||
+			before.Version < 1 || before.Version == math.MaxInt64 {
+			return 0, fmt.Errorf("commit preview expiration: %w",
+				model.ErrExpirationSnapshotChanged)
+		}
+		state := "EXPIRED"
+		if before.State == "REVOKED" {
+			state = "REVOKED"
+		}
+		expiries = append(expiries, model.PreviewExpiry{
+			Before: before, State: state, NowMS: now,
+		})
+		allBlobs = append(allBlobs, before.CheckpointBlobID, before.RestoreBlobID)
+	}
+	batch := model.PreviewExpirationBatch{
+		Expiries: expiries, BlobIDs: allBlobs,
+	}
+	if err := service.repository.CommitPreviewExpiration(
+		ctx, batch, service.gc,
+	); err != nil {
 		return 0, fmt.Errorf("commit preview expiration: %w", err)
 	}
-	return count, nil
+	return len(previews), nil
 }
 
 func previewDue(before model.PreviewExpiration, now int64) bool {

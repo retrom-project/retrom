@@ -13,15 +13,48 @@ type Garbage struct{ database *sql.DB }
 
 func NewGarbage(database *sql.DB) *Garbage { return &Garbage{database: database} }
 
-func (repository *Garbage) WithGarbage(ctx context.Context, run func(application.GarbageScope) error) error {
+func (repository *Garbage) LoadGarbageFacts(
+	ctx context.Context, id, digest string,
+) (application.GarbageFacts, error) {
+	return garbageRecords{executor: repository.database}.Facts(ctx, id, digest)
+}
+
+func (repository *Garbage) LoadGarbageWork(
+	ctx context.Context, id string,
+) (application.Work, bool, error) {
+	return workerRecords{executor: repository.database}.Current(ctx, id)
+}
+
+func (repository *Garbage) CommitGarbage(
+	ctx context.Context,
+	cmd application.GarbageCommand,
+	authority application.EffectAuthority,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin garbage transaction: %w", err)
 	}
 	defer dbexec.Rollback(tx)
+	scope := BindWorker(tx)
+	if err := authority.CheckInScope(
+		ctx, scope, cmd.WorkFence,
+	); err != nil {
+		return fmt.Errorf("fence garbage authority: %w", err)
+	}
 	records := garbageRecords{executor: tx}
-	if err := run(application.GarbageScope{Read: records, Write: records, Worker: BindWorker(tx)}); err != nil {
-		return err
+	if cmd.Remove {
+		if err := records.Remove(ctx, cmd.Facts); err != nil {
+			return err
+		}
+	} else if cmd.Cancel {
+		if err := records.Cancel(ctx, cmd.Facts); err != nil {
+			return err
+		}
+	}
+	if err := authority.CheckInScope(
+		ctx, scope, cmd.WorkFence,
+	); err != nil {
+		return fmt.Errorf("confirm garbage authority: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit garbage transaction: %w", err)

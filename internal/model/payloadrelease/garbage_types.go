@@ -23,8 +23,17 @@ type GarbageScope struct {
 	Worker WorkerScope
 }
 
+type GarbageCommand struct {
+	WorkFence Work
+	Facts     GarbageFacts
+	Remove    bool
+	Cancel    bool
+}
+
 type GarbageRepository interface {
-	WithGarbage(context.Context, func(GarbageScope) error) error
+	LoadGarbageFacts(context.Context, string, string) (GarbageFacts, error)
+	LoadGarbageWork(context.Context, string) (Work, bool, error)
+	CommitGarbage(context.Context, GarbageCommand, EffectAuthority) error
 }
 
 type EffectAuthority interface {

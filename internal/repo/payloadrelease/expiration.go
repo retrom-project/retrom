@@ -14,18 +14,78 @@ type Expiration struct{ database *sql.DB }
 
 func NewExpiration(database *sql.DB) *Expiration { return &Expiration{database: database} }
 
-func (repository *Expiration) WithExpiration(ctx context.Context, run func(application.ExpirationScope) error) error {
+func (repository *Expiration) LoadExpiredProviders(
+	ctx context.Context, nowMS int64, limit int,
+) ([]application.ProviderExpiration, error) {
+	return expirationRecords{executor: repository.database}.Providers(ctx, nowMS, limit)
+}
+
+func (repository *Expiration) LoadExpiredPreviews(
+	ctx context.Context, nowMS int64, limit int,
+) ([]application.PreviewExpiration, error) {
+	return expirationRecords{executor: repository.database}.Previews(ctx, nowMS, limit)
+}
+
+func (repository *Expiration) CommitProviderExpiration(
+	ctx context.Context,
+	batch application.ProviderExpirationBatch,
+	stager application.GCStager,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin payload expiration: %w", err)
+		return fmt.Errorf("begin provider expiration: %w", err)
 	}
 	defer dbexec.Rollback(tx)
 	records := expirationRecords{executor: tx}
-	if err := run(application.ExpirationScope{Read: records, Write: records, GC: BindGC(tx)}); err != nil {
-		return err
+	for _, release := range batch.Releases {
+		if err := records.ReleaseProvider(
+			ctx, release.Before, release.NowMS,
+		); err != nil {
+			return fmt.Errorf("release expired provider: %w", err)
+		}
+	}
+	if len(batch.BlobIDs) > 0 {
+		if err := stager.StageInScope(
+			ctx, BindGC(tx), batch.BlobIDs,
+		); err != nil {
+			return fmt.Errorf(
+				"stage expired provider GC: %w", err,
+			)
+		}
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit payload expiration: %w", err)
+		return fmt.Errorf("commit provider expiration: %w", err)
+	}
+	return nil
+}
+
+func (repository *Expiration) CommitPreviewExpiration(
+	ctx context.Context,
+	batch application.PreviewExpirationBatch,
+	stager application.GCStager,
+) error {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin preview expiration: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	records := expirationRecords{executor: tx}
+	for _, expiry := range batch.Expiries {
+		if err := records.ExpirePreview(ctx, expiry); err != nil {
+			return fmt.Errorf("expire preview: %w", err)
+		}
+	}
+	if len(batch.BlobIDs) > 0 {
+		if err := stager.StageInScope(
+			ctx, BindGC(tx), batch.BlobIDs,
+		); err != nil {
+			return fmt.Errorf(
+				"stage expired preview GC: %w", err,
+			)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit preview expiration: %w", err)
 	}
 	return nil
 }

@@ -41,8 +41,26 @@ type ExpirationScope struct {
 	GC    GCScope
 }
 
+type ProviderExpirationBatch struct {
+	Releases []ProviderExpirationRelease
+	BlobIDs  []string
+}
+
+type ProviderExpirationRelease struct {
+	Before ProviderExpiration
+	NowMS  int64
+}
+
+type PreviewExpirationBatch struct {
+	Expiries []PreviewExpiry
+	BlobIDs  []string
+}
+
 type ExpirationRepository interface {
-	WithExpiration(context.Context, func(ExpirationScope) error) error
+	LoadExpiredProviders(context.Context, int64, int) ([]ProviderExpiration, error)
+	LoadExpiredPreviews(context.Context, int64, int) ([]PreviewExpiration, error)
+	CommitProviderExpiration(context.Context, ProviderExpirationBatch, GCStager) error
+	CommitPreviewExpiration(context.Context, PreviewExpirationBatch, GCStager) error
 }
 
 type GCStager interface {

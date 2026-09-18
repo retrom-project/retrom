@@ -25,28 +25,23 @@ func (service *GarbageCollector) Execute(ctx context.Context, unit model.Executi
 	if !validGarbageInput(unit) {
 		return effectFailure("BLOB_GC_INPUT_INVALID", nil)
 	}
-	remove := false
-	err := service.repository.WithGarbage(ctx, func(scope model.GarbageScope) error {
-		if err := service.authority.CheckInScope(ctx, scope.Worker, unit.Work); err != nil {
-			return fmt.Errorf("check garbage execution: %w", err)
-		}
-		facts, err := scope.Read.Facts(ctx, unit.Work.Scope.ID, unit.Input.Inputs.SHA256)
-		if err != nil {
-			return fmt.Errorf("read garbage ownership: %w", err)
-		}
-		remove, err = service.removeCatalog(ctx, scope.Write, unit, facts)
-		if err != nil {
-			return err
-		}
-		if err := service.authority.CheckInScope(ctx, scope.Worker, unit.Work); err != nil {
-			return fmt.Errorf("confirm garbage execution before commit: %w", err)
-		}
-		return nil
-	})
+	workFence, err := service.validateGarbageAuthority(ctx, unit.Work)
 	if err != nil {
+		return fmt.Errorf("check garbage execution: %w", err)
+	}
+	facts, err := service.repository.LoadGarbageFacts(
+		ctx, unit.Work.Scope.ID, unit.Input.Inputs.SHA256,
+	)
+	if err != nil {
+		return fmt.Errorf("read garbage ownership: %w", err)
+	}
+	cmd, physicalRemove := service.garbageCommand(workFence, unit, facts)
+	if err := service.repository.CommitGarbage(
+		ctx, cmd, service.authority,
+	); err != nil {
 		return fmt.Errorf("commit garbage catalog removal: %w", err)
 	}
-	if remove {
+	if physicalRemove {
 		if err := service.files.Delete(ctx, unit.Input.Inputs.SHA256); err != nil {
 			return effectFailure("BLOB_GC_PHYSICAL_DELETE_FAILED", err)
 		}
@@ -54,32 +49,41 @@ func (service *GarbageCollector) Execute(ctx context.Context, unit model.Executi
 	return nil
 }
 
-func (service *GarbageCollector) removeCatalog(
-	ctx context.Context, writer model.GarbageWriter, unit model.Execution, facts model.GarbageFacts,
-) (bool, error) {
-	if facts.OtherDigestOwner {
-		return false, nil
+func (service *GarbageCollector) validateGarbageAuthority(
+	ctx context.Context, unit model.Work,
+) (model.Work, error) {
+	before, found, err := service.repository.LoadGarbageWork(ctx, unit.ID)
+	if err != nil {
+		return model.Work{}, fmt.Errorf("read garbage authority: %w", err)
 	}
-	if !facts.Found {
-		return true, nil
+	if !found || before.State != "RUNNING" || before.WorkerID == "" ||
+		before.WorkerID != unit.WorkerID || before.ExecutionNo != unit.ExecutionNo {
+		return model.Work{}, model.ErrExecutionLost
+	}
+	return before, nil
+}
+
+func (service *GarbageCollector) garbageCommand(
+	workFence model.Work, unit model.Execution, facts model.GarbageFacts,
+) (model.GarbageCommand, bool) {
+	cmd := model.GarbageCommand{WorkFence: workFence, Facts: facts}
+	if facts.OtherDigestOwner || !facts.Found {
+		return cmd, !facts.OtherDigestOwner && !facts.Found
 	}
 	blob := facts.Blob
-	if blob.ID != unit.Work.Scope.ID || blob.Digest != unit.Input.Inputs.SHA256 {
-		return false, effectFailure("BLOB_GC_INPUT_INVALID", nil)
+	if blob.ID != unit.Work.Scope.ID ||
+		blob.Digest != unit.Input.Inputs.SHA256 {
+		return cmd, false
 	}
 	if !blob.HasCandidate || blob.Candidate.Work.ID != unit.Work.ID {
-		return false, nil
+		return cmd, false
 	}
 	if blob.Protected {
-		if err := writer.Cancel(ctx, facts); err != nil {
-			return false, fmt.Errorf("cancel protected garbage: %w", err)
-		}
-		return false, nil
+		cmd.Cancel = true
+		return cmd, false
 	}
-	if err := writer.Remove(ctx, facts); err != nil {
-		return false, fmt.Errorf("remove garbage catalog: %w", err)
-	}
-	return true, nil
+	cmd.Remove = true
+	return cmd, true
 }
 
 func validGarbageInput(unit model.Execution) bool {

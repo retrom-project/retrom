@@ -19,29 +19,49 @@ type expirationMemory struct {
 	fail      error
 }
 
-func (memory *expirationMemory) WithExpiration(_ context.Context, run func(model.ExpirationScope) error) error {
-	return run(model.ExpirationScope{Read: memory, Write: memory})
-}
-
-func (memory *expirationMemory) Providers(context.Context, int64, int) ([]model.ProviderExpiration, error) {
+func (memory *expirationMemory) LoadExpiredProviders(
+	_ context.Context, _ int64, _ int,
+) ([]model.ProviderExpiration, error) {
 	return memory.providers, nil
 }
 
-func (memory *expirationMemory) Previews(context.Context, int64, int) ([]model.PreviewExpiration, error) {
+func (memory *expirationMemory) LoadExpiredPreviews(
+	_ context.Context, _ int64, _ int,
+) ([]model.PreviewExpiration, error) {
 	return memory.previews, nil
 }
 
-func (memory *expirationMemory) ReleaseProvider(_ context.Context, before model.ProviderExpiration, _ int64) error {
-	memory.released = append(memory.released, before)
+func (memory *expirationMemory) CommitProviderExpiration(
+	_ context.Context,
+	batch model.ProviderExpirationBatch,
+	_ model.GCStager,
+) error {
+	for _, release := range batch.Releases {
+		memory.released = append(memory.released, release.Before)
+	}
+	memory.staged = append(memory.staged, batch.BlobIDs...)
+	if memory.fail != nil {
+		return memory.fail
+	}
 	return nil
 }
 
-func (memory *expirationMemory) ExpirePreview(_ context.Context, change model.PreviewExpiry) error {
-	memory.expired = append(memory.expired, change)
+func (memory *expirationMemory) CommitPreviewExpiration(
+	_ context.Context,
+	batch model.PreviewExpirationBatch,
+	_ model.GCStager,
+) error {
+	memory.expired = append(memory.expired, batch.Expiries...)
+	memory.staged = append(memory.staged, batch.BlobIDs...)
+	if memory.fail != nil {
+		return memory.fail
+	}
 	return nil
 }
 
-func (memory *expirationMemory) StageInScope(_ context.Context, _ model.GCScope, ids []string) error {
+func (memory *expirationMemory) StageInScope(
+	_ context.Context, _ model.GCScope, ids []string,
+) error {
 	memory.staged = append(memory.staged, ids...)
 	return memory.fail
 }
