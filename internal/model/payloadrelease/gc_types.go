@@ -44,8 +44,37 @@ type GCScope struct {
 	Write GCWriter
 }
 
+type GCScheduleBatch struct {
+	Selected []GCBlob
+	Queued   []GCQueue
+}
+
+type GCImmediateCommit struct {
+	Selected []GCBlob
+	Changes  []GCAdvance
+	Audit    GCAudit
+}
+
+type GCCancellationBatch struct {
+	Selected      []GCBlob
+	Cancellations []GCCancellation
+}
+
+type GCSnapshotReader interface {
+	LoadGCPage(context.Context, string, int) ([]GCBlob, error)
+	LoadGCCandidates(context.Context) ([]GCBlob, error)
+	LoadGCSelected(context.Context, []string) ([]GCBlob, error)
+}
+
+type GCCommitter interface {
+	CommitGCSchedule(context.Context, GCScheduleBatch) error
+	CommitImmediateGC(context.Context, GCImmediateCommit) error
+	CommitGCCancellation(context.Context, GCCancellationBatch) error
+}
+
 type GCRepository interface {
-	WithGC(context.Context, func(GCScope) error) error
+	GCSnapshotReader
+	GCCommitter
 }
 
 type GCQueue struct {

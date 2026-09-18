@@ -51,14 +51,12 @@ func (service *MultiDiscAttachmentCommits) CommitAccepted(
 		}
 		*target = id
 	}
-	if err := service.repository.WithCommit(ctx, func(scope model.MultiDiscAttachmentCommitScope) error {
-		validation, err := service.resolveValidation(ctx, scope, request)
-		if err != nil {
-			return err
-		}
-		write.Validation = validation
-		return scope.CommitAccepted(ctx, write)
-	}); err != nil {
+	validation, err := service.resolveValidation(ctx, request)
+	if err != nil {
+		return fmt.Errorf("commit accepted multi-disc attachment: %w", err)
+	}
+	write.Validation = validation
+	if err := service.repository.CommitAccepted(ctx, write); err != nil {
 		return fmt.Errorf("commit accepted multi-disc attachment: %w", err)
 	}
 	return nil
@@ -72,13 +70,13 @@ func validMultiDiscAttachmentCommitRequest(request model.MultiDiscAttachmentComm
 }
 
 func (service *MultiDiscAttachmentCommits) resolveValidation(
-	ctx context.Context, scope model.MultiDiscAttachmentCommitScope, request model.MultiDiscAttachmentCommitRequest,
+	ctx context.Context, request model.MultiDiscAttachmentCommitRequest,
 ) (model.MultiDiscAttachmentValidation, error) {
 	if len(request.ResultEntries) < multidisc.MinDiscs {
 		return model.MultiDiscAttachmentValidation{}, model.ErrInvalid
 	}
 	first := request.ResultEntries[0].File.LogicalName
-	records, err := scope.BIOS(ctx, request.Input.ProviderID, request.Input.TargetID)
+	records, err := service.repository.LoadBIOSRecords(ctx, request.Input.ProviderID, request.Input.TargetID)
 	if err != nil {
 		return model.MultiDiscAttachmentValidation{}, fmt.Errorf("resolve multi-disc BIOS: %w", err)
 	}

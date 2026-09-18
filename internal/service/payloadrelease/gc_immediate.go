@@ -16,35 +16,22 @@ func (service *GCScheduler) Immediate(ctx context.Context, actor string) (model.
 	if err := service.Reconcile(ctx); err != nil {
 		return model.ImmediateGCResult{}, err
 	}
-	var result model.ImmediateGCResult
-	err := service.repository.WithGC(ctx, func(scope model.GCScope) error {
-		facts, err := scope.Read.Candidates(ctx)
-		if err != nil {
-			return fmt.Errorf("read immediate GC candidates: %w", err)
-		}
-		selected, changes, prepared, err := service.immediateChanges(facts)
-		if err != nil {
-			return err
-		}
-		audit, err := service.audit(actor, prepared)
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Fence(ctx, selected); err != nil {
-			return fmt.Errorf("fence immediate GC candidates: %w", err)
-		}
-		for _, change := range changes {
-			if err := scope.Write.Advance(ctx, change); err != nil {
-				return fmt.Errorf("advance immediate GC candidate: %w", err)
-			}
-		}
-		if err := scope.Write.Audit(ctx, audit); err != nil {
-			return fmt.Errorf("audit immediate GC: %w", err)
-		}
-		result = prepared
-		return nil
-	})
+	facts, err := service.repository.LoadGCCandidates(ctx)
 	if err != nil {
+		return model.ImmediateGCResult{},
+			fmt.Errorf("commit immediate GC: read candidates: %w", err)
+	}
+	selected, changes, result, err := service.immediateChanges(facts)
+	if err != nil {
+		return model.ImmediateGCResult{}, fmt.Errorf("commit immediate GC: %w", err)
+	}
+	audit, err := service.audit(actor, result)
+	if err != nil {
+		return model.ImmediateGCResult{}, fmt.Errorf("commit immediate GC: %w", err)
+	}
+	if err := service.repository.CommitImmediateGC(ctx, model.GCImmediateCommit{
+		Selected: selected, Changes: changes, Audit: audit,
+	}); err != nil {
 		return model.ImmediateGCResult{}, fmt.Errorf("commit immediate GC: %w", err)
 	}
 	if service.wake != nil {
@@ -132,37 +119,34 @@ func (service *GCScheduler) audit(actor string, result model.ImmediateGCResult) 
 }
 
 func (service *GCScheduler) cancelProtected(ctx context.Context) error {
-	err := service.repository.WithGC(ctx, func(scope model.GCScope) error {
-		facts, err := scope.Read.Candidates(ctx)
-		if err != nil {
-			return fmt.Errorf("read protected GC candidates: %w", err)
-		}
-		var selected []model.GCBlob
-		for _, blob := range facts {
-			if blob.Protected {
-				if err := validGCCandidate(blob); err != nil {
-					return err
-				}
-				selected = append(selected, blob)
-			}
-		}
-		if err := scope.Write.Fence(ctx, selected); err != nil {
-			return fmt.Errorf("fence protected GC candidates: %w", err)
-		}
-		now := service.now().UnixMilli()
-		for _, blob := range selected {
-			if err := scope.Write.Cancel(ctx, model.GCCancellation{
-				Before: blob, NowMS: now,
-				Complete:  blob.Candidate.Work.State == "QUEUED",
-				EventJSON: `{"schemaVersion":1,"reason":"REFERENCE_RESTORED"}`,
-			}); err != nil {
-				return fmt.Errorf("cancel protected GC candidate: %w", err)
-			}
-		}
-		return nil
-	})
+	facts, err := service.repository.LoadGCCandidates(ctx)
 	if err != nil {
-		return fmt.Errorf("cancel protected GC candidates: %w", err)
+		return fmt.Errorf("cancel protected GC candidates: %w", fmt.Errorf("read protected GC candidates: %w", err))
+	}
+	var selected []model.GCBlob
+	var cancellations []model.GCCancellation
+	for _, blob := range facts {
+		if blob.Protected {
+			if err := validGCCandidate(blob); err != nil {
+				return fmt.Errorf("cancel protected GC candidates: %w", err)
+			}
+			selected = append(selected, blob)
+		}
+	}
+	now := service.now().UnixMilli()
+	for _, blob := range selected {
+		cancellations = append(cancellations, model.GCCancellation{
+			Before: blob, NowMS: now,
+			Complete:  blob.Candidate.Work.State == "QUEUED",
+			EventJSON: `{"schemaVersion":1,"reason":"REFERENCE_RESTORED"}`,
+		})
+	}
+	if len(selected) > 0 {
+		if err := service.repository.CommitGCCancellation(ctx, model.GCCancellationBatch{
+			Selected: selected, Cancellations: cancellations,
+		}); err != nil {
+			return fmt.Errorf("cancel protected GC candidates: %w", err)
+		}
 	}
 	return nil
 }

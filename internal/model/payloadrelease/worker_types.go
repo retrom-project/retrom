@@ -62,8 +62,21 @@ type WorkerScope struct {
 	Owners FailureOwnerReader
 }
 
+type WorkerSnapshotReader interface {
+	LoadNextWork(context.Context, int64) (Work, bool, error)
+	LoadCurrentWork(context.Context, string) (Work, bool, error)
+	LoadInterruptedWork(context.Context, int64, int) ([]Work, error)
+	LoadWorkOwner(context.Context, Scope) (Owner, error)
+}
+
+type WorkerCommitter interface {
+	CommitWorkChange(context.Context, WorkChange) error
+	CommitWorkFence(context.Context, Work) error
+}
+
 type WorkerRepository interface {
-	WithWorker(context.Context, func(WorkerScope) error) error
+	WorkerSnapshotReader
+	WorkerCommitter
 }
 
 type WorkExecutor interface {

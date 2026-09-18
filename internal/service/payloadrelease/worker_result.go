@@ -10,36 +10,43 @@ import (
 )
 
 func (worker *Worker) Finish(ctx context.Context, unit model.Work, executionErr error) error {
-	err := worker.repository.WithWorker(ctx, func(scope model.WorkerScope) error {
-		before, err := worker.current(ctx, scope, unit)
-		if err != nil {
-			return err
-		}
-		return worker.settle(ctx, scope, before, executionErr, worker.now().UnixMilli())
-	})
+	before, err := worker.currentExplicit(ctx, unit)
 	if err != nil {
+		return fmt.Errorf("finish payload execution: %w", err)
+	}
+	change, err := worker.settlement(before, executionErr, worker.now().UnixMilli())
+	if err != nil {
+		return fmt.Errorf("finish payload execution: %w", err)
+	}
+	if err := worker.prepareOwnerFailure(ctx, &change); err != nil {
+		return fmt.Errorf("finish payload execution: %w", err)
+	}
+	if err := worker.repository.CommitWorkChange(ctx, change); err != nil {
 		return fmt.Errorf("finish payload execution: %w", err)
 	}
 	return nil
 }
 
-func (worker *Worker) settle(
-	ctx context.Context,
-	scope model.WorkerScope,
-	before model.Work,
-	cause error,
-	now int64,
-) error {
-	change, err := worker.settlement(before, cause, now)
+func (worker *Worker) prepareOwnerFailure(ctx context.Context, change *model.WorkChange) error {
+	before := change.Before
+	if change.After.State != "FAILED" || before.Scope.Type == model.ScopeUploadConsumption ||
+		before.Scope.Type == model.ScopeBlob {
+		return nil
+	}
+	owner, err := worker.repository.LoadWorkOwner(ctx, before.Scope)
 	if err != nil {
-		return err
+		return fmt.Errorf("read failed release owner: %w", err)
 	}
-	if err := prepareOwnerFailure(ctx, scope, &change); err != nil {
-		return err
+	if owner.Scope != before.Scope || owner.ReleaseJobID != before.ID {
+		return model.ErrExecutionLost
 	}
-	if err := scope.Write.Change(ctx, change); err != nil {
-		return fmt.Errorf("settle payload work: %w", err)
+	if owner.PayloadState == "RELEASED" {
+		return nil
 	}
+	if owner.PayloadState != "RELEASING" && owner.PayloadState != "FAILED" {
+		return model.ErrScopeInvalid
+	}
+	change.OwnerFailure = &owner
 	return nil
 }
 
@@ -124,27 +131,4 @@ func WorkErrorCode(err error) string {
 		}
 		return "PAYLOAD_RELEASE_DATABASE_FAILED"
 	}
-}
-
-func prepareOwnerFailure(ctx context.Context, scope model.WorkerScope, change *model.WorkChange) error {
-	before := change.Before
-	if change.After.State != "FAILED" || before.Scope.Type == model.ScopeUploadConsumption ||
-		before.Scope.Type == model.ScopeBlob {
-		return nil
-	}
-	owner, err := scope.Owners.Owner(ctx, before.Scope)
-	if err != nil {
-		return fmt.Errorf("read failed release owner: %w", err)
-	}
-	if owner.Scope != before.Scope || owner.ReleaseJobID != before.ID {
-		return model.ErrExecutionLost
-	}
-	if owner.PayloadState == "RELEASED" {
-		return nil
-	}
-	if owner.PayloadState != "RELEASING" && owner.PayloadState != "FAILED" {
-		return model.ErrScopeInvalid
-	}
-	change.OwnerFailure = &owner
-	return nil
 }

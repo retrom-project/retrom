@@ -24,19 +24,10 @@ func (repository *ValidationWorker) LoadValidationWork(
 	ctx context.Context,
 	id string,
 ) (application.ValidationWork, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return application.ValidationWork{}, false, fmt.Errorf("begin validation read: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	work, found, err := (validationWorkerRecords{executor: tx}).Read(ctx, id)
-	if err != nil {
-		return application.ValidationWork{}, false, err
-	}
-	if err := tx.Commit(); err != nil {
-		return application.ValidationWork{}, false, fmt.Errorf("commit validation read: %w", err)
-	}
-	return work, found, nil
+	return readOnlyTx(ctx, repository.database, "validation read",
+		func(tx dbexec.Executor) (application.ValidationWork, bool, error) {
+			return (validationWorkerRecords{executor: tx}).Read(ctx, id)
+		})
 }
 
 func (repository *ValidationWorker) LoadValidationFacts(

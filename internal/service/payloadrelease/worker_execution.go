@@ -70,9 +70,7 @@ func (worker *Worker) monitor(ctx context.Context, cancel context.CancelCauseFun
 		case <-heartbeat.C:
 			err = worker.Renew(ctx, unit)
 		case <-observe.C:
-			err = worker.repository.WithWorker(ctx, func(scope model.WorkerScope) error {
-				return worker.CheckInScope(ctx, scope, unit)
-			})
+			err = worker.ObserveAuthority(ctx, unit)
 		}
 		if ctx.Err() != nil {
 			return nil

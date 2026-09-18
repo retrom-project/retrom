@@ -19,7 +19,9 @@ func (repository *Retirement) LoadBIOSRetirement(ctx context.Context, limit int)
 	return (retirementRecords{executor: repository.database}).BIOS(ctx, limit)
 }
 
-func (repository *Retirement) LoadLaunchRetirement(ctx context.Context, now int64, limit int) (application.LaunchRetirement, error) {
+func (repository *Retirement) LoadLaunchRetirement(
+	ctx context.Context, now int64, limit int,
+) (application.LaunchRetirement, error) {
 	return (retirementRecords{executor: repository.database}).Launch(ctx, now, limit)
 }
 

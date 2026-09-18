@@ -15,41 +15,35 @@ type workerRepositoryFixture struct {
 	commitErr error
 }
 
-func (r *workerRepositoryFixture) WithWorker(_ context.Context, run func(model.WorkerScope) error) error {
-	before, changes := r.work, len(r.changes)
-	err := run(model.WorkerScope{Read: r, Write: r, Owners: r})
-	if err == nil {
-		err = r.commitErr
-	}
-	if err != nil {
-		r.work = before
-		r.changes = r.changes[:changes]
-	}
-	return err
-}
-
-func (r *workerRepositoryFixture) Next(context.Context, int64) (model.Work, bool, error) {
+func (r *workerRepositoryFixture) LoadNextWork(_ context.Context, _ int64) (model.Work, bool, error) {
 	return r.work, r.work.State == "QUEUED", nil
 }
 
-func (r *workerRepositoryFixture) Current(_ context.Context, id string) (model.Work, bool, error) {
+func (r *workerRepositoryFixture) LoadCurrentWork(_ context.Context, id string) (model.Work, bool, error) {
 	return r.work, r.work.ID == id, nil
 }
 
-func (r *workerRepositoryFixture) Interrupted(context.Context, int64, int) ([]model.Work, error) {
+func (r *workerRepositoryFixture) LoadInterruptedWork(_ context.Context, _ int64, _ int) ([]model.Work, error) {
 	return []model.Work{r.work}, nil
 }
 
-func (r *workerRepositoryFixture) Change(_ context.Context, c model.WorkChange) error {
+func (r *workerRepositoryFixture) LoadWorkOwner(_ context.Context, scope model.Scope) (model.Owner, error) {
+	return model.Owner{Scope: scope, Version: 2, PayloadState: "RELEASING", ReleaseJobID: r.work.ID}, nil
+}
+
+func (r *workerRepositoryFixture) CommitWorkChange(_ context.Context, c model.WorkChange) error {
 	if c.Before != r.work {
 		return model.ErrExecutionLost
+	}
+	if r.commitErr != nil {
+		return r.commitErr
 	}
 	r.work = c.After
 	r.changes = append(r.changes, c)
 	return nil
 }
 
-func (r *workerRepositoryFixture) Fence(_ context.Context, work model.Work) error {
+func (r *workerRepositoryFixture) CommitWorkFence(_ context.Context, work model.Work) error {
 	if r.work != work {
 		return model.ErrExecutionLost
 	}
@@ -135,10 +129,6 @@ func TestWorkerRecoveryPreservesLiveLeaseAndTerminalizesExhaustion(t *testing.T)
 	if err := w.Recover(t.Context()); err != nil || r.work.State != "FAILED" || r.work.Attempt != 4 || r.work.Deadline != before.Deadline {
 		t.Fatalf("exhausted recovery extended budget: %+v/%v", r.work, err)
 	}
-}
-
-func (r *workerRepositoryFixture) Owner(_ context.Context, scope model.Scope) (model.Owner, error) {
-	return model.Owner{Scope: scope, Version: 2, PayloadState: "RELEASING", ReleaseJobID: r.work.ID}, nil
 }
 
 type workerEffectFailure struct{}

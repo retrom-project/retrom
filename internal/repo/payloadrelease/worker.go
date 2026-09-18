@@ -14,17 +14,58 @@ import (
 type Worker struct{ database *sql.DB }
 
 func NewWorker(database *sql.DB) *Worker { return &Worker{database: database} }
-func (repository *Worker) WithWorker(ctx context.Context, run func(application.WorkerScope) error) error {
+
+func (repository *Worker) LoadNextWork(ctx context.Context, nowMS int64) (application.Work, bool, error) {
+	records := workerRecords{executor: repository.database}
+	return records.Next(ctx, nowMS)
+}
+
+func (repository *Worker) LoadCurrentWork(ctx context.Context, id string) (application.Work, bool, error) {
+	records := workerRecords{executor: repository.database}
+	return records.Current(ctx, id)
+}
+
+func (repository *Worker) LoadInterruptedWork(ctx context.Context, nowMS int64, limit int) ([]application.Work, error) {
+	records := workerRecords{executor: repository.database}
+	return records.Interrupted(ctx, nowMS, limit)
+}
+
+func (repository *Worker) LoadWorkOwner(ctx context.Context, scope application.Scope) (application.Owner, error) {
+	owner, err := BindScheduling(repository.database).Owner(ctx, scope)
+	if err != nil {
+		return application.Owner{}, fmt.Errorf("load work owner: %w", err)
+	}
+	return owner, nil
+}
+
+func (repository *Worker) CommitWorkChange(ctx context.Context, change application.WorkChange) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin release worker transaction: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := run(BindWorker(tx)); err != nil {
+	records := workerRecords{executor: tx}
+	if err := records.Change(ctx, change); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit release worker transaction: %w", err)
+	}
+	return nil
+}
+
+func (repository *Worker) CommitWorkFence(ctx context.Context, work application.Work) error {
+	tx, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin release worker fence transaction: %w", err)
+	}
+	defer dbexec.Rollback(tx)
+	records := workerRecords{executor: tx}
+	if err := records.Fence(ctx, work); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit release worker fence transaction: %w", err)
 	}
 	return nil
 }

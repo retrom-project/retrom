@@ -40,13 +40,9 @@ type MultiDiscAttachmentCommitWrite struct {
 	NowMS                                                  int64
 }
 
-type MultiDiscAttachmentCommitScope interface {
-	BIOS(context.Context, string, string) ([]validationservice.BIOSRecord, error)
-	CommitAccepted(context.Context, MultiDiscAttachmentCommitWrite) error
-}
-
 type MultiDiscAttachmentCommitRepository interface {
-	WithCommit(context.Context, func(MultiDiscAttachmentCommitScope) error) error
+	LoadBIOSRecords(context.Context, string, string) ([]validationservice.BIOSRecord, error)
+	CommitAccepted(context.Context, MultiDiscAttachmentCommitWrite) error
 }
 
 type MultiDiscAttachmentTerminalTarget struct {

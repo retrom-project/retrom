@@ -28,27 +28,43 @@ func NewArcadeParentAttachments(database *sql.DB) *ArcadeParentAttachments {
 	return &ArcadeParentAttachments{database: database}
 }
 
-func (repository *ArcadeParentAttachments) LoadDraft(ctx context.Context, itemID string) (application.ArcadeParentAttachmentDraft, bool, error) {
-	return (arcadeParentAttachmentAdmissionRecords{executor: repository.database}).Draft(ctx, itemID)
+func (repository *ArcadeParentAttachments) LoadDraft(
+	ctx context.Context, itemID string,
+) (application.ArcadeParentAttachmentDraft, bool, error) {
+	records := arcadeParentAttachmentAdmissionRecords{executor: repository.database}
+	return records.Draft(ctx, itemID)
 }
 
-func (repository *ArcadeParentAttachments) LoadValidation(ctx context.Context, validationID, itemID string) (application.ArcadeParentAttachmentValidation, bool, error) {
-	return (arcadeParentAttachmentAdmissionRecords{executor: repository.database}).Validation(ctx, validationID, itemID)
+func (repository *ArcadeParentAttachments) LoadValidation(
+	ctx context.Context, validationID, itemID string,
+) (application.ArcadeParentAttachmentValidation, bool, error) {
+	records := arcadeParentAttachmentAdmissionRecords{executor: repository.database}
+	return records.Validation(ctx, validationID, itemID)
 }
 
-func (repository *ArcadeParentAttachments) LoadUpload(ctx context.Context, uploadFileID string) (application.ArcadeParentAttachmentUpload, bool, error) {
-	return (arcadeParentAttachmentAdmissionRecords{executor: repository.database}).Upload(ctx, uploadFileID)
+func (repository *ArcadeParentAttachments) LoadUpload(
+	ctx context.Context, uploadFileID string,
+) (application.ArcadeParentAttachmentUpload, bool, error) {
+	records := arcadeParentAttachmentAdmissionRecords{executor: repository.database}
+	return records.Upload(ctx, uploadFileID)
 }
 
-func (repository *ArcadeParentAttachments) HasActiveAttachment(ctx context.Context, itemID string) (bool, error) {
-	return (arcadeParentAttachmentAdmissionRecords{executor: repository.database}).HasActive(ctx, itemID)
+func (repository *ArcadeParentAttachments) HasActiveAttachment(
+	ctx context.Context, itemID string,
+) (bool, error) {
+	records := arcadeParentAttachmentAdmissionRecords{executor: repository.database}
+	return records.HasActive(ctx, itemID)
 }
 
-func (repository *ArcadeParentAttachments) MachineRelation(ctx context.Context, datID, machine string) (application.ArcadeMachineRelation, bool, error) {
+func (repository *ArcadeParentAttachments) MachineRelation(
+	ctx context.Context, datID, machine string,
+) (application.ArcadeMachineRelation, bool, error) {
 	return BindArcadeRelations(repository.database).MachineRelation(ctx, datID, machine)
 }
 
-func (repository *ArcadeParentAttachments) CommitAttachment(ctx context.Context, write application.ArcadeParentAttachmentWrite) error {
+func (repository *ArcadeParentAttachments) CommitAttachment(
+	ctx context.Context, write application.ArcadeParentAttachmentWrite,
+) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin arcade parent attachment admission: %w", err)

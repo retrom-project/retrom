@@ -57,15 +57,23 @@ type ValidationVariantWrite struct {
 	NowMS   int64
 }
 
-type ValidationWorkerRepository interface {
+type ValidationWorkerReader interface {
 	LoadValidationWork(context.Context, string) (ValidationWork, bool, error)
 	LoadValidationFacts(context.Context, ValidationInputs) (ValidationFacts, error)
 	LoadValidationCandidates(context.Context, int64) ([]string, error)
+}
+
+type ValidationWorkerCommitter interface {
 	CommitValidationClaim(context.Context, ValidationClaimWrite) error
 	CommitValidationRenewal(context.Context, ValidationClaim, int64, int64) error
 	CommitValidationFinish(context.Context, ValidationTerminal) error
 	CommitValidationRecovery(context.Context, ValidationRecovery) error
 	CommitValidationSettlement(context.Context, ValidationSettlement) error
+}
+
+type ValidationWorkerRepository interface {
+	ValidationWorkerReader
+	ValidationWorkerCommitter
 }
 
 type ValidationSettlement struct {

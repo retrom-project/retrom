@@ -116,7 +116,9 @@ func (service *Mappings) prepareMappings(
 	return result, nil
 }
 
-func (service *Mappings) buildMappingEntries(changes []model.CollectionMapping, actorID string) []model.MappingBatchEntry {
+func (service *Mappings) buildMappingEntries(
+	changes []model.CollectionMapping, actorID string,
+) []model.MappingBatchEntry {
 	entries := make([]model.MappingBatchEntry, len(changes))
 	for i, change := range changes {
 		entries[i] = model.MappingBatchEntry{

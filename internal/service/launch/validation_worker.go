@@ -94,15 +94,19 @@ func (service *ValidationWorker) claim(ctx context.Context, id string) (model.Va
 		return model.ValidationClaim{}, false, nil
 	}
 	if validationExhausted(work, now) {
-		err := service.repository.CommitValidationRecovery(ctx, model.ValidationRecovery{Before: work, NowMS: now, Terminal: true})
-		return model.ValidationClaim{}, false, validationStageError("claim validation transaction", err)
+		recovery := model.ValidationRecovery{Before: work, NowMS: now, Terminal: true}
+		err := service.repository.CommitValidationRecovery(ctx, recovery)
+		return model.ValidationClaim{}, false,
+			validationStageError("claim validation transaction", err)
 	}
 	plan, err := service.claimPlan(work, now)
 	if err != nil {
 		return model.ValidationClaim{}, false, validationStageError("claim validation transaction", err)
 	}
 	if err := service.repository.CommitValidationClaim(ctx, plan); err != nil {
-		return model.ValidationClaim{}, false, validationStageError("claim validation transaction", fmt.Errorf("claim validation attempt: %w", err))
+		return model.ValidationClaim{}, false,
+			validationStageError("claim validation transaction",
+				fmt.Errorf("claim validation attempt: %w", err))
 	}
 
 	work.WorkerID, work.State = plan.WorkerID, "RUNNING"
@@ -277,7 +281,9 @@ func (service *ValidationWorker) recoverOne(ctx context.Context, id string) (boo
 	if stale || exhausted {
 		recovery := model.ValidationRecovery{Before: current, NowMS: now, Terminal: exhausted}
 		if err := service.repository.CommitValidationRecovery(ctx, recovery); err != nil {
-			return false, validationStageError("recover validation transaction", fmt.Errorf("recover validation execution: %w", err))
+			return false,
+				validationStageError("recover validation transaction",
+					fmt.Errorf("recover validation execution: %w", err))
 		}
 	}
 	return !exhausted && (stale || current.AvailableMS <= now), nil

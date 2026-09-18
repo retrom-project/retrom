@@ -19,23 +19,46 @@ type gcRepositoryFixture struct {
 	calls, failAt int
 }
 
-func (r *gcRepositoryFixture) WithGC(_ context.Context, run func(model.GCScope) error) error {
-	queued, advanced, audits := len(r.queued), len(r.advanced), len(r.audit)
-	err := run(model.GCScope{Read: r, Write: r})
-	if err == nil {
-		r.calls++
-		if r.calls == r.failAt {
-			err = r.fail
-		}
-	}
-	if err != nil {
-		r.queued = r.queued[:queued]
-		r.advanced = r.advanced[:advanced]
-		r.audit = r.audit[:audits]
-	}
-	return err
+func (r *gcRepositoryFixture) LoadGCPage(_ context.Context, _ string, _ int) ([]model.GCBlob, error) {
+	return nil, nil
 }
 
+func (r *gcRepositoryFixture) LoadGCSelected(_ context.Context, _ []string) ([]model.GCBlob, error) {
+	return r.facts, nil
+}
+
+func (r *gcRepositoryFixture) LoadGCCandidates(_ context.Context) ([]model.GCBlob, error) {
+	return r.facts, nil
+}
+
+func (r *gcRepositoryFixture) CommitGCSchedule(_ context.Context, batch model.GCScheduleBatch) error {
+	r.calls++
+	if r.calls == r.failAt {
+		return r.fail
+	}
+	r.queued = append(r.queued, batch.Queued...)
+	return nil
+}
+
+func (r *gcRepositoryFixture) CommitImmediateGC(_ context.Context, commit model.GCImmediateCommit) error {
+	r.calls++
+	if r.calls == r.failAt {
+		return r.fail
+	}
+	r.advanced = append(r.advanced, commit.Changes...)
+	r.audit = append(r.audit, commit.Audit)
+	return nil
+}
+
+func (r *gcRepositoryFixture) CommitGCCancellation(_ context.Context, _ model.GCCancellationBatch) error {
+	r.calls++
+	if r.calls == r.failAt {
+		return r.fail
+	}
+	return nil
+}
+
+// GCReader / GCWriter — used by StageInScope via GCScope.
 func (r *gcRepositoryFixture) Page(context.Context, string, int) ([]model.GCBlob, error) {
 	return nil, nil
 }
@@ -96,7 +119,7 @@ func TestGCStageSelectsOnlyNewUnprotectedCandidates(t *testing.T) {
 func TestGCImmediateDoesNotReturnOrWakeAfterFailedCommit(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("immediate cleanup commit unavailable")
-	records := &gcRepositoryFixture{fail: cause, failAt: 3}
+	records := &gcRepositoryFixture{fail: cause, failAt: 1}
 	wakes := 0
 	service := newPolicyGC(t, records, func() { wakes++ })
 	result, err := service.Immediate(t.Context(), "actor")

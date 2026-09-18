@@ -32,7 +32,8 @@ func (service *Mappings) Update(
 	}
 	before, err := service.repository.LoadImportSummary(ctx, id)
 	if err != nil {
-		return model.Summary{}, fmt.Errorf("finish EmulationStation mappings: %w", fmt.Errorf("read EmulationStation mapping plan: %w", err))
+		return model.Summary{},
+			fmt.Errorf("finish EmulationStation mappings: read plan: %w", err)
 	}
 	if before.State != "AWAITING_MAPPING" {
 		return model.Summary{}, fmt.Errorf("finish EmulationStation mappings: %w", model.ErrMapping)
@@ -116,7 +117,9 @@ func (service *Mappings) prepareMappings(
 	return result, nil
 }
 
-func (service *Mappings) buildMappingEntries(changes []model.CollectionMapping, actorID string) []model.MappingBatchEntry {
+func (service *Mappings) buildMappingEntries(
+	changes []model.CollectionMapping, actorID string,
+) []model.MappingBatchEntry {
 	entries := make([]model.MappingBatchEntry, len(changes))
 	for i, change := range changes {
 		entries[i] = model.MappingBatchEntry{

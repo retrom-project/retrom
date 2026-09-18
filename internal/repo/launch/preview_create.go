@@ -94,19 +94,10 @@ func (repository *PreviewCreation) LoadPreviewRestore(
 	ctx context.Context,
 	id string,
 ) (application.PreviewRestore, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return application.PreviewRestore{}, false, fmt.Errorf("begin preview restore: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	restore, found, err := (previewCreationRecords{executor: tx}).Restore(ctx, id)
-	if err != nil {
-		return application.PreviewRestore{}, false, err
-	}
-	if err := tx.Commit(); err != nil {
-		return application.PreviewRestore{}, false, fmt.Errorf("commit preview restore: %w", err)
-	}
-	return restore, found, nil
+	return readOnlyTx(ctx, repository.database, "preview restore",
+		func(tx dbexec.Executor) (application.PreviewRestore, bool, error) {
+			return (previewCreationRecords{executor: tx}).Restore(ctx, id)
+		})
 }
 
 func (repository *PreviewCreation) CommitPreviewCreation(
