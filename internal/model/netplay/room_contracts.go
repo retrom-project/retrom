@@ -19,13 +19,13 @@ type RoomCreationPlan struct {
 	Event                    []byte
 }
 
-type RoomCreationWriter interface {
-	Capacity(context.Context, string) (RoomCapacity, error)
-	Insert(context.Context, RoomCreationPlan) (Room, error)
+type RoomCreationCommand struct {
+	Plan    RoomCreationPlan
+	Maximum int
 }
 
 type RoomCreationRepository interface {
-	WithCreate(context.Context, func(RoomCreationWriter) error) error
+	CommitRoomCreation(context.Context, RoomCreationCommand) (Room, error)
 }
 
 type Event struct {

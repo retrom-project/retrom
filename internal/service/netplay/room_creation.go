@@ -34,28 +34,13 @@ func roomUUID() (string, error) {
 
 func (service *RoomCreation) Create(ctx context.Context, hostID string) (model.Room, error) {
 	now := service.now().UnixMilli()
-	var result model.Room
-	err := service.repository.WithCreate(ctx, func(writer model.RoomCreationWriter) error {
-		capacity, err := writer.Capacity(ctx, hostID)
-		if err != nil {
-			return fmt.Errorf("netplay/room capacity: %w", err)
-		}
-		if capacity.HostActive {
-			return model.ErrRoomConflict
-		}
-		if capacity.Active >= service.maximum {
-			return model.ErrCapacity
-		}
-		plan, err := service.plan(hostID, now)
-		if err != nil {
-			return err
-		}
-		result, err = writer.Insert(ctx, plan)
-		if err != nil {
-			return fmt.Errorf("netplay/persist room: %w", err)
-		}
-		return nil
-	})
+	plan, err := service.plan(hostID, now)
+	if err != nil {
+		return model.Room{}, fmt.Errorf("netplay/create room: %w", err)
+	}
+	result, err := service.repository.CommitRoomCreation(
+		ctx, model.RoomCreationCommand{Plan: plan, Maximum: service.maximum},
+	)
 	if err != nil {
 		return model.Room{}, fmt.Errorf("netplay/create room: %w", err)
 	}

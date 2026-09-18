@@ -22,7 +22,8 @@ func TestBoundRelationsRollbackWithOuterTransaction(t *testing.T) {
 	}
 	defer func() { _ = transaction.Rollback() }()
 	scope := tagpersistence.BindCrossDomain(transaction)
-	if err := scope.AssignReferences(t.Context(), tagging.Owner{Kind: tagging.OwnerGame, ID: testGameID},
+	if err := scope.AssignReferences(
+		t.Context(), tagging.Owner{Kind: tagging.OwnerGame, ID: testGameID},
 		[]tagging.Reference{{TagID: tag.TagID, Name: tag.Name}}, testAdminID, 2000,
 	); err != nil {
 		t.Fatal(err)

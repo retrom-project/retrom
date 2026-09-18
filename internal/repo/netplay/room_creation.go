@@ -10,22 +10,46 @@ import (
 	"retrom/internal/repo/recordstore"
 )
 
-type RoomCreation struct{ database *sql.DB }
+type RoomCreation struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
 func NewRoomCreation(database *sql.DB) *RoomCreation { return &RoomCreation{database: database} }
-func (repository *RoomCreation) WithCreate(ctx context.Context, work func(netplay.RoomCreationWriter) error) error {
+
+func (repository *RoomCreation) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
+}
+
+func (repository *RoomCreation) CommitRoomCreation(
+	ctx context.Context, cmd netplay.RoomCreationCommand,
+) (netplay.Room, error) {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("netplay/begin room creation: %w", err)
+		return netplay.Room{}, fmt.Errorf("netplay/begin room creation: %w", err)
 	}
 	defer dbexec.Rollback(transaction)
-	if err := work(roomCreationRecords{transaction}); err != nil {
-		return err
+	records := roomCreationRecords{transaction}
+	capacity, err := records.Capacity(ctx, cmd.Plan.HostID)
+	if err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/room capacity: %w", err)
+	}
+	if err := netplay.ValidateRoomCapacity(capacity, cmd.Maximum); err != nil {
+		return netplay.Room{}, fmt.Errorf("validate room capacity: %w", err)
+	}
+	room, err := records.Insert(ctx, cmd.Plan)
+	if err != nil {
+		return netplay.Room{}, fmt.Errorf("netplay/persist room: %w", err)
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return netplay.Room{}, err
+		}
 	}
 	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("netplay/commit room creation: %w", err)
+		return netplay.Room{}, fmt.Errorf("netplay/commit room creation: %w", err)
 	}
-	return nil
+	return room, nil
 }
 
 type roomCreationRecords struct{ executor dbexec.Executor }

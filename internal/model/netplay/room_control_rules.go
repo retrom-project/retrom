@@ -5,6 +5,17 @@ import (
 	"fmt"
 )
 
+// ValidateRoomCapacity checks whether a new room can be created.
+func ValidateRoomCapacity(capacity RoomCapacity, maximum int) error {
+	if capacity.HostActive {
+		return ErrRoomConflict
+	}
+	if capacity.Active >= maximum {
+		return ErrCapacity
+	}
+	return nil
+}
+
 // ValidateSeat checks whether the requested seat assignment is allowed
 // given the current room snapshot. This is a pure validation function.
 func ValidateSeat(before RoomControlSnapshot, playerNo int, actorID string) error {

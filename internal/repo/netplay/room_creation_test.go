@@ -27,18 +27,18 @@ func TestRoomCreationRollsBackRoomHostAndEventTogether(t *testing.T) {
 		t.Fatal(err)
 	}
 	sentinel := errors.New("late failure")
-	err = repository.NewRoomCreation(database.SQL).WithCreate(t.Context(), func(writer service.RoomCreationWriter) error {
-		room, err := writer.Insert(t.Context(), service.RoomCreationPlan{RoomID: "room", MemberID: "member", HostID: "host", Now: now.UnixMilli(), ExpiresAtMS: now.Add(time.Hour).UnixMilli(), Event: []byte(`{"schemaVersion":1}`)})
-		if err != nil {
-			return err
-		}
-		if room.RoomID != "room" || len(room.Members) != 1 || room.Members[0].PlayerNo != 1 {
-			t.Fatalf("transactional snapshot=%+v", room)
-		}
-		return sentinel
+	repo := repository.NewRoomCreation(database.SQL)
+	repo.WithPreCommitHook(func() error { return sentinel })
+	room, err := repo.CommitRoomCreation(t.Context(), service.RoomCreationCommand{
+		Plan: service.RoomCreationPlan{
+			RoomID: "room", MemberID: "member", HostID: "host",
+			Now: now.UnixMilli(), ExpiresAtMS: now.Add(time.Hour).UnixMilli(),
+			Event: []byte(`{"schemaVersion":1}`),
+		},
+		Maximum: 16,
 	})
-	if !errors.Is(err, sentinel) {
-		t.Fatalf("write callback failure=%v", err)
+	if !errors.Is(err, sentinel) || room.RoomID != "" {
+		t.Fatalf("late failure=%v room=%+v", err, room)
 	}
 	for _, query := range []string{`SELECT count(*) FROM netplay_rooms`, `SELECT count(*) FROM netplay_room_members`, `SELECT count(*) FROM netplay_events`} {
 		var count int

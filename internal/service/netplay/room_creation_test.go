@@ -16,21 +16,37 @@ type roomCreationMemory struct {
 	inserts                              int
 }
 
-func (memory *roomCreationMemory) WithCreate(_ context.Context, work func(model.RoomCreationWriter) error) error {
-	if err := work(memory); err != nil {
-		return err
+func (memory *roomCreationMemory) CommitRoomCreation(
+	_ context.Context, cmd model.RoomCreationCommand,
+) (model.Room, error) {
+	if memory.failure != nil {
+		return model.Room{}, memory.failure
 	}
-	return memory.commitFailure
-}
-
-func (memory *roomCreationMemory) Capacity(context.Context, string) (model.RoomCapacity, error) {
-	return memory.capacity, memory.failure
-}
-
-func (memory *roomCreationMemory) Insert(_ context.Context, plan model.RoomCreationPlan) (model.Room, error) {
+	if err := model.ValidateRoomCapacity(memory.capacity, cmd.Maximum); err != nil {
+		return model.Room{}, err
+	}
+	plan := cmd.Plan
+	if memory.writeFailure != nil {
+		return model.Room{}, memory.writeFailure
+	}
 	memory.inserts++
 	memory.plan = plan
-	return model.Room{RoomID: plan.RoomID, State: model.RoomStateDraft, Version: 1, ExpiresAtMS: plan.ExpiresAtMS, Members: []model.RoomMember{{MemberID: plan.MemberID, ProfileID: plan.HostID, Role: "HOST", PlayerNo: 1}}}, memory.writeFailure
+	room := model.Room{
+		RoomID:      plan.RoomID,
+		State:       model.RoomStateDraft,
+		Version:     1,
+		ExpiresAtMS: plan.ExpiresAtMS,
+		Members: []model.RoomMember{{
+			MemberID:  plan.MemberID,
+			ProfileID: plan.HostID,
+			Role:      "HOST",
+			PlayerNo:  1,
+		}},
+	}
+	if memory.commitFailure != nil {
+		return model.Room{}, memory.commitFailure
+	}
+	return room, nil
 }
 
 func TestRoomCreationRejectsCapacityAndDuplicateHostWithoutWrites(t *testing.T) {
