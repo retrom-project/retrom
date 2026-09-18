@@ -14,7 +14,7 @@ func (service *NetplayCreator) prepare(
 	ctx context.Context,
 	request model.NetplayCreateRequest,
 ) (netplayCreationPrepared, error) {
-	snapshot, err := service.repository.Snapshot(ctx, request)
+	snapshot, err := service.repository.LoadNetplaySnapshot(ctx, request)
 	if err != nil {
 		return netplayCreationPrepared{}, fmt.Errorf("read netplay snapshot: %w", err)
 	}

@@ -71,11 +71,7 @@ func netplayCreatorFixture(t *testing.T) (*NetplayCreator, *netplayCreationMemor
 		},
 	}}
 	repository := &netplayCreationMemory{before: snapshot, current: cloneNetplaySnapshot(t, snapshot)}
-	provider := netplayCreationProvider{digest: request.BundleSHA256, before: func() {
-		if repository.inTransaction {
-			t.Fatal("provider entered writer transaction")
-		}
-	}}
+	provider := netplayCreationProvider{digest: request.BundleSHA256}
 	provider.target.Capabilities.NetplayPort = true
 	environment := model.NetplayCreationEnvironment{
 		Now: func() time.Time { return time.UnixMilli(1000) }, NewID: func() (string, error) { return previewTestID, nil },

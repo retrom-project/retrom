@@ -23,49 +23,35 @@ type validationTestRepository struct {
 	events                              []string
 	variants                            int
 	readFacts                           func(context.Context) (model.ValidationFacts, error)
+	factsCallCount                      int
 	finishError, claimError, renewError error
 	renewals                            int
 }
 
-type validationTestScope struct{ repository *validationTestRepository }
-
-func (repository *validationTestRepository) WithWorker(ctx context.Context, operation func(model.ValidationWorkerScope) error) error {
+func (repository *validationTestRepository) LoadValidationWork(_ context.Context, _ string) (model.ValidationWork, bool, error) {
 	repository.mutex.Lock()
 	defer repository.mutex.Unlock()
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	work, terminal, variants, count := repository.work, repository.terminal, repository.variants, len(repository.events)
-	scope := validationTestScope{repository}
-	if err := operation(model.ValidationWorkerScope{Jobs: scope, Facts: scope, Variants: scope}); err != nil {
-		repository.work, repository.terminal, repository.variants = work, terminal, variants
-		repository.events = repository.events[:count]
-		return err
-	}
-	return nil
+	return repository.work, true, nil
 }
 
-func (repository *validationTestRepository) Facts(ctx context.Context, _ model.ValidationInputs) (model.ValidationFacts, error) {
-	if repository.readFacts != nil {
+func (repository *validationTestRepository) LoadValidationFacts(ctx context.Context, _ model.ValidationInputs) (model.ValidationFacts, error) {
+	repository.mutex.Lock()
+	repository.factsCallCount++
+	call := repository.factsCallCount
+	repository.mutex.Unlock()
+	if call == 1 && repository.readFacts != nil {
 		return repository.readFacts(ctx)
 	}
 	return repository.facts, nil
 }
 
-func (repository *validationTestRepository) Candidates(context.Context, int64) ([]string, error) {
+func (repository *validationTestRepository) LoadValidationCandidates(context.Context, int64) ([]string, error) {
 	return []string{repository.work.ID}, nil
 }
 
-func (scope validationTestScope) Read(context.Context, string) (model.ValidationWork, bool, error) {
-	return scope.repository.work, true, nil
-}
-
-func (scope validationTestScope) Facts(context.Context, model.ValidationInputs) (model.ValidationFacts, error) {
-	return scope.repository.facts, nil
-}
-
-func (scope validationTestScope) Claim(_ context.Context, plan model.ValidationClaimWrite) error {
-	repository := scope.repository
+func (repository *validationTestRepository) CommitValidationClaim(_ context.Context, plan model.ValidationClaimWrite) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
 	if repository.claimError != nil {
 		return repository.claimError
 	}
@@ -78,8 +64,9 @@ func (scope validationTestScope) Claim(_ context.Context, plan model.ValidationC
 	return nil
 }
 
-func (scope validationTestScope) Renew(_ context.Context, _ model.ValidationClaim, _ int64, lease int64) error {
-	repository := scope.repository
+func (repository *validationTestRepository) CommitValidationRenewal(_ context.Context, _ model.ValidationClaim, _ int64, lease int64) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
 	if repository.renewError != nil {
 		return repository.renewError
 	}
@@ -89,20 +76,22 @@ func (scope validationTestScope) Renew(_ context.Context, _ model.ValidationClai
 	return nil
 }
 
-func (scope validationTestScope) Finish(_ context.Context, plan model.ValidationTerminal) error {
-	repository := scope.repository
-	repository.terminal = plan
-	repository.work.State = plan.State
-	repository.work.Version++
+func (repository *validationTestRepository) CommitValidationFinish(_ context.Context, plan model.ValidationTerminal) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
 	if repository.finishError != nil {
 		return repository.finishError
 	}
+	repository.terminal = plan
+	repository.work.State = plan.State
+	repository.work.Version++
 	repository.events = append(repository.events, plan.State)
 	return nil
 }
 
-func (scope validationTestScope) Recover(_ context.Context, plan model.ValidationRecovery) error {
-	repository := scope.repository
+func (repository *validationTestRepository) CommitValidationRecovery(_ context.Context, plan model.ValidationRecovery) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
 	repository.work.Version++
 	if plan.Terminal {
 		repository.work.State = "FAILED"
@@ -115,8 +104,17 @@ func (scope validationTestScope) Recover(_ context.Context, plan model.Validatio
 	return nil
 }
 
-func (scope validationTestScope) Apply(context.Context, model.ValidationVariantWrite) error {
-	scope.repository.variants++
+func (repository *validationTestRepository) CommitValidationSettlement(_ context.Context, settlement model.ValidationSettlement) error {
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
+	if repository.finishError != nil {
+		return repository.finishError
+	}
+	repository.variants++
+	repository.terminal = settlement.Finish
+	repository.work.State = settlement.Finish.State
+	repository.work.Version++
+	repository.events = append(repository.events, settlement.Finish.State)
 	return nil
 }
 

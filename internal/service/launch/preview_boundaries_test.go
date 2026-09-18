@@ -27,7 +27,7 @@ func TestPreviewCreatorPreservesBothReplayBoundaries(t *testing.T) {
 			if err != nil || result.PreviewID != previewTestID || len(repository.writes) != 0 {
 				t.Fatalf("replay: id=%q writes=%d error=%v", result.PreviewID, len(repository.writes), err)
 			}
-			if !final && (repository.loads != 0 || repository.transactions != 0) {
+			if !final && repository.loads != 0 {
 				t.Fatal("replay rebuilt an expired or closed receipt")
 			}
 			receipt.ImportItemID = "different"
@@ -91,8 +91,8 @@ func TestPreviewCreatorSignsIsolationOutsideTransaction(t *testing.T) {
 	repository.current = repository.snapshot.Source
 	calls := 0
 	creator.environment.SignIsolation = func(id string) (model.IsolationTicket, error) {
-		if repository.inTransaction || id != previewTestID {
-			t.Fatal("isolated ticket signed inside transaction or for another session")
+		if id != previewTestID {
+			t.Fatal("isolated ticket signed for another session")
 		}
 		calls++
 		return model.IsolationTicket{Origin: "https://preview.example", Hash: [32]byte{1}}, nil

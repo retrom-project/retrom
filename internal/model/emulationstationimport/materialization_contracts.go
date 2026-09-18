@@ -51,22 +51,10 @@ type PhaseChange struct {
 	NowMS  int64
 }
 
-type MaterialReader interface {
-	Source(context.Context, MaterialKey) (MaterialSnapshot, error)
-	Execution(context.Context, string) (ExecutionPhase, error)
-}
-
-type MaterialWriter interface {
-	Bind(context.Context, MaterialBinding) (string, error)
-	Warn(context.Context, MaterialWarning) error
-	Phase(context.Context, PhaseChange) error
-}
-
-type MaterialScope struct {
-	Read  MaterialReader
-	Write MaterialWriter
-}
-
 type MaterialRepository interface {
-	WithMaterialization(context.Context, func(MaterialScope) error) error
+	LoadMaterialSource(context.Context, MaterialKey) (MaterialSnapshot, error)
+	LoadExecutionPhase(context.Context, string) (ExecutionPhase, error)
+	CommitMaterialBinding(context.Context, MaterialBinding) (string, error)
+	CommitMaterialWarning(context.Context, MaterialWarning) error
+	CommitPhaseChange(context.Context, PhaseChange) error
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	"retrom/internal/repo/dbexec"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -51,7 +51,9 @@ func assertLeaseSQLRollback(t *testing.T, operation, stage string) {
 	db, id := leaseDatabase(t, false)
 	var unit emulationstationimportmodel.Execution
 	if operation == "renew" {
-		value, found, err := emulationstationimportservice.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
+		value, found, err := emulationstationimportservice.NewLeases(
+			NewLeases(db), func() time.Time { return time.UnixMilli(1000) },
+		).Claim(t.Context())
 		if err != nil || !found {
 			t.Fatalf("claim=%v error=%v", found, err)
 		}
@@ -61,7 +63,9 @@ func assertLeaseSQLRollback(t *testing.T, operation, stage string) {
 	var hits atomic.Int64
 	hooks := leaseFaultHooks(stage, id, &hits)
 	faultDB := testsupport.OpenSQLFaultDatabase(t, db, hooks)
-	service := emulationstationimportservice.NewLeases(NewLeases(faultDB), func() time.Time { return time.UnixMilli(1001) })
+	service := emulationstationimportservice.NewLeases(
+		NewLeases(faultDB), func() time.Time { return time.UnixMilli(1001) },
+	)
 	var err error
 	if operation == "claim" {
 		value, found, callErr := service.Claim(t.Context())
@@ -88,7 +92,9 @@ func assertLeaseSQLRollback(t *testing.T, operation, stage string) {
 	}
 }
 
-func leaseFaultHooks(stage, id string, hits *atomic.Int64) testsupport.SQLFaultHooks {
+func leaseFaultHooks(
+	stage, id string, hits *atomic.Int64,
+) testsupport.SQLFaultHooks {
 	return testsupport.SQLFaultHooks{
 		BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
 			if stage == "read" && strings.HasPrefix(query, leaseSnapshotSQL) {
@@ -97,17 +103,29 @@ func leaseFaultHooks(stage, id string, hits *atomic.Int64) testsupport.SQLFaultH
 			}
 			return nil
 		},
-		BeforeExec: func(_ context.Context, query string, args []driver.NamedValue) error {
-			prefixes := map[string]string{"job": "UPDATE jobs SET", "aggregate": "UPDATE emulationstation_imports SET", "event": "INSERT INTO job_events("}
+		BeforeExec: func(
+			_ context.Context, query string, args []driver.NamedValue,
+		) error {
+			prefixes := map[string]string{
+				"job":       "UPDATE jobs SET",
+				"aggregate": "UPDATE emulationstation_imports SET",
+				"event":     "INSERT INTO job_events(",
+			}
 			prefix, ok := prefixes[stage]
-			if ok && strings.HasPrefix(strings.Join(strings.Fields(query), " "), prefix) && leaseBoundID(args, id, stage) {
+			if ok && strings.HasPrefix(strings.Join(strings.Fields(query), " "), prefix) &&
+				leaseBoundID(args, id, stage) {
 				hits.Add(1)
 				return errLeaseStorage
 			}
 			return nil
 		},
-		AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
-			if (stage == "affected rows" || stage == "zero rows") && strings.HasPrefix(query, "UPDATE jobs SET") && leaseBoundID(args, id, stage) {
+		AfterExec: func(
+			_ context.Context, query string,
+			args []driver.NamedValue, result driver.Result,
+		) (driver.Result, error) {
+			if (stage == "affected rows" || stage == "zero rows") &&
+				strings.HasPrefix(query, "UPDATE jobs SET") &&
+				leaseBoundID(args, id, stage) {
 				hits.Add(1)
 				return leaseResultFault{Result: result, zero: stage == "zero rows"}, nil
 			}
@@ -128,39 +146,10 @@ func leaseBoundID(args []driver.NamedValue, id, stage string) bool {
 	return false
 }
 
-type leaseCompletionFailure struct {
-	*Leases
-	stage string
-}
-
-func (repository leaseCompletionFailure) WithLease(ctx context.Context, work func(emulationstationimportmodel.LeaseScope) error) error {
-	return repository.Leases.WithLease(ctx, func(scope emulationstationimportmodel.LeaseScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		if repository.stage == "callback" {
-			return errLeaseStorage
-		}
-		records, ok := scope.Read.(leaseRecords)
-		if !ok {
-			return errors.New("unexpected lease scope")
-		}
-		if _, err := records.executor.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
-			return fmt.Errorf("defer lease fixture constraint: %w", err)
-		}
-		_, err := records.executor.ExecContext(ctx, `INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES('missing-lease-parent',1,'{}','`+planDigest+`',12)`)
-		if err != nil {
-			return fmt.Errorf("inject deferred lease fault: %w", err)
-		}
-		return nil
-	})
-}
-
 func TestLeaseCompletionFailuresReturnNoSuccessfulResponse(t *testing.T) {
 	t.Parallel()
 	for _, operation := range []string{"claim", "renew"} {
-		for _, stage := range []string{"callback", "commit FK"} {
+		for _, stage := range []string{"pre-commit hook", "commit FK"} {
 			t.Run(operation+"/"+stage, func(t *testing.T) {
 				t.Parallel()
 				assertLeaseCompletionFailure(t, operation, stage)
@@ -174,14 +163,20 @@ func assertLeaseCompletionFailure(t *testing.T, operation, stage string) {
 	db, _ := leaseDatabase(t, false)
 	var unit emulationstationimportmodel.Execution
 	if operation == "renew" {
-		value, found, err := emulationstationimportservice.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
+		value, found, err := emulationstationimportservice.NewLeases(
+			NewLeases(db), func() time.Time { return time.UnixMilli(1000) },
+		).Claim(t.Context())
 		if err != nil || !found {
 			t.Fatalf("claim=%v %v", found, err)
 		}
 		unit = value
 	}
 	before := planRows(t, db)
-	service := emulationstationimportservice.NewLeases(leaseCompletionFailure{Leases: NewLeases(db), stage: stage}, func() time.Time { return time.UnixMilli(1001) })
+	repo := NewLeases(db)
+	installLeaseCompletionHook(repo, stage)
+	service := emulationstationimportservice.NewLeases(
+		repo, func() time.Time { return time.UnixMilli(1001) },
+	)
 	var err error
 	if operation == "claim" {
 		value, found, callErr := service.Claim(t.Context())
@@ -199,7 +194,7 @@ func assertLeaseCompletionFailure(t *testing.T, operation, stage string) {
 	if err == nil {
 		t.Fatal("completion failure committed")
 	}
-	if stage == "callback" && !errors.Is(err, errLeaseStorage) {
+	if stage == "pre-commit hook" && !errors.Is(err, errLeaseStorage) {
 		t.Fatalf("lost cause: %v", err)
 	}
 	if stage == "commit FK" && !strings.Contains(err.Error(), "FOREIGN KEY") {
@@ -208,4 +203,23 @@ func assertLeaseCompletionFailure(t *testing.T, operation, stage string) {
 	if !reflect.DeepEqual(planRows(t, db), before) {
 		t.Fatal("completion failure changed durable state")
 	}
+}
+
+func installLeaseCompletionHook(repo *Leases, stage string) {
+	repo.WithPreCommitHook(func(tx dbexec.Executor) error {
+		if stage == "pre-commit hook" {
+			return errLeaseStorage
+		}
+		if _, err := tx.ExecContext(
+			context.Background(), `PRAGMA defer_foreign_keys=ON`,
+		); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(
+			context.Background(),
+			`INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)`+
+				` VALUES('missing-lease-parent',1,'{}','`+planDigest+`',12)`,
+		)
+		return err
+	})
 }

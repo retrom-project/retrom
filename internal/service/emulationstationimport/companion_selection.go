@@ -12,12 +12,11 @@ import (
 
 func (service *Companions) load(
 	ctx context.Context,
-	reader model.CompanionReader,
 	unit model.Execution,
 	id string,
 	now int64,
 ) (model.CompanionOwner, []model.CompanionFile, error) {
-	owner, err := reader.Owner(ctx, id)
+	owner, err := service.repository.LoadCompanionOwner(ctx, id)
 	if err != nil {
 		return model.CompanionOwner{}, nil, fmt.Errorf("read EmulationStation companion owner: %w", err)
 	}
@@ -25,32 +24,45 @@ func (service *Companions) load(
 		return model.CompanionOwner{}, nil, err
 	}
 	item := owner.Before.Item
-	if item.ID != id || item.ImportID != unit.ImportID || item.State != "COPYING" || !validItemVersion(item.Version) {
+	if item.ID != id || item.ImportID != unit.ImportID ||
+		item.State != "COPYING" || !validItemVersion(item.Version) {
 		return model.CompanionOwner{}, nil, model.ErrVersionConflict
 	}
 	if !arcadeCompanionItem(item) {
 		return owner, []model.CompanionFile{}, nil
 	}
-	if err := validateCompanionMapping(ctx, reader, owner); err != nil {
+	if err := service.validateCompanionMapping(ctx, owner); err != nil {
 		return model.CompanionOwner{}, nil, err
 	}
-	machine := strings.TrimSuffix(path.Base(item.Files[0].Path), path.Ext(item.Files[0].Path))
-	dependencies, err := reader.Dependencies(ctx, item.TargetDATVersionID, machine)
+	machine := strings.TrimSuffix(
+		path.Base(item.Files[0].Path), path.Ext(item.Files[0].Path),
+	)
+	dependencies, err := service.repository.LoadDependencies(
+		ctx, item.TargetDATVersionID, machine,
+	)
 	if err != nil {
-		return model.CompanionOwner{}, nil, fmt.Errorf("read EmulationStation companion closure: %w", err)
+		return model.CompanionOwner{}, nil, fmt.Errorf(
+			"read EmulationStation companion closure: %w", err,
+		)
 	}
 	if len(dependencies) == 0 {
 		return owner, []model.CompanionFile{}, nil
 	}
-	candidates, err := reader.Candidates(ctx, owner)
+	candidates, err := service.repository.LoadCandidates(ctx, owner)
 	if err != nil {
-		return model.CompanionOwner{}, nil, fmt.Errorf("read EmulationStation companion candidates: %w", err)
+		return model.CompanionOwner{}, nil, fmt.Errorf(
+			"read EmulationStation companion candidates: %w", err,
+		)
 	}
 	return owner, selectCompanionFiles(candidates, dependencies), nil
 }
 
-func validateCompanionMapping(ctx context.Context, reader model.CompanionReader, owner model.CompanionOwner) error {
-	target, found, err := reader.Target(ctx, owner.Mapping.InstanceID)
+func (service *Companions) validateCompanionMapping(
+	ctx context.Context, owner model.CompanionOwner,
+) error {
+	target, found, err := service.repository.LoadMappingTarget(
+		ctx, owner.Mapping.InstanceID,
+	)
 	if err != nil {
 		return fmt.Errorf("read current EmulationStation companion target: %w", err)
 	}

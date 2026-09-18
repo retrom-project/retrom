@@ -20,8 +20,8 @@ func TestPreviewCreatorFreezesReceiptOnlyAfterCommit(t *testing.T) {
 	t.Parallel()
 	creator, repository, _, request := previewFixture(t)
 	created, err := creator.Create(t.Context(), request)
-	if err != nil || created.PreviewID != previewTestID || created.PlayURL != "/admin/review-previews/"+previewTestID || repository.transactions != 1 || len(repository.writes) != 1 {
-		t.Fatalf("creation: id=%q transactions=%d writes=%d error=%v", created.PreviewID, repository.transactions, len(repository.writes), err)
+	if err != nil || created.PreviewID != previewTestID || created.PlayURL != "/admin/review-previews/"+previewTestID || len(repository.writes) != 1 {
+		t.Fatalf("creation: id=%q writes=%d error=%v", created.PreviewID, len(repository.writes), err)
 	}
 	plan := repository.writes[0]
 	if plan.Source.Title != "game.bin" || plan.BootstrapEnd != 301000 || plan.HardEnd != 7201000 || plan.Content.BlobID != "game" || len(plan.CredentialHash) != 32 {
@@ -96,8 +96,8 @@ func TestPreviewCreatorRejectsPreparationBeforeTransaction(t *testing.T) {
 			creator, repository, provider, request := previewFixture(t)
 			test.configure(creator, repository, provider)
 			result, err := creator.Create(t.Context(), request)
-			if !errors.Is(err, test.cause) || result.PreviewID != "" || repository.transactions != 0 {
-				t.Fatalf("invalid preparation entered transaction: id=%q transactions=%d error=%v", result.PreviewID, repository.transactions, err)
+			if !errors.Is(err, test.cause) || result.PreviewID != "" || len(repository.writes) != 0 {
+				t.Fatalf("invalid preparation wrote: id=%q writes=%d error=%v", result.PreviewID, len(repository.writes), err)
 			}
 		})
 	}

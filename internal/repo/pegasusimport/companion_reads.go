@@ -12,7 +12,7 @@ func (records companionRecords) Candidates(
 	ctx context.Context,
 	item application.ExecutionItem,
 ) ([]application.CompanionCandidate, error) {
-	rows, err := records.tx.QueryContext(ctx, `
+	rows, err := records.executor.QueryContext(ctx, `
 SELECT candidate.id,file.ordinal,file.relative_path,file.size_bytes,file.source_facts_digest
 FROM pegasus_import_items candidate
 JOIN pegasus_import_collections collection ON collection.id=candidate.collection_id
@@ -46,7 +46,7 @@ func (records companionRecords) Dependencies(
 	ctx context.Context,
 	datVersionID, machine string,
 ) ([]string, error) {
-	rows, err := records.tx.QueryContext(
+	rows, err := records.executor.QueryContext(
 		ctx, `
 WITH RECURSIVE dependency(machine) AS (
  SELECT cloneof FROM dat_machines

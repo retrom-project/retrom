@@ -13,32 +13,24 @@ import (
 type netplayCreationMemory struct {
 	before, current    model.NetplayCreationSnapshot
 	cause, commitError error
-	inTransaction      bool
+	loadCount          int
 	writes             []model.NetplayCreationPlan
 }
 
-func (repository *netplayCreationMemory) Snapshot(
-	context.Context,
-	model.NetplayCreateRequest,
+func (repository *netplayCreationMemory) LoadNetplaySnapshot(
+	_ context.Context,
+	_ model.NetplayCreateRequest,
 ) (model.NetplayCreationSnapshot, error) {
-	if repository.inTransaction {
+	repository.loadCount++
+	if repository.loadCount > 1 {
 		return repository.current, repository.cause
 	}
 	return repository.before, repository.cause
 }
 
-func (repository *netplayCreationMemory) WithCreation(_ context.Context, work func(model.NetplayCreationScope) error) error {
-	repository.inTransaction = true
-	defer func() { repository.inTransaction = false }()
-	if err := work(repository); err != nil {
-		return err
-	}
-	return repository.commitError
-}
-
-func (repository *netplayCreationMemory) Create(_ context.Context, plan model.NetplayCreationPlan) error {
+func (repository *netplayCreationMemory) CommitNetplayCreation(_ context.Context, plan model.NetplayCreationPlan) error {
 	repository.writes = append(repository.writes, plan)
-	return nil
+	return repository.commitError
 }
 
 func netplayTestRequest() model.NetplayCreateRequest {

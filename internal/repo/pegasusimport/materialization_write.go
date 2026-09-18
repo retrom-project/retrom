@@ -19,7 +19,7 @@ func (records materialRecords) Bind(ctx context.Context, change application.Mate
 	if source.Key.Kind == "" {
 		mediaType = "application/octet-stream"
 	}
-	blobID, err := registerVerifiedMaterial(ctx, records.tx, change.Blob, mediaType, change.NowMS)
+	blobID, err := registerVerifiedMaterial(ctx, records.executor, change.Blob, mediaType, change.NowMS)
 	if err != nil {
 		return "", err
 	}
@@ -29,12 +29,12 @@ func (records materialRecords) Bind(ctx context.Context, change application.Mate
 		Scope:  materialScope(change.Before, change.NowMS),
 	}
 	if source.Key.Kind == "" {
-		result, err := recordstore.UpdatePegasusImportItemFiles(ctx, records.tx, update)
+		result, err := recordstore.UpdatePegasusImportItemFiles(ctx, records.executor, update)
 		if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 			return "", err
 		}
 	} else {
-		result, err := recordstore.UpdatePegasusImportItemAssets(ctx, records.tx, update)
+		result, err := recordstore.UpdatePegasusImportItemAssets(ctx, records.executor, update)
 		if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 			return "", err
 		}
@@ -75,7 +75,7 @@ func (records materialRecords) Warn(ctx context.Context, change application.Mate
 	if err != nil {
 		return fmt.Errorf("encode Pegasus asset warnings: %w", err)
 	}
-	result, err := recordstore.UpdatePegasusImportItemAssets(ctx, records.tx, recordstore.Update{
+	result, err := recordstore.UpdatePegasusImportItemAssets(ctx, records.executor, recordstore.Update{
 		Set: `state=?,warning_code=?,updated_at_ms=?`, Values: []any{
 			change.State,
 			change.Code,
@@ -88,7 +88,7 @@ func (records materialRecords) Warn(ctx context.Context, change application.Mate
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
 	}
-	result, err = recordstore.UpdatePegasusImportItems(ctx, records.tx, recordstore.Update{
+	result, err = recordstore.UpdatePegasusImportItems(ctx, records.executor, recordstore.Update{
 		Set: `warnings_json=?,version=version+1,updated_at_ms=?`, Values: []any{string(warnings), change.NowMS},
 		Scope: recordstore.Scope{
 			Where: `id=? AND import_id=? AND version=? AND execution_state=?` + itemExecutionFence,
@@ -105,7 +105,7 @@ func (records materialRecords) Phase(ctx context.Context, change application.Pha
 	args := make([]any, 0, 18)
 	args = append(args, before.ImportID, before.ImportVersion, before.ImportState, change.Before.Phase)
 	args = append(args, itemFenceArgs(owned, change.NowMS)[4:]...)
-	result, err := recordstore.UpdatePegasusImports(ctx, records.tx, recordstore.Update{
+	result, err := recordstore.UpdatePegasusImports(ctx, records.executor, recordstore.Update{
 		Set: `phase=?,version=version+1,updated_at_ms=?`, Values: []any{change.Phase, change.NowMS},
 		Scope: recordstore.Scope{
 			Where: `id=? AND version=? AND state=? AND COALESCE(phase,'')=? AND state='RUNNING'` + itemExecutionFence,

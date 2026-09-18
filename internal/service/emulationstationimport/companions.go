@@ -72,16 +72,11 @@ func (service *Companions) Find(
 	unit model.Execution,
 	itemID string,
 ) (model.CompanionSelection, error) {
-	var result model.CompanionSelection
-	err := service.repository.WithCompanions(ctx, func(scope model.CompanionScope) error {
-		var err error
-		result.Owner, result.Files, err = service.load(ctx, scope.Read, unit, itemID, service.now().UnixMilli())
-		return err
-	})
+	owner, files, err := service.load(ctx, unit, itemID, service.now().UnixMilli())
 	if err != nil {
 		return model.CompanionSelection{}, fmt.Errorf("find EmulationStation companions: %w", err)
 	}
-	return result, nil
+	return model.CompanionSelection{Owner: owner, Files: files}, nil
 }
 
 func (service *Companions) Record(
@@ -97,27 +92,22 @@ func (service *Companions) Record(
 	if blob.SHA256 == "" || blob.Size < 0 || blob.Size != file.Size {
 		return "", model.ErrInvalid
 	}
-	var id string
-	err := service.repository.WithCompanions(ctx, func(scope model.CompanionScope) error {
-		now := service.now().UnixMilli()
-		owner, candidates, err := service.load(ctx, scope.Read, unit, selected.Before.Item.ID, now)
-		if err != nil {
-			return err
-		}
-		if !sameCompanionOwner(owner, selected) || !slices.Contains(candidates, file) {
-			return model.ErrVersionConflict
-		}
-		id, err = scope.Write.Register(ctx, model.CompanionBinding{Before: owner, File: file, Blob: blob, NowMS: now})
-		if err != nil {
-			return fmt.Errorf("register EmulationStation companion: %w", err)
-		}
-		if id == "" {
-			return model.ErrInvalid
-		}
-		return nil
-	})
+	now := service.now().UnixMilli()
+	owner, candidates, err := service.load(ctx, unit, selected.Before.Item.ID, now)
 	if err != nil {
 		return "", fmt.Errorf("record EmulationStation companion: %w", err)
+	}
+	if !sameCompanionOwner(owner, selected) || !slices.Contains(candidates, file) {
+		return "", fmt.Errorf("record EmulationStation companion: %w", model.ErrVersionConflict)
+	}
+	id, err := service.repository.CommitCompanionBinding(
+		ctx, model.CompanionBinding{Before: owner, File: file, Blob: blob, NowMS: now},
+	)
+	if err != nil {
+		return "", fmt.Errorf("record EmulationStation companion: register: %w", err)
+	}
+	if id == "" {
+		return "", fmt.Errorf("record EmulationStation companion: %w", model.ErrInvalid)
 	}
 	return id, nil
 }

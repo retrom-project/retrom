@@ -17,26 +17,39 @@ type leaseFake struct {
 	failure   error
 }
 
-func (fake *leaseFake) WithLease(_ context.Context, run func(model.LeaseRecords) error) error {
-	return run(fake)
+func (fake *leaseFake) LoadLeaseCandidate(
+	_ context.Context, _ int64,
+) (model.LeaseCandidate, bool, error) {
+	if fake.failure != nil {
+		return model.LeaseCandidate{}, false, fake.failure
+	}
+	return fake.candidate, true, nil
 }
 
-func (fake *leaseFake) Next(context.Context, int64) (model.LeaseCandidate, bool, error) {
-	return fake.candidate, true, fake.failure
-}
-
-func (fake *leaseFake) Claim(_ context.Context, change model.LeaseClaim) error {
-	fake.claimed = &change
-	return fake.failure
-}
-
-func (fake *leaseFake) Current(context.Context, string) (model.ExecutionSnapshot, error) {
+func (fake *leaseFake) LoadCurrentLease(
+	_ context.Context, _ string,
+) (model.ExecutionSnapshot, error) {
 	return fake.current, fake.failure
 }
 
-func (fake *leaseFake) Renew(context.Context, model.LeaseRenewal) error {
+func (fake *leaseFake) CommitLeaseClaim(
+	_ context.Context, change model.LeaseClaim,
+) error {
+	if fake.failure != nil {
+		return fake.failure
+	}
+	fake.claimed = &change
+	return nil
+}
+
+func (fake *leaseFake) CommitLeaseRenewal(
+	_ context.Context, _ model.LeaseRenewal,
+) error {
+	if fake.failure != nil {
+		return fake.failure
+	}
 	fake.renewed = true
-	return fake.failure
+	return nil
 }
 
 func leaseCandidate() model.LeaseCandidate {
@@ -79,7 +92,9 @@ func TestLeaseRejectsInvalidQueueWithoutWriting(t *testing.T) {
 				start := int64(1)
 				fake.candidate.StartedAtMS = &start
 			}
-			_, found, err := NewLeases(fake, func() time.Time { return time.UnixMilli(10) }).Claim(t.Context())
+			_, found, err := NewLeases(
+				fake, func() time.Time { return time.UnixMilli(10) },
+			).Claim(t.Context())
 			if err == nil || found || fake.claimed != nil {
 				t.Fatalf("invalid queue claimed: %v %v", found, err)
 			}
@@ -89,16 +104,26 @@ func TestLeaseRejectsInvalidQueueWithoutWriting(t *testing.T) {
 
 func TestLeaseRenewalFencesOwnerAndDeadline(t *testing.T) {
 	t.Parallel()
-	identity := model.ExecutionIdentity{JobID: "job", ImportID: "import", WorkerID: "owner", ExecutionNo: 2, Attempt: 3}
-	for _, name := range []string{"valid", "canceling", "worker", "execution", "attempt", "lease", "deadline", "parent"} {
+	identity := model.ExecutionIdentity{
+		JobID: "job", ImportID: "import", WorkerID: "owner",
+		ExecutionNo: 2, Attempt: 3,
+	}
+	for _, name := range []string{
+		"valid", "canceling", "worker", "execution",
+		"attempt", "lease", "deadline", "parent",
+	} {
 		t.Run(name, func(t *testing.T) {
 			fake := &leaseFake{current: model.ExecutionSnapshot{
-				JobID: "job", ImportID: "import", WorkerID: "owner", Kind: "SERVER_PEGASUS_IMPORT",
-				JobState: "RUNNING", ImportState: "RUNNING", ExecutionNo: 2, Attempt: 3, JobVersion: 1, ImportVersion: 1, LeaseUntilMS: 50, DeadlineMS: 100,
+				JobID: "job", ImportID: "import", WorkerID: "owner",
+				Kind: "SERVER_PEGASUS_IMPORT", JobState: "RUNNING",
+				ImportState: "RUNNING", ExecutionNo: 2, Attempt: 3,
+				JobVersion: 1, ImportVersion: 1,
+				LeaseUntilMS: 50, DeadlineMS: 100,
 			}}
 			switch name {
 			case "canceling":
-				fake.current.JobState, fake.current.ImportState = "CANCEL_REQUESTED", "CANCEL_REQUESTED"
+				fake.current.JobState = "CANCEL_REQUESTED"
+				fake.current.ImportState = "CANCEL_REQUESTED"
 			case "worker":
 				fake.current.WorkerID = "new-owner"
 			case "execution":
@@ -112,7 +137,9 @@ func TestLeaseRenewalFencesOwnerAndDeadline(t *testing.T) {
 			case "parent":
 				fake.current.ImportState = "QUEUED"
 			}
-			err := NewLeases(fake, func() time.Time { return time.UnixMilli(10) }).Renew(t.Context(), identity)
+			err := NewLeases(
+				fake, func() time.Time { return time.UnixMilli(10) },
+			).Renew(t.Context(), identity)
 			valid := name == "valid" || name == "canceling"
 			if valid != (err == nil) || fake.renewed != valid {
 				t.Fatalf("renewed=%v err=%v", fake.renewed, err)

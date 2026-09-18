@@ -20,7 +20,7 @@ type netplayCreationRecords struct {
 	transaction *sql.Tx
 }
 
-func (repository *NetplayCreation) Snapshot(
+func (repository *NetplayCreation) LoadNetplaySnapshot(
 	ctx context.Context,
 	request application.NetplayCreateRequest,
 ) (application.NetplayCreationSnapshot, error) {
@@ -39,18 +39,17 @@ func (repository *NetplayCreation) Snapshot(
 	return snapshot, nil
 }
 
-func (repository *NetplayCreation) WithCreation(
+func (repository *NetplayCreation) CommitNetplayCreation(
 	ctx context.Context,
-	work func(application.NetplayCreationScope) error,
+	plan application.NetplayCreationPlan,
 ) error {
-	// The shared store serializes writers before this final participant lookup.
-	// Another adapter must preserve that atomic lookup/create/bind guarantee.
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin netplay creation: %w", err)
 	}
 	defer dbexec.Rollback(tx)
-	if err := work(netplayCreationRecords{executor: tx, transaction: tx}); err != nil {
+	records := netplayCreationRecords{executor: tx, transaction: tx}
+	if err := records.Create(ctx, plan); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

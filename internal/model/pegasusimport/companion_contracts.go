@@ -14,21 +14,9 @@ type CompanionRegistration struct {
 	NowMS     int64
 }
 
-type CompanionReader interface {
-	Owner(context.Context, string) (OwnedItem, error)
-	Dependencies(context.Context, string, string) ([]string, error)
-	Candidates(context.Context, ExecutionItem) ([]CompanionCandidate, error)
-}
-
-type CompanionWriter interface {
-	Register(context.Context, CompanionRegistration) (string, error)
-}
-
-type CompanionScope struct {
-	Read  CompanionReader
-	Write CompanionWriter
-}
-
 type CompanionRepository interface {
-	WithCompanions(context.Context, func(CompanionScope) error) error
+	LoadCompanionOwner(context.Context, string) (OwnedItem, error)
+	LoadDependencies(context.Context, string, string) ([]string, error)
+	LoadCandidates(context.Context, ExecutionItem) ([]CompanionCandidate, error)
+	CommitCompanionRegistration(context.Context, CompanionRegistration) (string, error)
 }

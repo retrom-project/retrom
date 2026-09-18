@@ -57,20 +57,19 @@ type PlayFinish struct {
 	Source PlaySource
 	NowMS  int64
 }
-type PlayReader interface {
-	Source(context.Context, string) (PlaySource, bool, error)
-	Current(context.Context, string) (PlayRecord, bool, error)
-	Event(context.Context, string, int64) (StoredPlayEvent, bool, error)
+type PlaySnapshotReader interface {
+	LoadPlaySource(context.Context, string) (PlaySource, bool, error)
+	LoadPlayRecord(context.Context, string) (PlayRecord, bool, error)
+	LoadPlayEvent(context.Context, string, int64) (StoredPlayEvent, bool, error)
 }
-type PlayWriter interface {
-	Start(context.Context, PlayStart) error
-	Progress(context.Context, PlayProgress) error
-	Finish(context.Context, PlayFinish) error
+
+type PlayCommitter interface {
+	CommitPlayStart(context.Context, PlayStart) error
+	CommitPlayProgress(context.Context, PlayProgress) error
+	CommitPlayFinish(context.Context, PlayFinish) error
 }
-type PlayScope struct {
-	Read  PlayReader
-	Write PlayWriter
-}
+
 type PlayRepository interface {
-	WithPlay(context.Context, func(PlayScope) error) error
+	PlaySnapshotReader
+	PlayCommitter
 }

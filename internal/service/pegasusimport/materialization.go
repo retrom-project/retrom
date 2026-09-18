@@ -17,28 +17,22 @@ func (service *Materialization) Copy(
 	if blob.Size < 0 || blob.Size != source.Size || blob.SHA256 == "" {
 		return "", model.ErrInvalid
 	}
-	var result string
-	err := service.repository.WithMaterialization(ctx, func(scope model.MaterialScope) error {
-		before, now, err := service.source(ctx, scope.Read, id, source)
-		if err != nil {
-			return err
+	before, now, err := service.source(ctx, id, source)
+	if err != nil {
+		return "", fmt.Errorf("bind Pegasus material: %w", err)
+	}
+	if before.State == "COPIED" {
+		if before.BlobID == "" || before.Blob != blob {
+			return "", fmt.Errorf("bind Pegasus material: %w", model.ErrVersionConflict)
 		}
-		if before.State == "COPIED" {
-			if before.BlobID == "" || before.Blob != blob {
-				return model.ErrVersionConflict
-			}
-			result = before.BlobID
-			return nil
-		}
-		if before.State != "DISCOVERED" {
-			return model.ErrVersionConflict
-		}
-		result, err = scope.Write.Bind(ctx, model.MaterialBinding{Before: before, Blob: blob, NowMS: now})
-		if err != nil {
-			return fmt.Errorf("write material binding: %w", err)
-		}
-		return nil
-	})
+		return before.BlobID, nil
+	}
+	if before.State != "DISCOVERED" {
+		return "", fmt.Errorf("bind Pegasus material: %w", model.ErrVersionConflict)
+	}
+	result, err := service.repository.CommitMaterialBinding(
+		ctx, model.MaterialBinding{Before: before, Blob: blob, NowMS: now},
+	)
 	if err != nil {
 		return "", fmt.Errorf("bind Pegasus material: %w", err)
 	}
@@ -47,11 +41,10 @@ func (service *Materialization) Copy(
 
 func (service *Materialization) source(
 	ctx context.Context,
-	reader model.MaterialReader,
 	id model.ExecutionIdentity,
 	source model.MaterialSource,
 ) (model.MaterialSnapshot, int64, error) {
-	before, err := reader.Source(ctx, source.Key)
+	before, err := service.repository.LoadMaterialSource(ctx, source.Key)
 	if err != nil {
 		return model.MaterialSnapshot{}, 0, fmt.Errorf("read Pegasus material: %w", err)
 	}
@@ -59,28 +52,29 @@ func (service *Materialization) source(
 	if err := ValidateExecution(before.Before.Execution, id, now); err != nil {
 		return model.MaterialSnapshot{}, 0, err
 	}
-	if before.Before.Execution.Kind != "SERVER_PEGASUS_IMPORT" || before.Before.Execution.JobState != "RUNNING" ||
-		before.Before.Item.State != "COPYING" || before.Before.Item.ID != source.Key.ItemID ||
+	if before.Before.Execution.Kind != "SERVER_PEGASUS_IMPORT" ||
+		before.Before.Execution.JobState != "RUNNING" ||
+		before.Before.Item.State != "COPYING" ||
+		before.Before.Item.ID != source.Key.ItemID ||
 		before.Before.Item.ImportID != id.ImportID ||
-		!validItemVersion(before.Before.Item.Version) || !sameMaterialSource(before.Source, source) {
+		!validItemVersion(before.Before.Item.Version) ||
+		!sameMaterialSource(before.Source, source) {
 		return model.MaterialSnapshot{}, 0, model.ErrVersionConflict
 	}
 	return before, now, nil
 }
 
 func sameMaterialSource(left, right model.MaterialSource) bool {
-	return left.Key == right.Key && left.Path == right.Path && left.Facts == right.Facts && left.Size == right.Size &&
-		left.MediaType == right.MediaType && equalDimension(
-		left.Width,
-		right.Width,
-	) && equalDimension(
-		left.Height,
-		right.Height,
-	)
+	return left.Key == right.Key && left.Path == right.Path &&
+		left.Facts == right.Facts && left.Size == right.Size &&
+		left.MediaType == right.MediaType &&
+		equalDimension(left.Width, right.Width) &&
+		equalDimension(left.Height, right.Height)
 }
 
 func equalDimension(left, right *int64) bool {
-	return left == nil && right == nil || left != nil && right != nil && *left == *right
+	return left == nil && right == nil ||
+		left != nil && right != nil && *left == *right
 }
 
 func (service *Materialization) Warning(
@@ -92,36 +86,34 @@ func (service *Materialization) Warning(
 	if !validMaterialWarning(source.Key.Kind, code) {
 		return model.ErrInvalid
 	}
-	err := service.repository.WithMaterialization(ctx, func(scope model.MaterialScope) error {
-		before, now, err := service.source(ctx, scope.Read, id, source)
-		if err != nil {
-			return err
+	before, now, err := service.source(ctx, id, source)
+	if err != nil {
+		return fmt.Errorf("record Pegasus media warning: %w", err)
+	}
+	state := "READ_FAILED"
+	if code == "PEGASUS_SOURCE_CHANGED" {
+		state = "SOURCE_CHANGED"
+	}
+	if before.State == state && before.WarningCode == code {
+		return nil
+	}
+	if before.State != "DISCOVERED" {
+		return fmt.Errorf("record Pegasus media warning: %w", model.ErrVersionConflict)
+	}
+	warnings := append([]map[string]any{}, before.Warnings...)
+	field := strings.ToLower(source.Key.Kind)
+	found := false
+	for _, warning := range warnings {
+		if warning["code"] == code && warning["field"] == field {
+			found = true
+			break
 		}
-		state := "READ_FAILED"
-		if code == "PEGASUS_SOURCE_CHANGED" {
-			state = "SOURCE_CHANGED"
-		}
-		if before.State == state && before.WarningCode == code {
-			return nil
-		}
-		if before.State != "DISCOVERED" {
-			return model.ErrVersionConflict
-		}
-		warnings := append([]map[string]any{}, before.Warnings...)
-		field := strings.ToLower(source.Key.Kind)
-		found := false
-		for _, warning := range warnings {
-			if warning["code"] == code && warning["field"] == field {
-				found = true
-				break
-			}
-		}
-		if !found {
-			warnings = append(warnings, map[string]any{"code": code, "field": field})
-		}
-		return scope.Write.Warn(ctx, model.MaterialWarning{
-			Before: before, State: state, Code: code, Warnings: warnings, NowMS: now,
-		})
+	}
+	if !found {
+		warnings = append(warnings, map[string]any{"code": code, "field": field})
+	}
+	err = service.repository.CommitMaterialWarning(ctx, model.MaterialWarning{
+		Before: before, State: state, Code: code, Warnings: warnings, NowMS: now,
 	})
 	if err != nil {
 		return fmt.Errorf("record Pegasus media warning: %w", err)
@@ -133,6 +125,8 @@ func validMaterialWarning(kind, code string) bool {
 	if kind != "COVER" && kind != "VIDEO" {
 		return false
 	}
-	return code == "PEGASUS_SOURCE_CHANGED" || code == "PEGASUS_MEDIA_READ_FAILED" ||
-		kind == "COVER" && code == "PEGASUS_IMAGE_INVALID" || kind == "VIDEO" && code == "PEGASUS_VIDEO_UNSUPPORTED"
+	return code == "PEGASUS_SOURCE_CHANGED" ||
+		code == "PEGASUS_MEDIA_READ_FAILED" ||
+		kind == "COVER" && code == "PEGASUS_IMAGE_INVALID" ||
+		kind == "VIDEO" && code == "PEGASUS_VIDEO_UNSUPPORTED"
 }

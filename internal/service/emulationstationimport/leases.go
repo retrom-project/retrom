@@ -12,36 +12,31 @@ import (
 )
 
 func (service *Leases) Claim(ctx context.Context) (model.Execution, bool, error) {
-	var unit model.Execution
-	found := false
-	err := service.repository.WithLease(ctx, func(scope model.LeaseScope) error {
-		now := service.now().UnixMilli()
-		before, exists, err := scope.Read.Next(ctx, now)
-		if err != nil {
-			return fmt.Errorf("read EmulationStation lease candidate: %w", err)
-		}
-		if !exists {
-			return nil
-		}
-		change, err := planLease(before, now)
-		if err != nil {
-			return err
-		}
-		id, err := uuid.NewV7()
-		if err != nil {
-			return fmt.Errorf("generate EmulationStation worker identity: %w", err)
-		}
-		change.Execution.WorkerID = id.String()
-		if err := scope.Write.Claim(ctx, change); err != nil {
-			return fmt.Errorf("persist EmulationStation claim: %w", err)
-		}
-		unit, found = change.Execution, true
-		return nil
-	})
+	now := service.now().UnixMilli()
+	before, exists, err := service.repository.LoadLeaseCandidate(ctx, now)
+	if err != nil {
+		return model.Execution{}, false, fmt.Errorf(
+			"claim EmulationStation execution: read EmulationStation lease candidate: %w", err,
+		)
+	}
+	if !exists {
+		return model.Execution{}, false, nil
+	}
+	change, err := planLease(before, now)
 	if err != nil {
 		return model.Execution{}, false, fmt.Errorf("claim EmulationStation execution: %w", err)
 	}
-	return unit, found, nil
+	id, err := uuid.NewV7()
+	if err != nil {
+		return model.Execution{}, false, fmt.Errorf(
+			"claim EmulationStation execution: generate EmulationStation worker identity: %w", err,
+		)
+	}
+	change.Execution.WorkerID = id.String()
+	if err := service.repository.CommitLeaseClaim(ctx, change); err != nil {
+		return model.Execution{}, false, fmt.Errorf("claim EmulationStation execution: %w", err)
+	}
+	return change.Execution, true, nil
 }
 
 func planLease(before model.LeaseSnapshot, now int64) (model.ClaimLease, error) {
@@ -88,28 +83,27 @@ func validLeaseCandidate(before model.LeaseSnapshot, now int64) bool {
 }
 
 func (service *Leases) Renew(ctx context.Context, unit model.Execution) (model.LeaseState, error) {
-	state := model.LeaseLost
-	err := service.repository.WithLease(ctx, func(scope model.LeaseScope) error {
-		before, found, err := scope.Read.Current(ctx, unit.JobID)
-		if err != nil {
-			return fmt.Errorf("read EmulationStation lease: %w", err)
-		}
-		if !found {
-			return nil
-		}
-		now := service.now().UnixMilli()
-		state = ExecutionState(before, unit, now)
-		if state != model.LeaseActive {
-			return nil
-		}
-		if now > math.MaxInt64-60000 {
-			return model.ErrInvalid
-		}
-		return scope.Write.Renew(
-			ctx,
-			model.RenewLease{Before: before, NowMS: now, UntilMS: min(now+60000, before.DeadlineAtMS)},
+	before, found, err := service.repository.LoadCurrentLease(ctx, unit.JobID)
+	if err != nil {
+		return model.LeaseLost, fmt.Errorf(
+			"renew EmulationStation execution: read EmulationStation lease: %w", err,
 		)
-	})
+	}
+	if !found {
+		return model.LeaseLost, nil
+	}
+	now := service.now().UnixMilli()
+	state := ExecutionState(before, unit, now)
+	if state != model.LeaseActive {
+		return state, nil
+	}
+	if now > math.MaxInt64-60000 {
+		return model.LeaseLost, model.ErrInvalid
+	}
+	err = service.repository.CommitLeaseRenewal(
+		ctx,
+		model.RenewLease{Before: before, NowMS: now, UntilMS: min(now+60000, before.DeadlineAtMS)},
+	)
 	if err != nil {
 		return model.LeaseLost, fmt.Errorf("renew EmulationStation execution: %w", err)
 	}

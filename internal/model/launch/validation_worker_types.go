@@ -58,31 +58,19 @@ type ValidationVariantWrite struct {
 }
 
 type ValidationWorkerRepository interface {
-	WithWorker(context.Context, func(ValidationWorkerScope) error) error
-	Facts(context.Context, ValidationInputs) (ValidationFacts, error)
-	Candidates(context.Context, int64) ([]string, error)
+	LoadValidationWork(context.Context, string) (ValidationWork, bool, error)
+	LoadValidationFacts(context.Context, ValidationInputs) (ValidationFacts, error)
+	LoadValidationCandidates(context.Context, int64) ([]string, error)
+	CommitValidationClaim(context.Context, ValidationClaimWrite) error
+	CommitValidationRenewal(context.Context, ValidationClaim, int64, int64) error
+	CommitValidationFinish(context.Context, ValidationTerminal) error
+	CommitValidationRecovery(context.Context, ValidationRecovery) error
+	CommitValidationSettlement(context.Context, ValidationSettlement) error
 }
 
-type ValidationWorkerScope struct {
-	Jobs     ValidationWorkerJobs
-	Facts    ValidationWorkerFacts
-	Variants ValidationWorkerVariants
-}
-
-type ValidationWorkerJobs interface {
-	Read(context.Context, string) (ValidationWork, bool, error)
-	Claim(context.Context, ValidationClaimWrite) error
-	Renew(context.Context, ValidationClaim, int64, int64) error
-	Finish(context.Context, ValidationTerminal) error
-	Recover(context.Context, ValidationRecovery) error
-}
-
-type ValidationWorkerFacts interface {
-	Facts(context.Context, ValidationInputs) (ValidationFacts, error)
-}
-
-type ValidationWorkerVariants interface {
-	Apply(context.Context, ValidationVariantWrite) error
+type ValidationSettlement struct {
+	Variant ValidationVariantWrite
+	Finish  ValidationTerminal
 }
 
 type ValidationTicker interface {

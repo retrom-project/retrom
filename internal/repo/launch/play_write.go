@@ -13,7 +13,7 @@ func (records playRecords) Start(ctx context.Context, plan application.PlayStart
 	if err := records.advanceLaunch(ctx, plan.Source, plan.NowMS, plan.IdleExpiresAtMS, false); err != nil {
 		return err
 	}
-	if err := requirePlayChange(records.transaction.ExecContext(ctx, `
+	if err := requirePlayChange(records.executor.ExecContext(ctx, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,started_at_ms,last_heartbeat_at_ms,
 active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)`, plan.PlayID, plan.Source.Ref.ID, plan.Source.ProfileID, plan.Source.GameID,
@@ -30,7 +30,7 @@ func (records playRecords) Progress(ctx context.Context, plan application.PlayPr
 		state, kind, endedAt = "FINISHED", "FINISH", &plan.NowMS
 	}
 	if err := requirePlayChange(
-		records.transaction.ExecContext(ctx, `
+		records.executor.ExecContext(ctx, `
 UPDATE play_sessions SET last_heartbeat_at_ms=?,ended_at_ms=?,active_duration_ms=active_duration_ms+?,
 last_client_sequence=?,state=?,version=version+1,updated_at_ms=?
 WHERE id=? AND launch_session_id=? AND version=? AND last_client_sequence=? AND state='ACTIVE'
@@ -62,7 +62,7 @@ func (records playRecords) insertEvent(
 	if event.PreviousInterval != nil {
 		interval = *event.PreviousInterval
 	}
-	return requirePlayChange(records.transaction.ExecContext(ctx, `
+	return requirePlayChange(records.executor.ExecContext(ctx, `
 INSERT INTO play_session_events(play_session_id,client_sequence,event_kind,client_observed_at_ms,
 server_received_at_ms,running,visible,paused,accepted_duration_ms,created_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,?)`, id, event.ClientSequence, kind, event.ClientObservedAtMS, now,
@@ -89,7 +89,7 @@ func (records playRecords) advanceLaunch(
 		change.Set = `state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1`
 		change.Values = []any{now, now}
 	}
-	if err := requirePlayChange(sessionstore.ChangeLaunch(ctx, records.transaction, change)); err != nil {
+	if err := requirePlayChange(sessionstore.ChangeLaunch(ctx, records.executor, change)); err != nil {
 		return fmt.Errorf("advance launch for play: %w", err)
 	}
 	return nil
@@ -104,7 +104,7 @@ func (records playRecords) Finish(ctx context.Context, plan application.PlayFini
 		},
 	}
 	if plan.Source.Ref.Preview {
-		return requirePlayChange(sessionstore.ChangePreview(ctx, records.transaction, change))
+		return requirePlayChange(sessionstore.ChangePreview(ctx, records.executor, change))
 	}
-	return requirePlayChange(sessionstore.ChangeLaunch(ctx, records.transaction, change))
+	return requirePlayChange(sessionstore.ChangeLaunch(ctx, records.executor, change))
 }
