@@ -12,19 +12,6 @@ import (
 	accountsservice "retrom/internal/service/accounts"
 )
 
-type failingIssueRepository struct {
-	repository accountsmodel.LinkIssueRepository
-}
-
-func (repository failingIssueRepository) WithIssueWrite(ctx context.Context, work func(accountsmodel.LinkIssueScope) error) error {
-	return repository.repository.WithIssueWrite(ctx, func(scope accountsmodel.LinkIssueScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		return context.Canceled
-	})
-}
-
 func TestPasswordResetIssuanceLateFailureKeepsOldLinkAndVersion(t *testing.T) {
 	fixture := newAccountFixture(t, config.ModeTest)
 	admin := authenticatedTestAdmin(t, fixture)
@@ -33,8 +20,18 @@ func TestPasswordResetIssuanceLateFailureKeepsOldLinkAndVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := accountsservice.NewLinkIssuance(failingIssueRepository{accountpersistence.NewLinks(fixture.database.SQL)}, fixture.credentials, func() time.Time { return *fixture.now })
-	result, _, err := service.PasswordReset(t.Context(), accountsmodel.LinkCreator{UserID: admin.User.UserID, Username: admin.User.Username}, target.User.UserID, 2, "new-reset")
+	repo := accountpersistence.NewLinks(fixture.database.SQL)
+	repo.WithPreCommitHook(func() error { return context.Canceled })
+	service := accountsservice.NewLinkIssuance(
+		repo,
+		fixture.credentials,
+		func() time.Time { return *fixture.now },
+	)
+	result, _, err := service.PasswordReset(
+		t.Context(),
+		accountsmodel.LinkCreator{UserID: admin.User.UserID, Username: admin.User.Username},
+		target.User.UserID, 2, "new-reset",
+	)
 	if !errors.Is(err, context.Canceled) || result.CapabilityToken != "" {
 		t.Fatalf("late issuance: %+v %v", result, err)
 	}
@@ -49,7 +46,12 @@ func TestPasswordResetIssuanceLateFailureKeepsOldLinkAndVersion(t *testing.T) {
 		t.Fatalf("failed issuance advanced user version: %d", user.Version)
 	}
 	var links, replays, audits int
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM account_links WHERE target_user_id=?),(SELECT count(*) FROM idempotency_records WHERE key='new-reset'),(SELECT count(*) FROM audit_events WHERE action='PASSWORD_RESET_CREATED')`, target.User.UserID).Scan(&links, &replays, &audits); err != nil {
+	if err := fixture.database.SQL.QueryRowContext(t.Context(),
+		`SELECT (SELECT count(*) FROM account_links WHERE target_user_id=?),
+(SELECT count(*) FROM idempotency_records WHERE key='new-reset'),
+(SELECT count(*) FROM audit_events WHERE action='PASSWORD_RESET_CREATED')`,
+		target.User.UserID,
+	).Scan(&links, &replays, &audits); err != nil {
 		t.Fatal(err)
 	}
 	if links != 1 || replays != 0 || audits != 1 {

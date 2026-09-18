@@ -15,25 +15,10 @@ import (
 	accountsservice "retrom/internal/service/accounts"
 )
 
-type failingConsumptionRepository struct {
-	repository accountsmodel.LinkConsumptionRepository
-}
-
-func (repository failingConsumptionRepository) ResetState(ctx context.Context, id string) (accountsmodel.ResetState, bool, error) {
-	return repository.repository.ResetState(ctx, id)
-}
-
-func (repository failingConsumptionRepository) WithConsumptionWrite(ctx context.Context, work func(accountsmodel.LinkConsumptionScope) error) error {
-	return repository.repository.WithConsumptionWrite(ctx, func(scope accountsmodel.LinkConsumptionScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		return context.Canceled
-	})
-}
-
 func failingConsumptionService(fixture accountFixture) *accountsservice.LinkConsumptionService {
-	return accountsservice.NewLinkConsumption(failingConsumptionRepository{accountpersistence.NewLinks(fixture.database.SQL)}, accountsmodel.LinkConsumptionOptions{
+	repo := accountpersistence.NewLinks(fixture.database.SQL)
+	repo.WithPreCommitHook(func() error { return context.Canceled })
+	return accountsservice.NewLinkConsumption(repo, accountsmodel.LinkConsumptionOptions{
 		Tokens: fixture.credentials, Hasher: authn.NewPasswordHasher(), Blocklist: authn.EmptyBlocklist{}, Mint: func() (accountsmodel.SessionMaterial, error) { return accountsservice.MintSession(rand.Reader) }, Now: func() time.Time { return *fixture.now },
 	})
 }

@@ -21,57 +21,51 @@ func (service *LinkConsumptionService) CompleteReset(
 	if err != nil {
 		return model.PasswordResetResult{}, err
 	}
-	var result model.PasswordResetResult
-	err = service.repository.WithConsumptionWrite(ctx, func(scope model.LinkConsumptionScope) error {
-		now := service.options.Now().UnixMilli()
-		current, err := recheckReset(ctx, scope.Read, prepared.state, now)
-		if err != nil {
-			return err
-		}
-		plan := model.ResetConsumption{
-			LinkID:           current.Link.Link.AccountLinkID,
-			LinkVersion:      current.Link.Link.Version,
-			Target:           current.Target,
-			PasswordHash:     prepared.passwordHash,
-			ClearTestDefault: current.Target.User.Username == "test",
-			Now:              now,
-		}
-		result = model.PasswordResetResult{Status: "PASSWORD_CHANGED_ACCOUNT_DISABLED"}
-		if current.Target.Status == "ENABLED" {
-			record := prepared.session.Record(current.Target.User.UserID, current.Target.SessionVersion+1, now)
-			plan.Session = &record
-			session := prepared.session.View(
-				current.Target.User,
-				current.Target.ProfileID,
-				current.Target.SessionVersion+1,
-				now,
-			)
-			result = model.PasswordResetResult{Session: &session, Status: "AUTHENTICATED"}
-		}
-		if err := scope.Write.Reset(ctx, plan); err != nil {
-			return fmt.Errorf("consume password reset: %w", err)
-		}
-		audit, err := newAccountAudit(
-			current.Target.User.UserID,
-			"PASSWORD_RESET_COMPLETED",
-			"USER",
-			current.Target.User.UserID,
-			nil,
-			map[string]any{
-				"status": current.Target.Status,
-			},
+	now := service.options.Now().UnixMilli()
+	state := prepared.state
+	plan := model.ResetConsumption{
+		LinkID:           state.Link.Link.AccountLinkID,
+		LinkVersion:      state.Link.Link.Version,
+		Target:           state.Target,
+		PasswordHash:     prepared.passwordHash,
+		ClearTestDefault: state.Target.User.Username == "test",
+		Now:              now,
+	}
+	result := model.PasswordResetResult{Status: "PASSWORD_CHANGED_ACCOUNT_DISABLED"}
+	if state.Target.Status == "ENABLED" {
+		record := prepared.session.Record(
+			state.Target.User.UserID,
+			state.Target.SessionVersion+1,
 			now,
 		)
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Audit(ctx, audit); err != nil {
-			return fmt.Errorf("audit password reset: %w", err)
-		}
-		return nil
-	})
+		plan.Session = &record
+		session := prepared.session.View(
+			state.Target.User,
+			state.Target.ProfileID,
+			state.Target.SessionVersion+1,
+			now,
+		)
+		result = model.PasswordResetResult{Session: &session, Status: "AUTHENTICATED"}
+	}
+	audit, err := newAccountAudit(
+		state.Target.User.UserID,
+		"PASSWORD_RESET_COMPLETED",
+		"USER",
+		state.Target.User.UserID,
+		nil,
+		map[string]any{
+			"status": state.Target.Status,
+		},
+		now,
+	)
 	if err != nil {
-		return model.PasswordResetResult{}, fmt.Errorf("commit password reset consumption: %w", err)
+		return model.PasswordResetResult{}, err
+	}
+	if err := service.repository.CommitPasswordReset(
+		ctx, model.PasswordResetCommand{Plan: plan, Audit: audit},
+	); err != nil {
+		return model.PasswordResetResult{},
+			fmt.Errorf("commit password reset consumption: %w", err)
 	}
 	return result, nil
 }
@@ -88,7 +82,7 @@ func (service *LinkConsumptionService) prepareReset(
 	if err != nil {
 		return preparedReset{}, fmt.Errorf("read password reset capability: %w", err)
 	}
-	if !activeLink(
+	if !model.ActiveLink(
 		state.Link,
 		found,
 		"PASSWORD_RESET",
@@ -115,30 +109,4 @@ func (service *LinkConsumptionService) prepareReset(
 		prepared.session = session
 	}
 	return prepared, nil
-}
-
-func recheckReset(
-	ctx context.Context,
-	reader model.LinkConsumptionReader,
-	before model.ResetState,
-	now int64,
-) (model.ResetState, error) {
-	link, found, err := reader.Current(ctx, before.Link.Link.AccountLinkID)
-	if err != nil {
-		return model.ResetState{}, fmt.Errorf("recheck password reset link: %w", err)
-	}
-	if !activeLink(link, found, "PASSWORD_RESET", now) || link.Link.Version != before.Link.Link.Version {
-		return model.ResetState{}, model.ErrAccountLinkUnavailable
-	}
-	if link.Link.TargetUserID == nil || *link.Link.TargetUserID != before.Target.User.UserID {
-		return model.ResetState{}, model.ErrAccountLinkUnavailable
-	}
-	target, found, err := reader.Target(ctx, before.Target.User.UserID)
-	if err != nil {
-		return model.ResetState{}, fmt.Errorf("recheck password reset target: %w", err)
-	}
-	if !found || target.Status == "DELETED" || target != before.Target {
-		return model.ResetState{}, model.ErrAccountLinkUnavailable
-	}
-	return model.ResetState{Link: link, Target: target}, nil
 }

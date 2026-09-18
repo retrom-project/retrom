@@ -37,23 +37,19 @@ type ResetConsumption struct {
 	ClearTestDefault bool
 	Now              int64
 }
-type LinkConsumptionReader interface {
-	Current(context.Context, string) (LinkRecord, bool, error)
-	Target(context.Context, string) (LinkTarget, bool, error)
-	UsernameExists(context.Context, string) (bool, error)
+type InvitationAcceptCommand struct {
+	Plan  InvitationAcceptance
+	Audit AccountAudit
 }
-type LinkConsumptionWriter interface {
-	Accept(context.Context, InvitationAcceptance) error
-	Reset(context.Context, ResetConsumption) error
-	Audit(context.Context, AccountAudit) error
-}
-type LinkConsumptionScope struct {
-	Read  LinkConsumptionReader
-	Write LinkConsumptionWriter
+type PasswordResetCommand struct {
+	Plan  ResetConsumption
+	Audit AccountAudit
 }
 type LinkConsumptionRepository interface {
 	ResetState(context.Context, string) (ResetState, bool, error)
-	WithConsumptionWrite(context.Context, func(LinkConsumptionScope) error) error
+	LoadInvitationLink(ctx context.Context, id string) (LinkRecord, bool, error)
+	CommitInvitationAcceptance(ctx context.Context, cmd InvitationAcceptCommand) error
+	CommitPasswordReset(ctx context.Context, cmd PasswordResetCommand) error
 }
 type LinkConsumptionOptions struct {
 	Tokens    LinkTokenReader

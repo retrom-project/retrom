@@ -82,6 +82,20 @@ func ValidateManagedUser(user ManagedUser, found bool, version int64) error {
 	return nil
 }
 
+// ValidateLinkTarget checks that a link target user can receive a link.
+func ValidateLinkTarget(target LinkTarget, found bool, version int64) error {
+	if !found {
+		return ErrUserNotFound
+	}
+	if target.Status == "DELETED" {
+		return ErrUserDeleted
+	}
+	if target.Version != version {
+		return ErrUserVersion
+	}
+	return nil
+}
+
 // ValidateUserDeletion checks that a user deletion request is valid.
 func ValidateUserDeletion(before AdminUser, actorID, confirmation string) error {
 	if before.UserID == actorID {

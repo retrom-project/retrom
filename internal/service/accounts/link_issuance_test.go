@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -13,39 +14,39 @@ import (
 )
 
 type issueMemory struct {
-	target               model.LinkTarget
-	replay               model.AccountReplay
-	plan                 model.LinkIssuePlan
-	receipt              model.AccountReceipt
-	writes, transactions int
-	lateError            error
+	target    model.LinkTarget
+	replay    model.AccountReplay
+	cmd       model.LinkIssueCommand
+	writes    int
+	commitErr error
 }
 
-func (memory *issueMemory) WithIssueWrite(_ context.Context, work func(model.LinkIssueScope) error) error {
-	memory.transactions++
-	if err := work(model.LinkIssueScope{Read: memory, Write: memory}); err != nil {
-		return err
+func (memory *issueMemory) CommitIssue(
+	_ context.Context, cmd model.LinkIssueCommand,
+) (model.LinkIssueResult, error) {
+	memory.cmd = cmd
+	if err := model.CheckAccountReplay(memory.replay, cmd.Operation); err != nil {
+		return model.LinkIssueResult{}, err
 	}
-	return memory.lateError
-}
-
-func (memory *issueMemory) Target(context.Context, string) (model.LinkTarget, bool, error) {
-	return memory.target, true, nil
-}
-
-func (memory *issueMemory) Replay(context.Context, model.AccountOperation) (model.AccountReplay, error) {
-	return memory.replay, nil
-}
-
-func (memory *issueMemory) Issue(_ context.Context, plan model.LinkIssuePlan) error {
-	memory.plan = plan
+	if memory.replay.Found {
+		var link model.AccountLink
+		if err := json.Unmarshal(memory.replay.Body, &link); err != nil {
+			return model.LinkIssueResult{}, err
+		}
+		return model.LinkIssueResult{Link: link, Replayed: true}, nil
+	}
+	if cmd.Plan.Target != nil {
+		if err := model.ValidateLinkTarget(
+			memory.target, true, cmd.Plan.Target.Version,
+		); err != nil {
+			return model.LinkIssueResult{}, err
+		}
+	}
+	if memory.commitErr != nil {
+		return model.LinkIssueResult{}, memory.commitErr
+	}
 	memory.writes++
-	return nil
-}
-func (memory *issueMemory) Audit(context.Context, model.AccountAudit) error { return nil }
-func (memory *issueMemory) Remember(_ context.Context, receipt model.AccountReceipt) error {
-	memory.receipt = receipt
-	return nil
+	return model.LinkIssueResult{Link: cmd.Plan.Link, Replayed: false}, nil
 }
 
 type issueTokens struct{ calls int }
@@ -56,15 +57,21 @@ func (tokens *issueTokens) AccountLinkToken(kind string, id uuid.UUID) string {
 }
 
 func issuanceFixture() (*LinkIssuanceService, *issueMemory, *issueTokens) {
-	memory := &issueMemory{target: model.LinkTarget{User: model.User{UserID: "target"}, Status: "ENABLED", Version: 4}}
+	memory := &issueMemory{target: model.LinkTarget{
+		User: model.User{UserID: "target"}, Status: "ENABLED", Version: 4,
+	}}
 	tokens := &issueTokens{}
-	return NewLinkIssuance(memory, tokens, func() time.Time { return time.UnixMilli(100) }), memory, tokens
+	return NewLinkIssuance(
+		memory, tokens, func() time.Time { return time.UnixMilli(100) },
+	), memory, tokens
 }
 
 func TestInvitationIssuanceRequiresExplicitAdminConfirmation(t *testing.T) {
 	service, memory, _ := issuanceFixture()
-	_, _, err := service.Invitation(t.Context(), model.LinkCreator{UserID: "actor"}, "ADMIN", false, "key")
-	if !errors.Is(err, model.ErrRoleConfirmation) || memory.transactions != 0 {
+	_, _, err := service.Invitation(
+		t.Context(), model.LinkCreator{UserID: "actor"}, "ADMIN", false, "key",
+	)
+	if !errors.Is(err, model.ErrRoleConfirmation) || memory.writes != 0 {
 		t.Fatalf("unconfirmed invitation: %v", err)
 	}
 }
@@ -76,39 +83,52 @@ func TestInvitationIssuanceReplayIsSecretlessAndStable(t *testing.T) {
 	if err != nil || replayed {
 		t.Fatalf("invitation: %v replay=%v", err, replayed)
 	}
-	if strings.Contains(string(memory.receipt.Body), "secret-") {
+	receiptBody := memory.cmd.Receipt.Body
+	if strings.Contains(string(receiptBody), "secret-") {
 		t.Fatal("capability persisted in replay")
 	}
-	memory.replay = model.AccountReplay{Found: true, Digest: memory.receipt.Operation.Digest, Body: memory.receipt.Body}
+	memory.replay = model.AccountReplay{
+		Found: true, Digest: memory.cmd.Receipt.Operation.Digest,
+		Body: receiptBody,
+	}
 	second, replayed, err := service.Invitation(t.Context(), actor, "USER", false, "key")
 	if err != nil || !replayed || second.CapabilityToken != first.CapabilityToken {
 		t.Fatalf("invitation replay: %v replay=%v", err, replayed)
 	}
-	if memory.writes != 1 || tokens.calls != 2 || first.ExpiresAtMS != 100+int64(time.Hour/time.Millisecond) {
+	if memory.writes != 1 || tokens.calls != 2 ||
+		first.ExpiresAtMS != 100+int64(time.Hour/time.Millisecond) {
 		t.Fatal("replay repeated write or changed expiry")
 	}
 }
 
 func TestPasswordResetIssuanceChecksVersionBeforeRevokingOldLinks(t *testing.T) {
 	service, memory, _ := issuanceFixture()
-	_, _, err := service.PasswordReset(t.Context(), model.LinkCreator{UserID: "actor"}, "target", 3, "key")
+	_, _, err := service.PasswordReset(
+		t.Context(), model.LinkCreator{UserID: "actor"}, "target", 3, "key",
+	)
 	if !errors.Is(err, model.ErrUserVersion) || memory.writes != 0 {
 		t.Fatalf("stale reset issuance: %v", err)
 	}
-	link, _, err := service.PasswordReset(t.Context(), model.LinkCreator{UserID: "actor"}, "target", 4, "key")
+	link, _, err := service.PasswordReset(
+		t.Context(), model.LinkCreator{UserID: "actor"}, "target", 4, "key",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !memory.plan.RevokePrevious || link.TargetVersion != 5 || memory.plan.Target.Version != 4 {
-		t.Fatalf("reset issuance plan: %+v", memory.plan)
+	if !memory.cmd.Plan.RevokePrevious || link.TargetVersion != 5 ||
+		memory.cmd.Plan.Target.Version != 4 {
+		t.Fatalf("reset issuance plan: %+v", memory.cmd.Plan)
 	}
 }
 
 func TestLinkIssuanceLateFailureDoesNotExposeCapability(t *testing.T) {
 	service, memory, tokens := issuanceFixture()
-	memory.lateError = context.Canceled
-	link, replayed, err := service.Invitation(t.Context(), model.LinkCreator{UserID: "actor"}, "USER", false, "key")
-	if !errors.Is(err, context.Canceled) || link.AccountLinkID != "" || replayed || tokens.calls != 0 {
+	memory.commitErr = context.Canceled
+	link, replayed, err := service.Invitation(
+		t.Context(), model.LinkCreator{UserID: "actor"}, "USER", false, "key",
+	)
+	if !errors.Is(err, context.Canceled) || link.AccountLinkID != "" || replayed ||
+		tokens.calls != 0 {
 		t.Fatalf("failed issuance exposed capability: %+v %v", link, err)
 	}
 }
