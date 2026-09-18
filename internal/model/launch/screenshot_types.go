@@ -39,14 +39,10 @@ type ScreenshotImages interface {
 	Read(context.Context, io.Reader) (ScreenshotImage, error)
 }
 
-type ScreenshotScope interface {
-	Current(context.Context, string) (ScreenshotSource, bool, error)
-	Replace(context.Context, ScreenshotWrite) error
-}
-
 type ScreenshotRepository interface {
 	Preview(context.Context, string) (ScreenshotSource, bool, error)
-	WithScreenshot(context.Context, func(ScreenshotScope) error) error
+	LoadScreenshotSource(context.Context, string) (ScreenshotSource, bool, error)
+	CommitScreenshot(context.Context, ScreenshotWrite) error
 }
 
 type ScreenshotEnvironment struct {

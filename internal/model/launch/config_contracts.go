@@ -54,16 +54,12 @@ type ConfigActivationPlan struct {
 	Version, NowMS int64
 }
 
-type ConfigActivation interface {
-	Current(context.Context, SessionRef) (ConfigAuthority, bool, error)
-	Activate(context.Context, ConfigActivationPlan) error
-}
-
 type ConfigAuthorization func(ConfigSource) error
 
 type ConfigRepository interface {
 	Load(context.Context, SessionRef, ConfigAuthorization) (ConfigSnapshot, bool, error)
-	WithActivation(context.Context, func(ConfigActivation) error) error
+	LoadAuthority(context.Context, SessionRef) (ConfigAuthority, bool, error)
+	CommitActivation(context.Context, ConfigActivationPlan) error
 }
 
 type ConfigBuilder interface {

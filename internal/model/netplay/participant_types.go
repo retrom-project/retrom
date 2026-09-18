@@ -64,22 +64,9 @@ type PreparationPlan struct {
 	Now            int64
 }
 
-type PreparationReader interface {
-	Snapshot(context.Context, string, string, string) (PreparationSnapshot, error)
-}
-
-type PreparationWriter interface {
-	Record(context.Context, PreparationPlan) error
-}
-
-type PreparationScope struct {
-	Read  PreparationReader
-	Write PreparationWriter
-}
-
 type PreparationRepository interface {
 	Snapshot(context.Context, string, string, string) (PreparationSnapshot, error)
-	WithPreparation(context.Context, func(PreparationScope) error) error
+	CommitPreparation(context.Context, PreparationPlan) error
 }
 
 type NetplayLauncher interface {

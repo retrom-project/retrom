@@ -28,23 +28,6 @@ func (builder configBuildHook) Build(input runtimelaunch.Input) ([]byte, error) 
 	return contents, err
 }
 
-type configRollbackRepository struct {
-	launchmodel.ConfigRepository
-	cause error
-}
-
-func (repository configRollbackRepository) WithActivation(
-	ctx context.Context,
-	work func(launchmodel.ConfigActivation) error,
-) error {
-	return repository.ConfigRepository.WithActivation(ctx, func(transaction launchmodel.ConfigActivation) error {
-		if err := work(transaction); err != nil {
-			return err
-		}
-		return repository.cause
-	})
-}
-
 func fixtureConfigIssuer(
 	fixture reviewCheckpointFixture,
 	repository launchmodel.ConfigRepository,
@@ -137,8 +120,9 @@ func TestConfigActivationFailureRollsBackAllOwners(t *testing.T) {
 			fixture, created := newPlaySourceFixture(t, preview, false)
 			before := playRows(t, fixture.database)
 			cause := errors.New("config commit unavailable")
-			repository := configRollbackRepository{ConfigRepository: persistence.NewConfig(fixture.database), cause: cause}
-			issuer := fixtureConfigIssuer(fixture, repository, fixture.launcher.runtimeBuilder)
+			repo := persistence.NewConfig(fixture.database)
+			repo.WithPreCommitHook(func() error { return cause })
+			issuer := fixtureConfigIssuer(fixture, repo, fixture.launcher.runtimeBuilder)
 			configuration, err := issuer.Issue(
 				t.Context(),
 				launchmodel.SessionRef{ID: created.LaunchID, Preview: preview},

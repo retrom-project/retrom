@@ -28,26 +28,22 @@ func (memory *screenshotMemory) Preview(context.Context, string) (model.Screensh
 	return memory.initial, !memory.missingInitial, nil
 }
 
-func (memory *screenshotMemory) WithScreenshot(_ context.Context, work func(model.ScreenshotScope) error) error {
+func (memory *screenshotMemory) LoadScreenshotSource(_ context.Context, _ string) (model.ScreenshotSource, bool, error) {
 	memory.transactions++
-	if err := work(memory); err != nil {
-		return err
+	return memory.current, !memory.missingCurrent, memory.currentError
+}
+
+func (memory *screenshotMemory) CommitScreenshot(_ context.Context, write model.ScreenshotWrite) error {
+	memory.writes++
+	memory.pending = write
+	if memory.replaceError != nil {
+		return memory.replaceError
 	}
 	if memory.commitError != nil {
 		return memory.commitError
 	}
 	memory.committed = true
 	return nil
-}
-
-func (memory *screenshotMemory) Current(context.Context, string) (model.ScreenshotSource, bool, error) {
-	return memory.current, !memory.missingCurrent, memory.currentError
-}
-
-func (memory *screenshotMemory) Replace(_ context.Context, write model.ScreenshotWrite) error {
-	memory.writes++
-	memory.pending = write
-	return memory.replaceError
 }
 
 func (memory *screenshotMemory) Read(context.Context, io.Reader) (model.ScreenshotImage, error) {

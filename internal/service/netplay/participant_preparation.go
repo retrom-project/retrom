@@ -99,38 +99,32 @@ func (service *ParticipantPreparation) record(
 	generation int64,
 ) error {
 	now := service.now().UnixMilli()
-	err := service.repository.WithPreparation(ctx, func(scope model.PreparationScope) error {
-		before, err := scope.Read.Snapshot(ctx, request.RoomID, request.SessionID, request.ProfileID)
-		if err != nil {
-			return fmt.Errorf("netplay/read prepared participant: %w", err)
-		}
-		if before.Peer.CredentialGeneration != generation || before.Peer.State == "LOCKED" ||
-			before.Peer.State == "LEFT" {
-			return model.ErrRoomConflict
-		}
-		events := make([]model.SessionEvent, 0, 2)
-		if !before.LaunchRecorded {
-			event := stateEvent("PARTICIPANT_STATE_CHANGED", "LOCKED", "LAUNCH_READY", "")
-			event.ActorID = &request.ProfileID
-			event.PlayerNo = &before.Peer.PlayerNo
-			events = append(events, event)
-		}
-		advance := before.Locked == 0 && before.Control.State == "PREPARING"
-		if advance {
-			events = append(events, stateEvent("SESSION_STATE_CHANGED", "PREPARING", "LOADING", ""))
-		}
-		if len(events) == 0 {
-			return nil
-		}
-		if err := scope.Write.Record(
-			ctx,
-			model.PreparationPlan{Before: before, Events: events, AdvanceLoading: advance, Now: now},
-		); err != nil {
-			return fmt.Errorf("netplay/record prepared participant: %w", err)
-		}
-		return nil
-	})
+	before, err := service.repository.Snapshot(ctx, request.RoomID, request.SessionID, request.ProfileID)
 	if err != nil {
+		return fmt.Errorf("netplay/commit prepared participant: %w", err)
+	}
+	if before.Peer.CredentialGeneration != generation || before.Peer.State == "LOCKED" ||
+		before.Peer.State == "LEFT" {
+		return model.ErrRoomConflict
+	}
+	events := make([]model.SessionEvent, 0, 2)
+	if !before.LaunchRecorded {
+		event := stateEvent("PARTICIPANT_STATE_CHANGED", "LOCKED", "LAUNCH_READY", "")
+		event.ActorID = &request.ProfileID
+		event.PlayerNo = &before.Peer.PlayerNo
+		events = append(events, event)
+	}
+	advance := before.Locked == 0 && before.Control.State == "PREPARING"
+	if advance {
+		events = append(events, stateEvent("SESSION_STATE_CHANGED", "PREPARING", "LOADING", ""))
+	}
+	if len(events) == 0 {
+		return nil
+	}
+	if err := service.repository.CommitPreparation(
+		ctx,
+		model.PreparationPlan{Before: before, Events: events, AdvanceLoading: advance, Now: now},
+	); err != nil {
 		return fmt.Errorf("netplay/commit prepared participant: %w", err)
 	}
 	return nil
@@ -147,20 +141,24 @@ func (service *ParticipantPreparation) Fail(ctx context.Context, roomID, session
 
 func (service *RoomExit) AbortPreparation(ctx context.Context, roomID, sessionID string) error {
 	now := service.now().UnixMilli()
-	err := service.repository.WithExit(ctx, func(scope model.RoomExitScope) error {
-		before, err := scope.Read.Current(ctx, roomID, "")
-		if errors.Is(err, model.ErrRoomNotFound) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("netplay/read preparation abort: %w", err)
-		}
-		if before.SessionID == nil || *before.SessionID != sessionID {
-			return nil
-		}
-		return service.finish(ctx, scope.Write, before, nil, "PREPARE_FAILED", now)
-	})
+	before, err := service.repository.LoadRoomExitSnapshot(ctx, roomID, "")
+	if errors.Is(err, model.ErrRoomNotFound) {
+		return nil
+	}
 	if err != nil {
+		return fmt.Errorf("netplay/abort original preparation: %w", err)
+	}
+	if before.SessionID == nil || *before.SessionID != sessionID {
+		return nil
+	}
+	plan, err := service.buildEndPlan(before, nil, "PREPARE_FAILED", now)
+	if err != nil {
+		return fmt.Errorf("netplay/abort original preparation: %w", err)
+	}
+	if plan == nil {
+		return nil
+	}
+	if err := service.repository.CommitRoomEnd(ctx, *plan); err != nil {
 		return fmt.Errorf("netplay/abort original preparation: %w", err)
 	}
 	return nil

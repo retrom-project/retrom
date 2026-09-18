@@ -54,12 +54,7 @@ func (service *ScreenshotSaver) Store(
 	if !validScreenshotImage(image) {
 		return model.ReviewScreenshot{}, model.ErrReviewScreenshotInvalid
 	}
-	var result model.ReviewScreenshot
-	err = service.repository.WithScreenshot(ctx, func(scope model.ScreenshotScope) error {
-		var writeErr error
-		result, writeErr = service.capture(ctx, scope, before, capability, image)
-		return writeErr
-	})
+	result, err := service.capture(ctx, before, capability, image)
 	if err != nil {
 		return model.ReviewScreenshot{}, fmt.Errorf("capture review screenshot: %w", err)
 	}
@@ -68,12 +63,11 @@ func (service *ScreenshotSaver) Store(
 
 func (service *ScreenshotSaver) capture(
 	ctx context.Context,
-	scope model.ScreenshotScope,
 	before model.ScreenshotSource,
 	capability string,
 	image model.ScreenshotImage,
 ) (model.ReviewScreenshot, error) {
-	current, found, err := scope.Current(ctx, before.PreviewID)
+	current, found, err := service.repository.LoadScreenshotSource(ctx, before.PreviewID)
 	if err != nil {
 		return model.ReviewScreenshot{}, fmt.Errorf("read final screenshot source: %w", err)
 	}
@@ -85,7 +79,8 @@ func (service *ScreenshotSaver) capture(
 	if err != nil {
 		return model.ReviewScreenshot{}, fmt.Errorf("create screenshot identity: %w", err)
 	}
-	if err := scope.Replace(ctx, model.ScreenshotWrite{ID: id, Source: current, Image: image, AtMS: now}); err != nil {
+	write := model.ScreenshotWrite{ID: id, Source: current, Image: image, AtMS: now}
+	if err := service.repository.CommitScreenshot(ctx, write); err != nil {
 		return model.ReviewScreenshot{}, fmt.Errorf("replace current screenshot: %w", err)
 	}
 	return model.ReviewScreenshot{

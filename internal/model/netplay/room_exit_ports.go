@@ -20,17 +20,8 @@ type RoomRemovalPlan struct {
 	Reason   string
 	Evidence RoomControlEvidence
 }
-type RoomExitReader interface {
-	Current(context.Context, string, string) (RoomExitSnapshot, error)
-}
-type RoomExitWriter interface {
-	End(context.Context, RoomEndPlan) error
-	Remove(context.Context, RoomRemovalPlan) error
-}
-type RoomExitScope struct {
-	Read  RoomExitReader
-	Write RoomExitWriter
-}
 type RoomExitRepository interface {
-	WithExit(context.Context, func(RoomExitScope) error) error
+	LoadRoomExitSnapshot(ctx context.Context, roomID, actorID string) (RoomExitSnapshot, error)
+	CommitRoomEnd(ctx context.Context, plan RoomEndPlan) error
+	CommitRoomRemoval(ctx context.Context, plan RoomRemovalPlan) error
 }

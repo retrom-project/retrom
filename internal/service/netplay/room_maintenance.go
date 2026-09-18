@@ -67,28 +67,32 @@ func (service *RoomMaintenance) Recover(ctx context.Context, reason string) erro
 }
 
 func (service *RoomExit) EndExpired(ctx context.Context, candidate model.ExpiryCandidate, now int64) error {
-	err := service.repository.WithExit(ctx, func(scope model.RoomExitScope) error {
-		before, err := scope.Read.Current(ctx, candidate.RoomID, "")
-		if err != nil {
-			return fmt.Errorf("netplay/read expiry state: %w", err)
-		}
-		if before.Room.Version != candidate.Version || before.Room.State != candidate.State || !sameExpirySession(
-			before.SessionID,
-			candidate.SessionID,
-		) {
-			return nil
-		}
-		reason := "HARD_EXPIRED"
-		switch candidate.State {
-		case model.RoomStateStarting:
-			reason = "START_TIMEOUT"
-		case model.RoomStateRunning:
-		default:
-			return model.ErrRoomConflict
-		}
-		return service.finish(ctx, scope.Write, before, nil, reason, now)
-	})
+	before, err := service.repository.LoadRoomExitSnapshot(ctx, candidate.RoomID, "")
 	if err != nil {
+		return fmt.Errorf("netplay/expire active session: %w", err)
+	}
+	if before.Room.Version != candidate.Version || before.Room.State != candidate.State || !sameExpirySession(
+		before.SessionID,
+		candidate.SessionID,
+	) {
+		return nil
+	}
+	reason := "HARD_EXPIRED"
+	switch candidate.State {
+	case model.RoomStateStarting:
+		reason = "START_TIMEOUT"
+	case model.RoomStateRunning:
+	default:
+		return model.ErrRoomConflict
+	}
+	plan, err := service.buildEndPlan(before, nil, reason, now)
+	if err != nil {
+		return fmt.Errorf("netplay/expire active session: %w", err)
+	}
+	if plan == nil {
+		return nil
+	}
+	if err := service.repository.CommitRoomEnd(ctx, *plan); err != nil {
 		return fmt.Errorf("netplay/expire active session: %w", err)
 	}
 	return nil
