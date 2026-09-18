@@ -21,36 +21,27 @@ import (
 )
 
 type previewWriteFaultRepository struct {
-	application.PreviewCreationRepository
+	*persistence.PreviewCreation
 	change  func(*application.PreviewCreatePlan)
 	after   func() error
 	reached bool
 }
 
-func (repository *previewWriteFaultRepository) WithCreation(ctx context.Context, work func(application.PreviewCreationScope) error) error {
-	return repository.PreviewCreationRepository.WithCreation(ctx, func(scope application.PreviewCreationScope) error {
-		err := work(previewWriteFaultScope{PreviewCreationScope: scope, change: repository.change})
-		if err != nil {
-			return err
-		}
+func (repository *previewWriteFaultRepository) CommitPreviewCreation(
+	ctx context.Context, plan application.PreviewCreatePlan,
+) error {
+	if repository.change != nil {
+		repository.change(&plan)
+	}
+	repository.PreviewCreation.WithPreCommitHook(func() error {
 		repository.reached = true
 		if repository.after != nil {
 			return repository.after()
 		}
 		return nil
 	})
-}
-
-type previewWriteFaultScope struct {
-	application.PreviewCreationScope
-	change func(*application.PreviewCreatePlan)
-}
-
-func (scope previewWriteFaultScope) Create(ctx context.Context, plan application.PreviewCreatePlan) error {
-	if scope.change != nil {
-		scope.change(&plan)
-	}
-	return scope.PreviewCreationScope.Create(ctx, plan)
+	defer repository.PreviewCreation.WithPreCommitHook(nil)
+	return repository.PreviewCreation.CommitPreviewCreation(ctx, plan)
 }
 
 func previewCreationRows(t *testing.T, database *sql.DB) map[string]string {
@@ -84,7 +75,7 @@ func previewCreationRows(t *testing.T, database *sql.DB) map[string]string {
 func assertPreviewCreationRollback(t *testing.T, service *Service, request ReviewPreviewRequest) {
 	t.Helper()
 	cause := errors.New("creation transaction interrupted after all owners")
-	repository := &previewWriteFaultRepository{PreviewCreationRepository: persistence.NewPreviewCreation(service.database), after: func() error { return cause }}
+	repository := &previewWriteFaultRepository{PreviewCreation: persistence.NewPreviewCreation(service.database), after: func() error { return cause }}
 	before := previewCreationRows(t, service.database)
 	result, err := service.previewCreator(repository).Create(t.Context(), request)
 	if !errors.Is(err, cause) || result != (ReviewPreviewCreated{}) || !repository.reached {

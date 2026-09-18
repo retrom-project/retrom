@@ -10,10 +10,17 @@ import (
 	"retrom/internal/repo/dbexec"
 )
 
-type PreviewCreation struct{ database *sql.DB }
+type PreviewCreation struct {
+	database      *sql.DB
+	preCommitHook func() error
+}
 
 func NewPreviewCreation(database *sql.DB) *PreviewCreation {
 	return &PreviewCreation{database: database}
+}
+
+func (repository *PreviewCreation) WithPreCommitHook(hook func() error) {
+	repository.preCommitHook = hook
 }
 
 type previewCreationRecords struct{ executor dbexec.Executor }
@@ -111,6 +118,11 @@ func (repository *PreviewCreation) CommitPreviewCreation(
 	defer dbexec.Rollback(tx)
 	if err := (previewCreationRecords{executor: tx}).Create(ctx, plan); err != nil {
 		return err
+	}
+	if repository.preCommitHook != nil {
+		if err := repository.preCommitHook(); err != nil {
+			return err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit preview creation: %w", err)

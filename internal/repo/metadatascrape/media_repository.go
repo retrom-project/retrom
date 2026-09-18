@@ -26,6 +26,12 @@ func WithMediaPreCommitHook(repo *MediaRepository, hook func() error) {
 	repo.preCommitHook = hook
 }
 
+func (repository *MediaRepository) LoadMediaSnapshot(
+	ctx context.Context, id string,
+) (metadatascrape.MediaSnapshot, error) {
+	return (mediaRecords{executor: repository.database}).Snapshot(ctx, id)
+}
+
 func (repository *MediaRepository) CommitClaim(
 	ctx context.Context, cmd metadatascrape.MediaClaimCommand,
 ) (metadatascrape.MediaClaimResult, error) {

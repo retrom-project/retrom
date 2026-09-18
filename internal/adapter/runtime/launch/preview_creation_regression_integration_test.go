@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
 
 	"modernc.org/sqlite"
@@ -101,10 +100,7 @@ func TestPreviewRestoreQueryPreservesCancellation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	err := persistence.NewPreviewCreation(fixture.database).WithCreation(t.Context(), func(scope application.PreviewCreationScope) error {
-		_, _, err := scope.Restore(ctx, preview.PreviewID)
-		return err
-	})
+	_, _, err := persistence.NewPreviewCreation(fixture.database).LoadPreviewRestore(ctx, preview.PreviewID)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("private restore query cancellation lost: %v", err)
 	}

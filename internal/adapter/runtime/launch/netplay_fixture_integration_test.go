@@ -172,6 +172,7 @@ func startNetplayFixture(
 	creator := netplayservice.NewRoomCreation(netplaypersistence.NewRoomCreation(database), 16, time.Hour, now)
 	control := netplayservice.NewRoomControl(
 		netplaypersistence.NewRoomControl(database),
+		nil, nil,
 		registry,
 		time.Hour,
 		time.Hour,
