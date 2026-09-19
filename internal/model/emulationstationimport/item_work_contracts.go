@@ -74,6 +74,13 @@ type ItemWorkScope struct {
 	Write   ItemWorkWriter
 }
 
+type ClaimNextItemResult struct {
+	Item  ExecutionItem
+	Found bool
+}
+
 type ItemWorkRepository interface {
-	WithItemWork(context.Context, func(ItemWorkScope) error) error
+	ClaimNextItem(ctx context.Context, unit Execution, nowMS int64) (ClaimNextItemResult, error)
+	CommitItemResume(ctx context.Context, unit Execution, itemID, jobID, ordinaryID string, nowMS int64) error
+	CommitItemFinish(ctx context.Context, unit Execution, itemID string, outcome ItemOutcome, nowMS int64) error
 }

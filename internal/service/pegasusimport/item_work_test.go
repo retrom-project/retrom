@@ -21,6 +21,69 @@ func (fake *itemWorkFake) WithItemWork(_ context.Context, work func(model.ItemWo
 	return work(model.ItemWorkScope{Read: fake, Write: fake, Payload: payloadItemScope(fake)})
 }
 
+func (fake *itemWorkFake) ClaimNextItem(_ context.Context, unit model.ExecutionIdentity, nowMS int64) (model.ClaimNextItemResult, error) {
+	if fake.failure != nil {
+		return model.ClaimNextItemResult{}, fake.failure
+	}
+	if err := model.ValidateExecution(fake.execution, unit, nowMS); err != nil {
+		return model.ClaimNextItemResult{}, err
+	}
+	if fake.execution.Kind != "SERVER_PEGASUS_IMPORT" || fake.execution.JobState != "RUNNING" {
+		return model.ClaimNextItemResult{}, model.ErrVersionConflict
+	}
+	item := fake.item
+	if item.ImportID != unit.ImportID || item.State != "PENDING" || !model.ValidItemVersion(item.Version) {
+		return model.ClaimNextItemResult{}, model.ErrVersionConflict
+	}
+	fake.saved = true
+	item.State, item.Version = "COPYING", item.Version+1
+	return model.ClaimNextItemResult{Item: item, Found: true}, nil
+}
+
+func (fake *itemWorkFake) CommitItemResume(_ context.Context, unit model.ExecutionIdentity, itemID, jobID, ordinaryID string, nowMS int64) error {
+	if fake.failure != nil {
+		return fake.failure
+	}
+	if err := model.ValidateExecution(fake.execution, unit, nowMS); err != nil {
+		return err
+	}
+	if fake.item.ID != itemID || fake.item.ImportID != unit.ImportID || !model.ValidItemVersion(fake.item.Version) {
+		return model.ErrVersionConflict
+	}
+	if jobID == "" || ordinaryID == "" || fake.item.LibraryImportJobID != jobID || fake.item.LibraryImportItemID != ordinaryID {
+		return model.ErrVersionConflict
+	}
+	if fake.item.State == "VALIDATING" || fake.item.State == "REVIEW_PENDING" {
+		return nil
+	}
+	if fake.item.State != "COPYING" {
+		return model.ErrVersionConflict
+	}
+	fake.saved = true
+	return nil
+}
+
+func (fake *itemWorkFake) CommitItemFinish(_ context.Context, unit model.ExecutionIdentity, itemID string, outcome model.ItemOutcome, nowMS int64) error {
+	if fake.failure != nil {
+		return fake.failure
+	}
+	if err := model.ValidateExecution(fake.execution, unit, nowMS); err != nil {
+		return err
+	}
+	if fake.item.ID != itemID || fake.item.ImportID != unit.ImportID || !model.ValidItemVersion(fake.item.Version) {
+		return model.ErrVersionConflict
+	}
+	if fake.item.State == outcome.State {
+		return nil
+	}
+	if fake.item.State != "COPYING" && fake.item.State != "VALIDATING" {
+		return model.ErrVersionConflict
+	}
+	fake.outcome = outcome
+	fake.saved = true
+	return nil
+}
+
 func (fake *itemWorkFake) Execution(context.Context, string) (model.ExecutionSnapshot, error) {
 	return fake.execution, fake.failure
 }

@@ -1,7 +1,6 @@
 package emulationstationimport
 
 import (
-	"context"
 	"errors"
 	"reflect"
 	"sync/atomic"
@@ -56,85 +55,60 @@ func TestItemWorkSQLAndAffectedRowFailuresRollback(t *testing.T) {
 	}
 }
 
-type itemWorkLateFailure struct {
-	*ItemWork
-	commit bool
-}
-
-func (repository itemWorkLateFailure) WithItemWork(
-	ctx context.Context,
-	run func(emulationstationimportmodel.ItemWorkScope) error,
-) error {
-	return repository.ItemWork.WithItemWork(ctx, func(scope emulationstationimportmodel.ItemWorkScope) error {
-		if err := run(scope); err != nil {
-			return err
-		}
-		if !repository.commit {
-			return errLeaseStorage
-		}
-		records, ok := scope.Write.(itemWorkRecords)
-		if !ok {
-			return errors.New("unexpected item writer")
-		}
-		if _, err := records.executor.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
-			return err
-		}
-		_, err := records.executor.ExecContext(
-			ctx,
-			`INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms) VALUES('missing-item-parent',1,'{}','`+planDigest+`',12)`,
-		)
-		return err
-	})
-}
-
-func TestItemWorkClaimAndOutcomeDoNotEscapeFailedCommit(t *testing.T) {
+func TestItemWorkClaimAndOutcomeDoNotEscapeFailedTransaction(t *testing.T) {
 	t.Parallel()
 	for _, operation := range []string{"claim", "outcome"} {
-		for _, commit := range []bool{false, true} {
-			t.Run(operation+map[bool]string{false: "/callback", true: "/commit"}[commit], func(t *testing.T) {
-				t.Parallel()
-				assertItemWorkLateFailure(t, operation, commit)
-			})
-		}
-	}
-}
+		t.Run(operation, func(t *testing.T) {
+			t.Parallel()
+			db, unit := itemWorkDatabase(t)
+			itemID := ""
+			if operation == "outcome" {
+				item, _, err := itemWorkService(db).Next(t.Context(), unit)
+				if err != nil {
+					t.Fatal(err)
+				}
+				itemID = item.ID
+			}
+			before := planRows(t, db)
 
-func assertItemWorkLateFailure(t *testing.T, operation string, commit bool) {
-	t.Helper()
-	db, unit := itemWorkDatabase(t)
-	itemID := ""
-	if operation == "outcome" {
-		item, _, err := itemWorkService(db).Next(t.Context(), unit)
-		if err != nil {
-			t.Fatal(err)
-		}
-		itemID = item.ID
-	}
-	before := planRows(t, db)
-	service := emulationstationimportservice.NewItemWork(
-		itemWorkLateFailure{ItemWork: NewItemWork(db), commit: commit},
-		func() time.Time { return time.UnixMilli(1100) },
-	)
-	var err error
-	if operation == "claim" {
-		var item emulationstationimportmodel.ExecutionItem
-		var found bool
-		item, found, err = service.Next(t.Context(), unit)
-		if item.ID != "" || found {
-			t.Fatal("uncommitted claim escaped")
-		}
-	} else {
-		err = service.Finish(
-			t.Context(),
-			unit,
-			itemID,
-			emulationstationimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"},
-		)
-	}
-	if err == nil || !commit && !errors.Is(err, errLeaseStorage) {
-		t.Fatalf("late failure=%v", err)
-	}
-	if !reflect.DeepEqual(before, planRows(t, db)) {
-		t.Fatal("failed commit retained item work")
+			var trigger string
+			if operation == "claim" {
+				trigger = `CREATE TRIGGER fail_item_work BEFORE UPDATE ON emulationstation_import_items
+WHEN NEW.execution_state='COPYING' AND OLD.execution_state='PENDING'
+BEGIN SELECT RAISE(ABORT,'injected claim failure'); END`
+			} else {
+				trigger = `CREATE TRIGGER fail_item_work BEFORE INSERT ON job_events
+BEGIN SELECT RAISE(ABORT,'injected outcome failure'); END`
+			}
+			if _, err := db.ExecContext(t.Context(), trigger); err != nil {
+				t.Fatal(err)
+			}
+
+			var err error
+			if operation == "claim" {
+				var item emulationstationimportmodel.ExecutionItem
+				var found bool
+				item, found, err = itemWorkService(db).Next(t.Context(), unit)
+				if item.ID != "" || found {
+					t.Fatal("uncommitted claim escaped")
+				}
+			} else {
+				err = itemWorkService(db).Finish(
+					t.Context(),
+					unit,
+					itemID,
+					emulationstationimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"},
+				)
+			}
+			if err == nil {
+				t.Fatal("expected error from injected failure")
+			}
+			if _, err := db.ExecContext(t.Context(), `DROP TRIGGER IF EXISTS fail_item_work`); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(before, planRows(t, db)) {
+				t.Fatal("failed transaction retained item work")
+			}
+		})
 	}
 }

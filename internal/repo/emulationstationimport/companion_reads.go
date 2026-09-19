@@ -9,11 +9,12 @@ import (
 )
 
 func (records companionRecords) Owner(ctx context.Context, id string) (application.CompanionOwner, error) {
-	owned, err := itemWorkRecords(records).Item(ctx, id)
+	items := itemWorkRecords{executor: records.executor}
+	owned, err := items.Item(ctx, id)
 	if err != nil {
 		return application.CompanionOwner{}, err
 	}
-	if err := itemWorkRecords(records).materials(ctx, &owned.Item); err != nil {
+	if err := items.materials(ctx, &owned.Item); err != nil {
 		return application.CompanionOwner{}, err
 	}
 	result := application.CompanionOwner{Before: owned}
