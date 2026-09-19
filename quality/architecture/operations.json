@@ -17106,6 +17106,532 @@
       }
     },
     {
+      "operation_id": "maintenance.restore-security-fence",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "consumers": [
+        "(*retrom/internal/service/maintenance.Service).Restore",
+        "(*retrom/internal/service/maintenance.Service).fenceRestore",
+        "(*retrom/internal/service/maintenance.Service).validateAndFenceRestore",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeRestore",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main"
+      ],
+      "snapshot": "retrom/internal/model/maintenance.FenceAudit",
+      "prepare": "(*retrom/internal/service/maintenance.Service).fenceRestore",
+      "commit": "(*retrom/internal/repo/maintenance.Repository).WithRestore",
+      "policy_symbols": [
+        "retrom/internal/service/maintenance.validRestoredReview",
+        "retrom/internal/service/maintenance.validRestoredReviewIdentity",
+        "retrom/internal/service/maintenance.validRestoredReviewBinding",
+        "retrom/internal/service/maintenance.activeRestoredImport",
+        "retrom/internal/service/maintenance.restoredReviewPreparation",
+        "retrom/internal/service/maintenance.restoredReviewWarnings"
+      ],
+      "fresh_facts": [
+        {
+          "name": "offline content before writer",
+          "reader_symbol": "(*retrom/internal/repo/maintenance.Repository).Inspect",
+          "reason": "Offline staging database integrity/foreign keys/current lineage/Blob registry; all registered Blob and upload-part facts, followed by physical digest+size validation before security transaction. Multiple reads not one explicit read snapshot; private staging ownership required."
+        },
+        {
+          "name": "current restored review page",
+          "reader_symbol": "(retrom/internal/repo/maintenance.reviewRecords).Pending",
+          "reason": "Within owning writer, pages of100 by source ID for Pegasus then ES: active source plan+job, REVIEW_PENDING ordinary item, source execution state/retryable, versions/execution/root/creator/metadata/warnings, reserved ordinary IDs/upload owner and ordinary item count. Pegasus requires existing links; ES can use reserved ownership without links."
+        },
+        {
+          "name": "fresh handoff fence",
+          "reader_symbol": "(retrom/internal/repo/maintenance.reviewRecords).current",
+          "reason": "Re-read complete comparable RestoredReview equals Before, both before intermediate states and final handoff."
+        },
+        {
+          "name": "draft metadata",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.metadataRecords).CurrentMetadata",
+          "reason": "Current ordinary REVIEW_PENDING metadata/version/status/source and title; nested metadata seeding only fills permitted missing fields."
+        },
+        {
+          "name": "unpublished Pegasus staging",
+          "reader_symbol": "retrom/internal/repo/maintenance.restoredPegasusScanIDs",
+          "reason": "Current SCANNING/CANCEL_REQUESTED without import job or scan completion, then ClearUnpublishedScan verifies no permanent bindings/materialized content/collection tags."
+        },
+        {
+          "name": "unpublished ES staging",
+          "reader_symbol": "retrom/internal/repo/maintenance.restoredEmulationStationScans",
+          "reason": "Current SCANNING/CANCEL_REQUESTED without import job; ClearUnpublishedScan checks no permanent owner/materialization and counts rows before delete."
+        },
+        {
+          "name": "retained source pages",
+          "reader_symbol": "(retrom/internal/repo/maintenance.payloadRecords).RetainedSources",
+          "reason": "Pages100 of both source families, ID ordered, RETAINED only. Shared scheduler re-reads full owner/linked ordinary release facts and preserves materialized review/retryable sources."
+        },
+        {
+          "name": "release owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer current source state/version/retryability/payload/ordinary owner; may share ordinary release job or create its own."
+        }
+      ],
+      "guards": [
+        {
+          "id": "bundle-before-mutation",
+          "fields": [
+            "manifest",
+            "lineage",
+            "files",
+            "dependencies"
+          ],
+          "expected_source": "Before transaction require canonical absolute unused output, schema2/current lineage/strict JSON, unique sorted safe manifest paths, regular permission-checked files, exact digest+size, runtime dependency versions/evidence; filesystem preparation currently lacks full cancellation/failed-staging cleanup.",
+          "rejection": "ErrInvalidBundle / ErrDependencyMismatch / original context/SQL causes",
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "id": "restored-review-identity",
+          "fields": [
+            "IDs",
+            "versions",
+            "count",
+            "binding",
+            "state"
+          ],
+          "expected_source": "Nonempty source/plan/job/reserved identities; versions/execution positive and bounded, exactly1 ordinary item; linked and owner identities exact; source plan/job active; Pegasus permanent ordinary item required, ES owner upload exact and positive frozen releaseYearMax.",
+          "rejection": "ErrInvalidBundle",
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "id": "review-preparation",
+          "fields": [
+            "source state",
+            "version",
+            "retryable",
+            "kind"
+          ],
+          "expected_source": "Pegasus PENDING->COPYING->VALIDATING or COPYING->VALIDATING; ES shared state rule supports retryable failures. Version has room for every intermediate+final transition. Every mutation exact source state/version/retryable, require1.",
+          "rejection": "ErrInvalidBundle / exact SQL cause",
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "id": "review-final-fence",
+          "fields": [
+            "complete before facts",
+            "ordinary item"
+          ],
+          "expected_source": "Exact full snapshot equality before+after prep; final UPDATE VALIDATING exact source version/metadata/warnings/current bindings and EXISTS ordinary REVIEW_PENDING at exact version; progress event require1.",
+          "rejection": "ErrInvalidBundle",
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "id": "page-monotonicity",
+          "fields": [
+            "kind",
+            "afterId",
+            "page"
+          ],
+          "expected_source": "Every review belongs requested kind and every ID strictly increases; same for retained payload pages.",
+          "rejection": "ErrInvalidBundle",
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "id": "payload-terminal",
+          "fields": [
+            "current owner state",
+            "version",
+            "retryable",
+            "shared release"
+          ],
+          "expected_source": "Shared terminal scheduler only releases eligible terminal sources, preserves review/retryable ownership; require exact owner CAS and all created job/input/event rows.",
+          "rejection": "ErrScopeInvalid / SQL error",
+          "test_id": "RFA-RF19-backup_compat"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).RevokeAccess",
+          "affected_records": [
+            "auth_sessions unrevoked -> revoked_at_ms=now, reason RESTORE; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W02",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).RevokeAccess",
+          "affected_records": [
+            "live unused account_links -> revoked by SYSTEM, version+1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W03",
+          "repo_helper": "retrom/internal/repo/sessionstore.ChangeLaunch",
+          "affected_records": [
+            "CREATED/ACTIVE launch_sessions -> REVOKED, finished/updated=now, version+1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W04",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "matching unreleased launch_payload_retirements.due_at_ms -> current terminal finish; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W05",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "unrevoked isolated capabilities for terminal launch -> revoked_at_ms=launch finish; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W06",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_game_save_bindings restore payload/format NULL for terminal launch; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W07",
+          "repo_helper": "(retrom/internal/repo/libraryimport.metadataRecords).SaveMetadata",
+          "affected_records": [
+            "changed ordinary draft canonical metadata/version/updated time (per restored review); entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W08",
+          "repo_helper": "(retrom/internal/repo/libraryimport.metadataRecords).SaveMetadata",
+          "affected_records": [
+            "ordinary REVIEW_PENDING Item.search_text from lowercase normalized title; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W09",
+          "repo_helper": "(retrom/internal/repo/libraryimport.metadataRecords).appendMetadataEvent",
+          "affected_records": [
+            "review_events DRAFT_SAVED, SYSTEM release-setup absent principal, schema 2 evidence; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W10",
+          "repo_helper": "(retrom/internal/repo/maintenance.reviewRecords).prepare",
+          "affected_records": [
+            "optional 0–3 source intermediate execution state/version/time writes; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W11",
+          "repo_helper": "(retrom/internal/repo/maintenance.reviewRecords).Complete",
+          "affected_records": [
+            "source REVIEW_PENDING + permanent ordinary binding + warnings + clear failure/retryable + complete time/version; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W12",
+          "repo_helper": "(retrom/internal/repo/maintenance.reviewRecords).progress",
+          "affected_records": [
+            "job_events PROGRESS schemaVersion1,itemId,outcome REVIEW_PENDING; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W13",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).StopExternalImports",
+          "affected_records": [
+            "active SERVER_BIOS_IMPORT jobs FAILED/nonretryable SERVER_IMPORT_SOURCE_NOT_RESTORED; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W14",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).StopExternalImports",
+          "affected_records": [
+            "active SERVER_PEGASUS_SCAN/IMPORT jobs same failure/fence; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W15",
+          "repo_helper": "retrom/internal/repo/pegasusimport.ClearUnpublishedScan",
+          "affected_records": [
+            "delete eligible pegasus_import_item_assets; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W16",
+          "repo_helper": "retrom/internal/repo/pegasusimport.ClearUnpublishedScan",
+          "affected_records": [
+            "delete eligible pegasus_import_item_files; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W17",
+          "repo_helper": "retrom/internal/repo/pegasusimport.ClearUnpublishedScan",
+          "affected_records": [
+            "delete eligible pegasus_import_items; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W18",
+          "repo_helper": "retrom/internal/repo/pegasusimport.ClearUnpublishedScan",
+          "affected_records": [
+            "delete eligible pegasus_import_collections; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W19",
+          "repo_helper": "retrom/internal/repo/pegasusimport.ClearUnpublishedScan",
+          "affected_records": [
+            "delete eligible pegasus_import_metadata_files; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W20",
+          "repo_helper": "retrom/internal/repo/maintenance.fenceRestoredEmulationStation",
+          "affected_records": [
+            "active SERVER_EMULATIONSTATION_SCAN/IMPORT jobs same failure/fence; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W21",
+          "repo_helper": "retrom/internal/repo/emulationstationimport.clearUnpublishedScan",
+          "affected_records": [
+            "delete eligible emulationstation_import_item_assets (pre-count exact); entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W22",
+          "repo_helper": "retrom/internal/repo/emulationstationimport.clearUnpublishedScan",
+          "affected_records": [
+            "delete eligible emulationstation_import_item_files (pre-count exact); entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W23",
+          "repo_helper": "retrom/internal/repo/emulationstationimport.clearUnpublishedScan",
+          "affected_records": [
+            "delete eligible emulationstation_import_items (pre-count exact); entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W24",
+          "repo_helper": "retrom/internal/repo/emulationstationimport.clearUnpublishedScan",
+          "affected_records": [
+            "delete eligible emulationstation_import_collections (pre-count exact); entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W25",
+          "repo_helper": "retrom/internal/repo/emulationstationimport.clearUnpublishedScan",
+          "affected_records": [
+            "delete eligible emulationstation_import_gamelists (pre-count exact); entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W26",
+          "repo_helper": "retrom/internal/repo/maintenance.clearRestoredEmulationStationScanStaging",
+          "affected_records": [
+            "zero scan discovery/projection counters on exact unpublished plan, require one; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W27",
+          "repo_helper": "retrom/internal/repo/maintenance.fenceRestoredEmulationStation",
+          "affected_records": [
+            "active PENDING/COPYING/VALIDATING sources COMMIT_FAILED/nonretryable, times/version+1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W28",
+          "repo_helper": "retrom/internal/repo/maintenance.fenceRestoredEmulationStation",
+          "affected_records": [
+            "active plans FAILED/phase NULL/reason, recomputed outcome counts, times/version+1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W29",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).StopExternalImports",
+          "affected_records": [
+            "active BIOS plan PENDING/EVALUATING Items COMMIT_FAILED/outcome/time; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W30",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).StopExternalImports",
+          "affected_records": [
+            "active server_imports FAILED, cancel fields cleared, recomputed all BIOS outcome counts, times/version+1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W31",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).StopExternalImports",
+          "affected_records": [
+            "active PEG sources PENDING/COPYING/VALIDATING -> COMMIT_FAILED, failure/retryable/time; baseline does **not** increment item version here; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W32",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).StopExternalImports",
+          "affected_records": [
+            "active PEG plans FAILED/phase NULL/failure/nonretryable, outcome counts, times/version+1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W33",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "new PAYLOAD_RELEASE jobs QUEUED/execution1/attempt0/max4/canonical payload/now; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W34",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_input_snapshots canonical input+digest/exec1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W35",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_events QUEUED schema1/execution1/attempt0; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W36",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "terminal source payload RELEASING + release job (new or shared ordinary) + version+1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W37",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).StopBulkApprovals",
+          "affected_records": [
+            "pending/running bulk Items CANCELLED/RESTORE_INTERRUPTED/details/completed; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W38",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).StopBulkApprovals",
+          "affected_records": [
+            "active aggregate FAILED/RESTORE_INTERRUPTED, processed=candidates, current result counts, clear cancel, times/version+1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W39",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).StopBulkApprovals",
+          "affected_records": [
+            "active REVIEW_BULK_APPROVE jobs FAILED/nonretryable RESTORE_INTERRUPTED + clear worker/lease/HB/cancel, times/version+1; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        },
+        {
+          "stage": "W40",
+          "repo_helper": "(retrom/internal/repo/maintenance.writes).Audit",
+          "affected_records": [
+            "audit_events RESTORE_SECURITY_FENCE SYSTEM instance counts; entire restore writer. Row-count coverage varies: review/ES cleanup/payload helpers exact, access/job counts checked for audit, several global updates/Pegasus deletes/final audit not checked."
+          ],
+          "test_id": "RFA-RF19-backup_compat"
+        }
+      ],
+      "idempotency": "Offline restore into fresh staging, no HTTP/domain receipt. Row state predicates and restored ownership guards control effects; final SYSTEM restore audit appended on successful fence. Filesystem output publication separately rejects pre-existing destination only via racy preflight.",
+      "time_rule": "Service samples once before writer and prepares final audit UUIDv7 before BeginTx; metadata event IDs and conditional payload job/execution IDs generated inside writer. One offline BeginTx(ctx,nil) covers all40 stage families/pages. Target must prepare IDs, acquire writer then sample Clock once.",
+      "after_commit": [
+        {
+          "action": "Close offline DB, synchronize staging, rename to output and fsync parent; no HTTP/Worker bootstrap should be necessary.",
+          "recovery": "Current publication exists-check+rename is not atomic no-replace; parent fsync may fail after visible rename; staging cleanup/cancellation/cause preservation need RF19 implementation. Checkpoint is a separate technical PRAGMA boundary, backup/restore rename are file boundaries rather than invented SQL operations.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED W01: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W02: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W03: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W04: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W05: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W06: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W07: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W08: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W09: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W10: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W11: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W12: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W13: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W14: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W15: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W16: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W17: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W18: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W19: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W20: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W21: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W22: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W23: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W24: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W25: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W26: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W27: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W28: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W29: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W30: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W31: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W32: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W33: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W34: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W35: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W36: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W37: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W38: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W39: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED W40: inject each row/page/helper failure and assert every security/review/source/payload/bulk/audit table rolls back",
+        "PLANNED guard drift, corrupt/missing backup file, clock wait, UUID error, cancelled copy/hash/SQL, commit/DB close/fsync/rename/no-replace race, failed-staging cleanup and restored app startup; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Security-fence SQL creates no new Blob leaf/protective reference. Entire restore separately copies CAS to a new offline private staging root then publishes directory; offline ownership and D22 publication protocol still require validation, not claimed satisfied by SQL scope.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "metadatascrape.account-media",
       "owner": "metadatascrape",
       "rf_id": "RF15",
@@ -28238,6 +28764,7 @@
     "RF13 seven arcade-parent admission/claim/accepted/rejected/retryable/cancellation operations source-reviewed. Acceptedcommit copiesprotective references withoutD22; admission performsstatinsidewriter; terminalrejected/retryable omitaffectedrowchecks; clocks/IDs/errorreporting/executionauthority needmigration. Multidisc/sourcehandoff/formatcensus pending.",
     "RF13 nine multidisc attachment admission/claim/heartbeat/accepted/reject/retry/fallback/cancellation operations source-reviewed. Preserves separate retry andfallback transactions. Baseline prepublishedplaylist+new protective references lacksD22; heartbeat canreviveexpiredlease,doesnotincrementversion; completeauthority/fullsourceclosure/errorreporting remainrequired. Sourcehandoff/formatcensus stillpending.",
     "RF13 serverupload-envelope transaction nowregistered separatelyfromcreate-import+sourcebinding; allobservedlibraryimport BeginTx/write boundaries haveentriesoridentifiedread-only/helperowners. FinalRF13policy/consumer coverage audit stillpending; D22/Clock/authority/lifecycle/cleanupdefects remainunimplemented.",
-    "RF13 importdiscard four real write boundaries inventoried; process remains multiple separately committed operations. Request/progress execution identity, current source fences, row counts, prepared IDs/single post-writer Clock and lifecycle ownership remain implementation work. ReviewValidation.UpdateRPGDependencyDigest has no production caller; remove unused port/helper rather than invent an operation."
+    "RF13 importdiscard four real write boundaries inventoried; process remains multiple separately committed operations. Request/progress execution identity, current source fences, row counts, prepared IDs/single post-writer Clock and lifecycle ownership remain implementation work. ReviewValidation.UpdateRPGDependencyDigest has no production caller; remove unused port/helper rather than invent an operation.",
+    "RF19 one restore writer and40nested phases source-reviewed. Technical checkpoint and two filesystem publish boundaries recorded in restore entry; diagnostics/readiness/storageanalysis are read cases. Diagnostics still writer-pool injected; read probes lack explicit lifecycle state; maintenance file cancellation/cleanup/no-replace errors and doc schema1 vs current diagnostics2 remain pending."
   ]
 }

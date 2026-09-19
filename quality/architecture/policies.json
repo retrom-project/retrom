@@ -4021,6 +4021,363 @@
       ]
     },
     {
+      "id": "maintenance.activeRestoredImport",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.activeRestoredImport",
+      "consumers": [
+        "retrom/internal/service/maintenance.validRestoredReview"
+      ],
+      "invariant": "Only QUEUED/RUNNING/CANCEL_REQUESTED are active restore handoff states.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.asciiFold",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.asciiFold",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateManifestEntry"
+      ],
+      "invariant": "Only ASCII uppercase folds; preserve other Unicode.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.manifestToMap",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.manifestToMap",
+      "consumers": [
+        "retrom/internal/service/maintenance.writeCanonicalManifest"
+      ],
+      "invariant": "Preserve schema2 canonical JSON map field names, array ordering, counts, lineage and evidence bytes.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.pathWithin",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.pathWithin",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateBackupConfiguration"
+      ],
+      "invariant": "Lexically computed relative path must not escape parent; does not resolve symlink.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.referencedFiles",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.referencedFiles",
+      "consumers": [
+        "retrom/internal/service/maintenance.copyBackupContents",
+        "retrom/internal/service/maintenance.validateRestoredContents"
+      ],
+      "invariant": "Map registered Blob/upload part facts to safe canonical CAS/upload paths, reject noncanonical digest, negative size or unsafe storage key.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.requireManifestEntry",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.requireManifestEntry",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateDatabaseManifestEntry",
+        "retrom/internal/service/maintenance.validateManifestEntryKind",
+        "retrom/internal/service/maintenance.validateSecretManifestEntry",
+        "retrom/internal/service/maintenance.validateUploadPartManifestEntry"
+      ],
+      "invariant": "False invariant maps to ErrInvalidBundle.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.restoredReviewPreparation",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.restoredReviewPreparation",
+      "consumers": [
+        "retrom/internal/service/maintenance.completeRestoredReview"
+      ],
+      "invariant": "Pegasus state progression or shared ES retryable preparation produces deterministic intermediate states.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.restoredReviewWarnings",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.restoredReviewWarnings",
+      "consumers": [
+        "retrom/internal/service/maintenance.completeRestoredReview"
+      ],
+      "invariant": "Merge metadata additions into source-kind warning format; ES shared policy, Pegasus nonnil warning array.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.safeManifestPath",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.safeManifestPath",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateManifestEntry"
+      ],
+      "invariant": "Logical path validation plus reject control chars/DEL.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.safeStorageKey",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.safeStorageKey",
+      "consumers": [
+        "retrom/internal/service/maintenance.referencedFiles",
+        "retrom/internal/service/maintenance.validateUploadPartManifestEntry"
+      ],
+      "invariant": "Logical path validation and forbid nested tmp/uploads prefix.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validCASPath",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validCASPath",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateManifestEntryKind"
+      ],
+      "invariant": "Digest-derived two-level CAS path with64-character digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validDigest",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validDigest",
+      "consumers": [
+        "retrom/internal/service/maintenance.referencedFiles"
+      ],
+      "invariant": "Exactly64 lowercase canonical hex digits.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validRestoredReview",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validRestoredReview",
+      "consumers": [
+        "retrom/internal/service/maintenance.completeRestoredReview"
+      ],
+      "invariant": "Validate identity/binding/active plan+job; Pegasus permanent review identity or ES reserved upload and positive frozen year.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validRestoredReviewBinding",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validRestoredReviewBinding",
+      "consumers": [
+        "retrom/internal/service/maintenance.validRestoredReview"
+      ],
+      "invariant": "Any existing owner and permanent source links match reserved ordinary identity and kind.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validRestoredReviewIdentity",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validRestoredReviewIdentity",
+      "consumers": [
+        "retrom/internal/service/maintenance.validRestoredReview"
+      ],
+      "invariant": "Five IDs nonempty, five positive bounded versions/execution values, exactly1 ordinary item.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validateDatabaseManifestEntry",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validateDatabaseManifestEntry",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateManifestEntryKind"
+      ],
+      "invariant": "retrom.db path and exact top-level database digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validateDependencyEvidence",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validateDependencyEvidence",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateBundle"
+      ],
+      "invariant": "Ordered evidence version and manifest/SHA256SUMS digests match manifest files; enclosing decoder checks equal array lengths.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validateManifestEntry",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validateManifestEntry",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateManifestFiles"
+      ],
+      "invariant": "Safe path,mode0600,64-char digest,increasing path and ASCII-casefold uniqueness; baseline digest length alone here.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validateManifestEntryKind",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validateManifestEntryKind",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateManifestEntry"
+      ],
+      "invariant": "Closed DATABASE/CAS_BLOB/UPLOAD_PART/LAUNCH_KEY/NETPLAY_KEY/dependency evidence kinds with kind-specific path/size policy.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validateManifestFiles",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validateManifestFiles",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateBundle"
+      ],
+      "invariant": "Strict sorted unique manifest inventory with exactly1 database/launch secret/netplay secret and exact Blob/upload counts.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validateSecretManifestEntry",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validateSecretManifestEntry",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateManifestEntryKind"
+      ],
+      "invariant": "Exact secret path and32-byte size.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
+      "id": "maintenance.validateUploadPartManifestEntry",
+      "owner": "maintenance",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/maintenance.validateUploadPartManifestEntry",
+      "consumers": [
+        "retrom/internal/service/maintenance.validateManifestEntryKind"
+      ],
+      "invariant": "tmp/uploads prefix with safe non-nested relative storage key.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-backup_compat",
+        "RFA-RF19-restore_fault"
+      ]
+    },
+    {
       "id": "metadatascrape.ResponseExpiry",
       "owner": "metadatascrape",
       "rf_id": "RF15",
@@ -5737,6 +6094,104 @@
       "tests": [
         "RFA-RF08-save_authority",
         "RFA-RF08-formats"
+      ]
+    },
+    {
+      "id": "storageanalysis.addChecked",
+      "owner": "storageanalysis",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/storageanalysis.addChecked",
+      "consumers": [
+        "retrom/internal/service/storageanalysis.aggregate",
+        "retrom/internal/service/storageanalysis.referenceBytes",
+        "retrom/internal/service/storageanalysis.validateTotals"
+      ],
+      "invariant": "Checked int64 addition with overflow/underflow sentinel.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-read_probe",
+        "RFA-RF19-diagnostic_privacy"
+      ]
+    },
+    {
+      "id": "storageanalysis.aggregate",
+      "owner": "storageanalysis",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/storageanalysis.aggregate",
+      "consumers": [
+        "(*retrom/internal/service/storageanalysis.Service).Analyze"
+      ],
+      "invariant": "All protected IDs exist; each registered Blob counted once in category; checked byte/count accumulation and total conservation.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-read_probe",
+        "RFA-RF19-diagnostic_privacy"
+      ]
+    },
+    {
+      "id": "storageanalysis.classify",
+      "owner": "storageanalysis",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/storageanalysis.classify",
+      "consumers": [
+        "retrom/internal/service/storageanalysis.aggregate"
+      ],
+      "invariant": "Unprotected first; multiple durable uses become SHARED_DURABLE; single durable beats workflow/runtime; fallback OTHER_REFERENCED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-read_probe",
+        "RFA-RF19-diagnostic_privacy"
+      ]
+    },
+    {
+      "id": "storageanalysis.details",
+      "owner": "storageanalysis",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/storageanalysis.details",
+      "consumers": [
+        "(*retrom/internal/service/storageanalysis.Service).Analyze"
+      ],
+      "invariant": "Project save reference/candidate counts and sums; reject missing registered referenced Blob.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-read_probe",
+        "RFA-RF19-diagnostic_privacy"
+      ]
+    },
+    {
+      "id": "storageanalysis.referenceBytes",
+      "owner": "storageanalysis",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/storageanalysis.referenceBytes",
+      "consumers": [
+        "retrom/internal/service/storageanalysis.details"
+      ],
+      "invariant": "Each reference ID exists, sum with checked addition; references intentionally counted per occurrence.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-read_probe",
+        "RFA-RF19-diagnostic_privacy"
+      ]
+    },
+    {
+      "id": "storageanalysis.validateTotals",
+      "owner": "storageanalysis",
+      "rf_id": "RF19",
+      "symbol": "retrom/internal/service/storageanalysis.validateTotals",
+      "consumers": [
+        "retrom/internal/service/storageanalysis.aggregate"
+      ],
+      "invariant": "Protected+unreferenced==registered and summed categories equal registered bytes/count; checked arithmetic.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF19-read_probe",
+        "RFA-RF19-diagnostic_privacy"
       ]
     },
     {
