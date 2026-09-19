@@ -9104,6 +9104,754 @@
       }
     },
     {
+      "operation_id": "libraryimport.create-prepared-import",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).Create",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateOwnedServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateServerSourceOnce",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).Reconfigure",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).create",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).createPreparedServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).createServerSource",
+        "(*retrom/internal/service/libraryimport.ImportCreations).CommitPrepared",
+        "(*retrom/internal/service/libraryimport.ImportCreations).Create",
+        "(*retrom/internal/transport/httpapi.Server).reconfigureImport",
+        "retrom/internal/bootstrap/composition/libraryimport.NewReconfigurations"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.PreparedImport",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportCreations).CommitPrepared",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportCreations).WithCreation",
+      "policy_symbols": [
+        "retrom/internal/model/libraryimport.PrepublishDigest",
+        "retrom/internal/service/libraryimport.CreationRPGAnalysis",
+        "retrom/internal/service/libraryimport.CreationRPGManifestSummary",
+        "retrom/internal/service/libraryimport.CreationRPGRequirements",
+        "retrom/internal/service/libraryimport.ImportExecutionCurrent",
+        "retrom/internal/service/libraryimport.MatchesImportDocumentDigest",
+        "retrom/internal/service/libraryimport.PreparedGroupContentKind",
+        "retrom/internal/service/libraryimport.ValidateOwnedSourceGroups",
+        "retrom/internal/service/libraryimport.creationGroupIdentity",
+        "retrom/internal/service/libraryimport.creationProgress",
+        "retrom/internal/service/libraryimport.creationTargetAllowed",
+        "retrom/internal/service/libraryimport.normalizeCreationOptions",
+        "retrom/internal/service/libraryimport.preparedSourceIdentity",
+        "retrom/internal/service/libraryimport.sameCreationTarget",
+        "retrom/internal/service/libraryimport.sameImportExecutionIdentity",
+        "retrom/internal/service/libraryimport.sameSourceExecution",
+        "retrom/internal/service/libraryimport.sameSourcePaths",
+        "retrom/internal/service/libraryimport.skipsCreationStaticBIOS",
+        "retrom/internal/service/libraryimport.validSourceExecution",
+        "retrom/internal/service/libraryimport.validSourceFrozen",
+        "retrom/internal/service/libraryimport.validSourceVersions",
+        "retrom/internal/service/libraryimport.validateOwnedImportPlan"
+      ],
+      "fresh_facts": [
+        {
+          "name": "prepared source freshness",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.ImportFacts).Upload",
+          "reason": "Inside writer read upload full struct and all sorted files; require exact value/slice equality with prepared plan,then SQL fences each record"
+        },
+        {
+          "name": "current files and Blob identity",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.ImportFacts).Files",
+          "reason": "Current COMPLETE upload files with Blob id/digest/size,paths; identical order/count and metadata to prepared plan"
+        },
+        {
+          "name": "target and runtime policy",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.ImportFacts).Bindings",
+          "reason": "Read enabled platform instance and current bindings; choose prepared virtual binding whenneeded; exact target id/version/platform/defaultcore/resolvedcore/binding/provider/target/delivery/contentPolicy digest"
+        },
+        {
+          "name": "active DAT",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.creationRecords).fenceBinding",
+          "reason": "After binding no-op UPDATE,insidewriter SELECT active DAT for target; must equal plan DAT ID"
+        },
+        {
+          "name": "queued owner",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.creationRecords).Queued",
+          "reason": "Optional queued mode current job/parent/execution/lease and admitted request/target documents via importExecutionRecords.Current"
+        },
+        {
+          "name": "source owner",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.sourceOwnership).ReadSource",
+          "reason": "Optional Pegasus/ES owning import/job/item/mapping,target/frozenfields/copied files/upload owner; revalidate against prepared source snapshot withinwriter"
+        },
+        {
+          "name": "current Arcade BIOS",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.creationArcadeRecords).BIOS",
+          "reason": "DAT_MACHINE requirementenabled and active installationvalidatedagainstrequirementversion,status MATCHED|HASH_WARNING|MISSING_ENTRY. General static BIOS also read through bound corevalidation reader"
+        },
+        {
+          "name": "duplicate candidates",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).PublishedMatches",
+          "reason": "New source snapshot compared to currentlyPUBLISHED games in sameplatform; unordered exact multiset(role,blobID,count) bothdirections,orMULTIDISC exact(sortorder,blobID) discsets"
+        },
+        {
+          "name": "reconfiguration parent",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.creationRecords).Reconfiguration",
+          "reason": "Optional oldparent currentversion/state/progresscounter/cancel/completion and unresolved REJECTED upload-file IDs"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer each duplicate item,completed newaggregate,and optional resolved oldaggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "creation-options",
+          "fields": [
+            "upload",
+            "target",
+            "mode",
+            "queued",
+            "source",
+            "reconfiguration",
+            "handoff"
+          ],
+          "expected_source": "Plan upload matchesrequest,target matchesrequest; handoffDIRECT(default)|EMULATIONSTATION; queued mutuallyexclusive withSource/Reconfiguration; source target version/platform/core/provider/DAT match (RPG allows later binding); exactly one owned primary group set",
+          "rejection": "ErrInvalid / ErrVersionConflict / ErrSourceGrouping",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "prepared-inputs",
+          "fields": [
+            "upload",
+            "files",
+            "target",
+            "binding",
+            "policy",
+            "DAT"
+          ],
+          "expected_source": "Full uploadstruct/files slice match; sameCreationTarget exact allidentity/version/provider/core/delivery/policy; SQLupload fullpurpose/source/version/manifest/count andeachcompletefile path/blob/size/hash; enabledtarget andbindingcurrent;activeDATexact",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "queued-creation",
+          "fields": [
+            "state",
+            "parentState",
+            "version",
+            "lease",
+            "deadline",
+            "identity"
+          ],
+          "expected_source": "Optional currentRUNNING job+parent,ImportExecutionCurrent andpositiveboundedparentversion,deadline>now; exactqueued uploadversion/manifest; admitted canonical request/target digests andschema,provider/tag list/mode/target membership matchprepared plan",
+          "rejection": "ErrVersionConflict / ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "source-creation",
+          "fields": [
+            "intent",
+            "current",
+            "frozen",
+            "files",
+            "target",
+            "upload"
+          ],
+          "expected_source": "Optional source exactkind/import/item/job/worker/execution/attempt,RUNNINGplan/job,COPYINGitem,mappingIMPORT,livelease/deadline,positiveboundedversions,emptylibrarylinks; ESvalidfrozenroot/actor/collection/mapping/year/budget; prepared Frozen/Files/sourceversion/target fields exact; sourceupload matchesplan",
+          "rejection": "ErrInvalid / ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "creation-actor-tags",
+          "fields": [
+            "actorId",
+            "tagIds",
+            "references"
+          ],
+          "expected_source": "Tags requireactorID; queued uses frozen actor,other usescontextActor; validate current tag refs insidewriter; baseline no current account/permission refresh",
+          "rejection": "ErrInvalid / tagging errors",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "source-manifest",
+          "fields": [
+            "source.hash",
+            "size",
+            "archive.ordinal",
+            "materializedBlob"
+          ],
+          "expected_source": "Preparedsource directSHA nonempty,size>=0; archivedordinal must exist andmetadata valid,archiveBlobID equals sourceuploadBlob; contentmanifest.Build must succeed; materializedBlobID present",
+          "rejection": "ErrInvalid / contentmanifest errors",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "archive-reuse",
+          "fields": [
+            "archive.entry",
+            "existing.materializedBlob"
+          ],
+          "expected_source": "Existing archive entry exact metadata equality (ordinal/NestedArchive normalizedfrominput); existing materializedBlob eitheridentical orNULL; NULL mayattach once; no inputBlob noop",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "validation-evidence",
+          "fields": [
+            "BIOS",
+            "dependencies",
+            "RPG",
+            "prepublishDigest"
+          ],
+          "expected_source": "Resolve current static BIOS unless designated engineplatform; refresh Arcade missingBIOS state; preserveMULTI_DISC_FILE_MISSING;RPG policy frompreparedprofile; emptyvalidationstatus defaultsREADY. Prepublish digest over source/target/contentpolicy/DAT/DOS/dependencies/status mustnonempty",
+          "rejection": "ErrInvalid / validation errors",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "RPG-evidence",
+          "fields": [
+            "core",
+            "provider",
+            "target",
+            "manifest.count",
+            "manifest.digest"
+          ],
+          "expected_source": "RPG profile requires virtualcoreandnonemptyprovider/target; manifest filecount exact sources andfilesDigestlength64; preserveprofilegeneration/requirements/dependencySHA",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "duplicate-discard",
+          "fields": [
+            "publishedMatches",
+            "identity"
+          ],
+          "expected_source": "Duplicate only current published content identity; incompleteMULTIDISC returns no automaticduplicate. Claimidentity thennewitemversion1 maybeDISCARDED and releasequeued,skipvalidation/draft/tag/metadata for thatgroup",
+          "rejection": "ErrVersionConflict / identity errors",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "aggregate-duplicate-counts",
+          "fields": [
+            "parentVersion",
+            "expectedPending",
+            "duplicateCounts"
+          ],
+          "expected_source": "Update duplicate aggregate exact parentversion+pendingcount; imported-filecount only if everygroupusinguploadfileduplicated",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "reconfiguration-resolution",
+          "fields": [
+            "oldparent.version",
+            "state",
+            "rejectedFiles",
+            "requestedFiles"
+          ],
+          "expected_source": "Optional oldparent exactrequestedversion/PARTIAL_FAILURE; requestedfileIDs nonemptyunique/allcurrentlyunresolvedREJECTED; projection incrementResolvedRejected;SQLchecksresolutionabsence/countbounds+parentversion; link newparent once",
+          "rejection": "ErrVersionConflict / ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "final-job-authority",
+          "fields": [
+            "job",
+            "parent",
+            "execution",
+            "lease",
+            "deadline"
+          ],
+          "expected_source": "Optional queued FinishJob exactkind/scopeRUNNING/worker/execution/attempt/start/deadline/lease/jobversion; lease/deadline > fresh finishsample",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "final-source-binding",
+          "fields": [
+            "scope",
+            "state",
+            "versions",
+            "job",
+            "currentOwner",
+            "paths"
+          ],
+          "expected_source": "Read created result exactlyoneitemandownedprimarypaths match; finalsourceAttach sample<observedlease/deadline; SQLPegasus/ES exactcurrent itemversion/COPYING/noexistinglinks,sourceownerupload joins created parent/item; ES requireshandoffkind+fullfrozen plan/mapping/job fence",
+          "rejection": "ErrVersionConflict / ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "fence-upload",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).FenceInputs",
+          "affected_records": [
+            "UPDATE complete upload version=version with fullpurpose/sourceType/version/manifest/fileCount"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "fence-platform",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).FenceInputs",
+          "affected_records": [
+            "UPDATE platforminstance version=version exactversion/platform/defaultcore/enabled/notdeleted"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "fence-binding",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).fenceBinding",
+          "affected_records": [
+            "UPDATE runtime binding id=id exactcore/provider/target/delivery/enabled/platform/contentpolicy,require1; thenreadactiveDAT"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "fence-files",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).FenceInputs",
+          "affected_records": [
+            "Eachcompleteuploadfile state=state exactowner/path/blob withEXISTS exactBlobdigest/size,require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "new-creation-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).newHeader",
+          "affected_records": [
+            "Directmode INSERTIMPORT_GROUP SUCCEEDEDjob max2/attempt1/execution1/payload{},timestamps,sameupload-deriveddedupe"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "new-creation-input",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).newHeader",
+          "affected_records": [
+            "Directmode INSERT job_input_snapshots configJSON/schema2+digest asinput,notadmission schema1executiondocument"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "new-import-parent",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).newHeader",
+          "affected_records": [
+            "Directmode INSERT import_jobs target/configschema2/actualcounts/projectedstate/version1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "new-upload-consumption",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).newHeader",
+          "affected_records": [
+            "Directmode INSERT sessionwide IMPORT_JOB uploadconsumption preparedUUID"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "queued-import-parent",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).queuedHeader",
+          "affected_records": [
+            "Queuedmode UPDATE current RUNNING parentexactversion toprepared counts/config/state,version+1; resetpublished/discarded/failed/cancelled"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "file-dispositions",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Header",
+          "affected_records": [
+            "Direct INSERT import_job_files disposition/reason or queuedUPDATE eachPENDINGfile ->prepared disposition/reason; require1 each"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "artifact-catalog",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Artifact",
+          "affected_records": [
+            "EnsureRecord each stagedmaterialized/archive-entry/validation artifact byverifiedSHA metadata; Blob UUID allocationcurrentlyinsidehelper"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "archive-entry-insert",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).insertArchiveEntry",
+          "affected_records": [
+            "Absent archiveordinal INSERT allpath/format/compression/size/hashes/materializedBlob/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "archive-entry-materialization",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).archiveEntry",
+          "affected_records": [
+            "Existingmatching archiveordinal withNULLmaterializedBlob UPDATE currentNULL toartifactBlob; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "import-item",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Source",
+          "affected_records": [
+            "INSERT eachimportitem freshUUID/groupKey/handoff/state/sourceManifest/search/version1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "item-source-files",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Source",
+          "affected_records": [
+            "INSERT each sourcefile withuploadFile/currentBlob/archiveBlob+ordinal/logicalname/role/order"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "item-snapshot",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).sourceSnapshot",
+          "affected_records": [
+            "INSERT IDENTIFICATION source_snapshot manifest/contentkind/digest"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "snapshot-files",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).sourceSnapshot",
+          "affected_records": [
+            "INSERT SELECT allitemsourcefiles intosnapshot,requireexactlen(files)"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-entries",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Source",
+          "affected_records": [
+            "INSERT perdisc ordinal/source/normalized/canonical/state/optionalfile/Blob/logicalname"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "duplicate-matches",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Duplicate",
+          "affected_records": [
+            "Duplicatebranch INSERT permanent import_item_duplicate_matches(existingGame,identity,stageIDENTIFICATION)"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "duplicate-item",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Duplicate",
+          "affected_records": [
+            "Duplicatebranch UPDATE itemversion1 ->DISCARDED/version+1/completed; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "core-validation",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Validation",
+          "affected_records": [
+            "Normalbranch INSERT validation snapshot/target/core/provider/DAT/DOS/digest/status/dependencyJSON"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "DOS-entry",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Validation",
+          "affected_records": [
+            "INSERT detectedDOSentries path/kind/rank/enabled/directLaunchSafe"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "validation-files",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Validation",
+          "affected_records": [
+            "INSERT validationfile protectiveBlobrefs role/logicalname/order"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "search-projection",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Draft",
+          "affected_records": [
+            "UPDATE newitemversion1 searchtext withitemID/title/sourcepaths,require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "review-draft",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Draft",
+          "affected_records": [
+            "INSERT draftversion1,target/snapshot/defaultDOS/metadata,selectedValidationonlyREADY"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "RPG-review-profile",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).RPG",
+          "affected_records": [
+            "Optional INSERT rpgmaker_review_profiles frozen generation/evidence/requirements/files/analysis/provider/target/dependencyDigest"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-events",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Events",
+          "affected_records": [
+            "Optional PLAYLIST_PARSED +CORE_VALIDATION_COMPLETED peritem events withincreationjob"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "duplicate-aggregate",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Aggregate",
+          "affected_records": [
+            "When duplicatecount>0 UPDATE parent exactversion/pending toprojected counts/state/completion/importedfiles/items; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "creation-success-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).Events",
+          "affected_records": [
+            "INSERT SUCCEEDED groupjobevent parserresult/item/rejectedcount/schema1/execution/attempt"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "finish-queued-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).FinishJob",
+          "affected_records": [
+            "Queuedmode UPDATE exactcurrent livejob ->SUCCEEDED,clearworker/lease/HB/errors,finished/time/version+1,require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "resolve-rejected-file",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).ResolveFiles",
+          "affected_records": [
+            "Optional INSERT SELECT RECONFIGURED resolutions for oldunresolvedREJECTED files,actor andnewparent,require1each"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "resolve-old-parent",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).ResolveFiles",
+          "affected_records": [
+            "UPDATE oldparent PARTIAL_FAILURE/exactversion/resolvedcount/countbounds ->projection/resolvedcount+N/version+1,time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "link-reconfigured-parent",
+          "repo_helper": "(retrom/internal/repo/libraryimport.creationRecords).ResolveFiles",
+          "affected_records": [
+            "UPDATE newparent currentlyunlinked ->reconfigured_from oldparent,require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "claim-duplicate-identity",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).ClaimIdentity",
+          "affected_records": [
+            "INSERT content_identity_claims(platform,identity,time) ONCONFLICT DONOTHING; nested duplicate branch"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "assign-review-tags",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).Add",
+          "affected_records": [
+            "INSERT review_draft_tags assignedbyactor/time for each validatedreference; same creation writer,noneforduplicate"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "touch-tags",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).TouchTags",
+          "affected_records": [
+            "UPDATE ACTIVE assignedtags version+1,updatedBy/time; same creation writer,noneforduplicate"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "metadata-job",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Create",
+          "affected_records": [
+            "INSERT METADATA_SCRAPE jobscopeITEM,dedupeSHA(metadata-import-v1:item:provider),execution1,max4,stateQUEUEDorSUCCEEDEDforNONE; only configuredscraper/nonduplicategroup"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "metadata-run",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Create",
+          "affected_records": [
+            "INSERT metadata_scrape_runs providerconfig1,stateRUNNINGorCOMPLETEDforNONE,owneritem/job; only configuredscraper/nonduplicategroup"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "metadata-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Create",
+          "affected_records": [
+            "INSERT jobevent planstate/provider JSON; only configuredscraper/nonduplicategroup"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "metadata-hash-evidence",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Evidence",
+          "affected_records": [
+            "HASHEOUS only INSERT RAW_FILE/SINGLE_ARCHIVE_MEMBER/ARCADE_DAT_ENTRIES evidence withprotective Blob/archive edge,hashes/order/time;NONE stillpersistscompletedjob/run,event,but nohash evidence"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "source-ES-job-fence",
+          "repo_helper": "(retrom/internal/repo/libraryimport.sourceOwnership).fenceESSource",
+          "affected_records": [
+            "OptionalES UPDATE jobs version=version exactjobidentity/version/worker/execution/attempt/max/start/lease/deadline andfrozenplanroot/actor/year/mapping/collection/tags/target/Dat fields; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "source-Pegasus-binding",
+          "repo_helper": "(retrom/internal/repo/libraryimport.sourceOwnership).BindSource",
+          "affected_records": [
+            "OptionalPegasus UPDATE sourceCOPYINGexactversion/unbound ->VALIDATING/contentkind/manifest/newlibraryjob+item/version+1,time;liveplan/job/version/lease anduploadownership EXISTS"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "source-ES-binding",
+          "repo_helper": "(retrom/internal/repo/libraryimport.sourceOwnership).bindESSource",
+          "affected_records": [
+            "OptionalES UPDATE sourceCOPYINGexactversion/unbound ->VALIDATING,newlibraryjob+item/version+1,time;uploadowner joinscreatedparent/item andEMULATIONSTATIONhandoff;no contentmanifest rewrite"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "Direct creation uses stable SHA(import:uploadID) jobdedupe; queued mode existingjob/parent/lease+PENDINGfiles fences. Whole batch of preparedgroups atomic,including direct sourcehandoff and nested tags/metadata/release; duplicate branches persist permanentproof+release,notnewreview. Reconfiguration separate clonedupload preparation may precede this writer.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. Serializable writer. Preparation,primaryIDs and4IDs/group outsidewriter. Insidewriter: source revalidationClock,queuedauthorityClock,headerClock aftertags; current BIOS/duplicate/metadata/release orchestration; metadata eachgroupClock+UUIDs andBlobcatalogUUID insidewriter; queued FinishJob andsource Attach resampleclock. AllpreparedCAS writes occur before writer but noD22lock spans republish/ownercommit.",
+      "after_commit": [
+        {
+          "action": "Dispatch only committed nonNoop metadata runs; created result emitted after fullcommit. No physicalCAS compensation claimed whenSQLrollback",
+          "recovery": "Crash afterSQLcommit retains allgroups/ownership anddurablemetadata/releasejobs; duplicate/source binding andqueuedjob outcome atomic; unreferencedpreparedbytes awaitregisteredGC path",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED fence-upload: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED fence-platform: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED fence-binding: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED fence-files: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED new-creation-job: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED new-creation-input: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED new-import-parent: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED new-upload-consumption: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED queued-import-parent: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED file-dispositions: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED artifact-catalog: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED archive-entry-insert: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED archive-entry-materialization: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED import-item: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED item-source-files: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED item-snapshot: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED snapshot-files: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED multidisc-entries: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED duplicate-matches: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED duplicate-item: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED core-validation: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED DOS-entry: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED validation-files: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED search-projection: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED review-draft: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED RPG-review-profile: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED multidisc-events: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED duplicate-aggregate: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED creation-success-event: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED finish-queued-job: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED resolve-rejected-file: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED resolve-old-parent: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED link-reconfigured-parent: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED claim-duplicate-identity: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED assign-review-tags: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED touch-tags: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED metadata-job: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED metadata-run: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED metadata-event: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED metadata-hash-evidence: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED payload-job: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED payload-input: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED payload-event: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED payload-owner: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED source-ES-job-fence: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED source-Pegasus-binding: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED source-ES-binding: inject after each conditional SQL stage/per-group or per-file iteration,require all import,item,source,validation,tag,metadata,release,job,event,owner updates rollback",
+        "PLANNED staleprepared upload/file/target/binding/DAT/BIOS/sourceowner/review-dependency andqueuedexecution; concurrent publishduplicate/claim/cancel/reconfiguration; SQLcommitfailure andcrash afterCASbeforecommit; preserve existing sharedbytes"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds protective Blob edges in sources/snapshots/discs/validation and metadata evidence,registers staged artifacts/archive materializations. Must acquire all sorted D22 digeststripes before writer,recheck/republish verifiedstagedbytes andhold through domain commit; baseline lackscoordinator.",
+        "digest_sources": [
+          "Prepared originalupload Blob digest/size,materializedarchive entry metadata,validation artifacts/playlist/DOS/RPG bundle metadata",
+          "Current shared BIOS Blob and metadata evidence Blob/archive digest verifiedbeforeadmission"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/libraryimport.ImportCreations).WithCreation",
+        "test_ids": [
+          "RFA-RF13-format_paths",
+          "RFA-RF13-publish_atomic",
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-shared_digest",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
       "operation_id": "libraryimport.fail-import",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -21183,6 +21931,7 @@
     "RF17 SOURCE_REVIEWED two generic mutation families; three registered owner adapters have separate RF13/RF14 transactions,not extra RF17 SQL,while BIOS side effects remain inside generic cancel. Job read/SSE/importprogress projection are not writes. Kind completeness and typed owner registration remain pending; the raw external audit's '12 kinds' conflicts with its14rows and its unconditional no-receipt claim was rejected. RF06 adds two actual receipt autocommit operations and clarifies existing domain-only receipt notes. Current generic HTTP receipts are NOT atomic with domain changes. New behavioral cases remain PLANNED.",
     "RF18 PARTIAL SOURCE_REVIEWED adds13 worker/observer/GC/expiry/retirement transaction entries. Normal Finish requires live lease unlike Recover;1s monitor owns a separate write-fence transaction. GC physical unlink follows catalog commit without digest lock; same-digest replacement/missing-original retry paths explicitly registered. Expiry nested GC resamples time,renew/finish use two clock samples. Release effect graph deletion details and nested owner scheduling full census still outstanding; no claim RF18 is complete. New behavior/fault/concurrency tests remain PLANNED.",
     "RF18 release-effects graph source-reviewed as one standalone writer including every per-table delete/update phase,recursive owners,consumptions,session relations and nested GC. Scheduling helpers accept caller Scope/Tx and are not independent commits: parent RF13/RF14/RF16 operations must include job/input/event+owner linkage stages. Lifecycle is read-only but current constructor performs validation I/O; ImpactQueries.Game currently performs repository read from Model and must become Service orchestration with pure projection. All fault/concurrency verification remains PLANNED.",
-    "RF13 PARTIAL source-reviewed admission,7distinct execution mutations,item retry,and aggregate cancellation (10standalone operations). Execution recovery is per-ID transaction; cancellation and nested payload scheduling atomic. Admission IDs insidewriter,Retry/batch cancellation clocks outsidewriter,Renew checks oldlease aftercallback. Baseline current execution reads admission request/target snapshots but not job_input_snapshots. Creation/review/publication/attachments/source handoff still outstanding; no complete RF13 claim."
+    "RF13 PARTIAL source-reviewed admission,7distinct execution mutations,item retry,and aggregate cancellation (10standalone operations). Execution recovery is per-ID transaction; cancellation and nested payload scheduling atomic. Admission IDs insidewriter,Retry/batch cancellation clocks outsidewriter,Renew checks oldlease aftercallback. Baseline current execution reads admission request/target snapshots but not job_input_snapshots. Creation/review/publication/attachments/source handoff still outstanding; no complete RF13 claim.",
+    "RF13 prepared creation wholetransaction source-reviewed:direct/queued/owned-source/reconfiguration branches,allgroups,archive/catalog/materializedartifacts,duplicates,BIOS/validation,draft/tags,RPG,metadata andpayloadjobs included. Allscope transactions remaincallback-based andmixed Model ContentDuplicates stillperformsrepository I/O. Detailed formatparser policycensus,reconfiguration preparation,review/attachment/source upload reservation mutations remainoutstanding."
   ]
 }

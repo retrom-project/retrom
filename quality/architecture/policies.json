@@ -1842,6 +1842,55 @@
       ]
     },
     {
+      "id": "libraryimport.CreationRPGAnalysis",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.CreationRPGAnalysis",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).persistRPG"
+      ],
+      "invariant": "Stable schema1 RPG selection/evidence/markers/self-contained/requirements/root/excludedfiles JSON.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.CreationRPGManifestSummary",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.CreationRPGManifestSummary",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).persistRPG"
+      ],
+      "invariant": "Decoded manifestfilecount equals observedsourcecount andfilesDigestlength64.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.CreationRPGRequirements",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.CreationRPGRequirements",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).persistRPG",
+        "retrom/internal/service/libraryimport.CreationRPGAnalysis"
+      ],
+      "invariant": "Stable requirements+RTP slot/name JSON andSHA fromexplicitprofile values.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
       "id": "libraryimport.ImportArchiveFormat",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -1964,6 +2013,44 @@
       ]
     },
     {
+      "id": "libraryimport.PreparedGroupContentKind",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.PreparedGroupContentKind",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportCreations).prepareGroup",
+        "retrom/internal/adapter/integration/libraryimport.preparedGroupContentKind"
+      ],
+      "invariant": "Explicit kind wins; otherwise any DOS_SOURCE ->DOS_BUNDLE,elseSINGLE_FILE.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.PrepublishDigest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/model/libraryimport.PrepublishDigest",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).persistValidation",
+        "(*retrom/internal/service/libraryimport.draftValidationState).newValidationPlan",
+        "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).insertValidation",
+        "retrom/internal/adapter/integration/libraryimport.prepublishDigest",
+        "retrom/internal/model/libraryimport.PrepublishDigestMatches",
+        "retrom/internal/repo/libraryimport.insertArcadeParentCoreValidation"
+      ],
+      "invariant": "SHA256 of canonical source/target/policy/DAT/dependency/status validationinput JSON; marshalerror returns empty.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
       "id": "libraryimport.ValidImportContentMode",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -1993,6 +2080,23 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.ValidateOwnedSourceGroups",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ValidateOwnedSourceGroups",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).bindSource",
+        "retrom/internal/service/libraryimport.validateOwnedImportPlan"
+      ],
+      "invariant": "Exactlyone group with nonempty declared primary paths,unordered unique pathset equality.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
       ]
     },
     {
@@ -2026,6 +2130,55 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.creationGroupIdentity",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.creationGroupIdentity",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportCreations).prepareGroup"
+      ],
+      "invariant": "Canonical ordered source path/hash/role/logicalname/archiveordinal list -> SHA groupidentity andsearchpaths.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.creationProgress",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.creationProgress",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).complete",
+        "(*retrom/internal/service/libraryimport.creationCommit).prepareHeader"
+      ],
+      "invariant": "Delegate one importprogress.Project with HASHEOUS running count or NONE reviewpending count and rejected files.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.creationTargetAllowed",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.creationTargetAllowed",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).checkQueuedDocuments"
+      ],
+      "invariant": "Frozen admittedtarget snapshot exactschema/identity/version/core/list,preparedconcrete target mustbelongtosnapshot.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
       ]
     },
     {
@@ -2259,6 +2412,22 @@
       ]
     },
     {
+      "id": "libraryimport.normalizeCreationOptions",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.normalizeCreationOptions",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportCreations).prepareCommit"
+      ],
+      "invariant": "Enforce plan/request identities,allowedhandoffkind andqueued-vs-owned/reconfiguration exclusivity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
       "id": "libraryimport.normalizeImportCancellation",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2275,6 +2444,39 @@
       ]
     },
     {
+      "id": "libraryimport.preparedSourceIdentity",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.preparedSourceIdentity",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportArtifacts).rpgSources",
+        "(*retrom/internal/service/libraryimport.ImportCreations).prepareGroup"
+      ],
+      "invariant": "Direct source metadata or selected materializedarchive ordinal required; nonemptySHA andnonnegative size.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.sameCreationTarget",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.sameCreationTarget",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).checkInputs"
+      ],
+      "invariant": "Exact platform/core/binding/provider/target/delivery identity/version andcontentpolicy digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
       "id": "libraryimport.sameImportExecutionIdentity",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2288,6 +2490,120 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.sameSourceExecution",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.sameSourceExecution",
+      "consumers": [
+        "retrom/internal/service/libraryimport.validSourceExecution"
+      ],
+      "invariant": "Exactsource kind/import/item/job/worker/execution/attempt tuple.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.sameSourcePaths",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.sameSourcePaths",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.SourceOwnership).Prepare",
+        "retrom/internal/service/libraryimport.ValidateOwnedSourceGroups",
+        "retrom/internal/service/libraryimport.ValidateOwnedSourceReplayPaths"
+      ],
+      "invariant": "Compare sorted compacted clones as pathsets without mutating caller slices.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.skipsCreationStaticBIOS",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.skipsCreationStaticBIOS",
+      "consumers": [
+        "retrom/internal/service/libraryimport.PrepareCreationStaticBIOS"
+      ],
+      "invariant": "Engine/platform-specific exclusionlist retains existing preparation contracts.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.validSourceExecution",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validSourceExecution",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.SourceOwnership).Prepare"
+      ],
+      "invariant": "Exactsource execution tuple,RUNNINGplan/job,COPYINGitem,mappingIMPORT,livelease/budget,validversions/frozenproof andunbound library IDs.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.validSourceFrozen",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validSourceFrozen",
+      "consumers": [
+        "retrom/internal/service/libraryimport.validSourceExecution"
+      ],
+      "invariant": "ES root/digest/actor/collection nonempty,mappingpositive,releaseyear>=1950,maxattempt>=attempt and0<started<deadline; otherkinds accepted.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.validSourceVersions",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validSourceVersions",
+      "consumers": [
+        "retrom/internal/service/libraryimport.validSourceExecution"
+      ],
+      "invariant": "Boundedpositive source/import/job versions andpositive targetversion.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.validateOwnedImportPlan",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validateOwnedImportPlan",
+      "consumers": [
+        "retrom/internal/service/libraryimport.normalizeCreationOptions"
+      ],
+      "invariant": "Prepared source target snapshot and exactlyone primarypathgroup remain compatible; virtual RPG defers concreteprovider/DAT binding.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
       ]
     },
     {
