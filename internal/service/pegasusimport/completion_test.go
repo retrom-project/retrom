@@ -7,8 +7,6 @@ import (
 	"time"
 
 	model "retrom/internal/model/pegasusimport"
-
-	payload "retrom/internal/model/payloadrelease"
 )
 
 type completionFake struct {
@@ -18,19 +16,29 @@ type completionFake struct {
 	failure error
 }
 
-func (fake *completionFake) WithCompletion(_ context.Context, work func(model.CompletionRecords) error) error {
-	return work(fake)
-}
-
-func (fake *completionFake) Current(context.Context, string) (model.ExecutionSnapshot, error) {
-	return fake.before, nil
-}
-
-func (fake *completionFake) Counts(context.Context, string) (model.CompletionCounts, error) {
-	return fake.counts, fake.failure
-}
-
-func (fake *completionFake) Complete(_ context.Context, change model.CompletionChange) error {
+func (fake *completionFake) CommitCompletion(_ context.Context, identity model.ExecutionIdentity, nowMS int64) error {
+	if err := model.ValidateExecution(fake.before, identity, nowMS); err != nil {
+		return err
+	}
+	if fake.before.Kind != "SERVER_PEGASUS_IMPORT" || fake.before.JobState != "RUNNING" {
+		return model.ErrVersionConflict
+	}
+	if fake.failure != nil {
+		return fake.failure
+	}
+	if fake.counts.Unfinished != 0 {
+		return model.ErrVersionConflict
+	}
+	change := model.CompletionChange{
+		Before:      fake.before,
+		Counts:      fake.counts,
+		ImportState: "COMPLETED",
+		Retryable:   fake.counts.Failed > 0,
+		NowMS:       nowMS,
+	}
+	if fake.counts.Blocked > 0 || fake.counts.Failed > 0 {
+		change.ImportState = "PARTIAL_FAILURE"
+	}
 	fake.saved = &change
 	return nil
 }
@@ -88,5 +96,3 @@ func TestCompletionCountFailureRetainsCause(t *testing.T) {
 		t.Fatalf("completion error=%v saved=%+v", err, fake.saved)
 	}
 }
-
-func (*completionFake) Payload() payload.ReleaseScope { return emptyPayloadScope() }

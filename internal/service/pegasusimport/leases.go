@@ -115,31 +115,13 @@ func (service *Leases) Renew(ctx context.Context, identity model.ExecutionIdenti
 	return nil
 }
 
-// ValidateExecution checks the current transaction snapshot, not the version at initial claim.
+// ValidateExecution delegates to the model-level pure validation.
 func ValidateExecution(
 	before model.ExecutionSnapshot,
 	identity model.ExecutionIdentity,
 	now int64,
 ) error {
-	actual := model.ExecutionIdentity{
-		JobID: before.JobID, ImportID: before.ImportID, WorkerID: before.WorkerID,
-		ExecutionNo: before.ExecutionNo, Attempt: before.Attempt,
-	}
-	if actual != identity || !validLiveExecution(before, now) {
-		return model.ErrVersionConflict
-	}
-	if before.JobState == "CANCEL_REQUESTED" && before.ImportState == "CANCEL_REQUESTED" {
-		return nil
-	}
-	if before.JobState == "RUNNING" {
-		if before.Kind == "SERVER_PEGASUS_SCAN" && before.ImportState == "SCANNING" {
-			return nil
-		}
-		if before.Kind == "SERVER_PEGASUS_IMPORT" && before.ImportState == "RUNNING" {
-			return nil
-		}
-	}
-	return model.ErrVersionConflict
+	return model.ValidateExecution(before, identity, now)
 }
 
 func validLeaseCandidate(before model.LeaseCandidate, now int64) bool {
@@ -151,8 +133,5 @@ func validLeaseCandidate(before model.LeaseCandidate, now int64) bool {
 }
 
 func validLiveExecution(before model.ExecutionSnapshot, now int64) bool {
-	return before.WorkerID != "" && before.ExecutionNo > 0 && before.Attempt > 0 &&
-		before.JobVersion > 0 && before.JobVersion < math.MaxInt64 &&
-		before.ImportVersion > 0 && before.ImportVersion < math.MaxInt64-1 &&
-		before.LeaseUntilMS > now && before.DeadlineMS > now
+	return model.ValidLiveExecution(before, now)
 }

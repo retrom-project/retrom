@@ -6,9 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	payloadService "retrom/internal/model/payloadrelease"
-	payload "retrom/internal/repo/payloadrelease"
-
 	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
@@ -17,25 +14,44 @@ import (
 type Completion struct{ database *sql.DB }
 
 func NewCompletion(database *sql.DB) *Completion { return &Completion{database: database} }
-func (repository *Completion) WithCompletion(
-	ctx context.Context,
-	work func(application.CompletionRecords) error,
-) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin Pegasus completion: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	if err := work(completionRecords{tx}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit Pegasus completion: %w", err)
-	}
-	return nil
+func (repository *Completion) CommitCompletion(ctx context.Context, identity application.ExecutionIdentity, nowMS int64) error {
+	return dbexec.Immediate(ctx, repository.database, func(executor dbexec.Executor) error {
+		records := completionRecords{tx: executor}
+		before, err := records.Current(ctx, identity.JobID)
+		if err != nil {
+			return fmt.Errorf("read Pegasus completion ownership: %w", err)
+		}
+		if err := application.ValidateExecution(before, identity, nowMS); err != nil {
+			return err
+		}
+		if before.Kind != "SERVER_PEGASUS_IMPORT" || before.JobState != "RUNNING" {
+			return application.ErrVersionConflict
+		}
+		counts, err := records.Counts(ctx, before.ImportID)
+		if err != nil {
+			return fmt.Errorf("read Pegasus final counts: %w", err)
+		}
+		if counts.Unfinished != 0 {
+			return application.ErrVersionConflict
+		}
+		change := application.CompletionChange{
+			Before:      before,
+			Counts:      counts,
+			ImportState: "COMPLETED",
+			Retryable:   counts.Failed > 0,
+			NowMS:       nowMS,
+		}
+		if counts.Blocked > 0 || counts.Failed > 0 {
+			change.ImportState = "PARTIAL_FAILURE"
+		}
+		if err := records.Complete(ctx, change); err != nil {
+			return fmt.Errorf("complete Pegasus import records: %w", err)
+		}
+		return scheduleTerminalPayloads(ctx, executor, before.ImportID, change.NowMS)
+	})
 }
 
-type completionRecords struct{ tx *sql.Tx }
+type completionRecords struct{ tx dbexec.Executor }
 
 func (records completionRecords) Current(ctx context.Context, id string) (application.ExecutionSnapshot, error) {
 	return leaseRecords(records).Current(ctx, id)
@@ -119,6 +135,3 @@ VALUES(?,'PEGASUS_IMPORT',?,'SUCCEEDED',?,?)`,
 	return nil
 }
 
-func (records completionRecords) Payload() payloadService.ReleaseScope {
-	return payload.BindReleases(records.tx)
-}

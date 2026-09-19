@@ -104,7 +104,7 @@ func (repository *ScanPublication) LoadScanShape(
 	return result, nil
 }
 
-type scanRecords struct{ tx *sql.Tx }
+type scanRecords struct{ tx dbexec.Executor }
 
 const scanOwnerFence = ` WHERE id=? AND version=? AND state=? AND state='RUNNING'
 AND kind=? AND kind='SERVER_PEGASUS_SCAN'

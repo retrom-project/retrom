@@ -2,15 +2,15 @@ package pegasusimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	application "retrom/internal/model/pegasusimport"
+	"retrom/internal/repo/dbexec"
 )
 
 // ClearUnpublishedScan is called after the enclosing transaction fences the scan job.
 // Permanent review, payload and mapping ownership must never be erased by scan cleanup.
-func ClearUnpublishedScan(ctx context.Context, tx *sql.Tx, importID string) error {
+func ClearUnpublishedScan(ctx context.Context, tx dbexec.Executor, importID string) error {
 	var eligible bool
 	err := tx.QueryRowContext(ctx, `SELECT import_job_id IS NULL AND scan_completed_at_ms IS NULL
 AND state IN ('SCANNING','CANCEL_REQUESTED')

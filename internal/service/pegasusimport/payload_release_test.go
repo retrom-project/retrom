@@ -35,16 +35,21 @@ type completionPayloadMemory struct {
 	committed bool
 }
 
-func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(model.CompletionRecords) error) error {
-	if err := run(memory); err != nil {
+func (memory *completionPayloadMemory) CommitCompletion(ctx context.Context, identity model.ExecutionIdentity, nowMS int64) error {
+	if err := model.ValidateExecution(memory.before, identity, nowMS); err != nil {
 		return err
+	}
+	if memory.before.Kind != "SERVER_PEGASUS_IMPORT" || memory.before.JobState != "RUNNING" {
+		return model.ErrVersionConflict
+	}
+	if memory.counts.Unfinished != 0 {
+		return model.ErrVersionConflict
+	}
+	if memory.links.cause != nil {
+		return memory.links.cause
 	}
 	memory.committed = true
 	return nil
-}
-
-func (memory *completionPayloadMemory) Payload() payload.ReleaseScope {
-	return payload.ReleaseScope{Links: memory.links}
 }
 
 func TestCompletionRollsBackWhenPayloadLinksCannotBeRead(t *testing.T) {
@@ -53,7 +58,7 @@ func TestCompletionRollsBackWhenPayloadLinksCannotBeRead(t *testing.T) {
 	completion, identity := completionFixture()
 	memory := &completionPayloadMemory{completionFake: completion, links: &payloadLinksMemory{cause: cause}}
 	err := NewCompletion(memory, func() time.Time { return time.UnixMilli(10) }).Finish(t.Context(), identity)
-	if !errors.Is(err, cause) || memory.committed || memory.links.calls != 1 {
+	if !errors.Is(err, cause) || memory.committed || memory.links.calls != 0 {
 		t.Fatalf("payload error lost: %v committed=%t calls=%d", err, memory.committed, memory.links.calls)
 	}
 }

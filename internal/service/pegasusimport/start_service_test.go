@@ -21,25 +21,40 @@ func (m *startMemory) Inspect(context.Context, string) (model.StartSnapshot, err
 	return m.snapshot, m.readErr
 }
 
-func (m *startMemory) WithStart(_ context.Context, work func(model.StartScope) error) error {
+func (m *startMemory) CommitStart(_ context.Context, plan model.StartPlan) (model.Summary, bool, error) {
 	m.writeScopes++
 	if m.onWrite != nil {
 		m.onWrite()
 	}
-	if err := work(model.StartScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
-		return err
+	if m.snapshot.Summary.State != "AWAITING_MAPPING" {
+		return m.snapshot.Summary, false, nil
 	}
-	return m.commitErr
-}
-
-func (m *startMemory) Current(context.Context, string) (model.StartSnapshot, error) {
-	return m.snapshot, m.readErr
-}
-
-func (m *startMemory) Queue(_ context.Context, plan model.StartPlan) error {
+	if m.snapshot.Summary.Version != plan.Before.Summary.Version {
+		return model.Summary{}, false, model.ErrVersionConflict
+	}
+	if plan.NowMS >= m.snapshot.Summary.ExpiresAtMS {
+		return model.Summary{}, false, model.ErrExpired
+	}
+	mapped := m.snapshot.Summary.Counts.MappedCollections + m.snapshot.Summary.Counts.SkippedCollections
+	if mapped != m.snapshot.Summary.Counts.Collections || !m.snapshot.TagsValid {
+		return model.Summary{}, false, model.ErrMapping
+	}
+	if m.snapshot.OtherActive {
+		return model.Summary{}, false, model.ErrActive
+	}
+	if m.snapshot.RootConfigDigest != plan.Before.RootConfigDigest ||
+		m.snapshot.SourceSnapshotDigest != plan.Before.SourceSnapshotDigest {
+		return model.Summary{}, false, model.ErrSourceChanged
+	}
+	if m.writeErr != nil {
+		return model.Summary{}, false, m.writeErr
+	}
 	m.queue = &plan
 	m.snapshot.Summary.State = "QUEUED"
-	return m.writeErr
+	if m.commitErr != nil {
+		return model.Summary{}, false, m.commitErr
+	}
+	return m.snapshot.Summary, true, nil
 }
 
 type startSources struct {

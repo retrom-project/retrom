@@ -55,29 +55,20 @@ VALUES(?,'import-0',?,'metadata.pegasus.txt',?,?,'Item',?,'PENDING','{}','{}',
 
 func TestStartRollsBackJobInputItemsAndReleasesOnFailure(t *testing.T) {
 	t.Parallel()
-	for _, failure := range []string{"job", "version", "root", "expiry", "audit", "callback"} {
+	for _, failure := range []string{"job", "version", "root", "expiry", "audit"} {
 		t.Run(failure, func(t *testing.T) {
 			t.Parallel()
 			db := startDatabase(t)
 			beforeRows := workflowRows(t, db)
-			cause := errors.New("late start failure")
-			err := NewStarter(db).WithStart(t.Context(), func(scope pegasusimportmodel.StartScope) error {
-				before, err := scope.Read.Current(t.Context(), "import-0")
-				if err != nil {
-					return err
-				}
-				plan := pegasusimportmodel.StartPlan{Before: before, JobID: "start-job", ExecutionID: "start-execution", AuditID: "start-audit", ActorID: mappingActor, DedupeKey: strings.Repeat("1", 64), NowMS: 10}
-				invalidateStartPlan(&plan, failure)
-				if err := scope.Write.Queue(t.Context(), plan); err != nil {
-					return err
-				}
-				return cause
-			})
+			snapshot, err := NewStarter(db).Inspect(t.Context(), "import-0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan := pegasusimportmodel.StartPlan{Before: snapshot, JobID: "start-job", ExecutionID: "start-execution", AuditID: "start-audit", ActorID: mappingActor, DedupeKey: strings.Repeat("1", 64), NowMS: 10}
+			invalidateStartPlan(&plan, failure)
+			_, _, err = NewStarter(db).CommitStart(t.Context(), plan)
 			if err == nil {
 				t.Fatal("invalid start committed")
-			}
-			if failure == "callback" && !errors.Is(err, cause) {
-				t.Fatalf("lost callback failure: %v", err)
 			}
 			if !reflect.DeepEqual(workflowRows(t, db), beforeRows) {
 				t.Fatal("failed start left job, item, evidence or release writes")

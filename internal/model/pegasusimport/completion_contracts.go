@@ -26,5 +26,5 @@ type CompletionRecords interface {
 }
 
 type CompletionRepository interface {
-	WithCompletion(context.Context, func(CompletionRecords) error) error
+	CommitCompletion(context.Context, ExecutionIdentity, int64) error
 }

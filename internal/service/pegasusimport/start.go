@@ -104,39 +104,8 @@ func (service *Starter) verifySource(ctx context.Context, before model.StartSnap
 }
 
 func (service *Starter) queue(ctx context.Context, plan model.StartPlan, version int64) (model.Summary, bool, error) {
-	var result model.Summary
-	var queued bool
-	err := service.repository.WithStart(ctx, func(scope model.StartScope) error {
-		current, err := scope.Read.Current(ctx, plan.Before.Summary.ID)
-		if err != nil {
-			return fmt.Errorf("reread Pegasus start: %w", err)
-		}
-		if alreadyStarted(current.Summary.State) {
-			result = current.Summary
-			return nil
-		}
-		plan.NowMS = service.now().UnixMilli()
-		if err := readyToStart(current, version, plan.NowMS); err != nil {
-			return err
-		}
-		if current.RootConfigDigest != plan.Before.RootConfigDigest ||
-			current.SourceSnapshotDigest != plan.Before.SourceSnapshotDigest {
-			return model.ErrSourceChanged
-		}
-		plan.Before = current
-		if err := scope.Write.Queue(ctx, plan); err != nil {
-			return fmt.Errorf("queue Pegasus start: %w", err)
-		}
-		if err := scheduleTerminalPayloads(ctx, scope.Payload, plan.Before.Summary.ID, plan.NowMS); err != nil {
-			return err
-		}
-		after, err := scope.Read.Current(ctx, current.Summary.ID)
-		if err != nil {
-			return fmt.Errorf("read queued Pegasus import: %w", err)
-		}
-		result, queued = after.Summary, true
-		return nil
-	})
+	plan.NowMS = service.now().UnixMilli()
+	result, queued, err := service.repository.CommitStart(ctx, plan)
 	if err != nil {
 		return model.Summary{}, false, fmt.Errorf("finish Pegasus start: %w", err)
 	}
