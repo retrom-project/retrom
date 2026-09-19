@@ -1,30 +1,25 @@
 package authn
 
 import (
-	"context"
-	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
-	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/crypto/argon2"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
 
 const (
 	minimumPasswordCharacters = 6
-	argonMemory               = 19_456
-	argonIterations           = 2
-	argonParallelism          = 1
-	argonSaltBytes            = 16
-	argonHashBytes            = 32
+	ArgonMemory               = 19_456
+	ArgonIterations           = 2
+	ArgonParallelism          = 1
+	ArgonSaltBytes            = 16
+	ArgonHashBytes            = 32
 )
 
 var (
@@ -154,66 +149,12 @@ func ValidatePassword(password, confirmation, username, displayName string, bloc
 	return normalized, nil
 }
 
-type PasswordHasher struct {
-	random    io.Reader
-	semaphore chan struct{}
-}
-
-func NewPasswordHasher() *PasswordHasher {
-	return &PasswordHasher{random: rand.Reader, semaphore: make(chan struct{}, 4)}
-}
-
-func newPasswordHasher(random io.Reader, parallel int) *PasswordHasher {
-	return &PasswordHasher{random: random, semaphore: make(chan struct{}, parallel)}
-}
-
-func (hasher *PasswordHasher) Hash(ctx context.Context, normalized string) (string, error) {
-	salt := make([]byte, argonSaltBytes)
-	if _, err := io.ReadFull(hasher.random, salt); err != nil {
-		return "", fmt.Errorf("generate password salt: %w", err)
-	}
-	if err := hasher.acquire(ctx); err != nil {
-		return "", fmt.Errorf("acquire password hash worker: %w", err)
-	}
-	hash := argon2.IDKey([]byte(normalized), salt, argonIterations, argonMemory, argonParallelism, argonHashBytes)
-	<-hasher.semaphore
-	if err := ctx.Err(); err != nil {
-		return "", fmt.Errorf("hash password: %w", err)
-	}
-	return encodePHC(salt, hash), nil
-}
-
-func (hasher *PasswordHasher) Verify(ctx context.Context, normalized, encoded string) (bool, error) {
-	salt, expected, err := parsePHC(encoded)
-	if err != nil {
-		return false, err
-	}
-	if err := hasher.acquire(ctx); err != nil {
-		return false, fmt.Errorf("acquire password verification worker: %w", err)
-	}
-	actual := argon2.IDKey([]byte(normalized), salt, argonIterations, argonMemory, argonParallelism, argonHashBytes)
-	<-hasher.semaphore
-	if err := ctx.Err(); err != nil {
-		return false, fmt.Errorf("verify password: %w", err)
-	}
-	return subtle.ConstantTimeCompare(actual, expected) == 1, nil
-}
-
-func (hasher *PasswordHasher) acquire(ctx context.Context) error {
-	select {
-	case hasher.semaphore <- struct{}{}:
-		return nil
-	case <-ctx.Done():
-		return fmt.Errorf("wait for password worker: %w", ctx.Err())
-	}
-}
-
-func encodePHC(salt, hash []byte) string {
+func EncodePHC(salt, hash []byte) string {
 	return "$argon2id$v=19$m=19456,t=2,p=1$" +
 		base64.RawStdEncoding.EncodeToString(salt) + "$" + base64.RawStdEncoding.EncodeToString(hash)
 }
 
-func parsePHC(encoded string) ([]byte, []byte, error) {
+func ParsePHC(encoded string) ([]byte, []byte, error) {
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 6 || parts[0] != "" || parts[1] != "argon2id" || parts[2] != "v=19" ||
 		parts[3] != "m=19456,t=2,p=1" {
@@ -226,7 +167,7 @@ func parsePHC(encoded string) ([]byte, []byte, error) {
 	}
 	salt, saltErr := base64.RawStdEncoding.Strict().DecodeString(parts[4])
 	hash, hashErr := base64.RawStdEncoding.Strict().DecodeString(parts[5])
-	if saltErr != nil || hashErr != nil || len(salt) != argonSaltBytes || len(hash) != argonHashBytes ||
+	if saltErr != nil || hashErr != nil || len(salt) != ArgonSaltBytes || len(hash) != ArgonHashBytes ||
 		base64.RawStdEncoding.EncodeToString(salt) != parts[4] || base64.RawStdEncoding.EncodeToString(hash) != parts[5] {
 		return nil, nil, ErrCredential
 	}
@@ -234,6 +175,6 @@ func parsePHC(encoded string) ([]byte, []byte, error) {
 }
 
 func ValidatePHC(encoded string) error {
-	_, _, err := parsePHC(encoded)
+	_, _, err := ParsePHC(encoded)
 	return err
 }

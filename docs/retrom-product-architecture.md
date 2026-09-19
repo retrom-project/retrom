@@ -74,6 +74,8 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 
 Host 的平台、Core、AssetPack 目录定义及运行绑定由 `model/runtimecontract` 持有。`capability/runtime/runtimecatalog` 保留目录解析、校验、策略和目标选择，消费者直接使用 Model 中的真实公共值。BIOS 记录的确定性判断和来源审核的准备状态规则分别归属 `model/corevalidation`、`model/emulationstationimport`；标签身份与集合校验统一使用既有 `model/tagging` 定义。
 
+密码计算通过既有 `model/accounts.PasswordHasher` 端口接入；`adapter/security/authn` 独占随机 salt、Argon2 执行、四个并发槽位和取消处理。严格 PHC 编码/解析及身份、密码规范化仍在 `capability/security/authn` 保持唯一实现。Bootstrap 构造并注入同一个 hasher，固定 PHC 字节、旧凭据可验证性、错误顺序和槽位释放由旧 Go 捕获的公开测试样本保护。
+
 ### 3.1 游戏目录决定默认核心
 
 领域关系不是“游戏直接属于平台”，而是：

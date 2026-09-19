@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	authnadapter "retrom/internal/adapter/security/authn"
+
 	"retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
@@ -23,7 +25,7 @@ func NewAccounts(
 	blocklist authn.Blocklist,
 	now func() time.Time,
 ) (*accounts.Service, error) {
-	hasher := authn.NewPasswordHasher()
+	hasher := authnadapter.NewPasswordHasher()
 	dummy, err := hasher.Hash(ctx, "retrom dummy credential")
 	if err != nil {
 		return nil, fmt.Errorf("prepare dummy credential: %w", err)

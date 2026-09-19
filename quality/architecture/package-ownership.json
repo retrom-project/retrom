@@ -1959,6 +1959,26 @@
       ]
     },
     {
+      "path": "internal/adapter/security/authn",
+      "layer": "adapter",
+      "module": "security",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/security/authn/password.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/security/authn/password_compatibility_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/security/authn/password_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/adapter/system/clock",
       "layer": "adapter",
       "module": "clock",
