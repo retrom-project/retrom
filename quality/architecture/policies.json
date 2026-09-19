@@ -3,31 +3,281 @@
   "inventoryComplete": false,
   "policies": [
     {
-      "id": "saves.validateLaunch",
-      "owner": "saves",
-      "rf_id": "RF08",
-      "symbol": "retrom/internal/service/saves.validateLaunch",
+      "id": "accounts.accountLinkState",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.accountLinkState",
       "consumers": [
-        "(*retrom/internal/service/saves.Service).loadLaunch",
-        "(*retrom/internal/service/saves.Service).ensureWritable"
+        "(*retrom/internal/service/accounts.LinkService).Inspect",
+        "(*retrom/internal/service/accounts.LinkService).List",
+        "(*retrom/internal/service/accounts.LinkService).Revoke",
+        "retrom/internal/service/accounts.activeLink"
       ],
-      "invariant": "Require write format, positive max bytes and valid multidisc shape",
+      "invariant": "Consumed overrides revoked; revoked overrides expired; equality at expiry is EXPIRED",
       "status": "SOURCE_REVIEWED",
       "target_layer": "capability",
       "tests": [
-        "RFA-RF08-save_authority",
-        "RFA-RF08-formats"
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
       ]
     },
     {
-      "id": "saves.validLaunchDiscShape",
+      "id": "accounts.activeLink",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.activeLink",
+      "consumers": [
+        "(*retrom/internal/service/accounts.LinkConsumptionService).AcceptInvitation",
+        "(*retrom/internal/service/accounts.LinkConsumptionService).prepareReset",
+        "retrom/internal/service/accounts.recheckReset"
+      ],
+      "invariant": "Found link of required kind whose value state is ACTIVE",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.checkAccountReplay",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.checkAccountReplay",
+      "consumers": [
+        "(*retrom/internal/service/accounts.AdministrationService).Delete",
+        "(*retrom/internal/service/accounts.AdministrationService).Update",
+        "(*retrom/internal/service/accounts.LinkIssuanceService).issue",
+        "(*retrom/internal/service/accounts.LinkService).Revoke"
+      ],
+      "invariant": "Found receipt must have the same deterministic request digest",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.passwordAuthorized",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.passwordAuthorized",
+      "consumers": [
+        "(*retrom/internal/service/accounts.PasswordService).Change",
+        "(*retrom/internal/service/accounts.PasswordService).prepare"
+      ],
+      "invariant": "Current unexpired session, enabled credential owner and matching session version",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.recoverable",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.recoverable",
+      "consumers": [
+        "(*retrom/internal/service/accounts.RecoveryService).Reset",
+        "(*retrom/internal/service/accounts.RecoveryService).prepare"
+      ],
+      "invariant": "Administrator that is not deleted can be recovered offline",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.removesEnabledAdmin",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.removesEnabledAdmin",
+      "consumers": [
+        "(*retrom/internal/service/accounts.AdministrationService).Delete",
+        "retrom/internal/service/accounts.updateManagedUser"
+      ],
+      "invariant": "Detect transition away from an enabled administrator",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.resolveUserChange",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.resolveUserChange",
+      "consumers": [
+        "retrom/internal/service/accounts.updateManagedUser"
+      ],
+      "invariant": "Resolve role/status, reject no-op/self demotion/disable and enforce administrator confirmation; derive exact security revocation effects",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.resolvedRole",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.resolvedRole",
+      "consumers": [
+        "retrom/internal/service/accounts.resolveUserChange"
+      ],
+      "invariant": "Only ADMIN and USER explicit values; nil retains existing role",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.resolvedStatus",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.resolvedStatus",
+      "consumers": [
+        "retrom/internal/service/accounts.resolveUserChange"
+      ],
+      "invariant": "Only ENABLED and DISABLED explicit values; nil retains existing status",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.retryAfterSeconds",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.retryAfterSeconds",
+      "consumers": [
+        "(*retrom/internal/service/accounts.Limiter).Check",
+        "(*retrom/internal/service/accounts.Limiter).record"
+      ],
+      "invariant": "Ceil positive remaining milliseconds to seconds with minimum one",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.validSession",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.validSession",
+      "consumers": [
+        "(*retrom/internal/service/accounts.Authentication).Authenticate",
+        "(*retrom/internal/service/accounts.Authentication).refresh"
+      ],
+      "invariant": "Unrevoked session on enabled user with matching session version and both future expiries",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.validateLinkTarget",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.validateLinkTarget",
+      "consumers": [
+        "(*retrom/internal/service/accounts.LinkIssuanceService).PasswordReset"
+      ],
+      "invariant": "Existing nondeleted user at expected version",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.validateManagedUser",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.validateManagedUser",
+      "consumers": [
+        "(*retrom/internal/service/accounts.AdministrationService).Delete",
+        "retrom/internal/service/accounts.updateManagedUser"
+      ],
+      "invariant": "Existing nondeleted managed user with expected version",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "accounts.validateUserDeletion",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "symbol": "retrom/internal/service/accounts.validateUserDeletion",
+      "consumers": [
+        "(*retrom/internal/service/accounts.AdministrationService).Delete"
+      ],
+      "invariant": "Reject self deletion and require exact untrimmed target username confirmation",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-link_once",
+        "RFA-RF07-offline_initialize"
+      ]
+    },
+    {
+      "id": "saves.localDraftWritable",
       "owner": "saves",
       "rf_id": "RF08",
-      "symbol": "retrom/internal/service/saves.validLaunchDiscShape",
+      "symbol": "retrom/internal/service/saves.localDraftWritable",
       "consumers": [
-        "retrom/internal/service/saves.validateLaunch"
+        "(*retrom/internal/service/saves.Service).CreateLocalDraft",
+        "(*retrom/internal/service/saves.Service).ensureWritable"
       ],
-      "invariant": "Single-disc has zero count/index; multidisc requires at least two discs and in-range index",
+      "invariant": "Only published PRODUCT GAME_SAVE with binding and ACTIVE/FINISHED/EXPIRED permits local draft",
       "status": "SOURCE_REVIEWED",
       "target_layer": "capability",
       "tests": [
@@ -52,15 +302,14 @@
       ]
     },
     {
-      "id": "saves.localDraftWritable",
+      "id": "saves.validLaunchDiscShape",
       "owner": "saves",
       "rf_id": "RF08",
-      "symbol": "retrom/internal/service/saves.localDraftWritable",
+      "symbol": "retrom/internal/service/saves.validLaunchDiscShape",
       "consumers": [
-        "(*retrom/internal/service/saves.Service).CreateLocalDraft",
-        "(*retrom/internal/service/saves.Service).ensureWritable"
+        "retrom/internal/service/saves.validateLaunch"
       ],
-      "invariant": "Only published PRODUCT GAME_SAVE with binding and ACTIVE/FINISHED/EXPIRED permits local draft",
+      "invariant": "Single-disc has zero count/index; multidisc requires at least two discs and in-range index",
       "status": "SOURCE_REVIEWED",
       "target_layer": "capability",
       "tests": [
@@ -77,6 +326,23 @@
         "(*retrom/internal/service/saves.Service).stateDigestAuthorized"
       ],
       "invariant": "Positive bounded size and exact membership in provider read formats",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF08-save_authority",
+        "RFA-RF08-formats"
+      ]
+    },
+    {
+      "id": "saves.validateLaunch",
+      "owner": "saves",
+      "rf_id": "RF08",
+      "symbol": "retrom/internal/service/saves.validateLaunch",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).loadLaunch",
+        "(*retrom/internal/service/saves.Service).ensureWritable"
+      ],
+      "invariant": "Require write format, positive max bytes and valid multidisc shape",
       "status": "SOURCE_REVIEWED",
       "target_layer": "capability",
       "tests": [

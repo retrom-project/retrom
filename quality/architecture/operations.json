@@ -5,6 +5,1986 @@
   "status": "IN_PROGRESS",
   "operations": [
     {
+      "operation_id": "accounts.accept-invitation",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.LinkConsumptionService).AcceptInvitation",
+        "(*retrom/internal/service/accounts.Service).AcceptInvitation"
+      ],
+      "snapshot": "retrom/internal/model/accounts.AcceptInvitationRequest",
+      "prepare": "(*retrom/internal/service/accounts.LinkConsumptionService).prepareInvitation",
+      "commit": "(*retrom/internal/repo/accounts.LinkRepository).WithConsumptionWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.activeLink",
+        "retrom/internal/service/accounts.accountLinkState"
+      ],
+      "fresh_facts": [
+        {
+          "name": "link state/kind/role/version",
+          "reader_symbol": "(retrom/internal/repo/accounts.linkRecords).Current",
+          "reason": "防止已消费/过期/撤销的链接被使用"
+        },
+        {
+          "name": "username uniqueness",
+          "reader_symbol": "(retrom/internal/repo/accounts.linkRecords).UsernameExists",
+          "reason": "防止用户名冲突"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-active-link",
+          "fields": [
+            "kind",
+            "state",
+            "role"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrAccountLinkUnavailable",
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "id": "G02-username-unique",
+          "fields": [
+            "username"
+          ],
+          "expected_source": "事务内 UsernameExists()",
+          "rejection": "ErrUsernameUnavailable",
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-profile",
+          "repo_helper": "retrom/internal/repo/recordstore.CreateProfiles",
+          "affected_records": [
+            "profiles(id,display_name,created_at_ms)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W02-user",
+          "repo_helper": "(retrom/internal/repo/accounts.linkRecords).Accept",
+          "affected_records": [
+            "users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W03-credential",
+          "repo_helper": "(retrom/internal/repo/accounts.linkRecords).Accept",
+          "affected_records": [
+            "user_credentials(user_id,password_hash,password_scheme,password_changed_at_ms,created_at_ms)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W04-consume-link",
+          "repo_helper": "retrom/internal/repo/recordstore.UpdateAccountLinks",
+          "affected_records": [
+            "account_links(consumed_at_ms,consumed_by_user_id,version)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W05-session",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).insertSession",
+          "affected_records": [
+            "auth_sessions[new prepared session ID]: id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W06-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Audit",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=USER"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "idempotency": "none:链接 consumed_at_ms/version CAS 保护一次性消费",
+      "time_rule": "service.options.Now().UnixMilli() 在事务闭包内; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-profile",
+        "W02-user",
+        "W03-credential",
+        "W04-consume-link",
+        "W05-session",
+        "W06-audit",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-link_once",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.admin-delete",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.AdministrationService).Delete",
+        "(*retrom/internal/service/accounts.Service).DeleteUser"
+      ],
+      "snapshot": "retrom/internal/model/accounts.ManagedUser",
+      "prepare": "(*retrom/internal/service/accounts.AdministrationService).Delete",
+      "commit": "(*retrom/internal/repo/accounts.AdministrationRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.validateManagedUser",
+        "retrom/internal/service/accounts.validateUserDeletion",
+        "retrom/internal/service/accounts.removesEnabledAdmin",
+        "retrom/internal/service/accounts.checkAccountReplay"
+      ],
+      "fresh_facts": [
+        {
+          "name": "idempotency replay",
+          "reader_symbol": "(retrom/internal/repo/accounts.accountOperations).Replay",
+          "reason": "幂等"
+        },
+        {
+          "name": "user state/version + profile",
+          "reader_symbol": "(retrom/internal/repo/accounts.administrationRecords).Current",
+          "reason": "防止版本冲突"
+        },
+        {
+          "name": "another enabled admin",
+          "reader_symbol": "(retrom/internal/repo/accounts.administrationRecords).AnotherEnabledAdmin",
+          "reason": "保护最后管理员"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-idempotency",
+          "fields": [
+            "key",
+            "digest"
+          ],
+          "expected_source": "事务内 Replay()",
+          "rejection": "ErrIdempotencyReused",
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "id": "G02-managed-user",
+          "fields": [
+            "found",
+            "status",
+            "version"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrUserNotFound/ErrUserDeleted/ErrUserVersion",
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "id": "G03-deletion-rules",
+          "fields": [
+            "self",
+            "confirmUsername"
+          ],
+          "expected_source": "validateUserDeletion",
+          "rejection": "ErrUserSelfChange/ErrConfirmation",
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "id": "G04-last-admin",
+          "fields": [
+            "other enabled admin exists"
+          ],
+          "expected_source": "AnotherEnabledAdmin (条件)",
+          "rejection": "ErrLastAdmin",
+          "test_id": "RFA-RF07-authorization_expired"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-user-soft-delete",
+          "repo_helper": "retrom/internal/repo/recordstore.UpdateUsers",
+          "affected_records": [
+            "users[id,expected version,status != DELETED]: status=DELETED,session_version+1,version+1,updated_at_ms,disabled_at_ms=NULL,deleted_at_ms"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-auth-sessions",
+          "repo_helper": "(retrom/internal/repo/accounts.administrationRecords).revokeSecurity",
+          "affected_records": [
+            "auth_sessions[user_id,revoked_at_ms IS NULL]: revoked_at_ms,revoked_reason when Security.Sessions"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-created-links",
+          "repo_helper": "(retrom/internal/repo/accounts.administrationRecords).revokeCreatedLinks",
+          "affected_records": [
+            "account_links[created_by_user_id,not consumed/revoked,expires_at_ms>Now]: revoked_at_ms,revoked_by_kind=SYSTEM,version+1 when Security.CreatedLinks"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-target-links",
+          "repo_helper": "(retrom/internal/repo/accounts.administrationRecords).revokeTargetLinks",
+          "affected_records": [
+            "account_links[kind=PASSWORD_RESET,target_user_id,not consumed/revoked,expires_at_ms>Now]: revoked_at_ms,revoked_by_kind=SYSTEM,version+1 when Security.TargetLinks"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-launches",
+          "repo_helper": "retrom/internal/repo/sessionstore.ChangeLaunch",
+          "affected_records": [
+            "launch_sessions[profile_id,state CREATED/ACTIVE]: state=REVOKED,finished_at_ms,updated_at_ms,version+1 when Security.Launches"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "retire-launch-payload",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_payload_retirements[launch_session_id,released_at_ms IS NULL]: due_at_ms copied from terminal finished_at_ms"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-launch-isolation",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "isolated_runtime_capabilities[launch_id,revoked_at_ms IS NULL]: revoked_at_ms=terminal launch.finished_at_ms"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "release-frozen-restore",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_game_save_bindings[launch_session_id,launch state not CREATED/ACTIVE]: restore_payload_blob_id=NULL,restore_checkpoint_format=NULL"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "W03-delete-credential",
+          "repo_helper": "(retrom/internal/repo/accounts.administrationRecords).Delete",
+          "affected_records": [
+            "user_credentials[user_id=managed target]: DELETE"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "W04-clear-default",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).clearDefaultCredential",
+          "affected_records": [
+            "instance_state[id=1,test_default_password_active=1]: test_default_password_active=0,version+1,updated_at_ms; only when ClearTestDefault"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "W05-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Audit",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=USER"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "expire-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key,expires_at_ms<=Now]: DELETE"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "insert-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key]: request_digest,http_status,response_headers_json={},response_body (empty BLOB for nil),created_at_ms,expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        }
+      ],
+      "idempotency": "Idempotency-Key header",
+      "time_rule": "service.now().UnixMilli() 在事务外 (operation.Now); current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-user-soft-delete",
+        "revoke-auth-sessions",
+        "revoke-created-links",
+        "revoke-target-links",
+        "revoke-launches",
+        "retire-launch-payload",
+        "revoke-launch-isolation",
+        "release-frozen-restore",
+        "W03-delete-credential",
+        "W04-clear-default",
+        "W05-audit",
+        "expire-receipt",
+        "insert-receipt",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.admin-update",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.AdministrationService).Update",
+        "(*retrom/internal/service/accounts.Service).UpdateUser"
+      ],
+      "snapshot": "retrom/internal/model/accounts.ManagedUser",
+      "prepare": "(*retrom/internal/service/accounts.AdministrationService).Update",
+      "commit": "(*retrom/internal/repo/accounts.AdministrationRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.resolveUserChange",
+        "retrom/internal/service/accounts.validateManagedUser",
+        "retrom/internal/service/accounts.removesEnabledAdmin",
+        "retrom/internal/service/accounts.checkAccountReplay"
+      ],
+      "fresh_facts": [
+        {
+          "name": "idempotency replay",
+          "reader_symbol": "(retrom/internal/repo/accounts.accountOperations).Replay",
+          "reason": "幂等"
+        },
+        {
+          "name": "user state/version + profile",
+          "reader_symbol": "(retrom/internal/repo/accounts.administrationRecords).Current",
+          "reason": "防止版本冲突和已删除用户"
+        },
+        {
+          "name": "another enabled admin",
+          "reader_symbol": "(retrom/internal/repo/accounts.administrationRecords).AnotherEnabledAdmin",
+          "reason": "保护最后管理员"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-idempotency",
+          "fields": [
+            "key",
+            "digest"
+          ],
+          "expected_source": "事务内 Replay()",
+          "rejection": "ErrIdempotencyReused",
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "id": "G02-managed-user",
+          "fields": [
+            "found",
+            "status",
+            "version"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrUserNotFound/ErrUserDeleted/ErrUserVersion",
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "id": "G03-resolve-change",
+          "fields": [
+            "role",
+            "status",
+            "confirmAdminRole",
+            "self"
+          ],
+          "expected_source": "resolveUserChange 纯策略",
+          "rejection": "ErrUserNoChange/ErrRoleConfirmation/ErrUserSelfChange/ErrUserTransition",
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "id": "G04-last-admin",
+          "fields": [
+            "other enabled admin exists"
+          ],
+          "expected_source": "事务内 AnotherEnabledAdmin()",
+          "rejection": "ErrLastAdmin",
+          "test_id": "RFA-RF07-authorization_expired"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-user-update",
+          "repo_helper": "retrom/internal/repo/recordstore.UpdateUsers",
+          "affected_records": [
+            "users(role,status,session_version,version,updated_at_ms,disabled_at_ms)"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-auth-sessions",
+          "repo_helper": "(retrom/internal/repo/accounts.administrationRecords).revokeSecurity",
+          "affected_records": [
+            "auth_sessions[user_id,revoked_at_ms IS NULL]: revoked_at_ms,revoked_reason when Security.Sessions"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-created-links",
+          "repo_helper": "(retrom/internal/repo/accounts.administrationRecords).revokeCreatedLinks",
+          "affected_records": [
+            "account_links[created_by_user_id,not consumed/revoked,expires_at_ms>Now]: revoked_at_ms,revoked_by_kind=SYSTEM,version+1 when Security.CreatedLinks"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-target-links",
+          "repo_helper": "(retrom/internal/repo/accounts.administrationRecords).revokeTargetLinks",
+          "affected_records": [
+            "account_links[kind=PASSWORD_RESET,target_user_id,not consumed/revoked,expires_at_ms>Now]: revoked_at_ms,revoked_by_kind=SYSTEM,version+1 when Security.TargetLinks"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-launches",
+          "repo_helper": "retrom/internal/repo/sessionstore.ChangeLaunch",
+          "affected_records": [
+            "launch_sessions[profile_id,state CREATED/ACTIVE]: state=REVOKED,finished_at_ms,updated_at_ms,version+1 when Security.Launches"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "retire-launch-payload",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_payload_retirements[launch_session_id,released_at_ms IS NULL]: due_at_ms copied from terminal finished_at_ms"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "revoke-launch-isolation",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "isolated_runtime_capabilities[launch_id,revoked_at_ms IS NULL]: revoked_at_ms=terminal launch.finished_at_ms"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "release-frozen-restore",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_game_save_bindings[launch_session_id,launch state not CREATED/ACTIVE]: restore_payload_blob_id=NULL,restore_checkpoint_format=NULL"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "W04-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Audit",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=USER"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "expire-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key,expires_at_ms<=Now]: DELETE"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "stage": "insert-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key]: request_digest,http_status,response_headers_json={},response_body (empty BLOB for nil),created_at_ms,expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        }
+      ],
+      "idempotency": "Idempotency-Key header",
+      "time_rule": "service.now().UnixMilli() 在事务外 (operation.Now); current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-user-update",
+        "revoke-auth-sessions",
+        "revoke-created-links",
+        "revoke-target-links",
+        "revoke-launches",
+        "retire-launch-payload",
+        "revoke-launch-isolation",
+        "release-frozen-restore",
+        "W04-audit",
+        "expire-receipt",
+        "insert-receipt",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.authenticate",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.Authentication).Login",
+        "(*retrom/internal/service/accounts.Service).Login"
+      ],
+      "snapshot": "(*retrom/internal/repo/accounts.Authentication).Credential",
+      "prepare": "(*retrom/internal/service/accounts.Authentication).verify",
+      "commit": "(*retrom/internal/repo/accounts.Authentication).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "users.status,session_version (隐式SQL WHERE)",
+          "reader_symbol": "(retrom/internal/repo/accounts.authRecords).Login",
+          "reason": "防止已禁用/版本变更用户创建会话"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-credential-valid",
+          "fields": [
+            "username",
+            "password_hash",
+            "status"
+          ],
+          "expected_source": "prepare阶段verify()",
+          "rejection": "ErrAuthentication",
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "id": "G02-sql-status-version",
+          "fields": [
+            "users.status",
+            "users.session_version"
+          ],
+          "expected_source": "SQL WHERE子句",
+          "rejection": "ErrAuthentication (via authChanged)",
+          "test_id": "RFA-RF07-credential_race"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-user-login",
+          "repo_helper": "retrom/internal/repo/recordstore.UpdateUsers",
+          "affected_records": [
+            "users(last_login_at_ms,updated_at_ms)"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "stage": "W02-session",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).insertSession",
+          "affected_records": [
+            "auth_sessions[new prepared session ID]: id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        }
+      ],
+      "idempotency": "none:每次登录创建新 session",
+      "time_rule": "service.now().UnixMilli() 在事务闭包内; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [
+        {
+          "action": "transport 层 setAuthCookie",
+          "recovery": "Response delivery occurs after commit. A lost HTTP response does not roll back persisted state; re-authentication or exact idempotency replay uses the existing public path.",
+          "test_id": "RFA-RF07-secrets"
+        }
+      ],
+      "fault_points": [
+        "W01-user-login",
+        "W02-session",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.change-password",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.PasswordService).Change",
+        "(*retrom/internal/service/accounts.Service).ChangePassword"
+      ],
+      "snapshot": "(*retrom/internal/repo/accounts.PasswordRepository).Current",
+      "prepare": "(*retrom/internal/service/accounts.PasswordService).prepare",
+      "commit": "(*retrom/internal/repo/accounts.PasswordRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.passwordAuthorized"
+      ],
+      "fresh_facts": [
+        {
+          "name": "user status/session_version/password_hash + session存在",
+          "reader_symbol": "(retrom/internal/repo/accounts.passwordRecords).Current",
+          "reason": "防止并发密码变更和已过期授权"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-found",
+          "fields": [
+            "user exists"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrAuthenticationNeeded",
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "id": "G02-authorized",
+          "fields": [
+            "SessionCurrent",
+            "status",
+            "session_version"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrAuthenticationNeeded",
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "id": "G03-hash-unchanged",
+          "fields": [
+            "password_hash"
+          ],
+          "expected_source": "prepare vs 事务内比较",
+          "rejection": "ErrAuthenticationNeeded",
+          "test_id": "RFA-RF07-credential_race"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-user-version",
+          "repo_helper": "(retrom/internal/repo/accounts.passwordRecords).Rotate",
+          "affected_records": [
+            "users(session_version,version,updated_at_ms)"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "stage": "W02-credential",
+          "repo_helper": "(retrom/internal/repo/accounts.passwordRecords).Rotate",
+          "affected_records": [
+            "user_credentials(password_hash,password_changed_at_ms)"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "stage": "revoke-credential-sessions",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).revokeCredentialSecurity",
+          "affected_records": [
+            "auth_sessions[user_id,revoked_at_ms IS NULL]: revoked_at_ms,revoked_reason"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "stage": "revoke-credential-reset-links",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).revokeCredentialSecurity",
+          "affected_records": [
+            "account_links[kind=PASSWORD_RESET,target_user_id,not consumed/revoked,expires_at_ms>Now]: revoked_at_ms,revoked_by_kind=SYSTEM,version+1"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "stage": "W04-clear-default",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).clearDefaultCredential",
+          "affected_records": [
+            "instance_state[id=1,test_default_password_active=1]: test_default_password_active=0,version+1,updated_at_ms; only when ClearTestDefault"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "stage": "W05-new-session",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).insertSession",
+          "affected_records": [
+            "auth_sessions[new prepared session ID]: id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "stage": "W06-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.passwordRecords).Rotate",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=USER"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        }
+      ],
+      "idempotency": "none:旧 hash CAS 保护",
+      "time_rule": "service.now().UnixMilli() 在事务闭包内; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-user-version",
+        "W02-credential",
+        "revoke-credential-sessions",
+        "revoke-credential-reset-links",
+        "W04-clear-default",
+        "W05-new-session",
+        "W06-audit",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.complete-password-reset",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.LinkConsumptionService).CompleteReset",
+        "(*retrom/internal/service/accounts.Service).CompletePasswordReset"
+      ],
+      "snapshot": "(*retrom/internal/repo/accounts.LinkRepository).ResetState",
+      "prepare": "(*retrom/internal/service/accounts.LinkConsumptionService).prepareReset",
+      "commit": "(*retrom/internal/repo/accounts.LinkRepository).WithConsumptionWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.activeLink",
+        "retrom/internal/service/accounts.accountLinkState"
+      ],
+      "fresh_facts": [
+        {
+          "name": "link state/version/targetUserID",
+          "reader_symbol": "(retrom/internal/repo/accounts.linkRecords).Current",
+          "reason": "防止并发消费"
+        },
+        {
+          "name": "target user全字段",
+          "reader_symbol": "(retrom/internal/repo/accounts.linkRecords).Target",
+          "reason": "防止目标状态变更"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-active-link-version",
+          "fields": [
+            "kind",
+            "state",
+            "version"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrAccountLinkUnavailable",
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "id": "G02-target-match",
+          "fields": [
+            "targetUserID"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrAccountLinkUnavailable",
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "id": "G03-target-unchanged",
+          "fields": [
+            "user.id",
+            "username",
+            "display_name",
+            "role",
+            "profile_id",
+            "status",
+            "version",
+            "session_version"
+          ],
+          "expected_source": "事务内 Target() == before snapshot",
+          "rejection": "ErrAccountLinkUnavailable",
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-user-version",
+          "repo_helper": "(retrom/internal/repo/accounts.linkRecords).Reset",
+          "affected_records": [
+            "users(session_version,version,updated_at_ms)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W02-consume-link",
+          "repo_helper": "retrom/internal/repo/recordstore.UpdateAccountLinks",
+          "affected_records": [
+            "account_links(consumed_at_ms,consumed_by_user_id,version)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W03-credential",
+          "repo_helper": "(retrom/internal/repo/accounts.linkRecords).Reset",
+          "affected_records": [
+            "user_credentials(password_hash,password_scheme,password_changed_at_ms)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W04-revoke-sessions",
+          "repo_helper": "(retrom/internal/repo/accounts.linkRecords).Reset",
+          "affected_records": [
+            "auth_sessions(revoked_at_ms,revoked_reason)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W05-clear-default",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).clearDefaultCredential",
+          "affected_records": [
+            "instance_state[id=1,test_default_password_active=1]: test_default_password_active=0,version+1,updated_at_ms; only when ClearTestDefault"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W06-new-session",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).insertSession",
+          "affected_records": [
+            "auth_sessions[new prepared session ID]: id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W07-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Audit",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=USER"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "idempotency": "none:链接 consumed_at_ms/version CAS 保护",
+      "time_rule": "service.options.Now().UnixMilli() 在事务闭包内; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-user-version",
+        "W02-consume-link",
+        "W03-credential",
+        "W04-revoke-sessions",
+        "W05-clear-default",
+        "W06-new-session",
+        "W07-audit",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-link_once",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.initialize",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.InitializationService).Initialize",
+        "(*retrom/internal/service/accounts.InitializationService).Start",
+        "(*retrom/internal/service/accounts.InitializationService).bootstrap"
+      ],
+      "snapshot": "(*retrom/internal/service/accounts.InitializationService).State",
+      "prepare": "(*retrom/internal/service/accounts.InitializationService).bootstrap",
+      "commit": "(*retrom/internal/repo/accounts.InitializationRepository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "instance_state.state",
+          "reader_symbol": "(retrom/internal/repo/accounts.initializationRecords).State",
+          "reason": "防止重复初始化"
+        },
+        {
+          "name": "users count",
+          "reader_symbol": "(retrom/internal/repo/accounts.initializationRecords).State",
+          "reason": "防止部分状态初始化"
+        },
+        {
+          "name": "profiles count",
+          "reader_symbol": "(retrom/internal/repo/accounts.initializationRecords).State",
+          "reason": "防止孤立 profile"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-state-pending",
+          "fields": [
+            "instance_state.state"
+          ],
+          "expected_source": "事务内 State()",
+          "rejection": "ErrInitializationDone",
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "id": "G02-empty-store",
+          "fields": [
+            "users_count",
+            "profiles_count"
+          ],
+          "expected_source": "事务内 State()",
+          "rejection": "ErrInitializationState",
+          "test_id": "RFA-RF07-offline_initialize"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-profile",
+          "repo_helper": "retrom/internal/repo/recordstore.CreateProfiles",
+          "affected_records": [
+            "profiles(id,display_name,created_at_ms)"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "W02-user",
+          "repo_helper": "(retrom/internal/repo/accounts.initializationRecords).Bootstrap",
+          "affected_records": [
+            "users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "W03-credential",
+          "repo_helper": "(retrom/internal/repo/accounts.initializationRecords).Bootstrap",
+          "affected_records": [
+            "user_credentials(user_id,password_hash,password_scheme,password_changed_at_ms,created_at_ms)"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "W04-instance-state",
+          "repo_helper": "retrom/internal/repo/recordstore.UpdateInstanceState",
+          "affected_records": [
+            "instance_state(state,bootstrap_kind,initial_admin_user_id,test_default_password_active,version,updated_at_ms,initialized_at_ms)"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "W05-session",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).insertSession",
+          "affected_records": [
+            "auth_sessions[new prepared session ID]: id,user_id,token_sha256,user_session_version,created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "W06-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.initializationRecords).Bootstrap",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=SYSTEM"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        }
+      ],
+      "idempotency": "none:依赖 instance_state.state guard 防重入，无显式幂等 key",
+      "time_rule": "service.options.Now().UnixMilli() 在事务闭包内赋值给 plan.Now; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-profile",
+        "W02-user",
+        "W03-credential",
+        "W04-instance-state",
+        "W05-session",
+        "W06-audit",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-offline_initialize",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.issue-invitation",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.LinkIssuanceService).Invitation",
+        "(*retrom/internal/service/accounts.Service).CreateInvitation"
+      ],
+      "snapshot": "retrom/internal/model/accounts.LinkCreator",
+      "prepare": "(*retrom/internal/service/accounts.LinkIssuanceService).Invitation",
+      "commit": "(*retrom/internal/repo/accounts.LinkRepository).WithIssueWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.checkAccountReplay"
+      ],
+      "fresh_facts": [
+        {
+          "name": "idempotency_records replay",
+          "reader_symbol": "(retrom/internal/repo/accounts.accountOperations).Replay",
+          "reason": "幂等回放检查"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-role-confirm",
+          "fields": [
+            "role",
+            "confirmAdminRole"
+          ],
+          "expected_source": "输入校验",
+          "rejection": "ErrRoleConfirmation",
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "id": "G02-idempotency",
+          "fields": [
+            "key",
+            "digest"
+          ],
+          "expected_source": "事务内 Replay()",
+          "rejection": "ErrIdempotencyReused",
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-link",
+          "repo_helper": "(retrom/internal/repo/accounts.linkRecords).Issue",
+          "affected_records": [
+            "account_links[new link ID]: id,kind,invited_role (INVITATION only),target_user_id (PASSWORD_RESET only),created_by_user_id,created_at_ms,expires_at_ms,version=1"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Audit",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=USER"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "expire-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key,expires_at_ms<=Now]: DELETE"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "insert-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key]: request_digest,http_status,response_headers_json={},response_body (empty BLOB for nil),created_at_ms,expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "idempotency": "Idempotency-Key header → accountOperations.Replay/Remember",
+      "time_rule": "service.now().UnixMilli() 在事务外生成 operation.Now; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [
+        {
+          "action": "(*retrom/internal/service/accounts.LinkIssuanceService).issue derives AccountLinkToken after transaction commit, then HTTP response builds URL.",
+          "recovery": "Idempotency receipt contains stable link ID and no token; replay derives the same token through LinkIssuer.",
+          "test_id": "RFA-RF07-secrets"
+        }
+      ],
+      "fault_points": [
+        "W01-link",
+        "W02-audit",
+        "expire-receipt",
+        "insert-receipt",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-link_once",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.issue-password-reset",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.LinkIssuanceService).PasswordReset",
+        "(*retrom/internal/service/accounts.Service).CreatePasswordReset"
+      ],
+      "snapshot": "retrom/internal/model/accounts.LinkTarget",
+      "prepare": "(*retrom/internal/service/accounts.LinkIssuanceService).PasswordReset",
+      "commit": "(*retrom/internal/repo/accounts.LinkRepository).WithIssueWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.validateLinkTarget",
+        "retrom/internal/service/accounts.checkAccountReplay"
+      ],
+      "fresh_facts": [
+        {
+          "name": "target user state/version",
+          "reader_symbol": "(retrom/internal/repo/accounts.linkRecords).Target",
+          "reason": "防止对已删除/版本过期用户签发"
+        },
+        {
+          "name": "idempotency replay",
+          "reader_symbol": "(retrom/internal/repo/accounts.accountOperations).Replay",
+          "reason": "幂等"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-target-valid",
+          "fields": [
+            "found",
+            "status",
+            "version"
+          ],
+          "expected_source": "事务内 Target()",
+          "rejection": "ErrUserNotFound/ErrUserDeleted/ErrUserVersion",
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "id": "G02-idempotency",
+          "fields": [
+            "key",
+            "digest"
+          ],
+          "expected_source": "事务内 Replay()",
+          "rejection": "ErrIdempotencyReused",
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-user-version-bump",
+          "repo_helper": "retrom/internal/repo/recordstore.UpdateUsers",
+          "affected_records": [
+            "users(version,updated_at_ms)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W02-revoke-previous",
+          "repo_helper": "(retrom/internal/repo/accounts.administrationRecords).revokeTargetLinks",
+          "affected_records": [
+            "account_links[kind=PASSWORD_RESET,target_user_id,consumed_at_ms IS NULL,revoked_at_ms IS NULL,expires_at_ms>Now]: revoked_at_ms,revoked_by_kind=SYSTEM,version+1"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W03-link",
+          "repo_helper": "(retrom/internal/repo/accounts.linkRecords).Issue",
+          "affected_records": [
+            "account_links[new link ID]: id,kind,invited_role (INVITATION only),target_user_id (PASSWORD_RESET only),created_by_user_id,created_at_ms,expires_at_ms,version=1"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W04-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Audit",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=USER"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "expire-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key,expires_at_ms<=Now]: DELETE"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "insert-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key]: request_digest,http_status,response_headers_json={},response_body (empty BLOB for nil),created_at_ms,expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "idempotency": "Idempotency-Key header",
+      "time_rule": "service.now().UnixMilli() 在事务外; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [
+        {
+          "action": "(*retrom/internal/service/accounts.LinkIssuanceService).issue derives AccountLinkToken after transaction commit, then HTTP response builds URL.",
+          "recovery": "Idempotency receipt contains stable link ID and no token; replay derives the same token through LinkIssuer.",
+          "test_id": "RFA-RF07-secrets"
+        }
+      ],
+      "fault_points": [
+        "W01-user-version-bump",
+        "W02-revoke-previous",
+        "W03-link",
+        "W04-audit",
+        "expire-receipt",
+        "insert-receipt",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-link_once",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.logout",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.Authentication).Logout",
+        "(*retrom/internal/service/accounts.Service).Logout"
+      ],
+      "snapshot": "retrom/internal/model/accounts.Session",
+      "prepare": "(*retrom/internal/service/accounts.Authentication).Logout",
+      "commit": "(*retrom/internal/repo/accounts.Authentication).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current active session predicate",
+          "reader_symbol": "(retrom/internal/repo/accounts.authRecords).Revoke",
+          "reason": "No independent read inside transaction; UPDATE matches exact authenticated session ID and revoked_at_ms IS NULL. Already revoked is a successful no-op."
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-csrf",
+          "fields": [
+            "session_token",
+            "X-Retrom-Csrf"
+          ],
+          "expected_source": "HTTP header",
+          "rejection": "HTTP 403 CSRF_VALIDATION_FAILED",
+          "test_id": "RFA-RF07-authorization_expired"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-revoke",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).Revoke",
+          "affected_records": [
+            "auth_sessions[id=authenticated session ID,revoked_at_ms IS NULL]: revoked_at_ms,revoked_reason=LOGOUT"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        }
+      ],
+      "idempotency": "SQL WHERE revoked_at_ms IS NULL 提供幂等",
+      "time_rule": "service.now().UnixMilli() 在事务闭包内; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [
+        {
+          "action": "clearAuthCookies + Clear-Site-Data",
+          "recovery": "Response delivery occurs after commit. A lost HTTP response does not roll back persisted state; re-authentication or exact idempotency replay uses the existing public path.",
+          "test_id": "RFA-RF07-secrets"
+        }
+      ],
+      "fault_points": [
+        "W01-revoke",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.offline-recovery",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.RecoveryService).Reset",
+        "(*retrom/internal/service/accounts.Service).OfflineAdminReset"
+      ],
+      "snapshot": "(*retrom/internal/repo/accounts.RecoveryRepository).ByUsername",
+      "prepare": "(*retrom/internal/service/accounts.RecoveryService).prepare",
+      "commit": "(*retrom/internal/repo/accounts.RecoveryRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.recoverable"
+      ],
+      "fresh_facts": [
+        {
+          "name": "user role/status/version",
+          "reader_symbol": "(retrom/internal/repo/accounts.recoveryRecords).Current",
+          "reason": "防止并发版本变更"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-found",
+          "fields": [
+            "exists"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrOfflineAdmin",
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "id": "G02-recoverable",
+          "fields": [
+            "role",
+            "status"
+          ],
+          "expected_source": "事务内 recoverable()",
+          "rejection": "ErrOfflineAdmin",
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "id": "G03-version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "事务内 vs prepare",
+          "rejection": "ErrOfflineAdmin",
+          "test_id": "RFA-RF07-offline_initialize"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-user-enable",
+          "repo_helper": "retrom/internal/repo/recordstore.UpdateUsers",
+          "affected_records": [
+            "users(status='ENABLED',session_version,version,updated_at_ms,disabled_at_ms=NULL)"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "W02-credential",
+          "repo_helper": "(retrom/internal/repo/accounts.recoveryRecords).Reset",
+          "affected_records": [
+            "user_credentials(password_hash,password_scheme,password_changed_at_ms)"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "revoke-credential-sessions",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).revokeCredentialSecurity",
+          "affected_records": [
+            "auth_sessions[user_id,revoked_at_ms IS NULL]: revoked_at_ms,revoked_reason"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "revoke-credential-reset-links",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).revokeCredentialSecurity",
+          "affected_records": [
+            "account_links[kind=PASSWORD_RESET,target_user_id,not consumed/revoked,expires_at_ms>Now]: revoked_at_ms,revoked_by_kind=SYSTEM,version+1"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "W04-clear-default",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).clearDefaultCredential",
+          "affected_records": [
+            "instance_state[id=1,test_default_password_active=1]: test_default_password_active=0,version+1,updated_at_ms; only when ClearTestDefault"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        },
+        {
+          "stage": "W05-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.recoveryRecords).Reset",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=SYSTEM"
+          ],
+          "test_id": "RFA-RF07-offline_initialize"
+        }
+      ],
+      "idempotency": "none:version guard 防重入",
+      "time_rule": "service.now().UnixMilli() 在事务闭包内; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-user-enable",
+        "W02-credential",
+        "revoke-credential-sessions",
+        "revoke-credential-reset-links",
+        "W04-clear-default",
+        "W05-audit",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-offline_initialize",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.rate-limit-clear",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.Limiter).Clear",
+        "(*retrom/internal/service/accounts.Service).LoginRateLimited"
+      ],
+      "snapshot": "retrom/internal/model/accounts.RateLimitKey",
+      "prepare": "(*retrom/internal/service/accounts.Limiter).key",
+      "commit": "(*retrom/internal/repo/accounts.RateLimits).Clear",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "matching failure bucket",
+          "reader_symbol": "(*retrom/internal/repo/accounts.RateLimits).Clear",
+          "reason": "No pre-read; the DELETE predicate only addresses the scope and trusted subject hash derived from the successful login."
+        }
+      ],
+      "guards": [
+        {
+          "id": "bucket-scope",
+          "fields": [
+            "scope",
+            "subject_hash"
+          ],
+          "expected_source": "Limiter.key derives trusted digest from the passed login account scope/subject; SQL predicate addresses only that bucket",
+          "rejection": "No match is a successful no-op; no other bucket may change",
+          "test_id": "RFA-RF07-credential_race"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-delete",
+          "repo_helper": "(*retrom/internal/repo/accounts.RateLimits).Clear",
+          "affected_records": [
+            "auth_rate_limits[scope,subject_hash from trusted RateLimitHasher]: DELETE; other bucket keys unchanged"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        }
+      ],
+      "idempotency": "DELETE幂等",
+      "time_rule": "无时钟使用; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-delete",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.rate-limit-record",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.Limiter).Record",
+        "(*retrom/internal/service/accounts.Service).AcceptInvitationRateLimited",
+        "(*retrom/internal/service/accounts.Service).CompletePasswordResetRateLimited",
+        "(*retrom/internal/service/accounts.Service).InitializeRateLimited",
+        "(*retrom/internal/service/accounts.Service).InspectAccountLinkRateLimited",
+        "(*retrom/internal/service/accounts.Service).LoginRateLimited"
+      ],
+      "snapshot": "retrom/internal/model/accounts.RateLimitSubject",
+      "prepare": "(*retrom/internal/service/accounts.Limiter).key",
+      "commit": "(*retrom/internal/repo/accounts.RateLimits).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.retryAfterSeconds"
+      ],
+      "fresh_facts": [
+        {
+          "name": "rate limit bucket",
+          "reader_symbol": "(retrom/internal/repo/accounts.rateLimitRecords).Read",
+          "reason": "窗口/阻断状态"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-already-blocked",
+          "fields": [
+            "blocked_until"
+          ],
+          "expected_source": "事务内 Read()",
+          "rejection": "RateLimitError",
+          "test_id": "RFA-RF07-credential_race"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune",
+          "repo_helper": "(retrom/internal/repo/accounts.rateLimitRecords).Prune",
+          "affected_records": [
+            "auth_rate_limits: DELETE at most 100 exact (scope,subject_hash) tuples with updated_at_ms < Now-24h and (blocked_until_ms IS NULL OR blocked_until_ms<=Now), ordered by updated_at_ms,scope,subject_hash"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        },
+        {
+          "stage": "W02-upsert",
+          "repo_helper": "(retrom/internal/repo/accounts.rateLimitRecords).Write",
+          "affected_records": [
+            "auth_rate_limits[scope,subject_hash]: INSERT scope,subject_hash,window_started_at_ms,failure_count,blocked_until_ms,updated_at_ms; conflict updates window_started_at_ms,failure_count,blocked_until_ms,updated_at_ms"
+          ],
+          "test_id": "RFA-RF07-credential_race"
+        }
+      ],
+      "idempotency": "none:每次失败累加",
+      "time_rule": "limiter.now().UnixMilli() 在事务闭包内; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-prune",
+        "W02-upsert",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-credential_race",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.renew-session",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.Authentication).Authenticate",
+        "(*retrom/internal/service/accounts.Authentication).refresh"
+      ],
+      "snapshot": "(*retrom/internal/repo/accounts.Authentication).Session",
+      "prepare": "(*retrom/internal/service/accounts.Authentication).Authenticate",
+      "commit": "(*retrom/internal/repo/accounts.Authentication).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.validSession"
+      ],
+      "fresh_facts": [
+        {
+          "name": "session (全字段)",
+          "reader_symbol": "(retrom/internal/repo/accounts.authRecords).Session",
+          "reason": "防止已撤销/过期 session 被续期"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-valid-session",
+          "fields": [
+            "revoked_at",
+            "status",
+            "user_version",
+            "session_version",
+            "idle_expiry",
+            "absolute_expiry"
+          ],
+          "expected_source": "事务内 Session()",
+          "rejection": "ErrAuthenticationNeeded",
+          "test_id": "RFA-RF07-authorization_expired"
+        },
+        {
+          "id": "G02-expected-last-seen",
+          "fields": [
+            "last_seen_at_ms"
+          ],
+          "expected_source": "SQL WHERE 乐观比较",
+          "rejection": "ErrAuthenticationNeeded (via authChanged)",
+          "test_id": "RFA-RF07-authorization_expired"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-refresh",
+          "repo_helper": "(retrom/internal/repo/accounts.authRecords).Refresh",
+          "affected_records": [
+            "auth_sessions[id,revoked_at_ms IS NULL,last_seen_at_ms=expected]: last_seen_at_ms, idle_expires_at_ms=min(Now+idleDuration,absoluteExpiry); exactly one row required"
+          ],
+          "test_id": "RFA-RF07-authorization_expired"
+        }
+      ],
+      "idempotency": "乐观 ExpectedLastSeen 比较提供内置幂等",
+      "time_rule": "service.now().UnixMilli() 在事务闭包内; current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-refresh",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-authorization_expired",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "accounts.revoke-link",
+      "owner": "accounts",
+      "rf_id": "RF07",
+      "consumers": [
+        "(*retrom/internal/service/accounts.LinkService).Revoke",
+        "(*retrom/internal/service/accounts.Service).RevokeAccountLink"
+      ],
+      "snapshot": "retrom/internal/model/accounts.LinkRecord",
+      "prepare": "(*retrom/internal/service/accounts.LinkService).Revoke",
+      "commit": "(*retrom/internal/repo/accounts.LinkRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/accounts.accountLinkState",
+        "retrom/internal/service/accounts.checkAccountReplay"
+      ],
+      "fresh_facts": [
+        {
+          "name": "idempotency replay",
+          "reader_symbol": "(retrom/internal/repo/accounts.accountOperations).Replay",
+          "reason": "幂等"
+        },
+        {
+          "name": "link state/version",
+          "reader_symbol": "(retrom/internal/repo/accounts.linkRecords).Current",
+          "reason": "防止过期/已终结链接被撤销"
+        }
+      ],
+      "guards": [
+        {
+          "id": "G01-idempotency",
+          "fields": [
+            "key",
+            "digest"
+          ],
+          "expected_source": "事务内 Replay()",
+          "rejection": "ErrIdempotencyReused",
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "id": "G02-found",
+          "fields": [
+            "exists"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrAccountLinkNotActive",
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "id": "G03-version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "事务内 Current()",
+          "rejection": "ErrUserVersion",
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "id": "G04-active-state",
+          "fields": [
+            "accountLinkState"
+          ],
+          "expected_source": "事务内计算",
+          "rejection": "ErrAccountLinkNotActive",
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-revoke-link",
+          "repo_helper": "retrom/internal/repo/recordstore.UpdateAccountLinks",
+          "affected_records": [
+            "account_links(revoked_at_ms,revoked_by_kind,revoked_by_user_id,version)"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Audit",
+          "affected_records": [
+            "audit_events[new audit ID]: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json={},request_id=NULL,created_at_ms; actor_kind=USER"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "expire-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key,expires_at_ms<=Now]: DELETE"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        },
+        {
+          "stage": "insert-receipt",
+          "repo_helper": "(retrom/internal/repo/accounts.accountOperations).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id,key]: request_digest,http_status,response_headers_json={},response_body (empty BLOB for nil),created_at_ms,expires_at_ms"
+          ],
+          "test_id": "RFA-RF07-link_once"
+        }
+      ],
+      "idempotency": "Idempotency-Key header",
+      "time_rule": "service.now().UnixMilli() 在事务外 (operation.Now); current writer boundary uses BeginTx(ctx,nil), except RateLimits.Clear is one implicit SQLite statement. RF05/RF07 must sample the technical clock once after obtaining write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-revoke-link",
+        "W02-audit",
+        "expire-receipt",
+        "insert-receipt",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF07-link_once",
+        "RFA-RF07-secrets"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "无 CAS/Blob 内容",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "owner": "saves",
+      "rf_id": "RF08",
+      "snapshot": "(*retrom/internal/service/saves.Service).loadLaunch",
+      "prepare": "(*retrom/internal/service/saves.Service).createManualForLaunch",
+      "commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/saves.validateLaunch",
+        "retrom/internal/service/saves.validLaunchDiscShape",
+        "retrom/internal/service/saves.sameCheckpointOwner"
+      ],
+      "fresh_facts": [
+        {
+          "name": "prior save receipt",
+          "reader_symbol": "(retrom/internal/repo/saves.records).Replay",
+          "reason": "Same principal/key/postRuntimeSaveState and expires_at_ms > sampled AtMS; replay precedes current launch write checks"
+        },
+        {
+          "name": "launch authority and checkpoint contract",
+          "reader_symbol": "(retrom/internal/repo/saves.records).LoadLaunch",
+          "reason": "Reload principal/profile/game/purpose, state, expiry, credential hash, provider checkpoint JSON, multidisc facts and product/review liveness before any new reference"
+        }
+      ],
+      "guards": [
+        {
+          "id": "launch-contract",
+          "fields": [
+            "checkpoint.writeFormat",
+            "checkpoint.maxBytes",
+            "contentFormat",
+            "discCount",
+            "initialDiscIndex"
+          ],
+          "expected_source": "current launch read within WithWrite; validateLaunch and validLaunchDiscShape",
+          "rejection": "ErrCheckpointUnavailable or ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "same-owner",
+          "fields": [
+            "profileID",
+            "principalID",
+            "gameID",
+            "purpose",
+            "checkpoint.writeFormat"
+          ],
+          "expected_source": "sameCheckpointOwner(current, preparedLaunch)",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "active-capability",
+          "fields": [
+            "state",
+            "hardExpiresAtMS",
+            "credentialHash"
+          ],
+          "expected_source": "non-local-draft branch: ACTIVE, expiry after service clock, bytes equal to authenticated pre-read",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "payload-bound",
+          "fields": [
+            "checkpoint.maxBytes",
+            "preparedPayload.size"
+          ],
+          "expected_source": "current limit and fixed 256 MiB service bound",
+          "rejection": "ErrTooLarge",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "idempotency-digest",
+          "fields": [
+            "principal_id",
+            "operation_id",
+            "key",
+            "request_digest",
+            "expires_at_ms"
+          ],
+          "expected_source": "Replay uses postRuntimeSaveState and unexpired key; constant-time compare with digest(id NUL metadata JSON NUL payload SHA NUL screenshot SHA)",
+          "rejection": "ErrSequenceReused",
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "id": "review-retained",
+          "fields": [
+            "purpose",
+            "itemState",
+            "payloadState"
+          ],
+          "expected_source": "non-PRODUCT: itemState REVIEW_PENDING and payloadState RETAINED",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        }
+      ],
+      "idempotency": "postRuntimeSaveState; principal + key; request digest includes launch ID, exact metadata JSON, payload SHA256 and optional screenshot SHA256. Matching receipt is decoded before fresh authority check. New response status=201, headers={}, JSON body, expires=sampled AtMS+24h; all recorded inside the callback transaction.",
+      "after_commit": [],
+      "time_rule": "Baseline: Service.now is sampled inside WithWrite once for receipt and writes, and again inside ensureWritable for expiry. Repository uses BeginTx(nil), not explicit BEGIN IMMEDIATE. RF05/RF08 must move one clock sample after obtaining the write permission into Repo; do not retain the upper callback.",
+      "fault_points": [
+        "payload blob registration",
+        "preview mutation",
+        "preview capability relation helper",
+        "receipt insertion",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF08-save_atomic",
+        "RFA-RF08-save_authority",
+        "RFA-RF08-stream_parts",
+        "RFA-RF08-formats"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Publishes prepared payload and optional screenshot and creates protected CAS references; baseline has no cross-process digest lock and can race GC.",
+        "digest_sources": [
+          "prepared payload SHA256",
+          "optional prepared screenshot SHA256"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-shared_digest"
+        ]
+      },
+      "operation_id": "saves.checkpoint.preview",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).CreateManual"
+      ],
+      "write_set": [
+        {
+          "stage": "payload-catalog",
+          "repo_helper": "(retrom/internal/repo/saves.records).Ensure",
+          "affected_records": [
+            "blobs[sha256]: ID preserved on duplicate, md5,sha1,crc32,size_bytes,media_type,created_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "replace-preview",
+          "repo_helper": "(retrom/internal/repo/saves.writes).ReplacePreview",
+          "affected_records": [
+            "review_preview_sessions[id=launch ID]: checkpoint_payload_blob_id,checkpoint_format,checkpoint_created_at_ms,updated_at_ms,version+1; validated by sessionstore.ChangePreview/recordstore"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "preview-capability-relation",
+          "repo_helper": "retrom/internal/repo/sessionstore.revokePreviewCapability",
+          "affected_records": [
+            "isolated_runtime_capabilities[preview_id,revoked_at_ms IS NULL]: revoked_at_ms copied from review_preview_sessions.finished_at_ms only if state FINISHED/EXPIRED/REVOKED; active checkpoint normally matches no rows, but helper is part of atomic call path"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "receipt",
+          "repo_helper": "(retrom/internal/repo/saves.records).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id=postRuntimeSaveState,key]: request_digest,http_status=201,response_headers_json={},response_body,created_at_ms,expires_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        }
+      ]
+    },
+    {
       "owner": "saves",
       "rf_id": "RF08",
       "snapshot": "(*retrom/internal/service/saves.Service).loadLaunch",
@@ -190,170 +2170,78 @@
       ]
     },
     {
+      "operation_id": "saves.delete",
       "owner": "saves",
       "rf_id": "RF08",
-      "snapshot": "(*retrom/internal/service/saves.Service).loadLaunch",
-      "prepare": "(*retrom/internal/service/saves.Service).createManualForLaunch",
-      "commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).Delete"
+      ],
+      "snapshot": "retrom/internal/model/saves.DeleteRequest",
+      "prepare": "(*retrom/internal/service/saves.Service).Delete",
+      "commit": "(*retrom/internal/repo/saves.Repository).Delete",
       "policy_symbols": [
-        "retrom/internal/service/saves.validateLaunch",
-        "retrom/internal/service/saves.validLaunchDiscShape",
-        "retrom/internal/service/saves.sameCheckpointOwner"
+        "retrom/internal/repo/recordstore.SaveStatesUpdateRule"
       ],
       "fresh_facts": [
         {
-          "name": "prior save receipt",
-          "reader_symbol": "(retrom/internal/repo/saves.records).Replay",
-          "reason": "Same principal/key/postRuntimeSaveState and expires_at_ms > sampled AtMS; replay precedes current launch write checks"
-        },
-        {
-          "name": "launch authority and checkpoint contract",
-          "reader_symbol": "(retrom/internal/repo/saves.records).LoadLaunch",
-          "reason": "Reload principal/profile/game/purpose, state, expiry, credential hash, provider checkpoint JSON, multidisc facts and product/review liveness before any new reference"
+          "name": "current save predicate and immutable fields",
+          "reader_symbol": "retrom/internal/repo/recordstore.UpdateSaveStates",
+          "reason": "recordstore.Atomic reads previous id/checkpoint_format/disc_index/source_launch_session_id for the same id/profile/version/not-deleted predicate; failed match is classified by checkMutationResult after helper returns"
         }
       ],
       "guards": [
         {
-          "id": "launch-contract",
+          "id": "owner-visible",
           "fields": [
-            "checkpoint.writeFormat",
-            "checkpoint.maxBytes",
-            "contentFormat",
-            "discCount",
-            "initialDiscIndex"
+            "save_state_id",
+            "profile_id",
+            "deleted_at_ms"
           ],
-          "expected_source": "current launch read within WithWrite; validateLaunch and validLaunchDiscShape",
-          "rejection": "ErrCheckpointUnavailable or ErrCredential",
+          "expected_source": "HTTP authenticated profile; target exists, same profile and not deleted",
+          "rejection": "ErrNotFound",
           "test_id": "RFA-RF08-save_authority"
         },
         {
-          "id": "same-owner",
+          "id": "expected-version",
           "fields": [
-            "profileID",
-            "principalID",
-            "gameID",
-            "purpose",
-            "checkpoint.writeFormat"
+            "version"
           ],
-          "expected_source": "sameCheckpointOwner(current, preparedLaunch)",
-          "rejection": "ErrCredential",
-          "test_id": "RFA-RF08-save_authority"
-        },
-        {
-          "id": "active-capability",
-          "fields": [
-            "state",
-            "hardExpiresAtMS",
-            "credentialHash"
-          ],
-          "expected_source": "non-local-draft branch: ACTIVE, expiry after service clock, bytes equal to authenticated pre-read",
-          "rejection": "ErrCredential",
-          "test_id": "RFA-RF08-save_authority"
-        },
-        {
-          "id": "payload-bound",
-          "fields": [
-            "checkpoint.maxBytes",
-            "preparedPayload.size"
-          ],
-          "expected_source": "current limit and fixed 256 MiB service bound",
-          "rejection": "ErrTooLarge",
-          "test_id": "RFA-RF08-save_authority"
-        },
-        {
-          "id": "idempotency-digest",
-          "fields": [
-            "principal_id",
-            "operation_id",
-            "key",
-            "request_digest",
-            "expires_at_ms"
-          ],
-          "expected_source": "Replay uses postRuntimeSaveState and unexpired key; constant-time compare with digest(id NUL metadata JSON NUL payload SHA NUL screenshot SHA)",
-          "rejection": "ErrSequenceReused",
-          "test_id": "RFA-RF08-save_atomic"
-        },
-        {
-          "id": "review-retained",
-          "fields": [
-            "purpose",
-            "itemState",
-            "payloadState"
-          ],
-          "expected_source": "non-PRODUCT: itemState REVIEW_PENDING and payloadState RETAINED",
-          "rejection": "ErrCredential",
+          "expected_source": "If-Match parsed ETag passed as ExpectedVersion; one affected row",
+          "rejection": "ErrVersionConflict",
           "test_id": "RFA-RF08-save_authority"
         }
       ],
-      "idempotency": "postRuntimeSaveState; principal + key; request digest includes launch ID, exact metadata JSON, payload SHA256 and optional screenshot SHA256. Matching receipt is decoded before fresh authority check. New response status=201, headers={}, JSON body, expires=sampled AtMS+24h; all recorded inside the callback transaction.",
+      "write_set": [
+        {
+          "stage": "delete",
+          "repo_helper": "(*retrom/internal/repo/saves.Repository).Delete",
+          "affected_records": [
+            "save_states[id,profile_id,expected version,deleted_at_ms IS NULL]: deleted_at_ms,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        }
+      ],
+      "idempotency": "No stored receipt: optimistic version predicate. A repeated mutation with the old version must not apply again.",
       "after_commit": [],
-      "time_rule": "Baseline: Service.now is sampled inside WithWrite once for receipt and writes, and again inside ensureWritable for expiry. Repository uses BeginTx(nil), not explicit BEGIN IMMEDIATE. RF05/RF08 must move one clock sample after obtaining the write permission into Repo; do not retain the upper callback.",
+      "time_rule": "Baseline UpdatedAtMS is supplied by HTTP server.now before Repo/lock; migrate to transaction-time Repo Clock in RF05/RF08 without changing the wire version/error contract.",
       "fault_points": [
-        "payload blob registration",
-        "preview mutation",
-        "preview capability relation helper",
-        "receipt insertion",
+        "conditional save-state mutation",
+        "recordstore invariant validation",
         "database commit"
       ],
       "test_ids": [
         "RFA-RF08-save_atomic",
-        "RFA-RF08-save_authority",
-        "RFA-RF08-stream_parts",
-        "RFA-RF08-formats"
+        "RFA-RF08-save_authority"
       ],
       "content_coordination": {
-        "required": true,
-        "reason": "Publishes prepared payload and optional screenshot and creates protected CAS references; baseline has no cross-process digest lock and can race GC.",
-        "digest_sources": [
-          "prepared payload SHA256",
-          "optional prepared screenshot SHA256"
-        ],
+        "required": false,
+        "reason": "Rename changes user metadata; Delete only marks deleted_at_ms. Neither publishes CAS bytes or creates a new protective content reference.",
+        "digest_sources": [],
         "acquire_symbol": null,
         "release_symbol": null,
-        "protected_commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
-        "test_ids": [
-          "RFA-RF18-gc_new_reference",
-          "RFA-RF18-shared_digest"
-        ]
-      },
-      "operation_id": "saves.checkpoint.preview",
-      "consumers": [
-        "(*retrom/internal/service/saves.Service).CreateManual"
-      ],
-      "write_set": [
-        {
-          "stage": "payload-catalog",
-          "repo_helper": "(retrom/internal/repo/saves.records).Ensure",
-          "affected_records": [
-            "blobs[sha256]: ID preserved on duplicate, md5,sha1,crc32,size_bytes,media_type,created_at_ms"
-          ],
-          "test_id": "RFA-RF08-save_atomic"
-        },
-        {
-          "stage": "replace-preview",
-          "repo_helper": "(retrom/internal/repo/saves.writes).ReplacePreview",
-          "affected_records": [
-            "review_preview_sessions[id=launch ID]: checkpoint_payload_blob_id,checkpoint_format,checkpoint_created_at_ms,updated_at_ms,version+1; validated by sessionstore.ChangePreview/recordstore"
-          ],
-          "test_id": "RFA-RF08-save_atomic"
-        },
-        {
-          "stage": "preview-capability-relation",
-          "repo_helper": "retrom/internal/repo/sessionstore.revokePreviewCapability",
-          "affected_records": [
-            "isolated_runtime_capabilities[preview_id,revoked_at_ms IS NULL]: revoked_at_ms copied from review_preview_sessions.finished_at_ms only if state FINISHED/EXPIRED/REVOKED; active checkpoint normally matches no rows, but helper is part of atomic call path"
-          ],
-          "test_id": "RFA-RF08-save_atomic"
-        },
-        {
-          "stage": "receipt",
-          "repo_helper": "(retrom/internal/repo/saves.records).Remember",
-          "affected_records": [
-            "idempotency_records[principal_id,operation_id=postRuntimeSaveState,key]: request_digest,http_status=201,response_headers_json={},response_body,created_at_ms,expires_at_ms"
-          ],
-          "test_id": "RFA-RF08-save_atomic"
-        }
-      ]
+        "protected_commit": null,
+        "test_ids": []
+      }
     },
     {
       "owner": "saves",
@@ -710,86 +2598,16 @@
         "protected_commit": null,
         "test_ids": []
       }
-    },
-    {
-      "operation_id": "saves.delete",
-      "owner": "saves",
-      "rf_id": "RF08",
-      "consumers": [
-        "(*retrom/internal/service/saves.Service).Delete"
-      ],
-      "snapshot": "retrom/internal/model/saves.DeleteRequest",
-      "prepare": "(*retrom/internal/service/saves.Service).Delete",
-      "commit": "(*retrom/internal/repo/saves.Repository).Delete",
-      "policy_symbols": [
-        "retrom/internal/repo/recordstore.SaveStatesUpdateRule"
-      ],
-      "fresh_facts": [
-        {
-          "name": "current save predicate and immutable fields",
-          "reader_symbol": "retrom/internal/repo/recordstore.UpdateSaveStates",
-          "reason": "recordstore.Atomic reads previous id/checkpoint_format/disc_index/source_launch_session_id for the same id/profile/version/not-deleted predicate; failed match is classified by checkMutationResult after helper returns"
-        }
-      ],
-      "guards": [
-        {
-          "id": "owner-visible",
-          "fields": [
-            "save_state_id",
-            "profile_id",
-            "deleted_at_ms"
-          ],
-          "expected_source": "HTTP authenticated profile; target exists, same profile and not deleted",
-          "rejection": "ErrNotFound",
-          "test_id": "RFA-RF08-save_authority"
-        },
-        {
-          "id": "expected-version",
-          "fields": [
-            "version"
-          ],
-          "expected_source": "If-Match parsed ETag passed as ExpectedVersion; one affected row",
-          "rejection": "ErrVersionConflict",
-          "test_id": "RFA-RF08-save_authority"
-        }
-      ],
-      "write_set": [
-        {
-          "stage": "delete",
-          "repo_helper": "(*retrom/internal/repo/saves.Repository).Delete",
-          "affected_records": [
-            "save_states[id,profile_id,expected version,deleted_at_ms IS NULL]: deleted_at_ms,version+1,updated_at_ms"
-          ],
-          "test_id": "RFA-RF08-save_atomic"
-        }
-      ],
-      "idempotency": "No stored receipt: optimistic version predicate. A repeated mutation with the old version must not apply again.",
-      "after_commit": [],
-      "time_rule": "Baseline UpdatedAtMS is supplied by HTTP server.now before Repo/lock; migrate to transaction-time Repo Clock in RF05/RF08 without changing the wire version/error contract.",
-      "fault_points": [
-        "conditional save-state mutation",
-        "recordstore invariant validation",
-        "database commit"
-      ],
-      "test_ids": [
-        "RFA-RF08-save_atomic",
-        "RFA-RF08-save_authority"
-      ],
-      "content_coordination": {
-        "required": false,
-        "reason": "Rename changes user metadata; Delete only marks deleted_at_ms. Neither publishes CAS bytes or creates a new protective content reference.",
-        "digest_sources": [],
-        "acquire_symbol": null,
-        "release_symbol": null,
-        "protected_commit": null,
-        "test_ids": []
-      }
     }
   ],
   "pending": [
     "Other domains are not yet semantically registered; the typed whole-tree call/SQL inventory remains discovery evidence, not a verified operation matrix.",
     "These records describe baseline callbacks/current symbols and planned case links; leaf cases are not yet implemented and must not be reported as PASS.",
     "Saves digest lock acquire/release definitions are absent, intentionally null; the required coordination schema must reject these records until RF03/RF04/RF08/RF18 implement them.",
-    "Existing failure-injection tests cover selected late failures only. Add independent assertions after every listed write stage and for each guard at RF08."
+    "Existing failure-injection tests cover selected late failures only. Add independent assertions after every listed write stage and for each guard at RF08.",
+    "Identity records now cover 15 current actions, including implicit session refresh and rate-limit clear. Register separate per-operation fault tests before treating planned RF07 aggregate links as coverage.",
+    "RF07 source review found administrator request authority is checked by HTTP before privileged account/link callbacks, while those callbacks re-read the target but not the actor/session. Reproduce expiration/revocation races and implement transaction-time actor checks.",
+    "Account link issuance creates link/audit identities inside upper callbacks; move preparation and random effects out of transactions during RF04/RF07. Pure policy registry deliberately excludes bootstrapPlan, Authentication.verify, recheckReset and Limiter.record because these perform I/O or random work.",
+    "Snapshot entries are existing read definitions or Model input/view definitions when the baseline mutation has no independent snapshot read; the fresh_facts record states the actual conditional SQL behavior."
   ]
 }
