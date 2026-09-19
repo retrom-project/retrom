@@ -16,10 +16,6 @@ type settlementMemory struct {
 	writes  int
 }
 
-func (m *settlementMemory) WithSettlement(_ context.Context, work func(model.WorkerSettlementScope) error) error {
-	return work(model.WorkerSettlementScope{Payload: emptyPayloadScope(), Read: m, Write: m})
-}
-
 func (m *settlementMemory) CurrentSettlement(_ context.Context, _ string) (model.ExecutionSnapshot, error) {
 	return m.before, m.failure
 }
@@ -40,24 +36,6 @@ func (m *settlementMemory) CommitSettlement(_ context.Context, change model.Work
 	return nil
 }
 
-func (m *settlementMemory) Current(context.Context, string) (model.ExecutionSnapshot, error) {
-	return m.before, m.failure
-}
-
-func (m *settlementMemory) Reviews(context.Context, string, int) ([]model.ReviewHandoffSnapshot, error) {
-	return nil, m.failure
-}
-
-func (m *settlementMemory) CompleteReview(context.Context, model.RecoveryReviewChange) error {
-	m.writes++
-	return m.failure
-}
-
-func (m *settlementMemory) Close(_ context.Context, change model.WorkerSettlementChange) error {
-	m.writes++
-	m.change = change
-	return m.failure
-}
 
 func TestWorkerSettlementRejectsReplacedOwnerAndFailedStorage(t *testing.T) {
 	t.Parallel()

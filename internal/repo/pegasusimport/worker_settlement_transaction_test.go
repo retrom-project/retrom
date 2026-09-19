@@ -1,12 +1,16 @@
 package pegasusimport
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	application "retrom/internal/model/pegasusimport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func workerSettlementDatabase(t *testing.T, cancel bool) *sql.DB {
@@ -48,21 +52,18 @@ func assertWorkerSettlementFence(t *testing.T, state, field string) {
 	t.Helper()
 	db := workerSettlementDatabase(t, state == "CANCELLED")
 	before := workflowRows(t, db)
-	err := NewWorkerSettlement(db).WithSettlement(t.Context(), func(scope application.WorkerSettlementScope) error {
-		current, err := scope.Read.Current(t.Context(), "work")
-		if err != nil {
-			return err
-		}
-		invalidateRecovery(&current, field)
-		return scope.Write.Close(
-			t.Context(),
-			application.WorkerSettlementChange{
-				Before:  current,
-				State:   state,
-				Failure: application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
-				NowMS:   10,
-			},
-		)
+
+	repo := NewWorkerSettlement(db)
+	current, err := repo.CurrentSettlement(t.Context(), "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidateRecovery(&current, field)
+	err = repo.CommitSettlement(t.Context(), application.WorkerSettlementChange{
+		Before:  current,
+		State:   state,
+		Failure: application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
+		NowMS:   10,
 	})
 	if !errors.Is(err, application.ErrVersionConflict) {
 		t.Fatalf("%s %s=%v", state, field, err)
@@ -72,46 +73,45 @@ func assertWorkerSettlementFence(t *testing.T, state, field string) {
 	}
 }
 
-func TestWorkerSettlementRollsBackJobItemsCountsEventAndRelease(t *testing.T) {
+func TestWorkerSettlementCommitFailureRollsBack(t *testing.T) {
 	t.Parallel()
 	for _, state := range []string{"FAILED", "CANCELLED"} {
 		t.Run(state, func(t *testing.T) {
-			assertWorkerSettlementRollback(t, state)
+			assertWorkerSettlementCommitRollback(t, state)
 		})
 	}
 }
 
-func assertWorkerSettlementRollback(t *testing.T, state string) {
+func assertWorkerSettlementCommitRollback(t *testing.T, state string) {
 	t.Helper()
 	db := workerSettlementDatabase(t, state == "CANCELLED")
 	before := workflowRows(t, db)
-	cause := errors.New("failure after worker close")
-	err := NewWorkerSettlement(db).WithSettlement(t.Context(), func(scope application.WorkerSettlementScope) error {
-		current, err := scope.Read.Current(t.Context(), "work")
-		if err != nil {
-			return err
-		}
-		failure := application.ExecutionFailure{}
-		if state == "FAILED" {
-			failure = application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}
-		}
-		if err := scope.Write.Close(
-			t.Context(),
-			application.WorkerSettlementChange{Before: current, State: state, Failure: failure, NowMS: 10},
-		); err != nil {
-			return err
-		}
-		closed, err := scope.Read.Current(t.Context(), "work")
-		if err != nil {
-			return err
-		}
-		if closed.JobState != state || closed.ImportState != state {
-			t.Fatalf("not actually closed: %#v", closed)
-		}
-		return cause
+
+	cause := errors.New("settlement commit injected")
+	faultDB := testsupport.OpenSQLFaultDatabase(t, db, testsupport.SQLFaultHooks{
+		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+			if strings.TrimSpace(query) == "COMMIT" {
+				return cause
+			}
+			return nil
+		},
 	})
-	if !errors.Is(err, cause) {
-		t.Fatalf("late cause=%v", err)
+
+	repo := NewWorkerSettlement(faultDB)
+	failure := application.ExecutionFailure{}
+	if state == "FAILED" {
+		failure = application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}
+	}
+
+	current, err := repo.CurrentSettlement(t.Context(), "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = repo.CommitSettlement(t.Context(), application.WorkerSettlementChange{
+		Before: current, State: state, Failure: failure, NowMS: 10,
+	})
+	if err == nil {
+		t.Fatal("expected commit failure")
 	}
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {
 		t.Fatalf("%s left settlement writes", state)
