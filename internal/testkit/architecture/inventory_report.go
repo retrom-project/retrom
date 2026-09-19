@@ -64,7 +64,7 @@ func InspectRepository(ctx context.Context, root string) (InventoryReport, error
 	if err != nil {
 		return InventoryReport{}, err
 	}
-	if err := verifyUnchangedSources(root, snapshot); err != nil {
+	if err := verifyUnchangedSourceSet(ctx, root, snapshot); err != nil {
 		return InventoryReport{}, err
 	}
 	if err := verifyUnchangedSources(root, config); err != nil {
@@ -99,6 +99,21 @@ func WriteInventory(output io.Writer, report InventoryReport) error {
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(report); err != nil {
 		return fmt.Errorf("encode architecture inventory: %w", err)
+	}
+	return nil
+}
+
+func verifyUnchangedSourceSet(ctx context.Context, root string, before SourceSnapshot) error {
+	names, err := DiscoverSources(ctx, root)
+	if err != nil {
+		return err
+	}
+	after, err := SnapshotFiles(root, names)
+	if err != nil {
+		return err
+	}
+	if after.SHA256 != before.SHA256 {
+		return ErrSourceChanged
 	}
 	return nil
 }

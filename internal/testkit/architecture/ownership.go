@@ -1,11 +1,6 @@
 package architecture
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
 	"path"
 	"slices"
 	"strconv"
@@ -51,13 +46,8 @@ func LoadOwnership(root string) (OwnershipRegistry, error) {
 		return OwnershipRegistry{}, err
 	}
 	var registry OwnershipRegistry
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&registry); err != nil {
-		return OwnershipRegistry{}, fmt.Errorf("decode ownership registry: %w", err)
-	}
-	if err := decoder.Decode(new(json.RawMessage)); !errors.Is(err, io.EOF) {
-		return OwnershipRegistry{}, ErrInvalidRegistry
+	if err := decodeStrictJSON(data, &registry); err != nil {
+		return OwnershipRegistry{}, err
 	}
 	return registry, nil
 }
@@ -90,7 +80,7 @@ func ValidateOwnership(sources []string, registry OwnershipRegistry) []Violation
 }
 
 func validateOwnershipEntry(entry PackageOwnership, packages, files map[string]bool) []Violation {
-	violations := make([]Violation, 0)
+	violations := validatePhysicalLayer(entry)
 	if !validOwnershipEntry(entry) || packages[entry.Path] {
 		violations = append(violations, ownershipViolation(entry.Path, "invalid or duplicate package owner"))
 	}

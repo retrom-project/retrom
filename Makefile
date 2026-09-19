@@ -59,7 +59,7 @@ API_CODEGEN_CONFIGS := $(sort $(wildcard api/codegen/*.yaml))
 API_BUNDLE := .cache/generated/openapi.bundle.yaml
 API_GO_GENERATED := internal/transport/httpapi/generated/models.gen.go internal/transport/httpapi/generated/server.gen.go internal/transport/httpapi/generated/spec.gen.go
 
-.PHONY: fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
+.PHONY: architecture-selftest architecture-check refactor-inventory fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report \
@@ -348,6 +348,13 @@ acceptance-report:
 	@scripts/acceptance/run.sh report
 
 .PHONY: refactor-inventory
+architecture-selftest: prepare-go api-generate-go
+	go test -count=1 ./internal/testkit/architecture/...
+
+architecture-check: prepare-go api-generate-go
+	@mkdir -p .artifacts/refactor
+	go run ./scripts/architecture-check -mode check > .artifacts/refactor/architecture.json
+
 refactor-inventory: prepare-go api-generate-go web-install
 	@mkdir -p .artifacts/refactor
 	@go run ./scripts/architecture-check -mode inventory > .artifacts/refactor/inventory.json

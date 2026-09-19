@@ -11549,6 +11549,10 @@
           "kind": "tool"
         },
         {
+          "path": "internal/testkit/architecture/boundary_report.go",
+          "kind": "tool"
+        },
+        {
           "path": "internal/testkit/architecture/compatibility.go",
           "kind": "tool"
         },
@@ -11559,6 +11563,14 @@
         {
           "path": "internal/testkit/architecture/compilation_scope.go",
           "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/dependency_rules.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/dependency_rules_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/testkit/architecture/go_inventory.go",
@@ -11593,11 +11605,39 @@
           "kind": "tool"
         },
         {
+          "path": "internal/testkit/architecture/physical_ownership.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/port_positions.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/port_rules.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/port_rules_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/testkit/architecture/refactor_rf01_unit_test.go",
           "kind": "test"
         },
         {
+          "path": "internal/testkit/architecture/refactor_rf21_unit_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/testkit/architecture/source_inventory.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/strict_json.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/value_graph.go",
           "kind": "tool"
         }
       ]

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
 	"os"
@@ -23,7 +24,7 @@ func run(ctx context.Context, arguments []string) int {
 	if err := flags.Parse(arguments); err != nil {
 		return 2
 	}
-	if *mode != "inventory" || flags.NArg() != 0 {
+	if (*mode != "inventory" && *mode != "check") || flags.NArg() != 0 {
 		log.Print("architecture-check: unsupported mode or arguments")
 		return 2
 	}
@@ -37,6 +38,9 @@ func run(ctx context.Context, arguments []string) int {
 		log.Print(strings.ReplaceAll(err.Error(), absolute, "<repository>"))
 		return 2
 	}
+	if *mode == "check" {
+		return runBoundaryChecks(ctx, absolute, report)
+	}
 	if err := architecture.WriteInventory(os.Stdout, report); err != nil {
 		log.Print(err)
 		return 2
@@ -45,4 +49,19 @@ func run(ctx context.Context, arguments []string) int {
 		return 1
 	}
 	return 0
+}
+
+func runBoundaryChecks(ctx context.Context, root string, inventory architecture.InventoryReport) int {
+	report, err := architecture.InspectBoundaries(ctx, root, inventory)
+	if err != nil {
+		log.Print(strings.ReplaceAll(err.Error(), root, "<repository>"))
+		return 2
+	}
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(report); err != nil {
+		log.Print(err)
+		return 2
+	}
+	return architecture.BoundaryExitCode(report)
 }

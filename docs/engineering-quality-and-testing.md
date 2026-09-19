@@ -140,6 +140,14 @@ Web 工具测试纳入 `web-test`，脚本与测试同时受全仓结构及 ESLi
 退出码：0 表示本次盘点检查通过，1 表示已发现归属或兼容性违规，2 表示输入或分析错误。
 盘点通过只说明这些检查已完成，不代表分层规则或重构最终验收已全部通过。
 
+`make architecture-selftest` 运行检查器自身的正负夹具；`make architecture-check` 生成
+`.artifacts/refactor/architecture.json`，对全生产 import 图和真实 Model 端口执行分层及值图检查。
+值图递归展开 alias、pointer、slice、map、embedding 与泛型，Repo 实现按 Go 类型可赋值关系定位；
+端口直接返回受控读流与将流、回调或 SQL 能力藏在值字段内必须分开判断。
+报告列出已实现检查和待实现检查，后者非空或生产存在违规时状态为 NOT_READY、退出非零。
+完整永久规则与行为回归尚未闭合前，不得将该阶段性报告用作最终分层验收证据。
+所有权 JSON 拒绝重复/未知字段，目录所属层不可由清单改名绕过，分析期间新增或改动源码也失败。
+
 ### 3.1 全仓源码结构门禁
 
 所有 Git 已跟踪及尚未提交但未被 ignore 的手写新旧源码执行同一规则；不建立存量 baseline、旧文件 allowlist、“只禁止继续增长”或按本次 diff 跳过的历史豁免。`make quality-structure-check` 在完整 lint 和测试前快速失败，并由 `make backend-check`、`make web-check`、`make ci` 及 CI quality job 调用同一实现。

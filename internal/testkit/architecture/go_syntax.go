@@ -11,11 +11,17 @@ import (
 )
 
 // GoSourceInventory includes syntax even when build constraints exclude a file.
+type GoImport struct {
+	Path string `json:"path"`
+	Line int    `json:"line"`
+}
+
 type GoSourceInventory struct {
-	File         string   `json:"file"`
-	Package      string   `json:"package"`
-	Imports      []string `json:"imports"`
-	Declarations []string `json:"declarations"`
+	File            string     `json:"file"`
+	Package         string     `json:"package"`
+	Imports         []string   `json:"imports"`
+	ImportLocations []GoImport `json:"importLocations"`
+	Declarations    []string   `json:"declarations"`
 }
 
 // InspectGoSyntax covers every tracked or nonignored Go source, regardless of tags.
@@ -29,11 +35,12 @@ func InspectGoSyntax(root string, sources []string) ([]GoSourceInventory, error)
 		if err != nil {
 			return nil, err
 		}
-		source, err := parser.ParseFile(token.NewFileSet(), name, content, parser.AllErrors)
+		positions := token.NewFileSet()
+		source, err := parser.ParseFile(positions, name, content, parser.AllErrors)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrTypeAnalysis, err)
 		}
-		item, err := inspectGoSyntaxFile(name, source)
+		item, err := inspectGoSyntaxFile(name, source, positions)
 		if err != nil {
 			return nil, err
 		}
@@ -42,7 +49,7 @@ func InspectGoSyntax(root string, sources []string) ([]GoSourceInventory, error)
 	return result, nil
 }
 
-func inspectGoSyntaxFile(name string, source *ast.File) (GoSourceInventory, error) {
+func inspectGoSyntaxFile(name string, source *ast.File, positions *token.FileSet) (GoSourceInventory, error) {
 	result := GoSourceInventory{
 		File: name, Package: source.Name.Name, Imports: make([]string, 0), Declarations: make([]string, 0),
 	}
@@ -52,6 +59,9 @@ func inspectGoSyntaxFile(name string, source *ast.File) (GoSourceInventory, erro
 			return GoSourceInventory{}, fmt.Errorf("decode import in %s: %w", name, err)
 		}
 		result.Imports = append(result.Imports, value)
+		result.ImportLocations = append(result.ImportLocations, GoImport{
+			Path: value, Line: positions.Position(dependency.Pos()).Line,
+		})
 	}
 	for _, declaration := range source.Decls {
 		result.Declarations = append(result.Declarations, syntaxDeclarationNames(declaration)...)
