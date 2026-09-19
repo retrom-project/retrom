@@ -1,3 +1,4 @@
+import {stableMarker} from "./stable_marker.mjs";
 import assert from 'node:assert/strict';
 import {mkdirSync, writeFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
@@ -43,6 +44,19 @@ try {
   for (const [index, page] of (browser?.contexts().flatMap((context) => context.pages()) ?? []).entries()) {
     await page.screenshot({path: join(directory, `failure-${index}.png`), timeout: 5000}).catch(() => undefined);
     evidence.failureText = await page.locator('body').innerText().then((text) => text.slice(-1500)).catch(() => '');
+    evidence.failureRuntime = [];
+    for (const frame of page.frames()) {
+      const state = await frame.evaluate(() => {
+        const machine = globalThis.WMSX?.room?.machine;
+        if (!machine) return null;
+        const snapshot = machine.saveState(true);
+        const canvas = document.querySelector('canvas[aria-label="MSX game"]');
+        return {powerOn: machine.powerIsOn, userPaused: snapshot.up, systemPaused: machine.isSystemPaused?.(),
+          documentVisible: document.visibilityState, focused: document.hasFocus(), width: canvas.width, height: canvas.height,
+          clockMethods: Object.keys(globalThis.WMSX.room.mainVideoClock)};
+      }).catch(() => null);
+      if (state) evidence.failureRuntime.push(state);
+    }
   }
 } finally {
   await browser?.close();
@@ -110,6 +124,7 @@ async function publish(context, client, filename, label) {
 async function open(context, launch, label) {
   console.log('open:' + label);
   const page = await context.newPage();
+  await page.bringToFront();
   page.on('pageerror', (error) => evidence.errors.push(error.message.slice(0, 250)));
   await page.goto(`${baseUrl}${launch.playUrl}`, {waitUntil: 'domcontentloaded', timeout: 60000});
   for (const deadline = Date.now() + 45000; Date.now() < deadline;) {
@@ -194,6 +209,10 @@ async function verifyLayout(opened) {
 }
 
 async function marker(canvas) {
+  return stableMarker(() => markerFrame(canvas), ms => canvas.page().waitForTimeout(ms));
+}
+
+async function markerFrame(canvas) {
   return canvas.evaluate((element) => {
     const {width, height} = element;
     const pixels = element.getContext('2d').getImageData(0, 0, width, height).data;

@@ -2,7 +2,6 @@
 """Fail-closed launcher and evidence validator for ACC-RPG product cases."""
 
 from __future__ import annotations
-
 import hashlib
 import json
 import os
@@ -11,11 +10,18 @@ import struct
 import subprocess
 import sys
 import unicodedata
+import uuid
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+
+
+if __name__ == "__main__":
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.acceptance import rpgmaker_policy_fixture
+from scripts.acceptance import rpgmaker_run_fixture as run_fixture
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -232,13 +238,18 @@ def generation_input_provenance(
     engine_version = web_engine_version(root, spec.generation)
     if case_id != "ACC-RPG-008":
         marker, marker_rgb, source_sha256 = public_fixture_marker(spec)
-        return {
+        provenance = {
             "schemaVersion": 1, "kind": "RETROM_OWNED_PUBLIC_FIXTURE",
             "projectFingerprint": digest, "fileCount": file_count, "totalBytes": total_bytes,
             "marker": marker, "markerRgb": marker_rgb, "engineVersion": engine_version,
             "licenseBasis": "RETROM_MIT", "licenseUrl": None, "sourceUrl": None,
             "sourceVersion": "fixture-manifest-v1", "sourceSha256": source_sha256,
         }
+        canonical = ROOT / "testdata/public-roms/rpgmaker-smoke" / str(spec.fixture_directory)
+        if root.resolve() != canonical.resolve():
+            provenance.update(kind="RETROM_OWNED_RUN_FIXTURE", sourceVersion="fixture-manifest-v1+run-marker-v1",
+                              runInstance=run_fixture.validate(canonical, root))
+        return provenance
     supplied = read_json_file(os.environ["RPG_MZ_SMOKE_PROVENANCE"], "MZ_PROVENANCE")
     expected_keys = {
         "schemaVersion", "kind", "licenseBasis", "licenseUrl", "sourceUrl", "sourceVersion",
@@ -487,6 +498,9 @@ def validate_input_provenance(value: Any, spec: GenerationCase, digest: str) -> 
         "markerRgb", "engineVersion", "licenseBasis", "licenseUrl", "sourceUrl", "sourceVersion",
         "sourceSha256",
     }
+    derived = isinstance(value, dict) and value.get("kind") == "RETROM_OWNED_RUN_FIXTURE"
+    if derived:
+        keys.add("runInstance")
     if spec.generation == "RPGMZ":
         keys.add("transformation")
     if not isinstance(value, dict) or set(value) != keys or value.get("schemaVersion") != 1 or \
@@ -509,11 +523,32 @@ def validate_input_provenance(value: Any, spec: GenerationCase, digest: str) -> 
                 not re.fullmatch(r"[0-9]+(?:\.[0-9A-Za-z-]+){1,3}", value["engineVersion"]):
             raise ContractError(error_code)
         validate_mz_transformation(value.get("transformation"), digest, value["fileCount"], value["totalBytes"])
+    elif derived:
+        validate_run_provenance(value, spec, error_code)
     elif value.get("kind") != "RETROM_OWNED_PUBLIC_FIXTURE" or \
             value.get("licenseBasis") != "RETROM_MIT" or value.get("licenseUrl") is not None or \
             value.get("sourceUrl") is not None or value.get("sourceVersion") != "fixture-manifest-v1":
         raise ContractError(error_code)
     return marker, rgb
+
+
+
+def validate_run_provenance(value: dict, spec: GenerationCase, error_code: str) -> None:
+    if spec.fixture_directory not in run_fixture.GENERATIONS or value.get("licenseBasis") != "RETROM_MIT" or \
+            value.get("licenseUrl") is not None or value.get("sourceUrl") is not None or \
+            value.get("sourceVersion") != "fixture-manifest-v1+run-marker-v1":
+        raise ContractError(error_code)
+    supplied = value.get("runInstance")
+    canonical = ROOT / "testdata/public-roms/rpgmaker-smoke" / str(spec.fixture_directory)
+    try:
+        expected = run_fixture.receipt(canonical, supplied["runId"])
+    except (KeyError, TypeError, ValueError, AttributeError) as error:
+        raise ContractError(error_code) from error
+    _, _, source_sha = public_fixture_marker(spec)
+    base = run_fixture.inventory(canonical)
+    if supplied != expected or value["sourceSha256"] != source_sha or value["fileCount"] != len(base) + 1 or \
+            value["totalBytes"] != sum(item["sizeBytes"] for item in base.values()) + expected["addedFile"]["sizeBytes"]:
+        raise ContractError(error_code)
 
 
 def validate_mz_transformation(value: Any, digest: str, file_count: int, total_bytes: int) -> None:
@@ -703,7 +738,10 @@ def validate_runtime_loading(
     value: Any, spec: GenerationCase, product_launch_id: str, input_file_count: int,
 ) -> None:
     keys = {"schemaVersion", "cacheLaunchId", "sameProjectContentIdentity", "firstVisible", "cacheLaunchVisible"}
-    if not isinstance(value, dict) or set(value) != keys or value.get("schemaVersion") != 1:
+    managed = spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"}
+    if managed:
+        keys.add("contentIO")
+    if not isinstance(value, dict) or set(value) != keys or value.get("schemaVersion") != (3 if managed else 1):
         raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
     cache_launch_id = value.get("cacheLaunchId")
     if not UUID.fullmatch(str(cache_launch_id)) or cache_launch_id == product_launch_id:
@@ -719,6 +757,9 @@ def validate_runtime_loading(
         ):
             raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
         return
+    if managed:
+        validate_mkxp_loading(value, first, cached)
+        return
     if value.get("sameProjectContentIdentity") is not True or any(
         snapshot["projectContentIdentityCount"] != 1 or snapshot["nativeProjectResponseCount"] != 0 or
         snapshot["declaredProjectBytes"] < 1 or snapshot["declaredProjectFileCount"] < 1 or
@@ -730,12 +771,47 @@ def validate_runtime_loading(
         for snapshot in (first, cached)
     ) or cached["runtimeAssetCacheHitCount"] < 1:
         raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
-    if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"} and any(
-        snapshot["declaredLargeFileCount"] < 1 or snapshot["fullProjectFileResponseCount"] != 0 or
-        snapshot["rangeProjectFileResponseCount"] < 1 or snapshot["requestedLargeFileCount"] < 1
-        for snapshot in (first, cached)
-    ):
+
+
+def validate_mkxp_loading(value: dict, first: dict, cached: dict) -> None:
+    observation = value.get("contentIO")
+    if not isinstance(observation, dict) or set(observation) != {
+        "sameCoreAssetIdentity", "firstVisible", "cacheLaunchVisible",
+    } or observation["sameCoreAssetIdentity"] is not True:
         raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+    for name, snapshot in (("firstVisible", first), ("cacheLaunchVisible", cached)):
+        observed = observation[name]
+        if not isinstance(observed, dict) or set(observed) != {
+            "rangeRequests", "downloadedBytes", "coreAssetRequests", "fetchPolicy",
+        } or any(type(observed[key]) is not int or observed[key] < 0
+                 for key in ("rangeRequests", "downloadedBytes", "coreAssetRequests")):
+            raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+        require_fetch_policy(observed["fetchPolicy"])
+        if snapshot["projectContentIdentityCount"] != 1 or snapshot["nativeProjectResponseCount"] != 0 or \
+                snapshot["declaredLargeFileCount"] != 1 or snapshot["declaredProjectFileCount"] != 1 or \
+                snapshot["declaredProjectBytes"] < 4 * 1024 * 1024 or \
+                snapshot["fullProjectFileResponseCount"] != 0 or \
+                snapshot["rangeProjectFileResponseCount"] != observed["rangeRequests"] or \
+                snapshot["requestedProjectBytes"] != observed["downloadedBytes"]:
+            raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+    if value["sameProjectContentIdentity"] is not True or \
+            first["declaredProjectBytes"] != cached["declaredProjectBytes"] or \
+            not 0 < first["requestedProjectBytes"] < first["declaredProjectBytes"] or \
+            first["rangeProjectFileResponseCount"] < 1 or first["requestedLargeFileCount"] != 1 or \
+            first["requestedProjectFileCount"] != 1 or \
+            observation["firstVisible"]["coreAssetRequests"] != 2 or \
+            any(observation["cacheLaunchVisible"][key] != 0 for key in ("rangeRequests", "downloadedBytes", "coreAssetRequests")) or \
+            cached["requestedProjectFileCount"] != 0 or cached["requestedLargeFileCount"] != 0:
+        raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+
+
+def require_fetch_policy(value: Any) -> None:
+    if not isinstance(value, dict) or set(value) != {"smallFileThresholdBytes", "networkWindowBytes"}:
+        raise ContractError("RPG_ACCEPTANCE_FETCH_POLICY_INVALID")
+    threshold, window = value["smallFileThresholdBytes"], value["networkWindowBytes"]
+    if type(threshold) is not int or not 0 <= threshold <= 2097152 or \
+            type(window) is not int or not 262144 <= window <= 2097152 or window % 262144 != 0:
+        raise ContractError("RPG_ACCEPTANCE_FETCH_POLICY_INVALID")
 
 
 def require_loading_snapshot(value: Any) -> dict[str, int]:
@@ -933,6 +1009,11 @@ def required_environment(case_id: str) -> list[str]:
 def validate_resource_policy_evidence(payload: dict[str, Any]) -> None:
     if payload.get("schemaVersion") != 1 or payload.get("caseId") != RESOURCE_POLICY_CASE or payload.get("status") != "PASS":
         raise ContractError("RPG_RESOURCE_POLICY_HEADER_INVALID")
+    try:
+        rpgmaker_policy_fixture.validate_receipts(
+            ROOT / "testdata/public-roms/rpgmaker-smoke", payload.get("fixtureRecipes"))
+    except ValueError as error:
+        raise ContractError("RPG_RESOURCE_POLICY_FIXTURE_INVALID") from error
     retired = payload.get("retired", {})
     if retired.get("routes") != [{"method": method, "status": 404} for method in ("GET", "POST", "DELETE")] or retired.get("uploadStatus") not in (400, 422):
         raise ContractError("RPG_RESOURCE_POLICY_INSTALL_CAPABILITY_REMAINS")
@@ -1254,6 +1335,12 @@ def run(case_id: str, case_dir: Path) -> int:
                         ROOT / "testdata" / "public-roms" / "rpgmaker-smoke" / str(spec.fixture_directory))
         if case_id == "ACC-RPG-008" and not fixture_root.is_absolute():
             raise ContractError("RPG_ACCEPTANCE_MZ_ROOT_MUST_BE_ABSOLUTE")
+        if os.environ.get("RETROM_RPG_RUN_ROOT"):
+            derived = Path(os.environ["RETROM_RPG_RUN_ROOT"])
+            if spec.fixture_directory not in run_fixture.GENERATIONS or not derived.is_absolute():
+                raise ContractError("RPG_RUN_ROOT_INVALID")
+            run_fixture.validate(fixture_root, derived)
+            fixture_root = derived
         expected_digest, file_count, total_bytes = project_digest(fixture_root)
         input_provenance = generation_input_provenance(
             case_id, spec, fixture_root, expected_digest, file_count, total_bytes,
@@ -1270,6 +1357,10 @@ def run(case_id: str, case_dir: Path) -> int:
         "RETROM_RPG_CASE_DIR": str(case_dir),
         "RETROM_RPG_EXPECTED_PROJECT_DIGEST": expected_digest,
     })
+    policy_receipts = None
+    if case_id == RESOURCE_POLICY_CASE:
+        policy_receipts = rpgmaker_policy_fixture.create(
+            ROOT / "testdata/public-roms/rpgmaker-smoke", case_dir / "policy-inputs", str(uuid.uuid4()))
     browser_driver = {
         RESOURCE_POLICY_CASE: "rpgmaker_dependencies.mjs",
         **{case: "rpgmaker_security.mjs" for case in SECURITY_CASES},
@@ -1288,7 +1379,10 @@ def run(case_id: str, case_dir: Path) -> int:
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
         )
     if case_id == RESOURCE_POLICY_CASE:
+        payload["fixtureRecipes"] = policy_receipts
         validate_resource_policy_evidence(payload)
+        (case_dir / "rpgmaker-product.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     if spec:
         assert input_provenance is not None
         restored_logical = payload["screenshots"][0]

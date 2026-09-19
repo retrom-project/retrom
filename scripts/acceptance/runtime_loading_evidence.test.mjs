@@ -72,6 +72,7 @@ test("does not count HEAD metadata as transferred project bytes", () => {
 
 test("does not evaluate frame resource timings when the caller disables them", async () => {
   const page = {
+    context() {return this;},
     frames: () => [{ evaluate: () => { throw new Error("frame timing must not run"); } }],
     off: () => {},
     on: () => {},
@@ -82,6 +83,7 @@ test("does not evaluate frame resource timings when the caller disables them", a
 
 test("fails a loading snapshot at its own bounded deadline", async () => {
   const page = {
+    context() {return this;},
     frames: () => [{ evaluate: () => new Promise(() => {}) }],
     off: () => {},
     on: () => {},
@@ -96,6 +98,7 @@ test("fails a loading snapshot at its own bounded deadline", async () => {
 test("records native project responses without awaiting streaming headers", async () => {
   let responseListener;
   const page = {
+    context() {return this;},
     frames: () => [],
     off: () => {},
     on: (event, listener) => { if (event === "response") { responseListener = listener; } },
@@ -109,4 +112,27 @@ test("records native project responses without awaiting streaming headers", asyn
   });
   const snapshot = await probe.snapshot();
   assert.equal(snapshot.evidence.nativeProjectResponseCount, 1);
+});
+
+
+test("keeps declared identity on a cache-only launch and includes unexpected response identities", () => {
+  const url = `https://retrom.example/runtime/content/project/${"a".repeat(64)}/game.mkxpz`;
+  const indexes = [{files: [{url, sizeBytes: 5000000}]}];
+  const warm = summarizeRuntimeLoading({indexes, responses: [], timings: []});
+  assert.equal(warm.projectContentIdentityCount, 1);
+  assert.equal(warm.requestedProjectBytes, 0);
+  const foreign = url.replace("a".repeat(64), "b".repeat(64));
+  assert.equal(summarizeRuntimeLoading({indexes, responses: [{url: foreign, status: 206, contentLength: 1}], timings: []}).projectContentIdentityCount, 2);
+});
+
+test("observes Worker responses through the context and propagates header failures", async () => {
+  let listener;
+  const context = {on: (_event, callback) => {listener = callback;}, off: () => {}};
+  const page = {context: () => context, on: () => {}, off: () => {}, frames: () => []};
+  const probe = trackRuntimeLoading(page, [], {collectRuntimeTimings: false});
+  assert.equal(typeof listener, "function");
+  listener({url: () => `https://retrom.example/runtime/content/project/${"a".repeat(64)}/game.mkxpz`,
+    allHeaders: async () => {throw Error("HEADER_FAILED");}});
+  await assert.rejects(probe.snapshot(), /RUNTIME_LOADING_OBSERVATION_FAILED/);
+  probe.stop();
 });

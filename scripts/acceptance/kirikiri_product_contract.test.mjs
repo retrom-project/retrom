@@ -13,7 +13,7 @@ test("rejects eager XP3 responses and missing restore cache reuse", () => {
   assert.throws(() => assertKiriKiriProductEvidence(eager), /KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID/u);
 
   const uncached = evidence();
-  uncached.loading.restoreVisible.runtimeAssetCacheHitCount = 0;
+  uncached.loading.coreAssetRequests.restored = 1;
   assert.throws(() => assertKiriKiriProductEvidence(uncached), /KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID/u);
 });
 
@@ -23,7 +23,7 @@ test("rejects missing stable project identity and non-Range project access", () 
   assert.throws(() => assertKiriKiriProductEvidence(unstable), /KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID/u);
 
   const nonRange = evidence();
-  nonRange.loading.firstVisible.rangeProjectFileResponseCount = 0;
+  nonRange.loading.coldVisible.rangeProjectFileResponseCount = 0;
   assert.throws(() => assertKiriKiriProductEvidence(nonRange), /KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID/u);
 });
 
@@ -62,10 +62,16 @@ function evidence() {
       restoredToBMeanDistance: 12, restoredToCMeanDistance: 120,
     },
     loading: {
-      schemaVersion: 1,
+      schemaVersion: 4,
+      fetchPolicies: Object.fromEntries(["cold", "first", "restored"].map(phase => [phase, {smallFileThresholdBytes: 1048576, networkWindowBytes: 524288}])),
+      rangeRequests: {cold: [0, 1, 2, 3].map(index => ({sourceKey: "a".repeat(64),
+        range: `bytes=${index * 262144}-${index * 262144 + 262143}`, sizeBytes: 262144, sourceSizeBytes: 32 * 1024 * 1024})), first: [], restored: []},
+      sameCoreAssetIdentity: true,
+      coldVisible: loadingSnapshot(0),
+      coreAssetRequests: {cold: 4, first: 0, restored: 0},
       sameProjectContentIdentity: true,
-      firstVisible: loadingSnapshot(0),
-      restoreVisible: loadingSnapshot(2),
+      firstVisible: warmSnapshot(),
+      restoreVisible: warmSnapshot(),
     },
     screenshots: {
       preview: screenshot("1"), productBeforeInput: screenshot("2"), productAfterInput: screenshot("3"),
@@ -85,10 +91,27 @@ function loadingSnapshot(runtimeAssetCacheHitCount) {
     projectContentIdentityCount: 1,
     rangeProjectFileResponseCount: 4,
     requestedLargeFileCount: 1,
-    requestedProjectBytes: 512 * 1024,
+    requestedProjectBytes: 1024 * 1024,
     requestedProjectFileCount: 1,
     runtimeAssetCacheHitCount,
     runtimeAssetRequestCount: 4,
     runtimeAssetTransferredBytes: 1_000_000,
   };
 }
+
+function warmSnapshot() {
+  const value = loadingSnapshot(0);
+  for (const key of ["fullProjectFileResponseCount", "rangeProjectFileResponseCount", "requestedLargeFileCount", "requestedProjectFileCount", "requestedProjectBytes"]) value[key] = 0;
+  return value;
+}
+
+test("new on-demand blocks are distinguished from a repeated download of an already cached block", () => {
+  const value = evidence();
+  const snapshot = value.loading.firstVisible;
+  snapshot.rangeProjectFileResponseCount = 1; snapshot.requestedProjectFileCount = 1;
+  snapshot.requestedLargeFileCount = 1; snapshot.requestedProjectBytes = 262144;
+  value.loading.rangeRequests.first.push({sourceKey: "a".repeat(64), range: "bytes=1048576-1310719", sizeBytes: 262144, sourceSizeBytes: 32 * 1024 * 1024});
+  assert.doesNotThrow(() => assertKiriKiriProductEvidence(value));
+  value.loading.rangeRequests.first[0].range = "bytes=0-262143";
+  assert.throws(() => assertKiriKiriProductEvidence(value), /EVIDENCE_INVALID/);
+});

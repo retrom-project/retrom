@@ -11,7 +11,7 @@ import { assertOnsProductEvidence, onsProductStages } from "./ons_product_contra
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
-import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
+import { indexedLoading, indexedLoadingEvidence } from "./indexed_loading_evidence.mjs";
 
 const caseId = "ACC-ONS-001";
 const requiredEnvironment = [
@@ -86,9 +86,13 @@ async function runProductCase(activeBrowser) {
     const review = await reviewForImport(client, imported.importJobId);
 
     const preview = await createPreview(client, review.itemId);
+    const coldDeclaration = await indexedLoading(context, preview.previewId, baseUrl, "ons");
     const previewPage = await trackedPage(context, browserErrors);
+    const coldProbe = coldDeclaration.track(previewPage);
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const previewCanvas = await runtimeCanvas(previewPage);
+    const coldLoading = await coldProbe.snapshot();
+    coldProbe.stop();
     await sendKeys(previewPage, previewCanvas, ["Enter", "ArrowDown", "Enter"]);
     await captureOptionalReviewScreenshot(previewPage, preview.previewId);
     const previewFrame = await screenshotEvidence(previewCanvas, "preview.png");
@@ -97,7 +101,8 @@ async function runProductCase(activeBrowser) {
     const approved = await approveReview(client, review.itemId);
     const original = await createLaunch(client, approved.gameId, null);
     const originalPage = await trackedPage(context, browserErrors);
-    const originalLoadingProbe = trackRuntimeLoading(originalPage);
+    const originalDeclaration = await indexedLoading(context, original.launchId, baseUrl, "ons");
+    const originalLoadingProbe = originalDeclaration.track(originalPage);
     await originalPage.goto(`${baseUrl}${original.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const originalCanvas = await runtimeCanvas(originalPage);
     const firstVisibleLoading = await originalLoadingProbe.snapshot();
@@ -112,7 +117,8 @@ async function runProductCase(activeBrowser) {
     const restored = await createLaunch(client, approved.gameId, saved.saveStateId);
     if (restored.launchId === original.launchId) {throw new Error("ONS_ACCEPTANCE_RESTORE_LAUNCH_REUSED");}
     const restoredPage = await trackedPage(context, browserErrors);
-    const restoreLoadingProbe = trackRuntimeLoading(restoredPage);
+    const restoreDeclaration = await indexedLoading(context, restored.launchId, baseUrl, "ons");
+    const restoreLoadingProbe = restoreDeclaration.track(restoredPage);
     const stateResponsePromise = restoredPage.waitForResponse((response) =>
       response.request().method() === "GET" && response.url().endsWith(`/runtime/launches/${restored.launchId}/state`),
     { timeout: 120_000 });
@@ -140,13 +146,8 @@ async function runProductCase(activeBrowser) {
         originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
       checkpoint: { format: saved.checkpointFormat, sizeBytes: payloadSize },
-      loading: {
-        schemaVersion: 1,
-        sameProjectContentIdentity: firstVisibleLoading.projectContentIdentity !== null &&
-          firstVisibleLoading.projectContentIdentity === restoreVisibleLoading.projectContentIdentity,
-        firstVisible: firstVisibleLoading.evidence,
-        restoreVisible: restoreVisibleLoading.evidence,
-      },
+      loading: indexedLoadingEvidence(coldLoading, firstVisibleLoading, restoreVisibleLoading,
+        [coldDeclaration.assetIdentity, originalDeclaration.assetIdentity, restoreDeclaration.assetIdentity]),
       screenshots: {
         preview: previewFrame, productBeforeInput: beforeInput, productAfterInput: afterInput,
         restored: restoredFrame, postRestoreInput: postRestoreFrame,

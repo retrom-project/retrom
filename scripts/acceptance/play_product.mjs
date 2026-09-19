@@ -1,3 +1,5 @@
+import {observeContentStoreEvents} from "./content_store_events.mjs";
+import {contentStoreSnapshot} from "./content_store_snapshot.mjs";
 import assert from "node:assert/strict";
 import {mkdirSync, writeFileSync} from "node:fs";
 import {join, resolve} from "node:path";
@@ -25,6 +27,7 @@ try {
   browser = await chromium.launch({executablePath: env.RETROM_CHROME_EXECUTABLE, headless: true,
     args: ["--autoplay-policy=no-user-gesture-required"]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
+  await observeContentStoreEvents(context);
   await installVirtualStandardGamepad(context); await observeFantasyAudio(context); await observePlay(context);
   const client = await fantasyClient(context, base);
   await verifyPreview(context, client);
@@ -44,12 +47,19 @@ async function verifyPreview(context, client) {
   const platforms = await client.json("GET", "/api/v1/admin/platform-instances?platformId=ps2&limit=100");
   const instance = platforms.items.find(item => item.enabled && item.defaultCoreId === "play");
   assert.ok(instance, "PLAY_PLATFORM_MISSING");
+  let review;
+  if (env.RETROM_PLAY_REVIEW_ID) {
+    review = await client.json("GET", `/api/v1/admin/reviews/${env.RETROM_PLAY_REVIEW_ID}`);
+    evidence.previewSource = "existing-review";
+  } else {
   const uploadId = await client.upload(singleFile(env.RETROM_PLAY_PREVIEW_DISC), "FILES", "GENERAL");
   const imported = await client.json("POST", "/api/v1/admin/imports", {
     headers: client.writeHeaders(), expected: 202,
     data: {uploadId, targetPlatformInstanceId: instance.id, metadataProvider: "NONE", contentMode: "STANDARD", tagIds: []},
   });
-  const review = await reviewForImport(client, imported.importJobId);
+  review = await reviewForImport(client, imported.importJobId);
+  evidence.previewSource = "imported";
+  }
   const preview = await previewCart(client, review.itemId);
   const opened = await openPlay(context, base, preview, evidence);
   await reachPlayFrame(opened, 120); await capturePlay(opened, directory, "review-preview");
@@ -96,10 +106,16 @@ async function verifyCheckpoint(context, client) {
 async function verifyCache(context, client) {
   const first = await openPlay(context, base, await launchCart(client, gameId), evidence);
   await reachPlayFrame(first, 900); await pausePlay(first);
+  await capturePlay(first, directory, "first-boot");
+  writeFileSync(join(directory, "cache-first.json"), JSON.stringify(await contentStoreSnapshot(first.page), null, 2));
+  writeFileSync(join(directory, "range-first.json"), JSON.stringify(first.network.requests, null, 2));
   const requests = evidence.rangeRequests, bytes = evidence.rangeBytes;
-  await capturePlay(first, directory, "first-boot"); await first.page.close();
+  await first.page.close();
   const second = await openPlay(context, base, await launchCart(client, gameId), evidence);
   await reachPlayFrame(second, 300); await pausePlay(second);
+  await second.network.snapshot();
+  writeFileSync(join(directory, "cache-second.json"), JSON.stringify(await contentStoreSnapshot(second.page), null, 2));
+  writeFileSync(join(directory, "range-second.json"), JSON.stringify(second.network.requests, null, 2));
   evidence.cache = {additionalRequests: evidence.rangeRequests - requests, additionalBytes: evidence.rangeBytes - bytes};
   assert.equal(evidence.cache.additionalRequests, 0, "PLAY_DISC_CACHE_MISS");
   await capturePlay(second, directory, "cached-boot"); await second.page.close();

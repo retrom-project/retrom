@@ -1,48 +1,26 @@
+import {fantasyControls} from "../../testdata/public-roms/fantasy-controls/build.mjs";
 import {writeFileSync} from "node:fs";
 import {join} from "node:path";
 
 // Owned cartridge source; no downloaded game bytes enter the repository.
-export function createFantasyFixture(core, directory) {
-  const fixtureId = process.env.RETROM_FANTASY_FIXTURE_ID ?? "default";
-  if (!/^[a-z0-9.-]{1,64}$/u.test(fixtureId)) {throw Error("FANTASY_FIXTURE_ID_INVALID");}
-  const marker = `-- retrom fixture ${fixtureId}\n`;
+export function createFantasyFixture(core, directory, fixtureId = process.env.RETROM_FANTASY_FIXTURE_ID ?? "default") {
   const filename = join(directory, core === "tic80" ? "retrom-checkpoint.tic" : "retrom-checkpoint.p8");
-  if (core === "tic80") {
-    const code = Buffer.from(`${marker}function BOOT() x=pmem(0) if x<20 then x=20 end end
-function TIC()
- if btn(3) then x=(x+1)%180 end
- if btn(2) then x=(x+179)%180 end
- if btnp(4) then pmem(0,x) end
- cls(0) rect(x,20,5,5,8)
-end
-`);
-    const header = Buffer.from([17,0,0,0,5,code.length & 255,code.length >> 8,0]);
-    writeFileSync(filename, Buffer.concat([header, code]));
-  } else {
-    writeFileSync(filename, `pico-8 cartridge // http://www.pico-8.com
-version 42
-__lua__
-${marker}x=20
-function _update60()
- if btn(1) then x=(x+1)%100 end
- if btn(0) then x=(x+99)%100 end
-end
-function _draw() cls(0) rectfill(x,20,x+4,24,8) end
-`);
-  }
+  writeFileSync(filename, fantasyControls(core, fixtureId));
   return filename;
 }
 
-export async function spritePosition(canvas) {
+export async function spriteState(canvas) {
   return canvas.evaluate((element) => {
     const pixels = element.getContext("2d").getImageData(0, 20, element.width, 1).data;
     const background = element.getContext("2d").getImageData(0, 0, 1, 1).data;
     for (let x = 0; x < element.width; x++) {
-      if ([0, 1, 2].some((channel) => pixels[x * 4 + channel] !== background[channel])) {return x;}
+      if ([0, 1, 2].some((channel) => pixels[x * 4 + channel] !== background[channel])) {return {x, color: [...pixels.subarray(x * 4, x * 4 + 3)]};}
     }
     throw Error("FANTASY_FIXTURE_SPRITE_MISSING");
   });
 }
+
+export async function spritePosition(canvas) {return (await spriteState(canvas)).x;}
 
 // Observe real Web Audio buffers without replacing playback or core exports.
 export async function observeFantasyAudio(context) {

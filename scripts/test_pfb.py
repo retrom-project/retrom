@@ -220,6 +220,10 @@ class GatewayContractTests(unittest.TestCase):
 
 
 class LightweightDevelopmentContractTests(unittest.TestCase):
+    def test_file_watcher_polling_is_explicit_and_scoped_to_pfb(self) -> None:
+        compose = (Path(__file__).resolve().parent / "pfb/compose.yaml").read_text(encoding="utf-8")
+        self.assertIn('WATCHPACK_POLLING: ${PFB_WATCH_POLLING:-false}', compose)
+
     def test_daily_lifecycle_never_builds_release_candidates(self) -> None:
         root = Path(__file__).resolve().parent
         controller = (root / "pfb/cli.py").read_text(encoding="utf-8")
