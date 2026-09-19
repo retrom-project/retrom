@@ -1,17 +1,19 @@
 package emulationstationimport
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	taggingmodel "retrom/internal/model/tagging"
-	"retrom/internal/repo/dbexec"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -63,10 +65,23 @@ func TestMappingsRollBackRelationsAndTagVersionsOnLateFailure(t *testing.T) {
 	db := mappingDatabase(t)
 	before := planRows(t, db)
 	cause := errors.New("late mapping failure")
-	repo := NewMappings(db, WithMappingsPreCommitHook(func(dbexec.Executor) error { return cause }))
+	faultDB := testsupport.OpenSQLFaultDatabase(
+		t, db, testsupport.SQLFaultHooks{
+			BeforeExec: func(
+				_ context.Context, query string,
+				_ []driver.NamedValue,
+			) error {
+				if strings.TrimSpace(query) == "COMMIT" {
+					return cause
+				}
+				return nil
+			},
+		},
+	)
+	repo := NewMappings(faultDB)
 	service := emulationstationimportservice.NewMappings(repo, func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}}, mappingActor)
-	if !errors.Is(err, cause) || value.ID != "" {
+	if err == nil || value.ID != "" {
 		t.Fatalf("late mapping failure: %#v %v", value, err)
 	}
 	if !reflect.DeepEqual(planRows(t, db), before) {

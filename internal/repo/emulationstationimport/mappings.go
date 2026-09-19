@@ -15,22 +15,11 @@ import (
 )
 
 type Mappings struct {
-	database      *sql.DB
-	preCommitHook func(dbexec.Executor) error
+	database *sql.DB
 }
 
-type MappingsOption func(*Mappings)
-
-func WithMappingsPreCommitHook(hook func(dbexec.Executor) error) MappingsOption {
-	return func(m *Mappings) { m.preCommitHook = hook }
-}
-
-func NewMappings(database *sql.DB, opts ...MappingsOption) *Mappings {
-	m := &Mappings{database: database}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
+func NewMappings(database *sql.DB) *Mappings {
+	return &Mappings{database: database}
 }
 
 func (repository *Mappings) LoadImportSummary(ctx context.Context, id string) (application.Summary, error) {
@@ -52,42 +41,41 @@ func (repository *Mappings) LoadEligibleTarget(
 func (repository *Mappings) CommitMappingBatch(
 	ctx context.Context, batch application.MappingBatch,
 ) (application.Summary, error) {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return application.Summary{}, fmt.Errorf("begin EmulationStation mappings: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	records := mappingRecords{executor: tx}
-	tags := tagrepository.BindCrossDomain(tx)
-	for _, entry := range batch.Entries {
-		_, references, err := tags.ReplaceOwnerReferences(ctx, entry.Owner, entry.TagIDs, entry.ActorID, entry.Change.NowMS)
-		if errors.Is(err, tagging.ErrInvalid) {
-			return application.Summary{}, fmt.Errorf("%w: %w", application.ErrInvalid, err)
+	var result application.Summary
+	err := dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
+		records := mappingRecords{executor: db}
+		tags := tagrepository.BindCrossDomain(db)
+		for _, entry := range batch.Entries {
+			_, references, tagErr := tags.ReplaceOwnerReferences(
+				ctx, entry.Owner, entry.TagIDs,
+				entry.ActorID, entry.Change.NowMS,
+			)
+			if errors.Is(tagErr, tagging.ErrInvalid) {
+				return fmt.Errorf("%w: %w", application.ErrInvalid, tagErr)
+			}
+			if tagErr != nil {
+				return fmt.Errorf(
+					"replace EmulationStation mapping tags: %w", tagErr,
+				)
+			}
+			entry.Change.Tags = references
+			if putErr := records.Put(ctx, entry.Change); putErr != nil {
+				return putErr
+			}
 		}
-		if err != nil {
-			return application.Summary{}, fmt.Errorf("replace EmulationStation mapping tags: %w", err)
+		if advErr := records.Advance(ctx, batch.Advance); advErr != nil {
+			return advErr
 		}
-		entry.Change.Tags = references
-		if err := records.Put(ctx, entry.Change); err != nil {
-			return application.Summary{}, err
+		summary, readErr := records.Import(ctx, batch.ImportID)
+		if readErr != nil {
+			return fmt.Errorf(
+				"read updated EmulationStation mappings: %w", readErr,
+			)
 		}
-	}
-	if err := records.Advance(ctx, batch.Advance); err != nil {
-		return application.Summary{}, err
-	}
-	result, err := records.Import(ctx, batch.ImportID)
-	if err != nil {
-		return application.Summary{}, fmt.Errorf("read updated EmulationStation mappings: %w", err)
-	}
-	if repository.preCommitHook != nil {
-		if err := repository.preCommitHook(tx); err != nil {
-			return application.Summary{}, err
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return application.Summary{}, fmt.Errorf("commit EmulationStation mappings: %w", err)
-	}
-	return result, nil
+		result = summary
+		return nil
+	})
+	return result, err
 }
 
 type mappingRecords struct{ executor dbexec.Executor }

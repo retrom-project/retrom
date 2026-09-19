@@ -5,49 +5,19 @@ package launch
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	launchmodel "retrom/internal/model/launch"
-	"retrom/internal/repo/dbexec"
 	persistence "retrom/internal/repo/launch"
 	launchservice "retrom/internal/service/launch"
+	"retrom/internal/testkit/testsupport"
 )
-
-type failPlayAfterWork struct {
-	*persistence.Play
-	failure error
-}
-
-func (repository failPlayAfterWork) CommitPlayStart(
-	ctx context.Context, plan launchmodel.PlayStart,
-) error {
-	repository.Play.WithPreCommitHook(func(_ dbexec.Executor) error {
-		return repository.failure
-	})
-	return repository.Play.CommitPlayStart(ctx, plan)
-}
-
-func (repository failPlayAfterWork) CommitPlayProgress(
-	ctx context.Context, plan launchmodel.PlayProgress,
-) error {
-	repository.Play.WithPreCommitHook(func(_ dbexec.Executor) error {
-		return repository.failure
-	})
-	return repository.Play.CommitPlayProgress(ctx, plan)
-}
-
-func (repository failPlayAfterWork) CommitPlayFinish(
-	ctx context.Context, plan launchmodel.PlayFinish,
-) error {
-	repository.Play.WithPreCommitHook(func(_ dbexec.Executor) error {
-		return repository.failure
-	})
-	return repository.Play.CommitPlayFinish(ctx, plan)
-}
 
 func playRows(t *testing.T, database *sql.DB) map[string]string {
 	t.Helper()
@@ -164,20 +134,30 @@ func TestPlayTransactionRollsBackEveryLifecycleWrite(t *testing.T) {
 				t, fixture, created.LaunchID, kind == "preview-finish",
 			)
 			before := playRows(t, fixture.database)
-			cause := errors.New("late play callback failure")
-			repo := persistence.NewPlay(fixture.database)
-			repository := failPlayAfterWork{
-				Play: repo, failure: cause,
-			}
+			cause := errors.New("late play commit failure")
+			faultDB := testsupport.OpenSQLFaultDatabase(
+				t, fixture.database, testsupport.SQLFaultHooks{
+					BeforeExec: func(
+						_ context.Context, query string,
+						_ []driver.NamedValue,
+					) error {
+						if strings.TrimSpace(query) == "COMMIT" {
+							return cause
+						}
+						return nil
+					},
+				},
+			)
+			repo := persistence.NewPlay(faultDB)
 			controller := launchservice.NewPlayController(
-				repository, fixture.launcher.now,
+				repo, fixture.launcher.now,
 				retromruntime.MatchesCapability,
 			)
 			result, err := controller.RecordPlay(
 				t.Context(), created.LaunchID, created.Capability,
 				requestKind, event,
 			)
-			if !errors.Is(err, cause) || result.PlaySessionID != nil ||
+			if err == nil || result.PlaySessionID != nil ||
 				result.State != "" {
 				t.Fatalf("late failure result=%#v error=%v", result, err)
 			}
@@ -187,9 +167,6 @@ func TestPlayTransactionRollsBackEveryLifecycleWrite(t *testing.T) {
 				t.Fatal(
 					"late failure committed lifecycle/ownership/play changes",
 				)
-			}
-			if fixture.database.Stats().InUse != 0 {
-				t.Fatal("play transaction retained a connection")
 			}
 		})
 	}

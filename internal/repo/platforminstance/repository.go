@@ -21,30 +21,11 @@ type (
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
 
 func (repository *Repository) beginRead(ctx context.Context) (*sql.Tx, records, error) {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, records{}, fmt.Errorf("platforminstance: begin read: %w", err)
 	}
 	return transaction, records{transaction}, nil
-}
-
-func (repository *Repository) beginImmediate(ctx context.Context) (*sql.Conn, records, func(), error) {
-	connection, err := repository.database.Conn(ctx)
-	if err != nil {
-		return nil, records{}, nil, fmt.Errorf("platforminstance: acquire connection: %w", err)
-	}
-	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
-		_ = connection.Close()
-		return nil, records{}, nil, fmt.Errorf("platforminstance: begin immediate: %w", err)
-	}
-	committed := false
-	cleanup := func() {
-		if !committed {
-			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "ROLLBACK")
-		}
-		_ = connection.Close()
-	}
-	return connection, records{connection}, cleanup, nil
 }
 
 func (repository *Repository) LoadCatalogReferences(
@@ -55,11 +36,13 @@ func (repository *Repository) LoadCatalogReferences(
 		return nil, err
 	}
 	defer func() { _ = transaction.Rollback() }()
-	refs, err := reader.CatalogReferences(ctx, catalog)
-	if err != nil {
-		return nil, err
+	refs, readErr := reader.CatalogReferences(ctx, catalog)
+	if readErr != nil {
+		return nil, readErr
 	}
-	_ = transaction.Commit()
+	if commitErr := transaction.Commit(); commitErr != nil {
+		return nil, fmt.Errorf("platforminstance: commit read: %w", commitErr)
+	}
 	return refs, nil
 }
 
@@ -69,11 +52,13 @@ func (repository *Repository) LoadDirectories(ctx context.Context) ([]model.Dire
 		return nil, err
 	}
 	defer func() { _ = transaction.Rollback() }()
-	dirs, err := reader.Directories(ctx)
-	if err != nil {
-		return nil, err
+	dirs, readErr := reader.Directories(ctx)
+	if readErr != nil {
+		return nil, readErr
 	}
-	_ = transaction.Commit()
+	if commitErr := transaction.Commit(); commitErr != nil {
+		return nil, fmt.Errorf("platforminstance: commit read: %w", commitErr)
+	}
 	return dirs, nil
 }
 
@@ -83,11 +68,13 @@ func (repository *Repository) LoadInstance(ctx context.Context, id string) (mode
 		return model.Instance{}, err
 	}
 	defer func() { _ = transaction.Rollback() }()
-	instance, err := reader.Instance(ctx, id)
-	if err != nil {
-		return model.Instance{}, err
+	instance, readErr := reader.Instance(ctx, id)
+	if readErr != nil {
+		return model.Instance{}, readErr
 	}
-	_ = transaction.Commit()
+	if commitErr := transaction.Commit(); commitErr != nil {
+		return model.Instance{}, fmt.Errorf("platforminstance: commit read: %w", commitErr)
+	}
 	return instance, nil
 }
 
@@ -99,144 +86,115 @@ func (repository *Repository) LoadCoreImpactFacts(
 		return model.CoreImpactFacts{}, err
 	}
 	defer func() { _ = transaction.Rollback() }()
-	facts, err := reader.CoreImpact(ctx, instanceID, coreID, expected)
-	if err != nil {
-		return model.CoreImpactFacts{}, err
+	facts, readErr := reader.CoreImpact(ctx, instanceID, coreID, expected)
+	if readErr != nil {
+		return model.CoreImpactFacts{}, readErr
 	}
-	_ = transaction.Commit()
+	if commitErr := transaction.Commit(); commitErr != nil {
+		return model.CoreImpactFacts{}, fmt.Errorf(
+			"platforminstance: commit read: %w", commitErr,
+		)
+	}
 	return facts, nil
 }
 
 func (repository *Repository) CommitCreate(
 	ctx context.Context, cmd model.CreateCommand,
 ) (model.Instance, error) {
-	connection, bound, cleanup, err := repository.beginImmediate(ctx)
-	if err != nil {
-		return model.Instance{}, err
-	}
-	defer cleanup()
-
-	enabled, err := bound.CoreEnabled(ctx, cmd.Input.PlatformID, cmd.Input.DefaultCoreID)
-	if err != nil {
-		return model.Instance{}, fmt.Errorf("platforminstance: validate default core: %w", err)
-	}
-	if !enabled {
-		return model.Instance{}, model.ErrDefaultCoreInvalid
-	}
-	base := model.SlugBase(cmd.Input.Name, cmd.Input.PlatformID)
-	slugs, err := bound.UsedSlugs(ctx, cmd.Input.PlatformID, base)
-	if err != nil {
-		return model.Instance{}, fmt.Errorf("platforminstance: read slugs: %w", err)
-	}
-	slug, err := model.NextSlug(base, slugs)
-	if err != nil {
-		return model.Instance{}, fmt.Errorf("platforminstance: next slug: %w", err)
-	}
-	directory := model.NewDirectory{
-		ID: cmd.ID, Slug: slug, CatalogKey: cmd.CatalogKey,
-		Input: cmd.Input, CreatedAtMS: cmd.NowMS,
-	}
-	if err := bound.Insert(ctx, directory); err != nil {
-		return model.Instance{}, fmt.Errorf("platforminstance: insert directory: %w", err)
-	}
-	if err := bound.RecordCreation(ctx, model.CreationAudit{
-		ID: cmd.AuditID, Action: cmd.Action,
-		Actor: cmd.Actor, Directory: directory,
-	}); err != nil {
-		return model.Instance{}, fmt.Errorf("platforminstance: record creation: %w", err)
-	}
-	result, err := bound.Instance(ctx, cmd.ID)
-	if err != nil {
-		return model.Instance{}, fmt.Errorf("platforminstance: read created directory: %w", err)
-	}
-	result.SupportedExtensions = contentprofile.SupportedExtensions(result.PlatformID)
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return model.Instance{}, fmt.Errorf("platforminstance: commit: %w", err)
-	}
-	return result, nil
+	var result model.Instance
+	err := dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
+		bound := records{db}
+		instance, createErr := repository.executeCreate(ctx, bound, cmd)
+		if createErr != nil {
+			return createErr
+		}
+		result = instance
+		return nil
+	})
+	return result, err
 }
 
 func (repository *Repository) CommitPatch(
 	ctx context.Context, cmd model.PatchCommand,
 ) (model.PatchResult, error) {
-	connection, bound, cleanup, err := repository.beginImmediate(ctx)
-	if err != nil {
-		return model.PatchResult{}, err
-	}
-	defer cleanup()
-
-	current, err := bound.Instance(ctx, cmd.ID)
-	if err != nil {
-		return model.PatchResult{}, fmt.Errorf("platforminstance: read instance: %w", err)
-	}
-	if current.Version != cmd.ExpectedVersion {
-		return model.PatchResult{}, model.ErrVersionConflict
-	}
-	if cmd.Name != nil {
-		current.Name = *cmd.Name
-	}
-	if cmd.Description != nil {
-		current.Description = *cmd.Description
-	}
-	if cmd.SortOrder != nil {
-		current.SortOrder = *cmd.SortOrder
-	}
-	if cmd.Enabled != nil {
-		current.Enabled = *cmd.Enabled
-	}
-	changed, err := bound.Update(ctx, model.DirectoryUpdate{
-		ID: cmd.ID, Name: current.Name, Description: current.Description, SortOrder: current.SortOrder,
-		Enabled: current.Enabled, ExpectedVersion: cmd.ExpectedVersion, UpdatedAtMS: cmd.NowMS,
+	var result model.PatchResult
+	err := dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
+		bound := records{db}
+		current, readErr := bound.Instance(ctx, cmd.ID)
+		if readErr != nil {
+			return fmt.Errorf("platforminstance: read instance: %w", readErr)
+		}
+		if current.Version != cmd.ExpectedVersion {
+			return model.ErrVersionConflict
+		}
+		if cmd.Name != nil {
+			current.Name = *cmd.Name
+		}
+		if cmd.Description != nil {
+			current.Description = *cmd.Description
+		}
+		if cmd.SortOrder != nil {
+			current.SortOrder = *cmd.SortOrder
+		}
+		if cmd.Enabled != nil {
+			current.Enabled = *cmd.Enabled
+		}
+		changed, updateErr := bound.Update(ctx, model.DirectoryUpdate{
+			ID: cmd.ID, Name: current.Name, Description: current.Description,
+			SortOrder: current.SortOrder, Enabled: current.Enabled,
+			ExpectedVersion: cmd.ExpectedVersion, UpdatedAtMS: cmd.NowMS,
+		})
+		if updateErr != nil {
+			return fmt.Errorf("platforminstance: update instance: %w", updateErr)
+		}
+		if !changed {
+			return model.ErrVersionConflict
+		}
+		after := map[string]any{
+			"name": current.Name, "description": current.Description,
+			"sortOrder": current.SortOrder,
+			"enabled": current.Enabled, "version": cmd.ExpectedVersion + 1,
+		}
+		if auditErr := bound.RecordAudit(ctx, model.AuditEvent{
+			ID: cmd.AuditID, Action: "PLATFORM_INSTANCE_UPDATED",
+			ResourceType: "PLATFORM_INSTANCE", ResourceID: cmd.ID,
+			Actor: cmd.Actor, Before: current, After: after,
+			CreatedAtMS: cmd.NowMS,
+		}); auditErr != nil {
+			return fmt.Errorf("platforminstance: record update audit: %w", auditErr)
+		}
+		result = model.PatchResult{
+			ID: cmd.ID, Name: current.Name,
+			Description: current.Description, SortOrder: current.SortOrder,
+			Enabled: current.Enabled, Version: cmd.ExpectedVersion + 1,
+			UpdatedAtMS: cmd.NowMS,
+		}
+		return nil
 	})
-	if err != nil {
-		return model.PatchResult{}, fmt.Errorf("platforminstance: update instance: %w", err)
-	}
-	if !changed {
-		return model.PatchResult{}, model.ErrVersionConflict
-	}
-	after := map[string]any{
-		"name": current.Name, "description": current.Description, "sortOrder": current.SortOrder,
-		"enabled": current.Enabled, "version": cmd.ExpectedVersion + 1,
-	}
-	if err := bound.RecordAudit(ctx, model.AuditEvent{
-		ID: cmd.AuditID, Action: "PLATFORM_INSTANCE_UPDATED", ResourceType: "PLATFORM_INSTANCE", ResourceID: cmd.ID,
-		Actor: cmd.Actor, Before: current, After: after, CreatedAtMS: cmd.NowMS,
-	}); err != nil {
-		return model.PatchResult{}, fmt.Errorf("platforminstance: record update audit: %w", err)
-	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return model.PatchResult{}, fmt.Errorf("platforminstance: commit: %w", err)
-	}
-	return model.PatchResult{
-		ID: cmd.ID, Name: current.Name, Description: current.Description, SortOrder: current.SortOrder,
-		Enabled: current.Enabled, Version: cmd.ExpectedVersion + 1, UpdatedAtMS: cmd.NowMS,
-	}, nil
+	return result, err
 }
 
 func (repository *Repository) CommitReorder(
 	ctx context.Context, cmd model.ReorderCommand,
 ) ([]model.ReorderResult, error) {
-	connection, bound, cleanup, err := repository.beginImmediate(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer cleanup()
-
-	current, err := loadActiveDirectories(ctx, bound)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateReorderItems(current, cmd.Items); err != nil {
-		return nil, err
-	}
-	result, err := applyReorder(ctx, bound, cmd, current)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return nil, fmt.Errorf("platforminstance: commit: %w", err)
-	}
-	return result, nil
+	var result []model.ReorderResult
+	err := dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
+		bound := records{db}
+		current, loadErr := loadActiveDirectories(ctx, bound)
+		if loadErr != nil {
+			return loadErr
+		}
+		if validateErr := validateReorderItems(current, cmd.Items); validateErr != nil {
+			return validateErr
+		}
+		reordered, applyErr := applyReorder(ctx, bound, cmd, current)
+		if applyErr != nil {
+			return applyErr
+		}
+		result = reordered
+		return nil
+	})
+	return result, err
 }
 
 func loadActiveDirectories(
@@ -322,135 +280,131 @@ func applyReorder(
 func (repository *Repository) CommitDelete(
 	ctx context.Context, cmd model.DeleteCommand,
 ) error {
-	connection, bound, cleanup, err := repository.beginImmediate(ctx)
-	if err != nil {
-		return err
-	}
-	defer cleanup()
-
-	current, err := bound.Instance(ctx, cmd.ID)
-	if err != nil {
-		return fmt.Errorf("platforminstance: read instance: %w", err)
-	}
-	if current.Version != cmd.ExpectedVersion {
-		return model.ErrVersionConflict
-	}
-	if current.GameCount != 0 {
-		return model.ErrNotEmpty
-	}
-	changed, err := bound.Delete(ctx, model.DirectoryDelete{
-		ID: cmd.ID, ExpectedVersion: cmd.ExpectedVersion, UpdatedAtMS: cmd.NowMS,
+	return dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
+		bound := records{db}
+		current, readErr := bound.Instance(ctx, cmd.ID)
+		if readErr != nil {
+			return fmt.Errorf("platforminstance: read instance: %w", readErr)
+		}
+		if current.Version != cmd.ExpectedVersion {
+			return model.ErrVersionConflict
+		}
+		if current.GameCount != 0 {
+			return model.ErrNotEmpty
+		}
+		changed, deleteErr := bound.Delete(ctx, model.DirectoryDelete{
+			ID: cmd.ID, ExpectedVersion: cmd.ExpectedVersion, UpdatedAtMS: cmd.NowMS,
+		})
+		if deleteErr != nil {
+			return fmt.Errorf("platforminstance: delete instance: %w", deleteErr)
+		}
+		if !changed {
+			return model.ErrVersionConflict
+		}
+		return bound.RecordAudit(ctx, model.AuditEvent{
+			ID: cmd.AuditID, Action: "PLATFORM_INSTANCE_DELETED",
+			ResourceType: "PLATFORM_INSTANCE", ResourceID: cmd.ID,
+			Actor: cmd.Actor, Before: current,
+			After: map[string]any{
+				"deletedAtMs": cmd.NowMS,
+				"version":     cmd.ExpectedVersion + 1,
+			},
+			CreatedAtMS: cmd.NowMS,
+		})
 	})
-	if err != nil {
-		return fmt.Errorf("platforminstance: delete instance: %w", err)
-	}
-	if !changed {
-		return model.ErrVersionConflict
-	}
-	if err := bound.RecordAudit(ctx, model.AuditEvent{
-		ID: cmd.AuditID, Action: "PLATFORM_INSTANCE_DELETED", ResourceType: "PLATFORM_INSTANCE", ResourceID: cmd.ID,
-		Actor: cmd.Actor, Before: current,
-		After: map[string]any{"deletedAtMs": cmd.NowMS, "version": cmd.ExpectedVersion + 1}, CreatedAtMS: cmd.NowMS,
-	}); err != nil {
-		return fmt.Errorf("platforminstance: record delete audit: %w", err)
-	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return fmt.Errorf("platforminstance: commit: %w", err)
-	}
-	return nil
 }
 
 func (repository *Repository) CommitChangeDefaultCore(
 	ctx context.Context, cmd model.ChangeDefaultCoreCommand,
 ) (model.DefaultCoreChangeResult, error) {
-	connection, bound, cleanup, err := repository.beginImmediate(ctx)
-	if err != nil {
-		return model.DefaultCoreChangeResult{}, err
-	}
-	defer cleanup()
-
-	facts, err := bound.CoreImpact(ctx, cmd.InstanceID, cmd.CoreID, cmd.Expected)
-	if err != nil {
-		return model.DefaultCoreChangeResult{}, fmt.Errorf("platforminstance: read core impact: %w", err)
-	}
-	result := model.ProjectCoreImpact(cmd.InstanceID, cmd.CoreID, facts)
-	actualDigest := model.ImpactDigest(result.Impact)
-	if actualDigest != cmd.Digest {
-		return model.DefaultCoreChangeResult{}, model.ErrImpactStale
-	}
-	if result.Counts["blocked"] > 0 && !cmd.ConfirmBlocked {
-		return model.DefaultCoreChangeResult{}, model.ErrDefaultCoreBlocked
-	}
-	changed, err := bound.ChangeDefaultCore(ctx, model.DefaultCoreChange{
-		ID: cmd.InstanceID, CoreID: cmd.CoreID, ExpectedVersion: cmd.Expected, UpdatedAtMS: cmd.NowMS,
+	var result model.DefaultCoreChangeResult
+	err := dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
+		bound := records{db}
+		facts, readErr := bound.CoreImpact(ctx, cmd.InstanceID, cmd.CoreID, cmd.Expected)
+		if readErr != nil {
+			return fmt.Errorf("platforminstance: read core impact: %w", readErr)
+		}
+		projected := model.ProjectCoreImpact(cmd.InstanceID, cmd.CoreID, facts)
+		actualDigest := model.ImpactDigest(projected.Impact)
+		if actualDigest != cmd.Digest {
+			return model.ErrImpactStale
+		}
+		if projected.Counts["blocked"] > 0 && !cmd.ConfirmBlocked {
+			return model.ErrDefaultCoreBlocked
+		}
+		changed, changeErr := bound.ChangeDefaultCore(ctx, model.DefaultCoreChange{
+			ID: cmd.InstanceID, CoreID: cmd.CoreID,
+			ExpectedVersion: cmd.Expected, UpdatedAtMS: cmd.NowMS,
+		})
+		if changeErr != nil {
+			return fmt.Errorf(
+				"platforminstance: change default core: %w", changeErr,
+			)
+		}
+		if !changed {
+			return model.ErrVersionConflict
+		}
+		if auditErr := bound.RecordAudit(ctx, model.AuditEvent{
+			ID: cmd.AuditID, Action: "PLATFORM_DEFAULT_CORE_CHANGED",
+			ResourceType: "PLATFORM_INSTANCE", ResourceID: cmd.InstanceID,
+			Actor:  cmd.Actor,
+			Before: map[string]any{"version": cmd.Expected},
+			After: map[string]any{
+				"defaultCoreId": cmd.CoreID,
+				"version":       cmd.Expected + 1,
+				"impactDigest":  cmd.Digest,
+			},
+			CreatedAtMS: cmd.NowMS,
+		}); auditErr != nil {
+			return fmt.Errorf(
+				"platforminstance: record default core audit: %w", auditErr,
+			)
+		}
+		result = model.DefaultCoreChangeResult{
+			Version: cmd.Expected + 1, UpdatedAtMS: cmd.NowMS,
+		}
+		return nil
 	})
-	if err != nil {
-		return model.DefaultCoreChangeResult{}, fmt.Errorf("platforminstance: change default core: %w", err)
-	}
-	if !changed {
-		return model.DefaultCoreChangeResult{}, model.ErrVersionConflict
-	}
-	if err := bound.RecordAudit(ctx, model.AuditEvent{
-		ID: cmd.AuditID, Action: "PLATFORM_DEFAULT_CORE_CHANGED",
-		ResourceType: "PLATFORM_INSTANCE", ResourceID: cmd.InstanceID,
-		Actor:  cmd.Actor,
-		Before: map[string]any{"version": cmd.Expected},
-		After: map[string]any{
-			"defaultCoreId": cmd.CoreID,
-			"version":       cmd.Expected + 1,
-			"impactDigest":  cmd.Digest,
-		},
-		CreatedAtMS: cmd.NowMS,
-	}); err != nil {
-		return model.DefaultCoreChangeResult{}, fmt.Errorf("platforminstance: record default core audit: %w", err)
-	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return model.DefaultCoreChangeResult{}, fmt.Errorf("platforminstance: commit: %w", err)
-	}
-	return model.DefaultCoreChangeResult{Version: cmd.Expected + 1, UpdatedAtMS: cmd.NowMS}, nil
+	return result, err
 }
 
 func (repository *Repository) CommitApply(
 	ctx context.Context, cmd model.ApplyCommand,
 ) (model.IdempotentResponse, error) {
-	connection, bound, cleanup, err := repository.beginImmediate(ctx)
-	if err != nil {
-		return model.IdempotentResponse{}, err
-	}
-	defer cleanup()
-
-	stored, found, err := bound.findIdempotency(ctx, cmd.IdempotencyKey, cmd.NowMS)
-	if err != nil {
-		return model.IdempotentResponse{}, fmt.Errorf("platforminstance: find idempotency: %w", err)
-	}
-	if found {
-		if stored.digest != cmd.Digest {
-			return model.IdempotentResponse{}, model.ErrIdempotencyReused
+	var response model.IdempotentResponse
+	err := dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
+		bound := records{db}
+		stored, found, findErr := bound.findIdempotency(ctx, cmd.IdempotencyKey, cmd.NowMS)
+		if findErr != nil {
+			return fmt.Errorf("platforminstance: find idempotency: %w", findErr)
 		}
-		stored.response.Replayed = true
-		return stored.response, nil
-	}
-	result, err := repository.executeApply(ctx, bound, cmd)
-	if err != nil {
-		return model.IdempotentResponse{}, err
-	}
-	body, err := json.Marshal(result)
-	if err != nil {
-		return model.IdempotentResponse{}, fmt.Errorf("platforminstance: encode result: %w", err)
-	}
-	response := model.IdempotentResponse{
-		Status: 200, Headers: map[string]string{"Content-Type": "application/json; charset=utf-8"}, Body: append(body, '\n'),
-	}
-	if err := bound.saveIdempotency(
-		ctx, cmd.IdempotencyKey, cmd.Digest,
-		response, cmd.NowMS, cmd.ExpiresAtMS,
-	); err != nil {
-		return model.IdempotentResponse{}, fmt.Errorf("platforminstance: store idempotency: %w", err)
-	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return model.IdempotentResponse{}, fmt.Errorf("platforminstance: commit: %w", err)
-	}
-	return response, nil
+		if found {
+			if stored.digest != cmd.Digest {
+				return model.ErrIdempotencyReused
+			}
+			stored.response.Replayed = true
+			response = stored.response
+			return nil
+		}
+		result, applyErr := repository.executeApply(ctx, bound, cmd)
+		if applyErr != nil {
+			return applyErr
+		}
+		body, encodeErr := json.Marshal(result)
+		if encodeErr != nil {
+			return fmt.Errorf("platforminstance: encode result: %w", encodeErr)
+		}
+		response = model.IdempotentResponse{
+			Status:  200,
+			Headers: map[string]string{"Content-Type": "application/json; charset=utf-8"},
+			Body:    append(body, '\n'),
+		}
+		return bound.saveIdempotency(
+			ctx, cmd.IdempotencyKey, cmd.Digest,
+			response, cmd.NowMS, cmd.ExpiresAtMS,
+		)
+	})
+	return response, err
 }
 
 func (repository *Repository) executeApply(

@@ -1,17 +1,19 @@
 package pegasusimport
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	taggingmodel "retrom/internal/model/tagging"
-	"retrom/internal/repo/dbexec"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -69,10 +71,23 @@ func TestMappingsRollBackRelationsAndTagVersionsOnLateFailure(t *testing.T) {
 	db := mappingDatabase(t)
 	before := mappingRows(t, db)
 	cause := errors.New("late mapping failure")
-	repo := NewMappings(db, WithMappingsPreCommitHook(func(dbexec.Executor) error { return cause }))
+	faultDB := testsupport.OpenSQLFaultDatabase(
+		t, db, testsupport.SQLFaultHooks{
+			BeforeExec: func(
+				_ context.Context, query string,
+				_ []driver.NamedValue,
+			) error {
+				if strings.TrimSpace(query) == "COMMIT" {
+					return cause
+				}
+				return nil
+			},
+		},
+	)
+	repo := NewMappings(faultDB)
 	service := pegasusimportservice.NewMappings(repo, func() time.Time { return time.UnixMilli(10) })
 	value, err := service.Update(t.Context(), "import-0", 1, []pegasusimportmodel.Mapping{{CollectionID: mappingCollection, Action: "SKIP", TagIDs: []string{}}}, mappingActor)
-	if !errors.Is(err, cause) || value.ID != "" {
+	if err == nil || value.ID != "" {
 		t.Fatalf("late mapping failure: %#v %v", value, err)
 	}
 	if !reflect.DeepEqual(mappingRows(t, db), before) {

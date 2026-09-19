@@ -12,9 +12,8 @@ import (
 )
 
 type Repository struct {
-	database         *sql.DB
-	gc               payloadmodel.GCStager
-	publishPreCommit func() error
+	database *sql.DB
+	gc       payloadmodel.GCStager
 }
 type (
 	records struct{ executor dbexec.Executor }
@@ -30,12 +29,6 @@ func New(database *sql.DB) *Repository {
 func (repository *Repository) WithGCStager(gc payloadmodel.GCStager) *Repository {
 	repository.gc = gc
 	return repository
-}
-
-// WithPublishPreCommitHook sets a test-only hook that runs just before
-// CommitPublish commits its transaction.
-func WithPublishPreCommitHook(repo *Repository, hook func() error) {
-	repo.publishPreCommit = hook
 }
 
 func readScope(executor dbexec.Executor) gamecontent.ReadScope {

@@ -5,6 +5,8 @@ package gamecontent
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"retrom/internal/adapter/integration/payloadrelease"
 	gamecontentservice "retrom/internal/service/gamecontent"
 	"retrom/internal/service/uploads"
+	"retrom/internal/testkit/testsupport"
 )
 
 func assertLatePublicationRollback(t *testing.T, database *sql.DB, blobs *blobstore.Store, uploadService *uploads.Service,
@@ -19,8 +22,20 @@ func assertLatePublicationRollback(t *testing.T, database *sql.DB, blobs *blobst
 ) {
 	t.Helper()
 	upload := completeUpload(t, t.Context(), database, uploadService, "rollback.gba", []byte("late failure content"))
-	repo := New(database).WithGCStager(releases)
-	WithPublishPreCommitHook(repo, func() error { return context.DeadlineExceeded })
+	faultDB := testsupport.OpenSQLFaultDatabase(
+		t, database, testsupport.SQLFaultHooks{
+			BeforeExec: func(
+				_ context.Context, query string,
+				_ []driver.NamedValue,
+			) error {
+				if strings.TrimSpace(query) == "COMMIT" {
+					return context.DeadlineExceeded
+				}
+				return nil
+			},
+		},
+	)
+	repo := New(faultDB).WithGCStager(releases)
 	service := gamecontentservice.New(repo, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
 	result, err := service.Schedule(t.Context(), gameID, upload, version)
 	if err != nil {
