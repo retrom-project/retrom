@@ -1842,6 +1842,24 @@
       ]
     },
     {
+      "id": "libraryimport.ApprovalDuplicateIDs",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ApprovalDuplicateIDs",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.reviewApprovalRun).diffEvidence",
+        "retrom/internal/service/libraryimport.SameApprovalDuplicateIDs"
+      ],
+      "invariant": "Deterministically sort current duplicate game IDs.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
       "id": "libraryimport.CreationRPGAnalysis",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -1990,6 +2008,25 @@
       "target_layer": "model",
       "tests": [
         "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.NormalizeReviewBulkScope",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.NormalizeReviewBulkScope",
+      "consumers": [
+        "retrom/internal/service/libraryimport.ReviewBulkScopeDigest",
+        "retrom/internal/service/libraryimport.normalizeReviewBulkCandidateQuery",
+        "retrom/internal/service/libraryimport.normalizeReviewDeduplicateRequest"
+      ],
+      "invariant": "Normalize case/spacing and identifiers; bound query and allow only one source filter.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
         "RFA-RF13-discard_handoff"
       ]
     },
@@ -2153,6 +2190,23 @@
       ]
     },
     {
+      "id": "libraryimport.ReviewValidationEvidence.CurrentInput",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(retrom/internal/model/libraryimport.ReviewValidationEvidence).CurrentInput",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewValidation).Current"
+      ],
+      "invariant": "Use current source/target/core/DAT/DOS/policy to construct canonical prepublish input; baseline does not compare platform versions.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
       "id": "libraryimport.ReviewValidationGuard.Valid",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2166,6 +2220,23 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.SameApprovalDuplicateIDs",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.SameApprovalDuplicateIDs",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.reviewApprovalRun).claimDuplicates"
+      ],
+      "invariant": "Exact duplicate game set equality rejects repeats/omissions/extras.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
       ]
     },
     {
@@ -2198,6 +2269,58 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.ValidApprovalExternalAsset",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ValidApprovalExternalAsset",
+      "consumers": [
+        "retrom/internal/service/libraryimport.ValidApprovalExternalAssets"
+      ],
+      "invariant": "Cover dimensions and image type versus dimensionless supported video type.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.ValidApprovalExternalAssets",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ValidApprovalExternalAssets",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.reviewApprovalRun).appendExternalAssets",
+        "retrom/internal/service/libraryimport.validApprovalDecision"
+      ],
+      "invariant": "Unique kind,nonempty Blob and valid media shape per external asset.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.ValidApprovalSourceKind",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ValidApprovalSourceKind",
+      "consumers": [
+        "retrom/internal/service/libraryimport.validApprovalDecision"
+      ],
+      "invariant": "Only Pegasus and EmulationStation source origin kinds are permitted.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
       ]
     },
     {
@@ -2377,6 +2500,57 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.approvalDiscTotal",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.approvalDiscTotal",
+      "consumers": [
+        "retrom/internal/service/libraryimport.validateApprovalMultiDisc"
+      ],
+      "invariant": "Contiguous PRESENT discs must match source ownership/names and bounded byte sum.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.approvalStaticSnapshot",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.approvalStaticSnapshot",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.reviewApprovalRun).prepareScreenshotOverride"
+      ],
+      "invariant": "Parse static dependency snapshot into explicit value/bool.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.canDiscardReview",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.canDiscardReview",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDiscards).DiscardInScope"
+      ],
+      "invariant": "Exact bounded draft version,REVIEW_PENDING and mode-specific handoff/source-busy authority.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
       ]
     },
     {
@@ -2756,6 +2930,59 @@
       ]
     },
     {
+      "id": "libraryimport.normalizeReviewApproval",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.normalizeReviewApproval",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewApprovals).Approve",
+        "(*retrom/internal/service/libraryimport.ReviewApprovals).ApproveInScope"
+      ],
+      "invariant": "Require bounded draft version and valid normalized decision/bulk intent before publication.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.normalizeReviewDeduplicateRequest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.normalizeReviewDeduplicateRequest",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDeduplicator).Deduplicate"
+      ],
+      "invariant": "Normalize scope plus canonical ordered UUID cursor constraints.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.normalizeReviewDiscard",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.normalizeReviewDiscard",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDiscards).Discard",
+        "(*retrom/internal/service/libraryimport.ReviewDiscards).DiscardInScope"
+      ],
+      "invariant": "Trim bounded reason,validate item/version and SINGLE/BATCH mode.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
       "id": "libraryimport.patchedTargetAndDOS",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2769,6 +2996,23 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.prepareScreenshotOverride",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/service/libraryimport.reviewApprovalRun).prepareScreenshotOverride",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.reviewApprovalRun).prepareValidation"
+      ],
+      "invariant": "Filter unusable EXTERNAL_FILE BIOS from runtime dependency snapshot without I/O; extract from service receiver.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
       ]
     },
     {
@@ -2805,6 +3049,40 @@
       ]
     },
     {
+      "id": "libraryimport.projectAggregate",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/service/libraryimport.reviewApprovalRun).projectAggregate",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.reviewApprovalRun).prepare"
+      ],
+      "invariant": "Publish decrements positive pending under bounded parent version and shared import progress projection.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.projectReviewDiscardAggregate",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.projectReviewDiscardAggregate",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDiscards).DiscardInScope"
+      ],
+      "invariant": "Discard decrements positive pending and uses shared aggregate progress policy.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
       "id": "libraryimport.reviewValidationGuardMatches",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2819,6 +3097,23 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.sameApprovalRequirementNames",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.sameApprovalRequirementNames",
+      "consumers": [
+        "retrom/internal/service/libraryimport.validateApprovalArcadeDependency"
+      ],
+      "invariant": "Frozen required names equal current nonNODUMP/default-BIOS DAT ROM names in order.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
       ]
     },
     {
@@ -2901,6 +3196,40 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.validApprovalDecision",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validApprovalDecision",
+      "consumers": [
+        "retrom/internal/service/libraryimport.normalizeReviewApproval"
+      ],
+      "invariant": "Constrain duplicate acknowledgement and explicit source/media shape.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.validBulkPublicationIntent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validBulkPublicationIntent",
+      "consumers": [
+        "retrom/internal/service/libraryimport.normalizeReviewApproval"
+      ],
+      "invariant": "Optional bulk intent must contain every identity needed by publication.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
       ]
     },
     {

@@ -8479,6 +8479,643 @@
       }
     },
     {
+      "operation_id": "libraryimport.approve-review",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).Approve",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ApproveWithDecision",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ApproveWithReason",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).processReviewBulkItem",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runReviewBulkApproval",
+        "(*retrom/internal/service/libraryimport.ReviewApprovals).Approve",
+        "(*retrom/internal/service/libraryimport.ReviewApprovals).ApproveInScope",
+        "(*retrom/internal/transport/httpapi.Server).approveReview",
+        "(*retrom/internal/transport/httpapi.Server).createReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).retryReviewBulk",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewApprovalHead",
+      "prepare": "(*retrom/internal/service/libraryimport.ReviewApprovals).Approve",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewApprovals).WithApproval",
+      "policy_symbols": [
+        "(*retrom/internal/service/libraryimport.reviewApprovalRun).prepareScreenshotOverride",
+        "(*retrom/internal/service/libraryimport.reviewApprovalRun).projectAggregate",
+        "(retrom/internal/model/libraryimport.ReviewValidationEvidence).CurrentInput",
+        "retrom/internal/model/libraryimport.PrepublishDigestMatches",
+        "retrom/internal/model/libraryimport.ResolveRPGReviewDependencies",
+        "retrom/internal/service/libraryimport.ApprovalDuplicateIDs",
+        "retrom/internal/service/libraryimport.SameApprovalDuplicateIDs",
+        "retrom/internal/service/libraryimport.ValidApprovalExternalAsset",
+        "retrom/internal/service/libraryimport.ValidApprovalExternalAssets",
+        "retrom/internal/service/libraryimport.ValidApprovalSourceKind",
+        "retrom/internal/service/libraryimport.approvalDiscTotal",
+        "retrom/internal/service/libraryimport.approvalStaticSnapshot",
+        "retrom/internal/service/libraryimport.normalizeReviewApproval",
+        "retrom/internal/service/libraryimport.sameApprovalRequirementNames",
+        "retrom/internal/service/libraryimport.validApprovalDecision",
+        "retrom/internal/service/libraryimport.validBulkPublicationIntent"
+      ],
+      "fresh_facts": [
+        {
+          "name": "approval Head",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).Head",
+          "reason": "Current item/draft/parent. Latest validation by createdAt/id for effective snapshot+target (not necessarily selected_validation_id); enabled/notdeleted platform,matching current core/runtime binding,DAT/DOS; READY or current runtime screenshot; direct or ESready handoff and no discarded parent; SourceBusy flag"
+        },
+        {
+          "name": "approval Origin",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).Origin",
+          "reason": "If no explicit source decision, first kind-sorted current REVIEW_PENDING linked Pegasus/ES source with external media; else ordinary IMPORT_REVIEW"
+        },
+        {
+          "name": "approval Candidate",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).Candidate",
+          "reason": "Selected candidate media READY from completed item scrape run"
+        },
+        {
+          "name": "approval UploadedCover",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).UploadedCover",
+          "reason": "Selected uploaded COVER belonging current review item"
+        },
+        {
+          "name": "approval Screenshots",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).Screenshots",
+          "reason": "Current ordered selected screenshot IDs"
+        },
+        {
+          "name": "approval BlobExists",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).BlobExists",
+          "reason": "External media only checks Blob catalog existence,not physical bytes/digest"
+        },
+        {
+          "name": "approval NextEmulatorID",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).NextEmulatorID",
+          "reason": "For emulatorjs max emulator_game_id+1 allocated inside writer"
+        },
+        {
+          "name": "current validation evidence",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewValidation).Evidence",
+          "reason": "Current REVIEW_PENDING draft/source/platform/runtime/DAT/DOS/policy and validation inputdigest/status/dependency snapshot; CurrentInput compares core/source/manifest/DAT/DOS/policy but not PlatformVersion equality"
+        },
+        {
+          "name": "RPG profile",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewValidation).Profile",
+          "reason": "Current RPG analysis/override/binding and dependency digest,used twice in dependency checks"
+        },
+        {
+          "name": "dependency LogicalName",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.approvalDependencyRecords).LogicalName",
+          "reason": "First content/disc/DOS source name for BIOS applicability"
+        },
+        {
+          "name": "dependency MultiDisc",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.approvalDependencyRecords).MultiDisc",
+          "reason": "Current ordered discs plus source/validation file counts and Blob sizes"
+        },
+        {
+          "name": "dependency ArcadeRequirements",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.approvalDependencyRecords).ArcadeRequirements",
+          "reason": "Current DAT default BIOS/ROM requirements and nonNODUMP disk presence"
+        },
+        {
+          "name": "dependency ExternalFileCount",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.approvalDependencyRecords).ExternalFileCount",
+          "reason": "Current matching external PARENT/BIOS_BUNDLE validation file count"
+        },
+        {
+          "name": "duplicate Snapshot",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).Snapshot",
+          "reason": "Effective review source kind/id/manifest from current draft"
+        },
+        {
+          "name": "duplicate IdentityParts",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).IdentityParts",
+          "reason": "Current ordered source file Blob digests,logical names and archive-entry identity facts"
+        },
+        {
+          "name": "duplicate OrderedDiscs",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).OrderedDiscs",
+          "reason": "Current multidisc ordinals/state/logical names/digests for identity"
+        },
+        {
+          "name": "duplicate PublishedMatches",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).PublishedMatches",
+          "reason": "Current published games in platform with matching content identity; Model ContentDuplicates performs I/O and must be moved to Service orchestration"
+        },
+        {
+          "name": "current active draft tags",
+          "reader_symbol": "(retrom/internal/repo/tagging.relationRecords).References",
+          "reason": "CopyDraftTagsToGame uses current draft tags and context actor inside writer"
+        },
+        {
+          "name": "linked source owners",
+          "reader_symbol": "retrom/internal/repo/libraryimport.transitionServerReviewOwner",
+          "reason": "Same writer updates both Pegasus and EmulationStation links,then checks linked count if zero affected; baseline assumes at most one source family"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer published item,linked source items and terminal import aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "approval-request",
+          "fields": [
+            "item",
+            "version",
+            "reason",
+            "duplicatePolicy",
+            "source",
+            "externalAssets",
+            "bulk"
+          ],
+          "expected_source": "Version1..MaxInt64-1; optional reason trimmed nonempty valid<=500. Duplicate empty or ALLOW_NEW,empty forbids acknowledgement IDs; explicit source only Pegasus/ES with nonempty ref; no explicit source forbids external assets/ref. Bulk nil or all five IDs nonempty",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "approval-authority",
+          "fields": [
+            "draftVersion",
+            "itemState",
+            "sourceBusy",
+            "handoff",
+            "parentDiscarded",
+            "validation"
+          ],
+          "expected_source": "Current REVIEW_PENDING,exact draftversion,notbusy; Head query owns handoff/discarded-parent/platform/runtime/DAT/DOS/current screenshot rules. Bulk additionally exact READY validation and source snapshot IDs",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "metadata-policy",
+          "fields": [
+            "title",
+            "contentKind",
+            "contentPolicy"
+          ],
+          "expected_source": "Decode metadata JSON and trim nonempty title; supports content kind. Baseline does not fully revalidate every metadata field here",
+          "rejection": "ErrInvalid / JSON error",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "validation-current",
+          "fields": [
+            "source",
+            "target",
+            "core",
+            "manifest",
+            "DAT",
+            "DOS",
+            "policy",
+            "inputDigest",
+            "RPG"
+          ],
+          "expected_source": "CurrentInput and canonical PrepublishDigestMatches; RPG additionally exact resolved dependency JSON/status/code/digest vs current profile,then READY for publication",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "normal-dependencies",
+          "fields": [
+            "frozenDependencyJSON",
+            "currentBIOS",
+            "DAT",
+            "contentKind"
+          ],
+          "expected_source": "Without screenshot override: static snapshot re-resolves current BIOS READY,retains frozen MultiDisc then requires byte-equal JSON; parse failure permits only arcade SINGLE_FILE canonical closure/dependency checks",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "multidisc",
+          "fields": [
+            "discCount",
+            "ordinals",
+            "state",
+            "sourceBlob",
+            "logicalName",
+            "size",
+            "playlistCount"
+          ],
+          "expected_source": "2..configuredMax contiguous PRESENT discs,exact source ordinal/Blob/name,each size>=8 and checked sum<=maxBytes,count equals frozen; exactly1 source playlist,disc count exact,total source count=discs+1,one validation canonical playlist",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "arcade-dependencies",
+          "fields": [
+            "frozen",
+            "canonical",
+            "currentRequirements",
+            "externalFiles"
+          ],
+          "expected_source": "No missing/mismatched entries; canonical closure has one unique dependency per noncontent node; current nonNODUMP/default-BIOS required names exact and no disks; state content/external/hashwarning; external PARENT/BIOS exactly one logical file; canonical frozen structures byte-equal",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "format-and-override",
+          "fields": [
+            "RPG",
+            "ScummVM",
+            "validationStatus",
+            "screenshot",
+            "staticBIOS"
+          ],
+          "expected_source": "RPG always READY; ScummVM READY/current source digest/selected candidate. Other nonREADY with current screenshot skips normal dependency validation; filters unusable EXTERNAL_FILE BIOS out of runtime JSON; unparseable static JSON preserved; dependencies table still uses original frozen JSON",
+          "rejection": "ErrInvalid / parse error",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "assets",
+          "fields": [
+            "selection",
+            "externalKinds",
+            "mediaShape",
+            "BlobExists",
+            "origin"
+          ],
+          "expected_source": "Selected assets current item ownership; external assets unique kind/nonempty Blob; COVER positive dimensions PNG/JPEG/WebP,VIDEO nil dimensions MP4/WebM. Implicit source cover skipped if user cover selected; explicit source assets accepted without owner ref reread in this helper",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "duplicates",
+          "fields": [
+            "identity",
+            "currentPublished",
+            "policy",
+            "ackIds"
+          ],
+          "expected_source": "Claim platform/digest then current matches: matches require ALLOW_NEW and exact sorted unique acknowledged game IDs; no matches forbid policy",
+          "rejection": "DuplicateConflict with current digest/games / ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "parent-projection",
+          "fields": [
+            "version",
+            "pending",
+            "state",
+            "counts",
+            "cancel",
+            "completed"
+          ],
+          "expected_source": "Bounded positive parent version and pending>=1; Started true,pending-1 then shared progress projection; exact parent CAS later",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "publication-cas",
+          "fields": [
+            "item",
+            "draftVersion",
+            "snapshot",
+            "target",
+            "parentVersion",
+            "pending"
+          ],
+          "expected_source": "Item REVIEW_PENDING and exact current draft version/source/target; parent exact version/pending; both require1",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "source-owner-transition",
+          "fields": [
+            "linkedSource.executionState",
+            "decisionMode"
+          ],
+          "expected_source": "Publication/single discard only REVIEW_PENDING; batch discard also any linked state except PUBLISHED/SKIPPED_EXISTING/REVIEW_DISCARDED. Existing link with zero affected rejects. No current source plan/job lease fence here; source caller owns it when applicable",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "bulk-publication",
+          "fields": [
+            "bulkItem",
+            "bulkParent",
+            "jobWorker"
+          ],
+          "expected_source": "If bulk intent: item RUNNING/exact expected review version+validation+source; aggregate id/job RUNNING; job id/RUNNING/worker; each update require1. Baseline lacks executionNo/version/live lease/deadline fence,allowing expired worker to renew",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "publish-tag-actor",
+          "fields": [
+            "draftId",
+            "gameId",
+            "draftTags",
+            "actorUserId"
+          ],
+          "expected_source": "Valid draft/game IDs; nonempty current draft tags require valid context actor ID; no current user authorization query inside CopyDraftTagsToGame",
+          "rejection": "tagging.ErrInvalid",
+          "test_id": "RFA-RF13-publish_atomic"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "claim-content-identity",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).ClaimIdentity",
+          "affected_records": [
+            "INSERT content_identity_claims platform/digest/time ON CONFLICT DO NOTHING; claim rolls back if later duplicate acknowledgement or publication fails"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-game",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).CreateGame",
+          "affected_records": [
+            "INSERT PUBLISHED game metadata/title/search/source origin/source manifest,version1/time; require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-assets",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).CreateAsset",
+          "affected_records": [
+            "INSERT each selected/external game_asset prepared dimensions/media/ordinal/Blob; require1 per row"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-source-files",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).CopySourceFiles",
+          "affected_records": [
+            "INSERT SELECT game_files from effective source snapshot including archive ownership fields; no exact count check"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-RPG-profile",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).CopyRPGProfile",
+          "affected_records": [
+            "RPG only INSERT SELECT game profile from current draft; require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-variant",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).CreateVariant",
+          "affected_records": [
+            "INSERT READY variant core/provider/target/DAT/emulatorID/defaultDOS/runtime dependency JSON,compat READY|REVIEW_SCREENSHOT_OVERRIDE,version1/time; require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-validation-files",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).CopyValidationFiles",
+          "affected_records": [
+            "INSERT SELECT variant_files from approved validation; no exact count check"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-dependencies",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).CreateDependency",
+          "affected_records": [
+            "Each original frozen PARENT|BIOS_OR_BASE dependency with required DAT -> variant_dependencies; require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-RPG-variant",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).CreateRPGVariant",
+          "affected_records": [
+            "RPG only INSERT generation/dependency digest variant profile; require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-DOS-entries",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).CopyDOSEntries",
+          "affected_records": [
+            "INSERT SELECT DOS entries from item; no exact count check"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-evidence",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).RecordEvent",
+          "affected_records": [
+            "INSERT APPROVED schema2 event before metadata/media/DOS/tags and after game/variant/tags; diff includes bulk/override/duplicate acknowledgement,config/DAT/provider/reason/context actor; require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-item",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).PublishItem",
+          "affected_records": [
+            "UPDATE item PUBLISHED/version+1/time/completed under exact draft authority; require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-aggregate",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).PublishItem",
+          "affected_records": [
+            "UPDATE exact parent pending-1/published+1/projected state/completion/version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "publish-game-tags",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).Add",
+          "affected_records": [
+            "INSERT each current draft tag relation onto new game with actor/time; same publication writer"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "touch-published-tags",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).TouchTags",
+          "affected_records": [
+            "UPDATE touched active tags version/actor/time via shared relation replacement policy"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "Pegasus-review-owner",
+          "repo_helper": "retrom/internal/repo/libraryimport.transitionServerReviewOwner",
+          "affected_records": [
+            "UPDATE linked pegasus_import_items execution_state,published_game_id,version+1/time under state predicate"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "ES-review-owner",
+          "repo_helper": "retrom/internal/repo/libraryimport.transitionServerReviewOwner",
+          "affected_records": [
+            "UPDATE linked emulationstation_import_items execution_state,published_game_id,version+1/time under state predicate"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "Pegasus-review-counts",
+          "repo_helper": "retrom/internal/repo/libraryimport.refreshPegasusReviewCounts",
+          "affected_records": [
+            "If Pegasus updated, recompute source aggregate review/published/discarded counts from items; version+1/time by linked parent id; no expected version/count"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "ES-review-counts",
+          "repo_helper": "retrom/internal/repo/libraryimport.refreshEmulationStationReviewCounts",
+          "affected_records": [
+            "Only when Pegasus did not update and ES did, recompute ES aggregate review/published/discarded counts; version+1/time; both families linked would leave ES counters unchanged"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "bulk-published-item",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).RecordPublished",
+          "affected_records": [
+            "Optional UPDATE bulk item PUBLISHED/game/event/outcome/time under frozen exact identity; same entire publication writer,require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "bulk-published-aggregate",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).RecordPublished",
+          "affected_records": [
+            "Optional UPDATE processed+1,published+1,version+1/time on RUNNING aggregate with exact job; same entire publication writer,require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "bulk-published-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).RecordPublished",
+          "affected_records": [
+            "Optional UPDATE heartbeat=now,lease=now+60s,version+1/time on RUNNING job with matching worker only; same entire publication writer,require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "bulk-published-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).RecordPublished",
+          "affected_records": [
+            "Optional INSERT SELECT PROGRESS counts from aggregate; same entire publication writer,require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. BeginTx(nil); reads,dependency orchestration and media selection inside writer; then Service samples now,projects parent,generates game/variant/event/asset UUIDs. Nested source/bulk caller owns outer transaction; no extra commit. Bulk lease=now+60s without deadline cap. Target IDs/preparation must move before Repo writer.",
+      "after_commit": [
+        {
+          "action": "Only after owning transaction commit expose published game and bulk progress; payload jobs rediscovered durably",
+          "recovery": "Failure at any late source/release/bulk stage rolls back game,variant,media,tags,audit,counts and duplicate claim together",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED claim-content-identity: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-game: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-assets: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-source-files: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-RPG-profile: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-variant: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-validation-files: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-dependencies: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-RPG-variant: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-DOS-entries: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-evidence: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-item: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-aggregate: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED publish-game-tags: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED touch-published-tags: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED Pegasus-review-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED ES-review-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED Pegasus-review-counts: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED ES-review-counts: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-job: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-input: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-event: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED bulk-published-item: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED bulk-published-aggregate: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED bulk-published-job: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED bulk-published-event: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED each fresh guard drift; concurrent publish/discard/duplicate/lease expiry/GC; nested source and bulk atomicity; no execution evidence claimed"
+      ],
+      "test_ids": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Creates game_assets/game_files/variant_files protective Blob references and copies archive relationships. Baseline noD22coordinator; acquire sorted digeststripes beforewriter,verifycurrentowners/contentandholdthroughcommit.",
+        "digest_sources": [
+          "All source snapshot file/archived materialized,validation,selected media and external media digests; must verify physical content under lock"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/libraryimport.ReviewApprovals).WithApproval",
+        "test_ids": [
+          "RFA-RF13-approval_guard",
+          "RFA-RF13-publish_atomic",
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
       "operation_id": "libraryimport.cancel-import-batch",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -10035,6 +10672,597 @@
       }
     },
     {
+      "operation_id": "libraryimport.deduplicate-review-page",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).DeduplicateReviews",
+        "(*retrom/internal/service/libraryimport.ReviewDeduplicator).Deduplicate",
+        "(*retrom/internal/transport/httpapi.Server).deduplicateReviews"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkCandidate",
+      "prepare": "(*retrom/internal/service/libraryimport.ReviewDeduplicator).Deduplicate",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewDeduplicates).WithDeduplicate",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.NormalizeReviewBulkScope",
+        "retrom/internal/service/libraryimport.normalizeReviewDeduplicateRequest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "bounded review upper cursor",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewBulkQueries).LatestReviewItemID",
+          "reason": "If caller did not supply through UUID,read max current REVIEW_PENDING item ID inside writer; no items returns empty result"
+        },
+        {
+          "name": "current candidate page",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewBulkQueries).Candidates",
+          "reason": "Same writer <=51 rows,scope filters,after<id<=through,ordered ID; current REVIEW_PENDING/direct or ESready and linked sources REVIEW_PENDING; includes draft version/source/platform/latest validation/attachment flags"
+        },
+        {
+          "name": "duplicate Snapshot",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).Snapshot",
+          "reason": "Effective review source kind/id/manifest from current draft"
+        },
+        {
+          "name": "duplicate IdentityParts",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).IdentityParts",
+          "reason": "Current ordered source file Blob digests,logical names and archive-entry identity facts"
+        },
+        {
+          "name": "duplicate OrderedDiscs",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).OrderedDiscs",
+          "reason": "Current multidisc ordinals/state/logical names/digests for identity"
+        },
+        {
+          "name": "duplicate PublishedMatches",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).PublishedMatches",
+          "reason": "Current published games in platform with matching content identity; Model ContentDuplicates performs I/O and must be moved to Service orchestration"
+        },
+        {
+          "name": "current discard authority and parent",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).Snapshot",
+          "reason": "Current item state/handoff; draft metadata/version/selected validation/DAT/candidate/media; linked source busy/ES ready; parent version/state/counters/cancel/completion"
+        },
+        {
+          "name": "current draft tags",
+          "reader_symbol": "(retrom/internal/repo/tagging.relationRecords).References",
+          "reason": "Current tag references used in schema2 discard evidence,inside same writer"
+        },
+        {
+          "name": "linked source owners",
+          "reader_symbol": "retrom/internal/repo/libraryimport.transitionServerReviewOwner",
+          "reason": "Same writer updates both Pegasus and EmulationStation links,then checks linked count if zero affected; baseline assumes at most one source family"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer discarded item,linked source items and terminal aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "discard-request",
+          "fields": [
+            "itemId",
+            "expectedVersion",
+            "mode",
+            "reason"
+          ],
+          "expected_source": "Nonempty ID,version>=1,reason trimmed/valid UTF8/control policy/max500; empty reason allowed; default SINGLE; only SINGLE|BATCH",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "discard-authority",
+          "fields": [
+            "draftVersion",
+            "itemState",
+            "handoff",
+            "sourceBusy",
+            "ESready",
+            "mode"
+          ],
+          "expected_source": "Exact expected draft version and not MaxInt64,item REVIEW_PENDING; SINGLE requires not SourceBusy and DIRECT or ES ready; BATCH bypasses both source conditions",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "discard-parent",
+          "fields": [
+            "parentVersion",
+            "reviewPending",
+            "counts",
+            "state",
+            "cancel",
+            "completed"
+          ],
+          "expected_source": "Positive bounded parent version,reviewPending>=1; Started true,pending-1 then shared importprogress.Project; SQL exact parent version/pending",
+          "rejection": "ErrInvalid / projection error",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "source-owner-transition",
+          "fields": [
+            "linkedSource.executionState",
+            "decisionMode"
+          ],
+          "expected_source": "Publication/single discard only REVIEW_PENDING; batch discard also any linked state except PUBLISHED/SKIPPED_EXISTING/REVIEW_DISCARDED. Existing link with zero affected rejects. No current source plan/job lease fence here; source caller owns it when applicable",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "dedup-cursor",
+          "fields": [
+            "scope",
+            "after",
+            "through"
+          ],
+          "expected_source": "Normalized scope; optional lowercase canonical UUIDs; after requires through and after<through",
+          "rejection": "ErrReviewBulkQuery",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "dedup-selection",
+          "fields": [
+            "page",
+            "attachments",
+            "publishedMatches"
+          ],
+          "expected_source": "Process first50 of51; next cursor only if extra exists. Active arcade/multidisc attachment skipped; otherwise only current published duplicate causes SINGLE discard; all50 share transaction",
+          "rejection": "Nonduplicate no-op; any discard/reader failure rolls back entire page",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cancel-arcade-jobs",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).CancelAttachments",
+          "affected_records": [
+            "Linked QUEUED/RUNNING arcade attachment jobs -> CANCELLED/CANCEL_REQUESTED; cancel reason/time,queued finished/time/version; no execution fence"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cancel-arcade-attachments",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).CancelAttachments",
+          "affected_records": [
+            "Linked QUEUED/RUNNING arcade attachment rows -> CANCELLED diagnostics/error/time/version; running row becomes terminal immediately"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cancel-multidisc-jobs",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).CancelAttachments",
+          "affected_records": [
+            "Linked attachment QUEUED/RUNNING/FAILED_RETRYABLE jobs in QUEUED/RUNNING or retryable FAILED -> CANCELLED/CANCEL_REQUESTED; version/time"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cancel-multidisc-attachments",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).CancelAttachments",
+          "affected_records": [
+            "Only QUEUED/FAILED_RETRYABLE attachment rows -> CANCELLED; RUNNING row awaits worker outcome"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "discard-item",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).DiscardItem",
+          "affected_records": [
+            "UPDATE item REVIEW_PENDING with exact draft version -> DISCARDED,version+1,time/completed; require1; draft version itself unchanged"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "discard-aggregate",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).DiscardItem",
+          "affected_records": [
+            "UPDATE exact parent id/version/pending -> pending-1,discarded+1,projected state/completion,version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "discard-evidence",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).RecordEvent",
+          "affected_records": [
+            "INSERT DISCARDED review_event UUID/schema2 before metadata/tags/media,decision after/diff and validation/DAT/candidate evidence,USER context principal or SYSTEM release-setup actor,optional reason/time; no explicit affected count"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "Pegasus-review-owner",
+          "repo_helper": "retrom/internal/repo/libraryimport.transitionServerReviewOwner",
+          "affected_records": [
+            "UPDATE linked pegasus_import_items execution_state,published_game_id,version+1/time under state predicate"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "ES-review-owner",
+          "repo_helper": "retrom/internal/repo/libraryimport.transitionServerReviewOwner",
+          "affected_records": [
+            "UPDATE linked emulationstation_import_items execution_state,published_game_id,version+1/time under state predicate"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "Pegasus-review-counts",
+          "repo_helper": "retrom/internal/repo/libraryimport.refreshPegasusReviewCounts",
+          "affected_records": [
+            "If Pegasus updated, recompute source aggregate review/published/discarded counts from items; version+1/time by linked parent id; no expected version/count"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "ES-review-counts",
+          "repo_helper": "retrom/internal/repo/libraryimport.refreshEmulationStationReviewCounts",
+          "affected_records": [
+            "Only when Pegasus did not update and ES did, recompute ES aggregate review/published/discarded counts; version+1/time; both families linked would leave ES counters unchanged"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. One BeginTx(nil) via Transactions.Write for whole <=50 page; each nested discard separately samples clock/generates UUID after current facts. No single shared admission timestamp baseline.",
+      "after_commit": [
+        {
+          "action": "Return scanned/discarded/attachment counts and bounded cursor only after page commit",
+          "recovery": "On failure no cursor progress is durable and entire page may be retried; no page receipt",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED cancel-arcade-jobs: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED cancel-arcade-attachments: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED cancel-multidisc-jobs: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED cancel-multidisc-attachments: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED discard-item: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED discard-aggregate: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED discard-evidence: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED Pegasus-review-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED ES-review-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED Pegasus-review-counts: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED ES-review-counts: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-job: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-input: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-event: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED each fresh guard drift; concurrent publish/discard/duplicate/lease expiry/GC; nested source and bulk atomicity; no execution evidence claimed"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Duplicate identities are read; selected items are discarded with release bookkeeping only. No new protective edge/CAS mutation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.discard-review",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.DiscardWorkflow).DiscardBatchReviews",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).Discard",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).DiscardBatchReviews",
+        "(*retrom/internal/service/libraryimport.ReviewBatchDiscards).DiscardBatch",
+        "(*retrom/internal/service/libraryimport.ReviewDiscards).Discard",
+        "(*retrom/internal/service/libraryimport.ReviewDiscards).DiscardInScope",
+        "(*retrom/internal/transport/httpapi.Server).discardReview"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewDiscardSnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ReviewDiscards).Discard",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewDiscards).WithDiscard",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.canDiscardReview",
+        "retrom/internal/service/libraryimport.normalizeReviewDiscard",
+        "retrom/internal/service/libraryimport.projectReviewDiscardAggregate"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current discard authority and parent",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).Snapshot",
+          "reason": "Current item state/handoff; draft metadata/version/selected validation/DAT/candidate/media; linked source busy/ES ready; parent version/state/counters/cancel/completion"
+        },
+        {
+          "name": "current draft tags",
+          "reader_symbol": "(retrom/internal/repo/tagging.relationRecords).References",
+          "reason": "Current tag references used in schema2 discard evidence,inside same writer"
+        },
+        {
+          "name": "linked source owners",
+          "reader_symbol": "retrom/internal/repo/libraryimport.transitionServerReviewOwner",
+          "reason": "Same writer updates both Pegasus and EmulationStation links,then checks linked count if zero affected; baseline assumes at most one source family"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer discarded item,linked source items and terminal aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "discard-request",
+          "fields": [
+            "itemId",
+            "expectedVersion",
+            "mode",
+            "reason"
+          ],
+          "expected_source": "Nonempty ID,version>=1,reason trimmed/valid UTF8/control policy/max500; empty reason allowed; default SINGLE; only SINGLE|BATCH",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "discard-authority",
+          "fields": [
+            "draftVersion",
+            "itemState",
+            "handoff",
+            "sourceBusy",
+            "ESready",
+            "mode"
+          ],
+          "expected_source": "Exact expected draft version and not MaxInt64,item REVIEW_PENDING; SINGLE requires not SourceBusy and DIRECT or ES ready; BATCH bypasses both source conditions",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "discard-parent",
+          "fields": [
+            "parentVersion",
+            "reviewPending",
+            "counts",
+            "state",
+            "cancel",
+            "completed"
+          ],
+          "expected_source": "Positive bounded parent version,reviewPending>=1; Started true,pending-1 then shared importprogress.Project; SQL exact parent version/pending",
+          "rejection": "ErrInvalid / projection error",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "source-owner-transition",
+          "fields": [
+            "linkedSource.executionState",
+            "decisionMode"
+          ],
+          "expected_source": "Publication/single discard only REVIEW_PENDING; batch discard also any linked state except PUBLISHED/SKIPPED_EXISTING/REVIEW_DISCARDED. Existing link with zero affected rejects. No current source plan/job lease fence here; source caller owns it when applicable",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cancel-arcade-jobs",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).CancelAttachments",
+          "affected_records": [
+            "Linked QUEUED/RUNNING arcade attachment jobs -> CANCELLED/CANCEL_REQUESTED; cancel reason/time,queued finished/time/version; no execution fence"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cancel-arcade-attachments",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).CancelAttachments",
+          "affected_records": [
+            "Linked QUEUED/RUNNING arcade attachment rows -> CANCELLED diagnostics/error/time/version; running row becomes terminal immediately"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cancel-multidisc-jobs",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).CancelAttachments",
+          "affected_records": [
+            "Linked attachment QUEUED/RUNNING/FAILED_RETRYABLE jobs in QUEUED/RUNNING or retryable FAILED -> CANCELLED/CANCEL_REQUESTED; version/time"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cancel-multidisc-attachments",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).CancelAttachments",
+          "affected_records": [
+            "Only QUEUED/FAILED_RETRYABLE attachment rows -> CANCELLED; RUNNING row awaits worker outcome"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "discard-item",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).DiscardItem",
+          "affected_records": [
+            "UPDATE item REVIEW_PENDING with exact draft version -> DISCARDED,version+1,time/completed; require1; draft version itself unchanged"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "discard-aggregate",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).DiscardItem",
+          "affected_records": [
+            "UPDATE exact parent id/version/pending -> pending-1,discarded+1,projected state/completion,version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "discard-evidence",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewDiscardRecords).RecordEvent",
+          "affected_records": [
+            "INSERT DISCARDED review_event UUID/schema2 before metadata/tags/media,decision after/diff and validation/DAT/candidate evidence,USER context principal or SYSTEM release-setup actor,optional reason/time; no explicit affected count"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "Pegasus-review-owner",
+          "repo_helper": "retrom/internal/repo/libraryimport.transitionServerReviewOwner",
+          "affected_records": [
+            "UPDATE linked pegasus_import_items execution_state,published_game_id,version+1/time under state predicate"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "ES-review-owner",
+          "repo_helper": "retrom/internal/repo/libraryimport.transitionServerReviewOwner",
+          "affected_records": [
+            "UPDATE linked emulationstation_import_items execution_state,published_game_id,version+1/time under state predicate"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "Pegasus-review-counts",
+          "repo_helper": "retrom/internal/repo/libraryimport.refreshPegasusReviewCounts",
+          "affected_records": [
+            "If Pegasus updated, recompute source aggregate review/published/discarded counts from items; version+1/time by linked parent id; no expected version/count"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "ES-review-counts",
+          "repo_helper": "retrom/internal/repo/libraryimport.refreshEmulationStationReviewCounts",
+          "affected_records": [
+            "Only when Pegasus did not update and ES did, recompute ES aggregate review/published/discarded counts; version+1/time; both families linked would leave ES counters unchanged"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. UUID for event then Service Now inside writer after reads/evidence. Shared discard may run within source/batch owner transaction. Result version=draftVersion+1 although draft row itself is unchanged; preserve public response semantics during migration.",
+      "after_commit": [
+        {
+          "action": "Return decision and asynchronously settle cancelled attachment/release jobs",
+          "recovery": "Batch mode has explicit broader source transition permission; failures in owner/progress/release all roll back discard",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED cancel-arcade-jobs: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED cancel-arcade-attachments: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED cancel-multidisc-jobs: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED cancel-multidisc-attachments: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED discard-item: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED discard-aggregate: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED discard-evidence: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED Pegasus-review-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED ES-review-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED Pegasus-review-counts: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED ES-review-counts: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-job: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-input: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-event: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED each fresh guard drift; concurrent publish/discard/duplicate/lease expiry/GC; nested source and bulk atomicity; no execution evidence claimed"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Cancels attachments and transfers terminal payload intent; removes no physical content and adds no protective Blob reference.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.fail-import",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -11117,6 +12345,135 @@
           "RFA-RF18-gc_new_reference",
           "RFA-RF18-digest_lock_process"
         ]
+      }
+    },
+    {
+      "operation_id": "libraryimport.release-discarded-review-batch",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.DiscardWorkflow).ReleaseDiscardedBatch",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ReleaseDiscardedBatch",
+        "(*retrom/internal/service/libraryimport.ReviewBatchDiscards).Release"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewDiscardAggregate",
+      "prepare": "(*retrom/internal/service/libraryimport.ReviewBatchDiscards).Release",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBatchDiscards).Release",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "terminal child count",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewBatchDiscards).Release",
+          "reason": "Writer reads count of children outside PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED. Baseline scalar SQL facts have no complete value snapshot; RF03/05 must introduce one"
+        },
+        {
+          "name": "retained terminal children",
+          "reader_symbol": "retrom/internal/repo/payloadrelease.CollectScopeIDs",
+          "reason": "Current retained child IDs in same writer; every ID routed through terminal-item scheduler"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer each retained terminal child and terminal import aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "batch-release",
+          "fields": [
+            "importId",
+            "pending"
+          ],
+          "expected_source": "Nonempty import ID; all children terminal. Parent update only payload_state RETAINED; baseline no expected parent version/state or affected-count guard",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "close-discarded-batch",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewBatchDiscards).Release",
+          "affected_records": [
+            "UPDATE retained parent state CANCELLED,reason; preserve existing cancel/completion via COALESCE; version+1/time by ID"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "Repeated call can re-increment parent if still RETAINED; existing release intent reused. DiscardBatch itself is page read+one registered discard-review transaction per item,not an extra enclosing atomic operation.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. Service samples now BEFORE BeginTx(nil); scheduler generates IDs inside writer using supplied now.",
+      "after_commit": [
+        {
+          "action": "Durable release jobs continue cleanup; DiscardBatch reports completion when page has fewer than50 items",
+          "recovery": "Individual item discards may have committed before later batch item fails; final Release is independent and rejects nonterminal children",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED close-discarded-batch: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-job: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-input: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-event: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED payload-owner: fail after each applicable row/stage; assert entire owning transaction rollback",
+        "PLANNED each fresh guard drift; concurrent publish/discard/duplicate/lease expiry/GC; nested source and bulk atomicity; no execution evidence claimed"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Terminal parent/child release scheduling only,without new protective Blob references or physical deletion.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
       }
     },
     {
@@ -22924,6 +24281,7 @@
     "RF13 PARTIAL source-reviewed admission,7distinct execution mutations,item retry,and aggregate cancellation (10standalone operations). Execution recovery is per-ID transaction; cancellation and nested payload scheduling atomic. Admission IDs insidewriter,Retry/batch cancellation clocks outsidewriter,Renew checks oldlease aftercallback. Baseline current execution reads admission request/target snapshots but not job_input_snapshots. Creation/review/publication/attachments/source handoff still outstanding; no complete RF13 claim.",
     "RF13 prepared creation wholetransaction source-reviewed:direct/queued/owned-source/reconfiguration branches,allgroups,archive/catalog/materializedartifacts,duplicates,BIOS/validation,draft/tags,RPG,metadata andpayloadjobs included. Allscope transactions remaincallback-based andmixed Model ContentDuplicates stillperformsrepository I/O. Detailed formatparser policycensus,reconfiguration preparation,review/attachment/source upload reservation mutations remainoutstanding.",
     "RF13 reconfiguration clone/cleanup andstandalone MetadataSeeder source-reviewed. Clone writer refreshesonlyparentstate/version,notfile/Blobfacts,andaddsprotectiveedgeswithoutD22. Cleanuphaslocalscalarcount(no namedfacts type)andcaller ignoresfailure; completecleanupvalues/errorreporting remainmigrationwork. Metadata SeedInScope mustbeincludedinRF14ownerhandoff writer.",
-    "RF13 reviewdraftpatch/previewvalidationrefresh/coverupload source-reviewed. LoadPatchSnapshot isread-only transaction,notfakewriteoperation. Patchandpreview alreadyacceptvalueplans butRepo stillowns domainrules,usespreparedclocks andcopiesprotective validationfiles withoutD22; coverseparateasset+consumption leavesdraftversionunchanged. Fullapproval/discard/bulk/attachments/sourceuploads andformatpolicycensus pending."
+    "RF13 reviewdraftpatch/previewvalidationrefresh/coverupload source-reviewed. LoadPatchSnapshot isread-only transaction,notfakewriteoperation. Patchandpreview alreadyacceptvalueplans butRepo stillowns domainrules,usespreparedclocks andcopiesprotective validationfiles withoutD22; coverseparateasset+consumption leavesdraftversionunchanged. Fullapproval/discard/bulk/attachments/sourceuploads andformatpolicycensus pending.",
+    "RF13 approval,ordinary/source/batch discard,deduplication page and final discarded-batch release source-reviewed. Bulk publication is a nested write set of approve-review,not a second commit. Pending: bulk admission/worker/cancel/retry/recovery,arcade/multidisc attachments,source upload handoff,format policies. New game/variant/media refs require D22; baseline bulk publication can renew expired worker because live lease/execution fence is absent."
   ]
 }
