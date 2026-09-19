@@ -13,7 +13,7 @@ import (
 type ImportWorker struct {
 	lifetime        context.Context
 	dependencies    model.ImportWorkerDependencies
-	settings        model.ImportWorkerSettings
+	settings        ImportWorkerSettings
 	mutex           sync.Mutex
 	started, closed bool
 	wait            sync.WaitGroup
@@ -22,7 +22,7 @@ type ImportWorker struct {
 	maintenanceWake chan struct{}
 }
 
-func NewImportWorker(dependencies model.ImportWorkerDependencies, settings model.ImportWorkerSettings) *ImportWorker {
+func NewImportWorker(dependencies model.ImportWorkerDependencies, settings ImportWorkerSettings) *ImportWorker {
 	if settings.Now == nil {
 		settings.Now = time.Now
 	}

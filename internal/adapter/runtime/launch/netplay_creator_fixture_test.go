@@ -26,7 +26,7 @@ func (service *Service) netplayCreator(repository launchmodel.NetplayCreationRep
 		repository,
 		provider,
 		productBlobVerifier{blobs: service.blobs},
-		launchmodel.NetplayCreationEnvironment{
+		launchservice.NetplayCreationEnvironment{
 			Now: service.now, SignCapability: service.signPreviewCapability,
 		},
 	)

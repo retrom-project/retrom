@@ -15,7 +15,7 @@ func (service *Service) QueueCreate(ctx context.Context, request CreateRequest) 
 		repository.NewImportAdmissions(service.database),
 		service,
 		service.tags,
-		libraryimportmodel.ImportAdmissionOptions{
+		libraryimportservice.ImportAdmissionOptions{
 			Now:                      service.now,
 			MultiDiscEnabled:         service.multiDiscImportEnabled,
 			MetadataScraperAvailable: service.scraper != nil,

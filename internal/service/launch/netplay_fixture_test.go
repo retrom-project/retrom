@@ -73,7 +73,7 @@ func netplayCreatorFixture(t *testing.T) (*NetplayCreator, *netplayCreationMemor
 	repository := &netplayCreationMemory{before: snapshot, current: cloneNetplaySnapshot(t, snapshot)}
 	provider := netplayCreationProvider{digest: request.BundleSHA256}
 	provider.target.Capabilities.NetplayPort = true
-	environment := model.NetplayCreationEnvironment{
+	environment := NetplayCreationEnvironment{
 		Now: func() time.Time { return time.UnixMilli(1000) }, NewID: func() (string, error) { return previewTestID, nil },
 		SignCapability: func(string) (string, []byte, error) { return "fixture-capability", make([]byte, 32), nil },
 	}

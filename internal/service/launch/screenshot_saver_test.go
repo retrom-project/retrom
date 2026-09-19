@@ -32,7 +32,7 @@ func (unreadScreenshotImages) Read(context.Context, io.Reader) (model.Screenshot
 
 func TestScreenshotSaverPreservesAuthorizationCause(t *testing.T) {
 	cause := errors.New("screenshot repository unavailable")
-	service := NewScreenshotSaver(failingScreenshotRepository{cause}, unreadScreenshotImages{}, model.ScreenshotEnvironment{})
+	service := NewScreenshotSaver(failingScreenshotRepository{cause}, unreadScreenshotImages{}, ScreenshotEnvironment{})
 	result, err := service.Store(t.Context(), "preview", "capability", strings.NewReader("image"))
 	if !errors.Is(err, cause) || result.ID != "" {
 		t.Fatalf("screenshot=%q error=%v", result.ID, err)

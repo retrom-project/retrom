@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"time"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/model/tagging"
@@ -54,10 +53,6 @@ type QueuedImportRequest struct {
 	Tags          []tagging.Reference `json:"tags"`
 }
 
-type ImportAdmissionOptions struct {
-	Now                                        func() time.Time
-	MultiDiscEnabled, MetadataScraperAvailable bool
-}
 type ImportAdmissionRepository interface {
 	WithAdmission(context.Context, func(ImportAdmissionScope) error) error
 }

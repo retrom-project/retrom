@@ -9,7 +9,7 @@ import (
 )
 
 func NewLibraryImportAdmissions(
-	database *sql.DB, notifier libraryimportmodel.ImportGroupNotifier, options libraryimportmodel.ImportAdmissionOptions,
+	database *sql.DB, notifier libraryimportmodel.ImportGroupNotifier, options libraryimportservice.ImportAdmissionOptions,
 ) *libraryimportservice.ImportAdmissions {
 	return libraryimportservice.NewImportAdmissions(repository.NewImportAdmissions(database), notifier,
 		newTagService(database, options.Now), options)

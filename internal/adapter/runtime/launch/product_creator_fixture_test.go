@@ -40,7 +40,7 @@ func (service *Service) productCreator(repository launchmodel.ProductCreationRep
 		repository,
 		provider,
 		productBlobVerifier{blobs: service.blobs},
-		launchmodel.ProductEnvironment{
+		launchservice.ProductEnvironment{
 			Now: service.now, SignCapability: service.signPreviewCapability,
 			ResumeValidation: service.validationRuns.Dispatch,
 			SignIsolation: func(id string) (launchmodel.IsolationTicket, error) {

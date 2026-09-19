@@ -233,7 +233,7 @@ WHERE variant.game_id=?
 		ValidationInputDigest: strings.Repeat("0", 64), BIOSDependencyDigest: strings.Repeat("0", 64),
 	}
 	invalid, err := launchservice.NewValidationScheduler(persistence.NewValidationJobs(transaction),
-		launchmodel.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+		launchservice.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
 	invalidJobID := invalid.JobID
 	if err != nil {
 		_ = transaction.Rollback()
@@ -253,7 +253,7 @@ WHERE variant.game_id=?
 	testassert.False(t, err != nil, err)
 	defer dbexec.Rollback(retryTx)
 	retried, err := launchservice.NewValidationScheduler(persistence.NewValidationJobs(retryTx),
-		launchmodel.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
+		launchservice.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
 	retriedJobID, queued := retried.JobID, retried.Queued
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !queued }, func() bool { return retriedJobID != invalidJobID }), "automatic validation retry = %s/%t, error=%v", retriedJobID, queued, err)
 	if err := retryTx.Commit(); err != nil {

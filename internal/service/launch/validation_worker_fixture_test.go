@@ -146,7 +146,7 @@ func newValidationTestWorker(t *testing.T) (*ValidationWorker, *validationTestRe
 	digest := sha256.Sum256(encoded)
 	repository := &validationTestRepository{facts: facts, work: model.ValidationWork{ID: "job", Kind: "VARIANT_VALIDATE", ScopeType: "GAME_VARIANT", ScopeID: "variant", State: "QUEUED", Version: 1, ExecutionNo: 1, MaxAttempts: 2, SnapshotJSON: string(encoded), InputDigest: hex.EncodeToString(digest[:])}}
 	ticker := &validationTestTicker{ticks: make(chan time.Time), stopped: make(chan struct{})}
-	worker := NewValidationWorker(repository, model.ValidationWorkerEnvironment{Now: func() time.Time { return time.UnixMilli(1_000_000) }, NewID: func() (string, error) { return "01980000-0000-7000-8000-000000000003", nil }, NewTicker: func(time.Duration) model.ValidationTicker { return ticker }})
+	worker := NewValidationWorker(repository, ValidationWorkerEnvironment{Now: func() time.Time { return time.UnixMilli(1_000_000) }, NewID: func() (string, error) { return "01980000-0000-7000-8000-000000000003", nil }, NewTicker: func(time.Duration) model.ValidationTicker { return ticker }})
 	return worker, repository, ticker
 }
 

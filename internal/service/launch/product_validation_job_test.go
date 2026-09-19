@@ -60,7 +60,7 @@ func TestValidationSchedulerChecksExecutionIdentityBeforeWriting(t *testing.T) {
 func TestValidationSchedulerChecksIdentityBeforeWriting(t *testing.T) {
 	cause := errors.New("validation entropy")
 	repository := &validationJobMemory{}
-	scheduler := NewValidationScheduler(repository, model.ValidationEnvironment{Now: func() time.Time { return time.UnixMilli(100) }, NewID: func() (string, error) { return "", cause }})
+	scheduler := NewValidationScheduler(repository, ValidationEnvironment{Now: func() time.Time { return time.UnixMilli(100) }, NewID: func() (string, error) { return "", cause }})
 	result, err := scheduler.Queue(t.Context(), model.ValidationInputs{GameVariantID: "variant", ValidationInputDigest: "digest"})
 	if !errors.Is(err, cause) || result.JobID != "" || len(repository.writes) != 0 {
 		t.Fatalf("result=%+v error=%v writes=%d", result, err, len(repository.writes))

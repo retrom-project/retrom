@@ -13,13 +13,13 @@ import (
 type ConfigIssuer struct {
 	repository     model.ConfigRepository
 	runtimeBuilder model.ConfigBuilder
-	environment    model.ConfigEnvironment
+	environment    ConfigEnvironment
 }
 
 func NewConfigIssuer(
 	repository model.ConfigRepository,
 	builder model.ConfigBuilder,
-	environment model.ConfigEnvironment,
+	environment ConfigEnvironment,
 ) *ConfigIssuer {
 	return &ConfigIssuer{repository: repository, runtimeBuilder: builder, environment: environment}
 }

@@ -20,7 +20,7 @@ func (service *Service) Config(ctx context.Context, id, capability string) (Conf
 
 func (service *Service) configIssuer() *launchservice.ConfigIssuer {
 	return launchservice.NewConfigIssuer(persistence.NewConfig(service.database), service.runtimeBuilder,
-		launchmodel.ConfigEnvironment{
+		launchservice.ConfigEnvironment{
 			Now: service.now, Matches: retromruntime.MatchesCapability, PublicOrigin: service.publicOrigin,
 			SignIsolation: func(id string) (launchmodel.IsolationTicket, error) {
 				origin, ticket, hash, err := service.isolatedRuntimeTicket(id)

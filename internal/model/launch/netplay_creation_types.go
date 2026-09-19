@@ -2,7 +2,6 @@ package launch
 
 import (
 	"context"
-	"time"
 )
 
 type NetplayCreationAuthority struct {
@@ -43,8 +42,3 @@ type NetplayCreationRepository interface {
 	CommitNetplayCreation(context.Context, NetplayCreationPlan) error
 }
 
-type NetplayCreationEnvironment struct {
-	Now            func() time.Time
-	NewID          func() (string, error)
-	SignCapability func(string) (string, []byte, error)
-}

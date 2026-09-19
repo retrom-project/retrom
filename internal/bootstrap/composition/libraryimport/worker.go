@@ -24,7 +24,7 @@ func NewWorker(database *sql.DB, now func() time.Time, options CreationOptions, 
 			Preparation: NewPreparation(database, options),
 			Creations:   NewCreations(database, now, options),
 		},
-		libraryimportmodel.ImportWorkerSettings{Now: now, Report: report},
+		libraryimportservice.ImportWorkerSettings{Now: now, Report: report},
 	)
 	return WorkerBundle{Executions: executions, Worker: worker}
 }

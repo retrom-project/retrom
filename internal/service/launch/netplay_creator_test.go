@@ -48,7 +48,7 @@ func TestNetplayCreatorPreservesSnapshotCause(t *testing.T) {
 		repository,
 		nil,
 		nil,
-		model.NetplayCreationEnvironment{Now: func() time.Time { return time.UnixMilli(1000) }},
+		NetplayCreationEnvironment{Now: func() time.Time { return time.UnixMilli(1000) }},
 	)
 	result, err := service.CreateNetplay(t.Context(), netplayTestRequest())
 	if !errors.Is(err, context.Canceled) || result.LaunchID != "" || len(repository.writes) != 0 {

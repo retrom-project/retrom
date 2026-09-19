@@ -9,7 +9,7 @@ import (
 )
 
 func (service *Service) validationWorker() *launchservice.ValidationWorker {
-	return launchservice.NewValidationWorker(persistence.NewValidationWorker(service.database), launchmodel.ValidationWorkerEnvironment{Now: service.now})
+	return launchservice.NewValidationWorker(persistence.NewValidationWorker(service.database), launchservice.ValidationWorkerEnvironment{Now: service.now})
 }
 
 func (service *Service) resumeValidationJob(ctx context.Context, id string) {

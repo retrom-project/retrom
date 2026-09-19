@@ -32,7 +32,7 @@ func admissionServiceFixture() (*ImportAdmissions, *admissionMemory, model.Impor
 		files:    []model.ImportFile{{ID: "file", Path: "game.nes", BlobID: "blob", SHA256: "digest", Size: 32}},
 		bindings: []model.ImportBinding{{BindingID: "binding", CoreID: "core", ProviderID: "provider", TargetID: "target", Policy: contentcapability.NewPolicy("SINGLE_FILE")}},
 	}
-	service := NewImportAdmissions(memory, memory, nil, model.ImportAdmissionOptions{Now: func() time.Time { return time.UnixMilli(500) }})
+	service := NewImportAdmissions(memory, memory, nil, ImportAdmissionOptions{Now: func() time.Time { return time.UnixMilli(500) }})
 	return service, memory, model.ImportRequest{UploadID: "upload", TargetPlatformInstanceID: "platform", MetadataProvider: "NONE"}
 }
 
@@ -238,7 +238,7 @@ func TestImportAdmissionDigestRejectsMalformedOrAlteredSnapshots(t *testing.T) {
 
 func TestImportAdmissionTypedAPI(t *testing.T) {
 	t.Parallel()
-	service := NewImportAdmissions(nil, nil, nil, model.ImportAdmissionOptions{})
+	service := NewImportAdmissions(nil, nil, nil, ImportAdmissionOptions{})
 	result, err := service.Queue(t.Context(), model.ImportRequest{})
 	if !errors.Is(err, model.ErrInvalid) || result != (model.ServerCreated{}) {
 		t.Fatalf("result=%+v err=%v", result, err)

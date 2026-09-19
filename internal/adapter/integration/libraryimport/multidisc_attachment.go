@@ -86,7 +86,7 @@ func (service *Service) CreateMultiDiscAttachment(
 	request MultiDiscAttachmentRequest,
 ) (MultiDiscAttachmentCreated, error) {
 	attachments := libraryimportservice.NewMultiDiscAttachments(
-		repository.NewMultiDiscAttachments(service.database), libraryimportmodel.MultiDiscAttachmentOptions{
+		repository.NewMultiDiscAttachments(service.database), libraryimportservice.MultiDiscAttachmentOptions{
 			Now: service.now, StorageAvailable: service.blobs != nil,
 		},
 	)

@@ -90,7 +90,7 @@ func seedValidationRetry(t *testing.T, fixture validationRetryFixture) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	queued, err := launchservice.NewValidationScheduler(launchpersistence.NewValidationJobs(transaction), launchmodel.ValidationEnvironment{Now: fixture.now}).Queue(t.Context(), inputs)
+	queued, err := launchservice.NewValidationScheduler(launchpersistence.NewValidationJobs(transaction), launchservice.ValidationEnvironment{Now: fixture.now}).Queue(t.Context(), inputs)
 	if err != nil {
 		_ = transaction.Rollback()
 		t.Fatal(err)

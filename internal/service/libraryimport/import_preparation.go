@@ -41,7 +41,7 @@ func (service *ImportPreparation) Prepare(ctx context.Context, raw model.ImportR
 	if err != nil {
 		return model.PreparedImport{}, err
 	}
-	request, mode, err = checkImportContent(request, mode, facts, model.ImportAdmissionOptions{
+	request, mode, err = checkImportContent(request, mode, facts, ImportAdmissionOptions{
 		MultiDiscEnabled:         service.options.MultiDiscEnabled,
 		MetadataScraperAvailable: service.options.MetadataScraperAvailable,
 	})

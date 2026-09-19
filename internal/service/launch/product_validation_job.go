@@ -17,12 +17,12 @@ import (
 // publishes resume signals only after that transaction and its receipt commit.
 type ValidationScheduler struct {
 	repository  model.ValidationJobRepository
-	environment model.ValidationEnvironment
+	environment ValidationEnvironment
 }
 
 func NewValidationScheduler(
 	repository model.ValidationJobRepository,
-	environment model.ValidationEnvironment,
+	environment ValidationEnvironment,
 ) *ValidationScheduler {
 	if environment.NewID == nil {
 		environment.NewID = newProductID

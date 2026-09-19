@@ -46,7 +46,6 @@ import (
 	"retrom/internal/capability/runtime/runtimelaunch"
 	"retrom/internal/foundation/cursor"
 	accountsmodel "retrom/internal/model/accounts"
-	libraryimportmodel "retrom/internal/model/libraryimport"
 	favoritepersistence "retrom/internal/repo/favorites"
 	idempotencypersistence "retrom/internal/repo/idempotency"
 	mediapersistence "retrom/internal/repo/mediaaccess"
@@ -321,7 +320,7 @@ func New(
 	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now)
 	server.reviewBulkQueries = librarycomposition.NewReviewBulkQueries(database)
 	server.importAdmissions = composition.NewLibraryImportAdmissions(
-		database, importer, libraryimportmodel.ImportAdmissionOptions{
+		database, importer, libraryimportservice.ImportAdmissionOptions{
 			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
 		},
 	)

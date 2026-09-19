@@ -33,7 +33,7 @@ func fixtureConfigIssuer(
 	repository launchmodel.ConfigRepository,
 	builder launchmodel.ConfigBuilder,
 ) *launchservice.ConfigIssuer {
-	return launchservice.NewConfigIssuer(repository, builder, launchmodel.ConfigEnvironment{
+	return launchservice.NewConfigIssuer(repository, builder, launchservice.ConfigEnvironment{
 		Now: fixture.launcher.now, Matches: retromruntime.MatchesCapability,
 		PublicOrigin: fixture.launcher.publicOrigin,
 		SignIsolation: func(id string) (launchmodel.IsolationTicket, error) {

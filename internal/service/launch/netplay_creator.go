@@ -12,14 +12,14 @@ type NetplayCreator struct {
 	repository  model.NetplayCreationRepository
 	provider    model.PreviewProvider
 	blobs       model.ProductBlobVerifier
-	environment model.NetplayCreationEnvironment
+	environment NetplayCreationEnvironment
 }
 
 func NewNetplayCreator(
 	repository model.NetplayCreationRepository,
 	provider model.PreviewProvider,
 	blobs model.ProductBlobVerifier,
-	environment model.NetplayCreationEnvironment,
+	environment NetplayCreationEnvironment,
 ) *NetplayCreator {
 	if environment.NewID == nil {
 		environment.NewID = newProductID

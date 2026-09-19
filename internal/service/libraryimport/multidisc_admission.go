@@ -18,12 +18,12 @@ import (
 
 type MultiDiscAttachments struct {
 	repository model.MultiDiscAttachmentRepository
-	options    model.MultiDiscAttachmentOptions
+	options    MultiDiscAttachmentOptions
 	newID      func() (string, error)
 }
 
 func NewMultiDiscAttachments(
-	repository model.MultiDiscAttachmentRepository, options model.MultiDiscAttachmentOptions,
+	repository model.MultiDiscAttachmentRepository, options MultiDiscAttachmentOptions,
 ) *MultiDiscAttachments {
 	if options.Now == nil {
 		options.Now = time.Now

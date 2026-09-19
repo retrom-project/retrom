@@ -38,7 +38,7 @@ func (service *Service) screenshotSaver(repository launchmodel.ScreenshotReposit
 	if service.blobs != nil {
 		images = screenshotImages{blobs: service.blobs}
 	}
-	return launchservice.NewScreenshotSaver(repository, images, launchmodel.ScreenshotEnvironment{
+	return launchservice.NewScreenshotSaver(repository, images, launchservice.ScreenshotEnvironment{
 		Now: service.now, Matches: retromruntime.MatchesCapability,
 	})
 }
