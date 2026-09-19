@@ -59,7 +59,7 @@ API_CODEGEN_CONFIGS := $(sort $(wildcard api/codegen/*.yaml))
 API_BUNDLE := .cache/generated/openapi.bundle.yaml
 API_GO_GENERATED := internal/transport/httpapi/generated/models.gen.go internal/transport/httpapi/generated/server.gen.go internal/transport/httpapi/generated/spec.gen.go
 
-.PHONY: web-architecture-check web-architecture-selftest refactor-contract-check refactor-verify refactor-runner-selftest architecture-selftest architecture-check refactor-inventory fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
+.PHONY: refactor-final refactor-race web-architecture-check web-architecture-selftest refactor-contract-check refactor-verify refactor-runner-selftest architecture-selftest architecture-check refactor-inventory fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report \
@@ -348,7 +348,15 @@ acceptance-report:
 	@scripts/acceptance/run.sh report
 
 refactor-runner-selftest: prepare-go
+	@python3 -m py_compile scripts/refactor_verify.py scripts/refactor_final.py
 	@python3 scripts/test_refactor_verify.py
+	@python3 scripts/test_refactor_final.py
+
+refactor-final: prepare-go
+	@python3 scripts/refactor_verify.py final
+
+refactor-race: prepare-go api-generate-go
+	go test -race -count=1 -tags=integration -timeout=10m ./internal/service/... ./internal/repo/... ./internal/bootstrap/... ./internal/transport/... ./internal/testkit/refactor/...
 
 refactor-verify: prepare-go api-generate-go
 	@test -n "$(POINT)" || { echo 'POINT is required' >&2; exit 2; }

@@ -280,10 +280,17 @@ def go_tool_version(root: Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["point"])
-    parser.add_argument("--point", required=True)
+    parser.add_argument("mode", choices=["point", "final"])
+    parser.add_argument("--point")
     arguments = parser.parse_args()
     try:
+        if arguments.mode == "final":
+            if arguments.point is not None:
+                raise AnalysisError("final does not accept POINT")
+            from refactor_final import run_final
+            return run_final(ROOT)
+        if arguments.point is None:
+            raise AnalysisError("point mode requires POINT")
         version = go_tool_version(ROOT)
         if version != "go1.26.5":
             raise AnalysisError("the repository-pinned Go toolchain is required")

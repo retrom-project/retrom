@@ -66,6 +66,18 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertNotIn("refactor-final", output)
         self.assertIn("python3 scripts/test_refactor_verify.py", self.dry_run("architecture-selftest"))
 
+    def test_refactor_final_is_outer_coordinator_and_race_is_bounded(self) -> None:
+        output = self.dry_run("refactor-final")
+        self.assertIn("scripts/refactor_verify.py final", output)
+        self.assertNotIn("make ci", output)
+        self.assertNotIn("acceptance-case", output)
+        race = self.dry_run("refactor-race")
+        self.assertIn("go test -race -count=1 -tags=integration -timeout=10m", race)
+        for scope in ("service", "repo", "bootstrap", "transport", "testkit/refactor"):
+            self.assertIn("./internal/" + scope + "/...", race)
+        self.assertNotIn("refactor-final", race)
+        self.assertIn("scripts/test_refactor_final.py", self.dry_run("architecture-selftest"))
+
     def dry_run(self, target: str) -> str:
         return subprocess.run(
             ["make", "--no-print-directory", "--dry-run", target],
