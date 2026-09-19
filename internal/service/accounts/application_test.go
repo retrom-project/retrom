@@ -18,7 +18,7 @@ import (
 func TestApplicationContextSeparatesPendingReadyAndSessionFailures(t *testing.T) {
 	initialization := &initializationMemory{state: model.InitializationState{State: "PENDING"}}
 	authentication := validAuthMemory()
-	service := New(Modules{Initialization: NewInitialization(initialization, model.InitializationOptions{}), Authentication: NewAuthentication(authentication, nil, nil, "", func() time.Time { return time.UnixMilli(100) })}, config.ModeTest)
+	service := New(Modules{Initialization: NewInitialization(initialization, InitializationOptions{}), Authentication: NewAuthentication(authentication, nil, nil, "", func() time.Time { return time.UnixMilli(100) })}, config.ModeTest)
 	pending, err := service.Context(t.Context(), "")
 	if err != nil || pending.InstanceState != "INITIALIZATION_REQUIRED" || pending.Session != nil {
 		t.Fatalf("pending context: %+v %v", pending, err)

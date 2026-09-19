@@ -1,11 +1,6 @@
 package accounts
 
-import (
-	"context"
-	"time"
-
-	"retrom/internal/capability/security/authn"
-)
+import "context"
 
 type (
 	AcceptInvitationRequest      struct{ Token, Username, DisplayName, Password, PasswordConfirmation string }
@@ -50,11 +45,4 @@ type LinkConsumptionRepository interface {
 	LoadInvitationLink(ctx context.Context, id string) (LinkRecord, bool, error)
 	CommitInvitationAcceptance(ctx context.Context, cmd InvitationAcceptCommand) error
 	CommitPasswordReset(ctx context.Context, cmd PasswordResetCommand) error
-}
-type LinkConsumptionOptions struct {
-	Tokens    LinkTokenReader
-	Hasher    PasswordHasher
-	Blocklist authn.Blocklist
-	Mint      SessionMinter
-	Now       func() time.Time
 }

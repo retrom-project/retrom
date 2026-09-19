@@ -90,7 +90,7 @@ func consumptionFixture() (*LinkConsumptionService, *consumptionMemory, *consump
 		Target: model.LinkTarget{User: model.User{UserID: target, Username: "alice", DisplayName: "Alice", Role: "USER"}, ProfileID: "profile", Status: "ENABLED", Version: 3, SessionVersion: 4},
 	}}
 	hasher := &consumptionHasher{}
-	service := NewLinkConsumption(memory, model.LinkConsumptionOptions{Tokens: linkTokens{true}, Hasher: hasher, Now: func() time.Time { return time.UnixMilli(100) }, Mint: func() (model.SessionMaterial, error) {
+	service := NewLinkConsumption(memory, LinkConsumptionOptions{Tokens: linkTokens{true}, Hasher: hasher, Now: func() time.Time { return time.UnixMilli(100) }, Mint: func() (model.SessionMaterial, error) {
 		return model.SessionMaterial{ID: "session", Token: "token"}, nil
 	}})
 	return service, memory, hasher
