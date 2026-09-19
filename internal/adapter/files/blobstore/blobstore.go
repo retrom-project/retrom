@@ -101,7 +101,7 @@ func (candidate *Candidate) Metadata() blobmodel.PreparedBlob {
 	return candidate.metadata
 }
 
-// Path identifies this candidate\'s private staged bytes while it is open.
+// Path identifies this candidate's private staged bytes while it is open.
 func (candidate *Candidate) Path() string {
 	return candidate.temporary
 }

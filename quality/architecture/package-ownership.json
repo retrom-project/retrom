@@ -53,6 +53,22 @@
           "kind": "test"
         },
         {
+          "path": "internal/adapter/files/blobstore/digest_coordinator_linux.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/files/blobstore/digest_coordinator_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/files/blobstore/digest_paths_linux.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/files/blobstore/digest_process_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/adapter/files/blobstore/nofollow_linux.go",
           "kind": "production"
         }

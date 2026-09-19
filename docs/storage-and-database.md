@@ -307,6 +307,18 @@ data/
 硬删除/撤销后新的或强制网络请求立即失败；浏览器已经合法取得的私有缓存副本与已经下载到内存的 ROM 一样
 无法被服务器追溯擦除，因此 SaveState state/screenshot 等用户私有数据始终使用 `no-store`，不采用该策略。
 
+### 5.4 摘要协调资源
+
+`model/blob.DigestCoordinator` 是 CAS 发布、保护引用提交和物理删除共用的资源端口，Linux 实现位于 `adapter/files/blobstore`。输入只接受规范小写 64 位 SHA-256；一次申请先验证完整集合，再按摘要首字节映射到 256 个条带，去重并升序取得排他文件锁。每次申请独立打开文件描述符，因此同进程的两个申请也必须互斥。Lease 不能进入 Command、Plan、Snapshot 或 Repository 事务参数。
+
+锁文件固定为规范化 `RETROM_DATA_DIR/.locks/blobs/00.lock` 至 `ff.lock`，按需创建且运行时永不 unlink。数据根必须已存在、由进程用户拥有且不可由 group/other 写入；逐级 no-follow 打开，拒绝不受控的祖先目录。技术目录为 0700，锁文件为 0600、当前用户拥有的单链接普通文件。适配器接受 Linux ext4、Btrfs、XFS、tmpfs、ramfs、OverlayFS 和 F2FS；其他文件系统明确失败，不退化为进程内互斥。
+
+申请采用非阻塞 `flock` 与可注入、响应 context 取消的短等待。默认等待周期为 5 ms，只控制技术重试，不读取或延长业务截止时间。任一步失败都逆序关闭已经打开的句柄；`Release` 并发安全、幂等，继续处理全部句柄并保留关闭错误。进程异常退出由操作系统释放锁，锁文件 inode 保留供其他申请者使用。
+
+接入该端口的唯一锁序为：完成流式 bytes/hash 准备，升序取得全部摘要锁，开启短写事务，提交或回滚，完成需要保护的本地物理动作，最后释放锁。锁内不得网络请求、归档扫描或大文件哈希。新登记或重新登记必须保留独立的已验证暂存副本直到引用提交成功；旧摘要事实和锁前的路径存在检查都不足以授权登记。GC 必须在取得同一锁后重读当前 owner、保护引用和执行身份，提交目录移除后继续持锁直到幂等文件删除完成；旧任务重试也不能绕过新 owner 检查。
+
+适配器的同进程互斥、取消回退、路径拒绝、关闭失败和两进程异常退出由真实文件锁测试固定；业务入口的协调接线仍须在操作注册和对应竞争测试中逐项证明，不能用端口单测代替。该技术锁不改变同一数据库的单写进程限制及离线维护独占要求；备份无需复制锁的持有状态，恢复后按需重建技术文件。
+
 ## 6. Archive 安全
 
 - ZIP 在服务进程内使用受限 reader；7z 必须由同一后端二进制的隐藏 worker 子进程读取，父进程只传只读 fd，不传用户路径，也不调用宿主 `7z/7zz`。Linux worker fail-closed 设置 Go 512 MiB memory limit、2 GiB `RLIMIT_AS`、8 GiB `RLIMIT_FSIZE`、64 个 fd、0 core dump、120 秒 CPU，上层 wall timeout 125 秒且 IPC JSON 最多 64 MiB；OS 无法建立限制时返回 `ARCHIVE_SANDBOX_UNAVAILABLE`。worker crash/signal/timeout/resource/超长 IPC 统一为 `ARCHIVE_RESOURCE_LIMIT`。
