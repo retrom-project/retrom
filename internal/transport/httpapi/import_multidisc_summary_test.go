@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
+	librarycomposition "retrom/internal/bootstrap/composition/libraryimport"
 	"retrom/internal/foundation/cleanup"
 )
 
@@ -40,7 +41,10 @@ INSERT INTO import_item_multidisc_entries VALUES
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := &Server{database: database}
+	server := &Server{
+		database:          database,
+		importReadService: librarycomposition.NewImportReads(database),
+	}
 	initial, err := server.importMultiDiscItemSummaries(t.Context(), "job")
 	if err != nil || len(initial) != 1 {
 		t.Fatalf("initial summaries = %v, error = %v", initial, err)

@@ -28,7 +28,7 @@ type StartWriter interface {
 
 type StartRepository interface {
 	Inspect(context.Context, string) (StartSnapshot, error)
-	WithStart(context.Context, func(StartScope) error) error
+	CommitStart(context.Context, StartPlan) (Summary, bool, error)
 }
 
 type StartPlan struct {

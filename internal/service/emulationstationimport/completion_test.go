@@ -16,24 +16,28 @@ type completionMemory struct {
 	readErr, writeErr, commitErr error
 }
 
-func (memory *completionMemory) WithCompletion(_ context.Context, run func(model.CompletionScope) error) error {
-	if err := run(model.CompletionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
+func (memory *completionMemory) CommitCompletion(_ context.Context, unit model.Execution, nowMS int64) error {
+	if memory.readErr != nil {
+		return memory.readErr
+	}
+	if !true || memory.before.Execution != unit {
+		return model.ErrVersionConflict
+	}
+	if memory.before.Kind != "SERVER_EMULATIONSTATION_IMPORT" || model.ExecutionState(memory.before, unit, nowMS) != model.LeaseActive {
+		return model.ErrVersionConflict
+	}
+	change, err := model.PlanCompletion(memory.before, memory.counts, nowMS)
+	if err != nil {
 		return err
 	}
-	return memory.commitErr
-}
-
-func (memory *completionMemory) Current(context.Context, string) (model.LeaseSnapshot, bool, error) {
-	return memory.before, true, memory.readErr
-}
-
-func (memory *completionMemory) Counts(context.Context, string) (model.CompletionCounts, error) {
-	return memory.counts, memory.readErr
-}
-
-func (memory *completionMemory) Complete(_ context.Context, change model.CompletionChange) error {
+	if memory.writeErr != nil {
+		return memory.writeErr
+	}
 	memory.change = change
-	return memory.writeErr
+	if memory.commitErr != nil {
+		return memory.commitErr
+	}
+	return nil
 }
 
 func newCompletionMemory() *completionMemory {

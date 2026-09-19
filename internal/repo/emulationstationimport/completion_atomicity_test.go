@@ -1,14 +1,12 @@
 package emulationstationimport
 
 import (
-	"context"
 	"errors"
 	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -44,55 +42,27 @@ func TestCompletionSQLAndAffectedFailuresRollback(t *testing.T) {
 	}
 }
 
-type completionLateFailure struct {
-	*Completion
-	commit bool
-}
-
-func (repository completionLateFailure) WithCompletion(
-	ctx context.Context,
-	run func(emulationstationimportmodel.CompletionScope) error,
-) error {
-	return repository.Completion.WithCompletion(ctx, func(scope emulationstationimportmodel.CompletionScope) error {
-		if err := run(scope); err != nil {
-			return err
-		}
-		if !repository.commit {
-			return errLeaseStorage
-		}
-		records, ok := scope.Write.(completionRecords)
-		if !ok {
-			return errors.New("unexpected completion writer")
-		}
-		if _, err := records.executor.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
-			return err
-		}
-		_, err := records.executor.ExecContext(
-			ctx,
-			`INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms) VALUES('missing-completion-parent',1,'{}','`+planDigest+`',12)`,
-		)
-		return err
-	})
-}
-
-func TestCompletionCallbackAndCommitFailuresRollback(t *testing.T) {
+func TestCompletionCommitFailureRollback(t *testing.T) {
 	t.Parallel()
-	for _, commit := range []bool{false, true} {
-		t.Run(map[bool]string{false: "callback", true: "commit"}[commit], func(t *testing.T) {
-			t.Parallel()
-			db, unit := completionDatabase(t)
-			before := planRows(t, db)
-			service := emulationstationimportservice.NewCompletion(
-				completionLateFailure{Completion: NewCompletion(db), commit: commit},
-				func() time.Time { return time.UnixMilli(1100) },
-			)
-			err := service.Finish(t.Context(), unit)
-			if err == nil || !commit && !errors.Is(err, errLeaseStorage) {
-				t.Fatalf("late failure=%v", err)
-			}
-			if !reflect.DeepEqual(before, planRows(t, db)) {
-				t.Fatal("failed commit retained completion")
-			}
-		})
+	db, unit := completionDatabase(t)
+	before := planRows(t, db)
+	if _, err := db.ExecContext(t.Context(),
+		`CREATE TRIGGER completion_fault AFTER INSERT ON job_events BEGIN
+SELECT RAISE(ABORT, 'injected completion failure'); END`); err != nil {
+		t.Fatal(err)
+	}
+	service := emulationstationimportservice.NewCompletion(
+		NewCompletion(db),
+		func() time.Time { return time.UnixMilli(1100) },
+	)
+	err := service.Finish(t.Context(), unit)
+	if err == nil {
+		t.Fatal("commit failure not propagated")
+	}
+	if _, err := db.ExecContext(t.Context(), `DROP TRIGGER completion_fault`); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before, planRows(t, db)) {
+		t.Fatal("failed commit retained completion")
 	}
 }

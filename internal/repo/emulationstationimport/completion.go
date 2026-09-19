@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	payload "retrom/internal/repo/payloadrelease"
-
 	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
 )
@@ -14,22 +12,35 @@ import (
 type Completion struct{ database *sql.DB }
 
 func NewCompletion(database *sql.DB) *Completion { return &Completion{database: database} }
-func (repository *Completion) WithCompletion(ctx context.Context, run func(application.CompletionScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin EmulationStation completion: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	records := completionRecords{transaction: tx, executor: tx}
-	if err := run(application.CompletionScope{
-		Payload: payload.BindReleases(tx), Read: records, Write: records,
-	}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit EmulationStation completion: %w", err)
-	}
-	return nil
+func (repository *Completion) CommitCompletion(ctx context.Context, unit application.Execution, nowMS int64) error {
+	return dbexec.Immediate(ctx, repository.database, func(executor dbexec.Executor) error {
+		records := completionRecords{executor: executor}
+		before, found, err := records.Current(ctx, unit.JobID)
+		if err != nil {
+			return fmt.Errorf("read current EmulationStation execution: %w", err)
+		}
+		if !found || before.Execution != unit {
+			return application.ErrVersionConflict
+		}
+		if before.Kind != "SERVER_EMULATIONSTATION_IMPORT" || application.ExecutionState(before, unit, nowMS) != application.LeaseActive {
+			return application.ErrVersionConflict
+		}
+		counts, err := records.Counts(ctx, unit.ImportID)
+		if err != nil {
+			return fmt.Errorf("read EmulationStation completion counts: %w", err)
+		}
+		if counts.Unfinished > 0 {
+			return application.ErrActive
+		}
+		change, err := application.PlanCompletion(before, counts, nowMS)
+		if err != nil {
+			return err
+		}
+		if err := records.Complete(ctx, change); err != nil {
+			return fmt.Errorf("persist EmulationStation completion: %w", err)
+		}
+		return scheduleTerminalPayloads(ctx, executor, change.Before.ImportID, change.NowMS)
+	})
 }
 
 type completionRecords struct {

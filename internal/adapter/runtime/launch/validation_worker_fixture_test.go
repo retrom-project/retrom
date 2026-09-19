@@ -3,7 +3,6 @@ package launch
 import (
 	"context"
 
-	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
 	launchservice "retrom/internal/service/launch"
 )

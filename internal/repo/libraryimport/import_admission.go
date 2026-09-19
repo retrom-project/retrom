@@ -59,13 +59,11 @@ func (repository *ImportAdmissions) CommitAdmission(
 		if err != nil {
 			return fmt.Errorf("validate admission tags: %w", err)
 		}
-		if len(validTags) > 0 {
-			documents, err := application.BuildAdmissionDocuments(change, validTags)
-			if err != nil {
-				return err
-			}
-			change.Documents = documents
+		documents, err := application.BuildAdmissionDocuments(change, validTags)
+		if err != nil {
+			return err
 		}
+		change.Documents = documents
 		records := admissionRecords{executor: executor}
 		if err := records.fence(ctx, change); err != nil {
 			return err
