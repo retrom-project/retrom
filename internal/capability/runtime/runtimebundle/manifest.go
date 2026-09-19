@@ -13,10 +13,12 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+
+	runtimejson "retrom/internal/capability/runtime/runtimejson"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var (
-	ErrManifestInvalid  = errors.New("RUNTIME_PROVIDER_MANIFEST_INVALID")
 	ErrIntegrityInvalid = errors.New("RUNTIME_PROVIDER_INTEGRITY_INVALID")
 	errTrailingJSON     = errors.New("trailing JSON")
 	errCanonicalNumber  = errors.New("non-canonical number")
@@ -42,67 +44,6 @@ var videoModes = map[string]bool{
 	"sharp-bilinear": true, "adaptive-sharpen": true,
 }
 
-type Manifest struct {
-	SchemaVersion    int
-	ProviderID       string
-	ProviderVersion  string
-	ProviderAPI      int
-	ClientModulePath string
-	Targets          []Target
-}
-
-type Target struct {
-	ID                  string              `json:"id"`
-	DisplayName         string              `json:"displayName"`
-	TargetOptionsSchema TargetOptionsSchema `json:"targetOptionsSchema"`
-	Inputs              []Input             `json:"inputs"`
-	Capabilities        Capabilities        `json:"capabilities"`
-	Checkpoint          *Checkpoint         `json:"checkpoint"`
-	AssetPaths          []string            `json:"assetPaths"`
-}
-
-type Input struct {
-	Role        string `json:"role"`
-	Kind        string `json:"kind"`
-	Cardinality string `json:"cardinality"`
-	Optional    bool   `json:"optional"`
-}
-
-type Capabilities struct {
-	Pause           bool     `json:"pause"`
-	Screenshot      bool     `json:"screenshot"`
-	Checkpoint      bool     `json:"checkpoint"`
-	StandardGamepad bool     `json:"standardGamepad"`
-	FrameCounter    bool     `json:"frameCounter"`
-	Volume          bool     `json:"volume"`
-	DiscSwitch      bool     `json:"discSwitch"`
-	NativeSettings  bool     `json:"nativeSettings"`
-	InputFilter     bool     `json:"inputFilter"`
-	NetplayPort     bool     `json:"netplayPort"`
-	VideoModes      []string `json:"videoModes"`
-	RequiresThreads bool     `json:"requiresThreads"`
-	FrameMode       string   `json:"frameMode"`
-}
-
-type Checkpoint struct {
-	WriteFormat string   `json:"writeFormat"`
-	ReadFormats []string `json:"readFormats"`
-	MaxBytes    int64    `json:"maxBytes"`
-	Semantics   string   `json:"semantics,omitempty"`
-}
-
-type IntegrityFile struct {
-	Path      string `json:"path"`
-	SizeBytes int64  `json:"sizeBytes"`
-	SHA256    string `json:"sha256"`
-	MediaType string `json:"-"`
-}
-
-type Integrity struct {
-	SchemaVersion int
-	Files         []IntegrityFile
-}
-
 type integrityWire struct {
 	SchemaVersion int                 `json:"schemaVersion"`
 	Files         []integrityFileWire `json:"files"`
@@ -124,30 +65,30 @@ var integrityMediaTypes = map[string]bool{
 	"audio/ogg": true, "audio/mpeg": true, "audio/wav": true, "font/woff": true, "font/woff2": true,
 }
 
-func ParseIntegrity(contents []byte) (Integrity, error) {
+func ParseIntegrity(contents []byte) (runtimecontract.Integrity, error) {
 	if !validIntegrityRawShape(contents) {
-		return Integrity{}, ErrIntegrityInvalid
+		return runtimecontract.Integrity{}, ErrIntegrityInvalid
 	}
 	var wire integrityWire
 	if err := decodeClosed(contents, &wire); err != nil || wire.SchemaVersion != 1 || len(wire.Files) < 3 {
-		return Integrity{}, ErrIntegrityInvalid
+		return runtimecontract.Integrity{}, ErrIntegrityInvalid
 	}
-	result := Integrity{SchemaVersion: 1, Files: make([]IntegrityFile, 0, len(wire.Files))}
+	result := runtimecontract.Integrity{SchemaVersion: 1, Files: make([]runtimecontract.IntegrityFile, 0, len(wire.Files))}
 	previous := ""
 	for _, file := range wire.Files {
 		if !validIntegrityFile(file, previous) {
-			return Integrity{}, ErrIntegrityInvalid
+			return runtimecontract.Integrity{}, ErrIntegrityInvalid
 		}
-		result.Files = append(result.Files, IntegrityFile(file))
+		result.Files = append(result.Files, runtimecontract.IntegrityFile(file))
 		previous = file.Path
 	}
 	return result, nil
 }
 
 func validIntegrityRawShape(contents []byte) bool {
-	value, err := parseStrictJSON(contents)
+	value, err := runtimejson.ParseStrictJSON(contents)
 	root, ok := value.(map[string]any)
-	if err != nil || !ok || !exactMap(root, "files", "schemaVersion") {
+	if err != nil || !ok || !runtimejson.ExactMap(root, "files", "schemaVersion") {
 		return false
 	}
 	items, ok := root["files"].([]any)
@@ -156,7 +97,7 @@ func validIntegrityRawShape(contents []byte) bool {
 	}
 	for _, item := range items {
 		file, ok := item.(map[string]any)
-		if !ok || !exactMap(file, "mediaType", "path", "sha256", "sizeBytes") {
+		if !ok || !runtimejson.ExactMap(file, "mediaType", "path", "sha256", "sizeBytes") {
 			return false
 		}
 	}
@@ -164,7 +105,7 @@ func validIntegrityRawShape(contents []byte) bool {
 }
 
 func validIntegrityFile(file integrityFileWire, previous string) bool {
-	return safePath(file.Path) && len(file.Path) <= 240 && file.SizeBytes >= 0 &&
+	return runtimejson.SafePath(file.Path) && len(file.Path) <= 240 && file.SizeBytes >= 0 &&
 		file.SizeBytes <= 9007199254740991 && digestPattern(file.SHA256) &&
 		integrityMediaTypes[file.MediaType] && (previous == "" || previous < file.Path)
 }
@@ -178,28 +119,28 @@ type manifestWire struct {
 	Targets          []json.RawMessage `json:"targets"`
 }
 
-func ParseManifest(contents []byte) (Manifest, error) {
+func ParseManifest(contents []byte) (runtimecontract.Manifest, error) {
 	if !validManifestRawShape(contents) {
-		return Manifest{}, ErrManifestInvalid
+		return runtimecontract.Manifest{}, runtimecontract.ErrManifestInvalid
 	}
 	var wire manifestWire
 	if err := decodeClosed(contents, &wire); err != nil || wire.SchemaVersion != 1 ||
 		!identityPattern.MatchString(wire.ProviderID) || !semverPattern.MatchString(wire.ProviderVersion) ||
 		wire.ProviderAPI < 1 || wire.ClientModulePath != "client.mjs" || len(wire.Targets) == 0 {
-		return Manifest{}, invalidManifest(err)
+		return runtimecontract.Manifest{}, invalidManifest(err)
 	}
-	result := Manifest{
+	result := runtimecontract.Manifest{
 		SchemaVersion: wire.SchemaVersion, ProviderID: wire.ProviderID,
 		ProviderVersion: wire.ProviderVersion, ProviderAPI: wire.ProviderAPI,
-		ClientModulePath: wire.ClientModulePath, Targets: make([]Target, 0, len(wire.Targets)),
+		ClientModulePath: wire.ClientModulePath, Targets: make([]runtimecontract.Target, 0, len(wire.Targets)),
 	}
 	identities := make(map[string]bool, len(wire.Targets))
 	previous := ""
 	for _, raw := range wire.Targets {
-		var target Target
+		var target runtimecontract.Target
 		if err := decodeClosed(raw, &target); err != nil || !validTarget(target) ||
 			identities[target.ID] || previous != "" && previous >= target.ID {
-			return Manifest{}, invalidManifest(err)
+			return runtimecontract.Manifest{}, invalidManifest(err)
 		}
 		result.Targets = append(result.Targets, target)
 		identities[target.ID] = true
@@ -209,9 +150,9 @@ func ParseManifest(contents []byte) (Manifest, error) {
 }
 
 func validManifestRawShape(contents []byte) bool {
-	value, err := parseStrictJSON(contents)
+	value, err := runtimejson.ParseStrictJSON(contents)
 	manifest, ok := value.(map[string]any)
-	if err != nil || !ok || !exactMap(manifest,
+	if err != nil || !ok || !runtimejson.ExactMap(manifest,
 		"schemaVersion", "providerId", "providerVersion", "providerApiVersion", "clientModulePath", "targets") {
 		return false
 	}
@@ -229,12 +170,12 @@ func validManifestRawShape(contents []byte) bool {
 
 func validManifestRawTarget(value any) bool {
 	target, ok := value.(map[string]any)
-	if !ok || !exactMap(target, "id", "displayName",
+	if !ok || !runtimejson.ExactMap(target, "id", "displayName",
 		"targetOptionsSchema", "inputs", "capabilities", "checkpoint", "assetPaths") {
 		return false
 	}
 	capabilities, ok := target["capabilities"].(map[string]any)
-	if !ok || !exactMap(capabilities,
+	if !ok || !runtimejson.ExactMap(capabilities,
 		"pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter", "volume", "discSwitch",
 		"nativeSettings", "inputFilter", "netplayPort", "videoModes", "requiresThreads", "frameMode") {
 		return false
@@ -253,16 +194,16 @@ func validManifestRawTarget(value any) bool {
 func validManifestRawInputs(inputs []any) bool {
 	for _, value := range inputs {
 		input, ok := value.(map[string]any)
-		if !ok || !exactMap(input, "role", "kind", "cardinality", "optional") {
+		if !ok || !runtimejson.ExactMap(input, "role", "kind", "cardinality", "optional") {
 			return false
 		}
 	}
 	return true
 }
 
-func validTarget(target Target) bool {
+func validTarget(target runtimecontract.Target) bool {
 	if !identityPattern.MatchString(target.ID) || len(target.DisplayName) == 0 || len(target.DisplayName) > 120 ||
-		!validTargetOptionsSchema(target.TargetOptionsSchema, 0, true) ||
+		!runtimejson.ValidateTargetOptionsSchema(target.TargetOptionsSchema) ||
 		!validCapabilities(target.Capabilities) || !validInputs(target.Inputs) || !sortedPaths(target.AssetPaths) {
 		return false
 	}
@@ -270,7 +211,7 @@ func validTarget(target Target) bool {
 		(target.Checkpoint == nil || validCheckpoint(*target.Checkpoint))
 }
 
-func validCapabilities(value Capabilities) bool {
+func validCapabilities(value runtimecontract.Capabilities) bool {
 	if value.FrameMode != "NONE" && value.FrameMode != "SAME_ORIGIN_BLANK" &&
 		value.FrameMode != "SAME_ORIGIN_RESOURCE" && value.FrameMode != "ISOLATED_ORIGIN_RESOURCE" {
 		return false
@@ -278,14 +219,17 @@ func validCapabilities(value Capabilities) bool {
 	return sortedEnum(value.VideoModes, videoModes)
 }
 
-func BindTargetIntegrity(manifest Manifest, files []IntegrityFile) (Manifest, error) {
-	byPath := make(map[string]IntegrityFile, len(files))
+func BindTargetIntegrity(
+	manifest runtimecontract.Manifest,
+	files []runtimecontract.IntegrityFile,
+) (runtimecontract.Manifest, error) {
+	byPath := make(map[string]runtimecontract.IntegrityFile, len(files))
 	for _, file := range files {
-		if !safePath(file.Path) || file.SizeBytes < 0 || !digestPattern(file.SHA256) {
-			return Manifest{}, ErrManifestInvalid
+		if !runtimejson.SafePath(file.Path) || file.SizeBytes < 0 || !digestPattern(file.SHA256) {
+			return runtimecontract.Manifest{}, runtimecontract.ErrManifestInvalid
 		}
 		if _, exists := byPath[file.Path]; exists {
-			return Manifest{}, ErrManifestInvalid
+			return runtimecontract.Manifest{}, runtimecontract.ErrManifestInvalid
 		}
 		byPath[file.Path] = file
 	}
@@ -293,7 +237,7 @@ func BindTargetIntegrity(manifest Manifest, files []IntegrityFile) (Manifest, er
 		for _, path := range target.AssetPaths {
 			_, exists := byPath[path]
 			if !exists {
-				return Manifest{}, ErrManifestInvalid
+				return runtimecontract.Manifest{}, runtimecontract.ErrManifestInvalid
 			}
 		}
 	}
@@ -317,7 +261,7 @@ func sortedEnum(values []string, allowed map[string]bool) bool {
 	return true
 }
 
-func validInputs(values []Input) bool {
+func validInputs(values []runtimecontract.Input) bool {
 	if len(values) == 0 {
 		return false
 	}
@@ -332,7 +276,7 @@ func validInputs(values []Input) bool {
 	return true
 }
 
-func validCheckpoint(value Checkpoint) bool {
+func validCheckpoint(value runtimecontract.Checkpoint) bool {
 	if value.MaxBytes <= 0 || !tokenPattern.MatchString(value.WriteFormat) ||
 		!sortedTokens(value.ReadFormats, false) || !validCheckpointSemantics(value.Semantics) {
 		return false
@@ -350,7 +294,7 @@ func sortedPaths(values []string) bool {
 		return false
 	}
 	for index, value := range values {
-		if !safePath(value) || index > 0 && values[index-1] >= value {
+		if !runtimejson.SafePath(value) || index > 0 && values[index-1] >= value {
 			return false
 		}
 	}
@@ -363,18 +307,6 @@ func sortedTokens(values []string, empty bool) bool {
 	}
 	for index, value := range values {
 		if !tokenPattern.MatchString(value) || index > 0 && values[index-1] >= value {
-			return false
-		}
-	}
-	return true
-}
-
-func safePath(value string) bool {
-	if value == "" || strings.HasPrefix(value, "/") || strings.ContainsAny(value, "\\?#\x00") {
-		return false
-	}
-	for _, part := range strings.Split(value, "/") {
-		if part == "" || part == "." || part == ".." {
 			return false
 		}
 	}
@@ -482,7 +414,7 @@ func utf16Less(left, right string) bool {
 
 func invalidManifest(err error) error {
 	if err == nil {
-		return ErrManifestInvalid
+		return runtimecontract.ErrManifestInvalid
 	}
-	return fmt.Errorf("%w: %w", ErrManifestInvalid, err)
+	return fmt.Errorf("%w: %w", runtimecontract.ErrManifestInvalid, err)
 }

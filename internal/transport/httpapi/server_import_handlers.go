@@ -25,10 +25,10 @@ func (server *Server) serverImportDirectories(writer http.ResponseWriter, reques
 	if value := request.URL.Query().Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(map[string]any{"rootId": rootID, "path": path})
+	filter := cursorFilterDigest(map[string]any{"rootId": rootID, "path": path})
 	afterName, afterPath := "", ""
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(
+		payload, err := server.decodeCursor(
 			token,
 			"getAdminServerImportRootDirectories",
 			filter,
@@ -55,7 +55,7 @@ func (server *Server) serverImportDirectories(writer http.ResponseWriter, reques
 	var next *string
 	if end < len(directories) && len(items) > 0 {
 		last := items[len(items)-1]
-		token, encodeErr := server.cursors.Encode(
+		token, encodeErr := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "getAdminServerImportRootDirectories",
 				FilterDigest: filter,
@@ -107,11 +107,11 @@ func (server *Server) serverImportList(writer http.ResponseWriter, request *http
 	if value := values.Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(map[string]any{"kind": "BIOS_DIRECTORY", "state": state})
+	filter := cursorFilterDigest(map[string]any{"kind": "BIOS_DIRECTORY", "state": state})
 	var beforeAt int64
 	beforeID := ""
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getAdminServerImports", filter, "SERVER_IMPORT_CREATED_DESC")
+		payload, err := server.decodeCursor(token, "getAdminServerImports", filter, "SERVER_IMPORT_CREATED_DESC")
 		if err != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -132,7 +132,7 @@ func (server *Server) serverImportList(writer http.ResponseWriter, request *http
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(
+		token, _ := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "getAdminServerImports",
 				FilterDigest: filter,
@@ -160,7 +160,7 @@ func (server *Server) serverImportDetail(writer http.ResponseWriter, request *ht
 	if value := values.Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(
+	filter := cursorFilterDigest(
 		map[string]any{
 			"id":          importID,
 			"q":           strings.TrimSpace(values.Get("q")),
@@ -170,7 +170,7 @@ func (server *Server) serverImportDetail(writer http.ResponseWriter, request *ht
 	)
 	afterCore, afterName, afterID := "", "", ""
 	if token := values.Get("cursor"); token != "" {
-		payload, decodeErr := server.cursors.Decode(token, "getAdminServerImport", filter, "SERVER_IMPORT_ITEM_ASC")
+		payload, decodeErr := server.decodeCursor(token, "getAdminServerImport", filter, "SERVER_IMPORT_ITEM_ASC")
 		if decodeErr != nil || len(payload.SortValues) != 2 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -196,7 +196,7 @@ func (server *Server) serverImportDetail(writer http.ResponseWriter, request *ht
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(
+		token, _ := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "getAdminServerImport",
 				FilterDigest: filter,
@@ -218,11 +218,11 @@ func (server *Server) serverImportCandidates(writer http.ResponseWriter, request
 	if value := request.URL.Query().Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(map[string]any{"id": importID, "requirementId": requirementID})
+	filter := cursorFilterDigest(map[string]any{"id": importID, "requirementId": requirementID})
 	var rank int64
 	afterID := ""
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(
+		payload, err := server.decodeCursor(
 			token,
 			"getAdminServerImportBIOSCandidates",
 			filter,
@@ -252,7 +252,7 @@ func (server *Server) serverImportCandidates(writer http.ResponseWriter, request
 		if last.RankOrdinal != nil {
 			value = *last.RankOrdinal
 		}
-		token, _ := server.cursors.Encode(
+		token, _ := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "getAdminServerImportBIOSCandidates",
 				FilterDigest: filter,

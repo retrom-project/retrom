@@ -42,7 +42,7 @@ func parseSaveListFilters(values url.Values, principal authn.Principal) (saveLis
 	default:
 		return saveListFilters{}, fmt.Errorf("%w: availability", errUnknownQuery)
 	}
-	filters.Digest = cursor.FilterDigest(map[string]any{
+	filters.Digest = cursorFilterDigest(map[string]any{
 		"principalId":        principal.UserID,
 		"q":                  filters.NormalizedQ,
 		"gameId":             values.Get("gameId"),
@@ -59,7 +59,7 @@ func (server *Server) applySaveCursor(values url.Values, filters *saveListFilter
 	if token == "" {
 		return nil
 	}
-	payload, err := server.cursors.Decode(token, "getSaves", filters.Digest, "CREATED_DESC")
+	payload, err := server.decodeCursor(token, "getSaves", filters.Digest, "CREATED_DESC")
 	if err != nil || len(payload.SortValues) != 1 {
 		return errInvalidCursorPayload
 	}
@@ -164,7 +164,7 @@ func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
 			writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "存档分页投影无效", map[string]any{})
 			return
 		}
-		token, err := server.cursors.Encode(
+		token, err := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "getSaves",
 				FilterDigest: filters.Digest,

@@ -1,20 +1,21 @@
 package launch
 
 import (
+	"encoding/json"
 	"errors"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	model "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var errConfigInputMissing = errors.New("launch input absent")
 
 func providerResources(
 	snapshot model.ConfigSnapshot,
-	target runtimebundle.Target,
+	target runtimecontract.Target,
 	ticket model.IsolationTicket,
-) ([]map[string]any, error) {
-	resources := make([]map[string]any, 0, len(target.Inputs))
+) ([]json.RawMessage, error) {
+	resources := make([]json.RawMessage, 0, len(target.Inputs))
 	for _, input := range target.Inputs {
 		resource, err := providerInputResource(snapshot, input, ticket)
 		if errors.Is(err, errConfigInputMissing) && input.Optional {
@@ -27,14 +28,18 @@ func providerResources(
 			return nil, err
 		}
 		resource["role"], resource["ordinal"] = input.Role, 0
-		resources = append(resources, resource)
+		encoded, err := encodeProviderValue(resource)
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, encoded)
 	}
 	return resources, nil
 }
 
 func providerInputResource(
 	snapshot model.ConfigSnapshot,
-	input runtimebundle.Input,
+	input runtimecontract.Input,
 	ticket model.IsolationTicket,
 ) (map[string]any, error) {
 	source := snapshot.Authority.Source

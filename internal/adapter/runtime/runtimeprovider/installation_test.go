@@ -19,7 +19,6 @@ import (
 	providerservice "retrom/internal/service/runtimeprovider"
 
 	"retrom/internal/capability/runtime/runtimebundle"
-	"retrom/internal/capability/runtime/runtimelaunch"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/repo/store"
 )
@@ -108,17 +107,17 @@ func TestLoadInstallationOverlaysPFBDevModuleWithoutChangingBaseBundle(t *testin
 		response.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("dev module response = %d headers=%v body=%q", response.Code, response.Header(), response.Body.String())
 	}
-	envelope, err := installation.Builder.Build(runtimelaunch.Input{
+	envelope, err := installation.Builder.Build(runtimecontract.LaunchInput{
 		Binding: runtimecontract.Binding{ProviderID: "fixture", TargetID: "fixture", LaunchPolicy: "SUPPORTED"},
-		Session: runtimelaunch.Session{
+		Session: runtimecontract.LaunchSession{
 			ID: "0198abcd-1234-7123-8abc-1234567890ab", Purpose: "PRODUCT", Mode: "SINGLE",
 			Title: "Fixture", PlatformName: "Fixture", CoreName: "Fixture", ReturnTo: "/games/fixture",
 		},
-		Resources: []map[string]any{{
+		Resources: []json.RawMessage{encodeProviderFixture(t, map[string]any{
 			"role": "game", "kind": "ROM_BLOB", "url": "/runtime/content/game",
 			"ordinal": 0, "rangeRequired": false, "sha256": strings.Repeat("d", 64), "sizeBytes": 3,
-		}},
-		TargetOptions: map[string]any{},
+		})},
+		TargetOptions: encodeProviderFixture(t, map[string]any{}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -292,4 +291,13 @@ func writeFile(t *testing.T, path, contents string) {
 func sha256Hex(contents []byte) string {
 	digest := sha256.Sum256(contents)
 	return hex.EncodeToString(digest[:])
+}
+
+func encodeProviderFixture(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+	contents, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return contents
 }

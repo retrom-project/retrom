@@ -93,10 +93,10 @@ func netplayLimit(request *http.Request, fallback int) int {
 func (server *Server) netplayGames(writer http.ResponseWriter, request *http.Request) {
 	availability := request.URL.Query().Get("availability")
 	limit := netplayLimit(request, 100)
-	filterDigest := cursor.FilterDigest(map[string]any{"availability": availability})
+	filterDigest := cursorFilterDigest(map[string]any{"availability": availability})
 	afterTitle, afterGameID := "", ""
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, decodeErr := server.cursors.Decode(token, "getNetplayGames", filterDigest, "TITLE_ASC")
+		payload, decodeErr := server.decodeCursor(token, "getNetplayGames", filterDigest, "TITLE_ASC")
 		if decodeErr != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -112,7 +112,7 @@ func (server *Server) netplayGames(writer http.ResponseWriter, request *http.Req
 	}
 	var next any
 	if hasMore && len(items) > 0 {
-		token, encodeErr := server.cursors.Encode(cursor.Payload{
+		token, encodeErr := server.encodeCursor(cursor.Payload{
 			OperationID: "getNetplayGames", FilterDigest: filterDigest, SortCode: "TITLE_ASC",
 			SortValues: []string{strings.ToLower(items[len(items)-1].Title)}, ID: items[len(items)-1].GameID,
 		})
@@ -128,11 +128,11 @@ func (server *Server) netplayGames(writer http.ResponseWriter, request *http.Req
 
 func (server *Server) netplayRooms(writer http.ResponseWriter, request *http.Request) {
 	view := request.URL.Query().Get("view")
-	filterDigest := cursor.FilterDigest(map[string]any{"view": view})
+	filterDigest := cursorFilterDigest(map[string]any{"view": view})
 	afterRoomID := ""
 	afterUpdatedAtMS := int64(0)
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, decodeErr := server.cursors.Decode(token, "getNetplayRooms", filterDigest, "UPDATED_DESC")
+		payload, decodeErr := server.decodeCursor(token, "getNetplayRooms", filterDigest, "UPDATED_DESC")
 		if decodeErr != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -154,7 +154,7 @@ func (server *Server) netplayRooms(writer http.ResponseWriter, request *http.Req
 	}
 	var next any
 	if hasMore && len(items) > 0 {
-		token, encodeErr := server.cursors.Encode(cursor.Payload{
+		token, encodeErr := server.encodeCursor(cursor.Payload{
 			OperationID: "getNetplayRooms", FilterDigest: filterDigest, SortCode: "UPDATED_DESC",
 			SortValues: []string{strconv.FormatInt(items[len(items)-1].UpdatedAtMS, 10)}, ID: items[len(items)-1].RoomID,
 		})

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	runtimecontract "retrom/internal/model/runtimecontract"
 	model "retrom/internal/model/saves"
 )
 
@@ -14,7 +14,7 @@ func writableLaunch() model.Launch {
 	return model.Launch{
 		PrincipalID: "user", ProfileID: "profile", Purpose: "PRODUCT", GameID: "game",
 		State: "ACTIVE", HardExpiresAtMS: 200, GameStatus: "PUBLISHED", CredentialHash: []byte("credential"),
-		Checkpoint:         runtimebundle.Checkpoint{WriteFormat: "opaque-v1", MaxBytes: 100, Semantics: "GAME_SAVE"},
+		Checkpoint:         runtimecontract.Checkpoint{WriteFormat: "opaque-v1", MaxBytes: 100, Semantics: "GAME_SAVE"},
 		HasGameSaveBinding: true,
 	}
 }
@@ -81,7 +81,7 @@ func TestRestoreUsesProviderFormatsAndSizeBounds(t *testing.T) {
 		{"opaque-v1", 101, false},
 		{"opaque-v0", 50, false},
 	} {
-		restore := model.Restore{Format: test.format, Size: test.size, Checkpoint: runtimebundle.Checkpoint{
+		restore := model.Restore{Format: test.format, Size: test.size, Checkpoint: runtimecontract.Checkpoint{
 			MaxBytes: 100, ReadFormats: []string{"opaque-v1"},
 		}}
 		if validRestore(restore) != test.valid {

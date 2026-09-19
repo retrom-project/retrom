@@ -138,7 +138,7 @@ func (server *Server) adminUsers(writer http.ResponseWriter, request *http.Reque
 	if sortCode == "" {
 		sortCode = "CREATED_DESC"
 	}
-	filterDigest := cursor.FilterDigest(map[string]any{
+	filterDigest := cursorFilterDigest(map[string]any{
 		"principalId": principal.UserID, "q": queryText, "role": values.Get("role"),
 		"sort": sortCode, "status": status,
 	})
@@ -151,7 +151,7 @@ func (server *Server) adminUsers(writer http.ResponseWriter, request *http.Reque
 		filter.Limit = limit + 1
 	}
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getAdminUsers", filterDigest, sortCode)
+		payload, err := server.decodeCursor(token, "getAdminUsers", filterDigest, sortCode)
 		if err != nil {
 			writeError(writer, request, http.StatusBadRequest, "CURSOR_INVALID", "用户分页游标无效", map[string]any{})
 			return
@@ -171,7 +171,7 @@ func (server *Server) adminUsers(writer http.ResponseWriter, request *http.Reque
 	if len(items) > limit {
 		last := items[limit-1]
 		items = items[:limit]
-		token, encodeErr := server.cursors.Encode(cursor.Payload{
+		token, encodeErr := server.encodeCursor(cursor.Payload{
 			OperationID: "getAdminUsers", FilterDigest: filterDigest, SortCode: sortCode,
 			SortValues: adminUserCursorSortValues(last, sortCode), ID: last.UserID,
 		})
@@ -313,7 +313,7 @@ func (server *Server) adminAccountLinks(
 			return
 		}
 	}
-	digest := cursor.FilterDigest(map[string]any{
+	digest := cursorFilterDigest(map[string]any{
 		"kind": kind, "principalId": principal.UserID, "state": state, "targetUserId": targetUserID,
 	})
 	limit := 50
@@ -324,7 +324,7 @@ func (server *Server) adminAccountLinks(
 		Kind: kind, TargetUserID: targetUserID, State: state, Limit: limit + 1,
 	}
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, operationID, digest, "CREATED_DESC")
+		payload, err := server.decodeCursor(token, operationID, digest, "CREATED_DESC")
 		if err != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "CURSOR_INVALID", "链接分页游标无效", map[string]any{})
 			return
@@ -349,7 +349,7 @@ func (server *Server) adminAccountLinks(
 	if len(items) > limit {
 		last := items[limit-1]
 		items = items[:limit]
-		token, encodeErr := server.cursors.Encode(cursor.Payload{
+		token, encodeErr := server.encodeCursor(cursor.Payload{
 			OperationID: operationID, FilterDigest: digest, SortCode: "CREATED_DESC",
 			SortValues: []string{strconv.FormatInt(last.CreatedAtMS, 10)}, ID: last.AccountLinkID,
 		})

@@ -221,7 +221,7 @@ func (server *Server) applyGameListCursor(
 		//nolint:nilnil // an absent cursor is a valid unbounded first page
 		return nil, nil
 	}
-	payload, err := server.cursors.Decode(token, operationID, filterDigest, sortCode)
+	payload, err := server.decodeCursor(token, operationID, filterDigest, sortCode)
 	if err != nil {
 		return nil, errInvalidCursorPayload
 	}
@@ -309,7 +309,7 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	operationID := gameListOperationID(includeDeleted)
-	filterDigest := cursor.FilterDigest(map[string]any{
+	filterDigest := cursorFilterDigest(map[string]any{
 		"principalId":        principal.UserID,
 		"q":                  filters.NormalizedQ,
 		"tagId":              values.Get("tagId"),
@@ -354,7 +354,7 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 	}
 	var nextCursor any
 	if result.NextCursor != nil {
-		nextCursor, err = server.cursors.Encode(cursor.Payload{
+		nextCursor, err = server.encodeCursor(cursor.Payload{
 			OperationID: operationID, FilterDigest: filterDigest, SortCode: sortCode,
 			SortValues: result.NextCursor.SortValues, ID: result.NextCursor.ID,
 		})

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestScummVMToolUsesVerifiedInstallationAndPrivateExecutableCopy(t *testing.T) {
@@ -17,7 +17,7 @@ func TestScummVMToolUsesVerifiedInstallationAndPrivateExecutableCopy(t *testing.
 	if err := os.WriteFile(path, payload, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	expected := runtimebundle.IntegrityFile{SHA256: digest(payload), SizeBytes: int64(len(payload))}
+	expected := runtimecontract.IntegrityFile{SHA256: digest(payload), SizeBytes: int64(len(payload))}
 	executable, err := prepareNativeTool(path, filepath.Join(root, "cache"), expected)
 	if err != nil {
 		t.Fatal(err)

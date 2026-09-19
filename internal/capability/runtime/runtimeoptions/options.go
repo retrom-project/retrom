@@ -3,14 +3,17 @@
 package runtimeoptions
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"retrom/internal/capability/engine/kirikiri/detector"
 	onsdetection "retrom/internal/capability/engine/ons/detector"
 	"retrom/internal/capability/engine/scummvm"
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimejson "retrom/internal/capability/runtime/runtimejson"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var (
@@ -42,21 +45,21 @@ var strategies = map[string]strategy{
 
 // ValidateSchema rejects unsupported Host access before startup publishes HTTP.
 // It does not invent defaults for new Provider properties.
-func ValidateSchema(id string, schema runtimebundle.TargetOptionsSchema) error {
+func ValidateSchema(id string, schema runtimecontract.TargetOptionsSchema) error {
 	selected, registered := strategies[id]
-	properties, valid := schema["properties"].(map[string]any)
+	properties, valid := runtimejson.TargetOptionPropertyKeys(schema["properties"])
 	if !registered || !valid || len(properties) != len(selected.keys) {
 		return ErrUnsupported
 	}
 	for _, key := range selected.keys {
-		if _, exists := properties[key]; !exists {
+		if !slices.Contains(properties, key) {
 			return ErrUnsupported
 		}
 	}
 	return nil
 }
 
-func Build(id string, schema runtimebundle.TargetOptionsSchema, input Input) (map[string]any, error) {
+func Build(id string, schema runtimecontract.TargetOptionsSchema, input Input) (json.RawMessage, error) {
 	if err := ValidateSchema(id, schema); err != nil {
 		return nil, err
 	}
@@ -64,10 +67,11 @@ func Build(id string, schema runtimebundle.TargetOptionsSchema, input Input) (ma
 	if err != nil {
 		return nil, err
 	}
-	if !runtimebundle.ValidateTargetOptions(schema, options) {
+	contents, err := json.Marshal(options)
+	if err != nil || !runtimejson.ValidateTargetOptions(schema, contents) {
 		return nil, ErrInvalid
 	}
-	return options, nil
+	return contents, nil
 }
 
 func emptyOptions(Input) (map[string]any, error) { return map[string]any{}, nil }

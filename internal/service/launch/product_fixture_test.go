@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/capability/runtime/runtimebundle"
 	model "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 type productTestRepository struct {
@@ -115,7 +115,7 @@ func productFixture(t *testing.T) (*ProductCreator, *productTestRepository, *pre
 	}
 	before := model.ProductSnapshot{Found: true, Source: source, GameFiles: []model.ProductFile{{Role: "CONTENT", BlobID: "content", LogicalName: "game.bin", Digest: "content-digest", SizeBytes: 8}}}
 	repository := &productTestRepository{before: before, current: cloneProductSnapshot(t, before)}
-	provider := &previewTestProvider{target: runtimebundle.Target{}}
+	provider := &previewTestProvider{target: runtimecontract.Target{}}
 	provider.before = func() {
 		if repository.inTransaction {
 			t.Fatal("provider lookup entered product writer")

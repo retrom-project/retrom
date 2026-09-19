@@ -348,13 +348,36 @@
         "(*retrom/internal/service/corevalidation.Service).ResolveBIOS",
         "(*retrom/internal/service/libraryimport.MultiDiscAttachmentCommits).resolveValidation",
         "(*retrom/internal/service/libraryimport.draftValidationState).resolveStaticBIOSDependencyState",
-        "retrom/internal/service/launch.ResolveProductBIOS"
+        "(*retrom/internal/service/netplay.Eligibility).dependencySnapshotCurrent",
+        "retrom/internal/service/gamecontent.replacementDependencies",
+        "retrom/internal/service/launch.ResolveProductBIOS",
+        "retrom/internal/service/libraryimport.PrepareCreationStaticBIOS",
+        "retrom/internal/service/libraryimport.ValidateApprovalDependencies"
       ],
       "invariant": "Apply condition rules and usable-installation/optional requirement semantics to explicit BIOS facts.",
       "status": "SOURCE_REVIEWED",
-      "target_layer": "capability",
+      "target_layer": "model",
       "tests": [
         "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "corevalidation.ValidateBIOSRequest",
+      "owner": "corevalidation",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/model/corevalidation.ValidateBIOSRequest",
+      "consumers": [
+        "(*retrom/internal/service/corevalidation.Service).ResolveBIOS",
+        "(*retrom/internal/service/netplay.Eligibility).dependencySnapshotCurrent",
+        "retrom/internal/service/gamecontent.replacementDependencies",
+        "retrom/internal/service/libraryimport.PrepareCreationStaticBIOS",
+        "retrom/internal/service/libraryimport.ValidateApprovalDependencies"
+      ],
+      "invariant": "Reject empty provider, target, or content logical name before reading any BIOS facts; preserve the original invalid-snapshot identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
         "RFA-RF11-dependency_start"
       ]
     },
@@ -3236,6 +3259,22 @@
       "target_layer": "model",
       "tests": [
         "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.BIOSContentLogicalName",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(retrom/internal/model/libraryimport.PreparedGroup).BIOSContentLogicalName",
+      "consumers": [
+        "retrom/internal/service/libraryimport.PrepareCreationStaticBIOS"
+      ],
+      "invariant": "Use the first CONTENT or DISC source, including an empty first name; only DOS may then fall back to its default entry.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic"
       ]
     },
     {
@@ -9572,7 +9611,7 @@
       ],
       "invariant": "Validate UUID identifiers according to existing domain rule.",
       "status": "SOURCE_REVIEWED",
-      "target_layer": "capability",
+      "target_layer": "model",
       "tests": [
         "RFA-RF16-tags_favorites"
       ]
@@ -9610,7 +9649,7 @@
       ],
       "invariant": "Bounded unique UUID tag set.",
       "status": "SOURCE_REVIEWED",
-      "target_layer": "capability",
+      "target_layer": "model",
       "tests": [
         "RFA-RF16-tags_favorites"
       ]

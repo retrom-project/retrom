@@ -15,14 +15,14 @@ type Eligibility struct {
 	repository model.EligibilityRepository
 	registry   *netplayprofile.Registry
 	tags       model.TagReader
-	bios       model.BIOSResolver
+	bios       model.BIOSFactsReader
 }
 
 func NewEligibility(
 	repository model.EligibilityRepository,
 	registry *netplayprofile.Registry,
 	tags model.TagReader,
-	bios model.BIOSResolver,
+	bios model.BIOSFactsReader,
 ) *Eligibility {
 	return &Eligibility{repository: repository, registry: registry, tags: tags, bios: bios}
 }

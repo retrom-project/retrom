@@ -77,7 +77,7 @@ func parseImportListFilters(values url.Values, principalID string) (importListFi
 		}
 		filters.limit = parsed
 	}
-	filters.digest = cursor.FilterDigest(map[string]any{
+	filters.digest = cursorFilterDigest(map[string]any{
 		"principalId": principalID, "q": filters.queryText, "state": filters.state,
 		"platformInstanceId": filters.platformID,
 	})
@@ -104,7 +104,7 @@ func (server *Server) importListQuery(filters importListFilters) (libraryimportm
 	cursorID := ""
 	cursorValue := int64(0)
 	if filters.cursorToken != "" {
-		payload, err := server.cursors.Decode(
+		payload, err := server.decodeCursor(
 			filters.cursorToken, "getAdminImports", filters.digest, filters.sortCode,
 		)
 		if err != nil || len(payload.SortValues) != 1 {
@@ -136,7 +136,7 @@ func (server *Server) encodeImportListCursor(
 	if filters.sortField == "createdAtMs" {
 		sortValue = last.CreatedAtMS
 	}
-	token, err := server.cursors.Encode(cursor.Payload{
+	token, err := server.encodeCursor(cursor.Payload{
 		OperationID:  "getAdminImports",
 		FilterDigest: filters.digest,
 		SortCode:     filters.sortCode,

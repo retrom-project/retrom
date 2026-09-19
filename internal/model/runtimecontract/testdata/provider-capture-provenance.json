@@ -1,0 +1,35 @@
+{
+  "baselineCommit": "1979169aef892e29d110c89295be52e31b0cad55",
+  "goVersion": "go1.26.5 linux/amd64",
+  "captureCommand": "GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local go run ./.cache/refactor/provider-old-golden",
+  "captureSourcePath": ".cache/refactor/provider-old-golden/main.go",
+  "captureSourceSHA256": "e4ae647de01416522c37f23387b0af4fe1763d0c6d3f250f846809df8325d0b7",
+  "goldenSHA256": "4883bc9f16d19295f214b8794fe687e807f216c85e24c136e3ce57a0b8bc2c4d",
+  "algorithmSourceSHA256": {
+    "internal/capability/runtime/runtimebundle/active.go": "27f1da4fda64dd13a0e58f83b099a1fd50f497d2dd84590d2ac7ddbe13b76c1b",
+    "internal/capability/runtime/runtimebundle/launch.go": "1a45115e19749b96e1a478400ed53b0e21b45e804bf7c9d8480cdb40000dabb9",
+    "internal/capability/runtime/runtimebundle/manifest.go": "6f64218be05e0da65279605757e52c536a38d22cee5c2bea089e026f00491eb6",
+    "internal/capability/runtime/runtimebundle/target_options.go": "6dae761c6f86e96c4ed0776d58606d6e93474be09ac9474ea40e8359db54fec7",
+    "internal/capability/runtime/runtimelaunch/builder.go": "137ef4513df29b66343ca82d22bc725a380c8fef1583300798efcb8ccea90f72",
+    "internal/capability/runtime/runtimeoptions/options.go": "23d71696e553b56240468174b405133fae96ed9b717024009098cfdae1665d60",
+    "internal/model/runtimeprovider/options.go": "2bb9e078fb0286952572dd6e71225f1472c283397dcf9cfcee541d7c24a272c1",
+    "internal/model/runtimeprovider/projection.go": "7dee6c3c773504be4b5f8c8c6115797ed6eebdf81d14153db50a581b043e5cd7"
+  },
+  "counts": {
+    "values": 32,
+    "schemaCases": 44,
+    "buildCases": 15,
+    "optionCases": 5,
+    "publicLaunchFixtures": 15,
+    "parserCases": 9
+  },
+  "observedFacts": [
+    "32 values +44 schema decode cases +15 Builder cases +5 option cases +9 parsers +15 shared fixtures; nil receiver behavior also captured.",
+    "Direct schema Unmarshal invalid input returns bare ErrManifestInvalid and leaves receiver unchanged; encoding/json can reject invalid syntax before calling that method.",
+    "Strict schema parser stores safe integers as int64, rejects decimals/exponents/unsafe integers/duplicate keys/invalid Unicode, and canonicalizes negative zero to zero.",
+    "Default marshaling of manually constructed invalid schema maps still emits fractions, unsafe integer and json.Number exponent text without validating dialect. Do not introduce validation in Marshal.",
+    "Builder early guards return bare ErrEnvelopeInvalid; late resource/restore/netplay validation wraps both ErrEnvelopeInvalid and ErrLaunchEnvelopeInvalid. Malformed optional RawMessage fails at json.Marshal stage.",
+    "Manifest parser accepts structural provider API 2 while Active descriptor rejects API 2.",
+    "Original map JSON key order uses encoding/json ordering, not runtimebundle canonicalJSON UTF16 ordering."
+  ]
+}

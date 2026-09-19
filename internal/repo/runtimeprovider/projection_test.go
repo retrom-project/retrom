@@ -3,6 +3,7 @@ package runtimeprovider
 import (
 	"context"
 	"database/sql"
+	json "encoding/json"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	service "retrom/internal/service/runtimeprovider"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/repo/store"
 )
 
@@ -197,25 +197,24 @@ func projectionFixture(version, digestByte string, readFormats []string) runtime
 
 func projectionFixtureForTarget(targetID, version, digestByte string, readFormats []string) runtimeprovidermodel.Projection {
 	digest := strings.Repeat(digestByte, 64)
-	checkpoint := &runtimebundle.Checkpoint{WriteFormat: readFormats[len(readFormats)-1], ReadFormats: readFormats, MaxBytes: 1024}
-	target := runtimebundle.Target{
+	checkpoint := &runtimecontract.Checkpoint{WriteFormat: readFormats[len(readFormats)-1], ReadFormats: readFormats, MaxBytes: 1024}
+	target := runtimecontract.Target{
 		ID: targetID, DisplayName: "Fixture",
-		TargetOptionsSchema: runtimebundle.TargetOptionsSchema{
-			"type": "object", "additionalProperties": false,
-			"properties": map[string]any{
-				"dosEntryPath":     map[string]any{"type": []any{"string", "null"}},
-				"initialDiscIndex": map[string]any{"type": []any{"integer", "null"}, "minimum": 0},
-			}, "required": []any{"dosEntryPath", "initialDiscIndex"},
+		TargetOptionsSchema: runtimecontract.TargetOptionsSchema{
+			"type": json.RawMessage("\"object\""), "additionalProperties": json.RawMessage("false"),
+			"properties": json.RawMessage("{\"dosEntryPath\":{\"type\":[\"string\",\"null\"]},\"initialDiscIndex\":{\"minimum\":0,\"type\":[\"integer\",\"null\"]}}"),
+
+			"required": json.RawMessage("[\"dosEntryPath\",\"initialDiscIndex\"]"),
 		},
-		Inputs:       []runtimebundle.Input{{Role: "game", Kind: "ROM_BLOB", Cardinality: "ONE"}},
-		Capabilities: runtimebundle.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}},
+		Inputs:       []runtimecontract.Input{{Role: "game", Kind: "ROM_BLOB", Cardinality: "ONE"}},
+		Capabilities: runtimecontract.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}},
 		Checkpoint:   checkpoint, AssetPaths: []string{"client.mjs"},
 	}
-	active := runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", SourceTreeSHA256: &digest, Providers: []runtimebundle.ActiveProvider{{
+	active := runtimecontract.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", SourceTreeSHA256: &digest, Providers: []runtimecontract.ActiveProvider{{
 		ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1, BundleSHA256: digest,
 		ManifestSHA256: digest, ModuleSHA256: digest, ClientModulePath: "client.mjs",
 		InstallationPath: "fixture/" + digest, BundleSizeBytes: 1, FileCount: 3, UnpackedSizeBytes: 3,
-		Targets: []runtimebundle.ActiveTarget{{
+		Targets: []runtimecontract.ActiveTarget{{
 			ID: target.ID, Checkpoint: checkpoint,
 		}},
 	}}}
@@ -229,9 +228,9 @@ func projectionFixtureForTarget(targetID, version, digestByte string, readFormat
 		Cores:        []runtimecontract.CoreDefinition{{ID: "gambatte", Name: "Gambatte", Enabled: true}},
 		ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecontract.AssetPackDefinition{},
 	}
-	projection, err := runtimeprovidermodel.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
+	projection, err := runtimeprovidermodel.NewProjection(active, map[string]runtimecontract.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,
-		ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target},
+		ClientModulePath: "client.mjs", Targets: []runtimecontract.Target{target},
 	}}, catalog)
 	if err != nil {
 		panic(err)
@@ -243,12 +242,11 @@ func TestProjectionRejectsOptionsOutsideRegisteredAccessStrategy(t *testing.T) {
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
 	provider := initial.Providers[0].Active
 	target := initial.Providers[0].Targets[0].Target
-	target.TargetOptionsSchema = runtimebundle.TargetOptionsSchema{
-		"type": "object", "additionalProperties": false,
-		"properties": map[string]any{"unknownProperty": map[string]any{"type": "string"}}, "required": []any{"unknownProperty"},
+	target.TargetOptionsSchema = runtimecontract.TargetOptionsSchema{
+		"type": json.RawMessage("\"object\""), "additionalProperties": json.RawMessage("false"),
+		"properties": json.RawMessage("{\"unknownProperty\":{\"type\":\"string\"}}"), "required": json.RawMessage("[\"unknownProperty\"]"),
 	}
-	_, err := runtimeprovidermodel.NewProjection(runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimebundle.ActiveProvider{provider}},
-		map[string]runtimebundle.Manifest{"fixture": {SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1, ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target}}}, runtimecontract.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings})
+	_, err := runtimeprovidermodel.NewProjection(runtimecontract.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimecontract.ActiveProvider{provider}}, map[string]runtimecontract.Manifest{"fixture": {SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1, ClientModulePath: "client.mjs", Targets: []runtimecontract.Target{target}}}, runtimecontract.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings})
 	if err == nil {
 		t.Fatal("unsupported Host option access was accepted until launch time")
 	}

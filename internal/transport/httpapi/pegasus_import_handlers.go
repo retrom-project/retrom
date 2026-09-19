@@ -37,11 +37,11 @@ func (server *Server) pegasusImportList(writer http.ResponseWriter, request *htt
 	if value := values.Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(map[string]any{"state": state})
+	filter := cursorFilterDigest(map[string]any{"state": state})
 	var beforeAt int64
 	beforeID := ""
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getAdminPegasusImports", filter, "PEGASUS_IMPORT_CREATED_DESC")
+		payload, err := server.decodeCursor(token, "getAdminPegasusImports", filter, "PEGASUS_IMPORT_CREATED_DESC")
 		if err != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -64,7 +64,7 @@ func (server *Server) pegasusImportList(writer http.ResponseWriter, request *htt
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(
+		token, _ := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "getAdminPegasusImports",
 				FilterDigest: filter,
@@ -93,11 +93,11 @@ func (server *Server) pegasusImportCollections(writer http.ResponseWriter, reque
 	if value := request.URL.Query().Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(map[string]any{"id": importID})
+	filter := cursorFilterDigest(map[string]any{"id": importID})
 	afterPath, afterID := "", ""
 	var afterOrdinal int64
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(
+		payload, err := server.decodeCursor(
 			token,
 			"getAdminPegasusImportCollections",
 			filter,
@@ -128,7 +128,7 @@ func (server *Server) pegasusImportCollections(writer http.ResponseWriter, reque
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(
+		token, _ := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "getAdminPegasusImportCollections",
 				FilterDigest: filter,
@@ -192,10 +192,10 @@ func (server *Server) pegasusImportItems(writer http.ResponseWriter, request *ht
 		"warning":      values.Get("warning"),
 		"collectionId": values.Get("collectionId"),
 	}
-	filter := cursor.FilterDigest(filters)
+	filter := cursorFilterDigest(filters)
 	afterTitle, afterID := "", ""
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getAdminPegasusImportItems", filter, "PEGASUS_ITEM_ASC")
+		payload, err := server.decodeCursor(token, "getAdminPegasusImportItems", filter, "PEGASUS_ITEM_ASC")
 		if err != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -217,7 +217,7 @@ func (server *Server) pegasusImportItems(writer http.ResponseWriter, request *ht
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(
+		token, _ := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "getAdminPegasusImportItems",
 				FilterDigest: filter,

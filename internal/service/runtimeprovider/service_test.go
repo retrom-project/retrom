@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	runtimecontract "retrom/internal/model/runtimecontract"
 	model "retrom/internal/model/runtimeprovider"
 )
 
@@ -45,9 +45,9 @@ func TestUnchangedProjectionDoesNotInterruptSessions(t *testing.T) {
 func TestUnreadableCheckpointRejectsBeforeTermination(t *testing.T) {
 	repo := &reconciliationRepository{formats: []string{"legacy"}}
 	candidate := businessCandidate("1.1.0", "b")
-	candidate.Providers[0].Targets = []model.TargetProjection{{Target: runtimebundle.Target{
+	candidate.Providers[0].Targets = []model.TargetProjection{{Target: runtimecontract.Target{
 		ID:         "target",
-		Checkpoint: &runtimebundle.Checkpoint{ReadFormats: []string{"current"}},
+		Checkpoint: &runtimecontract.Checkpoint{ReadFormats: []string{"current"}},
 	}}}
 	err := New(repo).Reconcile(t.Context(), candidate, time.UnixMilli(1000))
 	if !errors.Is(err, model.ErrProviderCheckpointUnreadable) || len(repo.writes) != 0 {
@@ -81,7 +81,7 @@ func TestProjectionWriteFailurePreservesCause(t *testing.T) {
 }
 
 func businessCandidate(version, digest string) model.Projection {
-	return model.Projection{CatalogSHA256: strings.Repeat("c", 64), Providers: []model.ProviderProjection{{Active: runtimebundle.ActiveProvider{
+	return model.Projection{CatalogSHA256: strings.Repeat("c", 64), Providers: []model.ProviderProjection{{Active: runtimecontract.ActiveProvider{
 		ProviderID: "provider", ProviderVersion: version, BundleSHA256: strings.Repeat(digest, 64),
 	}}}}
 }

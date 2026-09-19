@@ -1,21 +1,22 @@
 package runtimeoptions
 
 import (
+	json "encoding/json"
 	"errors"
 	"reflect"
 	"testing"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	"retrom/internal/capability/runtime/runtimejson"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestRegisteredEmulatorStrategyBuildsOnlyRelevantCurrentOptions(t *testing.T) {
-	schema := runtimebundle.TargetOptionsSchema{
-		"type": "object", "additionalProperties": false,
-		"properties": map[string]any{
-			"dosEntryPath":     map[string]any{"type": []any{"string", "null"}},
-			"initialDiscIndex": map[string]any{"type": []any{"integer", "null"}, "minimum": 0},
-		}, "required": []any{"dosEntryPath", "initialDiscIndex"},
+	schema := runtimecontract.TargetOptionsSchema{
+		"type": json.RawMessage("\"object\""), "additionalProperties": json.RawMessage("false"),
+		"properties": json.RawMessage("{\"dosEntryPath\":{\"type\":[\"string\",\"null\"]},\"initialDiscIndex\":{\"minimum\":0,\"type\":[\"integer\",\"null\"]}}"),
+
+		"required": json.RawMessage("[\"dosEntryPath\",\"initialDiscIndex\"]"),
 	}
 	dos := "GAME.EXE"
 	for _, fixture := range []struct {
@@ -27,7 +28,11 @@ func TestRegisteredEmulatorStrategyBuildsOnlyRelevantCurrentOptions(t *testing.T
 		{Input{ContentKind: "MULTI_DISC", InitialDiscIndex: 2}, map[string]any{"dosEntryPath": nil, "initialDiscIndex": int64(2)}},
 	} {
 		got, err := Build(runtimecatalog.OptionsEmulator, schema, fixture.input)
-		if err != nil || !reflect.DeepEqual(got, fixture.want) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, parseErr := runtimejson.ParseStrictJSON(got)
+		if parseErr != nil || !reflect.DeepEqual(decoded, fixture.want) {
 			t.Fatalf("options = %#v, %v; want %#v", got, err, fixture.want)
 		}
 	}
@@ -37,17 +42,17 @@ func TestRegisteredEmulatorStrategyBuildsOnlyRelevantCurrentOptions(t *testing.T
 }
 
 func TestOptionsNeverInferAStrategyFromProviderPropertyNames(t *testing.T) {
-	schema := runtimebundle.TargetOptionsSchema{
-		"type": "object", "additionalProperties": false, "properties": map[string]any{}, "required": []any{},
+	schema := runtimecontract.TargetOptionsSchema{
+		"type": json.RawMessage("\"object\""), "additionalProperties": json.RawMessage("false"), "properties": json.RawMessage("{}"), "required": json.RawMessage("[]"),
 	}
-	if options, err := Build(runtimecatalog.OptionsNone, schema, Input{}); err != nil || len(options) != 0 {
+	if options, err := Build(runtimecatalog.OptionsNone, schema, Input{}); err != nil || string(options) != "{}" {
 		t.Fatalf("empty options: %#v %v", options, err)
 	}
 	if _, err := Build("UNKNOWN", schema, Input{}); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("unknown strategy: %v", err)
 	}
-	schema["properties"] = map[string]any{"scriptEncoding": map[string]any{"type": "string"}}
-	schema["required"] = []any{"scriptEncoding"}
+	schema["properties"] = json.RawMessage(`{"scriptEncoding":{"type":"string"}}`)
+	schema["required"] = json.RawMessage(`["scriptEncoding"]`)
 	if _, err := Build(runtimecatalog.OptionsNone, schema, Input{}); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("inferred from property: %v", err)
 	}

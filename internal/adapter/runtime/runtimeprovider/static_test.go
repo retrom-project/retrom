@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestStaticHandlerServesOnlyVerifiedActivePublicFiles(t *testing.T) {
@@ -82,7 +82,7 @@ func TestStaticHandlerRejectsIntegrityDriftBeforeServing(t *testing.T) {
 		t.Fatal(err)
 	}
 	active := fixtureActive(bundle)
-	_, err := NewStaticHandler(root, active, map[string][]runtimebundle.IntegrityFile{
+	_, err := NewStaticHandler(root, active, map[string][]runtimecontract.IntegrityFile{
 		"fixture": {{
 			Path: "client.mjs", SizeBytes: 8, SHA256: digestBytes([]byte("export{}")),
 			MediaType: "text/javascript; charset=utf-8",
@@ -106,7 +106,7 @@ func TestStaticHandlerRequiresActiveClientModuleIdentity(t *testing.T) {
 	}
 	active := fixtureActive(bundle)
 	active.Providers[0].ModuleSHA256 = strings.Repeat("f", 64)
-	_, err := NewStaticHandler(root, active, map[string][]runtimebundle.IntegrityFile{
+	_, err := NewStaticHandler(root, active, map[string][]runtimecontract.IntegrityFile{
 		"fixture": {{
 			Path: "client.mjs", SizeBytes: int64(len(contents)), SHA256: digestBytes(contents),
 			MediaType: "text/javascript; charset=utf-8",
@@ -133,25 +133,25 @@ func fixtureStaticHandler(t *testing.T) http.Handler {
 		"assets/core.wasm": {[]byte("wasm"), "application/wasm"},
 		"provider.json":    {[]byte("{}"), "application/json; charset=utf-8"},
 	}
-	integrity := make([]runtimebundle.IntegrityFile, 0, len(files))
+	integrity := make([]runtimecontract.IntegrityFile, 0, len(files))
 	for path, file := range files {
 		if err := os.WriteFile(filepath.Join(directory, filepath.FromSlash(path)), file.contents, 0o644); err != nil {
 			t.Fatal(err)
 		}
-		integrity = append(integrity, runtimebundle.IntegrityFile{
+		integrity = append(integrity, runtimecontract.IntegrityFile{
 			Path: path, SizeBytes: int64(len(file.contents)),
 			SHA256: digestBytes(file.contents), MediaType: file.mediaType,
 		})
 	}
-	handler, err := NewStaticHandler(root, fixtureActive(bundle), map[string][]runtimebundle.IntegrityFile{"fixture": integrity})
+	handler, err := NewStaticHandler(root, fixtureActive(bundle), map[string][]runtimecontract.IntegrityFile{"fixture": integrity})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return handler
 }
 
-func fixtureActive(bundle string) runtimebundle.ActiveDescriptor {
-	return runtimebundle.ActiveDescriptor{SchemaVersion: 1, Providers: []runtimebundle.ActiveProvider{{
+func fixtureActive(bundle string) runtimecontract.ActiveDescriptor {
+	return runtimecontract.ActiveDescriptor{SchemaVersion: 1, Providers: []runtimecontract.ActiveProvider{{
 		ProviderID: "fixture", BundleSHA256: bundle, InstallationPath: "fixture/" + bundle,
 		ClientModulePath: "client.mjs", ModuleSHA256: digestBytes([]byte("export{}")),
 	}}}

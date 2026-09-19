@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	runtimecontract "retrom/internal/model/runtimecontract"
 	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	"retrom/internal/repo/recordstore"
@@ -108,12 +107,10 @@ func netplayProjectionFixture(t *testing.T, version, digest string, formats []st
 	provider := initial.Providers[0].Active
 	target := initial.Providers[0].Targets[0].Target
 	target.Capabilities.NetplayPort = true
-	projection, err := runtimeprovidermodel.NewProjection(
-		runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimebundle.ActiveProvider{provider}},
-		map[string]runtimebundle.Manifest{"fixture": {
-			SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,
-			ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target},
-		}}, runtimecontract.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings},
+	projection, err := runtimeprovidermodel.NewProjection(runtimecontract.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimecontract.ActiveProvider{provider}}, map[string]runtimecontract.Manifest{"fixture": {
+		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,
+		ClientModulePath: "client.mjs", Targets: []runtimecontract.Target{target},
+	}}, runtimecontract.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings},
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -1,0 +1,67 @@
+{
+  "sourceHead": "f39243478403695fbd95e68ac83da59f9e021c5b",
+  "keyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "filters": [
+    {
+      "name": "null",
+      "encoded": "null",
+      "digest": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    {
+      "name": "empty",
+      "encoded": "{}",
+      "digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "name": "unicode",
+      "encoded": "{\"q\":\"雪\"}",
+      "digest": "e0a0674ea8858272ef3b87b8ac85f17ccd2c7dfcb039709c5e8af962a902fd85"
+    },
+    {
+      "name": "html",
+      "encoded": "{\"q\":\"\\u003c\\u0026\\u003e\"}",
+      "digest": "517c8e1a7e5c1711935cd57c042d78b7bd3c92f3241dcfc79cd4d05b69c54553"
+    },
+    {
+      "name": "unicode-html-null",
+      "encoded": "{\"q\":\"雪\\u003c\\u0026\\u003e\",\"tagId\":null}",
+      "digest": "19cb33ca222b8e768398cc5a994217f11e0d490e514f3c7ec96f085a5ed143b1"
+    }
+  ],
+  "tokens": [
+    {
+      "name": "default-expiry",
+      "nowMs": 1786000000000,
+      "input": {
+        "version": 0,
+        "operationId": "getGames",
+        "filterDigest": "19cb33ca222b8e768398cc5a994217f11e0d490e514f3c7ec96f085a5ed143b1",
+        "sortCode": "TITLE_ASC",
+        "sortValues": [
+          "雪<&>"
+        ],
+        "id": "01980000-0000-7000-8000-000000000001",
+        "expiresAtMs": 0
+      },
+      "payloadJson": "{\"version\":1,\"operationId\":\"getGames\",\"filterDigest\":\"19cb33ca222b8e768398cc5a994217f11e0d490e514f3c7ec96f085a5ed143b1\",\"sortCode\":\"TITLE_ASC\",\"sortValues\":[\"雪\\u003c\\u0026\\u003e\"],\"id\":\"01980000-0000-7000-8000-000000000001\",\"expiresAtMs\":1786086400000}",
+      "token": "eyJ2ZXJzaW9uIjoxLCJvcGVyYXRpb25JZCI6ImdldEdhbWVzIiwiZmlsdGVyRGlnZXN0IjoiMTljYjMzY2EyMjJiOGU3NjgzOThjYzVhOTk0MjE3ZjExZTBkNDkwZTUxNGYzYzdlYzk2ZjA4NWE1ZWQxNDNiMSIsInNvcnRDb2RlIjoiVElUTEVfQVNDIiwic29ydFZhbHVlcyI6WyLpm6pcdTAwM2NcdTAwMjZcdTAwM2UiXSwiaWQiOiIwMTk4MDAwMC0wMDAwLTcwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJleHBpcmVzQXRNcyI6MTc4NjA4NjQwMDAwMH0.e0E011uwTsCW9JalyduvXWriGUWHIHdwNaKJg8QSx74"
+    },
+    {
+      "name": "explicit-expiry",
+      "nowMs": 1786000000000,
+      "input": {
+        "version": 0,
+        "operationId": "getAdminUsers",
+        "filterDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "sortCode": "CREATED_DESC",
+        "sortValues": [
+          "1786000000000"
+        ],
+        "id": "01980000-0000-7000-8000-000000000002",
+        "expiresAtMs": 1786001234567
+      },
+      "payloadJson": "{\"version\":1,\"operationId\":\"getAdminUsers\",\"filterDigest\":\"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"sortCode\":\"CREATED_DESC\",\"sortValues\":[\"1786000000000\"],\"id\":\"01980000-0000-7000-8000-000000000002\",\"expiresAtMs\":1786001234567}",
+      "token": "eyJ2ZXJzaW9uIjoxLCJvcGVyYXRpb25JZCI6ImdldEFkbWluVXNlcnMiLCJmaWx0ZXJEaWdlc3QiOiI0NDEzNmZhMzU1YjM2NzhhMTE0NmFkMTZmN2U4NjQ5ZTk0ZmI0ZmMyMWZlNzdlODMxMGMwNjBmNjFjYWFmZjhhIiwic29ydENvZGUiOiJDUkVBVEVEX0RFU0MiLCJzb3J0VmFsdWVzIjpbIjE3ODYwMDAwMDAwMDAiXSwiaWQiOiIwMTk4MDAwMC0wMDAwLTcwMDAtODAwMC0wMDAwMDAwMDAwMDIiLCJleHBpcmVzQXRNcyI6MTc4NjAwMTIzNDU2N30.HX65zmPIGVc5nTyuvT51cS9w7sis3jc2-oQ7OChiH1s"
+    }
+  ]
+}

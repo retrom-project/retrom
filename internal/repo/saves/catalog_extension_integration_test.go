@@ -19,7 +19,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/testkit/testsupport"
 )
@@ -95,18 +94,18 @@ func extensionDeclarations(t *testing.T) runtimecontract.Catalog {
 	return catalog
 }
 
-func extendFixtureProvider(t *testing.T, active *runtimebundle.ActiveDescriptor, manifests map[string]runtimebundle.Manifest) {
+func extendFixtureProvider(t *testing.T, active *runtimecontract.ActiveDescriptor, manifests map[string]runtimecontract.Manifest) {
 	t.Helper()
 	manifest := manifests["emulatorjs"]
 	manifest.ProviderVersion = "1.1.0"
-	index := slices.IndexFunc(manifest.Targets, func(target runtimebundle.Target) bool { return target.ID == "mgba" })
+	index := slices.IndexFunc(manifest.Targets, func(target runtimecontract.Target) bool { return target.ID == "mgba" })
 	if index < 0 {
 		t.Fatal("missing fixture source target")
 	}
 	extra := manifest.Targets[index]
 	extra.ID = "extension-target"
 	manifest.Targets = append(manifest.Targets, extra)
-	slices.SortFunc(manifest.Targets, func(a, b runtimebundle.Target) int { return strings.Compare(a.ID, b.ID) })
+	slices.SortFunc(manifest.Targets, func(a, b runtimecontract.Target) int { return strings.Compare(a.ID, b.ID) })
 	manifests["emulatorjs"] = manifest
 	for index := range active.Providers {
 		provider := &active.Providers[index]
@@ -115,8 +114,8 @@ func extendFixtureProvider(t *testing.T, active *runtimebundle.ActiveDescriptor,
 		}
 		provider.ProviderVersion = manifest.ProviderVersion
 		provider.BundleSHA256, provider.ManifestSHA256, provider.ModuleSHA256 = strings.Repeat("a", 64), strings.Repeat("b", 64), strings.Repeat("c", 64)
-		provider.Targets = append(provider.Targets, runtimebundle.ActiveTarget{ID: extra.ID, Checkpoint: extra.Checkpoint})
-		slices.SortFunc(provider.Targets, func(a, b runtimebundle.ActiveTarget) int { return strings.Compare(a.ID, b.ID) })
+		provider.Targets = append(provider.Targets, runtimecontract.ActiveTarget{ID: extra.ID, Checkpoint: extra.Checkpoint})
+		slices.SortFunc(provider.Targets, func(a, b runtimecontract.ActiveTarget) int { return strings.Compare(a.ID, b.ID) })
 	}
 }
 

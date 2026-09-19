@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	model "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestConfigIsolationRechecksRevocationAndExpiry(t *testing.T) {
@@ -56,7 +56,7 @@ func TestConfigIsolationAcceptsConsumedTicketWithLiveCapability(t *testing.T) {
 func TestConfigRTPRemainsExplicitlyAbsent(t *testing.T) {
 	t.Parallel()
 	snapshot := model.ConfigSnapshot{Authority: model.ConfigAuthority{Source: model.ConfigSource{ContentKind: "RPG_MAKER_PROJECT"}}}
-	target := runtimebundle.Target{Inputs: []runtimebundle.Input{{Role: "rtp", Kind: "FILE_TREE", Optional: true}}}
+	target := runtimecontract.Target{Inputs: []runtimecontract.Input{{Role: "rtp", Kind: "FILE_TREE", Optional: true}}}
 	resources, err := providerResources(snapshot, target, model.IsolationTicket{})
 	if err != nil || len(resources) != 0 {
 		t.Fatalf("historical RTP was mounted: count=%d error=%v", len(resources), err)

@@ -76,6 +76,12 @@ Host 的平台、Core、AssetPack 目录定义及运行绑定由 `model/runtimec
 
 密码计算通过既有 `model/accounts.PasswordHasher` 端口接入；`adapter/security/authn` 独占随机 salt、Argon2 执行、四个并发槽位和取消处理。严格 PHC 编码/解析及身份、密码规范化仍在 `capability/security/authn` 保持唯一实现。Bootstrap 构造并注入同一个 hasher，固定 PHC 字节、旧凭据可验证性、错误顺序和槽位释放由旧 Go 捕获的公开测试样本保护。
 
+Provider manifest、Target/Input/Checkpoint、安装声明及 Launch 输入同样由 `model/runtimecontract` 唯一定义。跨层 schema 和可变 JSON 内容使用 `json.RawMessage` 等封闭字节值；严格 JSON 与 schema dialect 的单一解析闭包位于 `capability/runtime/runtimejson`。解析/组装边界保持原有规范字节、整数精度、nil/empty 和错误阶段，固定旧 Go 输出验证协议兼容。
+
+GameContent、LibraryImport 和 Netplay 的 BIOS 读取依赖消费方 Model 中的窄 facts 接口。事务内直接使用原 scope 绑定的 Repository reader，取得事实后调用唯一的 `model/corevalidation` 规则；输入身份先校验，读取失败保留原原因与前缀。该接线不新开事务或替换为全局 reader，后续原子提交迁移仍需保持相同的新鲜度。
+
+游标签名的纯 codec 只保存固定 key，显式接收 `nowMS` 和已编码 filter bytes；HTTP 边界负责一次时钟取样及原有 JSON 编码。默认 24 小时期限计算拒绝负时间和 int64 溢出，显式签名期限不重算。固定 token、payload/filter bytes、HTML/Unicode/null 行为和实际分页遍历由旧实现 golden 与 HTTP 回归共同验证。
+
 ### 3.1 游戏目录决定默认核心
 
 领域关系不是“游戏直接属于平台”，而是：

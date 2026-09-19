@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	validation "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/netplay"
 	"retrom/internal/model/netplayprofile"
 
@@ -25,12 +26,14 @@ func (service *Eligibility) dependencySnapshotCurrent(ctx context.Context, row m
 	if !valid {
 		return false, nil
 	}
-	current, status, _, err := service.bios.ResolveBIOS(
-		ctx,
-		row.ProviderID,
-		row.TargetID,
-		logicalName,
-	)
+	if err := validation.ValidateBIOSRequest(row.ProviderID, row.TargetID, logicalName); err != nil {
+		return false, serviceError("resolve BIOS snapshot", err)
+	}
+	records, err := service.bios.BIOS(ctx, row.ProviderID, row.TargetID)
+	if err != nil {
+		return false, serviceError("resolve BIOS snapshot", fmt.Errorf("corevalidation/read BIOS: %w", err))
+	}
+	current, status, _, err := validation.ResolveBIOSRecords(records, logicalName)
 	if err != nil {
 		return false, serviceError("resolve BIOS snapshot", err)
 	}

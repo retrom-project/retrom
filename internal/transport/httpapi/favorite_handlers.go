@@ -74,7 +74,7 @@ func writeIdempotentFavoriteResponse(writer http.ResponseWriter, response favori
 func favoriteListFilterDigest(request *http.Request, scope, sortCode string) string {
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	values := request.URL.Query()
-	return cursor.FilterDigest(map[string]any{
+	return cursorFilterDigest(map[string]any{
 		"principalId": principal.UserID,
 		"scope":       scope,
 		"folderId":    values.Get("folderId"),
@@ -126,7 +126,7 @@ func (server *Server) favoritesList(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, decodeErr := server.cursors.Decode(token, "getFavorites", filterDigest, options.Sort)
+		payload, decodeErr := server.decodeCursor(token, "getFavorites", filterDigest, options.Sort)
 		if decodeErr != nil {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -148,7 +148,7 @@ func (server *Server) favoritesList(writer http.ResponseWriter, request *http.Re
 	}
 	var nextCursor any
 	if result.NextCursor != nil {
-		token, encodeErr := server.cursors.Encode(cursor.Payload{
+		token, encodeErr := server.encodeCursor(cursor.Payload{
 			OperationID: "getFavorites", FilterDigest: filterDigest, SortCode: options.Sort,
 			SortValues: result.NextCursor.SortValues, ID: result.NextCursor.ID,
 		})

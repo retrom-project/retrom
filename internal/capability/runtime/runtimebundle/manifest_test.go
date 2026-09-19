@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestParseManifestIsClosed(t *testing.T) {
@@ -19,12 +21,12 @@ func TestParseManifestIsClosed(t *testing.T) {
 
 	_, err = ParseManifest([]byte(strings.Replace(fixtureManifest, `"schemaVersion":1`,
 		`"schemaVersion":1,"adapterId":"leaked"`, 1)))
-	if !errors.Is(err, ErrManifestInvalid) {
+	if !errors.Is(err, runtimecontract.ErrManifestInvalid) {
 		t.Fatalf("unknown field error = %v", err)
 	}
 	for _, missing := range []string{`"volume":true,`, `"checkpoint":null,`} {
 		_, err = ParseManifest([]byte(strings.Replace(fixtureManifest, missing, "", 1)))
-		if !errors.Is(err, ErrManifestInvalid) {
+		if !errors.Is(err, runtimecontract.ErrManifestInvalid) {
 			t.Fatalf("missing field %s error = %v", missing, err)
 		}
 	}
@@ -40,7 +42,7 @@ func TestManifestIdentityAndTokenRulesMatchTheAuthority(t *testing.T) {
 		strings.Replace(fixtureManifest, `"providerId":"fixture"`, `"providerId":"fixture_provider"`, 1),
 		strings.Replace(fixtureManifest, `"id":"core"`, `"id":"Core"`, 1),
 	} {
-		if _, err := ParseManifest([]byte(changed)); !errors.Is(err, ErrManifestInvalid) {
+		if _, err := ParseManifest([]byte(changed)); !errors.Is(err, runtimecontract.ErrManifestInvalid) {
 			t.Fatalf("authority-invalid manifest error = %v", err)
 		}
 	}
@@ -63,7 +65,7 @@ func TestBindTargetIntegrityRequiresEveryDeclaredAsset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files := []IntegrityFile{{
+	files := []runtimecontract.IntegrityFile{{
 		Path: "assets/core.wasm", SizeBytes: 1, SHA256: strings.Repeat("a", 64),
 	}}
 	bound, err := BindTargetIntegrity(manifest, files)
@@ -73,7 +75,7 @@ func TestBindTargetIntegrityRequiresEveryDeclaredAsset(t *testing.T) {
 	if bound.Targets[0].ID != manifest.Targets[0].ID {
 		t.Fatalf("bound manifest = %#v", bound)
 	}
-	if _, err := BindTargetIntegrity(manifest, nil); !errors.Is(err, ErrManifestInvalid) {
+	if _, err := BindTargetIntegrity(manifest, nil); !errors.Is(err, runtimecontract.ErrManifestInvalid) {
 		t.Fatalf("missing target asset error = %v", err)
 	}
 }
@@ -84,14 +86,14 @@ func TestBindTargetIntegrityRejectsDuplicateOrInvalidFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files := []IntegrityFile{{
+	files := []runtimecontract.IntegrityFile{{
 		Path: "assets/core.wasm", SizeBytes: 1, SHA256: strings.Repeat("a", 64),
 	}}
-	for _, invalid := range [][]IntegrityFile{
+	for _, invalid := range [][]runtimecontract.IntegrityFile{
 		{files[0], files[0]},
 		{{Path: "../core.wasm", SizeBytes: 1, SHA256: strings.Repeat("a", 64)}},
 	} {
-		if _, err := BindTargetIntegrity(manifest, invalid); !errors.Is(err, ErrManifestInvalid) {
+		if _, err := BindTargetIntegrity(manifest, invalid); !errors.Is(err, runtimecontract.ErrManifestInvalid) {
 			t.Fatalf("invalid files accepted: %#v, %v", invalid, err)
 		}
 	}

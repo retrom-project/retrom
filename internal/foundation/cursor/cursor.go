@@ -9,11 +9,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"strings"
-	"time"
 )
 
-const signatureDomain = "retrom-cursor-v1\x00"
+const (
+	signatureDomain = "retrom-cursor-v1\x00"
+	defaultTTLMS    = int64(24 * 60 * 60 * 1000)
+)
 
 var ErrInvalid = errors.New("INVALID_CURSOR")
 
@@ -29,21 +32,22 @@ type Payload struct {
 
 type Codec struct {
 	key [32]byte
-	now func() time.Time
 }
 
-func New(key [32]byte, now func() time.Time) *Codec { return &Codec{key: key, now: now} }
+func New(key [32]byte) *Codec { return &Codec{key: key} }
 
-func FilterDigest(filter any) string {
-	encoded, _ := json.Marshal(filter)
+func FilterDigest(encoded []byte) string {
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:])
 }
 
-func (codec *Codec) Encode(payload Payload) (string, error) {
+func (codec *Codec) Encode(payload Payload, nowMS int64) (string, error) {
 	payload.Version = 1
 	if payload.ExpiresAtMS == 0 {
-		payload.ExpiresAtMS = codec.now().Add(24 * time.Hour).UnixMilli()
+		if nowMS < 0 || nowMS > math.MaxInt64-defaultTTLMS {
+			return "", ErrInvalid
+		}
+		payload.ExpiresAtMS = nowMS + defaultTTLMS
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil || len(encoded) > 4096 {
@@ -55,13 +59,13 @@ func (codec *Codec) Encode(payload Payload) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(encoded) + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
 
-func (codec *Codec) Decode(token, operationID, filterDigest, sortCode string) (Payload, error) {
+func (codec *Codec) Decode(token, operationID, filterDigest, sortCode string, nowMS int64) (Payload, error) {
 	encoded, signature, err := decodeToken(token)
 	if err != nil || !codec.validSignature(encoded, signature) {
 		return Payload{}, ErrInvalid
 	}
 	payload, err := decodePayload(encoded)
-	if err != nil || !codec.validPayload(payload, operationID, filterDigest, sortCode) {
+	if err != nil || !validPayload(payload, operationID, filterDigest, sortCode, nowMS) {
 		return Payload{}, ErrInvalid
 	}
 	return payload, nil
@@ -103,11 +107,11 @@ func decodePayload(encoded []byte) (Payload, error) {
 	return payload, nil
 }
 
-func (codec *Codec) validPayload(payload Payload, operationID, filterDigest, sortCode string) bool {
+func validPayload(payload Payload, operationID, filterDigest, sortCode string, nowMS int64) bool {
 	return payload.Version == 1 &&
 		payload.OperationID == operationID &&
 		payload.FilterDigest == filterDigest &&
 		payload.SortCode == sortCode &&
-		payload.ExpiresAtMS > codec.now().UnixMilli() &&
+		payload.ExpiresAtMS > nowMS &&
 		payload.ID != ""
 }

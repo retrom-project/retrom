@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	model "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestOptionalConfigInputPreservesCanceledRead(t *testing.T) {
 	t.Parallel()
 	issuer, repository, builder := configTestFixture()
-	builder.inputs = []runtimebundle.Input{{Role: "bios", Kind: "BIOS_BUNDLE", Optional: true}}
+	builder.inputs = []runtimecontract.Input{{Role: "bios", Kind: "BIOS_BUNDLE", Optional: true}}
 	repository.loadErr = context.Canceled
 	configuration, err := issuer.Issue(t.Context(), model.SessionRef{ID: "launch"}, "valid")
 	assertConfigRejected(t, configuration, err, context.Canceled)
@@ -48,8 +48,8 @@ func TestOptionalConfigInputSkipsOnlyAbsentResource(t *testing.T) {
 	}
 	for _, item := range cases {
 		t.Run(item.name, func(t *testing.T) {
-			resources, err := providerResources(model.ConfigSnapshot{Files: item.files}, runtimebundle.Target{
-				Inputs: []runtimebundle.Input{{Role: item.role, Kind: item.kind, Optional: true}},
+			resources, err := providerResources(model.ConfigSnapshot{Files: item.files}, runtimecontract.Target{
+				Inputs: []runtimecontract.Input{{Role: item.role, Kind: item.kind, Optional: true}},
 			}, model.IsolationTicket{})
 			if item.valid && (err != nil || len(resources) != 0) {
 				t.Fatalf("absent optional: count=%d error=%v", len(resources), err)
@@ -63,7 +63,7 @@ func TestOptionalConfigInputSkipsOnlyAbsentResource(t *testing.T) {
 
 func TestConfigRestoreRequiresReadableFrozenPayload(t *testing.T) {
 	t.Parallel()
-	target := runtimebundle.Target{}
+	target := runtimecontract.Target{}
 	if _, _, err := providerRestore("launch", model.ConfigRestore{Required: true}, target); !errors.Is(err, model.ErrCredential) {
 		t.Fatalf("missing requested restore: %v", err)
 	}

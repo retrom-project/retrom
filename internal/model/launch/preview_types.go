@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var (
@@ -75,6 +75,6 @@ type PreviewCreationRepository interface {
 	WithCreation(context.Context, func(PreviewCreationScope) error) error
 }
 type PreviewProvider interface {
-	Target(string, string) (runtimebundle.Target, bool)
+	Target(string, string) (runtimecontract.Target, bool)
 	BundleSHA256(string, string) (string, bool)
 }

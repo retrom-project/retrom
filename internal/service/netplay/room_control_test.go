@@ -7,13 +7,12 @@ import (
 	"testing"
 	"time"
 
-	corevalidationmodel "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/netplay"
 )
 
 type roomControlMemory struct {
 	eligibility                                               model.EligibilityRepository
-	bios                                                      corevalidationmodel.Repository
+	bios                                                      model.BIOSFactsReader
 	before                                                    model.RoomControlSnapshot
 	result                                                    model.Room
 	readFailure, writeFailure, commitFailure, snapshotFailure error

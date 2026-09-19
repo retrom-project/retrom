@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"retrom/internal/capability/runtime/runtimelaunch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestSourcesWithoutProviderRemainUnavailable(t *testing.T) {
@@ -18,7 +19,7 @@ func TestSourcesWithoutProviderRemainUnavailable(t *testing.T) {
 	if _, found := source.AssetPaths("provider", "target"); found {
 		t.Fatal("unconfigured assets found")
 	}
-	if _, err := source.Build(runtimelaunch.Input{}); !errors.Is(err, runtimelaunch.ErrEnvelopeInvalid) {
+	if _, err := source.Build(runtimecontract.LaunchInput{}); !errors.Is(err, runtimelaunch.ErrEnvelopeInvalid) {
 		t.Fatalf("unconfigured envelope: %v", err)
 	}
 }

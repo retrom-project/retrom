@@ -6,17 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	model "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 type netplayCreationProvider struct {
-	target runtimebundle.Target
+	target runtimecontract.Target
 	digest string
 	before func()
 }
 
-func (provider netplayCreationProvider) Target(string, string) (runtimebundle.Target, bool) {
+func (provider netplayCreationProvider) Target(string, string) (runtimecontract.Target, bool) {
 	if provider.before != nil {
 		provider.before()
 	}

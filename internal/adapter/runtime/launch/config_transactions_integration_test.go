@@ -11,6 +11,7 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/runtime/runtimelaunch"
 	launchmodel "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
@@ -21,7 +22,7 @@ type configBuildHook struct {
 	after func()
 }
 
-func (builder configBuildHook) Build(input runtimelaunch.Input) ([]byte, error) {
+func (builder configBuildHook) Build(input runtimecontract.LaunchInput) ([]byte, error) {
 	contents, err := builder.ConfigBuilder.Build(input)
 	if err == nil {
 		builder.after()

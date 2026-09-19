@@ -103,7 +103,7 @@ func immersiveGameLimit(raw string) (int, error) {
 }
 
 func immersiveCursorDigest(profileID, platformID string, limit int) string {
-	return cursor.FilterDigest(map[string]any{
+	return cursorFilterDigest(map[string]any{
 		"profileId":  profileID,
 		"platformId": platformID,
 		"sort":       immersivemodel.GameSortCode,
@@ -114,7 +114,7 @@ func immersiveCursorDigest(profileID, platformID string, limit int) string {
 func (server *Server) decodeImmersiveGameCursor(
 	token, digest string,
 ) (immersivemodel.GameCursor, error) {
-	payload, err := server.cursors.Decode(
+	payload, err := server.decodeCursor(
 		token,
 		immersiveGameOperationID,
 		digest, immersivemodel.GameSortCode,
@@ -133,7 +133,7 @@ func (server *Server) encodeImmersiveGameCursor(
 	digest string,
 	next immersivemodel.GameCursor,
 ) (string, error) {
-	token, err := server.cursors.Encode(cursor.Payload{
+	token, err := server.encodeCursor(cursor.Payload{
 		OperationID:  immersiveGameOperationID,
 		FilterDigest: digest,
 		SortCode:     immersivemodel.GameSortCode,

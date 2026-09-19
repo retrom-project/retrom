@@ -23,7 +23,7 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", message, map[string]any{})
 		return
 	}
-	filterDigest := cursor.FilterDigest(
+	filterDigest := cursorFilterDigest(
 		map[string]any{
 			"scope":      parsed.scope,
 			"q":          strings.TrimSpace(values.Get("q")),
@@ -37,7 +37,7 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 	)
 	var pageCursor *biosmodel.Cursor
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getAdminBIOS", filterDigest, "BIOS_CATALOG_ASC")
+		payload, err := server.decodeCursor(token, "getAdminBIOS", filterDigest, "BIOS_CATALOG_ASC")
 		if err != nil || len(payload.SortValues) != 2 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -70,7 +70,7 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 	}
 	var next *string
 	if result.NextCursor != nil {
-		token, encodeErr := server.cursors.Encode(
+		token, encodeErr := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "getAdminBIOS",
 				FilterDigest: filterDigest,

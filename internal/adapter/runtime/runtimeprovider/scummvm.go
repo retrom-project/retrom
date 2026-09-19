@@ -15,8 +15,8 @@ import (
 	"slices"
 
 	"retrom/internal/capability/engine/scummvm"
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/foundation/cleanup"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 const scummVMAssets = "assets/scummvm/"
@@ -37,7 +37,7 @@ type scummVMToolManifest struct {
 // Its executable cache is private to the application's data directory.
 func (installation Installation) ScummVMDetector(cacheRoot string) (*scummvm.Detector, error) {
 	manifest, exists := installation.Manifests["retrom-runtime"]
-	if !exists || !slices.ContainsFunc(manifest.Targets, func(target runtimebundle.Target) bool {
+	if !exists || !slices.ContainsFunc(manifest.Targets, func(target runtimecontract.Target) bool {
 		return target.ID == "scummvm"
 	}) {
 		return nil, ErrScummVMNotInstalled
@@ -62,7 +62,7 @@ func (installation Installation) scummVMTool(cacheRoot string) (scummvm.Tool, er
 	if directory == "" {
 		return scummvm.Tool{}, ErrInstallationInvalid
 	}
-	files := make(map[string]runtimebundle.IntegrityFile)
+	files := make(map[string]runtimecontract.IntegrityFile)
 	for _, file := range installation.Integrity["retrom-runtime"] {
 		files[file.Path] = file
 	}
@@ -125,7 +125,7 @@ func parseScummVMToolManifest(contents []byte) (scummVMToolManifest, error) {
 	return manifest, nil
 }
 
-func prepareNativeTool(source, cacheRoot string, expected runtimebundle.IntegrityFile) (string, error) {
+func prepareNativeTool(source, cacheRoot string, expected runtimecontract.IntegrityFile) (string, error) {
 	if expected.SizeBytes < 1 || expected.SizeBytes > 128*1024*1024 {
 		return "", ErrInstallationInvalid
 	}
@@ -155,7 +155,7 @@ func prepareNativeTool(source, cacheRoot string, expected runtimebundle.Integrit
 	return publishNativeTool(source, root, destination, expected)
 }
 
-func publishNativeTool(source, root, destination string, expected runtimebundle.IntegrityFile) (string, error) {
+func publishNativeTool(source, root, destination string, expected runtimecontract.IntegrityFile) (string, error) {
 	temporary, err := os.CreateTemp(root, ".scummvm-")
 	if err != nil {
 		return "", installationInvalid(err)
@@ -175,7 +175,7 @@ func publishNativeTool(source, root, destination string, expected runtimebundle.
 	return destination, nil
 }
 
-func copyNativeTool(source string, output *os.File, expected runtimebundle.IntegrityFile) error {
+func copyNativeTool(source string, output *os.File, expected runtimecontract.IntegrityFile) error {
 	input, err := os.Open(source)
 	if err != nil {
 		return installationInvalid(err)

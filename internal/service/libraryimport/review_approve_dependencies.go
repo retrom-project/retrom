@@ -8,8 +8,8 @@ import (
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/content/multidisc"
+	validation "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/libraryimport"
-	validation "retrom/internal/service/corevalidation"
 )
 
 func ValidateApprovalDependencies(
@@ -26,7 +26,14 @@ func ValidateApprovalDependencies(
 	if err != nil {
 		return fmt.Errorf("read approval content name: %w", err)
 	}
-	current, status, _, err := validation.New(scope.BIOS).ResolveBIOS(ctx, input.ProviderID, input.TargetID, name)
+	if err := validation.ValidateBIOSRequest(input.ProviderID, input.TargetID, name); err != nil {
+		return fmt.Errorf("resolve current approval BIOS: %w", err)
+	}
+	records, err := scope.BIOS.BIOS(ctx, input.ProviderID, input.TargetID)
+	if err != nil {
+		return fmt.Errorf("resolve current approval BIOS: corevalidation/read BIOS: %w", err)
+	}
+	current, status, _, err := validation.ResolveBIOSRecords(records, name)
 	if err != nil {
 		return fmt.Errorf("resolve current approval BIOS: %w", err)
 	}

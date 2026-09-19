@@ -9,7 +9,6 @@ import (
 	"retrom/internal/bootstrap/composition"
 	validationrepository "retrom/internal/repo/corevalidation"
 	repository "retrom/internal/repo/netplay"
-	"retrom/internal/service/corevalidation"
 	application "retrom/internal/service/netplay"
 )
 
@@ -34,5 +33,5 @@ func NewService(database *sql.DB, registry *netplayprofile.Registry, credentials
 }
 
 func (service *Service) eligibility() *application.Eligibility {
-	return application.NewEligibility(repository.NewEligibility(service.database), service.registry, nil, corevalidation.New(validationrepository.New(service.database)))
+	return application.NewEligibility(repository.NewEligibility(service.database), service.registry, nil, validationrepository.New(service.database))
 }

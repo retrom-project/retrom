@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"retrom/internal/capability/content/contentcapability"
-	validation "retrom/internal/model/corevalidation"
 )
 
 type ApprovalDependencyInput struct {
@@ -15,7 +14,7 @@ type ApprovalDependencyInput struct {
 
 type ApprovalDependencyScope struct {
 	Reader ApprovalDependencyReader
-	BIOS   validation.Repository
+	BIOS   BIOSFactsReader
 	Arcade ArcadeRelationReader
 }
 

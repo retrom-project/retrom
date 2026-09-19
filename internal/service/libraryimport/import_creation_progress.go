@@ -11,7 +11,6 @@ import (
 	"retrom/internal/capability/content/contentcapability"
 	importprogressmodel "retrom/internal/model/importprogress"
 	model "retrom/internal/model/libraryimport"
-	validation "retrom/internal/service/corevalidation"
 	"retrom/internal/service/payloadrelease"
 )
 
@@ -38,9 +37,9 @@ func (run *creationCommit) prepareHeader(ctx context.Context, scope model.Import
 	if run.plan.Request.MetadataProvider == "HASHEOUS" {
 		header.ItemState = "SCRAPING"
 	}
-	catalog, err := validation.New(scope.BIOS).Catalog(ctx, run.plan.Target.ProviderID, run.plan.Target.TargetID)
+	catalog, err := scope.BIOS.Catalog(ctx, run.plan.Target.ProviderID, run.plan.Target.TargetID)
 	if err != nil {
-		return creationError("prepare header", err)
+		return creationError("prepare header", fmt.Errorf("corevalidation/catalog: %w", err))
 	}
 	target := run.plan.Target
 	config := map[string]any{

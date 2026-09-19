@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/foundation/cleanup"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var ErrInstallationInvalid = errors.New("RUNTIME_PROVIDER_INSTALLATION_INVALID")
@@ -76,16 +76,16 @@ type staticFile struct {
 
 func NewStaticHandler(
 	installedRoot string,
-	active runtimebundle.ActiveDescriptor,
-	integrityByProvider map[string][]runtimebundle.IntegrityFile,
+	active runtimecontract.ActiveDescriptor,
+	integrityByProvider map[string][]runtimecontract.IntegrityFile,
 ) (http.Handler, error) {
 	return newStaticHandler(installedRoot, active, integrityByProvider, nil)
 }
 
 func newStaticHandler(
 	installedRoot string,
-	active runtimebundle.ActiveDescriptor,
-	integrityByProvider map[string][]runtimebundle.IntegrityFile,
+	active runtimecontract.ActiveDescriptor,
+	integrityByProvider map[string][]runtimecontract.IntegrityFile,
 	development *devProvider,
 ) (http.Handler, error) {
 	root, err := filepath.Abs(installedRoot)
@@ -129,8 +129,8 @@ func newStaticHandler(
 
 func addStaticProvider(
 	root string,
-	provider runtimebundle.ActiveProvider,
-	files []runtimebundle.IntegrityFile,
+	provider runtimecontract.ActiveProvider,
+	files []runtimecontract.IntegrityFile,
 ) (map[string]staticFile, error) {
 	if !providerIDPattern.MatchString(provider.ProviderID) ||
 		!digestPattern.MatchString(provider.BundleSHA256) ||
@@ -162,8 +162,8 @@ func addStaticProvider(
 
 func loadStaticFile(
 	root string,
-	provider runtimebundle.ActiveProvider,
-	file runtimebundle.IntegrityFile,
+	provider runtimecontract.ActiveProvider,
+	file runtimecontract.IntegrityFile,
 ) (*staticFile, bool, error) {
 	if !safeBundlePath(file.Path) || file.SizeBytes < 0 ||
 		!digestPattern.MatchString(file.SHA256) || !publicMediaTypes[file.MediaType] {
@@ -270,7 +270,7 @@ func safeBundlePath(path string) bool {
 	return true
 }
 
-func verifyInstalledFile(path string, expected runtimebundle.IntegrityFile) error {
+func verifyInstalledFile(path string, expected runtimecontract.IntegrityFile) error {
 	metadata, err := os.Lstat(path)
 	if err != nil || !metadata.Mode().IsRegular() || metadata.Size() != expected.SizeBytes {
 		return ErrInstallationInvalid

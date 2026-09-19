@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	validation "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/netplay"
 	"retrom/internal/model/netplayprofile"
 	taggingmodel "retrom/internal/model/tagging"
@@ -54,13 +55,13 @@ func (memory *eligibilityMemory) References(_ context.Context, ids []string) (ma
 
 type eligibilityBIOS struct {
 	calls   int
-	status  string
+	records []validation.BIOSRecord
 	failure error
 }
 
-func (bios *eligibilityBIOS) ResolveBIOS(context.Context, string, string, string) (corevalidation.Snapshot, string, string, error) {
+func (bios *eligibilityBIOS) BIOS(context.Context, string, string) ([]validation.BIOSRecord, error) {
 	bios.calls++
-	return corevalidation.Snapshot{SchemaVersion: 1, Kind: "STATIC", BIOS: []corevalidation.BIOSDependency{}}, bios.status, "", bios.failure
+	return bios.records, bios.failure
 }
 
 func eligibilityRegistry() *netplayprofile.Registry {
@@ -97,7 +98,7 @@ func TestSupportedPageBoundsEligibilityAndTagsAfterFiltering(t *testing.T) {
 		{{GameID: "hidden", Title: "A"}, {GameID: "one", Title: "B"}},
 		{{GameID: "two", Title: "C"}, {GameID: "unused", Title: "D"}},
 	}, rows: map[string][]model.EligibilityRow{"one": {readyEligibilityRow()}, "two": {readyEligibilityRow()}}}
-	bios := &eligibilityBIOS{status: "READY"}
+	bios := &eligibilityBIOS{}
 	service := NewEligibility(memory, eligibilityRegistry(), memory, bios)
 	page, more, err := service.GamePage(t.Context(), "actor", "SUPPORTED", "", "", 1)
 	if err != nil || !more || len(page) != 1 || page[0].GameID != "one" || page[0].Tags == nil {
@@ -111,14 +112,17 @@ func TestSupportedPageBoundsEligibilityAndTagsAfterFiltering(t *testing.T) {
 func TestEligibilityRequiresCurrentDependenciesAndExactTarget(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		name            string
-		change          func(*model.EligibilityRow)
-		status, blocker string
-		biosCalls       int
+		name      string
+		change    func(*model.EligibilityRow)
+		records   []validation.BIOSRecord
+		blocker   string
+		biosCalls int
 	}{
-		{name: "ready", status: "READY", biosCalls: 1},
-		{name: "dependency changed", status: "BLOCKED", blocker: "DEPENDENCY_STALE", biosCalls: 1},
-		{name: "bad snapshot", status: "READY", change: func(row *model.EligibilityRow) { row.DependencyJSON = "broken" }, blocker: "DEPENDENCY_STALE"},
+		{name: "ready", biosCalls: 1},
+		{name: "dependency changed", records: []validation.BIOSRecord{{Dependency: corevalidation.BIOSDependency{
+			BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{RequirementMode: "REQUIRED"},
+		}}}, blocker: "DEPENDENCY_STALE", biosCalls: 1},
+		{name: "bad snapshot", change: func(row *model.EligibilityRow) { row.DependencyJSON = "broken" }, blocker: "DEPENDENCY_STALE"},
 		{name: "wrong platform", change: func(row *model.EligibilityRow) { row.PlatformID = "other" }, blocker: "CORE_NOT_ALLOWLISTED"},
 		{name: "wrong provider", change: func(row *model.EligibilityRow) { row.ProviderID = "other" }, blocker: "CORE_NOT_ALLOWLISTED"},
 		{name: "wrong content", change: func(row *model.EligibilityRow) { row.ContentKind = "MULTI_FILE" }, blocker: "CONTENT_NOT_ALLOWLISTED"},
@@ -129,7 +133,7 @@ func TestEligibilityRequiresCurrentDependenciesAndExactTarget(t *testing.T) {
 				test.change(&row)
 			}
 			memory := &eligibilityMemory{rows: map[string][]model.EligibilityRow{"game": {row}}}
-			bios := &eligibilityBIOS{status: test.status}
+			bios := &eligibilityBIOS{records: test.records}
 			service := NewEligibility(memory, eligibilityRegistry(), memory, bios)
 			result, blocker, err := service.profileEligibility(t.Context(), "game")
 			if err != nil || bios.calls != test.biosCalls {

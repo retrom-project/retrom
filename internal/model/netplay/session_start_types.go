@@ -2,8 +2,6 @@ package netplay
 
 import (
 	"context"
-
-	validation "retrom/internal/model/corevalidation"
 )
 
 type SessionStartPlan struct {
@@ -26,7 +24,7 @@ type SessionStartScope struct {
 	Read        RoomControlReader
 	Write       SessionStartWriter
 	Eligibility EligibilityRepository
-	BIOS        validation.Repository
+	BIOS        BIOSFactsReader
 }
 
 type SessionStartRepository interface {

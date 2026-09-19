@@ -1,12 +1,14 @@
 package runtimebundle
 
+import runtimejson "retrom/internal/capability/runtime/runtimejson"
+
 func validCheckpointShape(checkpoint map[string]any) bool {
 	semantics, present := checkpoint["semantics"]
 	if !present {
-		return exactMap(checkpoint, "writeFormat", "readFormats", "maxBytes")
+		return runtimejson.ExactMap(checkpoint, "writeFormat", "readFormats", "maxBytes")
 	}
 	return (semantics == "INSTANT" || semantics == "GAME_SAVE") &&
-		exactMap(checkpoint, "writeFormat", "readFormats", "maxBytes", "semantics")
+		runtimejson.ExactMap(checkpoint, "writeFormat", "readFormats", "maxBytes", "semantics")
 }
 
 func validCheckpointSemantics(value string) bool {

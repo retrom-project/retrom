@@ -107,7 +107,7 @@ func (server *Server) tagPageCursor(
 		}
 		sortValues = []string{nameKey}
 	}
-	token, err := server.cursors.Encode(cursor.Payload{
+	token, err := server.encodeCursor(cursor.Payload{
 		OperationID: "getAdminTags", FilterDigest: filterDigest, SortCode: sortCode,
 		SortValues: sortValues, ID: last.TagID,
 	})
@@ -133,12 +133,12 @@ func (server *Server) adminTags(writer http.ResponseWriter, request *http.Reques
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	query := normalizedTagQuery(values.Get("q"))
-	filterDigest := cursor.FilterDigest(map[string]any{
+	filterDigest := cursorFilterDigest(map[string]any{
 		"principalId": principal.UserID, "q": query, "status": status, "sort": sortCode,
 	})
 	filter := taggingmodel.ListFilter{Query: query, Status: status, Sort: sortCode, Limit: limit + 1}
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getAdminTags", filterDigest, sortCode)
+		payload, err := server.decodeCursor(token, "getAdminTags", filterDigest, sortCode)
 		if err != nil {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "标签分页游标无效", map[string]any{})
 			return

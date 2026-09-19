@@ -1,0 +1,238 @@
+package main
+
+import (
+ "crypto/sha256"
+ "encoding/hex"
+ "encoding/json"
+ "errors"
+ "fmt"
+ "os"
+ "os/exec"
+ "path/filepath"
+ "reflect"
+ "sort"
+ "strings"
+
+ "retrom/internal/capability/runtime/runtimebundle"
+ "retrom/internal/capability/runtime/runtimecatalog"
+ "retrom/internal/capability/runtime/runtimelaunch"
+ "retrom/internal/capability/runtime/runtimeoptions"
+ "retrom/internal/model/runtimecontract"
+ runtimeprovidermodel "retrom/internal/model/runtimeprovider"
+)
+
+var out = map[string]any{}
+var values = map[string]any{}
+var schemaCases = map[string]any{}
+var buildCases = map[string]any{}
+var fixtureCases = map[string]any{}
+func digest(contents []byte) string { value:=sha256.Sum256(contents);return hex.EncodeToString(value[:]) }
+func errFacts(err error) map[string]any {
+ text,kind:="","";if err!=nil{text=err.Error();kind=fmt.Sprintf("%T",err)}
+ return map[string]any{"text":text,"type":kind,"manifest":errors.Is(err,runtimebundle.ErrManifestInvalid),"bareManifest":err==runtimebundle.ErrManifestInvalid,"launch":errors.Is(err,runtimebundle.ErrLaunchEnvelopeInvalid),"envelope":errors.Is(err,runtimelaunch.ErrEnvelopeInvalid),"optionsInvalid":errors.Is(err,runtimeoptions.ErrInvalid),"optionsUnsupported":errors.Is(err,runtimeoptions.ErrUnsupported),"active":errors.Is(err,runtimebundle.ErrActiveInvalid),"integrity":errors.Is(err,runtimebundle.ErrIntegrityInvalid),"projection":errors.Is(err,runtimeprovidermodel.ErrProjectionInvalid)}
+}
+func encoded(value any) map[string]any {
+ contents,err:=json.Marshal(value)
+ return map[string]any{"json":string(contents),"sha256":digest(contents),"error":errFacts(err)}
+}
+func numericTypes(value any,path string,result map[string]string){
+ switch v:=value.(type) {
+ case map[string]any: for k,item:=range v{numericTypes(item,path+"."+k,result)}
+ case runtimebundle.TargetOptionsSchema: for k,item:=range v{numericTypes(item,path+"."+k,result)}
+ case []any: for i,item:=range v{numericTypes(item,fmt.Sprintf("%s[%d]",path,i),result)}
+ case int,int64,float64,json.Number: result[path]=reflect.TypeOf(value).String()
+ }
+}
+func decodeSchema(name string,contents []byte){
+ for _,mode:=range []string{"direct","encoding-json"}{
+  var schema runtimebundle.TargetOptionsSchema
+  if err:=schema.UnmarshalJSON([]byte(simpleSchema));err!=nil{panic(err)}
+  before,_:=json.Marshal(schema)
+  var err error
+  if mode=="direct"{err=schema.UnmarshalJSON(contents)}else{err=json.Unmarshal(contents,&schema)}
+  after,_:=json.Marshal(schema)
+  numbers:=map[string]string{};numericTypes(schema,"schema",numbers)
+  schemaCases[name+"/"+mode]=map[string]any{"inputHex":hex.EncodeToString(contents),"error":errFacts(err),"before":string(before),"after":string(after),"receiverUnchanged":string(before)==string(after),"numbers":numbers}
+ }
+}
+func nilReceiver(contents []byte) (result map[string]any){
+ result=map[string]any{}
+ defer func(){if p:=recover();p!=nil{result["panic"]=fmt.Sprint(p);result["panicType"]=fmt.Sprintf("%T",p)}}()
+ var schema *runtimebundle.TargetOptionsSchema
+ result["error"]=errFacts(schema.UnmarshalJSON(contents))
+ return
+}
+func numberSchema(value string) string {
+ return `{"type":"object","additionalProperties":false,"properties":{"n":{"type":"integer","minimum":`+value+`}},"required":["n"]}`
+}
+func strptr(s string)*string{return &s}
+func fill(b string)string{return strings.Repeat(b,64)}
+func fixture()(*runtimelaunch.Builder,runtimecontract.Binding,runtimebundle.ActiveDescriptor,runtimebundle.Manifest){
+ checkpoint:=&runtimebundle.Checkpoint{WriteFormat:"fixture-state-v1",ReadFormats:[]string{"fixture-state-v1"},MaxBytes:1024}
+ var schema runtimebundle.TargetOptionsSchema
+ if err:=schema.UnmarshalJSON([]byte(simpleSchema));err!=nil{panic(err)}
+ target:=runtimebundle.Target{ID:"target",DisplayName:"Fixture",TargetOptionsSchema:schema,
+  Inputs:[]runtimebundle.Input{{Role:"game",Kind:"ROM_BLOB",Cardinality:"ONE"}},
+  Capabilities:runtimebundle.Capabilities{Checkpoint:true,NetplayPort:true,FrameMode:"NONE",VideoModes:[]string{}},
+  Checkpoint:checkpoint,AssetPaths:[]string{"client.mjs"},
+ }
+ manifest:=runtimebundle.Manifest{SchemaVersion:1,ProviderID:"fixture",ProviderVersion:"1.0.0",ProviderAPI:1,ClientModulePath:"client.mjs",Targets:[]runtimebundle.Target{target}}
+ active:=runtimebundle.ActiveDescriptor{SchemaVersion:1,Source:"candidate",SourceTreeSHA256:strptr(fill("9")),Providers:[]runtimebundle.ActiveProvider{{
+  ProviderID:"fixture",ProviderVersion:"1.0.0",ProviderAPI:1,BundleSHA256:fill("a"),ModuleSHA256:fill("b"),ManifestSHA256:fill("c"),ClientModulePath:"client.mjs",
+  InstallationPath:"fixture/"+fill("a"),BundleSizeBytes:1,FileCount:3,UnpackedSizeBytes:3,
+  Targets:[]runtimebundle.ActiveTarget{{ID:"target",Checkpoint:checkpoint}},
+ }}}
+ builder,err:=runtimelaunch.NewBuilder(active,map[string]runtimebundle.Manifest{"fixture":manifest});if err!=nil{panic(err)}
+ return builder,runtimecontract.Binding{ProviderID:"fixture",TargetID:"target",LaunchPolicy:"SUPPORTED"},active,manifest
+}
+func baseInput(binding runtimecontract.Binding)runtimelaunch.Input{
+ return runtimelaunch.Input{Binding:binding,Session:runtimelaunch.Session{
+  ID:"018f0f31-26fe-7a31-9d61-4ec92f16d4c3",Purpose:"PRODUCT",Mode:"SINGLE",
+  Title:"Fixture <&> 游戏",PlatformName:"Fixture",CoreName:"Fixture Core",ReturnTo:"/games/fixture",
+ },Resources:[]map[string]any{{"kind":"ROM_BLOB","ordinal":0,"rangeRequired":false,"role":"game","sha256":fill("e"),"sizeBytes":3,"url":"/runtime/content/game"}},
+ TargetOptions:map[string]any{}}
+}
+func buildCase(name string,builder *runtimelaunch.Builder,input runtimelaunch.Input){
+ contents,err:=builder.Build(input)
+ parseErr:=error(nil)
+ if err==nil{_,parseErr=runtimebundle.ParseLaunchEnvelope(contents)}
+ buildCases[name]=map[string]any{"input":encoded(input),"json":string(contents),"sha256":digest(contents),"error":errFacts(err),"parsedError":errFacts(parseErr)}
+}
+const simpleSchema=`{"type":"object","additionalProperties":false,"properties":{},"required":[]}`
+const emulatorSchema=`{"type":"object","additionalProperties":false,"properties":{"dosEntryPath":{"type":["string","null"]},"initialDiscIndex":{"type":["integer","null"],"minimum":0}},"required":["dosEntryPath","initialDiscIndex"]}`
+func main(){
+ for name,value:=range map[string]any{
+  "zero/manifest":runtimebundle.Manifest{},"zero/target":runtimebundle.Target{},"zero/input":runtimebundle.Input{},
+  "zero/capabilities":runtimebundle.Capabilities{},"zero/checkpoint":runtimebundle.Checkpoint{},
+  "zero/integrity-file":runtimebundle.IntegrityFile{},"zero/integrity":runtimebundle.Integrity{},
+  "zero/active-descriptor":runtimebundle.ActiveDescriptor{},"zero/release-identity":runtimebundle.ReleaseIdentity{},
+  "zero/active-provider":runtimebundle.ActiveProvider{},"zero/active-target":runtimebundle.ActiveTarget{},
+  "zero/target-options-schema":runtimebundle.TargetOptionsSchema(nil),
+  "empty/target-options-schema":runtimebundle.TargetOptionsSchema{},
+  "zero/launch-session":runtimelaunch.Session{},"zero/launch-input":runtimelaunch.Input{},
+  "empty/launch-input":runtimelaunch.Input{Session:runtimelaunch.Session{Warnings:[]string{}},Resources:[]map[string]any{},TargetOptions:map[string]any{},Restore:map[string]any{},Netplay:map[string]any{}},
+  "integrity-file/media-omitted":runtimebundle.IntegrityFile{Path:"file",SizeBytes:7,SHA256:fill("c"),MediaType:"application/wasm"},
+  "schema/programmatic-key-order":runtimebundle.TargetOptionsSchema{"\ue000":int64(1),"\U00010000":int64(2)},
+  "schema/programmatic-fraction":runtimebundle.TargetOptionsSchema{"number":1.5},
+  "schema/programmatic-bigint":runtimebundle.TargetOptionsSchema{"number":int64(9007199254740992)},
+  "schema/programmatic-json-number-exponent":runtimebundle.TargetOptionsSchema{"number":json.Number("1e0")},
+ }{values[name]=encoded(value)}
+ decodeSchema("empty-object-schema",[]byte(simpleSchema))
+ for _,item:=range []struct{name,value string}{
+  {"max-safe","9007199254740991"},{"min-safe","-9007199254740991"},{"unsafe-positive","9007199254740992"},{"unsafe-negative","-9007199254740992"},
+  {"fraction","1.5"},{"decimal-whole","1.0"},{"exponent","1e0"},{"leading-zero","01"},{"negative-zero","-0"},
+ }{decodeSchema(item.name,[]byte(numberSchema(item.value)))}
+ unicodeSchema:=`{"type":"object","additionalProperties":false,"properties":{"choice":{"type":"string","enum":["<&>","\u2028","💾"]}},"required":["choice"]}`
+ decodeSchema("unicode-and-escaping",[]byte(unicodeSchema))
+ for name,input:=range map[string]string{
+  "null":"null","empty-map":"{}","root-array":"[]",
+  "duplicate-root":strings.Replace(simpleSchema,`"type":"object"`,`"type":"object","type":"object"`,1),
+  "duplicate-nested":strings.Replace(numberSchema("1"),`"minimum":1`,`"minimum":1,"minimum":2`,1),
+  "trailing":simpleSchema+" {}","unknown-key":strings.Replace(simpleSchema,`"type":"object"`,`"type":"object","unknown":true`,1),
+  "high-surrogate":strings.Replace(unicodeSchema,"💾",`\ud800`,1),
+  "low-surrogate":strings.Replace(unicodeSchema,"💾",`\udc00`,1),
+  "surrogate-pair":strings.Replace(unicodeSchema,"💾",`\ud83d\udcbe`,1),
+ }{decodeSchema(name,[]byte(input))}
+ malformed:=[]byte(strings.Replace(unicodeSchema,"💾",string([]byte{0xff}),1))
+ decodeSchema("invalid-utf8",malformed)
+ out["nilReceiverValid"]=nilReceiver([]byte(simpleSchema))
+ out["nilReceiverInvalid"]=nilReceiver([]byte("{}"))
+ builder,binding,active,manifest:=fixture()
+ parserCases:=map[string]any{}
+ parsedManifest,manifestErr:=runtimebundle.ParseManifest([]byte(rawFixtureManifest))
+ if manifestErr!=nil{panic(manifestErr)}
+ values["parsed/manifest"]=encoded(parsedManifest)
+ bound,boundErr:=runtimebundle.BindTargetIntegrity(parsedManifest,[]runtimebundle.IntegrityFile{{Path:"assets/core.wasm",SizeBytes:1,SHA256:fill("a")}})
+ if boundErr!=nil{panic(boundErr)}
+ values["parsed/bound-manifest"]=encoded(bound)
+ for name,contents:=range map[string]string{
+  "valid":rawFixtureManifest,
+  "unknown":strings.Replace(rawFixtureManifest,`"schemaVersion":1`,`"schemaVersion":1,"adapterId":"leaked"`,1),
+  "missing-volume":strings.Replace(rawFixtureManifest,`"volume":true,`,"",1),
+  "provider-api-two":strings.Replace(rawFixtureManifest,`"providerApiVersion":1`,`"providerApiVersion":2`,1),
+ }{
+  value,e:=runtimebundle.ParseManifest([]byte(contents));parserCases["manifest/"+name]=map[string]any{"source":contents,"value":encoded(value),"error":errFacts(e)}
+ }
+ activeJSON,e:=json.Marshal(active);if e!=nil{panic(e)}
+ for name,contents:=range map[string][]byte{"valid":activeJSON,"provider-api-two":[]byte(strings.Replace(string(activeJSON),`"providerApiVersion":1`,`"providerApiVersion":2`,1))}{
+  value,e:=runtimebundle.ParseActiveDescriptor(contents);parserCases["active/"+name]=map[string]any{"source":string(contents),"value":encoded(value),"error":errFacts(e)}
+ }
+ integrityJSON:=`{"schemaVersion":1,"files":[{"path":"assets/core.wasm","sizeBytes":4,"sha256":"`+fill("a")+`","mediaType":"application/wasm"},{"path":"client.mjs","sizeBytes":8,"sha256":"`+fill("b")+`","mediaType":"text/javascript; charset=utf-8"},{"path":"provider.json","sizeBytes":2,"sha256":"`+fill("c")+`","mediaType":"application/json; charset=utf-8"}]}`
+ for name,contents:=range map[string]string{"valid":integrityJSON,"wrong-media":strings.Replace(integrityJSON,"application/wasm","video/mp4",1),"path-escape":strings.Replace(integrityJSON,"client.mjs","../client.mjs",1)}{
+  value,e:=runtimebundle.ParseIntegrity([]byte(contents));parserCases["integrity/"+name]=map[string]any{"source":contents,"value":encoded(value),"error":errFacts(e)}
+ }
+ out["parserCases"]=parserCases
+
+ for name,value:=range map[string]any{"populated/manifest":manifest,"populated/target":manifest.Targets[0],"populated/active":active,
+ "checkpoint/empty-semantics":manifest.Targets[0].Checkpoint,"release/sample":runtimebundle.ReleaseIdentity{Repository:"https://github.com/retrom-project/retrom-runtime",Tag:"v1.0.0",Commit:strings.Repeat("a",40)},
+ "integrity/sample":runtimebundle.Integrity{SchemaVersion:1,Files:[]runtimebundle.IntegrityFile{{Path:"client.mjs",SizeBytes:7,SHA256:fill("c"),MediaType:"text/javascript; charset=utf-8"}}}} {values[name]=encoded(value)}
+ for _,semantics:=range []string{"INSTANT","GAME_SAVE"}{cp:=*manifest.Targets[0].Checkpoint;cp.Semantics=semantics;values["checkpoint/"+semantics]=encoded(cp)}
+ buildCase("single-nil-warnings",builder,baseInput(binding))
+ emptyWarnings:=baseInput(binding);emptyWarnings.Session.Warnings=[]string{};buildCase("single-empty-warnings",builder,emptyWarnings)
+ buildCase("nil-builder",nil,baseInput(binding))
+ withRestore:=baseInput(binding);withRestore.Restore=map[string]any{"format":"fixture-state-v1","sha256":fill("f"),"sizeBytes":3,"url":"/runtime/checkpoints/fixture"}
+ buildCase("restore",builder,withRestore)
+ withNetplay:=baseInput(binding);withNetplay.Session.Mode="NETPLAY";withNetplay.Netplay=map[string]any{"roomId":"fixture-room","sessionId":"018f0f31-26fe-7a31-9d61-4ec92f16d4c3","playerNo":int64(1),"socketUrl":"wss://retrom.example.test/socket","profile":map[string]any{"fps":int64(60),"description":"<&> 游戏"}}
+ buildCase("netplay",builder,withNetplay)
+ for _,name:=range []string{"unknown-target","disabled","missing-resource","resource-kind","resource-shape","nil-options","undeclared-options","restore-invalid","netplay-mode","malformed-restore-raw"}{
+  input:=baseInput(binding)
+  switch name{
+  case "unknown-target":input.Binding.TargetID="unknown"
+  case "disabled":input.Binding.LaunchPolicy="DISABLED"
+  case "missing-resource":input.Resources=nil
+  case "resource-kind":input.Resources[0]["kind"]="FILE_TREE"
+  case "resource-shape":input.Resources[0]["sizeBytes"]=int64(-1)
+  case "nil-options":input.TargetOptions=nil
+  case "undeclared-options":input.TargetOptions["unknown"]=true
+  case "restore-invalid":input.Restore=map[string]any{}
+  case "netplay-mode":input.Session.Mode="NETPLAY"
+  case "malformed-restore-raw":input.Restore=json.RawMessage("{")
+  }
+  buildCase(name,builder,input)
+ }
+ var es runtimebundle.TargetOptionsSchema;if err:=es.UnmarshalJSON([]byte(emulatorSchema));err!=nil{panic(err)}
+ optionCases:=map[string]any{}
+ for _,test:=range []struct{name,id string;input runtimeoptions.Input}{
+  {"emulator-single",runtimecatalog.OptionsEmulator,runtimeoptions.Input{ContentKind:"SINGLE_FILE",InitialDiscIndex:9}},
+  {"emulator-dos",runtimecatalog.OptionsEmulator,runtimeoptions.Input{ContentKind:"DOS_BUNDLE",DOSEntry:strptr("GAME.EXE")}},
+  {"emulator-disc",runtimecatalog.OptionsEmulator,runtimeoptions.Input{ContentKind:"MULTI_DISC",InitialDiscIndex:2}},
+  {"emulator-invalid-disc",runtimecatalog.OptionsEmulator,runtimeoptions.Input{ContentKind:"MULTI_DISC",InitialDiscIndex:-1}},
+  {"unknown-strategy","UNKNOWN",runtimeoptions.Input{}},
+ }{
+  value,err:=runtimeoptions.Build(test.id,es,test.input);optionCases[test.name]=map[string]any{"value":encoded(value),"error":errFacts(err)}
+ }
+ manifest.Targets[0].TargetOptionsSchema=es
+ catalog:=runtimecontract.Catalog{SchemaVersion:1,Definitions:runtimecontract.Definitions{
+  Platforms:[]runtimecontract.PlatformDefinition{{ID:"gbc",Name:"Game Boy / Color",SortOrder:40,Enabled:true}},
+  Cores:[]runtimecontract.CoreDefinition{{ID:"gambatte",Name:"Gambatte",Enabled:true}},
+  ContentKinds:[]string{"SINGLE_FILE"},AssetPacks:[]runtimecontract.AssetPackDefinition{},
+ },Bindings:[]runtimecontract.Binding{{ID:"fixture-target",CoreID:"gambatte",ProviderID:"fixture",TargetID:"target",PlatformIDs:[]string{"gbc"},AcceptedContentKinds:[]string{"SINGLE_FILE"},DetectorProfile:"EMULATORJS_SINGLE_FILE",LaunchPolicy:"SUPPORTED"}}}
+ projection,err:=runtimeprovidermodel.NewProjection(active,map[string]runtimebundle.Manifest{"fixture":manifest},catalog)
+ if err!=nil{panic(err)}
+ values["projection/complete"]=encoded(projection)
+ for _,dir:=range []string{"valid","invalid"}{
+  entries,err:=os.ReadDir(filepath.Join("api/runtime-provider/v1/fixtures",dir));if err!=nil{panic(err)}
+  sort.Slice(entries,func(i,j int)bool{return entries[i].Name()<entries[j].Name()})
+  for _,entry:=range entries{
+   if entry.IsDir(){continue}
+   path:=filepath.Join("api/runtime-provider/v1/fixtures",dir,entry.Name())
+   contents,err:=os.ReadFile(path);if err!=nil{panic(err)}
+   parsed,parseErr:=runtimebundle.ParseLaunchEnvelope(contents)
+   fixtureCases[dir+"/"+entry.Name()]=map[string]any{"sourceSHA256":digest(contents),"parsed":encoded(parsed),"error":errFacts(parseErr)}
+  }
+ }
+ sources:=map[string]string{}
+ for _,path:=range []string{"internal/capability/runtime/runtimebundle/manifest.go","internal/capability/runtime/runtimebundle/active.go","internal/capability/runtime/runtimebundle/launch.go","internal/capability/runtime/runtimebundle/target_options.go","internal/capability/runtime/runtimelaunch/builder.go","internal/capability/runtime/runtimeoptions/options.go","internal/model/runtimeprovider/projection.go","internal/model/runtimeprovider/options.go"}{
+  contents,err:=os.ReadFile(path);if err!=nil{panic(err)};sources[path]=digest(contents)
+ }
+ head,err:=exec.Command("git","rev-parse","HEAD").Output();if err!=nil{panic(err)}
+ out["captureHead"]=strings.TrimSpace(string(head));out["sourceFilesSHA256"]=sources
+ out["values"]=values;out["schemaCases"]=schemaCases;out["buildCases"]=buildCases;out["optionCases"]=optionCases;out["publicLaunchFixtures"]=fixtureCases
+ out["purpose"]="Actual pre-move Go outputs for Provider12/Launch2 closed-value migration; source values and algorithms are the current old implementation."
+ contents,err:=json.MarshalIndent(out,"","  ");if err!=nil{panic(err)}
+ destination:="/home/cgd/workspace/retrom-project/td/refactor-execution/rf03-provider-old-go-golden.json"
+ if err:=os.WriteFile(destination,append(contents,'\n'),0644);err!=nil{panic(err)}
+ fmt.Printf("values=%d schemaCases=%d buildCases=%d optionCases=%d sharedFixtures=%d output=%s\n",len(values),len(schemaCases),len(buildCases),len(optionCases),len(fixtureCases),destination)
+}
+
+var rawFixtureManifest = "{\n  \"schemaVersion\":1,\n  \"providerId\":\"fixture\",\n  \"providerVersion\":\"1.0.0\",\n  \"providerApiVersion\":1,\n  \"clientModulePath\":\"client.mjs\",\n  \"targets\":[{\n    \"id\":\"core\",\n    \"displayName\":\"Core\",\n    \"targetOptionsSchema\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{},\"required\":[]},\n    \"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\n    \"capabilities\":{\"pause\":true,\"screenshot\":true,\"checkpoint\":false,\"standardGamepad\":true,\"frameCounter\":false,\"volume\":true,\"discSwitch\":false,\"nativeSettings\":true,\"inputFilter\":true,\"netplayPort\":false,\"videoModes\":[\"original\",\"pixel\"],\"requiresThreads\":false,\"frameMode\":\"SAME_ORIGIN_BLANK\"},\n    \"checkpoint\":null,\n    \"assetPaths\":[\"assets/core.wasm\"]\n  }]\n}"

@@ -6,6 +6,14 @@ import (
 	"retrom/internal/capability/content/corevalidation"
 )
 
+// ValidateBIOSRequest rejects incomplete identities before BIOS facts are read.
+func ValidateBIOSRequest(providerID, targetID, contentLogicalName string) error {
+	if providerID == "" || targetID == "" || contentLogicalName == "" {
+		return corevalidation.ErrInvalidSnapshot
+	}
+	return nil
+}
+
 // ResolveBIOSRecords evaluates a frozen catalog/installation snapshot without storage access.
 func ResolveBIOSRecords(
 	records []BIOSRecord,

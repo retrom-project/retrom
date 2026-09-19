@@ -5,8 +5,7 @@ import (
 	"errors"
 
 	blobmodel "retrom/internal/model/blob"
-
-	"retrom/internal/capability/runtime/runtimebundle"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 type Repository interface {
@@ -106,7 +105,7 @@ type Launch struct {
 	CredentialHash                          []byte
 	State                                   string
 	HardExpiresAtMS                         int64
-	Checkpoint                              runtimebundle.Checkpoint
+	Checkpoint                              runtimecontract.Checkpoint
 	ContentFormat                           string
 	DiscCount, InitialDiscIndex             int
 	GameStatus, ItemState, PayloadState     string
@@ -114,7 +113,7 @@ type Launch struct {
 	LocalDraft                              bool
 }
 type Restore struct {
-	Checkpoint     runtimebundle.Checkpoint
+	Checkpoint     runtimecontract.Checkpoint
 	Format, Digest string
 	Size           int64
 }

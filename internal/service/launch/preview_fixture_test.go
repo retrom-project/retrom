@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	model "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 const previewTestID = "01a00000-0000-7000-8000-000000000001"
@@ -63,12 +63,12 @@ func (repository *previewTestRepository) Create(_ context.Context, plan model.Pr
 }
 
 type previewTestProvider struct {
-	target runtimebundle.Target
+	target runtimecontract.Target
 	absent bool
 	before func()
 }
 
-func (provider *previewTestProvider) Target(string, string) (runtimebundle.Target, bool) {
+func (provider *previewTestProvider) Target(string, string) (runtimecontract.Target, bool) {
 	if provider.before != nil {
 		provider.before()
 	}
@@ -84,7 +84,7 @@ func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository, *pre
 		ValidationID: "validation", ValidationStatus: "READY", DependencySnapshot: "frozen",
 	}
 	repository := &previewTestRepository{snapshot: model.PreviewSnapshot{Source: source, SourceFiles: []model.PreviewFile{{Role: "CONTENT", LogicalName: "game.bin", BlobID: "game"}}}, current: source}
-	provider := &previewTestProvider{target: runtimebundle.Target{Inputs: []runtimebundle.Input{{Role: "game"}}}}
+	provider := &previewTestProvider{target: runtimecontract.Target{Inputs: []runtimecontract.Input{{Role: "game"}}}}
 	provider.before = func() {
 		if repository.inTransaction {
 			t.Fatal("provider called inside creation transaction")

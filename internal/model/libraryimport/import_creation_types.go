@@ -7,7 +7,6 @@ import (
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/security/authn"
-	validation "retrom/internal/model/corevalidation"
 	"retrom/internal/model/importprogress"
 	"retrom/internal/model/metadatascrape"
 	"retrom/internal/model/payloadrelease"
@@ -54,7 +53,7 @@ type ImportCreationScope struct {
 	Sources    CreationSourceWriter
 	Reviews    CreationReviewWriter
 	Finish     CreationCompletionWriter
-	BIOS       validation.Repository
+	BIOS       CreationBIOSReader
 	Arcade     CreationArcadeReader
 	Duplicates ContentDuplicateReader
 	Claims     ApprovalDecisionWriter

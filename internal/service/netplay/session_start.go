@@ -9,8 +9,6 @@ import (
 
 	model "retrom/internal/model/netplay"
 	"retrom/internal/model/netplayprofile"
-
-	validation "retrom/internal/service/corevalidation"
 )
 
 type SessionStart struct {
@@ -77,7 +75,7 @@ func (service *SessionStart) lockedProfile(
 	if selected == nil {
 		return model.FrozenRoomProfile{}, model.ErrProfileStale
 	}
-	eligibility := NewEligibility(scope.Eligibility, service.registry, nil, validation.New(scope.BIOS))
+	eligibility := NewEligibility(scope.Eligibility, service.registry, nil, scope.BIOS)
 	candidates, err := eligibility.Profiles(ctx, selected.GameID)
 	if err != nil {
 		return model.FrozenRoomProfile{}, fmt.Errorf("netplay/start eligibility: %w", err)

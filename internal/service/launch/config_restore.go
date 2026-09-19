@@ -5,24 +5,29 @@ import (
 	"net/url"
 	"slices"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	model "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
-func providerRestore(id string, restore model.ConfigRestore, target runtimebundle.Target) (any, bool, error) {
+func providerRestore(
+	id string,
+	restore model.ConfigRestore,
+	target runtimecontract.Target,
+) (json.RawMessage, bool, error) {
 	if !restore.Required {
 		return nil, false, nil
 	}
 	if !restore.Found || target.Checkpoint == nil || !slices.Contains(target.Checkpoint.ReadFormats, restore.Format) {
 		return nil, false, model.ErrCredential
 	}
-	return map[string]any{
+	encoded, err := encodeProviderValue(map[string]any{
 		"url": "/runtime/launches/" + id + "/state", "format": restore.Format,
 		"sha256": restore.Digest, "sizeBytes": restore.Size,
-	}, true, nil
+	})
+	return encoded, true, err
 }
 
-func providerNetplay(publicOrigin string, source model.ConfigSource) (any, string, error) {
+func providerNetplay(publicOrigin string, source model.ConfigSource) (json.RawMessage, string, error) {
 	if source.NetplayID == nil {
 		return nil, "SINGLE", nil
 	}
@@ -37,10 +42,11 @@ func providerNetplay(publicOrigin string, source model.ConfigSource) (any, strin
 	if err != nil {
 		return nil, "", err
 	}
-	return map[string]any{
+	encoded, err := encodeProviderValue(map[string]any{
 		"roomId": *source.NetplayRoom, "sessionId": *source.NetplayID, "playerNo": *source.NetplayPlayer,
 		"socketUrl": socket, "profile": profile,
-	}, "NETPLAY", nil
+	})
+	return encoded, "NETPLAY", err
 }
 
 func netplaySocketURL(publicOrigin, roomID string) (string, error) {

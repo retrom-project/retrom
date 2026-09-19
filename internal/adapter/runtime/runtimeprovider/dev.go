@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 type devProvider struct {
@@ -32,7 +32,7 @@ type devFileDescriptor struct {
 	ContentBase64 string `json:"contentBase64"`
 }
 
-func loadDevProvider(rawRoot string, active runtimebundle.ActiveDescriptor) (*devProvider, error) {
+func loadDevProvider(rawRoot string, active runtimecontract.ActiveDescriptor) (*devProvider, error) {
 	root, err := filepath.Abs(rawRoot)
 	if err != nil || root != filepath.Clean(rawRoot) {
 		return nil, ErrInstallationInvalid
@@ -78,9 +78,9 @@ func parseDevDescriptor(contents []byte) (devDescriptor, error) {
 }
 
 func matchingActiveProvider(
-	active runtimebundle.ActiveDescriptor,
+	active runtimecontract.ActiveDescriptor,
 	descriptor devDescriptor,
-) *runtimebundle.ActiveProvider {
+) *runtimecontract.ActiveProvider {
 	for index := range active.Providers {
 		provider := &active.Providers[index]
 		if provider.ProviderID == descriptor.ProviderID && provider.BundleSHA256 == descriptor.BaseBundleSHA256 {
@@ -112,9 +112,9 @@ func (provider *devProvider) loadFiles(files []devFileDescriptor, clientModulePa
 	return nil
 }
 
-func (provider *devProvider) apply(active runtimebundle.ActiveDescriptor) runtimebundle.ActiveDescriptor {
+func (provider *devProvider) apply(active runtimecontract.ActiveDescriptor) runtimecontract.ActiveDescriptor {
 	result := active
-	result.Providers = append([]runtimebundle.ActiveProvider(nil), active.Providers...)
+	result.Providers = append([]runtimecontract.ActiveProvider(nil), active.Providers...)
 	for index := range result.Providers {
 		if result.Providers[index].ProviderID == provider.providerID {
 			result.Providers[index].ModuleSHA256 = provider.moduleSHA

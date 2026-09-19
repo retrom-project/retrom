@@ -2,8 +2,6 @@ package netplay
 
 import (
 	"context"
-
-	validation "retrom/internal/model/corevalidation"
 )
 
 type RoomSelection struct {
@@ -64,7 +62,7 @@ type RoomControlScope struct {
 	Read        RoomControlReader
 	Write       RoomControlWriter
 	Eligibility EligibilityRepository
-	BIOS        validation.Repository
+	BIOS        BIOSFactsReader
 }
 type RoomControlRepository interface {
 	WithWrite(context.Context, func(RoomControlScope) error) error

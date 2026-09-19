@@ -58,7 +58,7 @@ func immersiveLibrarySortCode(kind string) string {
 }
 
 func immersiveLibraryCursorDigest(profileID, kind, folderID string, limit int) string {
-	return cursor.FilterDigest(map[string]any{
+	return cursorFilterDigest(map[string]any{
 		"profileId": profileID,
 		"kind":      kind,
 		"folderId":  folderID,
@@ -70,7 +70,7 @@ func immersiveLibraryCursorDigest(profileID, kind, folderID string, limit int) s
 func (server *Server) decodeImmersiveLibraryCursor(
 	token, digest, kind string,
 ) (immersivemodel.GameCursor, error) {
-	payload, err := server.cursors.Decode(
+	payload, err := server.decodeCursor(
 		token,
 		immersiveLibraryGameOperationID,
 		digest,
@@ -112,7 +112,7 @@ func (server *Server) encodeImmersiveLibraryCursor(
 		}
 		sortValues = []string{strconv.FormatInt(*next.LastPlayedAtMS, 10)}
 	}
-	token, err := server.cursors.Encode(cursor.Payload{
+	token, err := server.encodeCursor(cursor.Payload{
 		OperationID:  immersiveLibraryGameOperationID,
 		FilterDigest: digest,
 		SortCode:     immersiveLibrarySortCode(kind),

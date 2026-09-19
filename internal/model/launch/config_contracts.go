@@ -3,8 +3,7 @@ package launch
 import (
 	"context"
 
-	"retrom/internal/capability/runtime/runtimebundle"
-	"retrom/internal/capability/runtime/runtimelaunch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 type ConfigSource struct {
@@ -66,9 +65,9 @@ type ConfigRepository interface {
 }
 
 type ConfigBuilder interface {
-	Target(string, string) (runtimebundle.Target, bool)
+	Target(string, string) (runtimecontract.Target, bool)
 	BundleSHA256(string, string) (string, bool)
-	Build(runtimelaunch.Input) ([]byte, error)
+	Build(runtimecontract.LaunchInput) ([]byte, error)
 }
 
 type IsolationTicket struct {

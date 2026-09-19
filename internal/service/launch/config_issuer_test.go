@@ -2,13 +2,14 @@ package launch
 
 import (
 	"context"
+	json "encoding/json"
 	"errors"
 	"testing"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimelaunch"
 	model "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 type configTestRepository struct {
@@ -48,16 +49,16 @@ func (repository *configTestRepository) Activate(context.Context, model.ConfigAc
 type configTestBuilder struct {
 	cause      error
 	afterBuild func()
-	inputs     []runtimebundle.Input
+	inputs     []runtimecontract.Input
 }
 
-func (builder *configTestBuilder) Target(string, string) (runtimebundle.Target, bool) {
-	return runtimebundle.Target{Inputs: builder.inputs, TargetOptionsSchema: runtimebundle.TargetOptionsSchema{
-		"type": "object", "additionalProperties": false, "properties": map[string]any{}, "required": []any{},
+func (builder *configTestBuilder) Target(string, string) (runtimecontract.Target, bool) {
+	return runtimecontract.Target{Inputs: builder.inputs, TargetOptionsSchema: runtimecontract.TargetOptionsSchema{
+		"type": json.RawMessage("\"object\""), "additionalProperties": json.RawMessage("false"), "properties": json.RawMessage("{}"), "required": json.RawMessage("[]"),
 	}}, true
 }
 func (*configTestBuilder) BundleSHA256(string, string) (string, bool) { return "bundle", true }
-func (builder *configTestBuilder) Build(runtimelaunch.Input) ([]byte, error) {
+func (builder *configTestBuilder) Build(runtimecontract.LaunchInput) ([]byte, error) {
 	if builder.afterBuild != nil {
 		builder.afterBuild()
 	}

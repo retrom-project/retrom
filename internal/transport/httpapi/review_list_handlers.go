@@ -64,7 +64,7 @@ func (server *Server) prepareReviewList(values url.Values, principalID string) (
 	if err != nil {
 		return reviewListSpec{}, errInvalidReviewQuery
 	}
-	spec := reviewListSpec{filter: filter, filterDigest: cursor.FilterDigest(map[string]any{
+	spec := reviewListSpec{filter: filter, filterDigest: cursorFilterDigest(map[string]any{
 		"principalId": principalID, "q": filter.Query, "tagId": filter.TagID, "importJobId": filter.ImportJobID,
 		"pegasusImportId": filter.PegasusImportID, "emulationStationImportId": filter.EmulationStationImportID,
 		"platformInstanceId": filter.PlatformInstanceID, "blockerCode": filter.BlockerCode,
@@ -79,7 +79,7 @@ func (server *Server) applyReviewListCursor(spec *reviewListSpec, token string) 
 	if token == "" {
 		return nil
 	}
-	payload, err := server.cursors.Decode(token, "getAdminReviews", spec.filterDigest, spec.filter.Sort)
+	payload, err := server.decodeCursor(token, "getAdminReviews", spec.filterDigest, spec.filter.Sort)
 	if err != nil || len(payload.SortValues) != 1 {
 		return errInvalidReviewCursor
 	}
@@ -109,7 +109,7 @@ func (server *Server) reviews(writer http.ResponseWriter, request *http.Request)
 	}
 	var nextCursor *string
 	if page.Next != nil {
-		token, err := server.cursors.Encode(cursor.Payload{
+		token, err := server.encodeCursor(cursor.Payload{
 			OperationID: "getAdminReviews", FilterDigest: spec.filterDigest, SortCode: spec.filter.Sort,
 			SortValues: []string{strconv.FormatInt(page.Next.UpdatedAtMS, 10)}, ID: page.Next.ItemID,
 		})

@@ -3037,10 +3037,6 @@
           "kind": "test"
         },
         {
-          "path": "internal/capability/runtime/runtimebundle/target_options.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/capability/runtime/runtimebundle/target_options_test.go",
           "kind": "test"
         }
@@ -3083,6 +3079,30 @@
         {
           "path": "internal/capability/runtime/runtimecatalog/strategy_binding_test.go",
           "kind": "test"
+        }
+      ]
+    },
+    {
+      "path": "internal/capability/runtime/runtimejson",
+      "layer": "capability",
+      "module": "runtime",
+      "owner": "RF03",
+      "files": [
+        {
+          "path": "internal/capability/runtime/runtimejson/json_values.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/capability/runtime/runtimejson/safe_path.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/capability/runtime/runtimejson/strict_json.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/capability/runtime/runtimejson/target_options.go",
+          "kind": "production"
         }
       ]
     },
@@ -3345,6 +3365,10 @@
           "kind": "production"
         },
         {
+          "path": "internal/model/corevalidation/bios_policy_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/model/corevalidation/service.go",
           "kind": "production"
         }
@@ -3554,6 +3578,10 @@
       "files": [
         {
           "path": "internal/model/gamecontent/admin_types.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/gamecontent/bios_ports.go",
           "kind": "production"
         },
         {
@@ -3802,6 +3830,18 @@
         },
         {
           "path": "internal/model/libraryimport/artifact_ports.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/libraryimport/bios_policy.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/libraryimport/bios_policy_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/model/libraryimport/bios_ports.go",
           "kind": "production"
         },
         {
@@ -4374,6 +4414,22 @@
         },
         {
           "path": "internal/model/runtimecontract/catalog_types.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/runtimecontract/launch_types.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/runtimecontract/provider_compatibility_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/model/runtimecontract/provider_types.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/runtimecontract/target_options.go",
           "kind": "production"
         }
       ]
@@ -9069,6 +9125,10 @@
           "kind": "production"
         },
         {
+          "path": "internal/service/gamecontent/publication_bios_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/service/gamecontent/publication_test.go",
           "kind": "test"
         },
@@ -9366,6 +9426,10 @@
         },
         {
           "path": "internal/service/launch/config_blob.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/service/launch/config_encoding.go",
           "kind": "production"
         },
         {
@@ -9767,6 +9831,10 @@
         {
           "path": "internal/service/libraryimport/archive_materialize.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/service/libraryimport/bios_facts_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/service/libraryimport/dos_import.go",
@@ -10523,6 +10591,10 @@
         {
           "path": "internal/service/netplay/eligibility.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/service/netplay/eligibility_bios_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/service/netplay/eligibility_dependencies.go",
@@ -11850,19 +11922,19 @@
       "files": [
         {
           "path": "internal/testkit/testsupport/platform_instances.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/testsupport/runtime_envelope.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/testsupport/runtime_provider.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/testsupport/sql_faults.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/testsupport/sql_faults_test.go",
@@ -11926,6 +11998,14 @@
         },
         {
           "path": "internal/transport/httpapi/client_ip_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/transport/httpapi/cursor_boundary.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/transport/httpapi/cursor_boundary_test.go",
           "kind": "test"
         },
         {

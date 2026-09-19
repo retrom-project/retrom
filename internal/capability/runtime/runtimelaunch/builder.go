@@ -7,44 +7,25 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/runtime/runtimebundle"
+	runtimejson "retrom/internal/capability/runtime/runtimejson"
 	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var ErrEnvelopeInvalid = errors.New("RUNTIME_LAUNCH_ENVELOPE_INVALID")
-
-type Session struct {
-	ID           string
-	Purpose      string
-	Mode         string
-	Title        string
-	PlatformName string
-	CoreName     string
-	ReturnTo     string
-	Warnings     []string
-}
-
-type Input struct {
-	Binding       runtimecontract.Binding
-	Session       Session
-	Resources     []map[string]any
-	TargetOptions map[string]any
-	Restore       any
-	Netplay       any
-}
 
 type Builder struct {
 	targets map[string]resolvedTarget
 }
 
 type resolvedTarget struct {
-	provider runtimebundle.ActiveProvider
-	active   runtimebundle.ActiveTarget
-	target   runtimebundle.Target
+	provider runtimecontract.ActiveProvider
+	active   runtimecontract.ActiveTarget
+	target   runtimecontract.Target
 }
 
-func (builder *Builder) Target(providerID, targetID string) (runtimebundle.Target, bool) {
+func (builder *Builder) Target(providerID, targetID string) (runtimecontract.Target, bool) {
 	if builder == nil {
-		return runtimebundle.Target{}, false
+		return runtimecontract.Target{}, false
 	}
 	resolved, exists := builder.targets[providerID+"\x00"+targetID]
 	return resolved.target, exists
@@ -58,14 +39,17 @@ func (builder *Builder) BundleSHA256(providerID, targetID string) (string, bool)
 	return resolved.provider.BundleSHA256, exists
 }
 
-func NewBuilder(active runtimebundle.ActiveDescriptor, manifests map[string]runtimebundle.Manifest) (*Builder, error) {
+func NewBuilder(
+	active runtimecontract.ActiveDescriptor,
+	manifests map[string]runtimecontract.Manifest,
+) (*Builder, error) {
 	result := &Builder{targets: make(map[string]resolvedTarget)}
 	for _, provider := range active.Providers {
 		manifest, exists := manifests[provider.ProviderID]
 		if !exists || !providerMatchesManifest(provider, manifest) {
 			return nil, ErrEnvelopeInvalid
 		}
-		manifestTargets := make(map[string]runtimebundle.Target, len(manifest.Targets))
+		manifestTargets := make(map[string]runtimecontract.Target, len(manifest.Targets))
 		for _, target := range manifest.Targets {
 			manifestTargets[target.ID] = target
 		}
@@ -90,16 +74,16 @@ func NewBuilder(active runtimebundle.ActiveDescriptor, manifests map[string]runt
 	return result, nil
 }
 
-func providerMatchesManifest(provider runtimebundle.ActiveProvider, manifest runtimebundle.Manifest) bool {
+func providerMatchesManifest(provider runtimecontract.ActiveProvider, manifest runtimecontract.Manifest) bool {
 	return manifest.ProviderID == provider.ProviderID && manifest.ProviderVersion == provider.ProviderVersion &&
 		manifest.ProviderAPI == provider.ProviderAPI && manifest.ClientModulePath == provider.ClientModulePath
 }
 
-func targetMatchesActive(target runtimebundle.Target, active runtimebundle.ActiveTarget) bool {
+func targetMatchesActive(target runtimecontract.Target, active runtimecontract.ActiveTarget) bool {
 	return equalCheckpoint(target.Checkpoint, active.Checkpoint)
 }
 
-func equalCheckpoint(left, right *runtimebundle.Checkpoint) bool {
+func equalCheckpoint(left, right *runtimecontract.Checkpoint) bool {
 	if left == nil || right == nil {
 		return left == nil && right == nil
 	}
@@ -115,13 +99,13 @@ func equalCheckpoint(left, right *runtimebundle.Checkpoint) bool {
 	return true
 }
 
-func (builder *Builder) Build(input Input) ([]byte, error) {
+func (builder *Builder) Build(input runtimecontract.LaunchInput) ([]byte, error) {
 	if builder == nil || input.Binding.LaunchPolicy == "DISABLED" {
 		return nil, ErrEnvelopeInvalid
 	}
 	resolved, exists := builder.targets[input.Binding.ProviderID+"\x00"+input.Binding.TargetID]
 	if !exists || !validResources(resolved.target.Inputs, input.Resources) ||
-		!runtimebundle.ValidateTargetOptions(resolved.target.TargetOptionsSchema, input.TargetOptions) {
+		!runtimejson.ValidateTargetOptions(resolved.target.TargetOptionsSchema, input.TargetOptions) {
 		return nil, ErrEnvelopeInvalid
 	}
 	warnings := input.Session.Warnings
@@ -156,17 +140,25 @@ func (builder *Builder) Build(input Input) ([]byte, error) {
 	return contents, nil
 }
 
-func validResources(inputs []runtimebundle.Input, resources []map[string]any) bool {
-	byRole := make(map[string]runtimebundle.Input, len(inputs))
+func validResources(inputs []runtimecontract.Input, resources []json.RawMessage) bool {
+	byRole := make(map[string]runtimecontract.Input, len(inputs))
 	counts := make(map[string]int, len(inputs))
 	for _, input := range inputs {
 		byRole[input.Role] = input
 	}
 	for _, resource := range resources {
-		role, roleOK := resource["role"].(string)
-		kind, kindOK := resource["kind"].(string)
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(resource, &fields) != nil {
+			return false
+		}
+		var roleValue, kindValue *string
+		if json.Unmarshal(fields["role"], &roleValue) != nil ||
+			json.Unmarshal(fields["kind"], &kindValue) != nil || roleValue == nil || kindValue == nil {
+			return false
+		}
+		role, kind := *roleValue, *kindValue
 		declaration, declared := byRole[role]
-		if !roleOK || !kindOK || !declared || declaration.Kind != kind {
+		if !declared || declaration.Kind != kind {
 			return false
 		}
 		counts[role]++

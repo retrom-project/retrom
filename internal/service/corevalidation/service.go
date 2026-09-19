@@ -26,7 +26,7 @@ func (service *Service) Catalog(
 func (service *Service) ResolveBIOS(
 	ctx context.Context, providerID, targetID, contentLogicalName string,
 ) (corevalidation.Snapshot, string, string, error) {
-	if providerID == "" || targetID == "" || contentLogicalName == "" {
+	if model.ValidateBIOSRequest(providerID, targetID, contentLogicalName) != nil {
 		return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", corevalidation.ErrInvalidSnapshot
 	}
 	records, err := service.repository.BIOS(ctx, providerID, targetID)

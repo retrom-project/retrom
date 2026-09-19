@@ -38,9 +38,9 @@ type Paths struct {
 // returns successfully.
 type Installation struct {
 	installedRoot string
-	Active        runtimebundle.ActiveDescriptor
-	Manifests     map[string]runtimebundle.Manifest
-	Integrity     map[string][]runtimebundle.IntegrityFile
+	Active        runtimecontract.ActiveDescriptor
+	Manifests     map[string]runtimecontract.Manifest
+	Integrity     map[string][]runtimecontract.IntegrityFile
 	Catalog       runtimecontract.Catalog
 	Projection    runtimeprovidermodel.Projection
 	Handler       http.Handler
@@ -101,10 +101,10 @@ func LoadInstallation(paths Paths) (Installation, error) {
 
 func loadInstalledProviders(
 	root string,
-	active runtimebundle.ActiveDescriptor,
-) (map[string]runtimebundle.Manifest, map[string][]runtimebundle.IntegrityFile, error) {
-	manifests := make(map[string]runtimebundle.Manifest, len(active.Providers))
-	integrityByProvider := make(map[string][]runtimebundle.IntegrityFile, len(active.Providers))
+	active runtimecontract.ActiveDescriptor,
+) (map[string]runtimecontract.Manifest, map[string][]runtimecontract.IntegrityFile, error) {
+	manifests := make(map[string]runtimecontract.Manifest, len(active.Providers))
+	integrityByProvider := make(map[string][]runtimecontract.IntegrityFile, len(active.Providers))
 	for _, provider := range active.Providers {
 		manifest, integrityFiles, err := loadInstalledProvider(root, provider)
 		if err != nil {
@@ -118,42 +118,42 @@ func loadInstalledProviders(
 
 func loadInstalledProvider(
 	root string,
-	provider runtimebundle.ActiveProvider,
-) (runtimebundle.Manifest, []runtimebundle.IntegrityFile, error) {
+	provider runtimecontract.ActiveProvider,
+) (runtimecontract.Manifest, []runtimecontract.IntegrityFile, error) {
 	directory := filepath.Join(root, filepath.FromSlash(provider.InstallationPath))
 	if !pathWithin(root, directory) {
-		return runtimebundle.Manifest{}, nil, ErrInstallationInvalid
+		return runtimecontract.Manifest{}, nil, ErrInstallationInvalid
 	}
 	manifestContents, err := readMetadata(filepath.Join(directory, "provider.json"))
 	if err != nil || digest(manifestContents) != provider.ManifestSHA256 {
-		return runtimebundle.Manifest{}, nil, ErrInstallationInvalid
+		return runtimecontract.Manifest{}, nil, ErrInstallationInvalid
 	}
 	manifest, err := runtimebundle.ParseManifest(manifestContents)
 	if err != nil {
-		return runtimebundle.Manifest{}, nil, installationInvalid(err)
+		return runtimecontract.Manifest{}, nil, installationInvalid(err)
 	}
 	integrityContents, err := readMetadata(filepath.Join(directory, "integrity.json"))
 	if err != nil {
-		return runtimebundle.Manifest{}, nil, installationInvalid(err)
+		return runtimecontract.Manifest{}, nil, installationInvalid(err)
 	}
 	integrity, err := runtimebundle.ParseIntegrity(integrityContents)
 	if err != nil {
-		return runtimebundle.Manifest{}, nil, installationInvalid(err)
+		return runtimecontract.Manifest{}, nil, installationInvalid(err)
 	}
 	manifest, err = runtimebundle.BindTargetIntegrity(manifest, integrity.Files)
 	if err != nil {
-		return runtimebundle.Manifest{}, nil, installationInvalid(err)
+		return runtimecontract.Manifest{}, nil, installationInvalid(err)
 	}
 	if !installedProviderMatches(provider, manifest, integrity.Files, int64(len(integrityContents))) {
-		return runtimebundle.Manifest{}, nil, ErrInstallationInvalid
+		return runtimecontract.Manifest{}, nil, ErrInstallationInvalid
 	}
 	return manifest, integrity.Files, nil
 }
 
 func installedProviderMatches(
-	provider runtimebundle.ActiveProvider,
-	manifest runtimebundle.Manifest,
-	files []runtimebundle.IntegrityFile,
+	provider runtimecontract.ActiveProvider,
+	manifest runtimecontract.Manifest,
+	files []runtimecontract.IntegrityFile,
 	integritySize int64,
 ) bool {
 	if manifest.ProviderID != provider.ProviderID || manifest.ProviderVersion != provider.ProviderVersion ||

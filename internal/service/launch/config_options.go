@@ -1,13 +1,14 @@
 package launch
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/capability/runtime/runtimeoptions"
 	model "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func providerWarnings(source model.ConfigSource) []string {
@@ -26,9 +27,9 @@ func providerWarnings(source model.ConfigSource) []string {
 }
 
 func providerTargetOptions(
-	schema runtimebundle.TargetOptionsSchema,
+	schema runtimecontract.TargetOptionsSchema,
 	source model.ConfigSource,
-) (map[string]any, error) {
+) (json.RawMessage, error) {
 	selected, registered := runtimecatalog.Strategy(source.DetectorProfile)
 	if !registered {
 		return nil, runtimeoptions.ErrUnsupported

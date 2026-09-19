@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/model/netplayprofile"
 
-	contentvalidation "retrom/internal/capability/content/corevalidation"
+	"retrom/internal/model/corevalidation"
 	"retrom/internal/model/tagging"
 )
 
@@ -23,8 +23,8 @@ type TagReader interface {
 	References(context.Context, []string) (map[string][]tagging.Reference, error)
 }
 
-type BIOSResolver interface {
-	ResolveBIOS(context.Context, string, string, string) (contentvalidation.Snapshot, string, string, error)
+type BIOSFactsReader interface {
+	BIOS(context.Context, string, string) ([]corevalidation.BIOSRecord, error)
 }
 
 type EligibilityRow struct {

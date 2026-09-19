@@ -1,0 +1,3138 @@
+{
+  "buildCases": {
+    "disabled": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"DISABLED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "a7b582a2c76101be8797506449f0322fe557f8cd432a05e5af5034812af20a60"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "malformed-restore-raw": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID: json: error calling MarshalJSON for type json.RawMessage: unexpected end of JSON input",
+        "type": "*fmt.wrapErrors"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "json: error calling MarshalJSON for type json.RawMessage: unexpected end of JSON input",
+          "type": "*json.MarshalerError"
+        },
+        "json": "",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "missing-resource": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":null,\"TargetOptions\":{},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "5e177df1881351b3a4e9633099d3405576546d958d4f9c38cc56f2cb24abdb7c"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "netplay": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"NETPLAY\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":null,\"Netplay\":{\"playerNo\":1,\"profile\":{\"description\":\"\\u003c\\u0026\\u003e 游戏\",\"fps\":60},\"roomId\":\"fixture-room\",\"sessionId\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"socketUrl\":\"wss://retrom.example.test/socket\"}}",
+        "sha256": "3eb371a693e5b7dff47ddb2160652c7feed704cad7a1377644b3be2c641cd3c3"
+      },
+      "json": "{\"netplay\":{\"playerNo\":1,\"profile\":{\"description\":\"\\u003c\\u0026\\u003e 游戏\",\"fps\":60},\"roomId\":\"fixture-room\",\"sessionId\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"socketUrl\":\"wss://retrom.example.test/socket\"},\"resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"restore\":null,\"runtime\":{\"bundleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"capabilities\":{\"pause\":false,\"screenshot\":false,\"checkpoint\":true,\"standardGamepad\":false,\"frameCounter\":false,\"volume\":false,\"discSwitch\":false,\"nativeSettings\":false,\"inputFilter\":false,\"netplayPort\":true,\"videoModes\":[],\"requiresThreads\":false,\"frameMode\":\"NONE\"},\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024},\"moduleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"moduleUrl\":\"/runtime/providers/fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/client.mjs\",\"providerApiVersion\":1,\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"runtimeBaseUrl\":\"/runtime/providers/fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/\",\"targetId\":\"target\"},\"schemaVersion\":1,\"session\":{\"coreName\":\"Fixture Core\",\"id\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"mode\":\"NETPLAY\",\"platformName\":\"Fixture\",\"purpose\":\"PRODUCT\",\"returnTo\":\"/games/fixture\",\"title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"warnings\":[]},\"targetOptions\":{}}",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "a358308db405f30da02331e6f070175ffe9e5539b635cc33cca1d194e7454ce5"
+    },
+    "netplay-mode": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID: RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID",
+        "type": "*fmt.wrapErrors"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"NETPLAY\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "a8d47d810a706e5a70a6d7af52b71c377804af574a438acc96c20f7011626e31"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "nil-builder": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "3f784aeef1ff84d8e6a81e0902036cd5d37e2c03a4e75a5ec33df0f654eeef40"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "nil-options": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":null,\"Restore\":null,\"Netplay\":null}",
+        "sha256": "8e4b522ab5becdda8ca48254670449fb14076f7d6d5fa8c4e209640a70af3a29"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "resource-kind": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"FILE_TREE\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "e9c9d5242f9a2c435fb23180ff4cbb5572fd4d2c668fe8389e992a18a7fb7915"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "resource-shape": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID: RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID",
+        "type": "*fmt.wrapErrors"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":-1,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "19835b1c7b9297a3dd5d8e3dd5db9939d0c79090288c29a63f8413fefb8c8629"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "restore": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":{\"format\":\"fixture-state-v1\",\"sha256\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"sizeBytes\":3,\"url\":\"/runtime/checkpoints/fixture\"},\"Netplay\":null}",
+        "sha256": "b18e9d490569d7ebfc3dcedbed06071a333f846ea1640603e6f6bf6304278122"
+      },
+      "json": "{\"netplay\":null,\"resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"restore\":{\"format\":\"fixture-state-v1\",\"sha256\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"sizeBytes\":3,\"url\":\"/runtime/checkpoints/fixture\"},\"runtime\":{\"bundleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"capabilities\":{\"pause\":false,\"screenshot\":false,\"checkpoint\":true,\"standardGamepad\":false,\"frameCounter\":false,\"volume\":false,\"discSwitch\":false,\"nativeSettings\":false,\"inputFilter\":false,\"netplayPort\":true,\"videoModes\":[],\"requiresThreads\":false,\"frameMode\":\"NONE\"},\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024},\"moduleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"moduleUrl\":\"/runtime/providers/fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/client.mjs\",\"providerApiVersion\":1,\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"runtimeBaseUrl\":\"/runtime/providers/fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/\",\"targetId\":\"target\"},\"schemaVersion\":1,\"session\":{\"coreName\":\"Fixture Core\",\"id\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"mode\":\"SINGLE\",\"platformName\":\"Fixture\",\"purpose\":\"PRODUCT\",\"returnTo\":\"/games/fixture\",\"title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"warnings\":[]},\"targetOptions\":{}}",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "cc1c38b049c7fdeed8ae53f2c66fffae835162eebd4b248c4b231a7f06c2ecae"
+    },
+    "restore-invalid": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID: RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID",
+        "type": "*fmt.wrapErrors"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":{},\"Netplay\":null}",
+        "sha256": "35188195340336ea7ca09d5264884033fceeb25a5d20ea3d9d548ebc9126a17f"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "single-empty-warnings": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":[]},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "2a934cfab7d03c82ce55bf301e145161bfc295ea056acd5ae5d439120496a865"
+      },
+      "json": "{\"netplay\":null,\"resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"restore\":null,\"runtime\":{\"bundleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"capabilities\":{\"pause\":false,\"screenshot\":false,\"checkpoint\":true,\"standardGamepad\":false,\"frameCounter\":false,\"volume\":false,\"discSwitch\":false,\"nativeSettings\":false,\"inputFilter\":false,\"netplayPort\":true,\"videoModes\":[],\"requiresThreads\":false,\"frameMode\":\"NONE\"},\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024},\"moduleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"moduleUrl\":\"/runtime/providers/fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/client.mjs\",\"providerApiVersion\":1,\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"runtimeBaseUrl\":\"/runtime/providers/fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/\",\"targetId\":\"target\"},\"schemaVersion\":1,\"session\":{\"coreName\":\"Fixture Core\",\"id\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"mode\":\"SINGLE\",\"platformName\":\"Fixture\",\"purpose\":\"PRODUCT\",\"returnTo\":\"/games/fixture\",\"title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"warnings\":[]},\"targetOptions\":{}}",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "a0283198747bdfc75ebdb611e4a4948134bd3b2861529c605288543b8d89e905"
+    },
+    "single-nil-warnings": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "3f784aeef1ff84d8e6a81e0902036cd5d37e2c03a4e75a5ec33df0f654eeef40"
+      },
+      "json": "{\"netplay\":null,\"resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"restore\":null,\"runtime\":{\"bundleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"capabilities\":{\"pause\":false,\"screenshot\":false,\"checkpoint\":true,\"standardGamepad\":false,\"frameCounter\":false,\"volume\":false,\"discSwitch\":false,\"nativeSettings\":false,\"inputFilter\":false,\"netplayPort\":true,\"videoModes\":[],\"requiresThreads\":false,\"frameMode\":\"NONE\"},\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024},\"moduleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"moduleUrl\":\"/runtime/providers/fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/client.mjs\",\"providerApiVersion\":1,\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"runtimeBaseUrl\":\"/runtime/providers/fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/\",\"targetId\":\"target\"},\"schemaVersion\":1,\"session\":{\"coreName\":\"Fixture Core\",\"id\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"mode\":\"SINGLE\",\"platformName\":\"Fixture\",\"purpose\":\"PRODUCT\",\"returnTo\":\"/games/fixture\",\"title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"warnings\":[]},\"targetOptions\":{}}",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "a0283198747bdfc75ebdb611e4a4948134bd3b2861529c605288543b8d89e905"
+    },
+    "undeclared-options": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{\"unknown\":true},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "0caefe0a0d9349903edf5bcdf93e88984bd4fa65c4511ba5f3f8f79e5e47f230"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "unknown-target": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": true,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "input": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"fixture\",\"targetId\":\"unknown\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"SUPPORTED\"},\"Session\":{\"ID\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"Purpose\":\"PRODUCT\",\"Mode\":\"SINGLE\",\"Title\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"PlatformName\":\"Fixture\",\"CoreName\":\"Fixture Core\",\"ReturnTo\":\"/games/fixture\",\"Warnings\":null},\"Resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/content/game\"}],\"TargetOptions\":{},\"Restore\":null,\"Netplay\":null}",
+        "sha256": "ada4e00ecd7bf851785f7d8f9a7fb2fddb0ffd2a521b05a0cf657799f1c9b50e"
+      },
+      "json": "",
+      "parsedError": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "captureHead": "1979169aef892e29d110c89295be52e31b0cad55",
+  "nilReceiverInvalid": {
+    "error": {
+      "active": false,
+      "bareManifest": true,
+      "envelope": false,
+      "integrity": false,
+      "launch": false,
+      "manifest": true,
+      "optionsInvalid": false,
+      "optionsUnsupported": false,
+      "projection": false,
+      "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+      "type": "*errors.errorString"
+    }
+  },
+  "nilReceiverValid": {
+    "panic": "runtime error: invalid memory address or nil pointer dereference",
+    "panicType": "runtime.errorString"
+  },
+  "optionCases": {
+    "emulator-disc": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"dosEntryPath\":null,\"initialDiscIndex\":2}",
+        "sha256": "b98fc0f81cd59f47309e138f3a79d7f9a808a24cedc0244aa673cbabf897f53c"
+      }
+    },
+    "emulator-dos": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"dosEntryPath\":\"GAME.EXE\",\"initialDiscIndex\":null}",
+        "sha256": "db48b069be14969849fe6cc4194b5a9fd3df9ea69ffe42c3205a21c5ac5534f9"
+      }
+    },
+    "emulator-invalid-disc": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": true,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_OPTIONS_INPUT_INVALID",
+        "type": "*errors.errorString"
+      },
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      }
+    },
+    "emulator-single": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"dosEntryPath\":null,\"initialDiscIndex\":null}",
+        "sha256": "7f252bcc628cfde3ffb5ecee5d3f14b655a87c1351143039611dc2b4ba33b950"
+      }
+    },
+    "unknown-strategy": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": true,
+        "projection": false,
+        "text": "RUNTIME_OPTIONS_STRATEGY_UNSUPPORTED",
+        "type": "*errors.errorString"
+      },
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      }
+    }
+  },
+  "parserCases": {
+    "active/provider-api-two": {
+      "error": {
+        "active": true,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_ACTIVE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "source": "{\"schemaVersion\":1,\"source\":\"candidate\",\"sourceTreeSha256\":\"9999999999999999999999999999999999999999999999999999999999999999\",\"release\":null,\"providers\":[{\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"providerApiVersion\":2,\"bundleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bundleSizeBytes\":1,\"manifestSha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"moduleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"clientModulePath\":\"client.mjs\",\"installationPath\":\"fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileCount\":3,\"unpackedSizeBytes\":3,\"targets\":[{\"id\":\"target\",\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024}}]}]}",
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"schemaVersion\":0,\"source\":\"\",\"sourceTreeSha256\":null,\"release\":null,\"providers\":null}",
+        "sha256": "c896a421b4b5042ec37eb07d13a97fefbec7a8a11be7e5d2e79e308ae40487ef"
+      }
+    },
+    "active/valid": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "source": "{\"schemaVersion\":1,\"source\":\"candidate\",\"sourceTreeSha256\":\"9999999999999999999999999999999999999999999999999999999999999999\",\"release\":null,\"providers\":[{\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"providerApiVersion\":1,\"bundleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bundleSizeBytes\":1,\"manifestSha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"moduleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"clientModulePath\":\"client.mjs\",\"installationPath\":\"fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileCount\":3,\"unpackedSizeBytes\":3,\"targets\":[{\"id\":\"target\",\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024}}]}]}",
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"schemaVersion\":1,\"source\":\"candidate\",\"sourceTreeSha256\":\"9999999999999999999999999999999999999999999999999999999999999999\",\"release\":null,\"providers\":[{\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"providerApiVersion\":1,\"bundleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bundleSizeBytes\":1,\"manifestSha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"moduleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"clientModulePath\":\"client.mjs\",\"installationPath\":\"fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileCount\":3,\"unpackedSizeBytes\":3,\"targets\":[{\"id\":\"target\",\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024}}]}]}",
+        "sha256": "48f0e57d1c41c280b5d7730175bdeac73e87254a86ef6a9a38c5561669fa91cf"
+      }
+    },
+    "integrity/path-escape": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": true,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_INTEGRITY_INVALID",
+        "type": "*errors.errorString"
+      },
+      "source": "{\"schemaVersion\":1,\"files\":[{\"path\":\"assets/core.wasm\",\"sizeBytes\":4,\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"mediaType\":\"application/wasm\"},{\"path\":\"../client.mjs\",\"sizeBytes\":8,\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"mediaType\":\"text/javascript; charset=utf-8\"},{\"path\":\"provider.json\",\"sizeBytes\":2,\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"mediaType\":\"application/json; charset=utf-8\"}]}",
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"SchemaVersion\":0,\"Files\":null}",
+        "sha256": "7b24d13754449e0dc0d19b7dadc7ab58b40d49ea2d289013533c551c0131df0c"
+      }
+    },
+    "integrity/valid": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "source": "{\"schemaVersion\":1,\"files\":[{\"path\":\"assets/core.wasm\",\"sizeBytes\":4,\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"mediaType\":\"application/wasm\"},{\"path\":\"client.mjs\",\"sizeBytes\":8,\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"mediaType\":\"text/javascript; charset=utf-8\"},{\"path\":\"provider.json\",\"sizeBytes\":2,\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"mediaType\":\"application/json; charset=utf-8\"}]}",
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"SchemaVersion\":1,\"Files\":[{\"path\":\"assets/core.wasm\",\"sizeBytes\":4,\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},{\"path\":\"client.mjs\",\"sizeBytes\":8,\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},{\"path\":\"provider.json\",\"sizeBytes\":2,\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"}]}",
+        "sha256": "0a777e436e03dd19928041e77fb54dabce58fe70e80ae1d64d52cd862dee97f0"
+      }
+    },
+    "integrity/wrong-media": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": true,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_INTEGRITY_INVALID",
+        "type": "*errors.errorString"
+      },
+      "source": "{\"schemaVersion\":1,\"files\":[{\"path\":\"assets/core.wasm\",\"sizeBytes\":4,\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"mediaType\":\"video/mp4\"},{\"path\":\"client.mjs\",\"sizeBytes\":8,\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"mediaType\":\"text/javascript; charset=utf-8\"},{\"path\":\"provider.json\",\"sizeBytes\":2,\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"mediaType\":\"application/json; charset=utf-8\"}]}",
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"SchemaVersion\":0,\"Files\":null}",
+        "sha256": "7b24d13754449e0dc0d19b7dadc7ab58b40d49ea2d289013533c551c0131df0c"
+      }
+    },
+    "manifest/missing-volume": {
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "source": "{\n  \"schemaVersion\":1,\n  \"providerId\":\"fixture\",\n  \"providerVersion\":\"1.0.0\",\n  \"providerApiVersion\":1,\n  \"clientModulePath\":\"client.mjs\",\n  \"targets\":[{\n    \"id\":\"core\",\n    \"displayName\":\"Core\",\n    \"targetOptionsSchema\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{},\"required\":[]},\n    \"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\n    \"capabilities\":{\"pause\":true,\"screenshot\":true,\"checkpoint\":false,\"standardGamepad\":true,\"frameCounter\":false,\"discSwitch\":false,\"nativeSettings\":true,\"inputFilter\":true,\"netplayPort\":false,\"videoModes\":[\"original\",\"pixel\"],\"requiresThreads\":false,\"frameMode\":\"SAME_ORIGIN_BLANK\"},\n    \"checkpoint\":null,\n    \"assetPaths\":[\"assets/core.wasm\"]\n  }]\n}",
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"SchemaVersion\":0,\"ProviderID\":\"\",\"ProviderVersion\":\"\",\"ProviderAPI\":0,\"ClientModulePath\":\"\",\"Targets\":null}",
+        "sha256": "a096506576da6228191d9e681565a05fe97ef589ada696d119ba7941b9e6679a"
+      }
+    },
+    "manifest/provider-api-two": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "source": "{\n  \"schemaVersion\":1,\n  \"providerId\":\"fixture\",\n  \"providerVersion\":\"1.0.0\",\n  \"providerApiVersion\":2,\n  \"clientModulePath\":\"client.mjs\",\n  \"targets\":[{\n    \"id\":\"core\",\n    \"displayName\":\"Core\",\n    \"targetOptionsSchema\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{},\"required\":[]},\n    \"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\n    \"capabilities\":{\"pause\":true,\"screenshot\":true,\"checkpoint\":false,\"standardGamepad\":true,\"frameCounter\":false,\"volume\":true,\"discSwitch\":false,\"nativeSettings\":true,\"inputFilter\":true,\"netplayPort\":false,\"videoModes\":[\"original\",\"pixel\"],\"requiresThreads\":false,\"frameMode\":\"SAME_ORIGIN_BLANK\"},\n    \"checkpoint\":null,\n    \"assetPaths\":[\"assets/core.wasm\"]\n  }]\n}",
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"SchemaVersion\":1,\"ProviderID\":\"fixture\",\"ProviderVersion\":\"1.0.0\",\"ProviderAPI\":2,\"ClientModulePath\":\"client.mjs\",\"Targets\":[{\"id\":\"core\",\"displayName\":\"Core\",\"targetOptionsSchema\":{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"},\"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\"capabilities\":{\"pause\":true,\"screenshot\":true,\"checkpoint\":false,\"standardGamepad\":true,\"frameCounter\":false,\"volume\":true,\"discSwitch\":false,\"nativeSettings\":true,\"inputFilter\":true,\"netplayPort\":false,\"videoModes\":[\"original\",\"pixel\"],\"requiresThreads\":false,\"frameMode\":\"SAME_ORIGIN_BLANK\"},\"checkpoint\":null,\"assetPaths\":[\"assets/core.wasm\"]}]}",
+        "sha256": "18306c4f955619adbdedd8485ad0a00ab3542449d43642b938ca305849bd164d"
+      }
+    },
+    "manifest/unknown": {
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "source": "{\n  \"schemaVersion\":1,\"adapterId\":\"leaked\",\n  \"providerId\":\"fixture\",\n  \"providerVersion\":\"1.0.0\",\n  \"providerApiVersion\":1,\n  \"clientModulePath\":\"client.mjs\",\n  \"targets\":[{\n    \"id\":\"core\",\n    \"displayName\":\"Core\",\n    \"targetOptionsSchema\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{},\"required\":[]},\n    \"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\n    \"capabilities\":{\"pause\":true,\"screenshot\":true,\"checkpoint\":false,\"standardGamepad\":true,\"frameCounter\":false,\"volume\":true,\"discSwitch\":false,\"nativeSettings\":true,\"inputFilter\":true,\"netplayPort\":false,\"videoModes\":[\"original\",\"pixel\"],\"requiresThreads\":false,\"frameMode\":\"SAME_ORIGIN_BLANK\"},\n    \"checkpoint\":null,\n    \"assetPaths\":[\"assets/core.wasm\"]\n  }]\n}",
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"SchemaVersion\":0,\"ProviderID\":\"\",\"ProviderVersion\":\"\",\"ProviderAPI\":0,\"ClientModulePath\":\"\",\"Targets\":null}",
+        "sha256": "a096506576da6228191d9e681565a05fe97ef589ada696d119ba7941b9e6679a"
+      }
+    },
+    "manifest/valid": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "source": "{\n  \"schemaVersion\":1,\n  \"providerId\":\"fixture\",\n  \"providerVersion\":\"1.0.0\",\n  \"providerApiVersion\":1,\n  \"clientModulePath\":\"client.mjs\",\n  \"targets\":[{\n    \"id\":\"core\",\n    \"displayName\":\"Core\",\n    \"targetOptionsSchema\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{},\"required\":[]},\n    \"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\n    \"capabilities\":{\"pause\":true,\"screenshot\":true,\"checkpoint\":false,\"standardGamepad\":true,\"frameCounter\":false,\"volume\":true,\"discSwitch\":false,\"nativeSettings\":true,\"inputFilter\":true,\"netplayPort\":false,\"videoModes\":[\"original\",\"pixel\"],\"requiresThreads\":false,\"frameMode\":\"SAME_ORIGIN_BLANK\"},\n    \"checkpoint\":null,\n    \"assetPaths\":[\"assets/core.wasm\"]\n  }]\n}",
+      "value": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"SchemaVersion\":1,\"ProviderID\":\"fixture\",\"ProviderVersion\":\"1.0.0\",\"ProviderAPI\":1,\"ClientModulePath\":\"client.mjs\",\"Targets\":[{\"id\":\"core\",\"displayName\":\"Core\",\"targetOptionsSchema\":{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"},\"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\"capabilities\":{\"pause\":true,\"screenshot\":true,\"checkpoint\":false,\"standardGamepad\":true,\"frameCounter\":false,\"volume\":true,\"discSwitch\":false,\"nativeSettings\":true,\"inputFilter\":true,\"netplayPort\":false,\"videoModes\":[\"original\",\"pixel\"],\"requiresThreads\":false,\"frameMode\":\"SAME_ORIGIN_BLANK\"},\"checkpoint\":null,\"assetPaths\":[\"assets/core.wasm\"]}]}",
+        "sha256": "e2d0d3514d397e0b0f94fdb0aa5bc5d5001bb3976e7c6b5e4e80239302e38d7b"
+      }
+    }
+  },
+  "publicLaunchFixtures": {
+    "invalid/checkpoint-missing-read-formats.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "86a7e98362b5d92258b54a83d394f672b662791d8d77913514dd57190077c921"
+    },
+    "invalid/checkpoint-null-semantics.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "54ce2e6effebaeb2d8e55552c5bbfe56f104170c8532819b77d4946c73539066"
+    },
+    "invalid/duplicate-field.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID: invalid strict JSON",
+        "type": "*fmt.wrapErrors"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "961e43df90523624b8b2efc0e82b4346a6f7b9b2e27c121b7f590855c8673047"
+    },
+    "invalid/exponent-json-input.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID: invalid strict JSON",
+        "type": "*fmt.wrapErrors"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "9747ee03cac96e4479de1d722293a5a77263c408883832d8696549dcb3706836"
+    },
+    "invalid/float-json-input.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID: invalid strict JSON",
+        "type": "*fmt.wrapErrors"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "a7cb2a4ec96d4ad30610eec07144b2a55abf424890f8b1b1e95ffd725a2057b6"
+    },
+    "invalid/invalid-unicode.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID: invalid strict JSON",
+        "type": "*fmt.wrapErrors"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "7f7699fc0c54458d10c5bd764ddc691f18ca86e17b2682d16a1f869eebefc5ac"
+    },
+    "invalid/missing-capability.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "761568510b617edfba6f0b56d49dde9ebe10a45dd9fd582a29e49e76059f0596"
+    },
+    "invalid/netplay-mode-mismatch.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "3c92114bfa9ed8711ed09d91e0b2666a9d49702936ed0aaa7b1d313823b21c6a"
+    },
+    "invalid/netplay-resource.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "3f7ddb4e3d4ab6b7f1277646efc9c33b83aa7601f01247af097bccb2e51dad6f"
+    },
+    "invalid/unknown-top-level.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID",
+        "type": "*errors.errorString"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "79b26732271d1fa462cf9b0a7606f26fe41d833f11f0d6fd405f7d670ab50807"
+    },
+    "invalid/unsafe-integer-json-input.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": true,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_LAUNCH_ENVELOPE_INVALID: invalid strict JSON",
+        "type": "*fmt.wrapErrors"
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "null",
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      "sourceSHA256": "9ca02fb6bde4fe853bb1458df6057ecc0dd937762a75cf4eaba46a2e2f7667f4"
+    },
+    "valid/checkpoint-restore.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"netplay\":null,\"resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"sizeBytes\":3,\"url\":\"/runtime/session/content/game\"}],\"restore\":{\"format\":\"fixture-state-v1\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/session/restore\"},\"runtime\":{\"bundleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"capabilities\":{\"checkpoint\":true,\"discSwitch\":false,\"frameCounter\":true,\"frameMode\":\"SAME_ORIGIN_BLANK\",\"inputFilter\":true,\"nativeSettings\":true,\"netplayPort\":false,\"pause\":true,\"requiresThreads\":false,\"screenshot\":true,\"standardGamepad\":true,\"videoModes\":[\"original\",\"pixel\"],\"volume\":true},\"checkpoint\":{\"maxBytes\":9007199254740991,\"readFormats\":[\"fixture-state-v1\",\"legacy-state-v1\"],\"writeFormat\":\"fixture-state-v1\"},\"moduleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"moduleUrl\":\"/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/client.mjs\",\"providerApiVersion\":1,\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"runtimeBaseUrl\":\"/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/\",\"targetId\":\"fixture\"},\"schemaVersion\":1,\"session\":{\"coreName\":\"Fixture Core\",\"id\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"mode\":\"SINGLE\",\"platformName\":\"Fixture\",\"purpose\":\"REVIEW_PREVIEW\",\"returnTo\":\"/review/fixture\",\"title\":\"Checkpoint fixture\",\"warnings\":[\"fixture warning\"]},\"targetOptions\":{\"array\":[null,true,9007199254740991],\"bmp\":\"运行时\",\"pair\":\"🚀\"}}",
+        "sha256": "ac8247534d60d7b2666dbdfee4c8708aa32672ce37d30f9efa35d6291282a248"
+      },
+      "sourceSHA256": "ef5c1c3ac7ac7a92e717b380022d26c03670565a236bef179e7d3f5ebd9ce77b"
+    },
+    "valid/game-save-restore.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"netplay\":null,\"resources\":[{\"kind\":\"ROM_BLOB\",\"ordinal\":0,\"rangeRequired\":false,\"role\":\"game\",\"sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"sizeBytes\":3,\"url\":\"/runtime/session/content/game\"}],\"restore\":{\"format\":\"fixture-state-v1\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"sizeBytes\":3,\"url\":\"/runtime/session/restore\"},\"runtime\":{\"bundleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"capabilities\":{\"checkpoint\":true,\"discSwitch\":false,\"frameCounter\":true,\"frameMode\":\"SAME_ORIGIN_BLANK\",\"inputFilter\":true,\"nativeSettings\":true,\"netplayPort\":false,\"pause\":true,\"requiresThreads\":false,\"screenshot\":true,\"standardGamepad\":true,\"videoModes\":[\"original\",\"pixel\"],\"volume\":true},\"checkpoint\":{\"maxBytes\":9007199254740991,\"readFormats\":[\"fixture-state-v1\",\"legacy-state-v1\"],\"semantics\":\"GAME_SAVE\",\"writeFormat\":\"fixture-state-v1\"},\"moduleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"moduleUrl\":\"/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/client.mjs\",\"providerApiVersion\":1,\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"runtimeBaseUrl\":\"/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/\",\"targetId\":\"fixture\"},\"schemaVersion\":1,\"session\":{\"coreName\":\"Fixture Core\",\"id\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"mode\":\"SINGLE\",\"platformName\":\"Fixture\",\"purpose\":\"REVIEW_PREVIEW\",\"returnTo\":\"/review/fixture\",\"title\":\"Checkpoint fixture\",\"warnings\":[\"fixture warning\"]},\"targetOptions\":{\"array\":[null,true,9007199254740991],\"bmp\":\"运行时\",\"pair\":\"🚀\"}}",
+        "sha256": "db32bf64fc76d2caec5da82263699bc66fbe3b8b5b2b96f4662cdbd36aa296ae"
+      },
+      "sourceSHA256": "6f0c7384043c567976cb7e51446b28db0ec736bce089285006b2e7f10d7fb970"
+    },
+    "valid/netplay.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"netplay\":{\"playerNo\":1,\"profile\":{\"bundleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"canonicalHistoryFrames\":600,\"checkpointEveryFrames\":120,\"controlCount\":24,\"coreId\":\"fixture_core\",\"dependencySnapshotDigest\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"maxPlayers\":4,\"maxPredictionFrames\":8,\"maxRollbackFrames\":120,\"maxStateBytes\":1048576,\"platformIds\":[\"fixture\"],\"profileId\":\"fixture-profile\",\"protocolVersion\":\"retrom-netplay-v2\",\"providerId\":\"fixture\",\"schemaVersion\":2,\"sourceManifestDigest\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"targetId\":\"fixture\"},\"roomId\":\"fixture-room\",\"sessionId\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c4\",\"socketUrl\":\"wss://runtime.example.test/netplay\"},\"resources\":[],\"restore\":null,\"runtime\":{\"bundleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"capabilities\":{\"checkpoint\":true,\"discSwitch\":false,\"frameCounter\":true,\"frameMode\":\"SAME_ORIGIN_BLANK\",\"inputFilter\":true,\"nativeSettings\":true,\"netplayPort\":true,\"pause\":true,\"requiresThreads\":false,\"screenshot\":true,\"standardGamepad\":true,\"videoModes\":[\"original\"],\"volume\":true},\"checkpoint\":{\"maxBytes\":1024,\"readFormats\":[\"fixture-state-v1\"],\"writeFormat\":\"fixture-state-v1\"},\"moduleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"moduleUrl\":\"/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/client.mjs\",\"providerApiVersion\":1,\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"runtimeBaseUrl\":\"/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/\",\"targetId\":\"fixture\"},\"schemaVersion\":1,\"session\":{\"coreName\":\"Fixture Core\",\"id\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"mode\":\"NETPLAY\",\"platformName\":\"Fixture\",\"purpose\":\"PRODUCT\",\"returnTo\":\"/games/fixture\",\"title\":\"Netplay fixture\",\"warnings\":[]},\"targetOptions\":{}}",
+        "sha256": "1c692d5e56bda39881b77926e58d615efe3565c4e7e154daecdef01bfccc420a"
+      },
+      "sourceSHA256": "23c9d1bd3b331f1f0618833d7835a913ab8d509a288864523eee944e483b9874"
+    },
+    "valid/single-minimal.json": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "parsed": {
+        "error": {
+          "active": false,
+          "bareManifest": false,
+          "envelope": false,
+          "integrity": false,
+          "launch": false,
+          "manifest": false,
+          "optionsInvalid": false,
+          "optionsUnsupported": false,
+          "projection": false,
+          "text": "",
+          "type": ""
+        },
+        "json": "{\"netplay\":null,\"resources\":[],\"restore\":null,\"runtime\":{\"bundleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"capabilities\":{\"checkpoint\":false,\"discSwitch\":false,\"frameCounter\":false,\"frameMode\":\"NONE\",\"inputFilter\":false,\"nativeSettings\":false,\"netplayPort\":false,\"pause\":false,\"requiresThreads\":false,\"screenshot\":false,\"standardGamepad\":false,\"videoModes\":[],\"volume\":false},\"checkpoint\":null,\"moduleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"moduleUrl\":\"/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/client.mjs\",\"providerApiVersion\":1,\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"runtimeBaseUrl\":\"/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/\",\"targetId\":\"fixture\"},\"schemaVersion\":1,\"session\":{\"coreName\":\"Fixture Core\",\"id\":\"018f0f31-26fe-7a31-9d61-4ec92f16d4c3\",\"mode\":\"SINGLE\",\"platformName\":\"Fixture\",\"purpose\":\"PRODUCT\",\"returnTo\":\"/\",\"title\":\"运行时🚀\",\"warnings\":[]},\"targetOptions\":{}}",
+        "sha256": "bcba7f5d588583882f27382d327fa4085bc78c2e9a8f23cb576307b738db4985"
+      },
+      "sourceSHA256": "d8545796136fc091ca9bc7aa7034c5eacb9ab66b0e945811f61c03db31a478f4"
+    }
+  },
+  "purpose": "Actual pre-move Go outputs for Provider12/Launch2 closed-value migration; source values and algorithms are the current old implementation.",
+  "schemaCases": {
+    "decimal-whole/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a312e307d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "decimal-whole/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a312e307d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "duplicate-nested/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a312c226d696e696d756d223a327d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "duplicate-nested/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a312c226d696e696d756d223a327d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "duplicate-root/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b7d2c227265717569726564223a5b5d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "duplicate-root/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b7d2c227265717569726564223a5b5d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "empty-map/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "empty-map/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "empty-object-schema/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b7d2c227265717569726564223a5b5d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "empty-object-schema/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b7d2c227265717569726564223a5b5d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "exponent/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a3165307d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "exponent/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a3165307d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "fraction/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a312e357d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "fraction/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a312e357d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "high-surrogate/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c225c7564383030225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "high-surrogate/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c225c7564383030225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "invalid-utf8/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c22ff225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "invalid-utf8/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c22ff225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "leading-zero/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a30317d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "leading-zero/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "invalid character '1' after object key:value pair",
+        "type": "*json.SyntaxError"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a30317d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "low-surrogate/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c225c7564633030225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "low-surrogate/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c225c7564633030225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "max-safe/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"n\":{\"minimum\":9007199254740991,\"type\":\"integer\"}},\"required\":[\"n\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a393030373139393235343734303939317d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {
+        "schema.properties.n.minimum": "int64"
+      },
+      "receiverUnchanged": false
+    },
+    "max-safe/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"n\":{\"minimum\":9007199254740991,\"type\":\"integer\"}},\"required\":[\"n\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a393030373139393235343734303939317d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {
+        "schema.properties.n.minimum": "int64"
+      },
+      "receiverUnchanged": false
+    },
+    "min-safe/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"n\":{\"minimum\":-9007199254740991,\"type\":\"integer\"}},\"required\":[\"n\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a2d393030373139393235343734303939317d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {
+        "schema.properties.n.minimum": "int64"
+      },
+      "receiverUnchanged": false
+    },
+    "min-safe/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"n\":{\"minimum\":-9007199254740991,\"type\":\"integer\"}},\"required\":[\"n\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a2d393030373139393235343734303939317d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {
+        "schema.properties.n.minimum": "int64"
+      },
+      "receiverUnchanged": false
+    },
+    "negative-zero/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"n\":{\"minimum\":0,\"type\":\"integer\"}},\"required\":[\"n\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a2d307d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {
+        "schema.properties.n.minimum": "int64"
+      },
+      "receiverUnchanged": false
+    },
+    "negative-zero/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"n\":{\"minimum\":0,\"type\":\"integer\"}},\"required\":[\"n\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a2d307d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {
+        "schema.properties.n.minimum": "int64"
+      },
+      "receiverUnchanged": false
+    },
+    "null/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "6e756c6c",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "null/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "6e756c6c",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "root-array/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "5b5d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "root-array/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "5b5d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "surrogate-pair/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"choice\":{\"enum\":[\"\\u003c\\u0026\\u003e\",\"\\u2028\",\"💾\"],\"type\":\"string\"}},\"required\":[\"choice\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c225c75643833645c7564636265225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": false
+    },
+    "surrogate-pair/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"choice\":{\"enum\":[\"\\u003c\\u0026\\u003e\",\"\\u2028\",\"💾\"],\"type\":\"string\"}},\"required\":[\"choice\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c225c75643833645c7564636265225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": false
+    },
+    "trailing/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b7d2c227265717569726564223a5b5d7d207b7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "trailing/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "invalid character '{' after top-level value",
+        "type": "*json.SyntaxError"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b7d2c227265717569726564223a5b5d7d207b7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "unicode-and-escaping/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"choice\":{\"enum\":[\"\\u003c\\u0026\\u003e\",\"\\u2028\",\"💾\"],\"type\":\"string\"}},\"required\":[\"choice\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c22f09f92be225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": false
+    },
+    "unicode-and-escaping/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{\"choice\":{\"enum\":[\"\\u003c\\u0026\\u003e\",\"\\u2028\",\"💾\"],\"type\":\"string\"}},\"required\":[\"choice\"],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b2263686f696365223a7b2274797065223a22737472696e67222c22656e756d223a5b223c263e222c225c7532303238222c22f09f92be225d7d7d2c227265717569726564223a5b2263686f696365225d7d",
+      "numbers": {},
+      "receiverUnchanged": false
+    },
+    "unknown-key/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c22756e6b6e6f776e223a747275652c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b7d2c227265717569726564223a5b5d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "unknown-key/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c22756e6b6e6f776e223a747275652c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b7d2c227265717569726564223a5b5d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "unsafe-negative/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a2d393030373139393235343734303939327d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "unsafe-negative/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a2d393030373139393235343734303939327d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "unsafe-positive/direct": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a393030373139393235343734303939327d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    },
+    "unsafe-positive/encoding-json": {
+      "after": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "before": "{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"}",
+      "error": {
+        "active": false,
+        "bareManifest": true,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": true,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "RUNTIME_PROVIDER_MANIFEST_INVALID",
+        "type": "*errors.errorString"
+      },
+      "inputHex": "7b2274797065223a226f626a656374222c226164646974696f6e616c50726f70657274696573223a66616c73652c2270726f70657274696573223a7b226e223a7b2274797065223a22696e7465676572222c226d696e696d756d223a393030373139393235343734303939327d7d2c227265717569726564223a5b226e225d7d",
+      "numbers": {},
+      "receiverUnchanged": true
+    }
+  },
+  "sourceFilesSHA256": {
+    "internal/capability/runtime/runtimebundle/active.go": "27f1da4fda64dd13a0e58f83b099a1fd50f497d2dd84590d2ac7ddbe13b76c1b",
+    "internal/capability/runtime/runtimebundle/launch.go": "1a45115e19749b96e1a478400ed53b0e21b45e804bf7c9d8480cdb40000dabb9",
+    "internal/capability/runtime/runtimebundle/manifest.go": "6f64218be05e0da65279605757e52c536a38d22cee5c2bea089e026f00491eb6",
+    "internal/capability/runtime/runtimebundle/target_options.go": "6dae761c6f86e96c4ed0776d58606d6e93474be09ac9474ea40e8359db54fec7",
+    "internal/capability/runtime/runtimelaunch/builder.go": "137ef4513df29b66343ca82d22bc725a380c8fef1583300798efcb8ccea90f72",
+    "internal/capability/runtime/runtimeoptions/options.go": "23d71696e553b56240468174b405133fae96ed9b717024009098cfdae1665d60",
+    "internal/model/runtimeprovider/options.go": "2bb9e078fb0286952572dd6e71225f1472c283397dcf9cfcee541d7c24a272c1",
+    "internal/model/runtimeprovider/projection.go": "7dee6c3c773504be4b5f8c8c6115797ed6eebdf81d14153db50a581b043e5cd7"
+  },
+  "values": {
+    "checkpoint/GAME_SAVE": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024,\"semantics\":\"GAME_SAVE\"}",
+      "sha256": "9682367b5a7099048a2b02f1bf393dd17b2c6c285e95acb5ab867623155119ad"
+    },
+    "checkpoint/INSTANT": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024,\"semantics\":\"INSTANT\"}",
+      "sha256": "b9c6a6397325a362c7a7f16fef99a6ad81ae69ac4a05ef9c87422a2651c3cdcb"
+    },
+    "checkpoint/empty-semantics": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024}",
+      "sha256": "d8974ae4f9005d8f2e2a271367406d0880d232844a441fd2ba56c15214f712a4"
+    },
+    "empty/launch-input": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"\",\"targetId\":\"\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"\"},\"Session\":{\"ID\":\"\",\"Purpose\":\"\",\"Mode\":\"\",\"Title\":\"\",\"PlatformName\":\"\",\"CoreName\":\"\",\"ReturnTo\":\"\",\"Warnings\":[]},\"Resources\":[],\"TargetOptions\":{},\"Restore\":{},\"Netplay\":{}}",
+      "sha256": "5181173579d74a24ec176211f702760f6d0dbc4b28dbf80d26533dd4e424b54a"
+    },
+    "empty/target-options-schema": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{}",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    "integrity-file/media-omitted": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"path\":\"file\",\"sizeBytes\":7,\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"}",
+      "sha256": "3005b8cf64c5d384623b3c81dd473e9969473e1f78c7c3c79c7793390297e6fc"
+    },
+    "integrity/sample": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"SchemaVersion\":1,\"Files\":[{\"path\":\"client.mjs\",\"sizeBytes\":7,\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"}]}",
+      "sha256": "62429eeda060f0239535fe0f041a92ed2eefa832a2f173d21dfa06f11ef2e6b6"
+    },
+    "parsed/bound-manifest": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"SchemaVersion\":1,\"ProviderID\":\"fixture\",\"ProviderVersion\":\"1.0.0\",\"ProviderAPI\":1,\"ClientModulePath\":\"client.mjs\",\"Targets\":[{\"id\":\"core\",\"displayName\":\"Core\",\"targetOptionsSchema\":{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"},\"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\"capabilities\":{\"pause\":true,\"screenshot\":true,\"checkpoint\":false,\"standardGamepad\":true,\"frameCounter\":false,\"volume\":true,\"discSwitch\":false,\"nativeSettings\":true,\"inputFilter\":true,\"netplayPort\":false,\"videoModes\":[\"original\",\"pixel\"],\"requiresThreads\":false,\"frameMode\":\"SAME_ORIGIN_BLANK\"},\"checkpoint\":null,\"assetPaths\":[\"assets/core.wasm\"]}]}",
+      "sha256": "e2d0d3514d397e0b0f94fdb0aa5bc5d5001bb3976e7c6b5e4e80239302e38d7b"
+    },
+    "parsed/manifest": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"SchemaVersion\":1,\"ProviderID\":\"fixture\",\"ProviderVersion\":\"1.0.0\",\"ProviderAPI\":1,\"ClientModulePath\":\"client.mjs\",\"Targets\":[{\"id\":\"core\",\"displayName\":\"Core\",\"targetOptionsSchema\":{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"},\"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\"capabilities\":{\"pause\":true,\"screenshot\":true,\"checkpoint\":false,\"standardGamepad\":true,\"frameCounter\":false,\"volume\":true,\"discSwitch\":false,\"nativeSettings\":true,\"inputFilter\":true,\"netplayPort\":false,\"videoModes\":[\"original\",\"pixel\"],\"requiresThreads\":false,\"frameMode\":\"SAME_ORIGIN_BLANK\"},\"checkpoint\":null,\"assetPaths\":[\"assets/core.wasm\"]}]}",
+      "sha256": "e2d0d3514d397e0b0f94fdb0aa5bc5d5001bb3976e7c6b5e4e80239302e38d7b"
+    },
+    "populated/active": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"schemaVersion\":1,\"source\":\"candidate\",\"sourceTreeSha256\":\"9999999999999999999999999999999999999999999999999999999999999999\",\"release\":null,\"providers\":[{\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"providerApiVersion\":1,\"bundleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bundleSizeBytes\":1,\"manifestSha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"moduleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"clientModulePath\":\"client.mjs\",\"installationPath\":\"fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileCount\":3,\"unpackedSizeBytes\":3,\"targets\":[{\"id\":\"target\",\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024}}]}]}",
+      "sha256": "48f0e57d1c41c280b5d7730175bdeac73e87254a86ef6a9a38c5561669fa91cf"
+    },
+    "populated/manifest": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"SchemaVersion\":1,\"ProviderID\":\"fixture\",\"ProviderVersion\":\"1.0.0\",\"ProviderAPI\":1,\"ClientModulePath\":\"client.mjs\",\"Targets\":[{\"id\":\"target\",\"displayName\":\"Fixture\",\"targetOptionsSchema\":{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"},\"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\"capabilities\":{\"pause\":false,\"screenshot\":false,\"checkpoint\":true,\"standardGamepad\":false,\"frameCounter\":false,\"volume\":false,\"discSwitch\":false,\"nativeSettings\":false,\"inputFilter\":false,\"netplayPort\":true,\"videoModes\":[],\"requiresThreads\":false,\"frameMode\":\"NONE\"},\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024},\"assetPaths\":[\"client.mjs\"]}]}",
+      "sha256": "a1a491fe7b573bf6ab29ba25facc7b3ba947ffc0cd233d222dd82704554d50c6"
+    },
+    "populated/target": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"id\":\"target\",\"displayName\":\"Fixture\",\"targetOptionsSchema\":{\"additionalProperties\":false,\"properties\":{},\"required\":[],\"type\":\"object\"},\"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\"capabilities\":{\"pause\":false,\"screenshot\":false,\"checkpoint\":true,\"standardGamepad\":false,\"frameCounter\":false,\"volume\":false,\"discSwitch\":false,\"nativeSettings\":false,\"inputFilter\":false,\"netplayPort\":true,\"videoModes\":[],\"requiresThreads\":false,\"frameMode\":\"NONE\"},\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024},\"assetPaths\":[\"client.mjs\"]}",
+      "sha256": "40a9ba4dddac13416f5b19a3fff8ce13f409f8a1a2754a006ca5075893f41c11"
+    },
+    "projection/complete": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"Providers\":[{\"Active\":{\"providerId\":\"fixture\",\"providerVersion\":\"1.0.0\",\"providerApiVersion\":1,\"bundleSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bundleSizeBytes\":1,\"manifestSha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"moduleSha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"clientModulePath\":\"client.mjs\",\"installationPath\":\"fixture/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileCount\":3,\"unpackedSizeBytes\":3,\"targets\":[{\"id\":\"target\",\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024}}]},\"Source\":\"candidate\",\"Release\":null,\"Targets\":[{\"Target\":{\"id\":\"target\",\"displayName\":\"Fixture\",\"targetOptionsSchema\":{\"additionalProperties\":false,\"properties\":{\"dosEntryPath\":{\"type\":[\"string\",\"null\"]},\"initialDiscIndex\":{\"minimum\":0,\"type\":[\"integer\",\"null\"]}},\"required\":[\"dosEntryPath\",\"initialDiscIndex\"],\"type\":\"object\"},\"inputs\":[{\"role\":\"game\",\"kind\":\"ROM_BLOB\",\"cardinality\":\"ONE\",\"optional\":false}],\"capabilities\":{\"pause\":false,\"screenshot\":false,\"checkpoint\":true,\"standardGamepad\":false,\"frameCounter\":false,\"volume\":false,\"discSwitch\":false,\"nativeSettings\":false,\"inputFilter\":false,\"netplayPort\":true,\"videoModes\":[],\"requiresThreads\":false,\"frameMode\":\"NONE\"},\"checkpoint\":{\"writeFormat\":\"fixture-state-v1\",\"readFormats\":[\"fixture-state-v1\"],\"maxBytes\":1024},\"assetPaths\":[\"client.mjs\"]},\"CapabilitiesJSON\":\"{\\\"pause\\\":false,\\\"screenshot\\\":false,\\\"checkpoint\\\":true,\\\"standardGamepad\\\":false,\\\"frameCounter\\\":false,\\\"volume\\\":false,\\\"discSwitch\\\":false,\\\"nativeSettings\\\":false,\\\"inputFilter\\\":false,\\\"netplayPort\\\":true,\\\"videoModes\\\":[],\\\"requiresThreads\\\":false,\\\"frameMode\\\":\\\"NONE\\\"}\",\"CheckpointJSON\":\"{\\\"writeFormat\\\":\\\"fixture-state-v1\\\",\\\"readFormats\\\":[\\\"fixture-state-v1\\\"],\\\"maxBytes\\\":1024}\",\"TargetOptionsJSON\":\"{\\\"additionalProperties\\\":false,\\\"properties\\\":{\\\"dosEntryPath\\\":{\\\"type\\\":[\\\"string\\\",\\\"null\\\"]},\\\"initialDiscIndex\\\":{\\\"minimum\\\":0,\\\"type\\\":[\\\"integer\\\",\\\"null\\\"]}},\\\"required\\\":[\\\"dosEntryPath\\\",\\\"initialDiscIndex\\\"],\\\"type\\\":\\\"object\\\"}\",\"ManifestFragment\":\"{\\\"id\\\":\\\"target\\\",\\\"displayName\\\":\\\"Fixture\\\",\\\"targetOptionsSchema\\\":{\\\"additionalProperties\\\":false,\\\"properties\\\":{\\\"dosEntryPath\\\":{\\\"type\\\":[\\\"string\\\",\\\"null\\\"]},\\\"initialDiscIndex\\\":{\\\"minimum\\\":0,\\\"type\\\":[\\\"integer\\\",\\\"null\\\"]}},\\\"required\\\":[\\\"dosEntryPath\\\",\\\"initialDiscIndex\\\"],\\\"type\\\":\\\"object\\\"},\\\"inputs\\\":[{\\\"role\\\":\\\"game\\\",\\\"kind\\\":\\\"ROM_BLOB\\\",\\\"cardinality\\\":\\\"ONE\\\",\\\"optional\\\":false}],\\\"capabilities\\\":{\\\"pause\\\":false,\\\"screenshot\\\":false,\\\"checkpoint\\\":true,\\\"standardGamepad\\\":false,\\\"frameCounter\\\":false,\\\"volume\\\":false,\\\"discSwitch\\\":false,\\\"nativeSettings\\\":false,\\\"inputFilter\\\":false,\\\"netplayPort\\\":true,\\\"videoModes\\\":[],\\\"requiresThreads\\\":false,\\\"frameMode\\\":\\\"NONE\\\"},\\\"checkpoint\\\":{\\\"writeFormat\\\":\\\"fixture-state-v1\\\",\\\"readFormats\\\":[\\\"fixture-state-v1\\\"],\\\"maxBytes\\\":1024},\\\"assetPaths\\\":[\\\"client.mjs\\\"]}\"}]}],\"Bindings\":[{\"id\":\"fixture-target\",\"coreId\":\"gambatte\",\"providerId\":\"fixture\",\"targetId\":\"target\",\"platformIds\":[\"gbc\"],\"acceptedContentKinds\":[\"SINGLE_FILE\"],\"detectorProfile\":\"EMULATORJS_SINGLE_FILE\",\"launchPolicy\":\"SUPPORTED\"}],\"Definitions\":{\"platforms\":[{\"id\":\"gbc\",\"name\":\"Game Boy / Color\",\"sortOrder\":40,\"enabled\":true}],\"cores\":[{\"id\":\"gambatte\",\"name\":\"Gambatte\",\"enabled\":true}],\"contentKinds\":[\"SINGLE_FILE\"],\"assetPacks\":[]},\"CatalogSHA256\":\"889d7ce751cdc4684284fa2aa4ed7b010158925264875a636e7d4b7f8c3d5315\"}",
+      "sha256": "ead3b40677f48f10ab9d94feda93ced9d8b1c905ce58f92da3e4f2c44d5b13d0"
+    },
+    "release/sample": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"repository\":\"https://github.com/retrom-project/retrom-runtime\",\"tag\":\"v1.0.0\",\"commit\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "sha256": "c4926e7b5cd27d7b45bbb0417776308f4a525fe520ad4023d60f118e07860f74"
+    },
+    "schema/programmatic-bigint": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"number\":9007199254740992}",
+      "sha256": "c8236e626da0401582d6d6337182aa3cbab9cce5247c63b8e805d882a1e500a8"
+    },
+    "schema/programmatic-fraction": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"number\":1.5}",
+      "sha256": "c6637d5afa81346e70716aa2a86f3d6c197403100f60510014d06651bb9d1085"
+    },
+    "schema/programmatic-json-number-exponent": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"number\":1e0}",
+      "sha256": "00298c563cc3e8278371b025f8f802a3456a5156a5f94886184804e1db06a507"
+    },
+    "schema/programmatic-key-order": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"\":1,\"𐀀\":2}",
+      "sha256": "8706b5798a29d65739b3d1bbb1d009f87d005c71c8130c5353c4990c15ddfec8"
+    },
+    "zero/active-descriptor": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"schemaVersion\":0,\"source\":\"\",\"sourceTreeSha256\":null,\"release\":null,\"providers\":null}",
+      "sha256": "c896a421b4b5042ec37eb07d13a97fefbec7a8a11be7e5d2e79e308ae40487ef"
+    },
+    "zero/active-provider": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"providerId\":\"\",\"providerVersion\":\"\",\"providerApiVersion\":0,\"bundleSha256\":\"\",\"bundleSizeBytes\":0,\"manifestSha256\":\"\",\"moduleSha256\":\"\",\"clientModulePath\":\"\",\"installationPath\":\"\",\"fileCount\":0,\"unpackedSizeBytes\":0,\"targets\":null}",
+      "sha256": "0ecc33bfe080132bbe5d7ff364d6d657c7bbef437d57c12c79a4710c39ea5539"
+    },
+    "zero/active-target": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"id\":\"\",\"checkpoint\":null}",
+      "sha256": "c8c69111c4743c68c79072a6ff39f53d91b579014f932fa533f17f7ab9ba41e5"
+    },
+    "zero/capabilities": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"pause\":false,\"screenshot\":false,\"checkpoint\":false,\"standardGamepad\":false,\"frameCounter\":false,\"volume\":false,\"discSwitch\":false,\"nativeSettings\":false,\"inputFilter\":false,\"netplayPort\":false,\"videoModes\":null,\"requiresThreads\":false,\"frameMode\":\"\"}",
+      "sha256": "e667cd5b445955d963a47850b5bcbdd5517ddf66e18f8241d448f62d0346382a"
+    },
+    "zero/checkpoint": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"writeFormat\":\"\",\"readFormats\":null,\"maxBytes\":0}",
+      "sha256": "0622032e279e736e9aaa8bc75d8aa1182146388aa603e4a6d8f9d43bbe089fe2"
+    },
+    "zero/input": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"role\":\"\",\"kind\":\"\",\"cardinality\":\"\",\"optional\":false}",
+      "sha256": "8291aa45cfc8104785fe8c77d45fefe2c608f155312fe9982a259901382474e3"
+    },
+    "zero/integrity": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"SchemaVersion\":0,\"Files\":null}",
+      "sha256": "7b24d13754449e0dc0d19b7dadc7ab58b40d49ea2d289013533c551c0131df0c"
+    },
+    "zero/integrity-file": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"path\":\"\",\"sizeBytes\":0,\"sha256\":\"\"}",
+      "sha256": "d4c3e64dd324212bd12fba81606472a8b94af167402e9cc97c196472b77e1be0"
+    },
+    "zero/launch-input": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"Binding\":{\"id\":\"\",\"coreId\":\"\",\"providerId\":\"\",\"targetId\":\"\",\"platformIds\":null,\"acceptedContentKinds\":null,\"detectorProfile\":\"\",\"launchPolicy\":\"\"},\"Session\":{\"ID\":\"\",\"Purpose\":\"\",\"Mode\":\"\",\"Title\":\"\",\"PlatformName\":\"\",\"CoreName\":\"\",\"ReturnTo\":\"\",\"Warnings\":null},\"Resources\":null,\"TargetOptions\":null,\"Restore\":null,\"Netplay\":null}",
+      "sha256": "92ceb9b8ea282b75dce3a771801f4b2a9db495aab0878e117d9d997b232e4eee"
+    },
+    "zero/launch-session": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"ID\":\"\",\"Purpose\":\"\",\"Mode\":\"\",\"Title\":\"\",\"PlatformName\":\"\",\"CoreName\":\"\",\"ReturnTo\":\"\",\"Warnings\":null}",
+      "sha256": "e858594b33d11519ef79756ee8a2fa23990153ad48b60202e3d5b3218445c3e0"
+    },
+    "zero/manifest": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"SchemaVersion\":0,\"ProviderID\":\"\",\"ProviderVersion\":\"\",\"ProviderAPI\":0,\"ClientModulePath\":\"\",\"Targets\":null}",
+      "sha256": "a096506576da6228191d9e681565a05fe97ef589ada696d119ba7941b9e6679a"
+    },
+    "zero/release-identity": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"repository\":\"\",\"tag\":\"\",\"commit\":\"\"}",
+      "sha256": "107da9ad4f0f98afaa16bbe7b546db35b7e68c7a59ee93a0cb59bc6eac90e336"
+    },
+    "zero/target": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "{\"id\":\"\",\"displayName\":\"\",\"targetOptionsSchema\":null,\"inputs\":null,\"capabilities\":{\"pause\":false,\"screenshot\":false,\"checkpoint\":false,\"standardGamepad\":false,\"frameCounter\":false,\"volume\":false,\"discSwitch\":false,\"nativeSettings\":false,\"inputFilter\":false,\"netplayPort\":false,\"videoModes\":null,\"requiresThreads\":false,\"frameMode\":\"\"},\"checkpoint\":null,\"assetPaths\":null}",
+      "sha256": "e9f6ceee8ed31a26bf470c65f78b0cd6089f7be7d5b7decd0692462b4d990786"
+    },
+    "zero/target-options-schema": {
+      "error": {
+        "active": false,
+        "bareManifest": false,
+        "envelope": false,
+        "integrity": false,
+        "launch": false,
+        "manifest": false,
+        "optionsInvalid": false,
+        "optionsUnsupported": false,
+        "projection": false,
+        "text": "",
+        "type": ""
+      },
+      "json": "null",
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    }
+  }
+}

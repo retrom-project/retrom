@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
 	runtimecontract "retrom/internal/model/runtimecontract"
 )
@@ -29,14 +28,14 @@ type Projection struct {
 }
 
 type ProviderProjection struct {
-	Active  runtimebundle.ActiveProvider
+	Active  runtimecontract.ActiveProvider
 	Source  string
-	Release *runtimebundle.ReleaseIdentity
+	Release *runtimecontract.ReleaseIdentity
 	Targets []TargetProjection
 }
 
 type TargetProjection struct {
-	Target            runtimebundle.Target
+	Target            runtimecontract.Target
 	CapabilitiesJSON  string
 	CheckpointJSON    *string
 	TargetOptionsJSON string
@@ -49,8 +48,8 @@ type CurrentProvider struct {
 }
 
 func NewProjection(
-	active runtimebundle.ActiveDescriptor,
-	manifests map[string]runtimebundle.Manifest,
+	active runtimecontract.ActiveDescriptor,
+	manifests map[string]runtimecontract.Manifest,
 	catalog runtimecontract.Catalog,
 ) (Projection, error) {
 	if catalog.SchemaVersion != 1 || len(active.Providers) == 0 ||
@@ -94,9 +93,9 @@ func NewProjection(
 }
 
 func projectProvider(
-	active runtimebundle.ActiveDescriptor,
-	provider runtimebundle.ActiveProvider,
-	manifest runtimebundle.Manifest,
+	active runtimecontract.ActiveDescriptor,
+	provider runtimecontract.ActiveProvider,
+	manifest runtimecontract.Manifest,
 	targetExists map[string]bool,
 ) (ProviderProjection, error) {
 	if manifest.ProviderID != provider.ProviderID || manifest.ProviderVersion != provider.ProviderVersion ||
@@ -104,7 +103,7 @@ func projectProvider(
 		len(manifest.Targets) != len(provider.Targets) {
 		return ProviderProjection{}, ErrProjectionInvalid
 	}
-	byID := make(map[string]runtimebundle.ActiveTarget, len(provider.Targets))
+	byID := make(map[string]runtimecontract.ActiveTarget, len(provider.Targets))
 	for _, target := range provider.Targets {
 		byID[target.ID] = target
 	}
@@ -125,11 +124,11 @@ func projectProvider(
 	return projected, nil
 }
 
-func targetMatchesActiveProjection(target runtimebundle.Target, active runtimebundle.ActiveTarget) bool {
+func targetMatchesActiveProjection(target runtimecontract.Target, active runtimecontract.ActiveTarget) bool {
 	return equalCheckpoint(active.Checkpoint, target.Checkpoint)
 }
 
-func projectTarget(target runtimebundle.Target) (TargetProjection, error) {
+func projectTarget(target runtimecontract.Target) (TargetProjection, error) {
 	capabilities, err := json.Marshal(target.Capabilities)
 	if err != nil {
 		return TargetProjection{}, projectionInvalid(err)
@@ -147,7 +146,7 @@ func projectTarget(target runtimebundle.Target) (TargetProjection, error) {
 	if err != nil {
 		return TargetProjection{}, projectionInvalid(err)
 	}
-	var frozen runtimebundle.Target
+	var frozen runtimecontract.Target
 	if err := json.Unmarshal(fragment, &frozen); err != nil {
 		return TargetProjection{}, projectionInvalid(err)
 	}
@@ -161,7 +160,7 @@ func projectTarget(target runtimebundle.Target) (TargetProjection, error) {
 	}, nil
 }
 
-func equalCheckpoint(left, right *runtimebundle.Checkpoint) bool {
+func equalCheckpoint(left, right *runtimecontract.Checkpoint) bool {
 	leftJSON, leftErr := json.Marshal(left)
 	rightJSON, rightErr := json.Marshal(right)
 	return leftErr == nil && rightErr == nil && string(leftJSON) == string(rightJSON)

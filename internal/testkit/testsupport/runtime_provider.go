@@ -13,7 +13,6 @@ import (
 	runtimecontract "retrom/internal/model/runtimecontract"
 	runtimecatalogpersistence "retrom/internal/repo/runtimecatalog"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/capability/runtime/runtimelaunch"
 	"retrom/internal/foundation/cleanup"
@@ -46,8 +45,8 @@ func NewRuntimeBuilder(ctx context.Context, database *sql.DB) (*runtimelaunch.Bu
 
 // RuntimeProviderInputs reads the deterministic integration fixture projection.
 // It is not a filesystem bundle reader and cannot be used as release evidence.
-func RuntimeProviderInputs(ctx context.Context, database *sql.DB) (
-	runtimebundle.ActiveDescriptor, map[string]runtimebundle.Manifest, error,
+func RuntimeProviderInputs(ctx context.Context, database *sql.DB) (runtimecontract.ActiveDescriptor,
+	map[string]runtimecontract.Manifest, error,
 ) {
 	rows, err := database.QueryContext(ctx, `
 SELECT provider.provider_id,provider.provider_version,provider.provider_api_version,
@@ -58,19 +57,19 @@ LEFT JOIN runtime_targets target ON target.provider_id=provider.provider_id
 ORDER BY provider.provider_id,target.target_id
 `)
 	if err != nil {
-		return runtimebundle.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: read runtime providers: %w", err)
+		return runtimecontract.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: read runtime providers: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	active := runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate"}
-	manifests := make(map[string]runtimebundle.Manifest)
+	active := runtimecontract.ActiveDescriptor{SchemaVersion: 1, Source: "candidate"}
+	manifests := make(map[string]runtimecontract.Manifest)
 	providerIndexes := make(map[string]int)
 	for rows.Next() {
-		var provider runtimebundle.ActiveProvider
+		var provider runtimecontract.ActiveProvider
 		var fragment sql.NullString
 		if err := rows.Scan(&provider.ProviderID, &provider.ProviderVersion, &provider.ProviderAPI,
 			&provider.BundleSHA256, &provider.ManifestSHA256, &provider.ModuleSHA256,
 			&fragment); err != nil {
-			return runtimebundle.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: scan runtime provider: %w", err)
+			return runtimecontract.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: scan runtime provider: %w", err)
 		}
 		providerIndex, exists := providerIndexes[provider.ProviderID]
 		if !exists {
@@ -78,7 +77,7 @@ ORDER BY provider.provider_id,target.target_id
 			active.Providers = append(active.Providers, provider)
 			providerIndex = len(active.Providers) - 1
 			providerIndexes[provider.ProviderID] = providerIndex
-			manifests[provider.ProviderID] = runtimebundle.Manifest{
+			manifests[provider.ProviderID] = runtimecontract.Manifest{
 				SchemaVersion: 1, ProviderID: provider.ProviderID, ProviderVersion: provider.ProviderVersion,
 				ProviderAPI: provider.ProviderAPI, ClientModulePath: provider.ClientModulePath,
 			}
@@ -86,18 +85,20 @@ ORDER BY provider.provider_id,target.target_id
 		if !fragment.Valid {
 			continue
 		}
-		var target runtimebundle.Target
+		var target runtimecontract.Target
 		if err := json.Unmarshal([]byte(fragment.String), &target); err != nil {
-			return runtimebundle.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: decode runtime target: %w", err)
+			return runtimecontract.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: decode runtime target: %w", err)
 		}
 		manifest := manifests[provider.ProviderID]
 		manifest.Targets = append(manifest.Targets, target)
 		manifests[provider.ProviderID] = manifest
-		active.Providers[providerIndex].Targets = append(active.Providers[providerIndex].Targets,
-			runtimebundle.ActiveTarget{ID: target.ID, Checkpoint: target.Checkpoint})
+		active.Providers[providerIndex].Targets = append(
+			active.Providers[providerIndex].Targets,
+			runtimecontract.ActiveTarget{ID: target.ID, Checkpoint: target.Checkpoint},
+		)
 	}
 	if err := rows.Err(); err != nil {
-		return runtimebundle.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: runtime providers: %w", err)
+		return runtimecontract.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: runtime providers: %w", err)
 	}
 	return active, manifests, nil
 }

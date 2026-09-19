@@ -278,7 +278,7 @@ func New(
 		credentials:             credentials,
 		authenticator:           authenticator,
 		accounts:                accountService,
-		cursors:                 cursor.New(credentials.CursorKey(), now),
+		cursors:                 cursor.New(credentials.CursorKey()),
 		uploads:                 uploads.New(uploadpersistence.New(database), blobs, config.DataDir, now),
 		importer:                importer,
 		launcher:                launcher,

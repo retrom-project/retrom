@@ -3,7 +3,6 @@ package launch
 import (
 	"fmt"
 
-	"retrom/internal/capability/runtime/runtimelaunch"
 	model "retrom/internal/model/launch"
 	runtimecontract "retrom/internal/model/runtimecontract"
 )
@@ -38,11 +37,11 @@ func (service *ConfigIssuer) envelope(
 	if err != nil {
 		return Config{}, err
 	}
-	contents, err := service.runtimeBuilder.Build(runtimelaunch.Input{
+	contents, err := service.runtimeBuilder.Build(runtimecontract.LaunchInput{
 		Binding: runtimecontract.Binding{
 			ProviderID: source.ProviderID, TargetID: source.TargetID, CoreID: source.CoreID, LaunchPolicy: "SUPPORTED",
 		},
-		Session: runtimelaunch.Session{
+		Session: runtimecontract.LaunchSession{
 			ID: id, Purpose: source.Purpose, Mode: mode, Title: source.Title, PlatformName: source.PlatformName,
 			CoreName: source.CoreName, ReturnTo: source.ReturnTo, Warnings: providerWarnings(source),
 		},

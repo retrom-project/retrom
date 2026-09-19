@@ -3,6 +3,9 @@ package runtimebundle
 import (
 	"errors"
 	"regexp"
+
+	runtimejson "retrom/internal/capability/runtime/runtimejson"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var (
@@ -13,56 +16,22 @@ var (
 
 const providerRepository = "https://github.com/retrom-project/retrom-runtime"
 
-type ActiveDescriptor struct {
-	SchemaVersion    int              `json:"schemaVersion"`
-	Source           string           `json:"source"`
-	SourceTreeSHA256 *string          `json:"sourceTreeSha256"`
-	Release          *ReleaseIdentity `json:"release"`
-	Providers        []ActiveProvider `json:"providers"`
-}
-
-type ReleaseIdentity struct {
-	Repository string `json:"repository"`
-	Tag        string `json:"tag"`
-	Commit     string `json:"commit"`
-}
-
-type ActiveProvider struct {
-	ProviderID        string         `json:"providerId"`
-	ProviderVersion   string         `json:"providerVersion"`
-	ProviderAPI       int            `json:"providerApiVersion"`
-	BundleSHA256      string         `json:"bundleSha256"`
-	BundleSizeBytes   int64          `json:"bundleSizeBytes"`
-	ManifestSHA256    string         `json:"manifestSha256"`
-	ModuleSHA256      string         `json:"moduleSha256"`
-	ClientModulePath  string         `json:"clientModulePath"`
-	InstallationPath  string         `json:"installationPath"`
-	FileCount         int64          `json:"fileCount"`
-	UnpackedSizeBytes int64          `json:"unpackedSizeBytes"`
-	Targets           []ActiveTarget `json:"targets"`
-}
-
-type ActiveTarget struct {
-	ID         string      `json:"id"`
-	Checkpoint *Checkpoint `json:"checkpoint"`
-}
-
-func ParseActiveDescriptor(contents []byte) (ActiveDescriptor, error) {
+func ParseActiveDescriptor(contents []byte) (runtimecontract.ActiveDescriptor, error) {
 	if !validActiveRawShape(contents) {
-		return ActiveDescriptor{}, ErrActiveInvalid
+		return runtimecontract.ActiveDescriptor{}, ErrActiveInvalid
 	}
-	var result ActiveDescriptor
+	var result runtimecontract.ActiveDescriptor
 	if err := decodeClosed(contents, &result); err != nil || !validActive(result) {
-		return ActiveDescriptor{}, ErrActiveInvalid
+		return runtimecontract.ActiveDescriptor{}, ErrActiveInvalid
 	}
 	return result, nil
 }
 
 func validActiveRawShape(contents []byte) bool {
-	value, err := parseStrictJSON(contents)
+	value, err := runtimejson.ParseStrictJSON(contents)
 	active, ok := value.(map[string]any)
 	if err != nil || !ok ||
-		!exactMap(active, "schemaVersion", "source", "sourceTreeSha256", "release", "providers") ||
+		!runtimejson.ExactMap(active, "schemaVersion", "source", "sourceTreeSha256", "release", "providers") ||
 		!validActiveRawRelease(active["release"]) {
 		return false
 	}
@@ -83,12 +52,12 @@ func validActiveRawRelease(value any) bool {
 		return true
 	}
 	release, ok := value.(map[string]any)
-	return ok && exactMap(release, "repository", "tag", "commit")
+	return ok && runtimejson.ExactMap(release, "repository", "tag", "commit")
 }
 
 func validActiveRawProvider(value any) bool {
 	provider, ok := value.(map[string]any)
-	if !ok || !exactMap(provider,
+	if !ok || !runtimejson.ExactMap(provider,
 		"providerId", "providerVersion", "providerApiVersion", "bundleSha256", "bundleSizeBytes",
 		"manifestSha256", "moduleSha256", "clientModulePath", "installationPath", "fileCount",
 		"unpackedSizeBytes", "targets") {
@@ -108,7 +77,7 @@ func validActiveRawProvider(value any) bool {
 
 func validActiveRawTarget(value any) bool {
 	target, ok := value.(map[string]any)
-	if !ok || !exactMap(target, "id", "checkpoint") {
+	if !ok || !runtimejson.ExactMap(target, "id", "checkpoint") {
 		return false
 	}
 	if target["checkpoint"] == nil {
@@ -118,7 +87,7 @@ func validActiveRawTarget(value any) bool {
 	return ok && validCheckpointShape(checkpoint)
 }
 
-func validActive(value ActiveDescriptor) bool {
+func validActive(value runtimecontract.ActiveDescriptor) bool {
 	if value.SchemaVersion != 1 || len(value.Providers) == 0 {
 		return false
 	}
@@ -144,12 +113,12 @@ func validActive(value ActiveDescriptor) bool {
 	return true
 }
 
-func validRelease(value ReleaseIdentity) bool {
+func validRelease(value runtimecontract.ReleaseIdentity) bool {
 	return value.Repository == providerRepository && releaseTagPattern.MatchString(value.Tag) &&
 		commitPattern.MatchString(value.Commit)
 }
 
-func validActiveProvider(value ActiveProvider) bool {
+func validActiveProvider(value runtimecontract.ActiveProvider) bool {
 	if !validActiveProviderIdentity(value) || !validActiveProviderSize(value) || len(value.Targets) == 0 {
 		return false
 	}
@@ -163,19 +132,19 @@ func validActiveProvider(value ActiveProvider) bool {
 	return true
 }
 
-func validActiveProviderIdentity(value ActiveProvider) bool {
+func validActiveProviderIdentity(value runtimecontract.ActiveProvider) bool {
 	return identityPattern.MatchString(value.ProviderID) && semverPattern.MatchString(value.ProviderVersion) &&
 		value.ProviderAPI == 1 && digestPattern(value.BundleSHA256) && digestPattern(value.ManifestSHA256) &&
 		digestPattern(value.ModuleSHA256) && value.ClientModulePath == "client.mjs" &&
 		value.InstallationPath == value.ProviderID+"/"+value.BundleSHA256
 }
 
-func validActiveProviderSize(value ActiveProvider) bool {
+func validActiveProviderSize(value runtimecontract.ActiveProvider) bool {
 	return positiveSafe(value.BundleSizeBytes) && value.FileCount >= 3 && value.FileCount <= 100000 &&
 		positiveSafe(value.UnpackedSizeBytes)
 }
 
-func validActiveTarget(value ActiveTarget) bool {
+func validActiveTarget(value runtimecontract.ActiveTarget) bool {
 	return identityPattern.MatchString(value.ID) &&
 		(value.Checkpoint == nil || validCheckpoint(*value.Checkpoint))
 }

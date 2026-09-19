@@ -1,21 +1,21 @@
 package launch
 
 import (
+	json "encoding/json"
 	"errors"
 	"strings"
 	"testing"
 
 	"retrom/internal/capability/content/contentprofile"
 	model "retrom/internal/model/launch"
-
-	"retrom/internal/capability/runtime/runtimebundle"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestUnsupportedTargetOptionsAreNotReportedAsInvalidCredentials(t *testing.T) {
-	_, err := providerTargetOptions(runtimebundle.TargetOptionsSchema{
-		"type": "object", "additionalProperties": false,
-		"properties": map[string]any{"unknownProperty": map[string]any{"type": "string"}},
-		"required":   []any{"unknownProperty"},
+	_, err := providerTargetOptions(runtimecontract.TargetOptionsSchema{
+		"type": json.RawMessage("\"object\""), "additionalProperties": json.RawMessage("false"),
+		"properties": json.RawMessage("{\"unknownProperty\":{\"type\":\"string\"}}"),
+		"required":   json.RawMessage("[\"unknownProperty\"]"),
 	}, model.ConfigSource{})
 	if err == nil || errors.Is(err, model.ErrCredential) {
 		t.Fatalf("unsupported options misclassified as authentication: %v", err)
@@ -41,11 +41,11 @@ func TestProviderBlobResourcePublishesMaterializedMKXPArchive(t *testing.T) {
 
 func TestRPGTargetOptionsDoNotDependOnReviewProof(t *testing.T) {
 	t.Parallel()
-	options, err := providerTargetOptions(runtimebundle.TargetOptionsSchema{
-		"type": "object", "additionalProperties": false,
-		"properties": map[string]any{}, "required": []any{},
+	options, err := providerTargetOptions(runtimecontract.TargetOptionsSchema{
+		"type": json.RawMessage("\"object\""), "additionalProperties": json.RawMessage("false"),
+		"properties": json.RawMessage("{}"), "required": json.RawMessage("[]"),
 	}, model.ConfigSource{DetectorProfile: "RPG2000"})
-	if err != nil || len(options) != 0 {
+	if err != nil || string(options) != "{}" {
 		t.Fatalf("ordinary RPG launch requires review proof: options=%v error=%v", options, err)
 	}
 }

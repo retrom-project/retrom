@@ -8,8 +8,6 @@ import (
 
 	model "retrom/internal/model/netplay"
 	"retrom/internal/model/netplayprofile"
-
-	validation "retrom/internal/service/corevalidation"
 )
 
 type RoomControl struct {
@@ -84,7 +82,7 @@ func (service *RoomControl) eligible(
 	scope model.RoomControlScope,
 	gameID string,
 ) ([]model.EligibleProfile, error) {
-	eligibility := NewEligibility(scope.Eligibility, service.registry, nil, validation.New(scope.BIOS))
+	eligibility := NewEligibility(scope.Eligibility, service.registry, nil, scope.BIOS)
 	profiles, err := eligibility.Profiles(ctx, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("netplay/room eligibility: %w", err)

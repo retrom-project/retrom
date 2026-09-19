@@ -1,9 +1,13 @@
 package runtimebundle
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+
+	runtimejson "retrom/internal/capability/runtime/runtimejson"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestSharedTargetOptionsSchemaFixtures(t *testing.T) {
@@ -13,7 +17,7 @@ func TestSharedTargetOptionsSchemaFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := parseStrictJSON(contents)
+	parsed, err := runtimejson.ParseStrictJSON(contents)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,8 +27,15 @@ func TestSharedTargetOptionsSchemaFixtures(t *testing.T) {
 	if !rootOK || !schemaOK || !casesOK {
 		t.Fatal("shared target options fixture shape is invalid")
 	}
-	schema := TargetOptionsSchema(schemaValue)
-	if !validTargetOptionsSchema(schema, 0, true) {
+	schemaContents, err := json.Marshal(schemaValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema runtimecontract.TargetOptionsSchema
+	if err := json.Unmarshal(schemaContents, &schema); err != nil {
+		t.Fatal(err)
+	}
+	if !runtimejson.ValidateTargetOptionsSchema(schema) {
 		t.Fatal("shared target options schema is invalid")
 	}
 	for index, candidate := range cases {
@@ -34,7 +45,11 @@ func TestSharedTargetOptionsSchemaFixtures(t *testing.T) {
 		if !itemOK || !valueOK || !expectedOK {
 			t.Fatalf("case %d shape is invalid", index)
 		}
-		valid := ValidateTargetOptions(schema, value)
+		valueContents, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		valid := runtimejson.ValidateTargetOptions(schema, valueContents)
 		if valid != expected {
 			t.Fatalf("case %d validity = %t", index, valid)
 		}

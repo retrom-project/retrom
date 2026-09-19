@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"retrom/internal/capability/content/contentcapability"
-	validation "retrom/internal/model/corevalidation"
 )
 
 type Repository interface {
@@ -14,7 +13,7 @@ type Repository interface {
 type ReadScope struct {
 	Content Reader
 	Inputs  InputReader
-	BIOS    validation.Repository
+	BIOS    BIOSFactsReader
 	Admin   AdminGameReader
 }
 type WriteScope struct {

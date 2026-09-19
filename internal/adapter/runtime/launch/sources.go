@@ -12,9 +12,9 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimelaunch"
 	launchmodel "retrom/internal/model/launch"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 // Sources supplies host IO and credentials to the application. Configure it before serving requests.
@@ -39,7 +39,7 @@ func (source *Sources) WithRPGRuntimeOriginTemplate(template string) *Sources {
 	return source
 }
 
-func (source *Sources) Target(provider, target string) (runtimebundle.Target, bool) {
+func (source *Sources) Target(provider, target string) (runtimecontract.Target, bool) {
 	return source.builder.Target(provider, target)
 }
 
@@ -47,7 +47,7 @@ func (source *Sources) BundleSHA256(provider, target string) (string, bool) {
 	return source.builder.BundleSHA256(provider, target)
 }
 
-func (source *Sources) Build(input runtimelaunch.Input) ([]byte, error) {
+func (source *Sources) Build(input runtimecontract.LaunchInput) ([]byte, error) {
 	contents, err := source.builder.Build(input)
 	if err != nil {
 		return nil, fmt.Errorf("build launch envelope: %w", err)

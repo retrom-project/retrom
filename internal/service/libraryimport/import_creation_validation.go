@@ -8,8 +8,6 @@ import (
 	blobmodel "retrom/internal/model/blob"
 	corevalidationmodel "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/libraryimport"
-
-	validation "retrom/internal/service/corevalidation"
 )
 
 func PreparedGroupContentKind(group model.PreparedGroup) string {
@@ -40,7 +38,7 @@ func (run *creationCommit) prepareDependencies(ctx context.Context, scope model.
 
 func PrepareCreationStaticBIOS(
 	ctx context.Context,
-	reader corevalidationmodel.Repository,
+	reader model.BIOSFactsReader,
 	target model.ImportTarget,
 	groups []model.PreparedGroup,
 ) error {
@@ -49,20 +47,18 @@ func PrepareCreationStaticBIOS(
 	}
 	for index := range groups {
 		group := &groups[index]
-		name := ""
-		for _, source := range group.Sources {
-			if source.Role == "CONTENT" || source.Role == "DISC" {
-				name = source.LogicalName
-				break
-			}
-		}
-		if name == "" && target.PlatformID == "dos" {
-			name = group.DefaultDOSEntry
-		}
+		name := group.BIOSContentLogicalName(target.PlatformID)
 		if name == "" {
 			return model.ErrInvalid
 		}
-		snapshot, status, code, err := validation.New(reader).ResolveBIOS(ctx, target.ProviderID, target.TargetID, name)
+		if err := corevalidationmodel.ValidateBIOSRequest(target.ProviderID, target.TargetID, name); err != nil {
+			return creationError("prepare creation static b i o s", err)
+		}
+		records, err := reader.BIOS(ctx, target.ProviderID, target.TargetID)
+		if err != nil {
+			return creationError("prepare creation static b i o s", fmt.Errorf("corevalidation/read BIOS: %w", err))
+		}
+		snapshot, status, code, err := corevalidationmodel.ResolveBIOSRecords(records, name)
 		if err != nil {
 			return creationError("prepare creation static b i o s", err)
 		}

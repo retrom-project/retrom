@@ -3,14 +3,13 @@ package runtimeprovider
 import (
 	"fmt"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/capability/runtime/runtimeoptions"
 	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func validateHostOptionStrategies(catalog runtimecontract.Catalog, providers []ProviderProjection) error {
-	schemas := make(map[string]runtimebundle.TargetOptionsSchema)
+	schemas := make(map[string]runtimecontract.TargetOptionsSchema)
 	for _, provider := range providers {
 		for _, target := range provider.Targets {
 			schemas[provider.Active.ProviderID+"\x00"+target.Target.ID] = target.Target.TargetOptionsSchema

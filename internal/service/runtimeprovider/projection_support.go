@@ -5,12 +5,12 @@ import (
 
 	"golang.org/x/mod/semver"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	runtimecontract "retrom/internal/model/runtimecontract"
 	model "retrom/internal/model/runtimeprovider"
 )
 
 func validateProviderVersion(
-	candidate runtimebundle.ActiveProvider,
+	candidate runtimecontract.ActiveProvider,
 	current model.CurrentProvider,
 	exists bool,
 ) (bool, error) {

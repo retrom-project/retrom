@@ -1,6 +1,7 @@
 package launch
 
 import (
+	"encoding/json"
 	"testing"
 
 	model "retrom/internal/model/launch"
@@ -24,8 +25,11 @@ func TestNetplayEnvelopeUsesAbsolutePublicWebSocketURL(t *testing.T) {
 		if err != nil || mode != "NETPLAY" {
 			t.Fatalf("providerNetplay(%q) mode=%q error=%v", origin, mode, err)
 		}
-		netplay, ok := value.(map[string]any)
-		if !ok || netplay["socketUrl"] != expected {
+		var netplay map[string]any
+		if err := json.Unmarshal(value, &netplay); err != nil {
+			t.Fatal(err)
+		}
+		if netplay["socketUrl"] != expected {
 			t.Fatalf("providerNetplay(%q) = %#v, want socketUrl %q", origin, value, expected)
 		}
 	}

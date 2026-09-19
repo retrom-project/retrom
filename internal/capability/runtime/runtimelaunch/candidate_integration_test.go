@@ -10,6 +10,7 @@ import (
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimejson "retrom/internal/capability/runtime/runtimejson"
 	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
@@ -158,10 +159,10 @@ func assertCandidateBindingMatrix(t *testing.T, bindings []runtimecontract.Bindi
 func loadCandidateManifests(
 	t *testing.T,
 	root string,
-	active runtimebundle.ActiveDescriptor,
-) map[string]runtimebundle.Manifest {
+	active runtimecontract.ActiveDescriptor,
+) map[string]runtimecontract.Manifest {
 	t.Helper()
-	manifests := make(map[string]runtimebundle.Manifest, len(active.Providers))
+	manifests := make(map[string]runtimecontract.Manifest, len(active.Providers))
 	for _, provider := range active.Providers {
 		directory := filepath.Join(root, "installed", filepath.FromSlash(provider.InstallationPath))
 		manifestContents, readErr := os.ReadFile(filepath.Join(directory, "provider.json"))
@@ -192,16 +193,16 @@ func loadCandidateManifests(
 func assertCandidateBinding(
 	t *testing.T,
 	builder *Builder,
-	manifests map[string]runtimebundle.Manifest,
+	manifests map[string]runtimecontract.Manifest,
 	binding runtimecontract.Binding,
 ) {
 	t.Helper()
 	target := findManifestTarget(t, manifests[binding.ProviderID], binding.TargetID)
-	input := Input{Binding: binding, Session: Session{
+	input := runtimecontract.LaunchInput{Binding: binding, Session: runtimecontract.LaunchSession{
 		ID: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", Purpose: "PRODUCT", Mode: "SINGLE",
 		Title: target.DisplayName, PlatformName: binding.PlatformIDs[0], CoreName: binding.CoreID,
 		ReturnTo: "/games/fixture",
-	}, Resources: resourcesForTarget(target), TargetOptions: optionsForBinding(t, binding, target.TargetOptionsSchema)}
+	}, Resources: resourcesForTarget(t, target), TargetOptions: optionsForBinding(t, binding, target.TargetOptionsSchema)}
 	first, err := builder.Build(input)
 	if err != nil {
 		t.Fatal(err)
@@ -220,7 +221,7 @@ func assertCandidateBinding(
 	assertForbiddenKeysAbsent(t, envelope)
 }
 
-func findManifestTarget(t *testing.T, manifest runtimebundle.Manifest, targetID string) runtimebundle.Target {
+func findManifestTarget(t *testing.T, manifest runtimecontract.Manifest, targetID string) runtimecontract.Target {
 	t.Helper()
 	for _, target := range manifest.Targets {
 		if target.ID == targetID {
@@ -228,11 +229,12 @@ func findManifestTarget(t *testing.T, manifest runtimebundle.Manifest, targetID 
 		}
 	}
 	t.Fatalf("target %q missing", targetID)
-	return runtimebundle.Target{}
+	return runtimecontract.Target{}
 }
 
-func resourcesForTarget(target runtimebundle.Target) []map[string]any {
-	result := make([]map[string]any, 0, len(target.Inputs))
+func resourcesForTarget(t *testing.T, target runtimecontract.Target) []json.RawMessage {
+	t.Helper()
+	result := make([]json.RawMessage, 0, len(target.Inputs))
 	for _, input := range target.Inputs {
 		base := map[string]any{"kind": input.Kind, "ordinal": 0, "role": input.Role}
 		switch input.Kind {
@@ -259,7 +261,7 @@ func resourcesForTarget(target runtimebundle.Target) []map[string]any {
 		default:
 			panic(fmt.Sprintf("unhandled resource kind %q", input.Kind))
 		}
-		result = append(result, base)
+		result = append(result, encodeLaunchFixture(t, base))
 	}
 	return result
 }
@@ -267,8 +269,8 @@ func resourcesForTarget(target runtimebundle.Target) []map[string]any {
 func optionsForBinding(
 	t *testing.T,
 	binding runtimecontract.Binding,
-	schema runtimebundle.TargetOptionsSchema,
-) map[string]any {
+	schema runtimecontract.TargetOptionsSchema,
+) json.RawMessage {
 	t.Helper()
 	strategy, ok := runtimecatalog.Strategy(binding.DetectorProfile)
 	if !ok {
@@ -292,10 +294,11 @@ func optionsForBinding(
 	default:
 		t.Fatalf("binding %q uses unhandled option strategy %q", binding.ID, strategy.Options)
 	}
-	if !runtimebundle.ValidateTargetOptions(schema, result) {
+	contents := encodeLaunchFixture(t, result)
+	if !runtimejson.ValidateTargetOptions(schema, contents) {
 		t.Fatalf("binding %q fixture does not satisfy target options schema: %#v", binding.ID, result)
 	}
-	return result
+	return contents
 }
 
 func assertForbiddenKeysAbsent(t *testing.T, value any) {

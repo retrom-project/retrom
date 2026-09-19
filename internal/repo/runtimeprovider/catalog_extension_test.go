@@ -11,7 +11,6 @@ import (
 	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	service "retrom/internal/service/runtimeprovider"
 
-	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
 )
 
@@ -94,14 +93,14 @@ func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial runtimepr
 	target := initial.Providers[0].Targets[0].Target
 	extra := target
 	extra.ID = "extra"
-	provider.Targets = append(provider.Targets, runtimebundle.ActiveTarget{ID: extra.ID, Checkpoint: extra.Checkpoint})
-	active := runtimebundle.ActiveDescriptor{
+	provider.Targets = append(provider.Targets, runtimecontract.ActiveTarget{ID: extra.ID, Checkpoint: extra.Checkpoint})
+	active := runtimecontract.ActiveDescriptor{
 		SchemaVersion: 1, Source: "candidate", SourceTreeSHA256: &provider.BundleSHA256,
-		Providers: []runtimebundle.ActiveProvider{provider},
+		Providers: []runtimecontract.ActiveProvider{provider},
 	}
-	candidate, err := runtimeprovidermodel.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
+	candidate, err := runtimeprovidermodel.NewProjection(active, map[string]runtimecontract.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: provider.ProviderVersion, ProviderAPI: 1,
-		ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{extra, target},
+		ClientModulePath: "client.mjs", Targets: []runtimecontract.Target{extra, target},
 	}}, catalog)
 	if err != nil {
 		return err

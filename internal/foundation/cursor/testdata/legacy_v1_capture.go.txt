@@ -1,0 +1,109 @@
+// Captured from the unmodified cursor implementation at
+// f39243478403695fbd95e68ac83da59f9e021c5b.
+package main
+
+import (
+	"encoding/base64"
+	"encoding/json"
+	"os"
+	"strings"
+	"time"
+
+	"retrom/internal/foundation/cursor"
+)
+
+type filterCapture struct {
+	Name    string `json:"name"`
+	Encoded string `json:"encoded"`
+	Digest  string `json:"digest"`
+}
+
+type tokenCapture struct {
+	Name        string         `json:"name"`
+	NowMS       int64          `json:"nowMs"`
+	Input       cursor.Payload `json:"input"`
+	PayloadJSON string         `json:"payloadJson"`
+	Token       string         `json:"token"`
+}
+
+type capture struct {
+	SourceHead string          `json:"sourceHead"`
+	KeyHex     string          `json:"keyHex"`
+	Filters    []filterCapture `json:"filters"`
+	Tokens     []tokenCapture  `json:"tokens"`
+}
+
+func main() {
+	var key [32]byte
+	for index := range key {
+		key[index] = byte(index)
+	}
+	const nowMS = int64(1_786_000_000_000)
+	codec := cursor.New(key, func() time.Time { return time.UnixMilli(nowMS) })
+
+	filterValues := []struct {
+		name  string
+		value any
+	}{
+		{"null", nil},
+		{"empty", map[string]any{}},
+		{"unicode", map[string]any{"q": "\u96ea"}},
+		{"html", map[string]any{"q": "<&>"}},
+		{"unicode-html-null", map[string]any{"q": "\u96ea<&>", "tagId": nil}},
+	}
+	filters := make([]filterCapture, 0, len(filterValues))
+	for _, value := range filterValues {
+		encoded, err := json.Marshal(value.value)
+		if err != nil {
+			panic(err)
+		}
+		filters = append(filters, filterCapture{
+			Name: value.name, Encoded: string(encoded), Digest: cursor.FilterDigest(value.value),
+		})
+	}
+
+	defaultPayload := cursor.Payload{
+		OperationID:  "getGames",
+		FilterDigest: filters[4].Digest,
+		SortCode:     "TITLE_ASC",
+		SortValues:   []string{"\u96ea<&>"},
+		ID:           "01980000-0000-7000-8000-000000000001",
+	}
+	explicitPayload := cursor.Payload{
+		OperationID:  "getAdminUsers",
+		FilterDigest: filters[1].Digest,
+		SortCode:     "CREATED_DESC",
+		SortValues:   []string{"1786000000000"},
+		ID:           "01980000-0000-7000-8000-000000000002",
+		ExpiresAtMS:  nowMS + 1_234_567,
+	}
+	tokens := []tokenCapture{
+		captureToken(codec, "default-expiry", nowMS, defaultPayload),
+		captureToken(codec, "explicit-expiry", nowMS, explicitPayload),
+	}
+	result := capture{
+		SourceHead: "f39243478403695fbd95e68ac83da59f9e021c5b",
+		KeyHex:     "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+		Filters:    filters,
+		Tokens:     tokens,
+	}
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(result); err != nil {
+		panic(err)
+	}
+}
+
+func captureToken(codec *cursor.Codec, name string, nowMS int64, input cursor.Payload) tokenCapture {
+	token, err := codec.Encode(input)
+	if err != nil {
+		panic(err)
+	}
+	payloadPart, _, _ := strings.Cut(token, ".")
+	payloadJSON, err := base64.RawURLEncoding.DecodeString(payloadPart)
+	if err != nil {
+		panic(err)
+	}
+	return tokenCapture{Name: name, NowMS: nowMS, Input: input, PayloadJSON: string(payloadJSON), Token: token}
+}

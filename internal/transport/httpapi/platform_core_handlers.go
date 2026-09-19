@@ -128,7 +128,7 @@ func (server *Server) paginateCoreImpact(
 	limit int,
 ) ([]map[string]any, *string, error) {
 	principal, _ := authn.PrincipalFromContext(ctx)
-	filterDigest := cursor.FilterDigest(
+	filterDigest := cursorFilterDigest(
 		map[string]any{
 			"principalId":             principal.UserID,
 			"platformInstanceId":      instanceID,
@@ -139,7 +139,7 @@ func (server *Server) paginateCoreImpact(
 	)
 	start := 0
 	if cursorToken != nil {
-		payload, decodeErr := server.cursors.Decode(
+		payload, decodeErr := server.decodeCursor(
 			*cursorToken,
 			"postAdminPlatformDefaultCorePreview",
 			filterDigest,
@@ -167,7 +167,7 @@ func (server *Server) paginateCoreImpact(
 		if !ok {
 			return nil, nil, cursor.ErrInvalid
 		}
-		token, encodeErr := server.cursors.Encode(
+		token, encodeErr := server.encodeCursor(
 			cursor.Payload{
 				OperationID:  "postAdminPlatformDefaultCorePreview",
 				FilterDigest: filterDigest,

@@ -22,11 +22,11 @@ func (server *Server) emulationStationImportList(writer http.ResponseWriter, req
 	if value := values.Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(map[string]any{"state": state})
+	filter := cursorFilterDigest(map[string]any{"state": state})
 	var beforeAt int64
 	beforeID := ""
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(
+		payload, err := server.decodeCursor(
 			token,
 			"getAdminEmulationStationImports",
 			filter,
@@ -54,7 +54,7 @@ func (server *Server) emulationStationImportList(writer http.ResponseWriter, req
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(cursor.Payload{
+		token, _ := server.encodeCursor(cursor.Payload{
 			OperationID:  "getAdminEmulationStationImports",
 			FilterDigest: filter,
 			SortCode:     "EMULATIONSTATION_IMPORT_CREATED_DESC",
@@ -81,10 +81,10 @@ func (server *Server) emulationStationImportGamelists(writer http.ResponseWriter
 	if value := values.Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(map[string]any{"id": importID, "parseState": parseState})
+	filter := cursorFilterDigest(map[string]any{"id": importID, "parseState": parseState})
 	afterPath := ""
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(
+		payload, err := server.decodeCursor(
 			token,
 			"getAdminEmulationStationImportGamelists",
 			filter,
@@ -107,7 +107,7 @@ func (server *Server) emulationStationImportGamelists(writer http.ResponseWriter
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(cursor.Payload{
+		token, _ := server.encodeCursor(cursor.Payload{
 			OperationID:  "getAdminEmulationStationImportGamelists",
 			FilterDigest: filter,
 			SortCode:     "EMULATIONSTATION_GAMELIST_ASC",
@@ -125,10 +125,10 @@ func (server *Server) emulationStationImportCollections(writer http.ResponseWrit
 	if value := request.URL.Query().Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(map[string]any{"id": importID})
+	filter := cursorFilterDigest(map[string]any{"id": importID})
 	afterPath, afterID := "", ""
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(
+		payload, err := server.decodeCursor(
 			token,
 			"getAdminEmulationStationImportCollections",
 			filter,
@@ -151,7 +151,7 @@ func (server *Server) emulationStationImportCollections(writer http.ResponseWrit
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(cursor.Payload{
+		token, _ := server.encodeCursor(cursor.Payload{
 			OperationID:  "getAdminEmulationStationImportCollections",
 			FilterDigest: filter,
 			SortCode:     "EMULATIONSTATION_COLLECTION_ASC",
@@ -175,10 +175,10 @@ func (server *Server) emulationStationImportItems(writer http.ResponseWriter, re
 		"id": importID, "q": query, "outcome": values.Get("outcome"),
 		"warning": values.Get("warning"), "collectionId": values.Get("collectionId"),
 	}
-	filter := cursor.FilterDigest(filters)
+	filter := cursorFilterDigest(filters)
 	afterTitle, afterID := "", ""
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(
+		payload, err := server.decodeCursor(
 			token,
 			"getAdminEmulationStationImportItems",
 			filter,
@@ -202,7 +202,7 @@ func (server *Server) emulationStationImportItems(writer http.ResponseWriter, re
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(cursor.Payload{
+		token, _ := server.encodeCursor(cursor.Payload{
 			OperationID:  "getAdminEmulationStationImportItems",
 			FilterDigest: filter,
 			SortCode:     "EMULATIONSTATION_ITEM_ASC",

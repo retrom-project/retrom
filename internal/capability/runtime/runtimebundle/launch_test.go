@@ -8,6 +8,8 @@ import (
 	"sort"
 	"testing"
 
+	runtimejson "retrom/internal/capability/runtime/runtimejson"
+
 	"github.com/dlclark/regexp2"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -96,7 +98,7 @@ func assertSchemaFixtureDirectory(
 			if err != nil {
 				t.Fatal(err)
 			}
-			instance, validationErr := parseStrictJSON(contents)
+			instance, validationErr := runtimejson.ParseStrictJSON(contents)
 			if validationErr == nil {
 				validationErr = schema.Validate(instance)
 			}

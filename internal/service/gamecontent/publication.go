@@ -7,8 +7,8 @@ import (
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/content/multidisc"
+	validation "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/gamecontent"
-	validation "retrom/internal/service/corevalidation"
 )
 
 func (service *Service) publish(
@@ -75,14 +75,16 @@ func replacementDependencies(
 	if prepared.RPGMaker != nil {
 		return []byte(binding.DependencySnapshotJSON), nil
 	}
-	bios, status, code, err := validation.New(
-		scope.BIOS,
-	).ResolveBIOS(
-		ctx,
-		snapshot.ProviderID,
-		snapshot.TargetID,
-		prepared.FirstContentLogicalName,
-	)
+	if err := validation.ValidateBIOSRequest(
+		snapshot.ProviderID, snapshot.TargetID, prepared.FirstContentLogicalName,
+	); err != nil {
+		return nil, fmt.Errorf("resolve replacement dependencies: %w", err)
+	}
+	records, err := scope.BIOS.BIOS(ctx, snapshot.ProviderID, snapshot.TargetID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve replacement dependencies: corevalidation/read BIOS: %w", err)
+	}
+	bios, status, code, err := validation.ResolveBIOSRecords(records, prepared.FirstContentLogicalName)
 	if err != nil {
 		return nil, fmt.Errorf("resolve replacement dependencies: %w", err)
 	}
