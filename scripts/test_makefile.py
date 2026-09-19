@@ -50,6 +50,16 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertIn("module.source_entries()", script)
         self.assertIn("module.sha256(module.canonical", script)
 
+    def test_refactor_point_prepares_codegen_then_calls_one_leaf_coordinator(self) -> None:
+        output = subprocess.run(
+            ["make", "--no-print-directory", "--dry-run", "--always-make", "refactor-verify", "POINT=RF01"],
+            cwd=REPOSITORY_ROOT, check=True, text=True, capture_output=True,
+        ).stdout
+        self.assertLess(output.find("oapi-codegen"), output.find("scripts/refactor_verify.py point --point"))
+        self.assertIn('--point "RF01"', output)
+        self.assertNotIn("refactor-final", output)
+        self.assertIn("python3 scripts/test_refactor_verify.py", self.dry_run("architecture-selftest"))
+
     def dry_run(self, target: str) -> str:
         return subprocess.run(
             ["make", "--no-print-directory", "--dry-run", target],

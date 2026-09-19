@@ -1,0 +1,2603 @@
+{
+  "schemaVersion": 1,
+  "baseline": "82834bade1648da3067ebda1b1fc89c18577fd6a",
+  "cases": [
+    {
+      "id": "RFA-RF01-source_scope",
+      "point_id": "RF01",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf01_unit_test.go",
+      "symbol": "TestRefactorRF01_source_scope",
+      "setup_and_action": "对固定提交枚举全部路径，并添加一个未登记 helper 目录。",
+      "required_assertions": "原树全部有归属；新未知包报 GOV01，不能默认忽略。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF01_source_scope$"
+        ],
+        "must_execute": "TestRefactorRF01_source_scope"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF01-baseline_guard",
+      "point_id": "RF01",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf01_unit_test.go",
+      "symbol": "TestRefactorRF01_baseline_guard",
+      "setup_and_action": "分别用固定提交、祖先正确的实施提交和无关分支运行 preflight。",
+      "required_assertions": "前两类识别正确，第三类非零退出；不得自动 reset 或 checkout 用户目录。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF01_baseline_guard$"
+        ],
+        "must_execute": "TestRefactorRF01_baseline_guard"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF01-characterization",
+      "point_id": "RF01",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf01_integration_test.go",
+      "symbol": "TestRefactorRF01_characterization",
+      "setup_and_action": "从旧版本的公开 fixture 生成协议、关键读模型和存储事实快照。",
+      "required_assertions": "候选版本逐项比对；固定标识/时钟归一化规则先登记，不能去掉权限、版本、状态等字段。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF01_characterization$"
+        ],
+        "must_execute": "TestRefactorRF01_characterization"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF21-alias_evasion",
+      "point_id": "RF21",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf21_unit_test.go",
+      "symbol": "TestRefactorRF21_alias_evasion",
+      "setup_and_action": "用别名、匿名嵌入、泛型、多层 helper 藏 SQL 或回调。",
+      "required_assertions": "每种均检测；真正纯值和 repo 内技术闭包不误报。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF21_alias_evasion$"
+        ],
+        "must_execute": "TestRefactorRF21_alias_evasion"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF21-purity_evasion",
+      "point_id": "RF21",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf21_unit_test.go",
+      "symbol": "TestRefactorRF21_purity_evasion",
+      "setup_and_action": "Model helper 间接读文件、时钟或环境，另放 init/goroutine。",
+      "required_assertions": "直接与传递污染均失败；仅声明 port 和纯哈希通过。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF21_purity_evasion$"
+        ],
+        "must_execute": "TestRefactorRF21_purity_evasion"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF21-coverage_failure",
+      "point_id": "RF21",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf21_unit_test.go",
+      "symbol": "TestRefactorRF21_coverage_failure",
+      "setup_and_action": "删除扫描目录、触发类型加载失败、零测试匹配、伪造 generated。",
+      "required_assertions": "全部非零；报告错误而不是 verified。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF21_coverage_failure$"
+        ],
+        "must_execute": "TestRefactorRF21_coverage_failure"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF21-gate_wiring",
+      "point_id": "RF21",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf21_unit_test.go",
+      "symbol": "TestRefactorRF21_gate_wiring",
+      "setup_and_action": "将 Makefile 某新增门禁移除，或设置 workflow continue-on-error。",
+      "required_assertions": "GOV02 失败；基线其他门禁仍执行。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF21_gate_wiring$"
+        ],
+        "must_execute": "TestRefactorRF21_gate_wiring"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF21-web_resolve",
+      "point_id": "RF21",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf21_unit_test.go",
+      "symbol": "TestRefactorRF21_web_resolve",
+      "setup_and_action": "构造相对导入、别名、export-star、动态字面量、跨 feature 私有导入和合法公共入口。",
+      "required_assertions": "违规路径全部命中，合法入口图无环。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF21_web_resolve$"
+        ],
+        "must_execute": "TestRefactorRF21_web_resolve"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF03-adapter_free",
+      "point_id": "RF03",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf03_unit_test.go",
+      "symbol": "TestRefactorRF03_adapter_free",
+      "setup_and_action": "递归检查所有 Model import 和暴露类型的定义来源。",
+      "required_assertions": "Model 不可达具体 Adapter/Transport/Service/Repo；声明外部 port 不被当成实现。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF03_adapter_free$"
+        ],
+        "must_execute": "TestRefactorRF03_adapter_free"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF03-value_compat",
+      "point_id": "RF03",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf03_unit_test.go",
+      "symbol": "TestRefactorRF03_value_compat",
+      "setup_and_action": "同一基线样本转换为新中立值并再次序列化。",
+      "required_assertions": "HTTP、任务、摘要和存档相关字节口径相同；不透明证据不丢字段。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF03_value_compat$"
+        ],
+        "must_execute": "TestRefactorRF03_value_compat"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF03-no_reexport",
+      "point_id": "RF03",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf03_unit_test.go",
+      "symbol": "TestRefactorRF03_no_reexport",
+      "setup_and_action": "全树搜索并类型解析 Service alias/错误转发/空中转 wrapper。",
+      "required_assertions": "生产 re-export 为零；消费者编译并直接依赖 Model。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF03_no_reexport$"
+        ],
+        "must_execute": "TestRefactorRF03_no_reexport"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF03-minimal_fake",
+      "point_id": "RF03",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf03_unit_test.go",
+      "symbol": "TestRefactorRF03_minimal_fake",
+      "setup_and_action": "为 Saves、Metadata、Launch 三个用例构造最小 Fake port。",
+      "required_assertions": "Fake 无 DB/真实文件/HTTP 依赖；正常、拒绝及失败路径均可独立执行。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF03_minimal_fake$"
+        ],
+        "must_execute": "TestRefactorRF03_minimal_fake"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF04-determinism",
+      "point_id": "RF04",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf04_unit_test.go",
+      "symbol": "TestRefactorRF04_determinism",
+      "setup_and_action": "同一输入在不同 fake clock、cwd、环境变量下重复运行纯解析。",
+      "required_assertions": "输出一致；原先受配置影响的行为必须通过显式输入得到同样结果。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF04_determinism$"
+        ],
+        "must_execute": "TestRefactorRF04_determinism"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF04-bounded_input",
+      "point_id": "RF04",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf04_unit_test.go",
+      "symbol": "TestRefactorRF04_bounded_input",
+      "setup_and_action": "畸形归档、路径穿越、重复条目、超限和取消输入。",
+      "required_assertions": "仍在基线界限内拒绝；没有无界读、无限等待或静默容错。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF04_bounded_input$"
+        ],
+        "must_execute": "TestRefactorRF04_bounded_input"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF04-io_boundary",
+      "point_id": "RF04",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf04_unit_test.go",
+      "symbol": "TestRefactorRF04_io_boundary",
+      "setup_and_action": "全量纯包可达调用分析。",
+      "required_assertions": "无资源获取/进程/系统时间/随机；Adapter 中唯一 I/O 实现可被 Fake。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF04_io_boundary$"
+        ],
+        "must_execute": "TestRefactorRF04_io_boundary"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF05-lock_clock",
+      "point_id": "RF05",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf05_integration_test.go",
+      "symbol": "TestRefactorRF05_lock_clock",
+      "setup_and_action": "执行者 A 持有写锁；B 准备后等待；推进 FakeClock 越过会话/租约到期，再释放 A。",
+      "required_assertions": "B 用取锁后的时间拒绝，不因携带旧 now 通过；无部分写入。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF05_lock_clock$"
+        ],
+        "must_execute": "TestRefactorRF05_lock_clock"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF05-atomic_faults",
+      "point_id": "RF05",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf05_integration_test.go",
+      "symbol": "TestRefactorRF05_atomic_faults",
+      "setup_and_action": "沿每个命令的写入边界逐点注入 driver 错误，并注入提交前失败。",
+      "required_assertions": "所有受保护表/引用/审计/任务/收据保持原态；无成功响应和提交后唤醒。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF05_atomic_faults$"
+        ],
+        "must_execute": "TestRefactorRF05_atomic_faults"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF05-stale_guard",
+      "point_id": "RF05",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf05_integration_test.go",
+      "symbol": "TestRefactorRF05_stale_guard",
+      "setup_and_action": "准备后分别改变版本、权限、执行号、Provider/内容摘要。",
+      "required_assertions": "每种实际依赖项失效均拒绝；无关展示字段不被错误当成冲突。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF05_stale_guard$"
+        ],
+        "must_execute": "TestRefactorRF05_stale_guard"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF05-idempotency_race",
+      "point_id": "RF05",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf05_integration_test.go",
+      "symbol": "TestRefactorRF05_idempotency_race",
+      "setup_and_action": "两个执行者提交相同 key+digest，再用同 key 不同 digest。",
+      "required_assertions": "恰一次业务变更；合法回放一致；异 digest 返回原契约冲突。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF05_idempotency_race$"
+        ],
+        "must_execute": "TestRefactorRF05_idempotency_race"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF05-read_consistency",
+      "point_id": "RF05",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf05_integration_test.go",
+      "symbol": "TestRefactorRF05_read_consistency",
+      "setup_and_action": "在只读分页/复合 Snapshot 期间用独立连接提交修改。",
+      "required_assertions": "读结果遵循声明的一致快照；没有混合版本、漏页、重复或死锁。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF05_read_consistency$"
+        ],
+        "must_execute": "TestRefactorRF05_read_consistency"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF05-writer_isolation",
+      "point_id": "RF05",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf05_integration_test.go",
+      "symbol": "TestRefactorRF05_writer_isolation",
+      "setup_and_action": "写事务中插入受控屏障，另发 readiness 读请求。",
+      "required_assertions": "readiness 走独立只读连接，不排在单写连接后；测试有硬超时。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF05_writer_isolation$"
+        ],
+        "must_execute": "TestRefactorRF05_writer_isolation"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF02-construct_quiet",
+      "point_id": "RF02",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf02_unit_test.go",
+      "symbol": "TestRefactorRF02_construct_quiet",
+      "setup_and_action": "用 Fake Worker/Repo/资源计数器执行 Build 和 HTTP New。",
+      "required_assertions": "无 Start、无任务领取、无 goroutine 启动；只完成初始化/校验。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF02_construct_quiet$"
+        ],
+        "must_execute": "TestRefactorRF02_construct_quiet"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF02-startup_unwind",
+      "point_id": "RF02",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf02_unit_test.go",
+      "symbol": "TestRefactorRF02_startup_unwind",
+      "setup_and_action": "在每个已登记启动步骤注入失败。",
+      "required_assertions": "仅清理已取得资源，逆序且各一次；readiness 永不 true。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF02_startup_unwind$"
+        ],
+        "must_execute": "TestRefactorRF02_startup_unwind"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF02-shutdown_order",
+      "point_id": "RF02",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf02_integration_test.go",
+      "symbol": "TestRefactorRF02_shutdown_order",
+      "setup_and_action": "有一个可取消任务和一个 HTTP 请求在运行时调用 Shutdown 两次。",
+      "required_assertions": "请求和 Worker 有界退出，DB 最后关闭，无关闭后写入。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF02_shutdown_order$"
+        ],
+        "must_execute": "TestRefactorRF02_shutdown_order"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF02-recovery_ready",
+      "point_id": "RF02",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf02_integration_test.go",
+      "symbol": "TestRefactorRF02_recovery_ready",
+      "setup_and_action": "旧 DB 含排队和过期租约任务，启动真实应用。",
+      "required_assertions": "按既有规则恢复一次，Provider 未就绪时 readiness 拒绝；构造不提前跑任务。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF02_recovery_ready$"
+        ],
+        "must_execute": "TestRefactorRF02_recovery_ready"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF07-credential_race",
+      "point_id": "RF07",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf07_integration_test.go",
+      "symbol": "TestRefactorRF07_credential_race",
+      "setup_and_action": "两次并发密码变更均读到同一旧 hash。",
+      "required_assertions": "只有一次接受；另一提交因旧 hash/session version 失效被拒绝，旧会话撤销不漏。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF07_credential_race$"
+        ],
+        "must_execute": "TestRefactorRF07_credential_race"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF07-link_once",
+      "point_id": "RF07",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf07_integration_test.go",
+      "symbol": "TestRefactorRF07_link_once",
+      "setup_and_action": "两个消费者竞争同一邀请或恢复链接。",
+      "required_assertions": "只有一次消费，账户/链接/audit 无半成功。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF07_link_once$"
+        ],
+        "must_execute": "TestRefactorRF07_link_once"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF07-authorization_expired",
+      "point_id": "RF07",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf07_integration_test.go",
+      "symbol": "TestRefactorRF07_authorization_expired",
+      "setup_and_action": "准备后禁用账户/降权/更新 session version，及等待写锁期间会话到期。",
+      "required_assertions": "所有受影响写入被拒绝；公开错误不泄漏目标身份。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF07_authorization_expired$"
+        ],
+        "must_execute": "TestRefactorRF07_authorization_expired"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF07-offline_initialize",
+      "point_id": "RF07",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf07_integration_test.go",
+      "symbol": "TestRefactorRF07_offline_initialize",
+      "setup_and_action": "重复 setup、已初始化 DB 和离线恢复的错误前置。",
+      "required_assertions": "不创建第二首管理员、不重建 DB；失败恢复无部分修改。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF07_offline_initialize$"
+        ],
+        "must_execute": "TestRefactorRF07_offline_initialize"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF07-secrets",
+      "point_id": "RF07",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf07_unit_test.go",
+      "symbol": "TestRefactorRF07_secrets",
+      "setup_and_action": "捕获所有身份路径日志、错误和证据。",
+      "required_assertions": "无密码/hash/token/link secret；保留可诊断错误分类。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF07_secrets$"
+        ],
+        "must_execute": "TestRefactorRF07_secrets"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF08-stream_parts",
+      "point_id": "RF08",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf08_unit_test.go",
+      "symbol": "TestRefactorRF08_stream_parts",
+      "setup_and_action": "任意合法 part 顺序、重复/未知 part、超大/空 payload、取消、截图畸形。",
+      "required_assertions": "与基线相同接受/拒绝；Part 不逃逸，Reader/handle 全关闭，无整包内存缓冲。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF08_stream_parts$"
+        ],
+        "must_execute": "TestRefactorRF08_stream_parts"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF08-save_authority",
+      "point_id": "RF08",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf08_integration_test.go",
+      "symbol": "TestRefactorRF08_save_authority",
+      "setup_and_action": "暂存后撤销 Launch/禁用账号/改变 Save version。",
+      "required_assertions": "最终提交拒绝，未写存档/绑定/引用/收据。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF08_save_authority$"
+        ],
+        "must_execute": "TestRefactorRF08_save_authority"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF08-save_atomic",
+      "point_id": "RF08",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf08_integration_test.go",
+      "symbol": "TestRefactorRF08_save_atomic",
+      "setup_and_action": "在 Blob 登记、save row、绑定和幂等写后逐点故障。",
+      "required_assertions": "回滚完整；同 key 重试成功时只有一个存档和一份引用。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF08_save_atomic$"
+        ],
+        "must_execute": "TestRefactorRF08_save_atomic"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF08-formats",
+      "point_id": "RF08",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf08_integration_test.go",
+      "symbol": "TestRefactorRF08_formats",
+      "setup_and_action": "基线手动存档、GAME_SAVE、local draft、多盘恢复、跨 Profile 请求。",
+      "required_assertions": "原 bytes/版本/盘序与恢复保持，其他 Profile 始终不可读写。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF08_formats$"
+        ],
+        "must_execute": "TestRefactorRF08_formats"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF08-save_fake",
+      "point_id": "RF08",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf08_unit_test.go",
+      "symbol": "TestRefactorRF08_save_fake",
+      "setup_and_action": "使用 Fake Repo/Stager/Clock 运行正常与拒绝用例。",
+      "required_assertions": "Service 测试不使用 HTTP、SQLite 或真实文件；不只断言 mock 被调用。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF08_save_fake$"
+        ],
+        "must_execute": "TestRefactorRF08_save_fake"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF09-part_conflict",
+      "point_id": "RF09",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf09_integration_test.go",
+      "symbol": "TestRefactorRF09_part_conflict",
+      "setup_and_action": "重复同字节/不同字节分块、缺块、乱序与 finalization 竞争。",
+      "required_assertions": "基线幂等与冲突不变，未完成输入不可消费。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF09_part_conflict$"
+        ],
+        "must_execute": "TestRefactorRF09_part_conflict"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF09-late_cancel",
+      "point_id": "RF09",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf09_integration_test.go",
+      "symbol": "TestRefactorRF09_late_cancel",
+      "setup_and_action": "组装后、提交前取消或取代执行 lease。",
+      "required_assertions": "finalize 不能覆盖取消/新执行，已准备字节不产生错误引用。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF09_late_cancel$"
+        ],
+        "must_execute": "TestRefactorRF09_late_cancel"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF09-finalize_fault",
+      "point_id": "RF09",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf09_integration_test.go",
+      "symbol": "TestRefactorRF09_finalize_fault",
+      "setup_and_action": "内容完成但 DB 中 Blob/清单/事件写入失败。",
+      "required_assertions": "逻辑整体回滚；重试无重复消费和泄漏的稳定引用。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF09_finalize_fault$"
+        ],
+        "must_execute": "TestRefactorRF09_finalize_fault"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF09-input_limits",
+      "point_id": "RF09",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf09_unit_test.go",
+      "symbol": "TestRefactorRF09_input_limits",
+      "setup_and_action": "恶意路径、归档炸弹、错误尺寸、过深目录与取消。",
+      "required_assertions": "有界拒绝、不读外部路径、不执行输入内容。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF09_input_limits$"
+        ],
+        "must_execute": "TestRefactorRF09_input_limits"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF11-catalog_bytes",
+      "point_id": "RF11",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf11_unit_test.go",
+      "symbol": "TestRefactorRF11_catalog_bytes",
+      "setup_and_action": "纯解析/投影输入使用固定 manifest/target/DAT 夹具。",
+      "required_assertions": "基线摘要、绑定、启用状态和诊断输出一致。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF11_catalog_bytes$"
+        ],
+        "must_execute": "TestRefactorRF11_catalog_bytes"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF11-firmware_race",
+      "point_id": "RF11",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf11_integration_test.go",
+      "symbol": "TestRefactorRF11_firmware_race",
+      "setup_and_action": "候选准备后另一安装替换、取消或归属变化。",
+      "required_assertions": "陈旧提交拒绝，登记/消费/替换/事件原子一致。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF11_firmware_race$"
+        ],
+        "must_execute": "TestRefactorRF11_firmware_race"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF11-provider_forward",
+      "point_id": "RF11",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf11_integration_test.go",
+      "symbol": "TestRefactorRF11_provider_forward",
+      "setup_and_action": "激活新 bundle、重复同 bundle、非法回退及仍被存档引用的格式。",
+      "required_assertions": "重复幂等，非法升级/降级拒绝，原有可读存档格式不丢失。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF11_provider_forward$"
+        ],
+        "must_execute": "TestRefactorRF11_provider_forward"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF11-dependency_start",
+      "point_id": "RF11",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf11_integration_test.go",
+      "symbol": "TestRefactorRF11_dependency_start",
+      "setup_and_action": "依赖缺失/校验失败/目录未投影情况下启动。",
+      "required_assertions": "readiness 不通过，不启动业务 Worker，不自行联网。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF11_dependency_start$"
+        ],
+        "must_execute": "TestRefactorRF11_dependency_start"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF10-launch_authority",
+      "point_id": "RF10",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf10_integration_test.go",
+      "symbol": "TestRefactorRF10_launch_authority",
+      "setup_and_action": "对上列 Guard 每一项在准备后改变一次。",
+      "required_assertions": "相关改变逐项拒绝；没有 version 的输入仍受语义指纹保护。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF10_launch_authority$"
+        ],
+        "must_execute": "TestRefactorRF10_launch_authority"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF10-launch_atomic",
+      "point_id": "RF10",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf10_integration_test.go",
+      "symbol": "TestRefactorRF10_launch_atomic",
+      "setup_and_action": "Launch、引用、票据、验证任务、收据的每个写阶段失败。",
+      "required_assertions": "全部回滚；无孤立可用 capability/引用/任务；同 key 重试无重复 Launch。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF10_launch_atomic$"
+        ],
+        "must_execute": "TestRefactorRF10_launch_atomic"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF10-launch_expiry",
+      "point_id": "RF10",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf10_integration_test.go",
+      "symbol": "TestRefactorRF10_launch_expiry",
+      "setup_and_action": "等待写锁期间 Actor、Save binding 或预签名隔离票据过期。",
+      "required_assertions": "按取锁后时间拒绝，不延长签名期限，不对旧权限签新票据。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF10_launch_expiry$"
+        ],
+        "must_execute": "TestRefactorRF10_launch_expiry"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF10-launch_recovery",
+      "point_id": "RF10",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf10_integration_test.go",
+      "symbol": "TestRefactorRF10_launch_recovery",
+      "setup_and_action": "持久提交成功后屏蔽唤醒并重启应用。",
+      "required_assertions": "任务被恢复且逻辑只执行一次；回放返回同业务身份。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF10_launch_recovery$"
+        ],
+        "must_execute": "TestRefactorRF10_launch_recovery"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF10-launch_three_modes",
+      "point_id": "RF10",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf10_integration_test.go",
+      "symbol": "TestRefactorRF10_launch_three_modes",
+      "setup_and_action": "Product、Preview、Netplay、备用核心验证和多盘恢复各走完整产品 HTTP 链。",
+      "required_assertions": "路径、Envelope、错误/警告、授权与内容一致，未增加第二启动按钮或隐式回退。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF10_launch_three_modes$"
+        ],
+        "must_execute": "TestRefactorRF10_launch_three_modes"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF10-late_validation",
+      "point_id": "RF10",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf10_integration_test.go",
+      "symbol": "TestRefactorRF10_late_validation",
+      "setup_and_action": "旧验证 Worker 在内容替换/取消/重领取后提交。",
+      "required_assertions": "拒绝旧结果，Variant 的新验证状态和保护引用不被覆盖。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF10_late_validation$"
+        ],
+        "must_execute": "TestRefactorRF10_late_validation"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF12-room_concurrency",
+      "point_id": "RF12",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf12_integration_test.go",
+      "symbol": "TestRefactorRF12_room_concurrency",
+      "setup_and_action": "两个客户端同时占同一席位、改选游戏或准备后更换内容。",
+      "required_assertions": "版本/资格 Guard 生效，无双占或错误 Session。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF12_room_concurrency$"
+        ],
+        "must_execute": "TestRefactorRF12_room_concurrency"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF12-peer_reconnect",
+      "point_id": "RF12",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf12_integration_test.go",
+      "symbol": "TestRefactorRF12_peer_reconnect",
+      "setup_and_action": "断线、重连 lease 到期及旧 socket 的迟到消息。",
+      "required_assertions": "授权、终止、转移逻辑与基线相同，旧连接不能影响新 Session。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF12_peer_reconnect$"
+        ],
+        "must_execute": "TestRefactorRF12_peer_reconnect"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF12-hub_transaction",
+      "point_id": "RF12",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf12_integration_test.go",
+      "symbol": "TestRefactorRF12_hub_transaction",
+      "setup_and_action": "在控制面提交中阻塞网络 Fake，再注入 Repo 写失败。",
+      "required_assertions": "Repo 不调用网络/Hub；失败不提前发布内存成功状态。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF12_hub_transaction$"
+        ],
+        "must_execute": "TestRefactorRF12_hub_transaction"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF12-two_browser",
+      "point_id": "RF12",
+      "tier": "browser",
+      "target_file": "web/e2e/refactor-rf12.spec.ts",
+      "symbol": "RFA-RF12-two_browser",
+      "setup_and_action": "固定公开 NES/其他已登记公开联机 fixture，通过真实两浏览器链。",
+      "required_assertions": "输入/同步/退出符合原 Case；没有新增存档读写或单机回归。",
+      "runner": {
+        "type": "playwright-leaf",
+        "entry": "scripts/refactor_verify.py",
+        "test_file": "web/e2e/refactor-rf12.spec.ts",
+        "test_title": "RFA-RF12-two_browser",
+        "isolation": "reuse-existing-Retrom-acceptance-fixture",
+        "forbidden_parent_calls": [
+          "refactor-final",
+          "refactor-verify",
+          "acceptance-case-for-own-RFA"
+        ]
+      },
+      "hard_timeout_seconds": 180,
+      "required": true
+    },
+    {
+      "id": "RFA-RF15-provider_outcomes",
+      "point_id": "RF15",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf15_unit_test.go",
+      "symbol": "TestRefactorRF15_provider_outcomes",
+      "setup_and_action": "七种固定 Provider stub 返回以及缓存 miss/hit。",
+      "required_assertions": "到期、候选、错误、重试与基线一致；同规则仅一个生产定义。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF15_provider_outcomes$"
+        ],
+        "must_execute": "TestRefactorRF15_provider_outcomes"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF15-candidate_race",
+      "point_id": "RF15",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf15_integration_test.go",
+      "symbol": "TestRefactorRF15_candidate_race",
+      "setup_and_action": "同一候选并发命中或重试回放。",
+      "required_assertions": "候选/媒体只创建一次，证据关联完整，不漏合法第二命中记录。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF15_candidate_race$"
+        ],
+        "must_execute": "TestRefactorRF15_candidate_race"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF15-media_atomic",
+      "point_id": "RF15",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf15_integration_test.go",
+      "symbol": "TestRefactorRF15_media_atomic",
+      "setup_and_action": "在 raw Blob、candidate、hit、asset、media job 各步故障。",
+      "required_assertions": "事务完整回滚；不存在可运行但无归属的媒体任务。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF15_media_atomic$"
+        ],
+        "must_execute": "TestRefactorRF15_media_atomic"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF15-scrape_owner",
+      "point_id": "RF15",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf15_integration_test.go",
+      "symbol": "TestRefactorRF15_scrape_owner",
+      "setup_and_action": "结果准备后取消任务、释放 subject 或旧 Worker lease 失效。",
+      "required_assertions": "结果和媒体均被拒绝，不能复活已释放 payload。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF15_scrape_owner$"
+        ],
+        "must_execute": "TestRefactorRF15_scrape_owner"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF13-approval_guard",
+      "point_id": "RF13",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf13_integration_test.go",
+      "symbol": "TestRefactorRF13_approval_guard",
+      "setup_and_action": "准备批准后改变 review version、内容、目录/core、依赖或来源归属。",
+      "required_assertions": "所有相关陈旧批准被拒绝；未发布无效 Game/Variant。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF13_approval_guard$"
+        ],
+        "must_execute": "TestRefactorRF13_approval_guard"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF13-publish_atomic",
+      "point_id": "RF13",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf13_integration_test.go",
+      "symbol": "TestRefactorRF13_publish_atomic",
+      "setup_and_action": "在上传消费、发布 Game、Variant、引用、标签、审计/任务各步失败。",
+      "required_assertions": "整体回滚，不重复消费来源，不产生无主已发布游戏。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF13_publish_atomic$"
+        ],
+        "must_execute": "TestRefactorRF13_publish_atomic"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF13-discard_handoff",
+      "point_id": "RF13",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf13_integration_test.go",
+      "symbol": "TestRefactorRF13_discard_handoff",
+      "setup_and_action": "丢弃与 source handoff、取消或完成同时发生。",
+      "required_assertions": "只有一条合法终态，释放 job、公开 ImportItem 与来源记录一致。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF13_discard_handoff$"
+        ],
+        "must_execute": "TestRefactorRF13_discard_handoff"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF13-bulk_partial",
+      "point_id": "RF13",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf13_integration_test.go",
+      "symbol": "TestRefactorRF13_bulk_partial",
+      "setup_and_action": "有界批次包含合法、版本冲突和格式阻断三类项。",
+      "required_assertions": "与基线部分成功/失败契约一致；进度和重试不合并或跳项。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF13_bulk_partial$"
+        ],
+        "must_execute": "TestRefactorRF13_bulk_partial"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF13-format_paths",
+      "point_id": "RF13",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf13_integration_test.go",
+      "symbol": "TestRefactorRF13_format_paths",
+      "setup_and_action": "用已有公开/合成安全夹具经过真实 admission→prepare→review→publish，覆盖各已存在格式分支。",
+      "required_assertions": "接口、目标选择、摘要、依赖及错误一致；合成夹具不被用于宣称商业游戏兼容。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF13_format_paths$"
+        ],
+        "must_execute": "TestRefactorRF13_format_paths"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF13-facade_removed",
+      "point_id": "RF13",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf13_unit_test.go",
+      "symbol": "TestRefactorRF13_facade_removed",
+      "setup_and_action": "扫描 integration 门面和所有调用者。",
+      "required_assertions": "生产无旧 Service/构造/worker 入口；所有业务调用只到真正应用用例。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF13_facade_removed$"
+        ],
+        "must_execute": "TestRefactorRF13_facade_removed"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF14-source_roots",
+      "point_id": "RF14",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf14_unit_test.go",
+      "symbol": "TestRefactorRF14_source_roots",
+      "setup_and_action": "根路径被替换、symlink escape、源文件变化、大小写冲突、不可读媒体。",
+      "required_assertions": "受信根和 snapshot guard 生效；脱敏错误不包含私有绝对路径。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF14_source_roots$"
+        ],
+        "must_execute": "TestRefactorRF14_source_roots"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF14-mapping_race",
+      "point_id": "RF14",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf14_integration_test.go",
+      "symbol": "TestRefactorRF14_mapping_race",
+      "setup_and_action": "扫描/映射完成后更改目标或取消计划，再提交旧结果。",
+      "required_assertions": "陈旧结果不能发布/启动；状态、版本、事件一致。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF14_mapping_race$"
+        ],
+        "must_execute": "TestRefactorRF14_mapping_race"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF14-handoff_once",
+      "point_id": "RF14",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf14_integration_test.go",
+      "symbol": "TestRefactorRF14_handoff_once",
+      "setup_and_action": "两执行者并发交给普通审核，或崩溃后重复恢复。",
+      "required_assertions": "来源与 ImportItem 一一绑定；无重复消费/审核/引用。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF14_handoff_once$"
+        ],
+        "must_execute": "TestRefactorRF14_handoff_once"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF14-ownership_fault",
+      "point_id": "RF14",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf14_integration_test.go",
+      "symbol": "TestRefactorRF14_ownership_fault",
+      "setup_and_action": "在物化、companion、审核绑定和完成写后逐点故障。",
+      "required_assertions": "事务回滚，来源和公开身份/释放任务不分裂。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF14_ownership_fault$"
+        ],
+        "must_execute": "TestRefactorRF14_ownership_fault"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF14-source_e2e",
+      "point_id": "RF14",
+      "tier": "browser",
+      "target_file": "web/e2e/refactor-rf14.spec.ts",
+      "symbol": "RFA-RF14-source_e2e",
+      "setup_and_action": "运行现有 ACC-PEG-001—006、ACC-ES-001—006，使用原公开 GBA 来源及媒体夹具。",
+      "required_assertions": "每个原 Case 独立通过，普通上传、两类来源身份与显示/删除保持。",
+      "runner": {
+        "type": "playwright-leaf",
+        "entry": "scripts/refactor_verify.py",
+        "test_file": "web/e2e/refactor-rf14.spec.ts",
+        "test_title": "RFA-RF14-source_e2e",
+        "isolation": "reuse-existing-Retrom-acceptance-fixture",
+        "forbidden_parent_calls": [
+          "refactor-final",
+          "refactor-verify",
+          "acceptance-case-for-own-RFA"
+        ]
+      },
+      "hard_timeout_seconds": 180,
+      "required": true
+    },
+    {
+      "id": "RFA-RF16-game_mutations",
+      "point_id": "RF16",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf16_integration_test.go",
+      "symbol": "TestRefactorRF16_game_mutations",
+      "setup_and_action": "内容替换/游戏移动与目录默认核心变化并发。",
+      "required_assertions": "Guard 拒绝相关冲突；原 Game ID/文件/存档归属语义保留。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF16_game_mutations$"
+        ],
+        "must_execute": "TestRefactorRF16_game_mutations"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF16-tags_favorites",
+      "point_id": "RF16",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf16_integration_test.go",
+      "symbol": "TestRefactorRF16_tags_favorites",
+      "setup_and_action": "重复/并发标签变更、重命名规范化冲突、跨 Profile 收藏读写。",
+      "required_assertions": "规范化与幂等不变，无其他账号私有数据泄漏。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF16_tags_favorites$"
+        ],
+        "must_execute": "TestRefactorRF16_tags_favorites"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF16-impact_atomic",
+      "point_id": "RF16",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf16_integration_test.go",
+      "symbol": "TestRefactorRF16_impact_atomic",
+      "setup_and_action": "在关联引用/标签/审计/释放登记写入阶段失败。",
+      "required_assertions": "原子回滚，确认 token 和版本语义不被绕过。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF16_impact_atomic$"
+        ],
+        "must_execute": "TestRefactorRF16_impact_atomic"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF16-query_projection",
+      "point_id": "RF16",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf16_integration_test.go",
+      "symbol": "TestRefactorRF16_query_projection",
+      "setup_and_action": "对相同固定库执行旧新列表/详情/首页/沉浸查询，并统计 SQL。",
+      "required_assertions": "内容/排序/过滤/分页一致；按条目增长没有新增线性逐条请求。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF16_query_projection$"
+        ],
+        "must_execute": "TestRefactorRF16_query_projection"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF16-metadata_independence",
+      "point_id": "RF16",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf16_unit_test.go",
+      "symbol": "TestRefactorRF16_metadata_independence",
+      "setup_and_action": "Hasheous 命中但 DAT 阻断，及 DAT 可运行但无元信息。",
+      "required_assertions": "两证据链不相互覆盖。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF16_metadata_independence$"
+        ],
+        "must_execute": "TestRefactorRF16_metadata_independence"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF17-kind_complete",
+      "point_id": "RF17",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf17_unit_test.go",
+      "symbol": "TestRefactorRF17_kind_complete",
+      "setup_and_action": "枚举所有已存在 job Kind 与注册表，并加入一个未注册 Kind。",
+      "required_assertions": "现存全部一对一登记，未知 Kind 导致启动/门禁失败。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF17_kind_complete$"
+        ],
+        "must_execute": "TestRefactorRF17_kind_complete"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF17-cancel_running",
+      "point_id": "RF17",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf17_integration_test.go",
+      "symbol": "TestRefactorRF17_cancel_running",
+      "setup_and_action": "分别取消 QUEUED/RUNNING/终态/不可取消任务。",
+      "required_assertions": "领域和任务状态同步；不会把仍执行的任务立即伪标终止。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF17_cancel_running$"
+        ],
+        "must_execute": "TestRefactorRF17_cancel_running"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF17-lease_fencing",
+      "point_id": "RF17",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf17_integration_test.go",
+      "symbol": "TestRefactorRF17_lease_fencing",
+      "setup_and_action": "Worker A 超时，B 领取后 A 再提交，随后重复 B 提交。",
+      "required_assertions": "A 被拒绝；B 幂等，进度和引用不重复变化。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF17_lease_fencing$"
+        ],
+        "must_execute": "TestRefactorRF17_lease_fencing"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF17-wake_recovery",
+      "point_id": "RF17",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf17_integration_test.go",
+      "symbol": "TestRefactorRF17_wake_recovery",
+      "setup_and_action": "提交后丢失/重复唤醒并重启进程。",
+      "required_assertions": "任务逻辑完成一次；不是靠内存 flag 实现可靠性。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF17_wake_recovery$"
+        ],
+        "must_execute": "TestRefactorRF17_wake_recovery"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF17-event_order",
+      "point_id": "RF17",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf17_integration_test.go",
+      "symbol": "TestRefactorRF17_event_order",
+      "setup_and_action": "并发取消/进度/重试与 SSE 重连。",
+      "required_assertions": "事件序号、版本和聚合结果符合原契约，无用户私有信息。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF17_event_order$"
+        ],
+        "must_execute": "TestRefactorRF17_event_order"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF18-registry_complete",
+      "point_id": "RF18",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf18_integration_test.go",
+      "symbol": "TestRefactorRF18_registry_complete",
+      "setup_and_action": "迁移后的实际 schema 与注册引用边逐项比对，添加/删除一个测试引用边。",
+      "required_assertions": "无缺漏/重复/空 owner；未知引用导致门禁失败。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF18_registry_complete$"
+        ],
+        "must_execute": "TestRefactorRF18_registry_complete"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF18-gc_new_reference",
+      "point_id": "RF18",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf18_integration_test.go",
+      "symbol": "TestRefactorRF18_gc_new_reference",
+      "setup_and_action": "两个执行者受控交错：A取得摘要条带锁并提交GC目录移除，暂停在物理删除前；B同摘要上传并登记新保护引用。",
+      "required_assertions": "B不得越过同一条带锁；A完成后B重新确认字节并登记，或B先成功则A最新事实拒绝删除；无成功引用指向已删除bytes。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF18_gc_new_reference$"
+        ],
+        "must_execute": "TestRefactorRF18_gc_new_reference"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF18-gc_stale_digest",
+      "point_id": "RF18",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf18_integration_test.go",
+      "symbol": "TestRefactorRF18_gc_stale_digest",
+      "setup_and_action": "旧GC在等待摘要锁时失去lease，新上传注册相同digest但新的BlobID，然后放行旧GC及重试任务。",
+      "required_assertions": "旧任务取得锁后必须复核执行身份及OtherDigestOwner，不能按原digest盲删新owner文件；DB目录移除后崩溃的重试也遵守此规则。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF18_gc_stale_digest$"
+        ],
+        "must_execute": "TestRefactorRF18_gc_stale_digest"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF18-digest_lock_process",
+      "point_id": "RF18",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf18_integration_test.go",
+      "symbol": "TestRefactorRF18_digest_lock_process",
+      "setup_and_action": "两个隔离子进程用同一临时数据根竞争条带，包含多摘要逆序输入、取消、持锁进程终止。",
+      "required_assertions": "统一排序无死锁；等待可取消；进程退出后锁释放；锁文件不unlink且摘要格式校验阻止路径逃逸；零真实数据访问。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF18_digest_lock_process$"
+        ],
+        "must_execute": "TestRefactorRF18_digest_lock_process"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF18-shared_digest",
+      "point_id": "RF18",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf18_integration_test.go",
+      "symbol": "TestRefactorRF18_shared_digest",
+      "setup_and_action": "不同 Game/Save/Import 共用摘要，释放其中一个并运行 GC。",
+      "required_assertions": "其他 owner 仍可读取原 bytes；不能按单次失败/释放删共享文件。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF18_shared_digest$"
+        ],
+        "must_execute": "TestRefactorRF18_shared_digest"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF18-gc_crash_recovery",
+      "point_id": "RF18",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf18_integration_test.go",
+      "symbol": "TestRefactorRF18_gc_crash_recovery",
+      "setup_and_action": "分别在认领后、物理删除后、收口前模拟中断并重启。",
+      "required_assertions": "幂等恢复，不复活已释放数据，不永久卡住可回收对象。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF18_gc_crash_recovery$"
+        ],
+        "must_execute": "TestRefactorRF18_gc_crash_recovery"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF18-release_fence",
+      "point_id": "RF18",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf18_integration_test.go",
+      "symbol": "TestRefactorRF18_release_fence",
+      "setup_and_action": "旧 release Worker 在对象重试/转移/新 lease 后提交 effect。",
+      "required_assertions": "Guard 拒绝；无错误归属释放，保护引用和审计不分裂。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF18_release_fence$"
+        ],
+        "must_execute": "TestRefactorRF18_release_fence"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF19-backup_compat",
+      "point_id": "RF19",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf19_integration_test.go",
+      "symbol": "TestRefactorRF19_backup_compat",
+      "setup_and_action": "用基线 fixture 生成备份，再用候选版本校验/恢复。",
+      "required_assertions": "lineage、内容、来源/引用和安全撤销结果符合基线；原存档可读。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF19_backup_compat$"
+        ],
+        "must_execute": "TestRefactorRF19_backup_compat"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF19-restore_fault",
+      "point_id": "RF19",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf19_integration_test.go",
+      "symbol": "TestRefactorRF19_restore_fault",
+      "setup_and_action": "恢复前置错误、缺文件/损坏摘要、任一 DB 修复写失败。",
+      "required_assertions": "拒绝或完整回滚，无部分替换用户数据；临时资源清理。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF19_restore_fault$"
+        ],
+        "must_execute": "TestRefactorRF19_restore_fault"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF19-read_probe",
+      "point_id": "RF19",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf19_integration_test.go",
+      "symbol": "TestRefactorRF19_read_probe",
+      "setup_and_action": "持有写连接时调用 readiness/存储读快照。",
+      "required_assertions": "正常只读探针不依赖写池；启动未完成仍不 ready。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF19_read_probe$"
+        ],
+        "must_execute": "TestRefactorRF19_read_probe"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF19-diagnostic_privacy",
+      "point_id": "RF19",
+      "tier": "unit",
+      "target_file": "internal/testkit/refactor/refactor_rf19_unit_test.go",
+      "symbol": "TestRefactorRF19_diagnostic_privacy",
+      "setup_and_action": "多 Profile 数据及含私有路径错误输入。",
+      "required_assertions": "公开诊断无私有 payload、secret、绝对路径，仍有可用错误码。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF19_diagnostic_privacy$"
+        ],
+        "must_execute": "TestRefactorRF19_diagnostic_privacy"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF06-route_contract",
+      "point_id": "RF06",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf06_integration_test.go",
+      "symbol": "TestRefactorRF06_route_contract",
+      "setup_and_action": "固定请求对照基线覆盖正常、非法字段、重复 JSON、CSRF/认证/权限、分页和错误。",
+      "required_assertions": "状态/headers/body/公开错误保持；没有新的私有信息差异。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF06_route_contract$"
+        ],
+        "must_execute": "TestRefactorRF06_route_contract"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF06-replay_bytes",
+      "point_id": "RF06",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf06_integration_test.go",
+      "symbol": "TestRefactorRF06_replay_bytes",
+      "setup_and_action": "读取旧收据、新建后回放、相同 key 并发和不同 digest。",
+      "required_assertions": "旧 body 不重编码，状态一致，恰一次写入；secret 不进入普通收据。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF06_replay_bytes$"
+        ],
+        "must_execute": "TestRefactorRF06_replay_bytes"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF06-stream_protocol",
+      "point_id": "RF06",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf06_integration_test.go",
+      "symbol": "TestRefactorRF06_stream_protocol",
+      "setup_and_action": "Range/ETag、取消下载、畸形 Multipart、过大请求和截断流。",
+      "required_assertions": "状态与资源释放符合基线，无 goroutine/handle 在测试结束后遗留。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF06_stream_protocol$"
+        ],
+        "must_execute": "TestRefactorRF06_stream_protocol"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF06-transport_purity",
+      "point_id": "RF06",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf06_unit_test.go",
+      "symbol": "TestRefactorRF06_transport_purity",
+      "setup_and_action": "扫描所有 routes/handlers/WithXxx 与其构造调用。",
+      "required_assertions": "无 SQL、Repo/业务 Service 构造或后台启动；生成代码边界仍有效。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF06_transport_purity$"
+        ],
+        "must_execute": "TestRefactorRF06_transport_purity"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF20-client_isolation",
+      "point_id": "RF20",
+      "tier": "unit",
+      "target_file": "web/architecture/refactor-rf20.test.ts",
+      "symbol": "RFA-RF20-client_isolation",
+      "setup_and_action": "两个同时执行的服务端请求分别注入不同 cookie/token，浏览器会话先配置再退出。",
+      "required_assertions": "请求间无凭据串用；退出后浏览器 token/回调清理。",
+      "runner": {
+        "type": "vitest",
+        "command": [
+          "make",
+          "web-test"
+        ],
+        "test_title": "RFA-RF20-client_isolation"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF20-feature_graph",
+      "point_id": "RF20",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf20_unit_test.go",
+      "symbol": "TestRefactorRF20_feature_graph",
+      "setup_and_action": "全部生产导入图，加入越层/private 深导入和环。",
+      "required_assertions": "真实图合规，负向全部失败；没有通过 barrel 重新导出私有实现绕过。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF20_feature_graph$"
+        ],
+        "must_execute": "TestRefactorRF20_feature_graph"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF20-player_state",
+      "point_id": "RF20",
+      "tier": "unit",
+      "target_file": "web/architecture/refactor-rf20.test.ts",
+      "symbol": "RFA-RF20-player_state",
+      "setup_and_action": "预检、验证等待、失败、恢复、取消启动、旧 Promise 迟到、退出等转换。",
+      "required_assertions": "新旧状态/调用效果一致；唯一 active launch，旧结果不能回写新会话。",
+      "runner": {
+        "type": "vitest",
+        "command": [
+          "make",
+          "web-test"
+        ],
+        "test_title": "RFA-RF20-player_state"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF20-ui_regression",
+      "point_id": "RF20",
+      "tier": "browser",
+      "target_file": "web/e2e/refactor-rf20.spec.ts",
+      "symbol": "RFA-RF20-ui_regression",
+      "setup_and_action": "运行基线普通桌面、移动、沉浸、Player 和涉及 Feature 的原 Case。",
+      "required_assertions": "视觉/键盘/焦点/横屏/全屏/单次点击语义保持，不把结构重构变成 UI 重新设计。",
+      "runner": {
+        "type": "playwright-leaf",
+        "entry": "scripts/refactor_verify.py",
+        "test_file": "web/e2e/refactor-rf20.spec.ts",
+        "test_title": "RFA-RF20-ui_regression",
+        "isolation": "reuse-existing-Retrom-acceptance-fixture",
+        "forbidden_parent_calls": [
+          "refactor-final",
+          "refactor-verify",
+          "acceptance-case-for-own-RFA"
+        ]
+      },
+      "hard_timeout_seconds": 180,
+      "required": true
+    },
+    {
+      "id": "RFA-RF20-provider_opaque",
+      "point_id": "RF20",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf20_unit_test.go",
+      "symbol": "TestRefactorRF20_provider_opaque",
+      "setup_and_action": "搜索 Player/Feature 对 Provider 私有路径、ABI 或第二调度器的依赖。",
+      "required_assertions": "无私有耦合，只使用现有公共 Provider 合同。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF20_provider_opaque$"
+        ],
+        "must_execute": "TestRefactorRF20_provider_opaque"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF22-docs_no_temp",
+      "point_id": "RF22",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf22_unit_test.go",
+      "symbol": "TestRefactorRF22_docs_no_temp",
+      "setup_and_action": "在源码/脚本/正式 docs/机器清单搜索本包根名、外部工作路径和 td 依赖。",
+      "required_assertions": "全部无生产依赖；正式内容自包含且唯一。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF22_docs_no_temp$"
+        ],
+        "must_execute": "TestRefactorRF22_docs_no_temp"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF22-trace_complete",
+      "point_id": "RF22",
+      "tier": "tool",
+      "target_file": "internal/testkit/architecture/refactor_rf22_unit_test.go",
+      "symbol": "TestRefactorRF22_trace_complete",
+      "setup_and_action": "对 work item/operation/policy/test/rule/owner 生成双向覆盖报告。",
+      "required_assertions": "零 orphan/unknown、全部验证有执行证据，不只挂链接。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=10s",
+          "./internal/testkit/architecture",
+          "-run",
+          "^TestRefactorRF22_trace_complete$"
+        ],
+        "must_execute": "TestRefactorRF22_trace_complete"
+      },
+      "hard_timeout_seconds": 10,
+      "required": true
+    },
+    {
+      "id": "RFA-RF22-final_gates",
+      "point_id": "RF22",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf22_integration_test.go",
+      "symbol": "TestRefactorRF22_final_gates",
+      "setup_and_action": "在隔离工具fixture中用受控子命令替身验证 final 调度图，并令一个必需叶子失败；本测试不递归运行真实 refactor-final。",
+      "required_assertions": "叶子各执行一次且错误被传播；无调度递归；真实最终全量运行由外层单独执行一次。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF22_final_gates$"
+        ],
+        "must_execute": "TestRefactorRF22_final_gates"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    },
+    {
+      "id": "RFA-RF22-rollback_compat",
+      "point_id": "RF22",
+      "tier": "integration",
+      "target_file": "internal/testkit/refactor/refactor_rf22_integration_test.go",
+      "symbol": "TestRefactorRF22_rollback_compat",
+      "setup_and_action": "只用公开 fixture 演示基线库→候选运行→停机备份→基线程序校验读取。",
+      "required_assertions": "schema/任务/存档兼容；没有重建/删除数据；不把该演示扩大为真实生产回滚承诺。",
+      "runner": {
+        "type": "go-test",
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-json",
+          "-timeout=60s",
+          "-tags=integration",
+          "./internal/testkit/refactor",
+          "-run",
+          "^TestRefactorRF22_rollback_compat$"
+        ],
+        "must_execute": "TestRefactorRF22_rollback_compat"
+      },
+      "hard_timeout_seconds": 60,
+      "required": true
+    }
+  ]
+}

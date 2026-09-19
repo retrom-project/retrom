@@ -12545,6 +12545,10 @@
           "kind": "tool"
         },
         {
+          "path": "scripts/refactor_verify.py",
+          "kind": "tool"
+        },
+        {
           "path": "scripts/release-input-digest.py",
           "kind": "tool"
         },
@@ -12626,6 +12630,10 @@
         },
         {
           "path": "scripts/test_quality_structure.py",
+          "kind": "test"
+        },
+        {
+          "path": "scripts/test_refactor_verify.py",
           "kind": "test"
         },
         {

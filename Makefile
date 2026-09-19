@@ -59,7 +59,7 @@ API_CODEGEN_CONFIGS := $(sort $(wildcard api/codegen/*.yaml))
 API_BUNDLE := .cache/generated/openapi.bundle.yaml
 API_GO_GENERATED := internal/transport/httpapi/generated/models.gen.go internal/transport/httpapi/generated/server.gen.go internal/transport/httpapi/generated/spec.gen.go
 
-.PHONY: architecture-selftest architecture-check refactor-inventory fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
+.PHONY: refactor-verify refactor-runner-selftest architecture-selftest architecture-check refactor-inventory fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report \
@@ -347,8 +347,14 @@ acceptance-case: prepare-go prepare-node
 acceptance-report:
 	@scripts/acceptance/run.sh report
 
-.PHONY: refactor-inventory
-architecture-selftest: prepare-go api-generate-go
+refactor-runner-selftest: prepare-go
+	@python3 scripts/test_refactor_verify.py
+
+refactor-verify: prepare-go api-generate-go
+	@test -n "$(POINT)" || { echo 'POINT is required' >&2; exit 2; }
+	@python3 scripts/refactor_verify.py point --point "$(POINT)"
+
+architecture-selftest: prepare-go api-generate-go refactor-runner-selftest
 	go test -count=1 ./internal/testkit/architecture/...
 
 architecture-check: prepare-go api-generate-go

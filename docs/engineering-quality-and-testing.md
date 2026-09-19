@@ -640,3 +640,15 @@ make acceptance-case CASE=ACC-RPG-001
 - 测试章节只记录必须覆盖的行为和命令，不写某次执行的测试数量或 PASS 日志。
 - 镜像名、Docker build context、`make dev` 进程模型或 TLS 终结边界发生变化时，必须同步更新本文和部署专题；不得把部署环境差异硬编码进前端构建产物。
 - 当目录、命令或技术栈发生变化时，同步更新根 `AGENTS.md`、本文和实际配置，保证三者一致。
+
+### 重构具名测试执行证据
+
+`make refactor-verify POINT=RFxx` 从 `quality/architecture/test-cases.json` 选择具名用例，
+使用固定工具链直接执行有界 leaf 命令，并保留测试级 run/terminal 事件、实际命令、版本和源码指纹。
+Go package 总结 PASS、零匹配、skip、重复结果、无效耗时或运行中源码/HEAD 变化不能成为该用例的 PASS。
+测试输出正文不写入汇总证据，防止路径和凭据通过日志泄漏。
+
+该协调器当前处于实施阶段：仅 Go leaf 已可执行，完整操作/策略覆盖、消费者套件和最终门禁仍未接线。
+因此，即使本点的已实现 leaf 全部通过，点级结果仍返回非零及 NOT_READY。
+`make refactor-runner-selftest` 使用独立临时 Go 模块验证真实通过、失败、跳过和零匹配的区别；
+该自测也由 `make architecture-selftest` 调用。
