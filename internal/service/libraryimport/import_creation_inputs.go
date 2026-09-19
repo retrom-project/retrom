@@ -45,7 +45,7 @@ func (run *creationCommit) checkInputs(ctx context.Context, scope model.ImportCr
 		}
 		for _, binding := range bindings {
 			if binding.BindingID == run.plan.Target.BindingID {
-				target = bindImportTarget(target, binding)
+				target = model.BindImportTarget(target, binding)
 				break
 			}
 		}

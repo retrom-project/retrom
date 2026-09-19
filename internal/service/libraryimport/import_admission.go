@@ -11,26 +11,24 @@ import (
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/tagging"
 )
 
 type ImportAdmissions struct {
 	repository model.ImportAdmissionRepository
 	notifier   model.ImportGroupNotifier
-	tags       *tagging.Service
 	options    ImportAdmissionOptions
 	newID      func() (string, error)
 }
 
 func NewImportAdmissions(
 	repository model.ImportAdmissionRepository, notifier model.ImportGroupNotifier,
-	tags *tagging.Service, options ImportAdmissionOptions,
+	_ interface{}, options ImportAdmissionOptions,
 ) *ImportAdmissions {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
 	return &ImportAdmissions{
-		repository: repository, notifier: notifier, tags: tags, options: options, newID: newImportAdmissionID,
+		repository: repository, notifier: notifier, options: options, newID: newImportAdmissionID,
 	}
 }
 
@@ -47,86 +45,35 @@ func (service *ImportAdmissions) Queue(ctx context.Context, raw model.ImportRequ
 	if err != nil {
 		return model.ServerCreated{}, err
 	}
-	var result model.ServerCreated
-	err = service.repository.WithAdmission(ctx, func(scope model.ImportAdmissionScope) error {
-		change, err := service.prepare(ctx, scope, request, mode)
-		if err != nil {
-			return err
-		}
-		if err := scope.Writer.Create(ctx, change); err != nil {
-			return fmt.Errorf("persist admitted import: %w", err)
-		}
-		result = model.ServerCreated{ImportJobID: change.ImportID, JobID: change.JobID, State: "QUEUED"}
-		return nil
-	})
+	facts, err := service.repository.ReadAdmissionFacts(ctx, request)
 	if err != nil {
 		return model.ServerCreated{}, fmt.Errorf("admit import: %w", err)
 	}
+	change := model.ImportAdmissionChange{
+		Request: request, Upload: facts.Upload, Target: facts.Target,
+		TargetSnapshot: facts.TargetSnapshot, Files: facts.Files,
+	}
+	request, mode, err = service.checkContent(request, mode, change)
+	if err != nil {
+		return model.ServerCreated{}, err
+	}
+	principal, _ := authn.PrincipalFromContext(ctx)
+	if len(request.TagIDs) > 0 && principal.UserID == "" {
+		return model.ServerCreated{}, model.ErrInvalid
+	}
+	change.Request, change.ContentMode = request, mode
+	change.ActorUserID, change.NowMS = principal.UserID, service.options.Now().UnixMilli()
+	if err := service.identify(&change); err != nil {
+		return model.ServerCreated{}, err
+	}
+	if err := service.repository.CommitAdmission(ctx, change); err != nil {
+		return model.ServerCreated{}, fmt.Errorf("admit import: %w", err)
+	}
+	result := model.ServerCreated{ImportJobID: change.ImportID, JobID: change.JobID, State: "QUEUED"}
 	if service.notifier != nil {
 		service.notifier.NotifyImportGroup(ctx, result.JobID)
 	}
 	return result, nil
-}
-
-func (service *ImportAdmissions) prepare(
-	ctx context.Context, scope model.ImportAdmissionScope, request model.ImportRequest, mode string,
-) (model.ImportAdmissionChange, error) {
-	change, err := readAdmissionFacts(ctx, scope.Facts, request)
-	if err != nil {
-		return model.ImportAdmissionChange{}, err
-	}
-	request, mode, err = service.checkContent(request, mode, change)
-	if err != nil {
-		return model.ImportAdmissionChange{}, err
-	}
-	snapshot, provisional, err := SnapshotImportTarget(ctx, scope.Facts, change.Target)
-	if err != nil {
-		return model.ImportAdmissionChange{}, err
-	}
-	principal, _ := authn.PrincipalFromContext(ctx)
-	if len(request.TagIDs) > 0 && principal.UserID == "" {
-		return model.ImportAdmissionChange{}, model.ErrInvalid
-	}
-	tags, err := scope.Tags.ValidateActiveReferences(ctx, request.TagIDs)
-	if err != nil {
-		return model.ImportAdmissionChange{}, fmt.Errorf("validate admission tags: %w", err)
-	}
-	change.Request, change.ContentMode = request, mode
-	change.Target, change.TargetSnapshot = provisional, snapshot
-	change.ActorUserID, change.NowMS = principal.UserID, service.options.Now().UnixMilli()
-	if err := service.identify(&change); err != nil {
-		return model.ImportAdmissionChange{}, err
-	}
-	documents, err := admissionDocuments(change, tags)
-	if err != nil {
-		return model.ImportAdmissionChange{}, err
-	}
-	change.Documents = documents
-	return change, nil
-}
-
-func readAdmissionFacts(
-	ctx context.Context, facts model.ImportFactsReader, request model.ImportRequest,
-) (model.ImportAdmissionChange, error) {
-	upload, found, err := facts.Upload(ctx, request.UploadID)
-	if err != nil {
-		return model.ImportAdmissionChange{}, fmt.Errorf("read admission upload: %w", err)
-	}
-	if !found || upload.State != "COMPLETE" || upload.Version < 1 {
-		return model.ImportAdmissionChange{}, model.ErrInvalid
-	}
-	target, err := ReadImportTarget(ctx, facts, request.TargetPlatformInstanceID)
-	if err != nil {
-		return model.ImportAdmissionChange{}, err
-	}
-	files, err := facts.Files(ctx, request.UploadID)
-	if err != nil {
-		return model.ImportAdmissionChange{}, fmt.Errorf("read admission source files: %w", err)
-	}
-	if len(files) == 0 || int64(len(files)) != upload.FileCount {
-		return model.ImportAdmissionChange{}, model.ErrInvalid
-	}
-	return model.ImportAdmissionChange{Request: request, Upload: upload, Target: target, Files: files}, nil
 }
 
 func (service *ImportAdmissions) checkContent(
@@ -159,6 +106,32 @@ func checkImportContent(
 	return request, mode, nil
 }
 
+// readAdmissionFacts reads and validates the database facts needed for an
+// import admission from the given reader.
+func readAdmissionFacts(
+	ctx context.Context, facts model.ImportFactsReader, request model.ImportRequest,
+) (model.ImportAdmissionChange, error) {
+	upload, found, err := facts.Upload(ctx, request.UploadID)
+	if err != nil {
+		return model.ImportAdmissionChange{}, fmt.Errorf("read admission upload: %w", err)
+	}
+	if !found || upload.State != "COMPLETE" || upload.Version < 1 {
+		return model.ImportAdmissionChange{}, model.ErrInvalid
+	}
+	target, err := ReadImportTarget(ctx, facts, request.TargetPlatformInstanceID)
+	if err != nil {
+		return model.ImportAdmissionChange{}, err
+	}
+	files, err := facts.Files(ctx, request.UploadID)
+	if err != nil {
+		return model.ImportAdmissionChange{}, fmt.Errorf("read admission source files: %w", err)
+	}
+	if len(files) == 0 || int64(len(files)) != upload.FileCount {
+		return model.ImportAdmissionChange{}, model.ErrInvalid
+	}
+	return model.ImportAdmissionChange{Request: request, Upload: upload, Target: target, Files: files}, nil
+}
+
 func (service *ImportAdmissions) identify(change *model.ImportAdmissionChange) error {
 	for _, destination := range []*string{&change.ImportID, &change.JobID, &change.ExecutionID, &change.ConsumptionID} {
 		value, err := service.newID()
@@ -169,3 +142,4 @@ func (service *ImportAdmissions) identify(change *model.ImportAdmissionChange) e
 	}
 	return nil
 }
+
