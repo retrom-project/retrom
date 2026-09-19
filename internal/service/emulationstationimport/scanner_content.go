@@ -14,6 +14,7 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/content/multidisc"
 	"retrom/internal/capability/format/emulationstationmeta"
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type contentProjection struct {
@@ -90,7 +91,7 @@ func (service *Scanner) projectGame(
 }
 
 func boundedWarnings(values []map[string]any) []map[string]any {
-	return BoundedWarnings(values)
+	return model.BoundedWarnings(values)
 }
 
 type sourceManifest struct {

@@ -71,7 +71,7 @@ func appendExecutionWarnings(encoded string, additions []libraryimportmodel.Serv
 			warnings = append(warnings, map[string]any{"code": addition.Code, "field": addition.Field})
 		}
 	}
-	warnings = BoundedWarnings(warnings)
+	warnings = model.BoundedWarnings(warnings)
 	value, err := json.Marshal(warnings)
 	if err != nil {
 		return "", fmt.Errorf("encode EmulationStation warnings: %w", err)

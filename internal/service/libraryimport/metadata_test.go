@@ -139,7 +139,7 @@ func TestMetadataSeederRejectsInvalidInputAndDraft(t *testing.T) {
 func TestMetadataNormalizationPreservesRuneLimitsAndWarningOrder(t *testing.T) {
 	t.Parallel()
 	year := 1949
-	normalized, warnings, err := NormalizeServerReviewMetadata(model.ServerMetadata{Title: "Fixture", Description: strings.Repeat("界", 10001), Developer: strings.Repeat("开", 201), Publisher: strings.Repeat("发", 201), Genre: strings.Repeat("类", 201), ReleaseYear: &year}, 2027)
+	normalized, warnings, err := model.NormalizeServerReviewMetadata(model.ServerMetadata{Title: "Fixture", Description: strings.Repeat("界", 10001), Developer: strings.Repeat("开", 201), Publisher: strings.Repeat("发", 201), Genre: strings.Repeat("类", 201), ReleaseYear: &year}, 2027)
 	if err != nil || len([]rune(normalized.Description)) != 10000 || len([]rune(normalized.Developer)) != 200 || len([]rune(normalized.Publisher)) != 200 || len([]rune(normalized.Genre)) != 200 || normalized.ReleaseYear != nil {
 		t.Fatalf("normalization=%#v %v", normalized, err)
 	}
@@ -173,7 +173,7 @@ func TestMetadataNormalizationRejectsMalformedSourceFields(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			_, _, err := NormalizeServerReviewMetadata(tc.value, 2027)
+			_, _, err := model.NormalizeServerReviewMetadata(tc.value, 2027)
 			if !errors.Is(err, model.ErrInvalid) {
 				t.Fatalf("accepted %#v: %v", tc.value, err)
 			}
@@ -186,7 +186,7 @@ func TestMetadataNormalizationAcceptsInclusiveLimits(t *testing.T) {
 	for _, year := range []int{1950, 2028} {
 		for _, players := range []int{1, 64} {
 			value := model.ServerMetadata{Title: strings.Repeat("界", 200), Description: "First\nSecond\r\nThird\tline", Developer: strings.Repeat("界", 200), Players: &players, ReleaseYear: &year}
-			normalized, warnings, err := NormalizeServerReviewMetadata(value, 2028)
+			normalized, warnings, err := model.NormalizeServerReviewMetadata(value, 2028)
 			if err != nil || !reflect.DeepEqual(normalized, value) || warnings == nil || len(warnings) != 0 {
 				t.Fatalf("boundary=%#v %#v %v", normalized, warnings, err)
 			}

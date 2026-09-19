@@ -115,7 +115,7 @@ func (service *Materialization) Warning(
 	}
 	err = service.repository.CommitMaterialWarning(ctx, model.MaterialWarning{
 		Before: before, State: state, Code: code,
-		Warnings: BoundedWarnings(warnings), NowMS: now,
+		Warnings: model.BoundedWarnings(warnings), NowMS: now,
 	})
 	if err != nil {
 		return fmt.Errorf("record EmulationStation media warning: %w", err)
