@@ -18002,7 +18002,13 @@
       "owner": "libraryimport",
       "rf_id": "RF13",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateOwnedServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateServerSourceOnce",
         "(*retrom/internal/adapter/integration/libraryimport.Service).Reconfigure",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).createPreparedServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).createServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).removeUnusedClonedUpload",
         "(*retrom/internal/service/libraryimport.Reconfigurations).Reconfigure",
         "(*retrom/internal/transport/httpapi.Server).reconfigureImport"
       ],
@@ -18014,7 +18020,7 @@
         {
           "name": "all cloned upload consumption count",
           "reader_symbol": "(*retrom/internal/repo/libraryimport.Reconfigurations).RemoveUnused",
-          "reason": "Insidewriter SELECTcount(upload_consumptions foruploadID),includingreleasedconsumptions. Current implementation holds this as localscalar,notnamedSnapshot; registry references existing Clone input context and this fact,RF03/RF05 mustintroducecomplete cleanupvalues"
+          "reason": "Insidewriter SELECTcount(upload_consumptions foruploadID),includingreleasedconsumptions. Current implementation holds this as localscalar,notnamedSnapshot; registry references existing Clone input context and this fact,RF03/RF05 mustintroducecomplete cleanupvalues The same existing RemoveUnused boundary also handles failed server-source import creation after a prepared server upload was committed. Its input is an upload ID; ReconfigurationClone is only the baseline reconfiguration value context, not a complete shared cleanup command."
         }
       ],
       "guards": [
@@ -18046,11 +18052,11 @@
           "test_id": "RFA-RF13-discard_handoff"
         }
       ],
-      "idempotency": "Repeateddeletes aftersuccessfulcleanup are harmlesswhenconsumptioncount0. DoesnotunlinkCASbytes; existing/sharedowners retained.",
-      "time_rule": "No clock/UUID inthisoperation. BeginTx(nil),countquery,conditionaldeletes andcommit; caller usesWithoutCancel afterfailedcreation andsilently ignorescleanupfailure.",
+      "idempotency": "Repeateddeletes aftersuccessfulcleanup are harmlesswhenconsumptioncount0. DoesnotunlinkCASbytes; existing/sharedowners retained. Shared source-upload compensation must preserve this same no-consumption predicate; no second transaction family is invented for a second caller.",
+      "time_rule": "No clock/UUID inthisoperation. BeginTx(nil),countquery,conditionaldeletes andcommit; caller usesWithoutCancel afterfailedcreation andsilently ignorescleanupfailure. Both Service.Reconfigurations.Reconfigure and the legacy integration facade's removeUnusedClonedUpload invoke this compensation after independent failed creation. No clock/ID is supplied; both use uncancelled cleanup and ignore its error.",
       "after_commit": [
         {
-          "action": "Return cleanupstatus tocaller; baselinecaller discards it",
+          "action": "Return cleanup status to either failed reconfiguration or failed server-source creation; baseline callers discard the cleanup error.",
           "recovery": "Failures roll back bothdeletes; improveerror reporting withoutmasking originalcreationcause; laterGC ownsphysicaldeletion",
           "test_id": "RFA-RF13-discard_handoff"
         }
@@ -42764,6 +42770,7 @@
     "RF13 importdiscard four real write boundaries inventoried; process remains multiple separately committed operations. Request/progress execution identity, current source fences, row counts, prepared IDs/single post-writer Clock and lifecycle ownership remain implementation work. ReviewValidation.UpdateRPGDependencyDigest has no production caller; remove unused port/helper rather than invent an operation.",
     "RF19 one restore writer and40nested phases source-reviewed. Technical checkpoint and two filesystem publish boundaries recorded in restore entry; diagnostics/readiness/storageanalysis are read cases. Diagnostics still writer-pool injected; read probes lack explicit lifecycle state; maintenance file cancellation/cleanup/no-replace errors and doc schema1 vs current diagnostics2 remain pending.",
     "RF14 Pegasus source-reviewed census includes23actual write variants/14writer wrappers with134expandednested SQLstages; read-only uses excluded. No migration or tests claimed. D22 material+companion,prewriter/multipleclock,preparedIDs,handoff/job-input fences,owned lifecycle/cleanup remain implementation work. RF13 remaining67purevalue policies recorded; mixed Reader/Candidate/UUID/context functions and unused digest copies explicitly not counted as pure definitions.",
-    "RF14 ES26+serverBIOS12real source-task write variants source-reviewed with251expandedSQL phases. Firmware successful install remainsRF11; RF13 source upload/ordinary creation remain independent; shared metadata/release writes stay in owning source writer. StrongES execution guards preserved; BIOSweaklease/deadline/jobinputguard,ownedbackgroundlifecycle,sourcepathAdapter boundary,preparedIDs/Clock and D22 remain implementation work. Final wholewrite-entry audit underway."
+    "RF14 ES26+serverBIOS12real source-task write variants source-reviewed with251expandedSQL phases. Firmware successful install remainsRF11; RF13 source upload/ordinary creation remain independent; shared metadata/release writes stay in owning source writer. StrongES execution guards preserved; BIOSweaklease/deadline/jobinputguard,ownedbackgroundlifecycle,sourcepathAdapter boundary,preparedIDs/Clock and D22 remain implementation work. Final wholewrite-entry audit underway.",
+    "Final RF01 writer cross-audit classified31nonRF14uncovered graph roots as read/technical/unused; shared writer callbacks are existing operation helpers or read-only uses. Shared RemoveUnused compensation additionally reached from failed server-source creation and its full typed consumers are now recorded. Value cleanup command must replace the incomplete legacy clone context during RF03/RF05 migration."
   ]
 }
