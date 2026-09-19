@@ -1957,6 +1957,25 @@
       ]
     },
     {
+      "id": "libraryimport.ArchiveReason",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ArchiveReason",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareArcadeArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareDOSArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareProfileFile",
+        "retrom/internal/adapter/integration/libraryimport.archiveReason",
+        "retrom/internal/service/libraryimport.archiveSelectionReason"
+      ],
+      "invariant": "Map typed archive limit/encryption/volume/resource/sandbox/nesting/method/casefold failures to stable reason codes; use ARCHIVE_UNSAFE for the remaining failures.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.CreationRPGAnalysis",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2003,6 +2022,54 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.DOSProgram",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.DOSProgram",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).preparedDOSProgram",
+        "retrom/internal/adapter/integration/libraryimport.dosProgram"
+      ],
+      "invariant": "Only case-insensitive .exe/.com/.bat extensions produce EXE/COM/BAT program kinds.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.DecodeImportDocument",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/model/libraryimport.DecodeImportDocument",
+      "consumers": [
+        "(*retrom/internal/repo/libraryimport.ImportReads).Detail",
+        "(*retrom/internal/repo/libraryimport.ImportReads).ReviewHistoryEvent"
+      ],
+      "invariant": "Return the decoded arbitrary JSON value for import read projections, or nil for malformed input, preserving the existing tolerant projection contract.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.DirectDOSPathSafe",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.DirectDOSPathSafe",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).preparedDOSProgram",
+        "retrom/internal/adapter/integration/libraryimport.directDOSPathSafe"
+      ],
+      "invariant": "Require nonempty slash segments of at most 255 bytes, ASCII alphanumeric leading characters, safe alphanumeric/underscore/hyphen endings and the fixed safe interior character set.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
       ]
     },
     {
@@ -2057,6 +2124,24 @@
       ]
     },
     {
+      "id": "libraryimport.MatchArcadeRequirements",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.MatchArcadeRequirements",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).addDependency",
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).recordExternalDependency",
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).validatePrimary",
+        "retrom/internal/adapter/integration/libraryimport.matchArcadeRequirements"
+      ],
+      "invariant": "Match required entries by ASCII-folded name, exact size and every provided CRC/SHA1; emit missing/mismatch lists and BADDUMP warnings from present entries.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.MatchesImportDocumentDigest",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2087,6 +2172,36 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.MultiDiscAttachment.Active",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(retrom/internal/model/libraryimport.MultiDiscAttachment).Active",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDependencies).MultiDisc"
+      ],
+      "invariant": "An attachment is active only when its state is QUEUED/RUNNING/FAILED_RETRYABLE and job state is QUEUED/RUNNING.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.MultiDiscAttachment.Retryable",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(retrom/internal/model/libraryimport.MultiDiscAttachment).Retryable",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDependencies).MultiDisc"
+      ],
+      "invariant": "An attachment is retryable only when attachment=FAILED_RETRYABLE, job=FAILED and explicit retryable=true.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
       ]
     },
     {
@@ -2125,6 +2240,22 @@
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic",
         "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.NormalizeReviewQueueFilter",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.NormalizeReviewQueueFilter",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewQueue).List",
+        "(*retrom/internal/transport/httpapi.Server).prepareReviewList"
+      ],
+      "invariant": "Normalize query whitespace and case; enforce 200-rune query, valid optional tag, at most one source filter, UPDATED_ASC/UPDATED_DESC and bounded page size.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
       ]
     },
     {
@@ -2176,6 +2307,24 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.ParseArcadeDraftSnapshot",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ParseArcadeDraftSnapshot",
+      "consumers": [
+        "retrom/internal/adapter/integration/libraryimport.parseArcadeDraftSnapshot",
+        "retrom/internal/service/libraryimport.CanonicalArcadeSnapshot",
+        "retrom/internal/service/libraryimport.ResolveCreationArcade",
+        "retrom/internal/service/libraryimport.validateApprovalArcade"
+      ],
+      "invariant": "Accept only decodable arcade snapshot schema/kind with nonempty machine/DAT and nonnil dependencies; do not mistake this shape check for complete current dependency validation.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
       ]
     },
     {
@@ -2236,6 +2385,53 @@
       ]
     },
     {
+      "id": "libraryimport.ProjectReviewArchiveFormat",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ProjectReviewArchiveFormat",
+      "consumers": [
+        "retrom/internal/service/libraryimport.readReviewSourceFiles"
+      ],
+      "invariant": "Only TyranoScript ZIP evidence with an .exe filename is presented as NWJS_EXECUTABLE; preserve every other content/format combination.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.ProjectReviewRPGMaker",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ProjectReviewRPGMaker",
+      "consumers": [
+        "retrom/internal/service/libraryimport.readReviewValidation"
+      ],
+      "invariant": "Decode frozen RPG analysis, derive external RTP declarations from generation/self-contained facts, and preserve selected/evidence core-generation fields and explicit override.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.RankDOSEntries",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.RankDOSEntries",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareDOSArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareDOSDirectory",
+        "retrom/internal/adapter/integration/libraryimport.rankDOSEntries"
+      ],
+      "invariant": "Infer safe terminal programs, stable-sort by category/extension/depth/folded path, and assign consecutive ranks in place.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.ReconfigurationManifestDigest",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2287,6 +2483,21 @@
       ]
     },
     {
+      "id": "libraryimport.ReviewApproval",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ReviewApproval",
+      "consumers": [
+        "retrom/internal/service/libraryimport.readReviewValidation"
+      ],
+      "invariant": "Detail can-approve is selectedReady OR a current screenshot for non-ScummVM content; this projection never replaces final dependency guards.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
       "id": "libraryimport.ReviewValidationEvidence.CurrentInput",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2317,6 +2528,25 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.RpgMakerDirectoryTitle",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.RpgMakerDirectoryTitle",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareKiriKiriDirectory",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareMarkerProjectDirectory",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareRPGMakerDirectory",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareScummVMDirectory",
+        "retrom/internal/adapter/integration/libraryimport.rpgMakerDirectoryTitle"
+      ],
+      "invariant": "A project directory title exists only when every input has the same nonempty top-level directory and a child path.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
       ]
     },
     {
@@ -2366,6 +2596,38 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.SelectedArcadeRequirements",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.SelectedArcadeRequirements",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).ArcadeRequirements"
+      ],
+      "invariant": "Exclude NODUMP entries and BIOS alternatives other than the exact selected default BIOS.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.SourceOwnerKind.Valid",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(retrom/internal/model/libraryimport.SourceOwnerKind).Valid",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).LookupOwnedServerSource",
+        "(*retrom/internal/service/libraryimport.SourceOwnership).Prepare"
+      ],
+      "invariant": "Source owner kind is exactly PEGASUS or EMULATIONSTATION.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
       ]
     },
     {
@@ -2487,6 +2749,22 @@
       ]
     },
     {
+      "id": "libraryimport.ValidateOwnedSourceFiles",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ValidateOwnedSourceFiles",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateOwnedServerSource"
+      ],
+      "invariant": "Require nonempty copied source facts, nonempty blob ID, nonnegative size and exact file-value equality by relative path; additional resolved dependency inputs are allowed.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
       "id": "libraryimport.ValidateOwnedSourceGroups",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2501,6 +2779,38 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.ValidateOwnedSourceReplayPaths",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ValidateOwnedSourceReplayPaths",
+      "consumers": [
+        "retrom/internal/adapter/integration/libraryimport.validateOwnedSourceReplay"
+      ],
+      "invariant": "Reject empty persisted paths as version conflict; reject empty or unequal requested normalized path sets as invalid replay.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.ValidateOwnedSourceRequest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ValidateOwnedSourceRequest",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateOwnedServerSource"
+      ],
+      "invariant": "For EmulationStation enforce frozen actor and normalized content mode; decode nonnull frozen tag references and compare the sorted tag ID multiset with the request.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
       ]
     },
     {
@@ -2753,6 +3063,172 @@
       ]
     },
     {
+      "id": "libraryimport.arcadeAttachmentUnsupported",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.arcadeAttachmentUnsupported",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDependencies).Arcade"
+      ],
+      "invariant": "Merged ROMset, CHD, dependency cycle and unavailable DAT compatibility codes prevent parent attachment.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.arcadeClosureKindOrder",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/model/libraryimport.arcadeClosureKindOrder",
+      "consumers": [
+        "(*retrom/internal/model/libraryimport.arcadeClosureTraversal).sort"
+      ],
+      "invariant": "Closure kind order is CONTENT=0, PARENT=1, every other kind=2. This method body only changes value state; isolate it from the receiver's resolver/service/context before Model migration.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.arcadeClosureTraversal.capacityExceeded",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/model/libraryimport.arcadeClosureTraversal).capacityExceeded",
+      "consumers": [
+        "(*retrom/internal/model/libraryimport.arcadeClosureTraversal).step"
+      ],
+      "invariant": "Arcade dependency closure capacity is exhausted when node count is at least 64. This method body only changes value state; isolate it from the receiver's resolver/service/context before Model migration.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.arcadeClosureTraversal.sort",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/model/libraryimport.arcadeClosureTraversal).sort",
+      "consumers": [
+        "retrom/internal/model/libraryimport.ArcadeDependencyClosure"
+      ],
+      "invariant": "Sort closure nodes by depth, CONTENT/PARENT/other kind precedence, then machine. This method body only changes value state; isolate it from the receiver's resolver/service/context before Model migration.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.arcadeClosureTraversal.upsertParent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/model/libraryimport.arcadeClosureTraversal).upsertParent",
+      "consumers": [
+        "(*retrom/internal/model/libraryimport.arcadeClosureTraversal).advanceToParent"
+      ],
+      "invariant": "Replace an existing closure node with the current parent edge; otherwise append only below the 64-node bound, preserving RequiredBy=current and Depth=current+1. This method body only changes value state; isolate it from the receiver's resolver/service/context before Model migration.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.arcadeDispositions",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.arcadeDispositions",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).PrepareArcadeFiles"
+      ],
+      "invariant": "Prioritize sidecar/rejection reasons, keep NORMAL or actually referenced dependency sources, and reject unused dependency archives with ARCADE_UNUSED_DEPENDENCY_ARCHIVE.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.arcadeEntryMatchesRequirement",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.arcadeEntryMatchesRequirement",
+      "consumers": [
+        "retrom/internal/service/libraryimport.MatchArcadeRequirements",
+        "retrom/internal/service/libraryimport.containsMergedArcadeEntries"
+      ],
+      "invariant": "Require exact entry size and case-insensitive equality for every nonnil required CRC32 and SHA1.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.arcadeGroupBuilder.recordExternalDependency",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).recordExternalDependency",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).addDependency"
+      ],
+      "invariant": "Reject a mismatched external parent without referencing it; permit BIOS/base mismatch as HASH_WARNING and append exact companion/validation evidence for referenced dependencies. This method body only changes value state; isolate it from the receiver's resolver/service/context before Model migration.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.arcadeGroupBuilder.recordMissingDependency",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).recordMissingDependency",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).addDependency"
+      ],
+      "invariant": "Record missing machine.zip; only READY transitions to BLOCKED with parent/BIOS-specific reason, and append a MISSING dependency. This method body only changes value state; isolate it from the receiver's resolver/service/context before Model migration.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.arcadeGroupBuilder.result",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).result",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).build"
+      ],
+      "invariant": "Sort arcade missing/mismatch/warning/dependency evidence and construct a prepared group with the frozen schema/kind/closure/dependencies; detach I/O-bearing builder fields for Model ownership. This method body only changes value state; isolate it from the receiver's resolver/service/context before Model migration.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.archiveSelectionReason",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.archiveSelectionReason",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareProfileFile"
+      ],
+      "invariant": "Map no-supported-content and ambiguous-primary errors to their stable reasons, otherwise apply the shared archive reason policy.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.canDiscardReview",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2784,6 +3260,37 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.conditionalDOSBatchCommand",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.conditionalDOSBatchCommand",
+      "consumers": [
+        "retrom/internal/service/libraryimport.dosBatchCommandToken"
+      ],
+      "invariant": "Treat goto, if and for as unsupported conditional control flow for terminal inference.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.containsMergedArcadeEntries",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.containsMergedArcadeEntries",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).addDependency",
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).validatePrimary"
+      ],
+      "invariant": "Detect a merged ROMset only when a matching nested basename can satisfy a requirement that has no matching root entry.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
       ]
     },
     {
@@ -2852,6 +3359,82 @@
       ]
     },
     {
+      "id": "libraryimport.directArcadeRequirements",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.directArcadeRequirements",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).validatePrimary"
+      ],
+      "invariant": "Use nonmerged requirements plus merged requirements whose exact name already occurs in the primary entries map.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.directoryProjectSources",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.directoryProjectSources",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareMarkerProjectDirectory",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareScummVMDirectory"
+      ],
+      "invariant": "Map normalized project members to PROJECT_FILE sources; mark all excluded original inputs as ignored system sidecars in original input order.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.dosBatchCommandToken",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.dosBatchCommandToken",
+      "consumers": [
+        "retrom/internal/service/libraryimport.resolveDOSBatchInvocations"
+      ],
+      "invariant": "Ignore blank/label lines and known harmless commands; reject goto/if/for, require a target for call, and extract the first executable token without executing it.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.dosDirectoryTitle",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.dosDirectoryTitle",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareDOSDirectory"
+      ],
+      "invariant": "Use the deepest directory common to all source paths; otherwise use the first file basename without extension, or empty for no files.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.dosEntryPriority",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.dosEntryPriority",
+      "consumers": [
+        "retrom/internal/service/libraryimport.RankDOSEntries"
+      ],
+      "invariant": "Order inferred terminal before preferred launcher, ordinary program and helper; then EXE/COM/BAT, path depth and lowercase path.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.encodeMetadata",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2881,6 +3464,37 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.helperDOSProgramName",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.helperDOSProgramName",
+      "consumers": [
+        "retrom/internal/service/libraryimport.dosEntryPriority",
+        "retrom/internal/service/libraryimport.inferDOSBatchTerminalTargets"
+      ],
+      "invariant": "Recognize the fixed helper/setup/install/configuration/driver/extractor basename set; those entries rank after ordinary programs.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.ignoredDOSBatchCommand",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ignoredDOSBatchCommand",
+      "consumers": [
+        "retrom/internal/service/libraryimport.dosBatchCommandToken"
+      ],
+      "invariant": "Ignore rem/echo/set/cd/chdir/path/prompt and :: comments during bounded DOS launcher inference.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
       ]
     },
     {
@@ -3098,6 +3712,87 @@
       ]
     },
     {
+      "id": "libraryimport.indexArcadeAttachments",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.indexArcadeAttachments",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDependencies).Arcade"
+      ],
+      "invariant": "Preserve the first attachment per machine and the first QUEUED/RUNNING attachment in reader order.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.inferDOSBatchTerminalTargets",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.inferDOSBatchTerminalTargets",
+      "consumers": [
+        "retrom/internal/service/libraryimport.RankDOSEntries"
+      ],
+      "invariant": "Clear prior inference and promote only a known non-BAT non-helper terminal of a preferred safe batch with at least two invocations and an earlier known helper.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.initialMultiDiscDispositions",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.initialMultiDiscDispositions",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).PrepareMultiDiscFiles"
+      ],
+      "invariant": "Initialize every multi-disc input as ignored with NOT_REFERENCED_BY_PLAYLIST, except the dedicated system-sidecar reason.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.isPrimaryArcadeArchive",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.isPrimaryArcadeArchive",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).PrepareArcadeFiles"
+      ],
+      "invariant": "A primary archive has no rejection reason, classification NORMAL and no dependency-candidate membership.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.knownSidecar",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.knownSidecar",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).multiDiscCandidates",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareArcadeArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareProfileFile",
+        "retrom/internal/service/libraryimport.initialMultiDiscDispositions",
+        "retrom/internal/service/libraryimport.multiDiscFileBuckets",
+        "retrom/internal/service/libraryimport.partitionDOSFiles",
+        "retrom/internal/service/libraryimport.prepareUnsupportedPlatformFiles"
+      ],
+      "invariant": "Only basename .DS_Store, Thumbs.db or a ._ prefix is an ignored system sidecar.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.legacy.normalizeReviewBulkScope",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -3244,6 +3939,37 @@
       ]
     },
     {
+      "id": "libraryimport.markerProjectGroup",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.markerProjectGroup",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareMarkerProjectArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareMarkerProjectDirectory"
+      ],
+      "invariant": "Initialize a marker-defined project as BLOCKED with its fixed runtime-trial compatibility code, sorted sources and explicit title-source/snapshot evidence.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.markerProjectNotFound",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.markerProjectNotFound",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).scanMarkerProjectArchive"
+      ],
+      "invariant": "Recognize project-not-found only through typed fileset.ProjectError with CodeProjectNotFound.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.metadataEvent",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -3257,6 +3983,36 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.multiDiscFileBuckets",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.multiDiscFileBuckets",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).PrepareMultiDiscFiles"
+      ],
+      "invariant": "Group files by directory and count only nonsidecar ASCII-case-insensitive .m3u playlists in each directory.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.multiDiscParseReason",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.multiDiscParseReason",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareMultiDiscDirectory"
+      ],
+      "invariant": "Preserve a typed multi-disc ValidationError code; otherwise return MULTI_DISC_PLAYLIST_INVALID.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
       ]
     },
     {
@@ -3505,6 +4261,38 @@
       ]
     },
     {
+      "id": "libraryimport.newKiriKiriGroup",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.newKiriKiriGroup",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareKiriKiriArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareKiriKiriDirectory"
+      ],
+      "invariant": "Sort sources and freeze KiriKiri profile JSON; initial state is BLOCKED/KIRIKIRI_RUNTIME_TRIAL_REQUIRED with explicit title source.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.newScummVMGroup",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.newScummVMGroup",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareScummVMArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareScummVMDirectory"
+      ],
+      "invariant": "Freeze the supplied detection snapshot, derive its current selection status and stable blocker, and preserve sorted sources plus explicit title source.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.normalizeCreationOptions",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -3555,6 +4343,21 @@
       ]
     },
     {
+      "id": "libraryimport.normalizeReviewBulkCandidateQuery",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.normalizeReviewBulkCandidateQuery",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewBulkQueries).CandidatesPage"
+      ],
+      "invariant": "Normalize scope, bound limit, require canonical optional UUID cursors, and require a nonempty through cursor greater than a nonempty after cursor.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial"
+      ]
+    },
+    {
       "id": "libraryimport.normalizeReviewDeduplicateRequest",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -3590,6 +4393,36 @@
       ]
     },
     {
+      "id": "libraryimport.normalizedDOSProgramName",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.normalizedDOSProgramName",
+      "consumers": [
+        "retrom/internal/service/libraryimport.inferDOSBatchTerminalTargets"
+      ],
+      "invariant": "Normalize a program basename without extension to lowercase ASCII letters and digits, discarding other characters for ranking.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.partitionDOSFiles",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.partitionDOSFiles",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).PrepareDOSFiles"
+      ],
+      "invariant": "Keep input order while assigning system sidecars IGNORED/IGNORED_SYSTEM_SIDECAR and returning other files for DOS preparation.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.patchedTargetAndDOS",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -3603,6 +4436,22 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.preferredDOSProgramName",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.preferredDOSProgramName",
+      "consumers": [
+        "retrom/internal/service/libraryimport.dosEntryPriority",
+        "retrom/internal/service/libraryimport.inferDOSBatchTerminalTargets"
+      ],
+      "invariant": "Preferred DOS launcher names are game, go, launch, play, run and start.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
       ]
     },
     {
@@ -3620,6 +4469,36 @@
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic",
         "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.prepareUnsupportedPlatformFiles",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.prepareUnsupportedPlatformFiles",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).PrepareImportFiles"
+      ],
+      "invariant": "Reject unsupported-platform inputs with UNSUPPORTED_CONTENT_FORMAT except recognized system sidecars, which remain ignored.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.preparedMultiDiscGroup",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.preparedMultiDiscGroup",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareMultiDiscDirectory"
+      ],
+      "invariant": "Build one playlist group and ordered disc sources from parsed values; missing discs produce BLOCKED/MULTI_DISC_FILE_MISSING, and only complete groups receive the full canonical ordered dependency identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
       ]
     },
     {
@@ -3673,6 +4552,21 @@
       ]
     },
     {
+      "id": "libraryimport.projectMultiDiscSource",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.projectMultiDiscSource",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDependencies).MultiDisc"
+      ],
+      "invariant": "Project disc index/label and count bytes/present entries only from nonnil size facts; record every MISSING entry reference and total missing count.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
       "id": "libraryimport.projectReviewDiscardAggregate",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -3690,6 +4584,81 @@
       ]
     },
     {
+      "id": "libraryimport.projectReviewHead",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.projectReviewHead",
+      "consumers": [
+        "retrom/internal/service/libraryimport.readReviewDetail"
+      ],
+      "invariant": "Decode review metadata and manifest, preserve nullable selections, and wrap a legacy manifest whose first byte is '[' as a files object without changing source identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.reasonOrUnsupported",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.reasonOrUnsupported",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareProfileFile"
+      ],
+      "invariant": "Use UNSUPPORTED_CONTENT_FORMAT only when no more specific rejection reason is present.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.rejectSourceDispositions",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.rejectSourceDispositions",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareDOSDirectory"
+      ],
+      "invariant": "Rewrite only SOURCE dispositions to REJECTED with the supplied reason; keep previously ignored/rejected inputs unchanged.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.resolveDOSBatchInvocations",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.resolveDOSBatchInvocations",
+      "consumers": [
+        "retrom/internal/service/libraryimport.inferDOSBatchTerminalTargets"
+      ],
+      "invariant": "Refuse inference above 64KiB or when any executable line is conditional/unresolved; ignore known harmless commands and return ordered known entry indices.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.resolveDOSBatchProgram",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.resolveDOSBatchProgram",
+      "consumers": [
+        "retrom/internal/service/libraryimport.resolveDOSBatchInvocations"
+      ],
+      "invariant": "Normalize DOS slashes/drive prefixes, resolve bare commands relative to the batch directory, and match known entries with EXE/COM/BAT fallback order.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
       "id": "libraryimport.reviewValidationGuardMatches",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -3704,6 +4673,21 @@
       "tests": [
         "RFA-RF13-approval_guard",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.rpgArtifactIdentity",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.rpgArtifactIdentity",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportArtifacts).prepareRPG"
+      ],
+      "invariant": "Map RPG2000/2003 to index.json, XP/VX/VXAce to game.mkxpz, MV/MZ to no derived artifact, and reject unknown generations.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
       ]
     },
     {
@@ -3803,6 +4787,40 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.sortArcadeDependencies",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.sortArcadeDependencies",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.arcadeGroupBuilder).result"
+      ],
+      "invariant": "Sort frozen arcade dependencies by kind, numeric depth and machine, retaining current zero-value behavior for malformed map fields.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
+      ]
+    },
+    {
+      "id": "libraryimport.sortPreparedSources",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.sortPreparedSources",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareRPGMakerArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareRPGMakerDirectory",
+        "retrom/internal/service/libraryimport.markerProjectGroup",
+        "retrom/internal/service/libraryimport.newKiriKiriGroup",
+        "retrom/internal/service/libraryimport.newScummVMGroup"
+      ],
+      "invariant": "Order prepared source evidence by case-sensitive logical name before freezing project groups.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths"
       ]
     },
     {
@@ -3909,6 +4927,21 @@
       ]
     },
     {
+      "id": "libraryimport.validReviewBulkItemOutcome",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validReviewBulkItemOutcome",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewBulkQueries).Items"
+      ],
+      "invariant": "Bulk item outcome is one of PENDING, RUNNING, PUBLISHED, SKIPPED_DUPLICATE, SKIPPED_CHANGED, SKIPPED_NOT_READY, FAILED_FINAL or CANCELLED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial"
+      ]
+    },
+    {
       "id": "libraryimport.validServerReviewMetadata",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -4002,6 +5035,23 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.validateReviewBulkCursor",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validateReviewBulkCursor",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewBulkQueries).Items",
+        "(*retrom/internal/service/libraryimport.ReviewBulkQueries).Summary",
+        "retrom/internal/service/libraryimport.normalizeReviewBulkCandidateQuery"
+      ],
+      "invariant": "A cursor is empty or parses as UUID and round-trips to exactly the same canonical string.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial"
       ]
     },
     {
@@ -5793,6 +6843,606 @@
       "tests": [
         "RFA-RF18-release_fence",
         "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "pegasusimport.ValidateExecution",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.ValidateExecution",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Companions).owner",
+        "(*retrom/internal/service/pegasusimport.Completion).Finish",
+        "(*retrom/internal/service/pegasusimport.ItemWork).Next",
+        "(*retrom/internal/service/pegasusimport.ItemWork).owned",
+        "(*retrom/internal/service/pegasusimport.Leases).Renew",
+        "(*retrom/internal/service/pegasusimport.Materialization).Cancelled",
+        "(*retrom/internal/service/pegasusimport.Materialization).SetPhase",
+        "(*retrom/internal/service/pegasusimport.Materialization).source",
+        "(*retrom/internal/service/pegasusimport.ScanPublication).Finish",
+        "(*retrom/internal/service/pegasusimport.ScanPublication).withOwner",
+        "(*retrom/internal/service/pegasusimport.WorkerSettlement).current",
+        "(*retrom/internal/service/pegasusimport.WorkerSettlement).settleInScope"
+      ],
+      "invariant": "Fullcurrentexecutionidentityandstatepair withliveness; cancelingpair acceptable.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.alreadyStarted",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.alreadyStarted",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Starter).Start",
+        "(*retrom/internal/service/pegasusimport.Starter).queue"
+      ],
+      "invariant": "Started-state replay set: QUEUED/RUNNING/COMPLETED/PARTIAL_FAILURE.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.automaticAssetCandidates",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.automaticAssetCandidates",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.buildAssetCandidates"
+      ],
+      "invariant": "Safe title/filebasenames under media folder withfixedcover/video names/extensions; rejectcontrols/separators.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.buildAssetCandidates",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.buildAssetCandidates",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Scanner).chooseAsset"
+      ],
+      "invariant": "Ordered explicitgame ->explicitcollection ->automatic media candidates withlogicalpathwarnings.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.canCancel",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.canCancel",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.readCancellation"
+      ],
+      "invariant": "Queued/running jobandcorrect scan/importparentstate.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.canCompleteReviewHandoff",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.canCompleteReviewHandoff",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.ReviewHandoff).Complete"
+      ],
+      "invariant": "VALIDATING source/currentparent pair,versions,worker/execution/attempt andliveness.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.canRetry",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.canRetry",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.WorkflowControl).Retry"
+      ],
+      "invariant": "Retryablefaileditems,manualbudgetbounds,eligiblefinishedjob+plan andnootheractiveimport.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.collectionWarningFields",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.collectionWarningFields",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Scanner).projectCollection"
+      ],
+      "invariant": "Stable deduplicatedunknown+warningfield projection.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.discoveryState",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.discoveryState",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.newScannedGameItem"
+      ],
+      "invariant": "Closedlistcontentblockcodes vsother sourceblockcodes.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.firstDiscoveryCode",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.firstDiscoveryCode",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.projectGameFiles",
+        "retrom/internal/service/pegasusimport.validateGameFileSet"
+      ],
+      "invariant": "Preserve firstspecific discoveryerror instead ofoverwriting.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.gameFileKind",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.gameFileKind",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.projectGameFiles"
+      ],
+      "invariant": "M3U playlist,CHD disc,otherfile role.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.gameWarnings",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.gameWarnings",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Scanner).scanGame"
+      ],
+      "invariant": "Parsewarning+unknown-field FIELD_IGNORED evidence.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.matchesCancellationJob",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.matchesCancellationJob",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.readCancellation"
+      ],
+      "invariant": "Original callerjobID/kind/scope matchescurrentselecteddomainjobpointer.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.mediaWarning",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.mediaWarning",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.importItemRun).copyAssets"
+      ],
+      "invariant": "SOURCE_CHANGED vs COVERinvalid/VIDEOunsupported mapping.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.mergeReviewMetadataWarnings",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.mergeReviewMetadataWarnings",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.ReviewHandoff).Complete",
+        "retrom/internal/service/maintenance.restoredReviewWarnings",
+        "retrom/internal/service/pegasusimport.MergeReviewMetadataWarnings",
+        "retrom/internal/service/pegasusimport.prepareRecoveryReview"
+      ],
+      "invariant": "Append servermetadata adjustmentwarnings withoutduplicate code+field; newouter slice.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.newScannedGameItem",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.newScannedGameItem",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Scanner).scanGame"
+      ],
+      "invariant": "Immutable source manifest/key includes metadataPath,segment,gameordinal,all resolveddeclaredpaths; malformedtitlefallback.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.parserErrorCode",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.parserErrorCode",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Scanner).projectMetadata"
+      ],
+      "invariant": "TooLarge/InvalidUTF8 otherwiseSyntax mapping.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.planLease",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.planLease",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Leases).Claim"
+      ],
+      "invariant": "SCAN30m/IMPORT8h original deadline, pairedstarted/deadline,attempt+1,capped60slease.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.planRecovery",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.planRecovery",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Recovery).recoverExecution"
+      ],
+      "invariant": "Expiredlease cancellation precedence,timeout/attempt cutoff,automaticrequeue preservingoriginalbudget.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.projectGameFiles",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.projectGameFiles",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Scanner).scanGame"
+      ],
+      "invariant": "Resolveall declaredpaths fordeterministicidentity,casefoldcollision/missing-file checks,bounded64persistedfiles andcontent-mode shape.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.projectedCollectionName",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.projectedCollectionName",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Scanner).projectCollection"
+      ],
+      "invariant": "Invalidcollectionname fallback withsegmentnumber.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.readyToStart",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.readyToStart",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Starter).Start",
+        "(*retrom/internal/service/pegasusimport.Starter).queue"
+      ],
+      "invariant": "Plan expiry/version/mapping coverage/tag validity/selection/active capacity/absent import job.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.recoveryParentActive",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.recoveryParentActive",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.planRecovery"
+      ],
+      "invariant": "ScanSCANNING vs importRUNNING/QUEUED parent state.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.resolvedAssetPath",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.resolvedAssetPath",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Scanner).resolveAssetCandidate"
+      ],
+      "invariant": "Automaticcasefolduniquematch; ambiguitywarning; explicit paths exact.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.sameMaterialSource",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.sameMaterialSource",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Materialization).source"
+      ],
+      "invariant": "Frozen file/assetkey,path,size,facts,media,dimen equality.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.scanResult.addEstimated",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "(*retrom/internal/service/pegasusimport.scanResult).addEstimated",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.scanResult).collectItem"
+      ],
+      "invariant": "Boundtotal2TiB; negative/overflow saturatesmaximum+1.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.scanResult.collectItem",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "(*retrom/internal/service/pegasusimport.scanResult).collectItem",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Scanner).projectCollection",
+        "(*retrom/internal/service/pegasusimport.Scanner).projectMetadata"
+      ],
+      "invariant": "Accumulate counts/bytes/mediawarnings fromprepared item; JSONdecodeerror ignored becauseinputislocallygenerated.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
+      ]
+    },
+    {
+      "id": "pegasusimport.sourceIntent",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.sourceIntent",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.ReviewPreparation).Create",
+        "(*retrom/internal/service/pegasusimport.ReviewPreparation).Resume"
+      ],
+      "invariant": "Preserve sourceprovenance andcomplete primarypaths plusworkerexecutionauthority.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.validItemOutcome",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.validItemOutcome",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.ItemWork).Finish"
+      ],
+      "invariant": "Allowed terminaloutcome/error orduplicateproof shape.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.validItemVersion",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.validItemVersion",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Companions).owner",
+        "(*retrom/internal/service/pegasusimport.ItemWork).Next",
+        "(*retrom/internal/service/pegasusimport.ItemWork).owned",
+        "(*retrom/internal/service/pegasusimport.Materialization).source"
+      ],
+      "invariant": "Strictpositive<MaxInt64 sourceversion.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.validLeaseCandidate",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.validLeaseCandidate",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.planLease"
+      ],
+      "invariant": "Boundedversions/execution/attempt+max/timeoverflow constraints.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.validLiveExecution",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.validLiveExecution",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.ValidateExecution"
+      ],
+      "invariant": "worker/execution/attempt/versionsboundsandlease/deadline cutoff.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.validMappingBatch",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.validMappingBatch",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Mappings).Update"
+      ],
+      "invariant": "Validate explicit mapping batch/action/IDs/tag-array shape (1..100); shared by all HTTP mapping requests.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.validMaterialWarning",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.validMaterialWarning",
+      "consumers": [
+        "(*retrom/internal/service/pegasusimport.Materialization).Warning"
+      ],
+      "invariant": "Only COVER or VIDEO accepts a warning. Both allow PEGASUS_SOURCE_CHANGED or PEGASUS_MEDIA_READ_FAILED; COVER additionally allows PEGASUS_IMAGE_INVALID, VIDEO additionally allows PEGASUS_VIDEO_UNSUPPORTED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.validRecoveryExecution",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.validRecoveryExecution",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.planRecovery"
+      ],
+      "invariant": "Queuedownerempty vsclaimedleasepositive; deadline/attempt/execution/versionsvalid.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.validWorkflowVersion",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.validWorkflowVersion",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.canCancel",
+        "retrom/internal/service/pegasusimport.canRetry"
+      ],
+      "invariant": "Expectedparent/currentjobversionbounds andexecution>0.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-ownership_fault"
+      ]
+    },
+    {
+      "id": "pegasusimport.validateGameFileSet",
+      "owner": "pegasusimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/pegasusimport.validateGameFileSet",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.projectGameFiles"
+      ],
+      "invariant": "Singlefile oroneM3U+2..8CHD andallfilespresent; otherwise stableblockcode.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots"
       ]
     },
     {
