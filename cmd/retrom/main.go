@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	maintenancemodel "retrom/internal/model/maintenance"
+
 	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
 
 	runtimeprofile "retrom/internal/adapter/runtime/netplayprofile"
@@ -39,11 +41,11 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/adapter/runtime/runtimeprovider"
 	authnadapter "retrom/internal/adapter/security/authn"
+	"retrom/internal/adapter/system/processlock"
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/capability/format/importing"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/foundation/processlock"
+	librarymodel "retrom/internal/model/libraryimport"
 	maintenancepersistence "retrom/internal/repo/maintenance"
 	platformpersistence "retrom/internal/repo/platforminstance"
 	"retrom/internal/repo/store"
@@ -156,6 +158,7 @@ func executeBackup(arguments []string) error {
 	manifest, err := maintenance.New(
 		maintenancepersistence.New(),
 		time.Now,
+		processlock.Locker{},
 	).Backup(
 		context.Background(),
 		configuration,
@@ -183,6 +186,7 @@ func executeRestore(arguments []string) error {
 	manifest, err := maintenance.New(
 		maintenancepersistence.New(),
 		time.Now,
+		processlock.Locker{},
 	).Restore(
 		context.Background(),
 		configuration,
@@ -222,7 +226,7 @@ func resetOfflineAdmin(
 	username string,
 	readPassword func(string) (string, error),
 ) error {
-	lock, err := processlock.Acquire(configuration.DataDir)
+	lock, err := (processlock.Locker{}).Acquire(configuration.DataDir)
 	if err != nil {
 		return fmt.Errorf("acquire offline recovery lock: %w", err)
 	}
@@ -349,7 +353,7 @@ func loadServerConfiguration(mode config.Mode) (config.Config, error) {
 }
 
 type serverResources struct {
-	lock               *processlock.Lock
+	lock               maintenancemodel.DataRootLease
 	dependencies       *dependencies.Set
 	database           *store.DB
 	blobs              *blobstore.Store
@@ -357,7 +361,7 @@ type serverResources struct {
 	netplayRegistry    *netplayprofile.Registry
 	netplayCredentials *netplay.Credentials
 	runtimeProviders   runtimeprovider.Installation
-	scummVMDetector    *scummvm.Detector
+	scummVMDetector    librarymodel.ScummVMDetector
 }
 
 func (resources *serverResources) close() {
@@ -382,7 +386,7 @@ func bootstrapServerResources(
 			result.close()
 		}
 	}()
-	lock, err := processlock.Acquire(configuration.DataDir)
+	lock, err := (processlock.Locker{}).Acquire(configuration.DataDir)
 	if err != nil {
 		return result, fmt.Errorf("retrom/main: %w", err)
 	}

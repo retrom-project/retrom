@@ -61,7 +61,7 @@ func materializeScummVMInputs(
 		value, exists := metadata[file.SourceIndex]
 		if !exists || value.Size != file.SizeBytes || value.Size < 0 ||
 			value.Size > limits.MaxEntryBytes || value.Size > limits.MaxExpandedBytes-total {
-			return nil, scummvm.ErrInputInvalid
+			return nil, model.ErrScummVMInputInvalid
 		}
 		total += value.Size
 		if err := copyScummVMInput(ctx, value, filepath.Join(root, filepath.FromSlash(file.Path))); err != nil {
@@ -104,7 +104,7 @@ func copyScummVMInput(ctx context.Context, metadata projectArchiveInput, destina
 		return fmt.Errorf("copy ScummVM input: %w", err)
 	}
 	if size != metadata.Size || hex.EncodeToString(hasher.Sum(nil)) != metadata.SHA256 {
-		return scummvm.ErrInputInvalid
+		return model.ErrScummVMInputInvalid
 	}
 	return nil
 }

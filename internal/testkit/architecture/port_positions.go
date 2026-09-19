@@ -16,7 +16,21 @@ func allowedPortPosition(value types.Type, index int, input, repository bool) bo
 	if object.Pkg() != nil && object.Pkg().Path() == "context" && object.Name() == "Context" {
 		return input && index == 0
 	}
-	return !repository && streamPort(value)
+	return !repository && (streamPort(value) || !input && closeOnlyResource(value))
+}
+
+// A lease may cross a non-Repo port only as a direct result. Its sole
+// operation releases the acquired resource; it cannot carry business methods.
+// The value walker still rejects the same handle inside a Command or Snapshot.
+func closeOnlyResource(value types.Type) bool {
+	resource, ok := value.Underlying().(*types.Interface)
+	if !ok || resource.Complete().NumMethods() != 1 {
+		return false
+	}
+	method := resource.Method(0)
+	signature, ok := method.Type().(*types.Signature)
+	return ok && method.Name() == "Close" &&
+		types.TypeString(unnamedSignature(signature), packagePath) == "func() error"
 }
 
 func streamPort(value types.Type) bool {

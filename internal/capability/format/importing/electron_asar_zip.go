@@ -57,10 +57,12 @@ func ScanElectronASARZIPWithConsumer(
 	if err != nil {
 		return nil, err
 	}
+	if archive != nil {
+		defer func() { cleanup.Error("close", archive.file.Close()) }()
+	}
 	if archive == nil || !detected {
 		return nil, ErrElectronASARInvalid
 	}
-	defer func() { cleanup.Error("close", archive.file.Close()) }()
 	return archive.scan(ctx, limits, consumer)
 }
 

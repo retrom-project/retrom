@@ -25,12 +25,14 @@ import (
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
+	scummvmnative "retrom/internal/adapter/engine/scummvm"
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/foundation/cleanup"
+	librarymodel "retrom/internal/model/libraryimport"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
 )
@@ -87,7 +89,7 @@ func newScummVMFixtureAt(t *testing.T, roots []string, now func() time.Time) scu
 	return scummVMFixture{service, importer, database.SQL, itemID}
 }
 
-func scummVMFixtureDetector(t *testing.T, roots []string) *scummvm.Detector {
+func scummVMFixtureDetector(t *testing.T, roots []string) librarymodel.ScummVMDetector {
 	t.Helper()
 	const commit = "fed42f2068dcafc6aafa1c28c77e4c88def74b66"
 	games := make([]scummvm.DetectedGame, 0, len(roots))
@@ -103,8 +105,8 @@ func scummVMFixtureDetector(t *testing.T, roots []string) *scummvm.Detector {
 	if err := os.WriteFile(tool, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	return scummvm.New(func(context.Context) (scummvm.Tool, error) {
-		return scummvm.Tool{Path: tool, UpstreamCommit: commit, Engines: []string{"sky"}}, nil
+	return scummvmnative.New(func(context.Context) (scummvmnative.Tool, error) {
+		return scummvmnative.Tool{Path: tool, UpstreamCommit: commit, Engines: []string{"sky"}}, nil
 	})
 }
 

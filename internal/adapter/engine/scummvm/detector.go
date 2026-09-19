@@ -1,8 +1,8 @@
+// Package scummvm executes the verified native upstream detector against private input trees.
 package scummvm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -10,13 +10,9 @@ import (
 	"path/filepath"
 	"time"
 
+	scummvmpolicy "retrom/internal/capability/engine/scummvm"
 	"retrom/internal/foundation/cleanup"
-)
-
-var (
-	ErrToolFailed   = errors.New("SCUMMVM_DETECTION_FAILED")
-	ErrInputInvalid = errors.New("SCUMMVM_DETECTION_INPUT_INVALID")
-	ErrLimit        = errors.New("SCUMMVM_DETECTION_LIMIT_EXCEEDED")
+	model "retrom/internal/model/libraryimport"
 )
 
 // Tool is resolved from a verified Provider installation; callers must not take
@@ -26,6 +22,8 @@ type Tool struct {
 	UpstreamCommit string
 	Engines        []string
 }
+
+var _ model.ScummVMDetector = (*Detector)(nil)
 
 type Detector struct {
 	resolve func(context.Context) (Tool, error)
@@ -37,25 +35,30 @@ func New(resolve func(context.Context) (Tool, error)) *Detector {
 
 // Detect accepts a private materialized tree owned by the import operation. The
 // caller keeps it immutable until this function returns and removes it afterward.
-func (detector *Detector) Detect(ctx context.Context, root, sourceDigest string) (Result, error) {
-	if !validDigest(sourceDigest, 32) {
-		return Result{}, ErrInputInvalid
+func (detector *Detector) Detect(ctx context.Context, root, sourceDigest string) (scummvmpolicy.Result, error) {
+	if !scummvmpolicy.ValidDigest(sourceDigest, 32) {
+		return scummvmpolicy.Result{}, model.ErrScummVMInputInvalid
 	}
 	if err := checkTree(ctx, root); err != nil {
-		return Result{}, err
+		return scummvmpolicy.Result{}, err
 	}
 	tool, err := detector.resolve(ctx)
 	if err != nil {
-		return Result{}, fmt.Errorf("scummvm/resolve: %w", err)
+		return scummvmpolicy.Result{}, fmt.Errorf("scummvm/resolve: %w", err)
 	}
-	if !filepath.IsAbs(tool.Path) || !validDigest(tool.UpstreamCommit, 20) || len(tool.Engines) == 0 {
-		return Result{}, ErrToolFailed
+	if !filepath.IsAbs(tool.Path) || !scummvmpolicy.ValidDigest(tool.UpstreamCommit, 20) || len(tool.Engines) == 0 {
+		return scummvmpolicy.Result{}, model.ErrScummVMToolFailed
 	}
 	output, err := runDetector(ctx, tool.Path, root)
 	if err != nil {
-		return Result{}, err
+		return scummvmpolicy.Result{}, err
 	}
-	return parseResult(output, tool, sourceDigest)
+	result, err := scummvmpolicy.ParseResult(output, tool.UpstreamCommit, tool.Engines, sourceDigest)
+	if err != nil {
+		// The parser's sole error is the shared sentinel; preserve its bare identity.
+		return result, scummvmpolicy.ErrResultInvalid
+	}
+	return result, nil
 }
 
 func runDetector(ctx context.Context, executable, root string) ([]byte, error) {
@@ -78,33 +81,33 @@ func runDetector(ctx context.Context, executable, root string) ([]byte, error) {
 		return nil, fmt.Errorf("scummvm/detect: %w", bounded.Err())
 	}
 	if stdout.exceeded {
-		return nil, ErrLimit
+		return nil, model.ErrScummVMLimit
 	}
 	if err != nil {
-		return nil, ErrToolFailed
+		return nil, model.ErrScummVMToolFailed
 	}
 	return stdout.data, nil
 }
 
 func checkTree(ctx context.Context, root string) error {
 	if !filepath.IsAbs(root) {
-		return ErrInputInvalid
+		return model.ErrScummVMInputInvalid
 	}
 	info, err := os.Lstat(root)
 	if err != nil || !info.IsDir() {
-		return ErrInputInvalid
+		return model.ErrScummVMInputInvalid
 	}
 	count := 0
 	err = filepath.WalkDir(root, func(_ string, entry fs.DirEntry, walkError error) error {
 		if walkError != nil || entry.Type()&os.ModeSymlink != 0 || (!entry.IsDir() && !entry.Type().IsRegular()) {
-			return ErrInputInvalid
+			return model.ErrScummVMInputInvalid
 		}
 		if err := ctx.Err(); err != nil {
 			return fmt.Errorf("scummvm/input-canceled: %w", err)
 		}
 		count++
 		if count > 100000 {
-			return ErrLimit
+			return model.ErrScummVMLimit
 		}
 		return nil
 	})
@@ -127,7 +130,7 @@ func (output *limitedOutput) Write(value []byte) (int, error) {
 	if len(value) > remaining {
 		output.exceeded = true
 		if !output.discardOverflow {
-			return remaining, ErrLimit
+			return remaining, model.ErrScummVMLimit
 		}
 	}
 	return len(value), nil

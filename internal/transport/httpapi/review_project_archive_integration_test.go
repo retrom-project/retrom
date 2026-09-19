@@ -28,49 +28,54 @@ func TestOrdinaryRGSSReviewServesDeclaredArchiveThroughAuthenticatedHTTP(t *test
 	for _, generation := range []string{"rpgxp", "rpgvx", "rpgvxace"} {
 		t.Run(generation, func(t *testing.T) {
 			t.Parallel()
-			server, itemID := newProjectArchiveReviewHTTPFixture(t, generation)
-			preview, launchCookie := createCheckpointPreviewHTTP(t, server, itemID, nil)
-			configuration := requestReviewCheckpointHTTP(t, server, preview.PreviewID, launchCookie, "GET", "config", nil, "")
-			var envelope map[string]any
-			decoder := json.NewDecoder(bytes.NewReader(configuration.Body.Bytes()))
-			decoder.UseNumber()
-			if configuration.Code != http.StatusOK || decoder.Decode(&envelope) != nil {
-				t.Fatalf("archive preview config = %d %s", configuration.Code, configuration.Body.String())
-			}
-			resource := testsupport.RuntimeEnvelopeResource(t, envelope, "game")
-			archiveURL, ok := resource["url"].(string)
-			if !ok || resource["kind"] != "SEEKABLE_BLOB" || !strings.HasSuffix(archiveURL, "/game.mkxpz") {
-				t.Fatalf("declared archive = %#v", resource)
-			}
-			var contentCookie *http.Cookie
-			for _, cookie := range configuration.Result().Cookies() {
-				if cookie.Name == runtimeContentGrantPrefix+preview.PreviewID {
-					contentCookie = cookie
-				}
-			}
-			if contentCookie == nil {
-				t.Fatal("configuration did not grant project content access")
-			}
-			assertReviewArchiveHTTP(t, server, archiveURL, contentCookie, resource)
-			wrong := *contentCookie
-			wrong.Value = "invalid-capability"
-			for _, supplied := range []*http.Cookie{nil, &wrong} {
-				for _, method := range []string{"GET", "HEAD"} {
-					response := requestReviewArchiveHTTP(t, server, archiveURL, method, supplied, "")
-					if response.Code != http.StatusUnauthorized {
-						t.Fatalf("unowned archive %s = %d", method, response.Code)
-					}
-				}
-			}
-			finished := requestReviewCheckpointHTTP(t, server, preview.PreviewID, launchCookie, "POST", "finish",
-				strings.NewReader(`{"clientSequence":0,"clientObservedAtMs":1,"previousInterval":null}`), "application/json")
-			if finished.Code != http.StatusOK {
-				t.Fatalf("finish preview = %d %s", finished.Code, finished.Body.String())
-			}
-			if response := requestReviewArchiveHTTP(t, server, archiveURL, "HEAD", contentCookie, ""); response.Code != http.StatusUnauthorized {
-				t.Fatalf("closed preview archive = %d", response.Code)
-			}
+			runOrdinaryRGSSReviewArchiveGeneration(t, generation)
 		})
+	}
+}
+
+func runOrdinaryRGSSReviewArchiveGeneration(t *testing.T, generation string) {
+	t.Helper()
+	server, itemID := newProjectArchiveReviewHTTPFixture(t, generation)
+	preview, launchCookie := createCheckpointPreviewHTTP(t, server, itemID, nil)
+	configuration := requestReviewCheckpointHTTP(t, server, preview.PreviewID, launchCookie, "GET", "config", nil, "")
+	var envelope map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(configuration.Body.Bytes()))
+	decoder.UseNumber()
+	if configuration.Code != http.StatusOK || decoder.Decode(&envelope) != nil {
+		t.Fatalf("archive preview config = %d %s", configuration.Code, configuration.Body.String())
+	}
+	resource := testsupport.RuntimeEnvelopeResource(t, envelope, "game")
+	archiveURL, ok := resource["url"].(string)
+	if !ok || resource["kind"] != "SEEKABLE_BLOB" || !strings.HasSuffix(archiveURL, "/game.mkxpz") {
+		t.Fatalf("declared archive = %#v", resource)
+	}
+	var contentCookie *http.Cookie
+	for _, cookie := range configuration.Result().Cookies() {
+		if cookie.Name == runtimeContentGrantPrefix+preview.PreviewID {
+			contentCookie = cookie
+		}
+	}
+	if contentCookie == nil {
+		t.Fatal("configuration did not grant project content access")
+	}
+	assertReviewArchiveHTTP(t, server, archiveURL, contentCookie, resource)
+	wrong := *contentCookie
+	wrong.Value = "invalid-capability"
+	for _, supplied := range []*http.Cookie{nil, &wrong} {
+		for _, method := range []string{"GET", "HEAD"} {
+			response := requestReviewArchiveHTTP(t, server, archiveURL, method, supplied, "")
+			if response.Code != http.StatusUnauthorized {
+				t.Fatalf("unowned archive %s = %d", method, response.Code)
+			}
+		}
+	}
+	finished := requestReviewCheckpointHTTP(t, server, preview.PreviewID, launchCookie, "POST", "finish",
+		strings.NewReader(`{"clientSequence":0,"clientObservedAtMs":1,"previousInterval":null}`), "application/json")
+	if finished.Code != http.StatusOK {
+		t.Fatalf("finish preview = %d %s", finished.Code, finished.Body.String())
+	}
+	if response := requestReviewArchiveHTTP(t, server, archiveURL, "HEAD", contentCookie, ""); response.Code != http.StatusUnauthorized {
+		t.Fatalf("closed preview archive = %d", response.Code)
 	}
 }
 
@@ -80,7 +85,7 @@ func newProjectArchiveReviewHTTPFixture(t *testing.T, generation string) (*Serve
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	uploadID := completeRPGMakerHTTPUpload(t, t.Context(), server, rpgMakerHTTPFixture(t, generation))
+	uploadID := completeRPGMakerHTTPUpload(t.Context(), t, server, rpgMakerHTTPFixture(t, generation))
 	created, err := server.importer.Create(t.Context(), libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "rpgmaker/rpgmaker"),
 		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",

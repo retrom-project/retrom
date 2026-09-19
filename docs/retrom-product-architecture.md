@@ -80,6 +80,10 @@ Host 的平台、Core、AssetPack 目录定义及运行绑定由 `model/runtimec
 
 静态固件目录的生成配方和嵌入数据归 `adapter/content/firmwaremanifest`，唯一解析与声明校验位于 `capability/content/firmwaremanifest.Parse`。依赖用例经 `model/dependencies.FirmwareCatalogSource` 获取声明，并在进入写入范围前完成装载和目录组合；事务只消费确定的目录值。嵌入目录的来源摘要、顺序和成员 JSON 保持不变，生成工具与测试消费同一数据位置。ZIP 名称的 GB18030 解码归 `capability/format/zipentry`，导入扫描与 DOS 运行时引用同一纯实现；Foundation 不承担第三方编码库的格式规则。
 
+ScummVM 原生探测器的目录检查、进程执行、输出限额及清理归 `adapter/engine/scummvm`，调用方经 `model/libraryimport.ScummVMDetector` 获取结果。`capability/engine/scummvm` 只解析和校验结果、构造候选身份与 Snapshot，显式消费固定的 upstream commit、可用 engines 和 source digest。53 项旧 Go 对照覆盖原始错误身份、JSON/摘要、重复键与无效 UTF-8 行为、进程参数与环境、取消、限额和清理；Service 的私有输入物化迁移仍属于 RF13 后续工作。
+
+离线维护和服务启动的数据目录互斥由 `adapter/system/processlock.Locker` 提供。`model/maintenance.DataRootLocker` 与 `DataRootLease` 明确描述锁资源获取和释放，维护 Service 通过端口取得锁后才执行数据库 checkpoint；Bootstrap 注入实际 Adapter。锁文件权限、非阻塞 flock、重复释放和错误优先级由旧 Go 对照保持，租约不进入 Command、Snapshot 或持久化数据。此锁用于整棵数据目录的进程互斥，不替代 CAS 发布与回收需要的 blob lease。
+
 Provider manifest、Target/Input/Checkpoint、安装声明及 Launch 输入同样由 `model/runtimecontract` 唯一定义。跨层 schema 和可变 JSON 内容使用 `json.RawMessage` 等封闭字节值；严格 JSON 与 schema dialect 的单一解析闭包位于 `capability/runtime/runtimejson`。解析/组装边界保持原有规范字节、整数精度、nil/empty 和错误阶段，固定旧 Go 输出验证协议兼容。
 
 GameContent、LibraryImport 和 Netplay 的 BIOS 读取依赖消费方 Model 中的窄 facts 接口。事务内直接使用原 scope 绑定的 Repository reader，取得事实后调用唯一的 `model/corevalidation` 规则；输入身份先校验，读取失败保留原原因与前缀。该接线不新开事务或替换为全局 reader，后续原子提交迁移仍需保持相同的新鲜度。

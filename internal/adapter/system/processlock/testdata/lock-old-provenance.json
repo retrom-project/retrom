@@ -1,0 +1,9 @@
+{
+  "head": "6cd37e1bbfadd8365a4faca0d1584c01f7d53379",
+  "source": "internal/foundation/processlock/lock.go",
+  "sourceSha256": "1503605cd6829cf5f2ed47545d9025f5ac771614cb8487cf3b4d9bf23bce19bc",
+  "goldenSha256": "98eabfa43a63bd74c3883cfc227599ea80c1e103812c12bf33f9e5bf36364895",
+  "caseCount": 11,
+  "tool": "go version go1.26.5 linux/amd64",
+  "method": "Unchanged old lock.go compiled in same named package; real local files/flock; only temporary root is normalized, PID is compared against os.Getpid rather than serialized."
+}

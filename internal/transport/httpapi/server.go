@@ -43,9 +43,9 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	launchcomposition "retrom/internal/bootstrap/composition/launch"
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/capability/runtime/runtimelaunch"
 	"retrom/internal/foundation/cursor"
+	librarymodel "retrom/internal/model/libraryimport"
 	favoritepersistence "retrom/internal/repo/favorites"
 	idempotencypersistence "retrom/internal/repo/idempotency"
 	mediapersistence "retrom/internal/repo/mediaaccess"
@@ -227,7 +227,7 @@ func New(
 	authenticator Authenticator,
 	accountService *accounts.Service,
 	now func() time.Time,
-	scummVMDetector ...*scummvm.Detector,
+	scummVMDetector ...librarymodel.ScummVMDetector,
 ) *Server {
 	payloadReleaseService, err := payloadcomposition.New(context.Background(), database, blobs, now, 7*24*time.Hour)
 	if err != nil {

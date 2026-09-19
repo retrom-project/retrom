@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -212,7 +211,7 @@ func TestValidationRetryBackgroundStartSurvivesResponseCancellation(t *testing.T
 	writer := validationCancellingWriter{ResponseRecorder: httptest.NewRecorder(), cancel: cancel}
 	fixture.request(ctx, writer)
 	if writer.Code != http.StatusAccepted {
-		t.Fatal(fmt.Sprintf("cancel retry: %d %s", writer.Code, writer.Body.String()))
+		t.Fatalf("cancel retry: %d %s", writer.Code, writer.Body.String())
 	}
 	state, execution, attempt := waitValidationRetry(t, fixture)
 	if ctx.Err() == nil || state != "SUCCEEDED" || execution != 2 || attempt != 1 {

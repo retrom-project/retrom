@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "status": "actual-pre-migration-api-execution",
+  "referenceCommit": "0bca6452b6b242965e5ec4fb4feecfc7e6d67589",
+  "observedHeadAtVerification": "fecc5b75e32c952ea61dd5e451357d0aba45ec29",
+  "verifiedUTC": "2026-09-19T19:40:29.298493+00:00",
+  "goVersion": "go version go1.26.5 linux/amd64",
+  "source": [
+    {
+      "path": "internal/adapter/runtime/runtimeprovider/scummvm.go",
+      "sha256": "a5779d5fcbe3e0025b859184e94736e039b36efaed7609f337e3154bcbb52050",
+      "matchesReferenceCommit": true,
+      "matchesCurrentFile": true
+    },
+    {
+      "path": "internal/capability/engine/scummvm/detector.go",
+      "sha256": "5b64b28da629168af130610cf619c950813f0d5031a9a757ae7c31d43f486be1",
+      "matchesReferenceCommit": true,
+      "matchesCurrentFile": true
+    },
+    {
+      "path": "internal/capability/engine/scummvm/result.go",
+      "sha256": "72a088bdf4111647e12a77bc377ab5f882d077631430475f20fa582de437bd9c",
+      "matchesReferenceCommit": true,
+      "matchesCurrentFile": true
+    },
+    {
+      "path": "internal/capability/engine/scummvm/snapshot.go",
+      "sha256": "9137bbda77399bf934067b95c0d6078a96608b3fb99613ed8e574c6cc576bf94",
+      "matchesReferenceCommit": true,
+      "matchesCurrentFile": true
+    },
+    {
+      "path": "internal/service/libraryimport/scummvm_materialize.go",
+      "sha256": "4078791ec6e4e632dba0a34b0d7e015c8c5ed7ffb263ab4eac4aba98d0b3f0d4",
+      "matchesReferenceCommit": true,
+      "matchesCurrentFile": true
+    }
+  ],
+  "captureSource": ".cache/refactor/scummvm-old-golden/main.go",
+  "captureSourceSHA256": "33ac7b429af5627d55d4ce83e9f7b78c71deb04b9411ce80eed61130726890cd",
+  "goldenPath": "td/refactor-execution/rf04-scummvm-old-go-golden.json",
+  "goldenSHA256": "416cc74c5f62ec7727261610f7351c3c340468c9b2242d8e6e54a79ab1ebb54b",
+  "caseCount": 53,
+  "command": "GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local timeout 90s go run ./.cache/refactor/scummvm-old-golden",
+  "mechanism": "Old scummvm.New(...).Detect invokes the capture executable itself as a native fixture; actual parser/snapshot calls retained, no reimplementation.",
+  "isolation": "Only generated public fixture bytes; input/run roots under a dedicated .cache/refactor/scummvm-old-golden/capture-* root; all removed after capture.",
+  "concurrency": "At most parent and one native child; FIFO start barrier before manual cancellation/DeadlineExceeded; no sleep or business expiry wait.",
+  "normalizations": [
+    "Generated sandbox paths replaced by <sandbox> in error text",
+    "Input root and run directory replaced by <input>/<run> in invocation; all other values/JSON bytes and hashes exact"
+  ],
+  "rawInvalidUTF8": "invalid-utf8-description source contains literal byte 0xff reconstructed by capture source; inputJSON representation in JSON output alone is not a lossless replay of that invalid UTF8 byte.",
+  "allRunDirectoriesCleaned": true,
+  "privateProductInputsUsed": false,
+  "savedCaptureSource": "td/refactor-execution/rf04-scummvm-old-go-capture.go.txt",
+  "savedCaptureSourceSHA256": "33ac7b429af5627d55d4ce83e9f7b78c71deb04b9411ce80eed61130726890cd",
+  "captureCorrection": "Before production migration, corrected trailing-whitespace fixture from literal backslash n/t to actual newline/tab and re-ran all 53 old API cases.",
+  "observedHeadAtFinalCapture": "6cd37e1bbfadd8365a4faca0d1584c01f7d53379"
+}

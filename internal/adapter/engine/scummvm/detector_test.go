@@ -2,17 +2,21 @@ package scummvm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	scummvmpolicy "retrom/internal/capability/engine/scummvm"
+	model "retrom/internal/model/libraryimport"
 )
 
 func TestDetectorUsesOnlyJSONStdoutAndPropagatesToolFailure(t *testing.T) {
 	root := t.TempDir()
 	script := filepath.Join(t.TempDir(), "detector")
-	data := detectorJSON(t, []DetectedGame{detectedGame("", "en")})
+	data := detectorJSON(t, []scummvmpolicy.DetectedGame{detectedGame("", "en")})
 	body := "#!/bin/sh\nprintf 'diagnostic on stderr\\n' >&2\nprintf '%s' '" + string(data) + "'\n"
 	if err := os.WriteFile(script, []byte(body), 0o700); err != nil {
 		t.Fatal(err)
@@ -28,7 +32,7 @@ func TestDetectorUsesOnlyJSONStdoutAndPropagatesToolFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = detector.Detect(t.Context(), root, strings.Repeat("a", 64))
-	if !errors.Is(err, ErrToolFailed) {
+	if !errors.Is(err, model.ErrScummVMToolFailed) {
 		t.Fatalf("tool failure became empty success: %v", err)
 	}
 }
@@ -39,13 +43,13 @@ func TestDetectorRejectsSymlinksRegularRootsAndCanceledRequests(t *testing.T) {
 	if err := os.WriteFile(regular, []byte("game"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkTree(t.Context(), regular); !errors.Is(err, ErrInputInvalid) {
+	if err := checkTree(t.Context(), regular); !errors.Is(err, model.ErrScummVMInputInvalid) {
 		t.Fatalf("regular file root accepted: %v", err)
 	}
 	if err := os.Symlink(t.TempDir(), filepath.Join(root, "outside")); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkTree(t.Context(), root); !errors.Is(err, ErrInputInvalid) {
+	if err := checkTree(t.Context(), root); !errors.Is(err, model.ErrScummVMInputInvalid) {
 		t.Fatalf("symlink accepted: %v", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
@@ -57,7 +61,7 @@ func TestDetectorRejectsSymlinksRegularRootsAndCanceledRequests(t *testing.T) {
 
 func TestDetectorOutputIsBounded(t *testing.T) {
 	stdout := &limitedOutput{limit: 4}
-	if _, err := stdout.Write([]byte("oversized")); !errors.Is(err, ErrLimit) || len(stdout.data) != 4 {
+	if _, err := stdout.Write([]byte("oversized")); !errors.Is(err, model.ErrScummVMLimit) || len(stdout.data) != 4 {
 		t.Fatalf("stdout limit not enforced: %v", err)
 	}
 	stderr := &limitedOutput{limit: 4, discardOverflow: true}
@@ -65,5 +69,26 @@ func TestDetectorOutputIsBounded(t *testing.T) {
 		if size, err := stderr.Write([]byte("diagnostic")); err != nil || size != 10 || len(stderr.data) > 4 {
 			t.Fatalf("stderr truncation failed: %v", err)
 		}
+	}
+}
+
+const testCommit = "fed42f2068dcafc6aafa1c28c77e4c88def74b66"
+
+func detectorJSON(t *testing.T, candidates []scummvmpolicy.DetectedGame) []byte {
+	t.Helper()
+	value, err := json.Marshal(map[string]any{
+		"schemaVersion": 1, "upstreamCommit": testCommit, "candidates": candidates, "error": nil,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func detectedGame(root, language string) scummvmpolicy.DetectedGame {
+	return scummvmpolicy.DetectedGame{
+		Root: root, EngineID: "sky", GameID: "sky", Description: "Beneath a Steel Sky",
+		Language: language, Platform: "pc", Extra: "v0.0348 Floppy", PreferredTarget: "sky",
+		GUIOptions: "sndNoSpeech", CanBeAdded: true, Config: map[string]string{},
 	}
 }

@@ -11,14 +11,13 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/engine/rpgmaker/detector"
-	"retrom/internal/capability/engine/scummvm"
 )
 
 type ImportPreparation struct {
 	facts           model.ImportFactsReader
 	catalog         model.ImportPreparationCatalog
 	blobs           *blobstore.Store
-	scummVMDetector *scummvm.Detector
+	scummVMDetector model.ScummVMDetector
 	options         ImportPreparationOptions
 }
 

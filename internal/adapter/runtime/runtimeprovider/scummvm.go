@@ -14,8 +14,9 @@ import (
 	"runtime"
 	"slices"
 
-	"retrom/internal/capability/engine/scummvm"
+	"retrom/internal/adapter/engine/scummvm"
 	"retrom/internal/foundation/cleanup"
+	librarymodel "retrom/internal/model/libraryimport"
 	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
@@ -35,7 +36,7 @@ type scummVMToolManifest struct {
 
 // ScummVMDetector resolves only the tool shipped by the verified active Provider.
 // Its executable cache is private to the application's data directory.
-func (installation Installation) ScummVMDetector(cacheRoot string) (*scummvm.Detector, error) {
+func (installation Installation) ScummVMDetector(cacheRoot string) (librarymodel.ScummVMDetector, error) {
 	manifest, exists := installation.Manifests["retrom-runtime"]
 	if !exists || !slices.ContainsFunc(manifest.Targets, func(target runtimecontract.Target) bool {
 		return target.ID == "scummvm"

@@ -69,7 +69,7 @@ func completeMultiDiscHTTPUpload(
 	testassert.False(t, err != nil, err)
 	jobID, _, err := server.uploads.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
-	waitForHTTPJob(t, server.database, jobID, "SUCCEEDED")
+	waitForHTTPJob(ctx, t, server.database, jobID)
 	return upload.ID
 }
 
@@ -184,7 +184,7 @@ func assertImmutableRuntimeGETAndHEAD(
 	t *testing.T,
 	contentURL string,
 	requestContent runtimeContentRequester,
-) string {
+) {
 	t.Helper()
 	get := requestContent(http.MethodGet, contentURL, nil)
 	etag := get.Header().Get("ETag")
@@ -205,7 +205,44 @@ func assertImmutableRuntimeGETAndHEAD(
 	})
 	testassert.Falsef(t, revalidated.Code != http.StatusNotModified || revalidated.Body.Len() != 0,
 		"runtime revalidation %s = %d body=%q", contentURL, revalidated.Code, revalidated.Body.String())
-	return etag
+}
+
+func findRuntimeContentGrant(
+	t *testing.T,
+	response *httptest.ResponseRecorder,
+	launchID string,
+) *http.Cookie {
+	t.Helper()
+	var grant *http.Cookie
+	for _, candidate := range response.Result().Cookies() {
+		if candidate.Name == runtimeContentGrantPrefix+launchID {
+			grant = candidate
+			break
+		}
+	}
+	testassert.Falsef(t, response.Code != http.StatusOK || grant == nil,
+		"launch config = %d headers=%v body=%s", response.Code, response.Header(), response.Body.String())
+	return grant
+}
+
+func newRuntimeContentRequester(
+	t *testing.T,
+	handler http.Handler,
+	grant *http.Cookie,
+) runtimeContentRequester {
+	t.Helper()
+	return func(method, contentURL string, configure func(*http.Request)) *httptest.ResponseRecorder {
+		request := httptest.NewRequestWithContext(t.Context(), method, contentURL, nil)
+		if grant != nil {
+			request.AddCookie(grant)
+		}
+		if configure != nil {
+			configure(request)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
 }
 
 func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
@@ -238,27 +275,8 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 	biosURL, biosOK := biosFiles[0]["url"].(string)
 	parentResource := testsupport.RuntimeEnvelopeResource(t, envelope, "parent")
 	parentURL, parentOK := parentResource["url"].(string)
-	var grant *http.Cookie
-	for _, candidate := range configResponse.Result().Cookies() {
-		if candidate.Name == runtimeContentGrantPrefix+created.LaunchID {
-			grant = candidate
-			break
-		}
-	}
-	testassert.Falsef(t, configResponse.Code != http.StatusOK || grant == nil,
-		"launch config = %d headers=%v body=%s", configResponse.Code, configResponse.Header(), configResponse.Body.String())
-	requestContent := func(method, contentURL string, configure func(*http.Request)) *httptest.ResponseRecorder {
-		request := httptest.NewRequestWithContext(t.Context(), method, contentURL, nil)
-		if grant != nil {
-			request.AddCookie(grant)
-		}
-		if configure != nil {
-			configure(request)
-		}
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
-	}
+	grant := findRuntimeContentGrant(t, configResponse, created.LaunchID)
+	requestContent := newRuntimeContentRequester(t, handler, grant)
 	withoutGrant := httptest.NewRecorder()
 	handler.ServeHTTP(withoutGrant, httptest.NewRequestWithContext(
 		t.Context(), http.MethodGet, gameURL, nil,
@@ -338,6 +356,81 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 		"revoked content = %d headers=%v body=%s", revoked.Code, revoked.Header(), revoked.Body.String())
 }
 
+func assertMultiDiscImportDetail(t *testing.T, importDetail *httptest.ResponseRecorder) {
+	t.Helper()
+	for _, expected := range []string{
+		`"contentMode":"MULTI_DISC"`,
+		`"itemSummaries":[`,
+		`"contentKind":"MULTI_DISC"`,
+		`"playlist":"game.m3u"`,
+		`"discCount":3`,
+		`"presentDiscCount":2`,
+		`"missingDiscCount":1`,
+		`"ignoredFileCount":1`,
+		`"ignoredFiles":["notes.txt"]`,
+	} {
+		testassert.Falsef(t, testassert.Any(func() bool { return importDetail.Code != http.StatusOK }, func() bool { return !strings.Contains(importDetail.Body.String(), expected) }), "import detail missing %s = %d %s", expected, importDetail.Code, importDetail.Body.String())
+	}
+	testassert.Falsef(t, strings.Contains(importDetail.Body.String(), `"blobId"`), "import detail exposes blob id = %s", importDetail.Body.String())
+}
+
+func attachMultiDiscHTTPFile(
+	ctx context.Context,
+	t *testing.T,
+	server *Server,
+	itemID string,
+	attachmentUploadID string,
+) (http.Handler, *http.Cookie) {
+	t.Helper()
+	handler, cookie, csrf := httpSession(t, server)
+	key := uuid.NewString()
+	send := func() *httptest.ResponseRecorder {
+		request := httptest.NewRequestWithContext(ctx,
+			http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/multi-disc-attachments",
+			strings.NewReader(fmt.Sprintf(`{"uploadId":%q}`, attachmentUploadID)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("If-Match", `"v1"`)
+		request.Header.Set("Idempotency-Key", key)
+		setCSRFCredentials(request, cookie, csrf)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	first := send()
+	var attachment struct {
+		AttachmentID  string `json:"attachmentId"`
+		JobID         string `json:"jobId"`
+		State         string `json:"state"`
+		ReviewVersion int64  `json:"reviewVersion"`
+	}
+	if err := json.Unmarshal(first.Body.Bytes(), &attachment); err != nil || first.Code != http.StatusAccepted ||
+		attachment.AttachmentID == "" || attachment.JobID == "" || attachment.State != "QUEUED" ||
+		attachment.ReviewVersion != 2 || first.Header().Get("ETag") != `"v2"` ||
+		first.Header().Get("Location") != "/api/v1/admin/jobs/"+attachment.JobID {
+		t.Fatalf("attachment create = %d %s, headers=%v, error=%v", first.Code, first.Body.String(), first.Header(), err)
+	}
+	replay := send()
+	testassert.Falsef(t, testassert.Any(func() bool { return replay.Code != http.StatusAccepted }, func() bool { return replay.Body.String() != first.Body.String() }, func() bool { return replay.Header().Get("X-Retrom-Idempotent-Replay") != "true" }, func() bool { return replay.Header().Get("ETag") != `"v2"` }), "attachment replay = %d %s, headers=%v", replay.Code, replay.Body.String(), replay.Header())
+	waitForHTTPJob(ctx, t, server.database, attachment.JobID)
+	return handler, cookie
+}
+
+func assertAcceptedMultiDiscReview(t *testing.T, review *httptest.ResponseRecorder) {
+	t.Helper()
+	var reviewProjection struct {
+		CanApprove bool            `json:"canApprove"`
+		MultiDisc  json.RawMessage `json:"multiDisc"`
+	}
+	if err := json.Unmarshal(review.Body.Bytes(), &reviewProjection); err != nil || review.Code != http.StatusOK ||
+		!reviewProjection.CanApprove || !bytes.Contains(reviewProjection.MultiDisc, []byte(`"missingDiscCount":0`)) ||
+		!bytes.Contains(reviewProjection.MultiDisc, []byte(`"maxDiscs":8`)) ||
+		!bytes.Contains(reviewProjection.MultiDisc, []byte(`"maxTotalBytes":1073741824`)) ||
+		bytes.Contains(reviewProjection.MultiDisc, []byte(`"blobId"`)) {
+		t.Fatalf("accepted review = %d %s", review.Code, review.Body.String())
+	}
+}
+
 func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
@@ -372,69 +465,16 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 	importDetailRequest.SetPathValue("importJobId", createdImport.ImportJobID)
 	importDetail := httptest.NewRecorder()
 	server.importDetail(importDetail, importDetailRequest)
-	for _, expected := range []string{
-		`"contentMode":"MULTI_DISC"`,
-		`"itemSummaries":[`,
-		`"contentKind":"MULTI_DISC"`,
-		`"playlist":"game.m3u"`,
-		`"discCount":3`,
-		`"presentDiscCount":2`,
-		`"missingDiscCount":1`,
-		`"ignoredFileCount":1`,
-		`"ignoredFiles":["notes.txt"]`,
-	} {
-		testassert.Falsef(t, testassert.Any(func() bool { return importDetail.Code != http.StatusOK }, func() bool { return !strings.Contains(importDetail.Body.String(), expected) }), "import detail missing %s = %d %s", expected, importDetail.Code, importDetail.Body.String())
-	}
-	testassert.Falsef(t, strings.Contains(importDetail.Body.String(), `"blobId"`), "import detail exposes blob id = %s", importDetail.Body.String())
+	assertMultiDiscImportDetail(t, importDetail)
 	attachmentUploadID := completeMultiDiscHTTPUpload(t, server, "FILES", []multiDiscHTTPFile{
 		{path: "three.chd", contents: multiDiscHTTPCHD("three")},
 	})
-	handler, cookie, csrf := httpSession(t, server)
-	key := uuid.NewString()
-	send := func() *httptest.ResponseRecorder {
-		request := httptest.NewRequestWithContext(context.Background(),
-			http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/multi-disc-attachments",
-			strings.NewReader(fmt.Sprintf(`{"uploadId":%q}`, attachmentUploadID)),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("If-Match", `"v1"`)
-		request.Header.Set("Idempotency-Key", key)
-		setCSRFCredentials(request, cookie, csrf)
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
-	}
-	first := send()
-	var attachment struct {
-		AttachmentID  string `json:"attachmentId"`
-		JobID         string `json:"jobId"`
-		State         string `json:"state"`
-		ReviewVersion int64  `json:"reviewVersion"`
-	}
-	if err := json.Unmarshal(first.Body.Bytes(), &attachment); err != nil || first.Code != http.StatusAccepted ||
-		attachment.AttachmentID == "" || attachment.JobID == "" || attachment.State != "QUEUED" ||
-		attachment.ReviewVersion != 2 || first.Header().Get("ETag") != `"v2"` ||
-		first.Header().Get("Location") != "/api/v1/admin/jobs/"+attachment.JobID {
-		t.Fatalf("attachment create = %d %s, headers=%v, error=%v", first.Code, first.Body.String(), first.Header(), err)
-	}
-	replay := send()
-	testassert.Falsef(t, testassert.Any(func() bool { return replay.Code != http.StatusAccepted }, func() bool { return replay.Body.String() != first.Body.String() }, func() bool { return replay.Header().Get("X-Retrom-Idempotent-Replay") != "true" }, func() bool { return replay.Header().Get("ETag") != `"v2"` }), "attachment replay = %d %s, headers=%v", replay.Code, replay.Body.String(), replay.Header())
-	waitForHTTPJob(t, server.database, attachment.JobID, "SUCCEEDED")
+	handler, cookie := attachMultiDiscHTTPFile(ctx, t, server, itemID, attachmentUploadID)
 	reviewRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	reviewRequest.AddCookie(cookie)
 	review := httptest.NewRecorder()
 	handler.ServeHTTP(review, reviewRequest)
-	var reviewProjection struct {
-		CanApprove bool            `json:"canApprove"`
-		MultiDisc  json.RawMessage `json:"multiDisc"`
-	}
-	if err := json.Unmarshal(review.Body.Bytes(), &reviewProjection); err != nil || review.Code != http.StatusOK ||
-		!reviewProjection.CanApprove || !bytes.Contains(reviewProjection.MultiDisc, []byte(`"missingDiscCount":0`)) ||
-		!bytes.Contains(reviewProjection.MultiDisc, []byte(`"maxDiscs":8`)) ||
-		!bytes.Contains(reviewProjection.MultiDisc, []byte(`"maxTotalBytes":1073741824`)) ||
-		bytes.Contains(reviewProjection.MultiDisc, []byte(`"blobId"`)) {
-		t.Fatalf("accepted review = %d %s", review.Code, review.Body.String())
-	}
+	assertAcceptedMultiDiscReview(t, review)
 	if _, err := server.database.ExecContext(ctx, `
 UPDATE runtime_providers
 SET provider_version='1.1.0',bundle_sha256=?,manifest_sha256=?,module_sha256=?,activated_at_ms=activated_at_ms+1

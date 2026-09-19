@@ -39,8 +39,8 @@ func ParseSnapshot(raw string) (Snapshot, error) {
 
 func (snapshot Snapshot) valid() bool {
 	result := snapshot.Detection
-	if snapshot.SchemaVersion != 1 || snapshot.Kind != "SCUMMVM" || !validDigest(result.SourceDigest, 32) ||
-		!validDigest(result.UpstreamCommit, 20) || result.Candidates == nil ||
+	if snapshot.SchemaVersion != 1 || snapshot.Kind != "SCUMMVM" || !ValidDigest(result.SourceDigest, 32) ||
+		!ValidDigest(result.UpstreamCommit, 20) || result.Candidates == nil ||
 		len(result.Candidates) > 4096 || result.Roots == nil {
 		return false
 	}
@@ -93,11 +93,11 @@ func validSnapshotCandidates(result Result) bool {
 	roots := []string{}
 	seen := make(map[string]bool, len(result.Candidates))
 	for _, candidate := range result.Candidates {
-		tool := Tool{UpstreamCommit: result.UpstreamCommit}
+		var engines []string
 		if candidate.Blocker != "ENGINE_UNAVAILABLE" {
-			tool.Engines = []string{candidate.EngineID}
+			engines = []string{candidate.EngineID}
 		}
-		checked, err := checkedCandidate(candidate.DetectedGame, tool, result.SourceDigest)
+		checked, err := checkedCandidate(candidate.DetectedGame, result.UpstreamCommit, engines, result.SourceDigest)
 		if err != nil || checked.ID != candidate.ID || checked.Blocker != candidate.Blocker || seen[candidate.ID] {
 			return false
 		}

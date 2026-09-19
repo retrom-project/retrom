@@ -29,7 +29,7 @@ func detectedGame(root, language string) DetectedGame {
 func TestDetectionPreservesAmbiguityAndLaunchHints(t *testing.T) {
 	candidates := []DetectedGame{detectedGame("one", "en"), detectedGame("one", "de"), detectedGame("two", "en")}
 	candidates[1].Config["filename"] = "story.z5"
-	result, err := parseResult(detectorJSON(t, candidates), Tool{UpstreamCommit: testCommit, Engines: []string{"sky"}},
+	result, err := ParseResult(detectorJSON(t, candidates), testCommit, []string{"sky"},
 		strings.Repeat("a", 64))
 	if err != nil {
 		t.Fatal(err)
@@ -46,48 +46,48 @@ func TestDetectionPreservesAmbiguityAndLaunchHints(t *testing.T) {
 }
 
 func TestAutomaticSelectionRequiresOneRunnableCandidate(t *testing.T) {
-	tool := Tool{UpstreamCommit: testCommit, Engines: []string{"sky"}}
+	upstreamCommit, engines := testCommit, []string{"sky"}
 	candidate := detectedGame("", "en")
-	result, err := parseResult(detectorJSON(t, []DetectedGame{candidate}), tool, strings.Repeat("a", 64))
+	result, err := ParseResult(detectorJSON(t, []DetectedGame{candidate}), upstreamCommit, engines, strings.Repeat("a", 64))
 	if err != nil || result.AutomaticSelection == "" {
 		t.Fatalf("unique runnable candidate was not selected: %v", err)
 	}
-	tool.Engines = []string{"queen"}
-	result, err = parseResult(detectorJSON(t, []DetectedGame{candidate}), tool, strings.Repeat("a", 64))
+	engines = []string{"queen"}
+	result, err = ParseResult(detectorJSON(t, []DetectedGame{candidate}), upstreamCommit, engines, strings.Repeat("a", 64))
 	if err != nil || result.AutomaticSelection != "" || result.Candidates[0].Blocker != "ENGINE_UNAVAILABLE" {
 		t.Fatalf("missing engine was hidden or selected: %+v %v", result, err)
 	}
 	candidate.HasUnknownFiles = true
-	tool.Engines = []string{"sky"}
-	result, err = parseResult(detectorJSON(t, []DetectedGame{candidate}), tool, strings.Repeat("a", 64))
+	engines = []string{"sky"}
+	result, err = ParseResult(detectorJSON(t, []DetectedGame{candidate}), upstreamCommit, engines, strings.Repeat("a", 64))
 	if err != nil || result.AutomaticSelection != "" || result.Candidates[0].Blocker != "UNKNOWN_VARIANT" {
 		t.Fatalf("unknown variant was selected: %+v %v", result, err)
 	}
 }
 
 func TestDetectionRejectsBadPathsAndMismatchedBuild(t *testing.T) {
-	tool := Tool{UpstreamCommit: testCommit, Engines: []string{"sky"}}
+	upstreamCommit, engines := testCommit, []string{"sky"}
 	for _, root := range []string{"../outside", "/absolute", "a/../b", "a\\b", "a\nkey=value"} {
-		_, err := parseResult(detectorJSON(t, []DetectedGame{detectedGame(root, "en")}), tool, strings.Repeat("a", 64))
+		_, err := ParseResult(detectorJSON(t, []DetectedGame{detectedGame(root, "en")}), upstreamCommit, engines, strings.Repeat("a", 64))
 		if !errors.Is(err, ErrResultInvalid) {
 			t.Fatalf("unsafe root %q accepted: %v", root, err)
 		}
 	}
-	tool.UpstreamCommit = strings.Repeat("b", 40)
-	_, err := parseResult(detectorJSON(t, []DetectedGame{detectedGame("", "en")}), tool, strings.Repeat("a", 64))
+	upstreamCommit = strings.Repeat("b", 40)
+	_, err := ParseResult(detectorJSON(t, []DetectedGame{detectedGame("", "en")}), upstreamCommit, engines, strings.Repeat("a", 64))
 	if !errors.Is(err, ErrResultInvalid) {
 		t.Fatalf("mismatched detector build accepted: %v", err)
 	}
 }
 
 func TestCandidateIdentityChangesWithSourceSnapshot(t *testing.T) {
-	tool := Tool{UpstreamCommit: testCommit, Engines: []string{"sky"}}
+	upstreamCommit, engines := testCommit, []string{"sky"}
 	input := detectorJSON(t, []DetectedGame{detectedGame("", "en")})
-	first, err := parseResult(input, tool, strings.Repeat("a", 64))
+	first, err := ParseResult(input, upstreamCommit, engines, strings.Repeat("a", 64))
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := parseResult(input, tool, strings.Repeat("b", 64))
+	second, err := ParseResult(input, upstreamCommit, engines, strings.Repeat("b", 64))
 	if err != nil || first.Candidates[0].ID == second.Candidates[0].ID {
 		t.Fatalf("stale source selection identity was reused: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestDetectionBoundsMatchLaunchOptions(t *testing.T) {
 	} {
 		game := detectedGame("", "en")
 		change(&game)
-		_, err := parseResult(detectorJSON(t, []DetectedGame{game}), Tool{UpstreamCommit: testCommit, Engines: []string{game.EngineID}}, strings.Repeat("a", 64))
+		_, err := ParseResult(detectorJSON(t, []DetectedGame{game}), testCommit, []string{game.EngineID}, strings.Repeat("a", 64))
 		if !errors.Is(err, ErrResultInvalid) {
 			t.Fatalf("oversized launch hint accepted: %+v", game)
 		}

@@ -162,7 +162,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 		entry += `<script src="` + script + `"></script>`
 	}
 	files = append(files, rpgMakerHTTPFixtureFile{path: "project/index.html", contents: []byte(entry + "</head><body></body></html>")})
-	uploadID := completeRPGMakerHTTPUpload(t, t.Context(), server, files)
+	uploadID := completeRPGMakerHTTPUpload(t.Context(), t, server, files)
 	created, err := server.importer.Create(t.Context(), libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "rpgmaker/rpgmaker"),
 		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",

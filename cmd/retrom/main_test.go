@@ -10,12 +10,14 @@ import (
 	"testing"
 	"time"
 
+	maintenancemodel "retrom/internal/model/maintenance"
+
 	"retrom/internal/bootstrap/composition"
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
+	"retrom/internal/adapter/system/processlock"
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/foundation/processlock"
 	"retrom/internal/repo/store"
 	"retrom/internal/testkit/testassert"
 )
@@ -60,7 +62,7 @@ func TestReadSetupCodeCommandDoesNotModifyDatabase(t *testing.T) {
 func TestResetOfflineAdminRequiresLockAndTTYConfirmation(t *testing.T) {
 	t.Parallel()
 	configuration, _ := accountCommandFixture(t, config.ModeTest)
-	lock, err := processlock.Acquire(configuration.DataDir)
+	lock, err := (processlock.Locker{}).Acquire(configuration.DataDir)
 	testassert.False(t, err != nil, err)
 	readCount := 0
 	if err := resetOfflineAdmin(
@@ -68,7 +70,7 @@ func TestResetOfflineAdminRequiresLockAndTTYConfirmation(t *testing.T) {
 			readCount++
 			return "should not be read", nil
 		},
-	); !errors.Is(err, processlock.ErrAlreadyRunning) || readCount != 0 {
+	); !errors.Is(err, maintenancemodel.ErrDataRootLocked) || readCount != 0 {
 		t.Fatalf("online reset = %v reads=%d", err, readCount)
 	}
 	if err := lock.Close(); err != nil {

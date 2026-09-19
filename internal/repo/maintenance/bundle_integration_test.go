@@ -35,8 +35,8 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
+	"retrom/internal/adapter/system/processlock"
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/foundation/processlock"
 	tagpersistence "retrom/internal/repo/tagging"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
@@ -102,7 +102,11 @@ SELECT value FROM (
 ) ORDER BY value
 `)
 	testassert.False(t, err != nil, err)
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 	hash := sha256.New()
 	count := 0
 	for rows.Next() {
@@ -119,7 +123,7 @@ SELECT value FROM (
 	return hex.EncodeToString(hash.Sum(nil)), count
 }
 
-func seedBackupTags(t *testing.T, ctx context.Context, database *sql.DB, userID string) {
+func seedBackupTags(ctx context.Context, t *testing.T, database *sql.DB, userID string) {
 	t.Helper()
 	service := tagging.New(tagpersistence.New(database), func() time.Time { return time.UnixMilli(3_000) })
 	active, err := service.Create(ctx, userID, "合作")
@@ -154,7 +158,11 @@ SELECT value FROM (
 ) ORDER BY value
 `)
 	testassert.False(t, err != nil, err)
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 	hash := sha256.New()
 	count := 0
 	for rows.Next() {
@@ -169,6 +177,154 @@ SELECT value FROM (
 		t.Fatal(err)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), count
+}
+
+type backupImportIDs struct {
+	serverImportID           string
+	pegasusImportID          string
+	emulationStationImportID string
+}
+
+func seedBackupImportStates(ctx context.Context, t *testing.T, database *sql.DB, userID string) backupImportIDs {
+	t.Helper()
+	const serverImportID = "01980000-0000-7000-8000-00000000f601"
+	const serverImportJobID = "01980000-0000-7000-8000-00000000f602"
+	const pegasusImportID = "01980000-0000-7000-8000-00000000f603"
+	const pegasusScanJobID = "01980000-0000-7000-8000-00000000f604"
+	const emulationStationImportID = "01980000-0000-7000-8000-00000000f605"
+	const emulationStationScanJobID = "01980000-0000-7000-8000-00000000f606"
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,leased_until_ms,heartbeat_at_ms,worker_id,created_at_ms,updated_at_ms)
+VALUES(?,'SERVER_IMPORT',?,'SERVER_BIOS_IMPORT',?,1,'{"inputExecutionNo":1}',1,'RUNNING',1,4,1,1,60000,1,
+'server-import-worker',1,1)
+`, serverImportJobID, serverImportID, strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO server_imports(id,kind,root_id,root_label_snapshot,source_relative_path,root_config_digest,
+catalog_snapshot_digest,replace_if_better,state,phase,catalog_item_count,job_id,created_by_user_id,version,
+created_at_ms,updated_at_ms)
+VALUES(?,'BIOS_DIRECTORY','backup-root','Backup root','bios',?,?,0,'RUNNING','DISCOVERING',0,?,?,1,1,1)
+`, serverImportID, strings.Repeat("b", 64), strings.Repeat("c", 64), serverImportJobID, userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{"inputExecutionNo":1}',1,'SUCCEEDED',1,4,1,1,1,1,1)
+`, pegasusScanJobID, pegasusImportID, strings.Repeat("d", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,
+scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
+VALUES(?,'backup-root','Backup root','games',?,'AWAITING_MAPPING',NULL,?,?,1,1,9999999999999)
+`, pegasusImportID, strings.Repeat("e", 64), pegasusScanJobID, userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,leased_until_ms,heartbeat_at_ms,worker_id,created_at_ms,updated_at_ms)
+VALUES(?,'EMULATIONSTATION_IMPORT',?,'SERVER_EMULATIONSTATION_SCAN',?,1,'{"inputExecutionNo":1}',1,
+'RUNNING',1,4,1,1,60000,1,'emulationstation-import-worker',1,1)
+`, emulationStationScanJobID, emulationStationImportID, strings.Repeat("f", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO emulationstation_imports(
+ id,root_id,root_label_snapshot,source_relative_path,root_config_digest,release_year_max,state,phase,
+ scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
+VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCOVERING_GAMELISTS',?,?,1,1,
+9999999999999)
+`, emulationStationImportID, strings.Repeat("1", 64), emulationStationScanJobID,
+		userID); err != nil {
+		t.Fatal(err)
+	}
+	return backupImportIDs{
+		serverImportID:           serverImportID,
+		pegasusImportID:          pegasusImportID,
+		emulationStationImportID: emulationStationImportID,
+	}
+}
+
+func assertRestoreSecurityFences(t *testing.T, database *sql.DB, ids backupImportIDs) {
+	t.Helper()
+	serverImportID := ids.serverImportID
+	pegasusImportID := ids.pegasusImportID
+	emulationStationImportID := ids.emulationStationImportID
+	var fencedSessions, fencedLinks, fenceAudits, fencedServerImports, fencedPegasusImports int
+	var fencedEmulationStationImports int
+	if err := database.QueryRowContext(context.Background(), `
+SELECT
+  (SELECT count(*) FROM auth_sessions WHERE revoked_reason='RESTORE' AND revoked_at_ms IS NOT NULL),
+  (SELECT count(*) FROM account_links WHERE revoked_by_kind='SYSTEM' AND revoked_at_ms IS NOT NULL),
+  (SELECT count(*) FROM audit_events
+   WHERE actor_kind='SYSTEM' AND actor_label='restore-security-fence' AND action='RESTORE_SECURITY_FENCE'
+   AND json_extract(after_json,'$.failedEmulationStationJobCount')=1),
+  (SELECT count(*) FROM server_imports import JOIN jobs job ON job.id=import.job_id
+   WHERE import.id=? AND import.state='FAILED' AND import.last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED'
+   AND job.state='FAILED' AND job.error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND job.error_retryable=0),
+  (SELECT count(*) FROM pegasus_imports WHERE id=? AND state='FAILED'
+	AND last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND completed_at_ms IS NOT NULL),
+  (SELECT count(*) FROM emulationstation_imports import JOIN jobs job ON job.id=import.scan_job_id
+   WHERE import.id=? AND import.state='FAILED'
+   AND import.last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND import.completed_at_ms IS NOT NULL
+   AND job.state='FAILED' AND job.error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND job.error_retryable=0)
+`, serverImportID, pegasusImportID, emulationStationImportID).Scan(
+		&fencedSessions,
+		&fencedLinks,
+		&fenceAudits,
+		&fencedServerImports,
+		&fencedPegasusImports,
+		&fencedEmulationStationImports,
+	); err != nil ||
+		fencedSessions < 1 || fencedLinks != 1 || fenceAudits != 1 || fencedServerImports != 1 ||
+		fencedPegasusImports != 1 || fencedEmulationStationImports != 1 {
+		t.Fatalf(
+			"restore fence = sessions=%d links=%d audits=%d serverImports=%d pegasusImports=%d "+
+				"emulationStationImports=%d error=%v",
+			fencedSessions,
+			fencedLinks,
+			fenceAudits,
+			fencedServerImports,
+			fencedPegasusImports,
+			fencedEmulationStationImports,
+			err,
+		)
+	}
+}
+
+func assertObsoleteBackupManifestRejected(
+	ctx context.Context,
+	t *testing.T,
+	configuration config.Maintenance,
+	bundle string,
+	restorePath string,
+) {
+	t.Helper()
+	manifestPath := filepath.Join(bundle, "backup.json")
+	contents, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var obsolete map[string]any
+	if err := json.Unmarshal(contents, &obsolete); err != nil {
+		t.Fatal(err)
+	}
+	obsolete["schemaVersion"] = float64(1)
+	delete(obsolete, "migrationLineageDigest")
+	contents, err = json.Marshal(obsolete)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = append(contents, '\n')
+	if err := os.WriteFile(manifestPath, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := maintenance.New(New(), time.Now, processlock.Locker{}).Restore(ctx, configuration, bundle, restorePath); !errors.Is(err, maintenancemodel.ErrInvalidBundle) {
+		t.Fatalf("obsolete backup manifest error = %v", err)
+	}
 }
 
 func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
@@ -221,61 +377,8 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedBackupFavorites(t, database.SQL, admin.Principal.ProfileID)
-	seedBackupTags(t, ctx, database.SQL, admin.Principal.UserID)
-	const serverImportID = "01980000-0000-7000-8000-00000000f601"
-	const serverImportJobID = "01980000-0000-7000-8000-00000000f602"
-	const pegasusImportID = "01980000-0000-7000-8000-00000000f603"
-	const pegasusScanJobID = "01980000-0000-7000-8000-00000000f604"
-	const emulationStationImportID = "01980000-0000-7000-8000-00000000f605"
-	const emulationStationScanJobID = "01980000-0000-7000-8000-00000000f606"
-	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
-attempt_count,max_attempts,version,available_at_ms,leased_until_ms,heartbeat_at_ms,worker_id,created_at_ms,updated_at_ms)
-VALUES(?,'SERVER_IMPORT',?,'SERVER_BIOS_IMPORT',?,1,'{"inputExecutionNo":1}',1,'RUNNING',1,4,1,1,60000,1,
-'server-import-worker',1,1)
-`, serverImportJobID, serverImportID, strings.Repeat("a", 64)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO server_imports(id,kind,root_id,root_label_snapshot,source_relative_path,root_config_digest,
-catalog_snapshot_digest,replace_if_better,state,phase,catalog_item_count,job_id,created_by_user_id,version,
-created_at_ms,updated_at_ms)
-VALUES(?,'BIOS_DIRECTORY','backup-root','Backup root','bios',?,?,0,'RUNNING','DISCOVERING',0,?,?,1,1,1)
-`, serverImportID, strings.Repeat("b", 64), strings.Repeat("c", 64), serverImportJobID, admin.Principal.UserID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
-attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{"inputExecutionNo":1}',1,'SUCCEEDED',1,4,1,1,1,1,1)
-`, pegasusScanJobID, pegasusImportID, strings.Repeat("d", 64)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,
-scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
-VALUES(?,'backup-root','Backup root','games',?,'AWAITING_MAPPING',NULL,?,?,1,1,9999999999999)
-`, pegasusImportID, strings.Repeat("e", 64), pegasusScanJobID, admin.Principal.UserID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
-attempt_count,max_attempts,version,available_at_ms,leased_until_ms,heartbeat_at_ms,worker_id,created_at_ms,updated_at_ms)
-VALUES(?,'EMULATIONSTATION_IMPORT',?,'SERVER_EMULATIONSTATION_SCAN',?,1,'{"inputExecutionNo":1}',1,
-'RUNNING',1,4,1,1,60000,1,'emulationstation-import-worker',1,1)
-`, emulationStationScanJobID, emulationStationImportID, strings.Repeat("f", 64)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO emulationstation_imports(
- id,root_id,root_label_snapshot,source_relative_path,root_config_digest,release_year_max,state,phase,
- scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
-VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCOVERING_GAMELISTS',?,?,1,1,
-9999999999999)
-`, emulationStationImportID, strings.Repeat("1", 64), emulationStationScanJobID,
-		admin.Principal.UserID); err != nil {
-		t.Fatal(err)
-	}
+	seedBackupTags(ctx, t, database.SQL, admin.Principal.UserID)
+	importIDs := seedBackupImportStates(ctx, t, database.SQL, admin.Principal.UserID)
 	favoriteHash, favoriteRows := favoriteBackupSnapshot(t, database.SQL)
 	testassert.Falsef(t, favoriteRows != 3, "seed favorite rows = %d", favoriteRows)
 	tagHash, tagRows := tagBackupSnapshot(t, database.SQL)
@@ -290,9 +393,9 @@ VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCO
 		DependencyVersions: []string{"4.2.3"},
 		ActiveEJSVersion:   "4.2.3",
 	}
-	lock, err := processlock.Acquire(dataDir)
+	lock, err := (processlock.Locker{}).Acquire(dataDir)
 	testassert.False(t, err != nil, err)
-	if _, err := maintenance.New(New(), time.Now).Backup(ctx, configuration, filepath.Join(root, "online-backup")); !errors.Is(
+	if _, err := maintenance.New(New(), time.Now, processlock.Locker{}).Backup(ctx, configuration, filepath.Join(root, "online-backup")); !errors.Is(
 		err,
 		maintenance.ErrBackupOffline,
 	) {
@@ -302,88 +405,42 @@ VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCO
 		t.Fatal(err)
 	}
 	bundle := filepath.Join(root, "bundle")
-	manifest, err := maintenance.New(New(), time.Now).Backup(ctx, configuration, bundle)
+	manifest, err := maintenance.New(New(), time.Now, processlock.Locker{}).Backup(ctx, configuration, bundle)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return manifest.SchemaVersion != 2 }, func() bool { return manifest.DatabaseSchemaVersion != 14 }, func() bool { return len(manifest.MigrationLineageDigest) != 64 }, func() bool { return manifest.Counts.UploadPartCount != 1 }, func() bool { return manifest.Counts.DependencyVersionCount != 1 }), "backup manifest = %#v", manifest)
 	restored := filepath.Join(root, "restored")
-	if _, err := maintenance.New(New(), time.Now).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); err != nil {
+	if _, err := maintenance.New(New(), time.Now, processlock.Locker{}).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); err != nil {
 		t.Fatal(err)
 	}
 	restoredDatabase, err := openDatabase(ctx, filepath.Join(restored, "retrom.db"))
 	testassert.False(t, err != nil, err)
-	defer restoredDatabase.Close()
+	defer func() {
+		if err := restoredDatabase.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 	assertRestoredUploadPart(t, restoredDatabase, restored, upload.Files[0].ID)
 	restoredFavoriteHash, restoredFavoriteRows := favoriteBackupSnapshot(t, restoredDatabase)
 	testassert.Falsef(t, testassert.Any(func() bool { return restoredFavoriteRows != favoriteRows }, func() bool { return restoredFavoriteHash != favoriteHash }), "favorite backup snapshot changed: before=%d/%s after=%d/%s", favoriteRows, favoriteHash, restoredFavoriteRows, restoredFavoriteHash)
 	restoredTagHash, restoredTagRows := tagBackupSnapshot(t, restoredDatabase)
 	testassert.Falsef(t, testassert.Any(func() bool { return restoredTagRows != tagRows }, func() bool { return restoredTagHash != tagHash }), "tag backup snapshot changed: before=%d/%s after=%d/%s", tagRows, tagHash, restoredTagRows, restoredTagHash)
-	var fencedSessions, fencedLinks, fenceAudits, fencedServerImports, fencedPegasusImports int
-	var fencedEmulationStationImports int
-	if err := restoredDatabase.QueryRowContext(context.Background(), `
-SELECT
-  (SELECT count(*) FROM auth_sessions WHERE revoked_reason='RESTORE' AND revoked_at_ms IS NOT NULL),
-  (SELECT count(*) FROM account_links WHERE revoked_by_kind='SYSTEM' AND revoked_at_ms IS NOT NULL),
-  (SELECT count(*) FROM audit_events
-   WHERE actor_kind='SYSTEM' AND actor_label='restore-security-fence' AND action='RESTORE_SECURITY_FENCE'
-   AND json_extract(after_json,'$.failedEmulationStationJobCount')=1),
-  (SELECT count(*) FROM server_imports import JOIN jobs job ON job.id=import.job_id
-   WHERE import.id=? AND import.state='FAILED' AND import.last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED'
-   AND job.state='FAILED' AND job.error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND job.error_retryable=0),
-  (SELECT count(*) FROM pegasus_imports WHERE id=? AND state='FAILED'
-	AND last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND completed_at_ms IS NOT NULL),
-  (SELECT count(*) FROM emulationstation_imports import JOIN jobs job ON job.id=import.scan_job_id
-   WHERE import.id=? AND import.state='FAILED'
-   AND import.last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND import.completed_at_ms IS NOT NULL
-   AND job.state='FAILED' AND job.error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND job.error_retryable=0)
-`, serverImportID, pegasusImportID, emulationStationImportID).Scan(
-		&fencedSessions,
-		&fencedLinks,
-		&fenceAudits,
-		&fencedServerImports,
-		&fencedPegasusImports,
-		&fencedEmulationStationImports,
-	); err != nil ||
-		fencedSessions < 1 || fencedLinks != 1 || fenceAudits != 1 || fencedServerImports != 1 ||
-		fencedPegasusImports != 1 || fencedEmulationStationImports != 1 {
-		t.Fatalf(
-			"restore fence = sessions=%d links=%d audits=%d serverImports=%d pegasusImports=%d "+
-				"emulationStationImports=%d error=%v",
-			fencedSessions,
-			fencedLinks,
-			fenceAudits,
-			fencedServerImports,
-			fencedPegasusImports,
-			fencedEmulationStationImports,
-			err,
-		)
-	}
-	if _, err := maintenance.New(New(), time.Now).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(
+	assertRestoreSecurityFences(t, restoredDatabase, importIDs)
+	if _, err := maintenance.New(New(), time.Now, processlock.Locker{}).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(
 		err, maintenancemodel.ErrInvalidBundle,
 	) {
 		t.Fatalf("overwrite restore error = %v", err)
 	}
-	manifestPath := filepath.Join(bundle, "backup.json")
-	contents, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var obsolete map[string]any
-	if err := json.Unmarshal(contents, &obsolete); err != nil {
-		t.Fatal(err)
-	}
-	obsolete["schemaVersion"] = float64(1)
-	delete(obsolete, "migrationLineageDigest")
-	contents, err = json.Marshal(obsolete)
-	if err != nil {
-		t.Fatal(err)
-	}
-	contents = append(contents, '\n')
-	if err := os.WriteFile(manifestPath, contents, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := maintenance.New(New(), time.Now).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, filepath.Join(root, "obsolete-restored")); !errors.Is(err, maintenancemodel.ErrInvalidBundle) {
-		t.Fatalf("obsolete backup manifest error = %v", err)
-	}
+	assertObsoleteBackupManifestRejected(
+		ctx,
+		t,
+		config.Maintenance{
+			DependencyRoot:     dependencyRoot,
+			DependencyVersions: []string{"4.2.3"},
+			ActiveEJSVersion:   "4.2.3",
+		},
+		bundle,
+		filepath.Join(root, "obsolete-restored"),
+	)
 }
 
 func assertRestoredUploadPart(t *testing.T, database *sql.DB, root, fileID string) {

@@ -13,15 +13,15 @@ import (
 	tagpersistence "retrom/internal/repo/tagging"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/capability/security/authn"
+	librarymodel "retrom/internal/model/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
 )
 
 type Service struct {
-	scummVMDetector        *scummvm.Detector
+	scummVMDetector        librarymodel.ScummVMDetector
 	database               *sql.DB
 	blobs                  *blobstore.Store
 	now                    func() time.Time

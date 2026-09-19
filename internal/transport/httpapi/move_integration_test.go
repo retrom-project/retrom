@@ -89,44 +89,7 @@ updated_at_ms) VALUES(?,
 		return recorder
 	}
 
-	keys := []string{
-		"01980000-0000-7000-8000-000000000172",
-		"01980000-0000-7000-8000-000000000173",
-	}
-	responses := make([]*httptest.ResponseRecorder, len(keys))
-	var wait sync.WaitGroup
-	server.idempotency.Lock()
-	idempotencyLocked := true
-	defer func() {
-		if idempotencyLocked {
-			server.idempotency.Unlock()
-		}
-	}()
-	for index := range keys {
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
-			responses[index] = send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[index], `"v1"`)
-		}()
-	}
-	waitForIdempotencyQueue(t, server, len(keys))
-	server.idempotency.Unlock()
-	idempotencyLocked = false
-	wait.Wait()
-	jobIDs := make([]string, len(responses))
-	for index, response := range responses {
-		var payload struct {
-			Status string `json:"status"`
-			JobID  string `json:"jobId"`
-		}
-		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil ||
-			response.Code != http.StatusAccepted || payload.Status != "VALIDATION_PENDING" || payload.JobID == "" {
-			t.Fatalf("move preview %d = %d %s, error=%v", index, response.Code, response.Body.String(), err)
-		}
-		jobIDs[index] = payload.JobID
-	}
-	testassert.Falsef(t, jobIDs[0] != jobIDs[1], "concurrent move previews queued different jobs: %v", jobIDs)
-	waitForHTTPJob(t, server.database, jobIDs[0], "SUCCEEDED")
+	keys, responses := queueConcurrentMovePreviews(ctx, t, server, send, gameID, previewBody)
 
 	replayed := send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[0], `"v1"`)
 	testassert.Falsef(t, testassert.Any(func() bool { return replayed.Code != http.StatusAccepted }, func() bool { return replayed.Body.String() != responses[0].Body.String() }), "old preview key was not replayed: %d %s", replayed.Code, replayed.Body.String())
@@ -172,6 +135,56 @@ WHERE id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return storedTarget != targetID }, func() bool { return storedContent != contentID }, func() bool { return version != 2 }, func() bool { return variantCount != 2 }, func() bool { return auditCount != 1 }), "move state = target:%s content:%s version:%d variants:%d audits:%d", storedTarget, storedContent, version, variantCount, auditCount)
+}
+
+func queueConcurrentMovePreviews(
+	ctx context.Context,
+	t *testing.T,
+	server *Server,
+	send func(string, string, string, string) *httptest.ResponseRecorder,
+	gameID string,
+	previewBody string,
+) ([]string, []*httptest.ResponseRecorder) {
+	t.Helper()
+	keys := []string{
+		"01980000-0000-7000-8000-000000000172",
+		"01980000-0000-7000-8000-000000000173",
+	}
+	responses := make([]*httptest.ResponseRecorder, len(keys))
+	var wait sync.WaitGroup
+	server.idempotency.Lock()
+	idempotencyLocked := true
+	defer func() {
+		if idempotencyLocked {
+			server.idempotency.Unlock()
+		}
+	}()
+	for index := range keys {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			responses[index] = send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[index], `"v1"`)
+		}()
+	}
+	waitForIdempotencyQueue(t, server, len(keys))
+	server.idempotency.Unlock()
+	idempotencyLocked = false
+	wait.Wait()
+	jobIDs := make([]string, len(responses))
+	for index, response := range responses {
+		var payload struct {
+			Status string `json:"status"`
+			JobID  string `json:"jobId"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil ||
+			response.Code != http.StatusAccepted || payload.Status != "VALIDATION_PENDING" || payload.JobID == "" {
+			t.Fatalf("move preview %d = %d %s, error=%v", index, response.Code, response.Body.String(), err)
+		}
+		jobIDs[index] = payload.JobID
+	}
+	testassert.Falsef(t, jobIDs[0] != jobIDs[1], "concurrent move previews queued different jobs: %v", jobIDs)
+	waitForHTTPJob(ctx, t, server.database, jobIDs[0])
+	return keys, responses
 }
 
 func waitForIdempotencyQueue(t *testing.T, server *Server, expected int) {
@@ -304,17 +317,56 @@ func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testin
 		handler.ServeHTTP(recorder, request)
 		return recorder
 	}
-	type previewResponse struct {
-		Counts map[string]int64 `json:"counts"`
-		Items  []struct {
-			GameID string `json:"gameId"`
-		} `json:"items"`
-		NextCursor              *string `json:"nextCursor"`
-		ImpactDigest            string  `json:"impactDigest"`
-		PlatformInstanceVersion int64   `json:"platformInstanceVersion"`
-	}
+	digest := assertDefaultCorePreviewPagination(ctx, t, server, gameID, preview)
+
+	requestBody := fmt.Sprintf(`{"coreId":"mgba","impactDigest":%q,"confirmBlocked":false}`, digest)
+	request := httptest.NewRequestWithContext(context.Background(),
+		http.MethodPost,
+		"/api/v1/admin/platform-instances/"+instanceID+"/default-core",
+		strings.NewReader(requestBody),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("If-Match", `"v1"`)
+	request.Header.Set("Idempotency-Key", uuid.NewString())
+	setCSRFCredentials(request, cookie, csrfToken)
+	changed := httptest.NewRecorder()
+	handler.ServeHTTP(changed, request)
+	testassert.Falsef(t, testassert.Any(func() bool { return changed.Code != http.StatusOK }, func() bool { return changed.Header().Get("ETag") != `"v2"` }), "default core change = %d %s", changed.Code, changed.Body.String())
+
+	saveID := "01980000-0000-7000-8000-000000000191"
+	seedProductSave(ctx, t, server.database, saveID, sourceLaunch.LaunchID, "Old core save")
+	pending, err := server.launcher.Create(
+		ctx,
+		"local",
+		launch.CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities},
+	)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "new default core launch = %#v, error=%v", pending, err)
+	waitForHTTPJob(ctx, t, server.database, pending.JobID)
+	assertSavedCoreChoice(t, server, gameID, saveID, nil, "gambatte")
+	explicitCore := "mgba"
+	assertSavedCoreChoice(t, server, gameID, saveID, &explicitCore, "mgba")
+}
+
+type defaultCorePreviewResponse struct {
+	Counts map[string]int64 `json:"counts"`
+	Items  []struct {
+		GameID string `json:"gameId"`
+	} `json:"items"`
+	NextCursor              *string `json:"nextCursor"`
+	ImpactDigest            string  `json:"impactDigest"`
+	PlatformInstanceVersion int64   `json:"platformInstanceVersion"`
+}
+
+func assertDefaultCorePreviewPagination(
+	ctx context.Context,
+	t *testing.T,
+	server *Server,
+	gameID string,
+	preview func(*string) *httptest.ResponseRecorder,
+) string {
+	t.Helper()
 	first := preview(nil)
-	var firstBody previewResponse
+	var firstBody defaultCorePreviewResponse
 	if err := json.Unmarshal(first.Body.Bytes(), &firstBody); err != nil || first.Code != http.StatusOK ||
 		len(firstBody.Items) != 1 || firstBody.NextCursor == nil || firstBody.Counts["needsValidation"] != 3 {
 		t.Fatalf("first default core page = %d %s, error=%v", first.Code, first.Body.String(), err)
@@ -332,7 +384,7 @@ UPDATE games SET version=version+1,updated_at_ms=? WHERE id=?
 	var digest string
 	for pageNumber := 0; pageNumber < 3; pageNumber++ {
 		response := preview(cursorValue)
-		var payload previewResponse
+		var payload defaultCorePreviewResponse
 		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil || response.Code != http.StatusOK ||
 			len(payload.Items) != 1 || payload.Counts["needsValidation"] != 3 || payload.PlatformInstanceVersion != 1 {
 			t.Fatalf("default core page %d = %d %s, error=%v", pageNumber, response.Code, response.Body.String(), err)
@@ -349,33 +401,7 @@ UPDATE games SET version=version+1,updated_at_ms=? WHERE id=?
 		cursorValue = payload.NextCursor
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return len(seen) != 3 }, func() bool { return cursorValue != nil }), "preview coverage = %d games, cursor=%v", len(seen), cursorValue)
-
-	requestBody := fmt.Sprintf(`{"coreId":"mgba","impactDigest":%q,"confirmBlocked":false}`, digest)
-	request := httptest.NewRequestWithContext(context.Background(),
-		http.MethodPost,
-		"/api/v1/admin/platform-instances/"+instanceID+"/default-core",
-		strings.NewReader(requestBody),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("If-Match", `"v1"`)
-	request.Header.Set("Idempotency-Key", uuid.NewString())
-	setCSRFCredentials(request, cookie, csrfToken)
-	changed := httptest.NewRecorder()
-	handler.ServeHTTP(changed, request)
-	testassert.Falsef(t, testassert.Any(func() bool { return changed.Code != http.StatusOK }, func() bool { return changed.Header().Get("ETag") != `"v2"` }), "default core change = %d %s", changed.Code, changed.Body.String())
-
-	saveID := "01980000-0000-7000-8000-000000000191"
-	seedProductSave(t, server.database, saveID, sourceLaunch.LaunchID, "Old core save")
-	pending, err := server.launcher.Create(
-		ctx,
-		"local",
-		launch.CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities},
-	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "new default core launch = %#v, error=%v", pending, err)
-	waitForHTTPJob(t, server.database, pending.JobID, "SUCCEEDED")
-	assertSavedCoreChoice(t, server, gameID, saveID, nil, "gambatte")
-	explicitCore := "mgba"
-	assertSavedCoreChoice(t, server, gameID, saveID, &explicitCore, "mgba")
+	return digest
 }
 
 func TestGameMetadataCurrentStateProjectionAndOptimisticEdit(t *testing.T) {
@@ -500,7 +526,7 @@ WHERE g.id=?
 		t.Fatal(err)
 	}
 	saveID := "01980000-0000-7000-8000-000000000193"
-	seedProductSave(t, server.database, saveID, created.LaunchID, "Delete fixture save")
+	seedProductSave(ctx, t, server.database, saveID, created.LaunchID, "Delete fixture save")
 	if _, err := server.database.ExecContext(ctx, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,
 started_at_ms,last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
@@ -525,14 +551,49 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	handler.ServeHTTP(beforeDelete, beforeDeleteRequest)
 	testassert.Falsef(t, beforeDelete.Code != http.StatusOK,
 		"runtime content before delete = %d %s", beforeDelete.Code, beforeDelete.Body.String())
+	sendDelete := deleteGameAndAssertIdempotency(ctx, t, server, handler, cookie, csrf, gameID, created.LaunchID)
+	waitForDeletedGamePayloadRelease(ctx, t, server.database, gameID)
+	assertDeletedGameStateAndHistory(
+		ctx, t, server, handler, cookie, csrf, gameID, blobID, created.LaunchID, gameURL, runtimeGrant,
+	)
+	sharedImpact, err := payloadrelease.GameDeleteImpact(ctx, server.database, sharedGameID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sharedDeleted := sendDelete(sharedGameID, `"v1"`, "Move fixture194", sharedImpact.ImpactDigest, uuid.NewString())
+	if sharedDeleted.Code != http.StatusAccepted {
+		t.Fatalf("delete last shared game = %d %s", sharedDeleted.Code, sharedDeleted.Body.String())
+	}
+	waitForPayloadState(t, server.database, sharedGameID, "RELEASED")
+	var candidateCount int64
+	if err := server.database.QueryRowContext(ctx,
+		`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
+	).Scan(&candidateCount); err != nil || candidateCount != 1 {
+		t.Fatalf("last shared release candidate = %d, error=%v", candidateCount, err)
+	}
+}
+
+type gameDeleteSender func(string, string, string, string, string) *httptest.ResponseRecorder
+
+func deleteGameAndAssertIdempotency(
+	ctx context.Context,
+	t *testing.T,
+	server *Server,
+	handler http.Handler,
+	cookie *http.Cookie,
+	csrf string,
+	gameID string,
+	launchID string,
+) gameDeleteSender {
+	t.Helper()
 	impact, err := payloadrelease.GameDeleteImpact(ctx, server.database, gameID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	secondSaveID := "01980000-0000-7000-8000-000000000199"
-	seedProductSave(t, server.database, secondSaveID, created.LaunchID, "Concurrent save")
+	seedProductSave(ctx, t, server.database, secondSaveID, launchID, "Concurrent save")
 	sendDelete := func(targetID, etag, title, digest, key string) *httptest.ResponseRecorder {
-		request := httptest.NewRequestWithContext(context.Background(),
+		request := httptest.NewRequestWithContext(ctx,
 			http.MethodDelete,
 			"/api/v1/admin/games/"+targetID,
 			strings.NewReader(fmt.Sprintf(`{"confirmTitle":%q,"impactDigest":%q}`, title, digest)),
@@ -566,26 +627,23 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return replayed.Code != http.StatusAccepted }, func() bool { return replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" }, func() bool { return replayed.Body.String() != deleted.Body.String() }), "game delete replay = %d %s", replayed.Code, replayed.Body.String())
 	again := sendDelete(gameID, `"v2"`, "Move fixture", impact.ImpactDigest, uuid.NewString())
 	testassert.Falsef(t, testassert.Any(func() bool { return again.Code != http.StatusOK }, func() bool { return !strings.Contains(again.Body.String(), `"status":"DELETED"`) }), "second game delete = %d %s", again.Code, again.Body.String())
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		var payloadState string
-		if err := server.database.QueryRowContext(ctx, `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&payloadState); err != nil {
-			t.Fatal(err)
-		}
-		if payloadState == "RELEASED" {
-			break
-		}
-		if time.Now().After(deadline) {
-			var jobState, jobError, payloadError sql.NullString
-			_ = server.database.QueryRowContext(ctx, `
-SELECT job.state,job.error_code,game.payload_last_error_code
-FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
-WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
-			t.Fatalf("game payload state = %s, job=%s/%s, payloadError=%s",
-				payloadState, jobState.String, jobError.String, payloadError.String)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	return sendDelete
+}
+
+func assertDeletedGameStateAndHistory(
+	ctx context.Context,
+	t *testing.T,
+	server *Server,
+	handler http.Handler,
+	cookie *http.Cookie,
+	csrf string,
+	gameID string,
+	blobID string,
+	launchID string,
+	gameURL string,
+	runtimeGrant *http.Cookie,
+) {
+	t.Helper()
 	var status, payloadState, launchState string
 	var deletedAt sql.NullInt64
 	var version, saveCount, gameCount, contentFileCount, variantCount, variantFileCount, auditCount int64
@@ -603,7 +661,7 @@ g.version,
 (SELECT state FROM launch_sessions WHERE id=?)
 FROM games g
 WHERE g.id=?
-`, created.LaunchID, gameID).Scan(
+`, launchID, gameID).Scan(
 		&status,
 		&payloadState,
 		&deletedAt,
@@ -628,10 +686,10 @@ WHERE g.id=?
 		!strings.Contains(afterDelete.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`),
 		"runtime content after hard delete = %d %s", afterDelete.Code, afterDelete.Body.String())
 	publicList := httptest.NewRecorder()
-	handler.ServeHTTP(publicList, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games?limit=100", nil))
+	handler.ServeHTTP(publicList, httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/games?limit=100", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return publicList.Code != http.StatusOK }, func() bool { return strings.Contains(publicList.Body.String(), gameID) }), "deleted game remained public = %d %s", publicList.Code, publicList.Body.String())
 	admin := httptest.NewRecorder()
-	handler.ServeHTTP(admin, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/games/"+gameID, nil))
+	handler.ServeHTTP(admin, httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/admin/games/"+gameID, nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return admin.Code != http.StatusOK }, func() bool { return !strings.Contains(admin.Body.String(), `"status":"DELETED"`) }), "deleted admin history = %d %s", admin.Code, admin.Body.String())
 	favoritesHistory := httptest.NewRecorder()
 	favoritesRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/favorites", nil)
@@ -660,20 +718,29 @@ WHERE g.id=?
 		Scan(&protectedBlob, &prematureCandidate); err != nil || protectedBlob != 1 || prematureCandidate != 0 {
 		t.Fatalf("shared blob after first delete = blob:%d candidate:%d error:%v", protectedBlob, prematureCandidate, err)
 	}
-	sharedImpact, err := payloadrelease.GameDeleteImpact(ctx, server.database, sharedGameID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sharedDeleted := sendDelete(sharedGameID, `"v1"`, "Move fixture194", sharedImpact.ImpactDigest, uuid.NewString())
-	if sharedDeleted.Code != http.StatusAccepted {
-		t.Fatalf("delete last shared game = %d %s", sharedDeleted.Code, sharedDeleted.Body.String())
-	}
-	waitForPayloadState(t, server.database, sharedGameID, "RELEASED")
-	var candidateCount int64
-	if err := server.database.QueryRowContext(ctx,
-		`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
-	).Scan(&candidateCount); err != nil || candidateCount != 1 {
-		t.Fatalf("last shared release candidate = %d, error=%v", candidateCount, err)
+}
+
+func waitForDeletedGamePayloadRelease(ctx context.Context, t *testing.T, database *sql.DB, gameID string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		var payloadState string
+		if err := database.QueryRowContext(ctx, `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&payloadState); err != nil {
+			t.Fatal(err)
+		}
+		if payloadState == "RELEASED" {
+			break
+		}
+		if time.Now().After(deadline) {
+			var jobState, jobError, payloadError sql.NullString
+			_ = database.QueryRowContext(ctx, `
+SELECT job.state,job.error_code,game.payload_last_error_code
+FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
+WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
+			t.Fatalf("game payload state = %s, job=%s/%s, payloadError=%s",
+				payloadState, jobState.String, jobError.String, payloadError.String)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -829,13 +896,13 @@ WHERE game_id=? AND core_id='gambatte'
 	}
 }
 
-func seedProductSave(t *testing.T, database *sql.DB, saveID, launchID, name string) {
+func seedProductSave(ctx context.Context, t *testing.T, database *sql.DB, saveID, launchID, name string) {
 	t.Helper()
 	var profileID, gameID string
 	var checkpointFormat, payloadBlobID, payloadSHA256 string
 	var dosEntryPath sql.NullString
 	var payloadSize int64
-	if err := database.QueryRowContext(context.Background(), `
+	if err := database.QueryRowContext(ctx, `
 SELECT launch.profile_id,launch.game_id,
  json_extract(target.checkpoint_json,'$.writeFormat'),
  content.blob_id,blob.sha256,blob.size_bytes,
@@ -855,7 +922,7 @@ LIMIT 1
 		t.Fatal(err)
 	}
 	now := time.Now().UnixMilli()
-	if _, err := database.ExecContext(context.Background(), `
+	if _, err := database.ExecContext(ctx, `
 INSERT INTO save_states(
  id,profile_id,game_id,checkpoint_format,dos_entry_path,
  payload_blob_id,payload_sha256,payload_size_bytes,
@@ -895,9 +962,9 @@ func mustSuffixInt(t *testing.T, value string) int64 {
 	return result
 }
 
-func waitForHTTPJob(t *testing.T, database interface {
+func waitForHTTPJob(ctx context.Context, t *testing.T, database interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, jobID, expected string,
+}, jobID string,
 ) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -905,14 +972,14 @@ func waitForHTTPJob(t *testing.T, database interface {
 		var state string
 		var errorCode sql.NullString
 		if err := database.QueryRowContext(
-			context.Background(), "SELECT state,error_code FROM jobs WHERE id=?", jobID,
+			ctx, "SELECT state,error_code FROM jobs WHERE id=?", jobID,
 		).Scan(&state, &errorCode); err != nil {
 			t.Fatal(err)
 		}
-		if state == expected {
+		if state == "SUCCEEDED" {
 			return
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s error_code=%q, wanted %s", jobID, state, errorCode.String, expected)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s error_code=%q, wanted SUCCEEDED", jobID, state, errorCode.String)
 		time.Sleep(10 * time.Millisecond)
 	}
 }

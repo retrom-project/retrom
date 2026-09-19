@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/capability/engine/scummvm"
+	librarymodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
@@ -17,7 +17,7 @@ type CreationOptions struct {
 	Blobs            *blobstore.Store
 	Tags             *tagging.Service
 	Scraper          *metadatascrape.Service
-	ScummVMDetector  *scummvm.Detector
+	ScummVMDetector  librarymodel.ScummVMDetector
 	MultiDiscEnabled bool
 }
 

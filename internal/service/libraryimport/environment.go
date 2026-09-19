@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"time"
 
-	"retrom/internal/capability/engine/scummvm"
+	librarymodel "retrom/internal/model/libraryimport"
 )
 
 type ImportWorkerSettings struct {
@@ -23,7 +23,7 @@ type ImportAdmissionOptions struct {
 
 type ImportPreparationOptions struct {
 	MultiDiscEnabled, MetadataScraperAvailable bool
-	ScummVMDetector                            *scummvm.Detector
+	ScummVMDetector                            librarymodel.ScummVMDetector
 }
 
 type MultiDiscAttachmentOptions struct {

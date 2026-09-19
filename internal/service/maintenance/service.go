@@ -9,8 +9,9 @@ import (
 type Service struct {
 	repository model.Repository
 	now        func() time.Time
+	locks      model.DataRootLocker
 }
 
-func New(repository model.Repository, now func() time.Time) *Service {
-	return &Service{repository, now}
+func New(repository model.Repository, now func() time.Time, locks model.DataRootLocker) *Service {
+	return &Service{repository: repository, now: now, locks: locks}
 }

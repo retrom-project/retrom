@@ -1,0 +1,189 @@
+package main
+
+import (
+ "context"
+ "crypto/sha256"
+ "encoding/hex"
+ "encoding/json"
+ "errors"
+ "fmt"
+ "os"
+ "path/filepath"
+ "sort"
+ "strings"
+
+ "golang.org/x/sys/unix"
+ "retrom/internal/capability/engine/scummvm"
+)
+const commit = "fed42f2068dcafc6aafa1c28c77e4c88def74b66"
+var resolverFailure = errors.New("capture resolver failure")
+var sandbox string
+var sourceDigest = strings.Repeat("a",64)
+type controlledContext struct { context.Context; done chan struct{}; outcome error }
+func (ctx *controlledContext) Done() <-chan struct{} { return ctx.done }
+func (ctx *controlledContext) Err() error { select { case <-ctx.done:return ctx.outcome;default:return nil } }
+func sum(contents []byte) string { digest:=sha256.Sum256(contents);return hex.EncodeToString(digest[:]) }
+func raw(value any) []byte { b,err:=json.Marshal(value);if err!=nil{panic(err)};return b }
+func errorFacts(err error) map[string]any {
+ text,kind:="","";if err!=nil{text=err.Error();kind=fmt.Sprintf("%T",err)}
+ text=strings.ReplaceAll(text,sandbox,"<sandbox>")
+ return map[string]any{"text":text,"type":kind,"tool":errors.Is(err,scummvm.ErrToolFailed),"input":errors.Is(err,scummvm.ErrInputInvalid),"limit":errors.Is(err,scummvm.ErrLimit),"result":errors.Is(err,scummvm.ErrResultInvalid),"canceled":errors.Is(err,context.Canceled),"deadline":errors.Is(err,context.DeadlineExceeded),"resolver":errors.Is(err,resolverFailure),"notExist":errors.Is(err,os.ErrNotExist)}
+}
+func encoded(value any) map[string]any { contents:=raw(value);return map[string]any{"json":string(contents),"sha256":sum(contents)} }
+func game(root,language string) scummvm.DetectedGame { return scummvm.DetectedGame{Root:root,EngineID:"sky",GameID:"sky",Description:"Fixture <&> 游戏",PreferredTarget:"sky",Language:language,Platform:"pc",Extra:"Floppy",GUIOptions:"",Config:map[string]string{},CanBeAdded:true} }
+func response(candidates []scummvm.DetectedGame) []byte { return raw(map[string]any{"schemaVersion":1,"upstreamCommit":commit,"candidates":candidates,"error":nil}) }
+func child() {
+ var root,save string
+ for _,arg:=range os.Args[1:] {if strings.HasPrefix(arg,"--path="){root=strings.TrimPrefix(arg,"--path=")};if strings.HasPrefix(arg,"--savepath="){save=strings.TrimPrefix(arg,"--savepath=")}}
+ parent:=filepath.Dir(root)
+ mode,err:=os.ReadFile(filepath.Join(parent,"mode"));if err!=nil{panic(err)}
+ env:=os.Environ();sort.Strings(env)
+ cwd,err:=os.Getwd();if err!=nil{panic(err)}
+ args:=append([]string(nil),os.Args[1:]...)
+ for i,arg:=range args{args[i]=strings.ReplaceAll(strings.ReplaceAll(arg,root,"<input>"),save,"<run>")}
+ normalizedEnv:=make([]string,len(env));for i,v:=range env{normalizedEnv[i]=strings.ReplaceAll(v,save,"<run>")}
+ audit:=map[string]any{"args":args,"env":normalizedEnv,"cwdIsSavepath":cwd==save,"homeIsSavepath":os.Getenv("HOME")==save,"xdgIsSavepath":os.Getenv("XDG_CONFIG_HOME")==save,"directoryMode":0}
+ info,err:=os.Stat(save);if err!=nil{panic(err)};audit["directoryMode"]=uint32(info.Mode().Perm())
+ if err:=os.WriteFile(filepath.Join(parent,"invocation.json"),raw(audit),0600);err!=nil{panic(err)}
+ switch string(mode) {
+ case "cancel","deadline":
+  blocker,err:=os.OpenFile(filepath.Join(parent,"block"),os.O_RDWR,0600);if err!=nil{panic(err)}
+  ready,err:=os.OpenFile(filepath.Join(parent,"ready"),os.O_WRONLY,0600);if err!=nil{panic(err)}
+  if _,err:=ready.Write([]byte("R"));err!=nil{panic(err)};if err:=ready.Close();err!=nil{panic(err)}
+  if _,err:=blocker.Read(make([]byte,1));err!=nil{panic(err)}
+  panic("blocking helper unexpectedly resumed")
+ case "stdout-limit":
+  _,_ = os.Stdout.Write([]byte(strings.Repeat("x",16*1024*1024+1)));os.Exit(7)
+ case "stderr-limit":
+  _,_ = os.Stderr.Write([]byte(strings.Repeat("diagnostic",7000)))
+ }
+ contents,err:=os.ReadFile(filepath.Join(parent,"response.json"));if err!=nil{panic(err)}
+ if _,err:=os.Stdout.Write(contents);err!=nil{panic(err)}
+ if string(mode)=="exit7"{os.Exit(7)}
+}
+type scenario struct { name string; contents []byte; mode,rootKind,toolKind,digest string; canceled,resolverError,cancelInResolver,badTemporary bool; engines []string }
+func observe(test scenario, index int) map[string]any {
+ parent:=filepath.Join(sandbox,fmt.Sprintf("case-%03d",index));if err:=os.Mkdir(parent,0700);err!=nil{panic(err)}
+ root:=filepath.Join(parent,"input");if err:=os.Mkdir(root,0700);err!=nil{panic(err)}
+ if err:=os.WriteFile(filepath.Join(root,"public.txt"),[]byte("public fixture"),0400);err!=nil{panic(err)}
+ if test.contents==nil{test.contents=response([]scummvm.DetectedGame{game("Game","en")})}
+ for name,contents:=range map[string][]byte{"mode":[]byte(test.mode),"response.json":test.contents}{if err:=os.WriteFile(filepath.Join(parent,name),contents,0600);err!=nil{panic(err)}}
+ switch test.rootKind {
+ case "relative":root="relative"
+ case "missing":root=filepath.Join(parent,"missing")
+ case "regular":root=filepath.Join(root,"public.txt")
+ case "symlink-root":target:=root;root=filepath.Join(parent,"link");if err:=os.Symlink(target,root);err!=nil{panic(err)}
+ case "nested-symlink":if err:=os.Symlink(filepath.Join(root,"public.txt"),filepath.Join(root,"link"));err!=nil{panic(err)}
+ case "fifo":if err:=unix.Mkfifo(filepath.Join(root,"fifo"),0600);err!=nil{panic(err)}
+ }
+ ctx,cancel:=context.WithCancel(context.Background());defer cancel()
+ var active context.Context=ctx
+ if test.canceled{cancel()}
+ readyResult:=make(chan error,1)
+ if test.mode=="cancel"||test.mode=="deadline" {
+  for _,name:=range []string{"ready","block"} {if err:=unix.Mkfifo(filepath.Join(parent,name),0600);err!=nil{panic(err)}}
+  manual:=&controlledContext{Context:context.Background(),done:make(chan struct{}),outcome:context.Canceled}
+  if test.mode=="deadline"{manual.outcome=context.DeadlineExceeded};active=manual
+  go func(){
+   ready,err:=os.OpenFile(filepath.Join(parent,"ready"),os.O_RDONLY,0600);if err!=nil{readyResult<-err;return}
+   b:=make([]byte,1);_,err=ready.Read(b);closeErr:=ready.Close();close(manual.done);readyResult<-errors.Join(err,closeErr)
+  }()
+ }
+ calls:=0
+ executable,err:=os.Executable();if err!=nil{panic(err)}
+ engines:=test.engines;if engines==nil{engines=[]string{"sky"}}
+ detector:=scummvm.New(func(context.Context)(scummvm.Tool,error){
+  calls++;if test.cancelInResolver{cancel()};if test.resolverError{return scummvm.Tool{},resolverFailure}
+  tool:=scummvm.Tool{Path:executable,UpstreamCommit:commit,Engines:engines}
+  switch test.toolKind{case "relative":tool.Path="relative";case "bad-commit":tool.UpstreamCommit=strings.Repeat("A",40);case "empty-engines":tool.Engines=nil;case "missing":tool.Path=filepath.Join(parent,"missing-executable")}
+  return tool,nil
+ })
+ temporary:=filepath.Join(sandbox,"temporary")
+ if test.badTemporary{temporary=filepath.Join(parent,"missing-temporary")}
+ if err:=os.Setenv("TMPDIR",temporary);err!=nil{panic(err)}
+ digest:=test.digest;if digest==""{digest=sourceDigest}
+ result,err:=detector.Detect(active,root,digest)
+ if test.mode=="cancel"||test.mode=="deadline"{if signalErr:=<-readyResult;signalErr!=nil{panic(signalErr)}}
+ record:=map[string]any{"error":errorFacts(err),"result":encoded(result),"resolverCalls":calls,"inputJSON":string(test.contents)}
+ if contents,readErr:=os.ReadFile(filepath.Join(parent,"invocation.json"));readErr==nil{var audit map[string]any;if err:=json.Unmarshal(contents,&audit);err!=nil{panic(err)};record["invocation"]=audit}
+ entries,readErr:=os.ReadDir(filepath.Join(sandbox,"temporary"));if readErr!=nil{panic(readErr)};record["temporaryEmpty"]=len(entries)==0
+ if err==nil {
+  snapshot,snapshotErr:=scummvm.NewSnapshot(result)
+  record["snapshotError"]=errorFacts(snapshotErr);record["snapshot"]=encoded(snapshot)
+  if snapshotErr==nil{
+   state,code:=snapshot.Status();record["status"]=[]string{state,code}
+   selected,selectionErr:=snapshot.Selected();record["selected"]=encoded(selected);record["selectionError"]=errorFacts(selectionErr)
+   parsed,parseErr:=scummvm.ParseSnapshot(string(raw(snapshot)));record["reparsed"]=encoded(parsed);record["reparseError"]=errorFacts(parseErr)
+   selections:=map[string]any{}
+   for _,candidate:=range result.Candidates {value,e:=snapshot.Select(candidate.ID);selections[candidate.ID]=map[string]any{"snapshot":encoded(value),"error":errorFacts(e)}}
+   record["selections"]=selections
+  }
+ }
+ return record
+}
+func main(){
+ if len(os.Args)>1&&os.Args[1]=="--config=/dev/null"{child();return}
+ base,err:=filepath.Abs(".cache/refactor/scummvm-old-golden");if err!=nil{panic(err)}
+ sandbox,err=os.MkdirTemp(base,"capture-");if err!=nil{panic(err)};defer os.RemoveAll(sandbox)
+ if err:=os.Mkdir(filepath.Join(sandbox,"temporary"),0700);err!=nil{panic(err)}
+ valid:=game("Game","en")
+ tests:=[]scenario{
+  {name:"single"},{name:"empty",contents:response([]scummvm.DetectedGame{})},
+  {name:"ambiguous-language",contents:response([]scummvm.DetectedGame{game("Game","en"),game("Game","de")})},
+  {name:"multiple-roots",contents:response([]scummvm.DetectedGame{game("Z","en"),game("A","en")})},
+  {name:"engine-unavailable",engines:[]string{"queen"}},{name:"source-digest-identity",digest:strings.Repeat("b",64)},
+  {name:"invalid-digest-first",digest:"bad",rootKind:"missing",resolverError:true,canceled:true},
+  {name:"invalid-root-before-cancel",rootKind:"missing",canceled:true},
+  {name:"canceled-tree",canceled:true},{name:"resolver-error",resolverError:true},
+  {name:"relative-root",rootKind:"relative"},{name:"regular-root",rootKind:"regular"},{name:"symlink-root",rootKind:"symlink-root"},
+  {name:"nested-symlink",rootKind:"nested-symlink"},{name:"special-file",rootKind:"fifo"},
+  {name:"relative-tool",toolKind:"relative"},{name:"invalid-tool-commit",toolKind:"bad-commit"},{name:"empty-tool-engines",toolKind:"empty-engines"},
+  {name:"missing-executable",toolKind:"missing"},{name:"tool-exit-7",mode:"exit7"},
+  {name:"stderr-overflow",mode:"stderr-limit"},{name:"stdout-overflow-precedes-exit",mode:"stdout-limit"},
+  {name:"cancel-after-start",mode:"cancel"},{name:"deadline-after-start",mode:"deadline"},
+  {name:"cancel-in-resolver",cancelInResolver:true},
+  {name:"temporary-failure-before-cancel",cancelInResolver:true,badTemporary:true},
+  {name:"invalid-json",contents:[]byte("{")},
+  {name:"trailing-json",contents:append(response([]scummvm.DetectedGame{valid}),[]byte(" {}")...)},
+  {name:"unknown-top-level",contents:[]byte(strings.Replace(string(response([]scummvm.DetectedGame{valid})),"\"candidates\":","\"unknown\":1,\"candidates\":",1))},
+  {name:"null-candidates",contents:response(nil)},
+  {name:"duplicate-candidates",contents:response([]scummvm.DetectedGame{valid,valid})},
+  {name:"raw-commit-mismatch",contents:[]byte(strings.ReplaceAll(string(response([]scummvm.DetectedGame{valid})),commit,strings.Repeat("b",40)))},
+  {name:"raw-error-field",contents:[]byte(strings.Replace(string(response([]scummvm.DetectedGame{valid})),"\"error\":null","\"error\":\"upstream-failure\"",1))},
+  {name:"duplicate-json-key-last-wins",contents:[]byte(strings.Replace(string(response([]scummvm.DetectedGame{valid})),"\"schemaVersion\":1","\"schemaVersion\":2,\"schemaVersion\":1",1))},
+  {name:"trailing-whitespace",contents:append(response([]scummvm.DetectedGame{valid}),[]byte("  \n\t")...)},
+  {name:"invalid-utf8-description",contents:[]byte(strings.Replace(string(response([]scummvm.DetectedGame{valid})),"游戏",string([]byte{0xff}),1))},
+
+ }
+ for _,name:=range []string{"unknown-variant","not-addable","addon","unsupported-level","unknown-priority","unsafe-root","unsafe-filename","nil-config","unknown-config","hint-control","root-over-limit","language-over-limit","description-over-limit","filename-over-limit","invalid-engine","invalid-game","support-over-limit"} {
+  candidate:=game("Game","en")
+  switch name {
+  case "unknown-variant":candidate.HasUnknownFiles=true
+  case "not-addable":candidate.CanBeAdded=false
+  case "addon":candidate.IsAddOn=true
+  case "unsupported-level":candidate.SupportLevel=3
+  case "unknown-priority":candidate.HasUnknownFiles=true;candidate.CanBeAdded=false
+  case "unsafe-root":candidate.Root="../escape"
+  case "unsafe-filename":candidate.Config["filename"]="../escape"
+  case "nil-config":candidate.Config=nil
+  case "unknown-config":candidate.Config["arbitrary"]="yes"
+  case "hint-control":candidate.Description="bad\ncontrol"
+  case "root-over-limit":candidate.Root=strings.Repeat("x",2049)
+  case "language-over-limit":candidate.Language=strings.Repeat("x",129)
+  case "description-over-limit":candidate.Description=strings.Repeat("x",4097)
+  case "filename-over-limit":candidate.Config["filename"]=strings.Repeat("x",241)
+  case "invalid-engine":candidate.EngineID="UPPER"
+  case "invalid-game":candidate.GameID="with space"
+  case "support-over-limit":candidate.SupportLevel=5
+  }
+  tests=append(tests,scenario{name:name,contents:response([]scummvm.DetectedGame{candidate})})
+ }
+ results:=map[string]any{}
+ for i,test:=range tests {results[test.name]=observe(test,i)}
+ sources:=map[string]string{}
+ for _,path:=range []string{"internal/capability/engine/scummvm/detector.go","internal/capability/engine/scummvm/result.go","internal/capability/engine/scummvm/snapshot.go","internal/service/libraryimport/scummvm_materialize.go","internal/adapter/runtime/runtimeprovider/scummvm.go"} {contents,e:=os.ReadFile(path);if e!=nil{panic(e)};sources[path]=sum(contents)}
+ contents,err:=json.MarshalIndent(map[string]any{"cases":results,"sourceSHA256":sources,"purpose":"Actual old Go API execution, deterministic public byte helper process; barrier cancellation, no private games/BIOS or external downloads","wallClockBusinessWaitUsed":false},"","  ");if err!=nil{panic(err)}
+ output:="/home/cgd/workspace/retrom-project/td/refactor-execution/rf04-scummvm-old-go-golden.json"
+ if err:=os.WriteFile(output,append(contents,'\n'),0644);err!=nil{panic(err)}
+ fmt.Printf("cases=%d sha256=%s output=%s\n",len(results),sum(append(contents,'\n')),output)
+}

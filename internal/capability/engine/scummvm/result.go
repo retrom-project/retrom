@@ -61,13 +61,14 @@ type detectorResult struct {
 	Error          *string        `json:"error"`
 }
 
-func parseResult(data []byte, tool Tool, sourceDigest string) (Result, error) {
+// ParseResult validates upstream output against the pinned build and source snapshot.
+func ParseResult(data []byte, upstreamCommit string, engines []string, sourceDigest string) (Result, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	var raw detectorResult
 	if decoder.Decode(&raw) != nil || decoder.Decode(new(any)) != io.EOF || raw.SchemaVersion != 1 ||
-		raw.UpstreamCommit != tool.UpstreamCommit || raw.Error != nil || raw.Candidates == nil ||
-		len(raw.Candidates) > 4096 || !validDigest(sourceDigest, 32) || !validDigest(raw.UpstreamCommit, 20) {
+		raw.UpstreamCommit != upstreamCommit || raw.Error != nil || raw.Candidates == nil ||
+		len(raw.Candidates) > 4096 || !ValidDigest(sourceDigest, 32) || !ValidDigest(raw.UpstreamCommit, 20) {
 		return Result{}, ErrResultInvalid
 	}
 	result := Result{
@@ -75,7 +76,7 @@ func parseResult(data []byte, tool Tool, sourceDigest string) (Result, error) {
 		Candidates: make([]Candidate, 0, len(raw.Candidates)), Roots: []string{},
 	}
 	for _, detected := range raw.Candidates {
-		candidate, err := checkedCandidate(detected, tool, sourceDigest)
+		candidate, err := checkedCandidate(detected, upstreamCommit, engines, sourceDigest)
 		if err != nil {
 			return Result{}, err
 		}
@@ -91,7 +92,12 @@ func parseResult(data []byte, tool Tool, sourceDigest string) (Result, error) {
 	return result, nil
 }
 
-func checkedCandidate(detected DetectedGame, tool Tool, sourceDigest string) (Candidate, error) {
+func checkedCandidate(
+	detected DetectedGame,
+	upstreamCommit string,
+	engines []string,
+	sourceDigest string,
+) (Candidate, error) {
 	if !enginePattern.MatchString(detected.EngineID) || !gamePattern.MatchString(detected.GameID) ||
 		(detected.Root != "" && !safeRelative(detected.Root)) || detected.SupportLevel < 0 || detected.SupportLevel > 4 ||
 		!validHints(detected) {
@@ -101,9 +107,9 @@ func checkedCandidate(detected DetectedGame, tool Tool, sourceDigest string) (Ca
 	if err != nil {
 		return Candidate{}, ErrResultInvalid
 	}
-	digest := sha256.Sum256(append([]byte(tool.UpstreamCommit+"\n"+sourceDigest+"\n"), canonical...))
+	digest := sha256.Sum256(append([]byte(upstreamCommit+"\n"+sourceDigest+"\n"), canonical...))
 	return Candidate{
-		DetectedGame: detected, ID: hex.EncodeToString(digest[:]), Blocker: candidateBlocker(detected, tool),
+		DetectedGame: detected, ID: hex.EncodeToString(digest[:]), Blocker: candidateBlocker(detected, engines),
 	}, nil
 }
 
@@ -127,13 +133,13 @@ func validHints(detected DetectedGame) bool {
 	return detected.Config != nil
 }
 
-func candidateBlocker(candidate DetectedGame, tool Tool) string {
+func candidateBlocker(candidate DetectedGame, engines []string) string {
 	switch {
 	case candidate.HasUnknownFiles:
 		return "UNKNOWN_VARIANT"
 	case !candidate.CanBeAdded || candidate.IsAddOn || candidate.SupportLevel == 3:
 		return "UNSUPPORTED_GAME"
-	case !slices.Contains(tool.Engines, candidate.EngineID):
+	case !slices.Contains(engines, candidate.EngineID):
 		return "ENGINE_UNAVAILABLE"
 	default:
 		return ""
@@ -146,7 +152,8 @@ func safeRelative(value string) bool {
 		!strings.Contains(value, "\\") && !strings.ContainsFunc(value, unicode.IsControl) && path.Clean(value) == value
 }
 
-func validDigest(value string, size int) bool {
+// ValidDigest reports whether value is a canonical lowercase digest of the given byte length.
+func ValidDigest(value string, size int) bool {
 	decoded, err := hex.DecodeString(value)
 	return err == nil && len(decoded) == size && value == strings.ToLower(value)
 }

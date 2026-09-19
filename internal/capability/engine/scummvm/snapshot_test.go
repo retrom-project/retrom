@@ -8,7 +8,7 @@ import (
 
 func TestSnapshotRequiresExplicitAmbiguousSelectionAndPreservesIdentity(t *testing.T) {
 	games := []DetectedGame{detectedGame("one", "en"), detectedGame("two", "de")}
-	result, err := parseResult(detectorJSON(t, games), Tool{UpstreamCommit: testCommit, Engines: []string{"sky"}}, strings.Repeat("a", 64))
+	result, err := ParseResult(detectorJSON(t, games), testCommit, []string{"sky"}, strings.Repeat("a", 64))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestSnapshotRequiresExplicitAmbiguousSelectionAndPreservesIdentity(t *testi
 }
 
 func TestSnapshotDoesNotPromoteUnsupportedCandidate(t *testing.T) {
-	result, err := parseResult(detectorJSON(t, []DetectedGame{detectedGame("", "en")}), Tool{UpstreamCommit: testCommit, Engines: []string{"queen"}}, strings.Repeat("a", 64))
+	result, err := ParseResult(detectorJSON(t, []DetectedGame{detectedGame("", "en")}), testCommit, []string{"queen"}, strings.Repeat("a", 64))
 	if err != nil {
 		t.Fatal(err)
 	}

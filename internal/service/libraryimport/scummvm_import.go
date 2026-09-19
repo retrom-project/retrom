@@ -20,7 +20,7 @@ func (service *ImportPreparation) PrepareScummVMProject(
 	files []model.ImportFile,
 ) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
 	if service.scummVMDetector == nil {
-		return nil, nil, nil, scummvm.ErrToolFailed
+		return nil, nil, nil, model.ErrScummVMToolFailed
 	}
 	return service.prepareProject(ctx, sourceType, files, func(
 		files []model.ImportFile,

@@ -47,6 +47,26 @@
       ]
     },
     {
+      "path": "internal/adapter/engine/scummvm",
+      "layer": "adapter",
+      "module": "engine",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/engine/scummvm/compatibility_linux_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/engine/scummvm/detector.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/engine/scummvm/detector_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/adapter/files/blobstore",
       "layer": "adapter",
       "module": "files",
@@ -2023,6 +2043,26 @@
       ]
     },
     {
+      "path": "internal/adapter/system/processlock",
+      "layer": "adapter",
+      "module": "system",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/system/processlock/compatibility_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/system/processlock/lock.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/system/processlock/lock_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/bootstrap/composition",
       "layer": "bootstrap",
       "module": "composition",
@@ -2781,14 +2821,6 @@
       "owner": "RF04",
       "files": [
         {
-          "path": "internal/capability/engine/scummvm/detector.go",
-          "kind": "production"
-        },
-        {
-          "path": "internal/capability/engine/scummvm/detector_test.go",
-          "kind": "test"
-        },
-        {
           "path": "internal/capability/engine/scummvm/result.go",
           "kind": "production"
         },
@@ -2939,6 +2971,10 @@
         {
           "path": "internal/capability/format/importing/asar_header.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/capability/format/importing/electron_asar_lifecycle_linux_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/capability/format/importing/electron_asar_test.go",
@@ -3266,22 +3302,6 @@
         },
         {
           "path": "internal/foundation/legacychecksum/checksum_test.go",
-          "kind": "test"
-        }
-      ]
-    },
-    {
-      "path": "internal/foundation/processlock",
-      "layer": "foundation",
-      "module": "processlock",
-      "owner": "RF04",
-      "files": [
-        {
-          "path": "internal/foundation/processlock/lock.go",
-          "kind": "production"
-        },
-        {
-          "path": "internal/foundation/processlock/lock_test.go",
           "kind": "test"
         }
       ]
@@ -4053,6 +4073,10 @@
           "kind": "production"
         },
         {
+          "path": "internal/model/libraryimport/scummvm_ports.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/model/libraryimport/source_creation_errors.go",
           "kind": "production"
         },
@@ -4070,6 +4094,10 @@
       "files": [
         {
           "path": "internal/model/maintenance/errors.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/maintenance/lock_ports.go",
           "kind": "production"
         },
         {
@@ -10379,6 +10407,10 @@
         {
           "path": "internal/service/maintenance/backup.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/service/maintenance/backup_lock_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/service/maintenance/bundle_validation.go",

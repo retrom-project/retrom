@@ -11,7 +11,6 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/foundation/processlock"
 	model "retrom/internal/model/maintenance"
 )
 
@@ -64,8 +63,8 @@ func (service *Service) Backup(
 	if err := validateBackupConfiguration(configuration, output); err != nil {
 		return Manifest{}, err
 	}
-	lock, err := processlock.Acquire(configuration.DataDir)
-	if errors.Is(err, processlock.ErrAlreadyRunning) {
+	lock, err := service.locks.Acquire(configuration.DataDir)
+	if errors.Is(err, model.ErrDataRootLocked) {
 		return Manifest{}, ErrBackupOffline
 	}
 	if err != nil {

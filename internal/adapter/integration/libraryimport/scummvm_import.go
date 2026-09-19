@@ -1,10 +1,10 @@
 package libraryimport
 
 import (
-	"retrom/internal/capability/engine/scummvm"
+	librarymodel "retrom/internal/model/libraryimport"
 )
 
-func (service *Service) WithScummVMDetector(detector *scummvm.Detector) *Service {
+func (service *Service) WithScummVMDetector(detector librarymodel.ScummVMDetector) *Service {
 	service.scummVMDetector = detector
 	return service
 }

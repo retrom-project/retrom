@@ -1,0 +1,118 @@
+[
+  {
+    "descriptor": false,
+    "error": "",
+    "exists": false,
+    "facts": null,
+    "locked": false,
+    "name": "nil-close",
+    "notExist": false,
+    "type": ""
+  },
+  {
+    "descriptor": false,
+    "error": "",
+    "exists": false,
+    "facts": null,
+    "locked": false,
+    "name": "zero-close",
+    "notExist": false,
+    "type": ""
+  },
+  {
+    "descriptor": false,
+    "error": "create data root for lock: mkdir : no such file or directory",
+    "exists": false,
+    "facts": null,
+    "locked": false,
+    "name": "empty-root",
+    "notExist": true,
+    "type": "*fmt.wrapError"
+  },
+  {
+    "descriptor": false,
+    "error": "create data root for lock: mkdir \u003croot\u003e/plain: not a directory",
+    "exists": false,
+    "facts": null,
+    "locked": false,
+    "name": "file-root",
+    "notExist": false,
+    "type": "*fmt.wrapError"
+  },
+  {
+    "descriptor": false,
+    "error": "",
+    "exists": false,
+    "facts": {
+      "directoryMode": "0700",
+      "fileMode": "0600",
+      "pid": true
+    },
+    "locked": false,
+    "name": "acquire",
+    "notExist": false,
+    "type": ""
+  },
+  {
+    "descriptor": false,
+    "error": "DATA_ROOT_LOCKED",
+    "exists": false,
+    "facts": null,
+    "locked": true,
+    "name": "held",
+    "notExist": false,
+    "type": "*errors.errorString"
+  },
+  {
+    "descriptor": false,
+    "error": "",
+    "exists": false,
+    "facts": null,
+    "locked": false,
+    "name": "close",
+    "notExist": false,
+    "type": ""
+  },
+  {
+    "descriptor": true,
+    "error": "PROCESS_LOCK_DESCRIPTOR_INVALID",
+    "exists": false,
+    "facts": null,
+    "locked": false,
+    "name": "double-close",
+    "notExist": false,
+    "type": "*errors.errorString"
+  },
+  {
+    "descriptor": false,
+    "error": "",
+    "exists": false,
+    "facts": {
+      "sameInode": true
+    },
+    "locked": false,
+    "name": "reacquire",
+    "notExist": false,
+    "type": ""
+  },
+  {
+    "descriptor": false,
+    "error": "",
+    "exists": false,
+    "facts": null,
+    "locked": false,
+    "name": "close-reacquired",
+    "notExist": false,
+    "type": ""
+  },
+  {
+    "descriptor": false,
+    "error": "open process lock: open \u003croot\u003e/blocked/retrom.lock: is a directory",
+    "exists": false,
+    "facts": null,
+    "locked": false,
+    "name": "lock-path-directory",
+    "notExist": false,
+    "type": "*fmt.wrapError"
+  }
+]

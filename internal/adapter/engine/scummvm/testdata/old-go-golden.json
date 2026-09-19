@@ -1,0 +1,2923 @@
+{
+  "cases": {
+    "addon": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":true,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":true,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"c8e0c04b91b89cee4717dccb779509dcb7763ea35b579b9f05d15f6240f7632f\",\"blocker\":\"UNSUPPORTED_GAME\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "4bf6fc18db14a9a8a0cbabed495182cc00c429e899adbf6c9cce6b31765ebcd4"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":true,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"c8e0c04b91b89cee4717dccb779509dcb7763ea35b579b9f05d15f6240f7632f\",\"blocker\":\"UNSUPPORTED_GAME\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"}",
+        "sha256": "ab777f88b228ccc1564a52ba68f852c4bd8c5e999ab3fba204c0cf5432689b2f"
+      },
+      "selected": {
+        "json": "{\"root\":\"\",\"engineId\":\"\",\"gameId\":\"\",\"description\":\"\",\"preferredTarget\":\"\",\"language\":\"\",\"platform\":\"\",\"extra\":\"\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"\",\"blocker\":\"\"}",
+        "sha256": "857544450805498eaa439b75a6501fa6a85917c3770baa6086d6613e61e8b84f"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "selections": {
+        "c8e0c04b91b89cee4717dccb779509dcb7763ea35b579b9f05d15f6240f7632f": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": true,
+            "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+            "tool": false,
+            "type": "*errors.errorString"
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":0,\"kind\":\"\",\"detection\":{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+            "sha256": "cc8807d8be93970a769783a344e0766ac2e35649119a951e45d2b8184d390229"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":true,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"c8e0c04b91b89cee4717dccb779509dcb7763ea35b579b9f05d15f6240f7632f\",\"blocker\":\"UNSUPPORTED_GAME\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "4bf6fc18db14a9a8a0cbabed495182cc00c429e899adbf6c9cce6b31765ebcd4"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "BLOCKED",
+        "SCUMMVM_UNSUPPORTED_GAME"
+      ],
+      "temporaryEmpty": true
+    },
+    "ambiguous-language": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0},{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"de\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"},{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"de\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"bf5c2e98e8ac3011745842d1037ff420bb09ff38431773c0b7122e7821d40569\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "07e4c0296b855d0ae560e5c8d614382996edb4278f4b73974317814724416bcc"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"},{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"de\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"bf5c2e98e8ac3011745842d1037ff420bb09ff38431773c0b7122e7821d40569\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"}",
+        "sha256": "e1d9aaba1afa058c36d47befe809db8e1ad5876fb12e68cc0cd0a922d82ae981"
+      },
+      "selected": {
+        "json": "{\"root\":\"\",\"engineId\":\"\",\"gameId\":\"\",\"description\":\"\",\"preferredTarget\":\"\",\"language\":\"\",\"platform\":\"\",\"extra\":\"\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"\",\"blocker\":\"\"}",
+        "sha256": "857544450805498eaa439b75a6501fa6a85917c3770baa6086d6613e61e8b84f"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "selections": {
+        "bf5c2e98e8ac3011745842d1037ff420bb09ff38431773c0b7122e7821d40569": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"},{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"de\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"bf5c2e98e8ac3011745842d1037ff420bb09ff38431773c0b7122e7821d40569\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"bf5c2e98e8ac3011745842d1037ff420bb09ff38431773c0b7122e7821d40569\"}",
+            "sha256": "bfc0fc608acb44ac967232bc515676a21ee14f18de85064efb0daa5b1c0866a7"
+          }
+        },
+        "ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"},{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"de\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"bf5c2e98e8ac3011745842d1037ff420bb09ff38431773c0b7122e7821d40569\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+            "sha256": "73037714aecbd8b80e86adb4211308829ad18b038d86f0d8f80cf2719a993d9e"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"},{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"de\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"bf5c2e98e8ac3011745842d1037ff420bb09ff38431773c0b7122e7821d40569\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "07e4c0296b855d0ae560e5c8d614382996edb4278f4b73974317814724416bcc"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "BLOCKED",
+        "SCUMMVM_CANDIDATE_SELECTION_REQUIRED"
+      ],
+      "temporaryEmpty": true
+    },
+    "cancel-after-start": {
+      "error": {
+        "canceled": true,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "scummvm/detect: context canceled",
+        "tool": false,
+        "type": "*fmt.wrapError"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "cancel-in-resolver": {
+      "error": {
+        "canceled": true,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "scummvm/detect: context canceled",
+        "tool": false,
+        "type": "*fmt.wrapError"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "canceled-tree": {
+      "error": {
+        "canceled": true,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "scummvm/input: scummvm/input-canceled: context canceled",
+        "tool": false,
+        "type": "*fmt.wrapError"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 0,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "deadline-after-start": {
+      "error": {
+        "canceled": false,
+        "deadline": true,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "scummvm/detect: context deadline exceeded",
+        "tool": false,
+        "type": "*fmt.wrapError"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "description-over-limit": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "duplicate-candidates": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0},{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"},{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"}",
+        "sha256": "270b85da6eb2a4e0d84bda00c4d711bf92b0f8ce20c786970c971cd94a3a5b0f"
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":0,\"kind\":\"\",\"detection\":{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "cc8807d8be93970a769783a344e0766ac2e35649119a951e45d2b8184d390229"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "temporaryEmpty": true
+    },
+    "duplicate-json-key-last-wins": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":2,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "32a64edb307a3bd79b1c636aee42d2c026a426e142024ea7c14ab9566ffcd979"
+      },
+      "selected": {
+        "json": "{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}",
+        "sha256": "0a0d8b48e06001b6a18fee55ce17dff0c0adc4b96e2a588edf446f0ac64154ed"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "selections": {
+        "ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+            "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "READY",
+        "READY"
+      ],
+      "temporaryEmpty": true
+    },
+    "empty": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[],\"roots\":[],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "ad771d5195e19f4471b99d58cf5967f5ccb18331e4d90aab7479711ad7825c58"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[],\"roots\":[],\"automaticSelection\":\"\"}",
+        "sha256": "63cb75f5f99fb6534f28a5bf48be756b7f7747ec9b71ba90947eaa0a28250d7f"
+      },
+      "selected": {
+        "json": "{\"root\":\"\",\"engineId\":\"\",\"gameId\":\"\",\"description\":\"\",\"preferredTarget\":\"\",\"language\":\"\",\"platform\":\"\",\"extra\":\"\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"\",\"blocker\":\"\"}",
+        "sha256": "857544450805498eaa439b75a6501fa6a85917c3770baa6086d6613e61e8b84f"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "selections": {},
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[],\"roots\":[],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "ad771d5195e19f4471b99d58cf5967f5ccb18331e4d90aab7479711ad7825c58"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "BLOCKED",
+        "SCUMMVM_GAME_NOT_DETECTED"
+      ],
+      "temporaryEmpty": true
+    },
+    "empty-tool-engines": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_FAILED",
+        "tool": true,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "engine-unavailable": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"ENGINE_UNAVAILABLE\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "ec01f1a34a078a0e8d5bb18d7c0f4295330b2fb43479e03ac6c2c7c32d443aac"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"ENGINE_UNAVAILABLE\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"}",
+        "sha256": "ebafc8f50c30c2e622effff6d1b35d3c603c69657ec984cbee16812a9811c08d"
+      },
+      "selected": {
+        "json": "{\"root\":\"\",\"engineId\":\"\",\"gameId\":\"\",\"description\":\"\",\"preferredTarget\":\"\",\"language\":\"\",\"platform\":\"\",\"extra\":\"\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"\",\"blocker\":\"\"}",
+        "sha256": "857544450805498eaa439b75a6501fa6a85917c3770baa6086d6613e61e8b84f"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "selections": {
+        "ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": true,
+            "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+            "tool": false,
+            "type": "*errors.errorString"
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":0,\"kind\":\"\",\"detection\":{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+            "sha256": "cc8807d8be93970a769783a344e0766ac2e35649119a951e45d2b8184d390229"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"ENGINE_UNAVAILABLE\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "ec01f1a34a078a0e8d5bb18d7c0f4295330b2fb43479e03ac6c2c7c32d443aac"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "BLOCKED",
+        "SCUMMVM_ENGINE_UNAVAILABLE"
+      ],
+      "temporaryEmpty": true
+    },
+    "filename-over-limit": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{\"filename\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "hint-control": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"bad\\ncontrol\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "invalid-digest-first": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": true,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_INPUT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 0,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "invalid-engine": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"UPPER\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "invalid-game": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"with space\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "invalid-json": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "invalid-root-before-cancel": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": true,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_INPUT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 0,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "invalid-tool-commit": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_FAILED",
+        "tool": true,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "invalid-utf8-description": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e \ufffd\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e �\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\"},\"selectedCandidateId\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\"}",
+        "sha256": "31ccea8b5cb77309a254f47fd900f86add726b3f37557c1c2578350afb746676"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e �\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\"}",
+        "sha256": "5b56d0734a68cfa58e973fd913017986f076b2b304139bd259d8f10625464703"
+      },
+      "selected": {
+        "json": "{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e �\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\",\"blocker\":\"\"}",
+        "sha256": "efec559ed452fa41e3e3095853d26de8291493e68f99e4712816cdee7f9109e2"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "selections": {
+        "9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e �\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\"},\"selectedCandidateId\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\"}",
+            "sha256": "31ccea8b5cb77309a254f47fd900f86add726b3f37557c1c2578350afb746676"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e �\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\"},\"selectedCandidateId\":\"9715c4cbb6583cb8a59435ad65d9158c3c99b63ae2bb2f710abb20f5f46f08a3\"}",
+        "sha256": "31ccea8b5cb77309a254f47fd900f86add726b3f37557c1c2578350afb746676"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "READY",
+        "READY"
+      ],
+      "temporaryEmpty": true
+    },
+    "language-over-limit": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "missing-executable": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_FAILED",
+        "tool": true,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "multiple-roots": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Z\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0},{\"root\":\"A\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Z\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"671d27d5622715a9aa6c8b311299fb3a6dc111f75ff0a8335ec53c01f09dfa33\",\"blocker\":\"\"},{\"root\":\"A\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"03f2a011516f6980ad46a167604ac434323bde3881cdfeacba604836e08f2cef\",\"blocker\":\"\"}],\"roots\":[\"A\",\"Z\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "f96cdc98e2af90039962e52e207efedbabad7afbb9e453fa918a03b573e9691f"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Z\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"671d27d5622715a9aa6c8b311299fb3a6dc111f75ff0a8335ec53c01f09dfa33\",\"blocker\":\"\"},{\"root\":\"A\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"03f2a011516f6980ad46a167604ac434323bde3881cdfeacba604836e08f2cef\",\"blocker\":\"\"}],\"roots\":[\"A\",\"Z\"],\"automaticSelection\":\"\"}",
+        "sha256": "556da59a0bfeb93f18400b13d6c21860e78ac809222f710330c7edd255cc1029"
+      },
+      "selected": {
+        "json": "{\"root\":\"\",\"engineId\":\"\",\"gameId\":\"\",\"description\":\"\",\"preferredTarget\":\"\",\"language\":\"\",\"platform\":\"\",\"extra\":\"\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"\",\"blocker\":\"\"}",
+        "sha256": "857544450805498eaa439b75a6501fa6a85917c3770baa6086d6613e61e8b84f"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "selections": {
+        "03f2a011516f6980ad46a167604ac434323bde3881cdfeacba604836e08f2cef": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Z\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"671d27d5622715a9aa6c8b311299fb3a6dc111f75ff0a8335ec53c01f09dfa33\",\"blocker\":\"\"},{\"root\":\"A\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"03f2a011516f6980ad46a167604ac434323bde3881cdfeacba604836e08f2cef\",\"blocker\":\"\"}],\"roots\":[\"A\",\"Z\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"03f2a011516f6980ad46a167604ac434323bde3881cdfeacba604836e08f2cef\"}",
+            "sha256": "f39feba70c449e7f770297a44a72d2a745a03e02a3f5841f306b46858bba9030"
+          }
+        },
+        "671d27d5622715a9aa6c8b311299fb3a6dc111f75ff0a8335ec53c01f09dfa33": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Z\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"671d27d5622715a9aa6c8b311299fb3a6dc111f75ff0a8335ec53c01f09dfa33\",\"blocker\":\"\"},{\"root\":\"A\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"03f2a011516f6980ad46a167604ac434323bde3881cdfeacba604836e08f2cef\",\"blocker\":\"\"}],\"roots\":[\"A\",\"Z\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"671d27d5622715a9aa6c8b311299fb3a6dc111f75ff0a8335ec53c01f09dfa33\"}",
+            "sha256": "fbd292a8dc133e7874975d5364bc2f2247c25c013e32a44e415110a812e14b6c"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Z\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"671d27d5622715a9aa6c8b311299fb3a6dc111f75ff0a8335ec53c01f09dfa33\",\"blocker\":\"\"},{\"root\":\"A\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"03f2a011516f6980ad46a167604ac434323bde3881cdfeacba604836e08f2cef\",\"blocker\":\"\"}],\"roots\":[\"A\",\"Z\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "f96cdc98e2af90039962e52e207efedbabad7afbb9e453fa918a03b573e9691f"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "BLOCKED",
+        "SCUMMVM_ROOT_SELECTION_REQUIRED"
+      ],
+      "temporaryEmpty": true
+    },
+    "nested-symlink": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": true,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "scummvm/input: SCUMMVM_DETECTION_INPUT_INVALID",
+        "tool": false,
+        "type": "*fmt.wrapError"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 0,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "nil-config": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "not-addable": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"8952fb514e5b47d3b32a89c64ae2cff3a06d055596e8910d3c545dbfc1991517\",\"blocker\":\"UNSUPPORTED_GAME\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "34c3766be291680143401c46b6099c59dd63afc25a7a195ae58652993b07e3d1"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"8952fb514e5b47d3b32a89c64ae2cff3a06d055596e8910d3c545dbfc1991517\",\"blocker\":\"UNSUPPORTED_GAME\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"}",
+        "sha256": "cebdb3c702bded9ba680e473795fceb16e551a7b41c2882442ae8ac4b42042f4"
+      },
+      "selected": {
+        "json": "{\"root\":\"\",\"engineId\":\"\",\"gameId\":\"\",\"description\":\"\",\"preferredTarget\":\"\",\"language\":\"\",\"platform\":\"\",\"extra\":\"\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"\",\"blocker\":\"\"}",
+        "sha256": "857544450805498eaa439b75a6501fa6a85917c3770baa6086d6613e61e8b84f"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "selections": {
+        "8952fb514e5b47d3b32a89c64ae2cff3a06d055596e8910d3c545dbfc1991517": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": true,
+            "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+            "tool": false,
+            "type": "*errors.errorString"
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":0,\"kind\":\"\",\"detection\":{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+            "sha256": "cc8807d8be93970a769783a344e0766ac2e35649119a951e45d2b8184d390229"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"8952fb514e5b47d3b32a89c64ae2cff3a06d055596e8910d3c545dbfc1991517\",\"blocker\":\"UNSUPPORTED_GAME\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "34c3766be291680143401c46b6099c59dd63afc25a7a195ae58652993b07e3d1"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "BLOCKED",
+        "SCUMMVM_UNSUPPORTED_GAME"
+      ],
+      "temporaryEmpty": true
+    },
+    "null-candidates": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":null,\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "raw-commit-mismatch": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "raw-error-field": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":\"upstream-failure\",\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "regular-root": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": true,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_INPUT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 0,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "relative-root": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": true,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_INPUT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 0,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "relative-tool": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_FAILED",
+        "tool": true,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "resolver-error": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": true,
+        "result": false,
+        "text": "scummvm/resolve: capture resolver failure",
+        "tool": false,
+        "type": "*fmt.wrapError"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "root-over-limit": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "single": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "32a64edb307a3bd79b1c636aee42d2c026a426e142024ea7c14ab9566ffcd979"
+      },
+      "selected": {
+        "json": "{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}",
+        "sha256": "0a0d8b48e06001b6a18fee55ce17dff0c0adc4b96e2a588edf446f0ac64154ed"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "selections": {
+        "ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+            "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "READY",
+        "READY"
+      ],
+      "temporaryEmpty": true
+    },
+    "source-digest-identity": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\"},\"selectedCandidateId\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\"}",
+        "sha256": "1f60d10f468f60f999b6bb8c77d2525f937f2859d3324445d4a5c2c5281bfda4"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\"}",
+        "sha256": "c6c90f65bd1f62df1729ac3de1e59a457efb65e2caf8cd725bd6d30849d41948"
+      },
+      "selected": {
+        "json": "{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\",\"blocker\":\"\"}",
+        "sha256": "a6ee9d2f32406f5478419eea8e176cc63641bbb5717611c6b8f25de58be65df8"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "selections": {
+        "cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\"},\"selectedCandidateId\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\"}",
+            "sha256": "1f60d10f468f60f999b6bb8c77d2525f937f2859d3324445d4a5c2c5281bfda4"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\"},\"selectedCandidateId\":\"cfdc8b21aa2fa9299525772d3fd06008746a3dfca0029a6a8d96f4a61142da7b\"}",
+        "sha256": "1f60d10f468f60f999b6bb8c77d2525f937f2859d3324445d4a5c2c5281bfda4"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "READY",
+        "READY"
+      ],
+      "temporaryEmpty": true
+    },
+    "special-file": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": true,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "scummvm/input: SCUMMVM_DETECTION_INPUT_INVALID",
+        "tool": false,
+        "type": "*fmt.wrapError"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 0,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "stderr-overflow": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "32a64edb307a3bd79b1c636aee42d2c026a426e142024ea7c14ab9566ffcd979"
+      },
+      "selected": {
+        "json": "{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}",
+        "sha256": "0a0d8b48e06001b6a18fee55ce17dff0c0adc4b96e2a588edf446f0ac64154ed"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "selections": {
+        "ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+            "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "READY",
+        "READY"
+      ],
+      "temporaryEmpty": true
+    },
+    "stdout-overflow-precedes-exit": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": true,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_LIMIT_EXCEEDED",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "support-over-limit": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":5}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "symlink-root": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": true,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_INPUT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 0,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "temporary-failure-before-cancel": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": true,
+        "resolver": false,
+        "result": false,
+        "text": "scummvm/temporary: stat \u003csandbox\u003e/case-025/missing-temporary: no such file or directory",
+        "tool": false,
+        "type": "*fmt.wrapError"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "tool-exit-7": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "SCUMMVM_DETECTION_FAILED",
+        "tool": true,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "trailing-json": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"} {}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "trailing-whitespace": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}  \n\t",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "32a64edb307a3bd79b1c636aee42d2c026a426e142024ea7c14ab9566ffcd979"
+      },
+      "selected": {
+        "json": "{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}",
+        "sha256": "0a0d8b48e06001b6a18fee55ce17dff0c0adc4b96e2a588edf446f0ac64154ed"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "selections": {
+        "ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": false,
+            "text": "",
+            "tool": false,
+            "type": ""
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+            "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\",\"blocker\":\"\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"},\"selectedCandidateId\":\"ca791f448dd7bd5ddd44a2b87e040ded94ca4a9fc61a6dc8531273e0ed3c7fa3\"}",
+        "sha256": "27f73a1394b4bf940a4746edcd5e40a3825788d78f373c101691edd7354d49c8"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "READY",
+        "READY"
+      ],
+      "temporaryEmpty": true
+    },
+    "unknown-config": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{\"arbitrary\":\"yes\"},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "unknown-priority": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":true,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":true,\"supportLevel\":0,\"id\":\"5e0e27bfbfd5b834617fac916e3e0337fbfd36e2227a112877b14f7a764c3c95\",\"blocker\":\"UNKNOWN_VARIANT\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "22b22107344f688e726fd11585c6b236d069dcee5bacf5f00bd9860330c2f365"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":true,\"supportLevel\":0,\"id\":\"5e0e27bfbfd5b834617fac916e3e0337fbfd36e2227a112877b14f7a764c3c95\",\"blocker\":\"UNKNOWN_VARIANT\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"}",
+        "sha256": "96a4a65bd7fb94e6a18b9fa4c15230cc512c0c27685c5203f67449ae59f856e9"
+      },
+      "selected": {
+        "json": "{\"root\":\"\",\"engineId\":\"\",\"gameId\":\"\",\"description\":\"\",\"preferredTarget\":\"\",\"language\":\"\",\"platform\":\"\",\"extra\":\"\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"\",\"blocker\":\"\"}",
+        "sha256": "857544450805498eaa439b75a6501fa6a85917c3770baa6086d6613e61e8b84f"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "selections": {
+        "5e0e27bfbfd5b834617fac916e3e0337fbfd36e2227a112877b14f7a764c3c95": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": true,
+            "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+            "tool": false,
+            "type": "*errors.errorString"
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":0,\"kind\":\"\",\"detection\":{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+            "sha256": "cc8807d8be93970a769783a344e0766ac2e35649119a951e45d2b8184d390229"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":true,\"supportLevel\":0,\"id\":\"5e0e27bfbfd5b834617fac916e3e0337fbfd36e2227a112877b14f7a764c3c95\",\"blocker\":\"UNKNOWN_VARIANT\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "22b22107344f688e726fd11585c6b236d069dcee5bacf5f00bd9860330c2f365"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "BLOCKED",
+        "SCUMMVM_UNKNOWN_VARIANT"
+      ],
+      "temporaryEmpty": true
+    },
+    "unknown-top-level": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"unknown\":1,\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "unknown-variant": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":true,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":true,\"supportLevel\":0,\"id\":\"3024b77302ee14a5e99d17a93722ae462f8d452d162f341f5cae680e40994108\",\"blocker\":\"UNKNOWN_VARIANT\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "0cd1a9874c56ea0e47c0753c8eea9bfa6f11261c2576fd6745bb9ddd9d01f317"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":true,\"supportLevel\":0,\"id\":\"3024b77302ee14a5e99d17a93722ae462f8d452d162f341f5cae680e40994108\",\"blocker\":\"UNKNOWN_VARIANT\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"}",
+        "sha256": "479936ee619b7e2359cacff6f7d22e1681cc5f796a7a2f39fdd175c8ecde3fc1"
+      },
+      "selected": {
+        "json": "{\"root\":\"\",\"engineId\":\"\",\"gameId\":\"\",\"description\":\"\",\"preferredTarget\":\"\",\"language\":\"\",\"platform\":\"\",\"extra\":\"\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"\",\"blocker\":\"\"}",
+        "sha256": "857544450805498eaa439b75a6501fa6a85917c3770baa6086d6613e61e8b84f"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "selections": {
+        "3024b77302ee14a5e99d17a93722ae462f8d452d162f341f5cae680e40994108": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": true,
+            "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+            "tool": false,
+            "type": "*errors.errorString"
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":0,\"kind\":\"\",\"detection\":{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+            "sha256": "cc8807d8be93970a769783a344e0766ac2e35649119a951e45d2b8184d390229"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":true,\"supportLevel\":0,\"id\":\"3024b77302ee14a5e99d17a93722ae462f8d452d162f341f5cae680e40994108\",\"blocker\":\"UNKNOWN_VARIANT\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "0cd1a9874c56ea0e47c0753c8eea9bfa6f11261c2576fd6745bb9ddd9d01f317"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "BLOCKED",
+        "SCUMMVM_UNKNOWN_VARIANT"
+      ],
+      "temporaryEmpty": true
+    },
+    "unsafe-filename": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{\"filename\":\"../escape\"},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "unsafe-root": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"../escape\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"}",
+        "sha256": "9f425e2d47c43be7d1d2f2e93e0fc322eeba0f6edfb02d5cbef0c61607e54139"
+      },
+      "temporaryEmpty": true
+    },
+    "unsupported-level": {
+      "error": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "inputJSON": "{\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":3}],\"error\":null,\"schemaVersion\":1,\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\"}",
+      "invocation": {
+        "args": [
+          "--config=/dev/null",
+          "--retrom-detect",
+          "--recursive",
+          "--path=\u003cinput\u003e",
+          "--savepath=\u003crun\u003e"
+        ],
+        "cwdIsSavepath": true,
+        "directoryMode": 448,
+        "env": [
+          "HOME=\u003crun\u003e",
+          "LANG=C.UTF-8",
+          "XDG_CONFIG_HOME=\u003crun\u003e"
+        ],
+        "homeIsSavepath": true,
+        "xdgIsSavepath": true
+      },
+      "reparseError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "reparsed": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":3,\"id\":\"acc9994b6cb63e5102551901445d6aabec531c570434b2115be49cf217c78d79\",\"blocker\":\"UNSUPPORTED_GAME\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "a8e340e2e820d8ade7de166e39a9bcccf36ec0190f434f506378e113796f8838"
+      },
+      "resolverCalls": 1,
+      "result": {
+        "json": "{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":3,\"id\":\"acc9994b6cb63e5102551901445d6aabec531c570434b2115be49cf217c78d79\",\"blocker\":\"UNSUPPORTED_GAME\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"}",
+        "sha256": "d1453aef49e00de57351823702a3787f7f42870d42f17ea8e809614986a32d9f"
+      },
+      "selected": {
+        "json": "{\"root\":\"\",\"engineId\":\"\",\"gameId\":\"\",\"description\":\"\",\"preferredTarget\":\"\",\"language\":\"\",\"platform\":\"\",\"extra\":\"\",\"guiOptions\":\"\",\"config\":null,\"canBeAdded\":false,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":0,\"id\":\"\",\"blocker\":\"\"}",
+        "sha256": "857544450805498eaa439b75a6501fa6a85917c3770baa6086d6613e61e8b84f"
+      },
+      "selectionError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": true,
+        "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+        "tool": false,
+        "type": "*errors.errorString"
+      },
+      "selections": {
+        "acc9994b6cb63e5102551901445d6aabec531c570434b2115be49cf217c78d79": {
+          "error": {
+            "canceled": false,
+            "deadline": false,
+            "input": false,
+            "limit": false,
+            "notExist": false,
+            "resolver": false,
+            "result": true,
+            "text": "SCUMMVM_DETECTION_RESULT_INVALID",
+            "tool": false,
+            "type": "*errors.errorString"
+          },
+          "snapshot": {
+            "json": "{\"schemaVersion\":0,\"kind\":\"\",\"detection\":{\"upstreamCommit\":\"\",\"sourceDigest\":\"\",\"candidates\":null,\"roots\":null,\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+            "sha256": "cc8807d8be93970a769783a344e0766ac2e35649119a951e45d2b8184d390229"
+          }
+        }
+      },
+      "snapshot": {
+        "json": "{\"schemaVersion\":1,\"kind\":\"SCUMMVM\",\"detection\":{\"upstreamCommit\":\"fed42f2068dcafc6aafa1c28c77e4c88def74b66\",\"sourceDigest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"candidates\":[{\"root\":\"Game\",\"engineId\":\"sky\",\"gameId\":\"sky\",\"description\":\"Fixture \\u003c\\u0026\\u003e 游戏\",\"preferredTarget\":\"sky\",\"language\":\"en\",\"platform\":\"pc\",\"extra\":\"Floppy\",\"guiOptions\":\"\",\"config\":{},\"canBeAdded\":true,\"isAddOn\":false,\"hasUnknownFiles\":false,\"supportLevel\":3,\"id\":\"acc9994b6cb63e5102551901445d6aabec531c570434b2115be49cf217c78d79\",\"blocker\":\"UNSUPPORTED_GAME\"}],\"roots\":[\"Game\"],\"automaticSelection\":\"\"},\"selectedCandidateId\":\"\"}",
+        "sha256": "a8e340e2e820d8ade7de166e39a9bcccf36ec0190f434f506378e113796f8838"
+      },
+      "snapshotError": {
+        "canceled": false,
+        "deadline": false,
+        "input": false,
+        "limit": false,
+        "notExist": false,
+        "resolver": false,
+        "result": false,
+        "text": "",
+        "tool": false,
+        "type": ""
+      },
+      "status": [
+        "BLOCKED",
+        "SCUMMVM_UNSUPPORTED_GAME"
+      ],
+      "temporaryEmpty": true
+    }
+  },
+  "purpose": "Actual old Go API execution, deterministic public byte helper process; barrier cancellation, no private games/BIOS or external downloads",
+  "sourceSHA256": {
+    "internal/adapter/runtime/runtimeprovider/scummvm.go": "a5779d5fcbe3e0025b859184e94736e039b36efaed7609f337e3154bcbb52050",
+    "internal/capability/engine/scummvm/detector.go": "5b64b28da629168af130610cf619c950813f0d5031a9a757ae7c31d43f486be1",
+    "internal/capability/engine/scummvm/result.go": "72a088bdf4111647e12a77bc377ab5f882d077631430475f20fa582de437bd9c",
+    "internal/capability/engine/scummvm/snapshot.go": "9137bbda77399bf934067b95c0d6078a96608b3fb99613ed8e574c6cc576bf94",
+    "internal/service/libraryimport/scummvm_materialize.go": "4078791ec6e4e632dba0a34b0d7e015c8c5ed7ffb263ab4eac4aba98d0b3f0d4"
+  },
+  "wallClockBusinessWaitUsed": false
+}

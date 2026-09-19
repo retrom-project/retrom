@@ -35,7 +35,7 @@ func TestRPGMakerReviewDetailUsesDetectedCoreBehindVirtualPlatform(t *testing.T)
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	uploadID := completeRPGMakerHTTPUpload(t, ctx, server, rpgMakerHTTPFixture(t, "rpg2000"))
+	uploadID := completeRPGMakerHTTPUpload(ctx, t, server, rpgMakerHTTPFixture(t, "rpg2000"))
 	var platformInstanceID string
 	if err := server.database.QueryRowContext(ctx, `
 SELECT id FROM platform_instances WHERE catalog_template_key='rpgmaker/rpgmaker'
@@ -100,8 +100,8 @@ func rpgMakerHTTPFixture(t *testing.T, generation string) []rpgMakerHTTPFixtureF
 }
 
 func completeRPGMakerHTTPUpload(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	server *Server,
 	files []rpgMakerHTTPFixtureFile,
 ) string {
@@ -135,6 +135,6 @@ func completeRPGMakerHTTPUpload(
 	testassert.False(t, err != nil, err)
 	jobID, _, err := server.uploads.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
-	waitForHTTPJob(t, server.database, jobID, "SUCCEEDED")
+	waitForHTTPJob(ctx, t, server.database, jobID)
 	return upload.ID
 }
