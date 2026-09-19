@@ -9,6 +9,7 @@ import (
 
 	model "retrom/internal/model/libraryimport"
 
+	"retrom/internal/capability/security/authn"
 	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	payloadreleaseservice "retrom/internal/service/payloadrelease"
 	"retrom/internal/service/tagging"
@@ -41,16 +42,30 @@ func (service *ReviewDiscards) Discard(
 	if err != nil {
 		return model.ReviewDecisionResult{}, err
 	}
-	var result model.ReviewDecisionResult
-	err = service.repository.WithDiscard(ctx, func(scope model.ReviewDiscardScope) error {
-		var discardErr error
-		result, discardErr = service.DiscardInScope(ctx, scope, request)
-		return discardErr
-	})
+	eventID, err := service.newID()
 	if err != nil {
-		return model.ReviewDecisionResult{}, fmt.Errorf("commit review discard: %w", err)
+		return model.ReviewDecisionResult{}, fmt.Errorf("create discard event ID: %w", err)
 	}
-	return result, nil
+	actor := discardActor(ctx)
+	now := service.now().UnixMilli()
+	return service.repository.CommitDiscard(ctx, model.DiscardCommand{
+		Request: request,
+		EventID: eventID,
+		Actor:   actor,
+		NowMS:   now,
+	})
+}
+
+func discardActor(ctx context.Context) model.ReviewActor {
+	actor := model.ReviewActor{Kind: "SYSTEM"}
+	label := "release-setup"
+	actor.Label = &label
+	if principal, ok := authn.PrincipalFromContext(ctx); ok && principal.UserID != "" {
+		actor.Kind = "USER"
+		actor.UserID = &principal.UserID
+		actor.Label = nil
+	}
+	return actor
 }
 
 // DiscardInScope shares the complete decision with a caller-owned transaction.

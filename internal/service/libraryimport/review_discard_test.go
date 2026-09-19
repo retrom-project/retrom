@@ -36,6 +36,58 @@ func (fixture *discardFixture) WithDiscard(_ context.Context, work func(model.Re
 	return fixture.commitError
 }
 
+func (fixture *discardFixture) CommitDiscard(_ context.Context, cmd model.DiscardCommand) (model.ReviewDecisionResult, error) {
+	fixture.transactions++
+	snapshot, found, snapshotErr := fixture.snapshot, fixture.snapshot.DraftID != "", fixture.snapshotError
+	if snapshotErr != nil {
+		return model.ReviewDecisionResult{}, snapshotErr
+	}
+	if !found || snapshot.Version != cmd.Request.ExpectedVersion ||
+		snapshot.Version == math.MaxInt64 || snapshot.State != "REVIEW_PENDING" {
+		return model.ReviewDecisionResult{}, model.ErrInvalid
+	}
+	if cmd.Request.Mode == model.ReviewDiscardSingle && (snapshot.SourceBusy || (snapshot.HandoffKind != "DIRECT" && !snapshot.EmulationStationReady)) {
+		return model.ReviewDecisionResult{}, model.ErrInvalid
+	}
+	if fixture.tagError != nil {
+		return model.ReviewDecisionResult{}, fixture.tagError
+	}
+	event := model.ReviewDiscardEvent{
+		ID: cmd.EventID, ItemID: cmd.Request.ItemID, Reason: cmd.Request.Reason,
+		NowMS: cmd.NowMS, ActorKind: cmd.Actor.Kind, ActorUserID: cmd.Actor.UserID, ActorLabel: cmd.Actor.Label,
+	}
+	beforeEvidence, _ := reviewDiscardEvidence(context.Background(), snapshot, fixture.tags, cmd.Request.Reason)
+	event.BeforeJSON = beforeEvidence.BeforeJSON
+	event.ConfigJSON = beforeEvidence.ConfigJSON
+	event.DatJSON = beforeEvidence.DatJSON
+	event.ProviderJSON = beforeEvidence.ProviderJSON
+	fixture.event = event
+
+	aggregate, err := projectReviewDiscardAggregate(snapshot.Aggregate, cmd.NowMS)
+	if err != nil {
+		return model.ReviewDecisionResult{}, err
+	}
+	change := model.ReviewDiscardChange{
+		ItemID: cmd.Request.ItemID, ImportID: snapshot.ImportID,
+		ExpectedVersion: cmd.Request.ExpectedVersion, NowMS: cmd.NowMS,
+		Aggregate: aggregate,
+	}
+	for _, step := range []string{"attachments", "item", "event", "owner", "payload"} {
+		fixture.steps = append(fixture.steps, step)
+		if step == fixture.failAt {
+			return model.ReviewDecisionResult{}, fixture.writeError
+		}
+	}
+	fixture.change = change
+	if fixture.commitError != nil {
+		return model.ReviewDecisionResult{}, fixture.commitError
+	}
+	return model.ReviewDecisionResult{
+		ItemID: cmd.Request.ItemID, EventID: cmd.EventID, Status: "DISCARDED",
+		Version: snapshot.Version + 1, UpdatedAtMS: cmd.NowMS,
+	}, nil
+}
+
 func (fixture *discardFixture) Snapshot(context.Context, string) (model.ReviewDiscardSnapshot, bool, error) {
 	return fixture.snapshot, fixture.snapshot.DraftID != "", fixture.snapshotError
 }
