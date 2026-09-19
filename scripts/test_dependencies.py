@@ -2,14 +2,36 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest import mock
 
 import dependencies
+
+
+class CommandFailureTests(unittest.TestCase):
+    def test_main_preserves_validation_and_network_errors(self) -> None:
+        for failure in (
+            dependencies.CheckError("DEPENDENCY_FIXTURE_INVALID"),
+            urllib.error.URLError("fixture network failure"),
+        ):
+            with self.subTest(error=type(failure).__name__):
+                stderr = io.StringIO()
+                stdout = io.StringIO()
+                with mock.patch("sys.argv", ["dependencies.py", "prepare", "--versions", "4.2.3"]), \
+                        mock.patch.object(dependencies, "load_manifest", side_effect=failure), \
+                        contextlib.redirect_stderr(stderr), contextlib.redirect_stdout(stdout):
+                    result = dependencies.main()
+                self.assertEqual(1, result)
+                self.assertEqual("", stdout.getvalue())
+                self.assertIn(str(failure), stderr.getvalue())
+                self.assertNotIn("Traceback", stderr.getvalue())
 
 
 class VersionTests(unittest.TestCase):
