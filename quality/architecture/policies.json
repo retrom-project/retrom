@@ -349,6 +349,233 @@
         "RFA-RF08-save_authority",
         "RFA-RF08-formats"
       ]
+    },
+    {
+      "id": "uploads.decodeFinalization",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.decodeFinalization",
+      "consumers": [
+        "(*retrom/internal/service/uploads.finalizationClaim).prepare",
+        "(*retrom/internal/service/uploads.finalizationClaim).reconcile"
+      ],
+      "invariant": "Digest, UUIDv7 execution ID, schema/kind/scope and positive finalization round",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.executionActive",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.executionActive",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).finalizeWrite",
+        "(*retrom/internal/service/uploads.Service).monitor"
+      ],
+      "invariant": "Execution owner and RUNNING with future deadline and lease",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.executionOwned",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.executionOwned",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).monitor",
+        "retrom/internal/service/uploads.currentFinalization",
+        "retrom/internal/service/uploads.executionActive"
+      ],
+      "invariant": "Exact execution number, worker ID and attempt",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.finalizationFailure",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.finalizationFailure",
+      "consumers": [
+        "retrom/internal/service/uploads.persistFinalizationFailure"
+      ],
+      "invariant": "Map typed cause/elapsed execution deadline to stable retryability and error code",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.isProjectUpload",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.isProjectUpload",
+      "consumers": [
+        "retrom/internal/service/uploads.validateCreateRequest"
+      ],
+      "invariant": "Zip/7z or PROJECT exe",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.matchesRun",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.matchesRun",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).claimCurrent",
+        "retrom/internal/service/uploads.currentFinalization"
+      ],
+      "invariant": "Current FINALIZING upload matches run upload/job/round",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.parseDigest",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.parseDigest",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).PutPart"
+      ],
+      "invariant": "Exact sha-256 colon-delimited base64 value with 32 decoded bytes",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.parseRange",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.parseRange",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).PutPart"
+      ],
+      "invariant": "Exact bytes range syntax with nonnegative start, start<=end<total and bounded part length",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.validUploadFile",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.validUploadFile",
+      "consumers": [
+        "retrom/internal/service/uploads.validateCreateRequest"
+      ],
+      "invariant": "Nonempty client ID, 0..8GiB, path <=1024 bytes and ValidateLogicalPath",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.validUploadShape",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.validUploadShape",
+      "consumers": [
+        "retrom/internal/service/uploads.validateCreateRequest"
+      ],
+      "invariant": "Only GENERAL/PROJECT, FILES/DIRECTORY, and 1..10000 declarations",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.validateCreateRequest",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.validateCreateRequest",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).Create"
+      ],
+      "invariant": "Default GENERAL is applied by caller; enforce shape, path uniqueness and total <=32GiB",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.validateFinalizationFiles",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.validateFinalizationFiles",
+      "consumers": [
+        "(*retrom/internal/service/uploads.finalizationClaim).prepare"
+      ],
+      "invariant": "Reject duplicate frozen IDs; each current remaining file matches frozen full value; completed frozen files need not be current",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
+    },
+    {
+      "id": "uploads.validatePartTarget",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "symbol": "retrom/internal/service/uploads.validatePartTarget",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).PutPart",
+        "(*retrom/internal/service/uploads.Service).validateReceivingPart"
+      ],
+      "invariant": "Size/state/expiry and precise failed-part error kinds determine receipt eligibility",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF09-input_limits",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault"
+      ]
     }
   ]
 }

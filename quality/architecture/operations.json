@@ -2598,6 +2598,1323 @@
         "protected_commit": null,
         "test_ids": []
       }
+    },
+    {
+      "operation_id": "uploads.accept-part",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).PutPart",
+        "(*retrom/internal/transport/httpapi.Server).putUploadPart"
+      ],
+      "snapshot": "(*retrom/internal/repo/uploads.Repository).Target",
+      "prepare": "(*retrom/internal/service/uploads.Service).stageUploadPart",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/uploads.parseRange",
+        "retrom/internal/service/uploads.parseDigest",
+        "retrom/internal/service/uploads.validatePartTarget"
+      ],
+      "fresh_facts": [
+        {
+          "name": "fresh part target",
+          "reader_symbol": "(retrom/internal/repo/uploads.fileRecords).Target",
+          "reason": "After byte staging, reread declared size,file/session state,session version,expiry and file error code for exact upload ID/file ID"
+        },
+        {
+          "name": "failed part repair authorization",
+          "reader_symbol": "(retrom/internal/repo/uploads.finalizationRecords).Repair",
+          "reason": "If session FAILED, require current failed job event with matching executionNo,fileId,partNo"
+        },
+        {
+          "name": "existing part replay",
+          "reader_symbol": "(retrom/internal/repo/uploads.partRecords).Get",
+          "reason": "After INSERT conflict, read offset,size,SHA256; identical part succeeds without incrementing received bytes"
+        }
+      ],
+      "guards": [
+        {
+          "id": "part-shape",
+          "fields": [
+            "partNo",
+            "range.start",
+            "range.end",
+            "range.total",
+            "contentDigest",
+            "actual staged bytes"
+          ],
+          "expected_source": "nonnegative partNo, exact PartSize alignment and final boundary, valid SHA256 encoding and exact actual size/digest",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF09-input_limits"
+        },
+        {
+          "id": "part-target",
+          "fields": [
+            "declared_size_bytes",
+            "file.state",
+            "session.state",
+            "expires_at_ms",
+            "last_error_code"
+          ],
+          "expected_source": "validatePartTarget: matching total; not COMPLETE/FINALIZING; unexpired; CREATED/UPLOADING or FAILED with missing/corrupt part error",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "repair-event",
+          "fields": [
+            "job.state",
+            "event.executionNo",
+            "failedPart.fileId",
+            "failedPart.partNo"
+          ],
+          "expected_source": "current round failed-part event must authorize repair",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "part-replay",
+          "fields": [
+            "sha256",
+            "offset_bytes",
+            "size_bytes"
+          ],
+          "expected_source": "all equal to freshly staged part on conflicting (file,partNo)",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF09-part_conflict"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "insert-part",
+          "repo_helper": "(retrom/internal/repo/uploads.partRecords).Put",
+          "affected_records": [
+            "upload_parts[upload_file_id,part_no]: offset_bytes,size_bytes,sha256,storage_key,created_at_ms; ON CONFLICT DO NOTHING"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "advance-file",
+          "repo_helper": "(retrom/internal/repo/uploads.fileRecords).AddReceived",
+          "affected_records": [
+            "new part only: upload_files[id]: received_size_bytes+=part size,state=PARTIAL,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "advance-upload",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).Advance",
+          "affected_records": [
+            "new part only: upload_sessions[id,expected version]: state=UPLOADING,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "Unique (upload_file_id,part_no); duplicate same digest/offset/size is a no-op; conflict must not count bytes twice.",
+      "after_commit": [],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; Service.now is sampled after staging but before WithWrite and reused for expiry recheck and writes; queue wait can age that sample. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "insert-part",
+        "advance-file",
+        "advance-upload",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "uploads.cancel",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).Cancel",
+        "(*retrom/internal/transport/httpapi.Server).cancelUpload"
+      ],
+      "snapshot": "retrom/internal/model/uploads.SessionState",
+      "prepare": "(*retrom/internal/service/uploads.Service).Cancel",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current upload owner state",
+          "reader_symbol": "(retrom/internal/repo/uploads.sessionRecords).Current",
+          "reason": "Read ID,state,version,finalization_no,finalize_job_id and EXISTS any upload_consumptions in the transaction; released consumption rows still count"
+        },
+        {
+          "name": "current job execution",
+          "reader_symbol": "(retrom/internal/repo/uploads.jobRecords).Get",
+          "reason": "Read ID,state,kind,scope type/id,worker,execution no,version,attempt,max attempts,deadline,lease,available time and exact snapshot input/digest for the current execution"
+        }
+      ],
+      "guards": [
+        {
+          "id": "cancel-version",
+          "fields": [
+            "version",
+            "consumed",
+            "session.state"
+          ],
+          "expected_source": "expected version, not consumed, state not COMPLETE/CANCELLED/EXPIRED",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "cancel-job",
+          "fields": [
+            "finalize_job_id",
+            "job.state",
+            "execution_no"
+          ],
+          "expected_source": "FINALIZING needs job ID; QUEUED becomes CANCELLED, RUNNING becomes CANCEL_REQUESTED, existing CANCEL_REQUESTED/CANCELLED retain corresponding pending result",
+          "rejection": "ErrInvalid for other states",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cancel-job",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).RequestCancel",
+          "affected_records": [
+            "jobs[id,expected state,execution_no]: state,cancel_requested_at_ms,cancel_reason=upload cancelled,optional finished_at_ms,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "job-event",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).event",
+          "affected_records": [
+            "job_events: job_id,scope_type=UPLOAD_SESSION,scope_id,event_type,data_json,created_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "advance-pending-cancel",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).Advance",
+          "affected_records": [
+            "pending running worker only: upload_sessions[id,expected version]: unchanged FINALIZING state,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "finish-session",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).Finish",
+          "affected_records": [
+            "upload_sessions[id,expected version,(empty Run.JobID OR exact finalize_job_id/finalization_no)]: state,version+1,last_error_code,updated_at_ms,optional expires_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "fail-incomplete-files",
+          "repo_helper": "(retrom/internal/repo/uploads.fileRecords).FailPending",
+          "affected_records": [
+            "upload_files[upload_session_id,state != COMPLETE]: state=FAILED,last_error_code,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "No stored receipt; terminal upload rejects repeated cancel, while already CANCEL_REQUESTED/CANCELLED job state has explicit handling.",
+      "after_commit": [
+        {
+          "action": "(*retrom/internal/service/uploads.Service).cleanupUpload removes only the scoped upload/file staging tree with a bounded independent five-second context.",
+          "recovery": "Persisted cancellation/completion remains authoritative after cleanup failure. Existing logging records cleanup errors; RF02/RF09 must explicitly prove restart cleanup for every abandoned staging path.",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; Service.now sampled inside callback after reading session; returned upload view uses version+1. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "cancel-job",
+        "job-event",
+        "advance-pending-cancel",
+        "finish-session",
+        "fail-incomplete-files",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "uploads.claim-finalization",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).Run",
+        "(*retrom/internal/service/uploads.Service).claim"
+      ],
+      "snapshot": "retrom/internal/model/uploads.Job",
+      "prepare": "(*retrom/internal/service/uploads.Service).claim",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/uploads.decodeFinalization",
+        "retrom/internal/service/uploads.validateFinalizationFiles",
+        "retrom/internal/service/uploads.executionOwned",
+        "retrom/internal/service/uploads.matchesRun"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current upload owner state",
+          "reader_symbol": "(retrom/internal/repo/uploads.sessionRecords).Current",
+          "reason": "Read ID,state,version,finalization_no,finalize_job_id and EXISTS any upload_consumptions in the transaction; released consumption rows still count"
+        },
+        {
+          "name": "current job execution",
+          "reader_symbol": "(retrom/internal/repo/uploads.jobRecords).Get",
+          "reason": "Read ID,state,kind,scope type/id,worker,execution no,version,attempt,max attempts,deadline,lease,available time and exact snapshot input/digest for the current execution"
+        },
+        {
+          "name": "remaining frozen file manifest",
+          "reader_symbol": "(retrom/internal/repo/uploads.finalizationRecords).Manifest",
+          "reason": "Read non-COMPLETE files and their parts ordered by file ID/part number, including declared size, offsets, lengths,SHA256 and storage key"
+        }
+      ],
+      "guards": [
+        {
+          "id": "job-kind",
+          "fields": [
+            "kind",
+            "scope_type",
+            "scope_id",
+            "finalize_job_id",
+            "consumed"
+          ],
+          "expected_source": "UPLOAD_FINALIZE/UPLOAD_SESSION, matching current owner job, not consumed",
+          "rejection": "ErrExecutionLost for wrong kind/scope; other ownership change no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "claim-state",
+          "fields": [
+            "job.state",
+            "session.state",
+            "lease",
+            "deadline",
+            "available_at_ms",
+            "attempt_count",
+            "max_attempts"
+          ],
+          "expected_source": "QUEUED or expired RUNNING/CANCEL_REQUESTED with FINALIZING/FAILED owner; future available only deferred if no terminal cause",
+          "rejection": "no-op or claim terminal cause for cancellation/deadline/attempt exhaustion",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "frozen-input",
+          "fields": [
+            "input_json",
+            "input_digest",
+            "executionID",
+            "schemaVersion",
+            "kind",
+            "scope",
+            "finalizationNo",
+            "files"
+          ],
+          "expected_source": "decode exact digest/UUIDv7/envelope; no duplicate frozen IDs; each CURRENT non-COMPLETE file equals its frozen value, completed files may be absent from current subset",
+          "rejection": "ErrInputInvalid recorded as claim cause",
+          "test_id": "RFA-RF09-input_limits"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "recover-failed-upload",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).Advance",
+          "affected_records": [
+            "current FAILED upload only: upload_sessions[id,expected version]: state=FINALIZING,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "recover-failed-files",
+          "repo_helper": "(retrom/internal/repo/uploads.fileRecords).MarkFinalizing",
+          "affected_records": [
+            "recovering FAILED upload only: upload_files[upload_session_id,state != COMPLETE]: state=FINALIZING,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "claim-job",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).Claim",
+          "affected_records": [
+            "jobs[id,execution_no,version,state QUEUED/RUNNING/CANCEL_REQUESTED]: state (preserve CANCEL_REQUESTED else RUNNING),worker_id,attempt_count,first execution_started_at_ms,execution_deadline_at_ms,leased_until_ms=min(Now+60s,deadline),heartbeat_at_ms,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "job-event",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).event",
+          "affected_records": [
+            "job_events: job_id,scope_type=UPLOAD_SESSION,scope_id,event_type,data_json,created_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "Conditional job version/execution update obtains a single owner; lost row returns Acquired=false.",
+      "after_commit": [],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; Worker UUID prepared outside; claimCurrent samples Service.now inside; first deadline=Now+10m, retry retains prior deadline. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "recover-failed-upload",
+        "recover-failed-files",
+        "claim-job",
+        "job-event",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "uploads.create",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).Create",
+        "(*retrom/internal/transport/httpapi.Server).createUpload"
+      ],
+      "snapshot": "retrom/internal/model/uploads.CreateRequest",
+      "prepare": "(*retrom/internal/service/uploads.Service).Create",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/uploads.validateCreateRequest",
+        "retrom/internal/service/uploads.validUploadShape",
+        "retrom/internal/service/uploads.validUploadFile",
+        "retrom/internal/service/uploads.isProjectUpload"
+      ],
+      "fresh_facts": [
+        {
+          "name": "new identities and manifest keys",
+          "reader_symbol": "(retrom/internal/repo/uploads.sessionRecords).Create",
+          "reason": "No existing workflow snapshot is needed: INSERT applies current database identity/path constraints to all prepared rows atomically"
+        }
+      ],
+      "guards": [
+        {
+          "id": "request-bounds",
+          "fields": [
+            "purpose",
+            "sourceType",
+            "file count",
+            "clientFileID",
+            "relativePath",
+            "sizeBytes",
+            "total bytes"
+          ],
+          "expected_source": "GENERAL/PROJECT, FILES/DIRECTORY, 1..10000 files, nonempty client IDs, safe unique relative paths <=1024 bytes, each 0..8GiB, total<=32GiB; PROJECT FILES requires one .zip/.7z/.exe",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF09-input_limits"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "insert-session",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).Create",
+          "affected_records": [
+            "upload_sessions: id,purpose,state=CREATED,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "insert-declared-files",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).Create",
+          "affected_records": [
+            "upload_files[each prepared file ID]: id,upload_session_id,relative_path,declared_size_bytes,state=PENDING,created_at_ms,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "No request receipt or manifest-digest deduplication; each successful request creates a fresh upload.",
+      "after_commit": [],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; Service.now sampled before WithWrite; expiry=Now+24h; IDs and manifest digest prepared outside. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "insert-session",
+        "insert-declared-files",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "uploads.finish-failure",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).Run",
+        "(*retrom/internal/service/uploads.Service).fail"
+      ],
+      "snapshot": "retrom/internal/model/uploads.Run",
+      "prepare": "(*retrom/internal/service/uploads.Service).fail",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/uploads.matchesRun",
+        "retrom/internal/service/uploads.executionOwned",
+        "retrom/internal/service/uploads.finalizationFailure"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current upload owner state",
+          "reader_symbol": "(retrom/internal/repo/uploads.sessionRecords).Current",
+          "reason": "Read ID,state,version,finalization_no,finalize_job_id and EXISTS any upload_consumptions in the transaction; released consumption rows still count"
+        },
+        {
+          "name": "current job execution",
+          "reader_symbol": "(retrom/internal/repo/uploads.jobRecords).Get",
+          "reason": "Read ID,state,kind,scope type/id,worker,execution no,version,attempt,max attempts,deadline,lease,available time and exact snapshot input/digest for the current execution"
+        }
+      ],
+      "guards": [
+        {
+          "id": "upload-run",
+          "fields": [
+            "session.id",
+            "state",
+            "finalize_job_id",
+            "finalization_no"
+          ],
+          "expected_source": "matchesRun requires upload ID, FINALIZING, exact job ID and round",
+          "rejection": "lost owner becomes stopped/no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "execution-owner",
+          "fields": [
+            "job.execution_no",
+            "worker_id",
+            "attempt_count"
+          ],
+          "expected_source": "executionOwned requires exact prepared Run tuple",
+          "rejection": "ErrExecutionLost or stopped/no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "failure-authority",
+          "fields": [
+            "job.state",
+            "lease",
+            "deadline"
+          ],
+          "expected_source": "RUNNING/CANCEL_REQUESTED; if lease expired but deadline remains future, no-op; CANCEL_REQUESTED maps CANCELLED and not retryable",
+          "rejection": "stale owner/state no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "broken-part",
+          "fields": [
+            "missing",
+            "file_id",
+            "part_no",
+            "sha256",
+            "storage_key",
+            "size_bytes",
+            "received_size_bytes"
+          ],
+          "expected_source": "only a non-missing BrokenPart matching exact registered part may be removed; byte count must cover size",
+          "rejection": "ErrInvalid on changed record",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "invalidate-broken-part",
+          "repo_helper": "(retrom/internal/repo/uploads.finalizationRecords).Invalidate",
+          "affected_records": [
+            "non-missing broken part only: upload_parts[file_id,part_no,sha256,storage_key,size_bytes]: DELETE"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "decrement-received",
+          "repo_helper": "(retrom/internal/repo/uploads.finalizationRecords).Invalidate",
+          "affected_records": [
+            "upload_files[id,received_size_bytes>=broken size]: received_size_bytes-=broken size,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "finish-session",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).Finish",
+          "affected_records": [
+            "upload_sessions[id,expected version,(empty Run.JobID OR exact finalize_job_id/finalization_no)]: state,version+1,last_error_code,updated_at_ms,optional expires_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "fail-incomplete-files",
+          "repo_helper": "(retrom/internal/repo/uploads.fileRecords).FailPending",
+          "affected_records": [
+            "upload_files[upload_session_id,state != COMPLETE]: state=FAILED,last_error_code,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "finish-job",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).Finish",
+          "affected_records": [
+            "jobs[id,expected state,execution_no,worker_id,attempt_count]: state,error_code,error_retryable,finished_at_ms,version+1,updated_at_ms; SUCCEEDED additionally requires live lease and deadline"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "job-event",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).event",
+          "affected_records": [
+            "job_events: job_id,scope_type=UPLOAD_SESSION,scope_id,event_type,data_json,created_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "Owner tuple prevents late failure from overwriting newer execution; failed-part event authorizes only the exact repair.",
+      "after_commit": [
+        {
+          "action": "(*retrom/internal/service/uploads.Service).fail calls uploadfiles.Store.Remove for cancellation after commit.",
+          "recovery": "Failure is returned to caller; restart cancellation reconciliation retries scoped staging removal.",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; Uses a five-second context derived with WithoutCancel for bounded settlement; Service.now sampled inside callback. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "invalidate-broken-part",
+        "decrement-received",
+        "finish-session",
+        "fail-incomplete-files",
+        "finish-job",
+        "job-event",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "uploads.finish-success",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).finalizeFiles",
+        "retrom/internal/service/uploads.finishFinalization"
+      ],
+      "snapshot": "retrom/internal/model/uploads.SessionState",
+      "prepare": "(*retrom/internal/service/uploads.Service).finalizeFiles",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/uploads.matchesRun",
+        "retrom/internal/service/uploads.executionOwned",
+        "retrom/internal/service/uploads.executionActive"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current upload owner state",
+          "reader_symbol": "(retrom/internal/repo/uploads.sessionRecords).Current",
+          "reason": "Read ID,state,version,finalization_no,finalize_job_id and EXISTS any upload_consumptions in the transaction; released consumption rows still count"
+        },
+        {
+          "name": "current job execution",
+          "reader_symbol": "(retrom/internal/repo/uploads.jobRecords).Get",
+          "reason": "Read ID,state,kind,scope type/id,worker,execution no,version,attempt,max attempts,deadline,lease,available time and exact snapshot input/digest for the current execution"
+        },
+        {
+          "name": "unfinished file count",
+          "reader_symbol": "(retrom/internal/repo/uploads.finalizationRecords).Count",
+          "reason": "session.total_files minus COMPLETE upload_files count must be zero"
+        }
+      ],
+      "guards": [
+        {
+          "id": "upload-run",
+          "fields": [
+            "session.id",
+            "state",
+            "finalize_job_id",
+            "finalization_no"
+          ],
+          "expected_source": "matchesRun requires upload ID, FINALIZING, exact job ID and round",
+          "rejection": "lost owner becomes stopped/no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "execution-owner",
+          "fields": [
+            "job.execution_no",
+            "worker_id",
+            "attempt_count"
+          ],
+          "expected_source": "executionOwned requires exact prepared Run tuple",
+          "rejection": "ErrExecutionLost or stopped/no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "active-lease",
+          "fields": [
+            "job.state",
+            "execution_deadline_at_ms",
+            "leased_until_ms"
+          ],
+          "expected_source": "RUNNING, deadline>transaction decision time, lease>decision time",
+          "rejection": "context.DeadlineExceeded or ErrExecutionLost",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "all-files-complete",
+          "fields": [
+            "total_files",
+            "complete count"
+          ],
+          "expected_source": "difference exactly zero",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "finish-session",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).Finish",
+          "affected_records": [
+            "upload_sessions[id,expected version,(empty Run.JobID OR exact finalize_job_id/finalization_no)]: state,version+1,last_error_code,updated_at_ms,optional expires_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "finish-job",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).Finish",
+          "affected_records": [
+            "jobs[id,expected state,execution_no,worker_id,attempt_count]: state,error_code,error_retryable,finished_at_ms,version+1,updated_at_ms; SUCCEEDED additionally requires live lease and deadline"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "job-event",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).event",
+          "affected_records": [
+            "job_events: job_id,scope_type=UPLOAD_SESSION,scope_id,event_type,data_json,created_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "Current owner only; terminal success prevents another current-run commit.",
+      "after_commit": [],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; finalizeWrite samples clock for execution then finishFinalization gets another clock value; expiry becomes Now+7d. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "finish-session",
+        "finish-job",
+        "job-event",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "uploads.publish-file",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).finalizeCandidate",
+        "(*retrom/internal/service/uploads.Service).finalizeFiles"
+      ],
+      "snapshot": "(*retrom/internal/repo/uploads.Repository).Parts",
+      "prepare": "(*retrom/internal/service/uploads.Service).assembleFile",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/uploads.matchesRun",
+        "retrom/internal/service/uploads.executionOwned",
+        "retrom/internal/service/uploads.executionActive"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current upload owner state",
+          "reader_symbol": "(retrom/internal/repo/uploads.sessionRecords).Current",
+          "reason": "Read ID,state,version,finalization_no,finalize_job_id and EXISTS any upload_consumptions in the transaction; released consumption rows still count"
+        },
+        {
+          "name": "current job execution",
+          "reader_symbol": "(retrom/internal/repo/uploads.jobRecords).Get",
+          "reason": "Read ID,state,kind,scope type/id,worker,execution no,version,attempt,max attempts,deadline,lease,available time and exact snapshot input/digest for the current execution"
+        }
+      ],
+      "guards": [
+        {
+          "id": "upload-run",
+          "fields": [
+            "session.id",
+            "state",
+            "finalize_job_id",
+            "finalization_no"
+          ],
+          "expected_source": "matchesRun requires upload ID, FINALIZING, exact job ID and round",
+          "rejection": "lost owner becomes stopped/no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "execution-owner",
+          "fields": [
+            "job.execution_no",
+            "worker_id",
+            "attempt_count"
+          ],
+          "expected_source": "executionOwned requires exact prepared Run tuple",
+          "rejection": "ErrExecutionLost or stopped/no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "active-lease",
+          "fields": [
+            "job.state",
+            "execution_deadline_at_ms",
+            "leased_until_ms"
+          ],
+          "expected_source": "RUNNING, deadline>transaction decision time, lease>decision time",
+          "rejection": "context.DeadlineExceeded or ErrExecutionLost",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "file-publication",
+          "fields": [
+            "file.id",
+            "upload_session_id",
+            "file.state",
+            "session.finalization_no",
+            "job.id",
+            "execution_no",
+            "worker_id",
+            "attempt_count",
+            "lease",
+            "deadline"
+          ],
+          "expected_source": "file SQL repeats matching FINALIZING owner and exact live execution tuple; exactly one row",
+          "rejection": "ErrInvalid / ErrExecutionLost",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "ensure-blob",
+          "repo_helper": "(retrom/internal/repo/uploads.blobRecords).Ensure",
+          "affected_records": [
+            "blobs[SHA256]: reuse existing ID or INSERT id,sha256,size_bytes,md5,sha1,crc32,media_type=application/octet-stream,created_at_ms with ON CONFLICT DO NOTHING then reread ID"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "publish-file",
+          "repo_helper": "(retrom/internal/repo/uploads.fileRecords).Publish",
+          "affected_records": [
+            "upload_files[guarded exact file and execution]: final_blob_id,state=COMPLETE,last_error_code=NULL,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "delete-file-parts",
+          "repo_helper": "(retrom/internal/repo/uploads.partRecords).DeleteForFile",
+          "affected_records": [
+            "upload_parts[upload_file_id]: DELETE"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "Same blob digest deduplicates identity; current file/run ownership gates publication; completed files are excluded on resume.",
+      "after_commit": [
+        {
+          "action": "(*retrom/internal/service/uploads.Service).cleanupUpload removes only the scoped upload/file staging tree with a bounded independent five-second context.",
+          "recovery": "Persisted cancellation/completion remains authoritative after cleanup failure. Existing logging records cleanup errors; RF02/RF09 must explicitly prove restart cleanup for every abandoned staging path.",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; Streaming assembly and CAS publication occur before WithWrite. finalizeWrite and its upper callback each sample Service.now; SQL publication checks the latter timestamp. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "ensure-blob",
+        "publish-file",
+        "delete-file-parts",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Prepared whole-file CAS bytes gain a persistent upload_files.final_blob_id reference; baseline has no digest lock.",
+        "digest_sources": [
+          "prepared whole-file SHA256"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-shared_digest"
+        ]
+      }
+    },
+    {
+      "operation_id": "uploads.reconcile-cancellation",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).claimCurrent",
+        "(*retrom/internal/service/uploads.finalizationClaim).reconcile"
+      ],
+      "snapshot": "retrom/internal/model/uploads.Job",
+      "prepare": "(*retrom/internal/service/uploads.finalizationClaim).reconcile",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/uploads.matchesRun",
+        "retrom/internal/service/uploads.decodeFinalization"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current upload owner state",
+          "reader_symbol": "(retrom/internal/repo/uploads.sessionRecords).Current",
+          "reason": "Read ID,state,version,finalization_no,finalize_job_id and EXISTS any upload_consumptions in the transaction; released consumption rows still count"
+        },
+        {
+          "name": "current job execution",
+          "reader_symbol": "(retrom/internal/repo/uploads.jobRecords).Get",
+          "reason": "Read ID,state,kind,scope type/id,worker,execution no,version,attempt,max attempts,deadline,lease,available time and exact snapshot input/digest for the current execution"
+        }
+      ],
+      "guards": [
+        {
+          "id": "upload-run",
+          "fields": [
+            "session.id",
+            "state",
+            "finalize_job_id",
+            "finalization_no"
+          ],
+          "expected_source": "matchesRun requires upload ID, FINALIZING, exact job ID and round",
+          "rejection": "lost owner becomes stopped/no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "cancelled-execution",
+          "fields": [
+            "job.state",
+            "input.finalizationNo"
+          ],
+          "expected_source": "CANCELLED job for current FINALIZING session; valid input and current round",
+          "rejection": "ErrExecutionLost / input error",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "finish-session",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).Finish",
+          "affected_records": [
+            "upload_sessions[id,expected version,(empty Run.JobID OR exact finalize_job_id/finalization_no)]: state,version+1,last_error_code,updated_at_ms,optional expires_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "fail-incomplete-files",
+          "repo_helper": "(retrom/internal/repo/uploads.fileRecords).FailPending",
+          "affected_records": [
+            "upload_files[upload_session_id,state != COMPLETE]: state=FAILED,last_error_code,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "Completes matching cancellation; a changed owner cannot be touched.",
+      "after_commit": [
+        {
+          "action": "(*retrom/internal/service/uploads.Service).cleanupUpload removes only the scoped upload/file staging tree with a bounded independent five-second context.",
+          "recovery": "Persisted cancellation/completion remains authoritative after cleanup failure. Existing logging records cleanup errors; RF02/RF09 must explicitly prove restart cleanup for every abandoned staging path.",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; claimCurrent time is sampled inside callback. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "finish-session",
+        "fail-incomplete-files",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "uploads.renew-lease",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).Run",
+        "(*retrom/internal/service/uploads.Service).monitor"
+      ],
+      "snapshot": "retrom/internal/model/uploads.Job",
+      "prepare": "(*retrom/internal/service/uploads.Service).monitor",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/uploads.executionOwned",
+        "retrom/internal/service/uploads.executionActive"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current job execution",
+          "reader_symbol": "(retrom/internal/repo/uploads.jobRecords).Get",
+          "reason": "Read ID,state,kind,scope type/id,worker,execution no,version,attempt,max attempts,deadline,lease,available time and exact snapshot input/digest for the current execution"
+        }
+      ],
+      "guards": [
+        {
+          "id": "execution-owner",
+          "fields": [
+            "job.execution_no",
+            "worker_id",
+            "attempt_count"
+          ],
+          "expected_source": "executionOwned requires exact prepared Run tuple",
+          "rejection": "ErrExecutionLost or stopped/no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "active-lease",
+          "fields": [
+            "job.state",
+            "execution_deadline_at_ms",
+            "leased_until_ms"
+          ],
+          "expected_source": "RUNNING, deadline>transaction decision time, lease>decision time",
+          "rejection": "context.DeadlineExceeded or ErrExecutionLost",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "cancel-requested",
+          "fields": [
+            "state"
+          ],
+          "expected_source": "owned CANCEL_REQUESTED cancels worker before renewal",
+          "rejection": "context.Canceled",
+          "test_id": "RFA-RF09-late_cancel"
+        },
+        {
+          "id": "renewal-interval",
+          "fields": [
+            "last renewal time",
+            "current time"
+          ],
+          "expected_source": "at least 15000ms since monitor's last refresh; shorter interval only observes",
+          "rejection": "read-only no-op",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "refresh-lease",
+          "repo_helper": "(retrom/internal/repo/uploads.leaseRecords).Refresh",
+          "affected_records": [
+            "jobs[id,execution_no,worker_id,attempt_count,state RUNNING,deadline>Now,lease>Now]: heartbeat_at_ms,leased_until_ms=min(Now+60s,run deadline),updated_at_ms,version+1"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "Every renewal must retain the exact live execution owner and not extend past original deadline.",
+      "after_commit": [],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; Monitor samples clock before WithWrite on each one-second ticker; renewal interval tracked locally. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "refresh-lease",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "uploads.requeue-finalization",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).claim",
+        "(*retrom/internal/service/uploads.Service).claimCurrent"
+      ],
+      "snapshot": "retrom/internal/model/uploads.Job",
+      "prepare": "(*retrom/internal/service/uploads.Service).claimCurrent",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current upload owner state",
+          "reader_symbol": "(retrom/internal/repo/uploads.sessionRecords).Current",
+          "reason": "Read ID,state,version,finalization_no,finalize_job_id and EXISTS any upload_consumptions in the transaction; released consumption rows still count"
+        },
+        {
+          "name": "current job execution",
+          "reader_symbol": "(retrom/internal/repo/uploads.jobRecords).Get",
+          "reason": "Read ID,state,kind,scope type/id,worker,execution no,version,attempt,max attempts,deadline,lease,available time and exact snapshot input/digest for the current execution"
+        }
+      ],
+      "guards": [
+        {
+          "id": "expired-worker",
+          "fields": [
+            "state",
+            "lease",
+            "deadline",
+            "attempt_count",
+            "max_attempts",
+            "version",
+            "execution_no"
+          ],
+          "expected_source": "RUNNING; current lease expired; deadline still future; attempt<max; matching current owner job and not consumed",
+          "rejection": "otherwise follow terminal/no-op claim path",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "requeue-job",
+          "repo_helper": "(retrom/internal/repo/uploads.leaseRecords).Requeue",
+          "affected_records": [
+            "jobs[id,execution_no,version,state=RUNNING]: state=QUEUED,worker_id=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL,available_at_ms=min(Now+1000ms,deadline),updated_at_ms,version+1"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "job-event",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).event",
+          "affected_records": [
+            "job_events: job_id,scope_type=UPLOAD_SESSION,scope_id,event_type,data_json,created_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "Optimistic job version update; one RETRY_SCHEDULED event in same transaction.",
+      "after_commit": [
+        {
+          "action": "(*retrom/internal/service/uploads.Service).Recover discovers queued job after available time or deadline.",
+          "recovery": "Durable job row persists if wake is lost.",
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; Service.now sampled inside claim callback. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "requeue-job",
+        "job-event",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "uploads.schedule-finalization",
+      "owner": "uploads",
+      "rf_id": "RF09",
+      "consumers": [
+        "(*retrom/internal/service/uploads.Service).Complete",
+        "(*retrom/internal/transport/httpapi.Server).completeUpload"
+      ],
+      "snapshot": "retrom/internal/model/uploads.SessionState",
+      "prepare": "(*retrom/internal/service/uploads.Service).Complete",
+      "commit": "(*retrom/internal/repo/uploads.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current upload owner state",
+          "reader_symbol": "(retrom/internal/repo/uploads.sessionRecords).Current",
+          "reason": "Read ID,state,version,finalization_no,finalize_job_id and EXISTS any upload_consumptions in the transaction; released consumption rows still count"
+        },
+        {
+          "name": "remaining frozen file manifest",
+          "reader_symbol": "(retrom/internal/repo/uploads.finalizationRecords).Manifest",
+          "reason": "Read non-COMPLETE files and their parts ordered by file ID/part number, including declared size, offsets, lengths,SHA256 and storage key"
+        }
+      ],
+      "guards": [
+        {
+          "id": "completion-version",
+          "fields": [
+            "version",
+            "state",
+            "consumed"
+          ],
+          "expected_source": "expected version; not consumed; CREATED/UPLOADING/FAILED",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF09-late_cancel"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "create-job",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).Create",
+          "affected_records": [
+            "jobs: id,scope_type=UPLOAD_SESSION,scope_id,kind=UPLOAD_FINALIZE,dedupe_key,execution_no=1,payload_json,cancellable=1,state=QUEUED,attempt_count=0,max_attempts=2,available_at_ms,created_at_ms,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "freeze-job-input",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).Create",
+          "affected_records": [
+            "job_input_snapshots: job_id,execution_no=1,input_json,input_digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "job-event",
+          "repo_helper": "(retrom/internal/repo/uploads.jobRecords).event",
+          "affected_records": [
+            "job_events: job_id,scope_type=UPLOAD_SESSION,scope_id,event_type,data_json,created_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "start-finalization-round",
+          "repo_helper": "(retrom/internal/repo/uploads.sessionRecords).BeginFinalization",
+          "affected_records": [
+            "upload_sessions[id,expected version]: state=FINALIZING,finalization_no,finalize_job_id,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        },
+        {
+          "stage": "mark-files-finalizing",
+          "repo_helper": "(retrom/internal/repo/uploads.fileRecords).MarkFinalizing",
+          "affected_records": [
+            "upload_files[upload_session_id,state != COMPLETE]: state=FINALIZING,updated_at_ms"
+          ],
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "idempotency": "New finalization round increments number and has dedupe digest SHA256(uploadID:round); stale version cannot schedule again.",
+      "after_commit": [
+        {
+          "action": "(*retrom/internal/service/uploads.Service).Resume schedules committed job.",
+          "recovery": "Recoverable reads durable job/session state and Start periodically resumes queued, expired-lease and cancelled jobs.",
+          "test_id": "RFA-RF09-finalize_fault"
+        }
+      ],
+      "time_rule": "Baseline BeginTx(ctx,nil) runs an upper callback; prepareFinalization including UUIDv7 job/execution IDs and JSON digests currently runs INSIDE the callback after reading manifest; Service.now supplies this time. RF05/RF09 must move the single technical-clock sample after write permission into Repo.",
+      "fault_points": [
+        "create-job",
+        "freeze-job-input",
+        "job-event",
+        "start-finalization-round",
+        "mark-files-finalizing",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF09-part_conflict",
+        "RFA-RF09-late_cancel",
+        "RFA-RF09-finalize_fault",
+        "RFA-RF09-input_limits"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No new CAS blob or protective CAS reference is published by this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
     }
   ],
   "pending": [
@@ -2608,6 +3925,11 @@
     "Identity records now cover 15 current actions, including implicit session refresh and rate-limit clear. Register separate per-operation fault tests before treating planned RF07 aggregate links as coverage.",
     "RF07 source review found administrator request authority is checked by HTTP before privileged account/link callbacks, while those callbacks re-read the target but not the actor/session. Reproduce expiration/revocation races and implement transaction-time actor checks.",
     "Account link issuance creates link/audit identities inside upper callbacks; move preparation and random effects out of transactions during RF04/RF07. Pure policy registry deliberately excludes bootstrapPlan, Authentication.verify, recheckReset and Limiter.record because these perform I/O or random work.",
-    "Snapshot entries are existing read definitions or Model input/view definitions when the baseline mutation has no independent snapshot read; the fresh_facts record states the actual conditional SQL behavior."
+    "Snapshot entries are existing read definitions or Model input/view definitions when the baseline mutation has no independent snapshot read; the fresh_facts record states the actual conditional SQL behavior.",
+    "Uploads now records 11 logical write paths, including lease renewal, requeue and cancellation reconciliation. Existing source reports grouped these under worker helpers; they require their own fault/ownership tests.",
+    "Upload file publication has no DigestCoordinator today; required lock symbols stay null. RF03/RF04/RF09 must preserve staged verified bytes and coordinate CAS publication/reference commit.",
+    "Upload intake creation/part timestamps and monitor renewal use pre-lock time; scheduling creates UUIDs/digests inside callback. These are migration targets, not approved exceptions.",
+    "Upload consumption insertion is an atomic child of RF11 firmware, RF13 library import/review/parent/disc and RF16 content/assets commits; it must not become a separate upload transaction.",
+    "Current validateFinalizationFiles accepts a remaining-file subset after partial success and uses reflect.DeepEqual. RF04/RF09 must replace reflection while preserving nil/empty and every field's equality semantics."
   ]
 }
