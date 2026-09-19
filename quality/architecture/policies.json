@@ -520,6 +520,1120 @@
       ]
     },
     {
+      "id": "emulationstationimport.BoundedWarnings",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.BoundedWarnings",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Materialization).Warning",
+        "retrom/internal/service/emulationstationimport.appendExecutionWarnings",
+        "retrom/internal/service/emulationstationimport.boundedWarnings"
+      ],
+      "invariant": "Retain the bounded first 64 warnings under the existing stable warning collection policy.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.ExecutionState",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.ExecutionState",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ExecutionControl).Observe",
+        "(*retrom/internal/service/emulationstationimport.ExecutionControl).closeCancelledScope",
+        "(*retrom/internal/service/emulationstationimport.ExecutionControl).failInScope",
+        "(*retrom/internal/service/emulationstationimport.Leases).Renew",
+        "(*retrom/internal/service/emulationstationimport.ScanPublication).withOwner",
+        "retrom/internal/service/emulationstationimport.validateCompanionExecution",
+        "retrom/internal/service/emulationstationimport.validateImportExecution"
+      ],
+      "invariant": "Full original immutable claim identity plus current bounded versions/state distinguishes cancellation, deadline, lost lease and active ownership; cancellation state precedes time checks.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.RecoveryDelayMS",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.RecoveryDelayMS",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.planExecutionFailure",
+        "retrom/internal/service/emulationstationimport.planRecovery"
+      ],
+      "invariant": "Retry delay by consumed attempt is 1s,5s,30s, then120s.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.ScanProjection.AddEstimated",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "(*retrom/internal/model/emulationstationimport.ScanProjection).AddEstimated",
+      "consumers": [
+        "(*retrom/internal/model/emulationstationimport.ScanProjection).CollectItem"
+      ],
+      "invariant": "Accumulate supplied byte sizes with a2TiB bound; negative size or sum beyond maximum sets EstimatedBytes to maximum+1 sentinel. Does not deduplicate file identities.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.ScanProjection.CollectItem",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "(*retrom/internal/model/emulationstationimport.ScanProjection).CollectItem",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.collectGame"
+      ],
+      "invariant": "Append the supplied scan item; count COVER/VIDEO warnings, add all source file sizes and DISCOVERED asset sizes, count discovered covers/videos. AddEstimated supplies overflow/limit sentinel.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.appendExecutionWarnings",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.appendExecutionWarnings",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ReviewHandoff).complete",
+        "retrom/internal/service/emulationstationimport.AppendReviewMetadataWarnings",
+        "retrom/internal/service/emulationstationimport.completeExecutionReviews"
+      ],
+      "invariant": "Merge normalization warnings without duplicate code/field, preserving existing source warnings and the bound of64.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.arcadeCompanionItem",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.arcadeCompanionItem",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Companions).Files",
+        "(*retrom/internal/service/emulationstationimport.Companions).load"
+      ],
+      "invariant": "Companion discovery applies only to arcade source items with one ZIP file and a frozen DAT.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.canCancel",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.canCancel",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.validateCancellation"
+      ],
+      "invariant": "Only the linked unstarted scan or queued/running import pair may be cancelled; queued closure and running cancellation request remain distinct.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.collectGame",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.collectGame",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectGamelist"
+      ],
+      "invariant": "Aggregate discovery issues, hidden/adult counts and extension counts from parsed game values before adding the projected item.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.discoveryState",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.discoveryState",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectGame"
+      ],
+      "invariant": "Empty diagnostic gives READY; MULTI_DISC_ prefix gives BLOCKED_CONTENT; every other code gives BLOCKED_SOURCE.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.executionFailure",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.executionFailure",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ExecutionDispatcher).Failed"
+      ],
+      "invariant": "Classify execution errors into source failure code/retryability while preserving explicit source-change/read/commit distinctions.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.extensionSummary",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.extensionSummary",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectGamelist"
+      ],
+      "invariant": "Count extensions deterministically, ordering descending count then extension; keep top32 and total the remainder.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.matchesCancellationJob",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.matchesCancellationJob",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.validateCancellation"
+      ],
+      "invariant": "Generic-job cancellation must preserve and match requested job ID/version/kind/scope against the current source plan; a plan ETag cannot replace the supplied job ETag.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.matchesReviewHandoff",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.matchesReviewHandoff",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ReviewHandoff).Complete"
+      ],
+      "invariant": "Exact source identity/version and reserved ordinary job/item must match; unbound source links allowed only while COPYING.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.multidiscCode",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.multidiscCode",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectContent"
+      ],
+      "invariant": "Preserve recognized playlist-invalid/reference-unsafe/CHD-invalid/limit-exceeded error codes; unknown error defaults playlist-invalid.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.parserErrorCode",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.parserErrorCode",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectGamelist"
+      ],
+      "invariant": "Map XML/gamelist parser errors to stable bounded diagnostic codes.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.planCompletion",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.planCompletion",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Completion).Finish"
+      ],
+      "invariant": "Complete only when all source items are terminal and counts are consistent; failed or blocked items yield PARTIAL_FAILURE, otherwise COMPLETED; retryability follows eligible failures.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.planExecutionFailure",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.planExecutionFailure",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ExecutionControl).failInScope"
+      ],
+      "invariant": "Derive failure or automatic queue from failure retryability, attempt budget, original deadline and terminal progress; timeout/attempt exhaustion are final, automatic retry requires zero terminal progress.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.planExecutionProjection",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.planExecutionProjection",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ExecutionControl).finishCancelledScope",
+        "retrom/internal/service/emulationstationimport.planExecutionFailure"
+      ],
+      "invariant": "Project execution job state into the correct scan/import aggregate state, terminal flags, phase and failure fields.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.planLease",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.planLease",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Leases).Claim"
+      ],
+      "invariant": "Claim only valid due queued scan/import; preserve existing execution start/deadline or create an eight-hour budget, increment attempt and cap lease at original deadline.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.planRecovery",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.planRecovery",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Recovery).recoverInScope"
+      ],
+      "invariant": "Recover only valid expired/exhausted authority; cancellation wins, then original deadline and attempt budget; running work can requeue with original execution budget, ineligible queued work conflicts.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.planRecoveryProjection",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.planRecoveryProjection",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.planRecovery"
+      ],
+      "invariant": "Project recovered job outcome into source plan phase/state/error/completion and whether unstarted scan projection is cleared.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.readyToStart",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.readyToStart",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Starter).Start",
+        "(*retrom/internal/service/emulationstationimport.Starter).queue"
+      ],
+      "invariant": "Start requires unexpired complete mapping, active tags, at least one imported collection, still-eligible frozen targets, no active competing execution and no existing import job.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.recoverableState",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.recoverableState",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.planRecovery"
+      ],
+      "invariant": "Only valid scan/import job and aggregate state pairings are recoverable.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.recoveryLeaseShape",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.recoveryLeaseShape",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.validRecoveryBudget"
+      ],
+      "invariant": "Running/cancel-requested recovery requires a worker and expired lease; queued budget exhaustion requires no worker/lease.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.referencedDiscPaths",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.referencedDiscPaths",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).scanDiscCandidates"
+      ],
+      "invariant": "Resolve supplied multidisc references by exact path first, then all matching ASCII-folded paths; return a deduplicated set of logical source paths without filesystem access.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.resolveGamelistPath",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.resolveGamelistPath",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectAsset",
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectContent"
+      ],
+      "invariant": "Resolve declared game/media path relative to the collection under the shared logical path validation policy.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.reviewPreparation",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.reviewPreparation",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ReviewHandoff).Complete",
+        "retrom/internal/service/emulationstationimport.ReviewPreparation",
+        "retrom/internal/service/emulationstationimport.completeExecutionReviews"
+      ],
+      "invariant": "Preserve the legal source state path into VALIDATING: PENDING->COPYING->VALIDATING; COPYING->VALIDATING; VALIDATING none; retryable source failures restart via PENDING.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.runningImportState",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.runningImportState",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.ExecutionState"
+      ],
+      "invariant": "Allowed running aggregate state depends on SCAN versus IMPORT job kind; unrelated kind/state cannot own source writes.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.sameCompanionItem",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.sameCompanionItem",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.sameCompanionOwner"
+      ],
+      "invariant": "Compare immutable source item identity, state/version, content/metadata/ordinary links and related files/tags for companion ownership.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.sameCompanionOwner",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.sameCompanionOwner",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Companions).Record"
+      ],
+      "invariant": "Commit companion only if source owner, item, files, tags, collection, mapping version and target still equal the prepared snapshot.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.sameCompanionTarget",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.sameCompanionTarget",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.sameCompanionOwner",
+        "retrom/internal/service/emulationstationimport.validateCompanionMapping"
+      ],
+      "invariant": "Frozen and current target instance/version/platform/default core/provider/target/DAT must all match.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.sameFrozenSource",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.sameFrozenSource",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Starter).queue",
+        "(*retrom/internal/service/emulationstationimport.WorkflowControl).queueRetry"
+      ],
+      "invariant": "Prepared and current root ID/path/config digest/source digest/year and ordered gamelist evidence must match exactly.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.sameMaterialSource",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.sameMaterialSource",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Materialization).source"
+      ],
+      "invariant": "Material identity compares source key, relative path, immutable facts, size and nullable MIME/dimensions exactly.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.sameRecoverySnapshot",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.sameRecoverySnapshot",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Recovery).recoverInScope"
+      ],
+      "invariant": "Fresh recovery candidate must exactly equal selected job/plan/frozen authority including nullable original start time.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.sameRetryExecution",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.sameRetryExecution",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.WorkflowControl).queueRetry"
+      ],
+      "invariant": "Reinspection must retain exact linked job ID/version/execution and mapping version before a manual retry.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.scanAssetFailure",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.scanAssetFailure",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectAsset"
+      ],
+      "invariant": "Project a known asset failure into persisted material state and source warning without writing or reading media.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.scanErrorCode",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.scanErrorCode",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ScanExecutor).Execute"
+      ],
+      "invariant": "Convert typed scan failures into stable public source error code without exposing host paths.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.scanMediaWarning",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.scanMediaWarning",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectAsset"
+      ],
+      "invariant": "Build stable source media warning fields and severity from supplied code/kind/path.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.selectCompanionFiles",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.selectCompanionFiles",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Companions).load"
+      ],
+      "invariant": "Choose deterministic ZIP candidate files matching the required DAT dependency machine set; exclude irrelevant candidates and preserve stable selection.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.snapshotDigest",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.snapshotDigest",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Scanner).Scan"
+      ],
+      "invariant": "Freeze ordered gamelist path/size/nullable content digest/facts/parse state in schema1 JSON and SHA256 so later source verification compares the same evidence.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.startState",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.startState",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Starter).Start",
+        "(*retrom/internal/service/emulationstationimport.Starter).queue"
+      ],
+      "invariant": "Validate expected version before replay; existing queued/running/completed/partial plan returns replay, while only bounded-version AWAITING_MAPPING may start.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validCompletionCounts",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validCompletionCounts",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.planCompletion"
+      ],
+      "invariant": "All counters are nonnegative, retryable failures do not exceed failures, overflow-safe terminal sum equals frozen expected game count.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validFrozenDigest",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validFrozenDigest",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.validFrozenEvidence"
+      ],
+      "invariant": "Source/gamelist content digest must have the accepted fixed lowercase SHA256 representation; invalid frozen evidence is rejected.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validFrozenEvidence",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validFrozenEvidence",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.verifyFrozenSource"
+      ],
+      "invariant": "Frozen source identity and every gamelist path, byte size, facts digest and content-digest/invalid-oversize exception must form valid verification input.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validItemOutcome",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validItemOutcome",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ItemWork).Finish"
+      ],
+      "invariant": "Failure/block outcomes require appropriate error and retryability; SKIPPED_EXISTING requires existing-game proof and matches with no failure or retryability.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validItemVersion",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validItemVersion",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Companions).load",
+        "(*retrom/internal/service/emulationstationimport.ItemWork).Next",
+        "(*retrom/internal/service/emulationstationimport.ItemWork).owned",
+        "(*retrom/internal/service/emulationstationimport.Materialization).source",
+        "retrom/internal/service/emulationstationimport.matchesReviewHandoff"
+      ],
+      "invariant": "Source item version must be positive and strictly below MaxInt64 before any increment.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validLeaseCandidate",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validLeaseCandidate",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.planLease"
+      ],
+      "invariant": "Lease candidate has bounded positive job/plan versions and execution, nonnegative attempt below maximum, and no overflow in the eight-hour budget.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validMappingBatch",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validMappingBatch",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Mappings).Update"
+      ],
+      "invariant": "A mapping request contains 1..100 unique nonempty collection IDs and explicit tag lists; SKIP cannot carry target/tags, IMPORT must name a target.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validMaterialWarning",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validMaterialWarning",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Materialization).Warning"
+      ],
+      "invariant": "Only COVER/VIDEO media failures and their allowed source/read/type-specific warning codes may be persisted.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validRecoveryBudget",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validRecoveryBudget",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.planRecovery"
+      ],
+      "invariant": "Recovery requires bounded positive versions/execution/attempt/budget and valid original start/deadline ordering.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validWorkflowVersion",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validWorkflowVersion",
+      "consumers": [
+        "retrom/internal/service/emulationstationimport.canCancel",
+        "retrom/internal/service/emulationstationimport.validateRetry"
+      ],
+      "invariant": "Plan/job versions and execution identifiers are positive and bounded before workflow mutation.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validateCancellation",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validateCancellation",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.WorkflowControl).cancel"
+      ],
+      "invariant": "For generic-job cancellation require original requested job identity/kind/scope and JobETag version before using current plan version; canCancel decides allowed workflow state. Reason normalization happens in the caller.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validateCompanionExecution",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validateCompanionExecution",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Companions).load"
+      ],
+      "invariant": "Companion inspection requires active original IMPORT authority, valid item version and COPYING state.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validateImportExecution",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validateImportExecution",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.Completion).Finish",
+        "(*retrom/internal/service/emulationstationimport.ItemWork).Next",
+        "(*retrom/internal/service/emulationstationimport.ItemWork).owned",
+        "(*retrom/internal/service/emulationstationimport.Materialization).SetPhase",
+        "(*retrom/internal/service/emulationstationimport.Materialization).source",
+        "(*retrom/internal/service/emulationstationimport.ReviewHandoff).Complete"
+      ],
+      "invariant": "Require IMPORT kind and active ExecutionState; deadline maps to ErrExpired while lost/cancelled authority maps to ErrVersionConflict.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.validateRetry",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.validateRetry",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.WorkflowControl).Retry",
+        "(*retrom/internal/service/emulationstationimport.WorkflowControl).queueRetry"
+      ],
+      "invariant": "Manual retry requires current expected version, linked failed/succeeded execution, failed/partial retryable source plan with eligible retryable items, current targets and no competing active import.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "emulationstationimport.workingItemState",
+      "owner": "emulationstationimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/emulationstationimport.workingItemState",
+      "consumers": [
+        "(*retrom/internal/service/emulationstationimport.ItemWork).Next"
+      ],
+      "invariant": "Only COPYING or VALIDATING can receive a terminal source-item outcome.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
       "id": "favorites.NormalizeFolderName",
       "owner": "favorites",
       "rf_id": "RF16",
@@ -637,6 +1751,155 @@
       "target_layer": "capability",
       "tests": [
         "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "files.NormalizeDeclaredPath",
+      "owner": "files",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/adapter/files/serversource.NormalizeDeclaredPath",
+      "consumers": [
+        "retrom/internal/adapter/files/serversource.ResolveDeclaredPath",
+        "retrom/internal/service/pegasusimport.automaticAssetCandidates"
+      ],
+      "invariant": "Normalize permitted source-declared path syntax into a validated logical path while rejecting invalid/unsafe declarations.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "files.ResolveDeclaredPath",
+      "owner": "files",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/adapter/files/serversource.ResolveDeclaredPath",
+      "consumers": [
+        "retrom/internal/service/pegasusimport.buildAssetCandidates",
+        "retrom/internal/service/pegasusimport.projectGameFiles"
+      ],
+      "invariant": "Resolve normalized declaration against validated logical parent without escaping the selected source tree.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "files.ValidateRelativePath",
+      "owner": "files",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/adapter/files/serversource.ValidateRelativePath",
+      "consumers": [
+        "(*retrom/internal/adapter/imports/emulationstationimport.Sources).Select",
+        "(*retrom/internal/adapter/imports/pegasusimport.Sources).validateCreateRequest",
+        "retrom/internal/adapter/files/serversource.ListRegularFiles",
+        "retrom/internal/adapter/files/serversource.NormalizeDeclaredPath",
+        "retrom/internal/adapter/files/serversource.OpenRelativeFile",
+        "retrom/internal/adapter/files/serversource.ResolveDeclaredPath",
+        "retrom/internal/service/emulationstationimport.resolveGamelistPath",
+        "retrom/internal/service/pegasusimport.automaticAssetCandidates",
+        "retrom/internal/service/serverimport.ValidateRelativePath"
+      ],
+      "invariant": "Accept empty root-relative path or valid UTF8 relative path at most4096 bytes; reject backslash,NUL,leading/trailing slash,Windows drive/UNC,empty/dot/dotdot/control segments and segments over255 bytes. URI checks belong NormalizeDeclaredPath.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "files.ValidateRootID",
+      "owner": "files",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/adapter/files/serversource.ValidateRootID",
+      "consumers": [
+        "(*retrom/internal/adapter/imports/emulationstationimport.Sources).Select",
+        "(*retrom/internal/adapter/imports/pegasusimport.Sources).validateCreateRequest",
+        "retrom/internal/service/serverimport.ValidateRootID"
+      ],
+      "invariant": "Public root IDs have length1..32, begin with lowercase a..z and continue only lowercase a..z,0..9 or hyphen.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "files.hasControl",
+      "owner": "files",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/adapter/files/serversource.hasControl",
+      "consumers": [
+        "(*retrom/internal/adapter/files/serversource.fileWalker).entry",
+        "retrom/internal/adapter/files/serversource.ListDirectories",
+        "retrom/internal/adapter/files/serversource.ListRegularFiles",
+        "retrom/internal/adapter/files/serversource.ValidateRelativePath"
+      ],
+      "invariant": "Identify prohibited control characters in source root IDs and logical paths.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "files.hasURIScheme",
+      "owner": "files",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/adapter/files/serversource.hasURIScheme",
+      "consumers": [
+        "retrom/internal/adapter/files/serversource.NormalizeDeclaredPath"
+      ],
+      "invariant": "Reject URI-style scheme prefixes in source declarations before path resolution.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "files.looksLikeWindowsPath",
+      "owner": "files",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/adapter/files/serversource.looksLikeWindowsPath",
+      "consumers": [
+        "retrom/internal/adapter/files/serversource.NormalizeDeclaredPath",
+        "retrom/internal/adapter/files/serversource.ValidateRelativePath"
+      ],
+      "invariant": "Detect Windows drive/UNC path syntax before accepting logical paths.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
       ]
     },
     {
@@ -7744,6 +9007,373 @@
       "tests": [
         "RFA-RF08-save_authority",
         "RFA-RF08-formats"
+      ]
+    },
+    {
+      "id": "serverimport.AutomaticRetryAt",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.AutomaticRetryAt",
+      "consumers": [
+        "retrom/internal/service/serverimport.retryExecution"
+      ],
+      "invariant": "Automatic retry requires no terminal item, attempt below maximum and future original deadline; delay must remain before deadline. Current addition lacks explicit overflow guard.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.CatalogItem.ApplyArchivePolicy",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "(retrom/internal/model/serverimport.CatalogItem).ApplyArchivePolicy",
+      "consumers": [
+        "retrom/internal/service/serverimport.restoreCandidate"
+      ],
+      "invariant": "STATIC archive-member mismatches force INVALID rather than warning/partial fallback; leave valid DAT evaluation unchanged.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.CatalogItem.IsArchive",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "(retrom/internal/model/serverimport.CatalogItem).IsArchive",
+      "consumers": [
+        "(retrom/internal/model/serverimport.CatalogItem).ValidateSource",
+        "retrom/internal/service/serverimport.discoveryGroup",
+        "retrom/internal/service/serverimport.restoreCandidate"
+      ],
+      "invariant": "DAT_MACHINE requirements and STATIC requirements with archive-member policy are evaluated as archives.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.CatalogItem.ValidateSource",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "(retrom/internal/model/serverimport.CatalogItem).ValidateSource",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Creation).freezeCatalog"
+      ],
+      "invariant": "Frozen BIOS requirements must use valid STATIC/DAT_MACHINE shape, hashes/sizes/archive-member JSON/DAT snapshot and logical source naming.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.DATStatusMethod",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.DATStatusMethod",
+      "consumers": [
+        "retrom/internal/service/serverimport.restoreCandidate"
+      ],
+      "invariant": "DAT missing entries take MISSING_ENTRY priority, mismatches yield HASH_WARNING, exact complete entry set yields MATCHED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.RankCandidates",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.RankCandidates",
+      "consumers": [
+        "retrom/internal/service/serverimport.discoveryGroup",
+        "retrom/internal/service/serverimport.rankCandidates"
+      ],
+      "invariant": "Deterministically rank eligible firmware candidates using static/DAT quality, exact name association, useful size/hash evidence and stable source path tie breakers.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.StaticStatusMethod",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.StaticStatusMethod",
+      "consumers": [
+        "retrom/internal/service/serverimport.restoreCandidate"
+      ],
+      "invariant": "Static exact hash yields MATCHED/EXACT_HASH; expected-size match yields HASH_WARNING/EXPECTED_SIZE_FALLBACK; remaining fallback is largest size warning.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.candidateIndex.associations",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "(retrom/internal/service/serverimport.candidateIndex).associations",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Service).startCandidateWalk"
+      ],
+      "invariant": "Associate exact/case-folded names before same-size renamed static hash candidates, excluding non-ZIP DAT paths and duplicate name-size associations.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.discoveryGroup",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.discoveryGroup",
+      "consumers": [
+        "retrom/internal/service/serverimport.discoveryPlan"
+      ],
+      "invariant": "Candidate belongs to requirement, ELIGIBLE has the required Static/DAT evaluation, and rank/selected/rejected evidence follows current deterministic ranking.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.discoveryPlan",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.discoveryPlan",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Discovery).Persist"
+      ],
+      "invariant": "Sort requirement groups; validate and project all candidate ranking/evidence/counts into immutable discovery command from supplied evaluated values.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.itemOutcome",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.itemOutcome",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Outcomes).CompleteItem"
+      ],
+      "invariant": "Build terminal source-item outcome from optional same-requirement evaluation; SOURCE_CHANGED overrides candidate state and preserves selected reason/details.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.markDuplicateBytes",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.markDuplicateBytes",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Service).executeDiscovery"
+      ],
+      "invariant": "After deterministic ranking, duplicate nonempty SHA256 values become DUPLICATE_BYTES, preserving the highest-ranked byte identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.movePending",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.movePending",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Outcomes).Cancel",
+        "(*retrom/internal/service/serverimport.Outcomes).Fail"
+      ],
+      "invariant": "Clone count map and move PENDING/EVALUATING counts into the requested terminal state without losing existing settled counts.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.newCandidateIndex",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.newCandidateIndex",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Service).discoverCandidates"
+      ],
+      "invariant": "Index case-folded logical filenames and hash-bearing static expected sizes; DAT machine associations remain ZIP-only.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.notSelectedReason",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.notSelectedReason",
+      "consumers": [
+        "retrom/internal/service/serverimport.discoveryGroup"
+      ],
+      "invariant": "Assign stable nonselection reason from candidate state and rank relative to the selected eligible candidate.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.rejectedArchiveOutcome",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.rejectedArchiveOutcome",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Service).installCandidate"
+      ],
+      "invariant": "Any invalid STATIC archive-member evaluation yields INVALID_ARCHIVE/BIOS_ARCHIVE_CONTENT_MISMATCH; otherwise unreadable candidates yield READ_FAILED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.restoreCandidate",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.restoreCandidate",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Recovery).Candidates"
+      ],
+      "invariant": "Reconstruct candidate value from persisted evidence, recompute Static/DAT status and archive policy, and reject ELIGIBLE evidence without matching evaluation.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.sameMetadata",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.sameMetadata",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Service).verifySelected"
+      ],
+      "invariant": "Reopened candidate must retain exact size, MD5,SHA1,SHA256 and CRC32 compared with original hashed evidence.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
+      ]
+    },
+    {
+      "id": "serverimport.terminalCounts",
+      "owner": "serverimport",
+      "rf_id": "RF14",
+      "symbol": "retrom/internal/service/serverimport.terminalCounts",
+      "consumers": [
+        "(*retrom/internal/service/serverimport.Outcomes).Cancel",
+        "(*retrom/internal/service/serverimport.Outcomes).Fail",
+        "(*retrom/internal/service/serverimport.Outcomes).Finish"
+      ],
+      "invariant": "Map IMPORTED_MATCHED/IMPORTED_WARNING/IMPORTED_MISSING_ENTRY,NOT_FOUND,SKIPPED_EXISTING,SKIPPED_NOT_BETTER,ALREADY_SAME_BYTES,CANCELLED into counters; Failed sums SOURCE_CHANGED,CATALOG_CHANGED,READ_FAILED,INVALID_ARCHIVE,COMMIT_FAILED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF14-source_roots",
+        "RFA-RF14-mapping_race",
+        "RFA-RF14-handoff_once",
+        "RFA-RF14-ownership_fault",
+        "RFA-RF14-source_e2e"
       ]
     },
     {
