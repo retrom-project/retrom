@@ -7,31 +7,62 @@ import (
 	"errors"
 	"fmt"
 
+	librarymodel "retrom/internal/model/libraryimport"
 	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
-	library "retrom/internal/repo/libraryimport"
+	libraryrepo "retrom/internal/repo/libraryimport"
 	"retrom/internal/repo/recordstore"
 )
 
 type ReviewHandoff struct{ database *sql.DB }
 
 func NewReviewHandoff(database *sql.DB) *ReviewHandoff { return &ReviewHandoff{database: database} }
-func (repository *ReviewHandoff) WithReviewHandoff(
+
+func (repository *ReviewHandoff) CommitReviewHandoff(
 	ctx context.Context,
-	work func(application.ReviewHandoffScope) error,
+	request application.ReviewHandoffRequest,
+	nowMS int64,
+	auditID, actorKind string,
+	actorUserID, actorLabel *string,
+	maximumYear int,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
+	err := dbexec.Immediate(ctx, repository.database, func(executor dbexec.Executor) error {
+		records := reviewHandoffRecords{executor}
+		before, err := records.CurrentReviewHandoff(ctx, request.ItemID)
+		if err != nil {
+			return fmt.Errorf("read Pegasus review handoff: %w", err)
+		}
+		if before.Identity != request || request.LibraryItemID == "" || request.LibraryJobID == "" {
+			return application.ErrVersionConflict
+		}
+		if before.State == "REVIEW_PENDING" {
+			return nil
+		}
+		if !application.CanCompleteReviewHandoff(before, nowMS) {
+			return application.ErrVersionConflict
+		}
+		input := librarymodel.MetadataSeedInput{
+			ItemID: request.LibraryItemID, Metadata: before.Metadata,
+			MaximumYear: maximumYear, NowMS: nowMS,
+			AuditID: auditID, ActorKind: actorKind,
+			ActorUserID: actorUserID, ActorLabel: actorLabel,
+		}
+		_, warnings, err := libraryrepo.SeedMetadata(ctx, executor, input)
+		if err != nil {
+			return fmt.Errorf("seed Pegasus review metadata: %w", err)
+		}
+		change := application.ReviewHandoffChange{
+			Before:   before,
+			Warnings: application.MergeReviewMetadataWarnings(before.Warnings, warnings),
+			NowMS:    nowMS,
+		}
+		if err := records.FinishReviewHandoff(ctx, change); err != nil {
+			return fmt.Errorf("save Pegasus review handoff: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("begin Pegasus review handoff: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	if err := work(
-		application.ReviewHandoffScope{Records: reviewHandoffRecords{tx}, Metadata: library.BindMetadata(tx)},
-	); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit Pegasus review handoff: %w", err)
+		return fmt.Errorf("complete Pegasus review handoff: %w", err)
 	}
 	return nil
 }

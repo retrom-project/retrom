@@ -17,10 +17,6 @@ type itemWorkFake struct {
 	failure   error
 }
 
-func (fake *itemWorkFake) WithItemWork(_ context.Context, work func(model.ItemWorkScope) error) error {
-	return work(model.ItemWorkScope{Read: fake, Write: fake, Payload: payloadItemScope(fake)})
-}
-
 func (fake *itemWorkFake) ClaimNextItem(_ context.Context, unit model.ExecutionIdentity, nowMS int64) (model.ClaimNextItemResult, error) {
 	if fake.failure != nil {
 		return model.ClaimNextItemResult{}, fake.failure

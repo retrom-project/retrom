@@ -20,72 +20,87 @@ func itemWorkDatabase(t *testing.T) *sql.DB {
 	return db
 }
 
-func TestItemWorkRejectsStaleExecutionAndSourceCAS(t *testing.T) {
+func validItemIdentity() pegasusimportmodel.ExecutionIdentity {
+	return pegasusimportmodel.ExecutionIdentity{
+		JobID: "work", ImportID: "import-0", WorkerID: "old-worker", ExecutionNo: 1, Attempt: 1,
+	}
+}
+
+func TestItemWorkRejectsStaleIdentity(t *testing.T) {
 	t.Parallel()
 	for _, operation := range []string{"claim", "finish"} {
 		t.Run(operation, func(t *testing.T) {
-			for _, field := range []string{"job version", "parent version", "execution", "attempt", "worker", "lease", "deadline", "parent state", "item version", "item owner"} {
-				t.Run(field, func(t *testing.T) { assertItemWorkFence(t, operation, field) })
+			for _, field := range []string{"worker", "execution", "attempt"} {
+				t.Run(field, func(t *testing.T) {
+					db := itemWorkDatabase(t)
+					if operation == "claim" {
+						if _, err := db.ExecContext(t.Context(), `UPDATE pegasus_import_items SET execution_state='PENDING' WHERE id='item-0'`); err != nil {
+							t.Fatal(err)
+						}
+					}
+					before := workflowRows(t, db)
+					identity := validItemIdentity()
+					switch field {
+					case "worker":
+						identity.WorkerID = "other-worker"
+					case "execution":
+						identity.ExecutionNo = 999
+					case "attempt":
+						identity.Attempt = 999
+					}
+					repo := NewItemWork(db)
+					var err error
+					if operation == "claim" {
+						_, err = repo.ClaimNextItem(t.Context(), identity, 10)
+					} else {
+						err = repo.CommitItemFinish(t.Context(), identity, "item-0",
+							pegasusimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"}, 10)
+					}
+					if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
+						t.Fatalf("%s %s error=%v", operation, field, err)
+					}
+					if !reflect.DeepEqual(before, workflowRows(t, db)) {
+						t.Fatalf("%s %s changed rows", operation, field)
+					}
+				})
 			}
 		})
 	}
 }
 
-func assertItemWorkFence(t *testing.T, operation, field string) {
-	t.Helper()
+func TestItemWorkRejectsExpiredLease(t *testing.T) {
+	t.Parallel()
 	db := itemWorkDatabase(t)
-	if operation == "claim" {
-		if _, err := db.ExecContext(t.Context(), `UPDATE pegasus_import_items SET execution_state='PENDING' WHERE id='item-0'`); err != nil {
-			t.Fatal(err)
-		}
+	if _, err := db.ExecContext(t.Context(), `UPDATE jobs SET leased_until_ms=1 WHERE id='work'`); err != nil {
+		t.Fatal(err)
 	}
 	before := workflowRows(t, db)
-	err := NewItemWork(db).WithItemWork(t.Context(), func(scope pegasusimportmodel.ItemWorkScope) error {
-		owned, err := scope.Read.Current(t.Context(), "item-0")
-		if err != nil {
-			return err
-		}
-		switch field {
-		case "item version":
-			owned.Item.Version++
-		case "item owner":
-			owned.Item.ImportID = "foreign"
-		default:
-			invalidateRecovery(&owned.Execution, field)
-		}
-		if operation == "claim" {
-			return scope.Write.Claim(t.Context(), pegasusimportmodel.ItemClaim{Before: owned, NowMS: 10})
-		}
-		return scope.Write.Finish(t.Context(), pegasusimportmodel.ItemFinish{Before: owned, Outcome: pegasusimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"}, NowMS: 10})
-	})
+	identity := validItemIdentity()
+	err := NewItemWork(db).CommitItemFinish(t.Context(), identity, "item-0",
+		pegasusimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"}, 10)
 	if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
-		t.Fatalf("%s %s error=%v", operation, field, err)
+		t.Fatalf("expired lease error=%v", err)
 	}
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {
-		t.Fatalf("%s %s changed rows", operation, field)
+		t.Fatal("expired lease changed rows")
 	}
 }
 
-func TestItemWorkFinishRollsBackStateCountsReleaseAndEvent(t *testing.T) {
+func TestItemWorkRejectsExpiredDeadline(t *testing.T) {
 	t.Parallel()
 	db := itemWorkDatabase(t)
+	if _, err := db.ExecContext(t.Context(), `UPDATE jobs SET execution_deadline_at_ms=1 WHERE id='work'`); err != nil {
+		t.Fatal(err)
+	}
 	before := workflowRows(t, db)
-	cause := errors.New("late item failure")
-	err := NewItemWork(db).WithItemWork(t.Context(), func(scope pegasusimportmodel.ItemWorkScope) error {
-		owned, err := scope.Read.Current(t.Context(), "item-0")
-		if err != nil {
-			return err
-		}
-		if err := scope.Write.Finish(t.Context(), pegasusimportmodel.ItemFinish{Before: owned, Outcome: pegasusimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"}, NowMS: 10}); err != nil {
-			return err
-		}
-		return cause
-	})
-	if !errors.Is(err, cause) {
-		t.Fatalf("finish error=%v", err)
+	identity := validItemIdentity()
+	err := NewItemWork(db).CommitItemFinish(t.Context(), identity, "item-0",
+		pegasusimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"}, 10)
+	if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
+		t.Fatalf("expired deadline error=%v", err)
 	}
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {
-		t.Fatal("failed item completion left partial state/release/counts/event")
+		t.Fatal("expired deadline changed rows")
 	}
 }
 

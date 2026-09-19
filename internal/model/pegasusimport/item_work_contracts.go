@@ -82,7 +82,6 @@ type ClaimNextItemResult struct {
 }
 
 type ItemWorkRepository interface {
-	WithItemWork(context.Context, func(ItemWorkScope) error) error
 	ClaimNextItem(ctx context.Context, unit ExecutionIdentity, nowMS int64) (ClaimNextItemResult, error)
 	CommitItemResume(ctx context.Context, unit ExecutionIdentity, itemID, jobID, ordinaryID string, nowMS int64) error
 	CommitItemFinish(ctx context.Context, unit ExecutionIdentity, itemID string, outcome ItemOutcome, nowMS int64) error

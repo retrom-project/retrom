@@ -23,7 +23,8 @@ type ReviewHandoffScope struct {
 }
 
 type ReviewHandoffRepository interface {
-	WithReviewHandoff(context.Context, func(ReviewHandoffScope) error) error
+	CommitReviewHandoff(ctx context.Context, request ReviewHandoffRequest, nowMS int64,
+		auditID, actorKind string, actorUserID, actorLabel *string) error
 }
 
 type ReviewMetadataSeeder interface {
