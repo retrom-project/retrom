@@ -44,6 +44,7 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 			return BoundaryReport{}, err
 		}
 		nextPorts, nextViolations := inspectPortGraph(root, graph, registry)
+		labelArchiveBuild(nextPorts, build)
 		ports = append(ports, nextPorts...)
 		nextFunctions := inspectFunctionGraph(root, graph, registry)
 		functions = append(functions, nextFunctions...)
@@ -82,6 +83,7 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 			"source ownership", "compatibility inputs", "layer dependencies", "model port value graphs",
 			"resolved execution graph", "known I/O and SQL execution effects", "resolved Model reexports and consumers",
 			"Model port implementations and consumers across all production layers",
+			"fixed archive resource signatures and bounded production binding origins",
 		},
 		Pending: pendingBoundaryChecks(), Ports: ports, Functions: functions, Reexports: reexports, Violations: violations,
 	}, nil

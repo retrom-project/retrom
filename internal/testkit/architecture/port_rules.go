@@ -12,17 +12,18 @@ import (
 // PortInventory connects a Model interface to its compatible production implementations.
 // Structural compatibility is conservative; it does not claim a runtime binding exists.
 type PortInventory struct {
-	Symbol                string         `json:"symbol"`
-	File                  string         `json:"file"`
-	Line                  int            `json:"line"`
-	Module                string         `json:"module"`
-	Owner                 string         `json:"owner"`
-	Signature             string         `json:"signature"`
-	Repositories          []string       `json:"repositories"`
-	RepositoryMethods     []string       `json:"repositoryMethods"`
-	Implementations       []string       `json:"implementations"`
-	ImplementationMethods []string       `json:"implementationMethods"`
-	Consumers             []PortConsumer `json:"consumers"`
+	Symbol                string                 `json:"symbol"`
+	File                  string                 `json:"file"`
+	Line                  int                    `json:"line"`
+	Module                string                 `json:"module"`
+	Owner                 string                 `json:"owner"`
+	Signature             string                 `json:"signature"`
+	Repositories          []string               `json:"repositories"`
+	RepositoryMethods     []string               `json:"repositoryMethods"`
+	Implementations       []string               `json:"implementations"`
+	ImplementationMethods []string               `json:"implementationMethods"`
+	Consumers             []PortConsumer         `json:"consumers"`
+	ArchiveResources      []ArchiveResourceProof `json:"archiveResources,omitempty"`
 }
 
 type ownedType struct {
@@ -38,6 +39,7 @@ func inspectPortGraph(
 		owners[owner.Path] = owner
 	}
 	implementations := collectPortTypes(root, graph, owners)
+	archives := &archiveResourceAnalysis{contract: newArchiveContract(root, graph, owners)}
 	repositories := make([]ownedType, 0)
 	for _, candidate := range implementations {
 		if candidate.layer == "repo" {
@@ -50,7 +52,7 @@ func inspectPortGraph(
 		if pkg.ID != pkg.PkgPath {
 			continue
 		}
-		nextPorts, nextViolations := inspectModelPorts(root, pkg, owners, repositories, implementations)
+		nextPorts, nextViolations := inspectModelPorts(root, pkg, owners, repositories, implementations, archives)
 		ports = append(ports, nextPorts...)
 		violations = append(violations, nextViolations...)
 	}
@@ -91,6 +93,7 @@ func collectPortTypes(
 
 func inspectModelPorts(
 	root string, pkg *packages.Package, owners map[string]PackageOwnership, repositories, implementations []ownedType,
+	archives *archiveResourceAnalysis,
 ) ([]PortInventory, []Violation) {
 	ports := make([]PortInventory, 0)
 	violations := make([]Violation, 0)
@@ -121,8 +124,8 @@ func inspectModelPorts(
 				RepositoryMethods:     repositoryMethodDefinitions(port, method, repositories),
 				Consumers:             []PortConsumer{},
 			}
+			violations = append(violations, inspectPortMethod(&record, method, len(repositoryTypes) > 0, archives)...)
 			ports = append(ports, record)
-			violations = append(violations, inspectPortMethod(record, method, len(repositoryTypes) > 0)...)
 		}
 	}
 	return ports, violations
@@ -143,26 +146,43 @@ func repositoryImplementations(port *types.Interface, repositories []ownedType) 
 	return slices.Compact(implementations)
 }
 
-func inspectPortMethod(record PortInventory, method *types.Func, repository bool) []Violation {
+func inspectPortMethod(
+	record *PortInventory, method *types.Func, repository bool, archives *archiveResourceAnalysis,
+) []Violation {
 	signature, ok := method.Type().(*types.Signature)
 	if !ok {
-		return []Violation{portViolation(record, TypeIssue{Kind: "unresolved method", Path: []string{record.Symbol}}, "AR03")}
+		issue := TypeIssue{Kind: "unresolved method", Path: []string{record.Symbol}}
+		return []Violation{portViolation(*record, issue, "AR03")}
 	}
-	violations := inspectPortTuple(record, signature.Params(), true, repository)
-	return append(violations, inspectPortTuple(record, signature.Results(), false, repository)...)
+	violations := inspectPortTuple(record, method, signature.Params(), true, repository, archives)
+	return append(violations, inspectPortTuple(record, method, signature.Results(), false, repository, archives)...)
 }
 
-func inspectPortTuple(record PortInventory, tuple *types.Tuple, input, repository bool) []Violation {
+func inspectPortTuple(
+	record *PortInventory, method *types.Func, tuple *types.Tuple, input, repository bool,
+	archives *archiveResourceAnalysis,
+) []Violation {
 	violations := make([]Violation, 0)
 	for index := range tuple.Len() {
 		value := tuple.At(index).Type()
 		if allowedPortPosition(value, index, input, repository) {
 			continue
 		}
+		if !input && !repository && archiveReaderCandidate(value) {
+			proof := archives.proveResult(method, tuple, index)
+			record.ArchiveResources = append(record.ArchiveResources, proof)
+			if proof.Status != "PROVEN" {
+				violations = append(violations, portViolation(*record, TypeIssue{
+					Kind: "unproven archive resource: " + proof.Reason,
+					Path: []string{proof.Resource, proof.Status},
+				}, "AR03"))
+			}
+			continue
+		}
 		for _, issue := range InspectValueType(value) {
-			violations = append(violations, portViolation(record, issue, "AR03"))
+			violations = append(violations, portViolation(*record, issue, "AR03"))
 			if repository && slices.Contains([]string{"executable callback", "capability interface"}, issue.Kind) {
-				violations = append(violations, portViolation(record, issue, "AR04"))
+				violations = append(violations, portViolation(*record, issue, "AR04"))
 			}
 		}
 	}

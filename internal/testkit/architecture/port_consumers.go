@@ -79,6 +79,7 @@ func mergePortBuilds(ports []PortInventory) []PortInventory {
 		target.RepositoryMethods = mergePortStrings(target.RepositoryMethods, port.RepositoryMethods)
 		target.Implementations = mergePortStrings(target.Implementations, port.Implementations)
 		target.ImplementationMethods = mergePortStrings(target.ImplementationMethods, port.ImplementationMethods)
+		target.ArchiveResources = append(target.ArchiveResources, port.ArchiveResources...)
 	}
 	return result
 }

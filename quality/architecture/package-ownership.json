@@ -11893,6 +11893,62 @@
       "owner": "RF21",
       "files": [
         {
+          "path": "internal/testkit/architecture/archive_resource_binding.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_binding_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_constructor_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_contract.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_contract_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_effects.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_evidence_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_fixture_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_graph.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_injection.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_origin.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_positions.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_rejection_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_technical_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/testkit/architecture/baseline.go",
           "kind": "tool"
         },

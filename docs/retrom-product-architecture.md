@@ -90,6 +90,10 @@ ONS、Butterscotch、NXEngine 的文件选择、格式判断和 Profile 编码�
 
 ZIP 目录校验和 Electron ASAR 布局校验消费封闭 header、路径和原目录 ordinal 事实；ASAR 成员值不再保存 `zip.File`。现有归档资源拥有者负责将 SDK 信息转换为事实并按 ordinal 读取内容，packed ASAR 的尾部校验仍先于 unpacked 内容读取。64 项旧 Go 对照固定目录校验顺序、CRC、取消、消费顺序、worker wire 和返回错误；归档 I/O 与业务消费闭包的后续会话迁移仍待完成。
 
+归档流的固定资源合同采用一个由调用 Service 独占的 Reader：仅有 `Next() (ArchiveMemberHeader, error)`、`Read([]byte) (int, error)`、`Complete(ArchiveContent) (ArchiveEntry, error)` 和 `Close() error` 四个方法。Next 的终端 EOF 必须晚于整体 CRC、尾部以及 worker 退出校验；当前成员完成前不允许跳到下一项，Close 幂等释放资源。CAS 同步借用 Reader，Service 在 Complete 前登记暂存内容的清理责任；业务消费错误保留在 Service，不通过 Abort(error) 或回调送入 Adapter。ASAR unpacked 的主错误、成员关闭错误和格式错误组合顺序保持原实现。ArchiveMemberHeader 只有既有 ArchiveEntry 和 Unpacked 两个封闭字段，ArchiveContent 与 ArchiveEntry 继续使用唯一格式事实定义。
+
+这一类别仅可出现在非 Repo 获取端口的直接结果；不得进入 Command、Plan、Snapshot、容器或其他纯值图。门禁需同时验证准确方法和事实字段、无泛型/变参/嵌入/额外业务方法、真实 Adapter 返回来源、Bootstrap 注入及 Service 获取调用；未知来源、只有结构兼容或未使用工厂均不构成有效绑定。Repo 资源和业务回调仍禁止。此有限合同不扩大递归纯值规则；实际资源实现与绑定完成前保持未验证，静态来源检查也不能代替状态机、取消和关闭竞争测试。旧归档 golden 保持冻结；移除 callback API 时，三个 nil-consumer 场景明确记录为 API_REMOVED，其余实际行为继续逐项对照。
+
 Provider manifest、Target/Input/Checkpoint、安装声明及 Launch 输入同样由 `model/runtimecontract` 唯一定义。跨层 schema 和可变 JSON 内容使用 `json.RawMessage` 等封闭字节值；严格 JSON 与 schema dialect 的单一解析闭包位于 `capability/runtime/runtimejson`。解析/组装边界保持原有规范字节、整数精度、nil/empty 和错误阶段，固定旧 Go 输出验证协议兼容。
 
 GameContent、LibraryImport 和 Netplay 的 BIOS 读取依赖消费方 Model 中的窄 facts 接口。事务内直接使用原 scope 绑定的 Repository reader，取得事实后调用唯一的 `model/corevalidation` 规则；输入身份先校验，读取失败保留原原因与前缀。该接线不新开事务或替换为全局 reader，后续原子提交迁移仍需保持相同的新鲜度。
