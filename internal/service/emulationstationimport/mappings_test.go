@@ -22,7 +22,7 @@ type mappingMemory struct {
 	advance                                      *model.MappingAdvance
 	commits                                      int
 	gameCount                                    int64
-	ownerErr, targetErr, advanceErr, responseErr error
+	ownerErr, advanceErr, responseErr            error
 	reads                                        int
 }
 
@@ -35,16 +35,17 @@ func (m *mappingMemory) LoadMappingCollection(_ context.Context, _ string) (mode
 	return model.MappingCollection{ImportID: m.owner, GameCount: m.gameCount}, m.ownerErr
 }
 
-func (m *mappingMemory) LoadEligibleTarget(_ context.Context, _ string) (model.MappingTarget, bool, error) {
-	if m.target == nil {
-		return model.MappingTarget{}, false, m.targetErr
-	}
-	return *m.target, true, m.targetErr
-}
-
 func (m *mappingMemory) CommitMappingBatch(ctx context.Context, batch model.MappingBatch) (model.Summary, error) {
 	m.commits++
 	for _, entry := range batch.Entries {
+		if entry.Change.Mapping.Action == "IMPORT" && m.target == nil {
+			return model.Summary{}, model.ErrInvalid
+		}
+	}
+	for _, entry := range batch.Entries {
+		if entry.Change.Mapping.Action == "IMPORT" {
+			entry.Change.Target = m.target
+		}
 		_, references, err := m.tags.ReplaceOwnerReferences(ctx, entry.Owner, entry.TagIDs, entry.ActorID, entry.Change.NowMS)
 		if errors.Is(err, tagging.ErrInvalid) {
 			return model.Summary{}, fmt.Errorf("%w: %w", model.ErrInvalid, err)

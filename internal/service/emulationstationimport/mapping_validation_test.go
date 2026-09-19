@@ -13,7 +13,7 @@ import (
 
 func TestMappingsPreserveEveryPortFailureWithoutPartialResponse(t *testing.T) {
 	t.Parallel()
-	for _, phase := range []string{"collection", "target", "advance", "response"} {
+	for _, phase := range []string{"collection", "advance", "response"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
 			m, _ := mappingFixture()
@@ -21,8 +21,6 @@ func TestMappingsPreserveEveryPortFailureWithoutPartialResponse(t *testing.T) {
 			switch phase {
 			case "collection":
 				m.ownerErr = cause
-			case "target":
-				m.targetErr = cause
 			case "advance":
 				m.advanceErr = cause
 			case "response":

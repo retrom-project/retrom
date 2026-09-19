@@ -31,16 +31,15 @@ func (m *mappingMemory) LoadCollectionOwner(_ context.Context, _ string) (string
 	return m.owner, m.readErr
 }
 
-func (m *mappingMemory) LoadEligibleTarget(_ context.Context, _ string) (model.MappingTarget, bool, error) {
-	if m.target == nil {
-		return model.MappingTarget{}, false, m.readErr
-	}
-	return *m.target, true, m.readErr
-}
-
 func (m *mappingMemory) CommitMappingBatch(ctx context.Context, batch model.MappingBatch) (model.Summary, error) {
 	m.commits++
 	for _, entry := range batch.Entries {
+		if entry.Change.Mapping.Action == "IMPORT" {
+			if m.target == nil {
+				return model.Summary{}, model.ErrInvalid
+			}
+			entry.Change.Target = m.target
+		}
 		_, references, err := m.tags.ReplaceOwnerReferences(ctx, entry.Owner, entry.TagIDs, entry.ActorID, entry.Change.NowMS)
 		if errors.Is(err, tagging.ErrInvalid) {
 			return model.Summary{}, fmt.Errorf("%w: %w", model.ErrInvalid, err)
