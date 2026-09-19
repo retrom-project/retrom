@@ -22,6 +22,11 @@ func (memory *multidiscAdmissionMemory) WithAttachmentAdmission(_ context.Contex
 	return work(model.MultiDiscAttachmentScope{})
 }
 
+func (memory *multidiscAdmissionMemory) CommitAttachmentAdmission(_ context.Context, _ model.AttachmentAdmissionCommand) (model.MultiDiscAttachmentCreated, error) {
+	memory.writes++
+	return model.MultiDiscAttachmentCreated{State: "QUEUED"}, nil
+}
+
 func TestMultiDiscAdmissionRejectsInvalidVersionBeforeTransaction(t *testing.T) {
 	memory := &multidiscAdmissionMemory{}
 	service := NewMultiDiscAttachments(memory, MultiDiscAttachmentOptions{Now: time.Now, StorageAvailable: true})

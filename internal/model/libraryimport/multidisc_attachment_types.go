@@ -124,6 +124,19 @@ type MultiDiscAttachmentScope struct {
 	Queue  MultiDiscAttachmentQueue
 	Review MultiDiscAttachmentReview
 }
+type AttachmentAdmissionCommand struct {
+	ItemID           string
+	ExpectedVersion  int64
+	UploadID         string
+	ActorUserID      string
+	StorageAvailable bool
+	NowMS            int64
+	AttachmentID     string
+	JobID            string
+	AuditID          string
+}
+
 type MultiDiscAttachmentRepository interface {
 	WithAttachmentAdmission(context.Context, func(MultiDiscAttachmentScope) error) error
+	CommitAttachmentAdmission(context.Context, AttachmentAdmissionCommand) (MultiDiscAttachmentCreated, error)
 }
