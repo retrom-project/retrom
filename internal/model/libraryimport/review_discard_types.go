@@ -86,7 +86,6 @@ type ReviewActor struct {
 }
 
 type ReviewDiscardRepository interface {
-	WithDiscard(context.Context, func(ReviewDiscardScope) error) error
 	CommitDiscard(context.Context, DiscardCommand) (ReviewDecisionResult, error)
 }
 

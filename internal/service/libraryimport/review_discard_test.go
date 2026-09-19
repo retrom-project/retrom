@@ -28,14 +28,6 @@ type discardFixture struct {
 	transactions                                     int
 }
 
-func (fixture *discardFixture) WithDiscard(_ context.Context, work func(model.ReviewDiscardScope) error) error {
-	fixture.transactions++
-	if err := work(model.ReviewDiscardScope{Reader: fixture, Tags: fixture, Writer: fixture, Payload: fixture.releaseScope()}); err != nil {
-		return err
-	}
-	return fixture.commitError
-}
-
 func (fixture *discardFixture) CommitDiscard(_ context.Context, cmd model.DiscardCommand) (model.ReviewDecisionResult, error) {
 	fixture.transactions++
 	snapshot, found, snapshotErr := fixture.snapshot, fixture.snapshot.DraftID != "", fixture.snapshotError

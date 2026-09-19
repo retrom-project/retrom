@@ -2,14 +2,19 @@ package libraryimport
 
 import "context"
 
-type ReviewDeduplicateRepository interface {
-	WithDeduplicate(context.Context, func(ReviewDeduplicateScope) error) error
+type DeduplicateCommand struct {
+	Request    ReviewDeduplicateRequest
+	Discards   []DeduplicateDiscardSlot
+	NowMS      int64
+	Actor      ReviewActor
 }
 
-type ReviewDeduplicateScope struct {
-	Reader     ReviewDeduplicateReader
-	Duplicates ContentDuplicateReader
-	Discard    ReviewDiscardScope
+type DeduplicateDiscardSlot struct {
+	EventID string
+}
+
+type ReviewDeduplicateRepository interface {
+	CommitDeduplicate(context.Context, DeduplicateCommand) (ReviewDeduplicateResult, error)
 }
 
 type ReviewDeduplicateReader interface {
