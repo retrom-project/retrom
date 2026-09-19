@@ -3163,6 +3163,251 @@
       ]
     },
     {
+      "id": "libraryimport.multidisc.legacy.buildMultiDiscAttachmentManifest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/adapter/integration/libraryimport.Service).buildMultiDiscAttachmentManifest",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).validateMultiDiscAttachmentContents"
+      ],
+      "invariant": "Build deterministic playlist+ordinaldisc sourcefiles andMULTI_DISC manifest withoutI/O; extractreceiver.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.legacy.missingMultiDiscEntries",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.missingMultiDiscEntries",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).readAttachedMultiDiscBase"
+      ],
+      "invariant": "Retainmissingentries inoriginalorder.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.legacy.multiDiscEntriesPresent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.multiDiscEntriesPresent",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).validateMultiDiscAttachmentContents"
+      ],
+      "invariant": "Reject anynonPRESENT parserresult.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.legacy.validateMultiDiscAttachmentSet",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.validateMultiDiscAttachmentSet",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).validateMultiDiscAttachmentContents"
+      ],
+      "invariant": "Uploadedbasenames casefoldunique andexactly match expected missingdisc names/count.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.model.ValidMultiDiscAttachmentInput",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/model/libraryimport.ValidMultiDiscAttachmentInput",
+      "consumers": [
+        "retrom/internal/repo/libraryimport.readMultiDiscAttachmentInput",
+        "retrom/internal/service/libraryimport.validMultiDiscAttachmentCommitRequest"
+      ],
+      "invariant": "Schema/actor/provider/target/count/byte/policydigest shape; baseline doesnotvalidate everyremaining identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.repo.matches",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(retrom/internal/repo/libraryimport.multiDiscAttachmentRecord).matches",
+      "consumers": [
+        "retrom/internal/repo/libraryimport.loadMultiDiscAttachmentClaim"
+      ],
+      "invariant": "RUNNING attachment fields exactly matchfrozeninput ID/item/draft/actor/base/upload/missing-set.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.repo.multiDiscAttachmentDurationMS",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/repo/libraryimport.multiDiscAttachmentDurationMS",
+      "consumers": [
+        "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).TryRetry",
+        "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).CommitAccepted",
+        "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).recordAcceptedJobEvents"
+      ],
+      "invariant": "Clamp durationto0 fornonpositive start ornow<=start; baseline duplicateService/Repo rule.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.repo.multiDiscAttachmentRetryDelay",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/repo/libraryimport.multiDiscAttachmentRetryDelay",
+      "consumers": [
+        "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).TryRetry"
+      ],
+      "invariant": "Exponentialretry250ms doublingto4seconds byattempt; moveRepo businessrule toModel.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.service.encodeMultiDiscAdmission",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.encodeMultiDiscAdmission",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachments).Create"
+      ],
+      "invariant": "Canonical frozeninputJSON and SHA/dedupe identity from item/base/missing-set/upload; schema2audit.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.service.hasMissingDiscs",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.hasMissingDiscs",
+      "consumers": [
+        "retrom/internal/service/libraryimport.prepareMultiDiscInput"
+      ],
+      "invariant": "Atleastone missing disc required forattachmentadmission.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.service.multiDiscAttachmentDurationMS",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.multiDiscAttachmentDurationMS",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).FinishCancellation",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Reject",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Retry"
+      ],
+      "invariant": "Clamp durationto0 fornonpositive start ornow<=start; baseline duplicateService/Repo rule.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.service.validMultiDiscAttachmentCommitRequest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validMultiDiscAttachmentCommitRequest",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentCommits).CommitAccepted"
+      ],
+      "invariant": "Requirepartialvalidinput,job/worker,source/result/count/manifest/canonicalplaylistshape.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.service.validMultiDiscAttachmentTarget",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validMultiDiscAttachmentTarget",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).FinishCancellation",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Reject",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Retry"
+      ],
+      "invariant": "Requireattachment/item/job/worker identities.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.multidisc.service.validateMultiDiscAdmission",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validateMultiDiscAdmission",
+      "consumers": [
+        "retrom/internal/service/libraryimport.prepareMultiDiscInput"
+      ],
+      "invariant": "Exactreviewversion/pending and currentBLOCKED missing-disc validation core/provider/target.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
       "id": "libraryimport.normalizeCreationOptions",
       "owner": "libraryimport",
       "rf_id": "RF13",

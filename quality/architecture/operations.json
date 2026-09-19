@@ -8467,6 +8467,305 @@
       }
     },
     {
+      "operation_id": "libraryimport.accept-multidisc-attachment",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeMultiDiscAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).commitAcceptedMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRetryableMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).scheduleMultiDiscAttachmentRun",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentCommits).CommitAccepted",
+        "(*retrom/internal/transport/httpapi.Server).createReviewMultiDiscAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MultiDiscAttachmentCommitRequest",
+      "prepare": "(*retrom/internal/service/libraryimport.MultiDiscAttachmentCommits).CommitAccepted",
+      "commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).WithCommit",
+      "policy_symbols": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).buildMultiDiscAttachmentManifest",
+        "retrom/internal/adapter/integration/libraryimport.missingMultiDiscEntries",
+        "retrom/internal/adapter/integration/libraryimport.multiDiscEntriesPresent",
+        "retrom/internal/adapter/integration/libraryimport.validateMultiDiscAttachmentSet",
+        "retrom/internal/model/libraryimport.PrepublishDigest",
+        "retrom/internal/model/libraryimport.ValidMultiDiscAttachmentInput",
+        "retrom/internal/service/libraryimport.validMultiDiscAttachmentCommitRequest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "fresh target/source",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).validateCurrentInput",
+          "reason": "Insidewriter currentREVIEW_PENDINGdraft/base,enabledplatformID/version/core/currentprovider/target/policydigest/capability limits; no draftversion or sourcehandoff/parentpayload guard"
+        },
+        {
+          "name": "fresh owner/upload/missing-set",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).validateOwnership",
+          "reason": "Insidewriter jobRUNNING/sameworker,no whole-session consumption,current missing-set digest; no currentuploadstate/Blob/fullfileclosure or execution/lease/deadline read"
+        },
+        {
+          "name": "current BIOS facts",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).BIOS",
+          "reason": "Service resolveValidation callback reads samewriter BIOS and applies shared ResolveBIOSRecords usingfirstdisc; builds dependency snapshot+BIOSbundlefiles"
+        },
+        {
+          "name": "duplicate Snapshot",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).Snapshot",
+          "reason": "Effective review source kind/id/manifest from current draft"
+        },
+        {
+          "name": "duplicate IdentityParts",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).IdentityParts",
+          "reason": "Current ordered source file Blob digests,logical names and archive-entry identity facts"
+        },
+        {
+          "name": "duplicate OrderedDiscs",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).OrderedDiscs",
+          "reason": "Current multidisc ordinals/state/logical names/digests for identity"
+        },
+        {
+          "name": "duplicate PublishedMatches",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).PublishedMatches",
+          "reason": "Current published games in platform with matching content identity; Model ContentDuplicates performs I/O and must be moved to Service orchestration"
+        }
+      ],
+      "guards": [
+        {
+          "id": "multidisc-commit-shape",
+          "fields": [
+            "input",
+            "job",
+            "worker",
+            "baseFiles",
+            "resultEntries",
+            "manifest",
+            "playlist"
+          ],
+          "expected_source": "Validpartialinput/nonemptyjobworker,baseFilesnonempty,resultEntries>=2,nonemptymanifest/64chardigest,nonemptycanonicalplaylistSHA. Doesnotcheckeveryentry.File nonnil here",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "multidisc-preparation",
+          "fields": [
+            "missing",
+            "uploads",
+            "discBytes",
+            "playlist",
+            "limits"
+          ],
+          "expected_source": "Missingcount equalsuploads,basenames only,no casefoldduplicate,exact expected names; discsize>=8/full SHA256+size verified outsidewriter; one boundedplaylist lengthmatchescatalog (no explicitplaylistSHA rehash),Parsecurrentlimits/allPRESENT then CAS Put canonicalplaylist andbuildmanifest",
+          "rejection": "SET_MISMATCH / CONTENT_INVALID / INPUT_STALE / storageerror",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "multidisc-current-input",
+          "fields": [
+            "state",
+            "source",
+            "platform",
+            "id",
+            "version",
+            "core",
+            "provider",
+            "target",
+            "policy",
+            "limits"
+          ],
+          "expected_source": "Exactfrozeninput fields andenabledcurrentmultidisc maxcount/bytes; currentmissingSetDigest exact,but presentfileclosure notfenced",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "multidisc-current-owner",
+          "fields": [
+            "jobState",
+            "worker",
+            "uploadConsumption"
+          ],
+          "expected_source": "CurrentRUNNING/sameworker and no sessionconsumption. Full execution/lease/inputdigest/version/deadline authority absent",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "multidisc-result-source",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).insertSourceSnapshot",
+          "affected_records": [
+            "INSERT MULTI_DISC source snapshot/newID/manifest/createdByMULTI_DISC_ATTACHMENT/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-result-files",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).insertSourceSnapshot",
+          "affected_records": [
+            "INSERT everyprepared finalsourcefile (playlist+allold/newdiscs),Blob/upload/order; archivefieldsNULL"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-result-entries",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).insertSourceSnapshot",
+          "affected_records": [
+            "INSERT eachresultentry PRESENT withordinal/references/Blob/upload/logicalname"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-validation",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).insertValidation",
+          "affected_records": [
+            "INSERT validation newID/frozenplatformversion/core/provider/target/DATNULL/DOSNULL/newsource/canonicalPrepublishDigest/status/dependencies"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-validation-files",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).insertValidation",
+          "affected_records": [
+            "INSERT currentBIOSbundlefiles plus new canonicalplaylist MULTI_DISC_PLAYLIST protectiveBlobreference"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-duplicate-evidence",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).recordDuplicateEvidence",
+          "affected_records": [
+            "After draftswitch,compute newcontentidentity and readcurrentmatches via Model ContentDuplicates I/O; INSERT duplicate evidence perexistinggame ONCONFLICTDONOTHING,detectedIDENTIFICATION"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-accepted-audit",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).recordAcceptedReviewEvent",
+          "affected_records": [
+            "INSERT DISC_ATTACHMENT_ACCEPTED schema2 USER frozenactor/newID/status/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-accepted-events",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).recordAcceptedJobEvents",
+          "affected_records": [
+            "INSERT5 jobevents PLAYLIST_PARSED/DISC_SET_MATCHED/SOURCE_SNAPSHOT_CREATED/CORE_VALIDATION_COMPLETED/SUCCEEDED withduration"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "canonical-playlist-Blob",
+          "repo_helper": "retrom/internal/repo/blobcatalog.EnsureRecord",
+          "affected_records": [
+            "Beforevalidation ensurepreparedcanonicalplaylist Blobcatalog record mediaapplication/vnd.retrom.m3u; physicalCAS Put occurredprewriter"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-content-identity",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewApprovalRecords).ClaimIdentity",
+          "affected_records": [
+            "INSERTplatform/digest identityclaim ONCONFLICTDONOTHING afternewdraftsource; nested withduplicateevidence"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "advance-multidisc-draft",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).CommitAccepted",
+          "affected_records": [
+            "UPDATE draft exactid/base ->newsource,selectednewvalidationifREADYelseNULL,version+1/time; require1,nodraftversionguard"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "accept-multidisc-attachment",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).CommitAccepted",
+          "affected_records": [
+            "UPDATE RUNNING attachment ACCEPTED/resultsnapshot/validation/diagnostics/clearerror/finished/version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "consume-multidisc-upload",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).CommitAccepted",
+          "affected_records": [
+            "INSERT whole-session REVIEW_MULTI_DISC consumption preparedID/attachment/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "advance-multidisc-item",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).CommitAccepted",
+          "affected_records": [
+            "UPDATE REVIEW_PENDINGitem version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "complete-multidisc-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).CommitAccepted",
+          "affected_records": [
+            "UPDATE RUNNING matchingworker SUCCEEDED/finished/clearlease+HB/version+1/time; workerretained,require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Baseline supplies Service Now before Repo BeginTx(nil) except admission noted; target requires one fresh Repo admission sample. ServiceNow then4UUIDs(source,validation,consumption,audit)beforewriter; IDs generationerrorspropagated,butemptyIDs notexplicitlyrechecked. FreshBIOS read and purepolicy executeafterwriter acquired; usespreparedtimestamp.",
+      "after_commit": [
+        {
+          "action": "Newreviewsource/selectedvalidation/duplicateevidence/consumption andwholeattachment success atomic",
+          "recovery": "Failure leavesprepublishedCAS orphan forGC; need D22 republishverifiedstaging underlocks; no gamepublished automatically",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED multidisc-result-source: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-result-files: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-result-entries: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-validation: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-validation-files: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-duplicate-evidence: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-accepted-audit: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-accepted-events: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED canonical-playlist-Blob: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-content-identity: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED advance-multidisc-draft: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED accept-multidisc-attachment: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED consume-multidisc-upload: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED advance-multidisc-item: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED complete-multidisc-job: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED eachguard drift,currentBIOS/source/uploadchange,stale or expired execution,concurrentattachment/discard/publish/cancel,commitfailure/retryfallback/GC race; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Publishes canonicalplaylistBlob and creates newsource/entry/validation protectiveBlob references. Baseline noD22coordinator; acquire sorted digeststripes beforewriter,verifycurrentowners/contentandholdthroughcommit.",
+        "digest_sources": [
+          "Verifiedcanonicalplayliststageddigest plus allsourceplaylist/retaineddisc/attachedDisc/currentBIOSbundle digests; stagedrepublish requiredifGC racesprewriterCAS"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).WithCommit",
+        "test_ids": [
+          "RFA-RF13-approval_guard",
+          "RFA-RF13-publish_atomic",
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
       "operation_id": "libraryimport.admit-arcade-parent",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -8879,6 +9178,185 @@
         "PLANNED admission-files: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
         "PLANNED admission-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
         "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.admit-multidisc-attachment",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateMultiDiscAttachment",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachments).Create",
+        "(*retrom/internal/transport/httpapi.Server).createReviewMultiDiscAttachment"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MultiDiscAttachmentAdmission",
+      "prepare": "(*retrom/internal/service/libraryimport.MultiDiscAttachments).Create",
+      "commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachments).WithAttachmentAdmission",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.encodeMultiDiscAdmission",
+        "retrom/internal/service/libraryimport.hasMissingDiscs",
+        "retrom/internal/service/libraryimport.validateMultiDiscAdmission"
+      ],
+      "fresh_facts": [
+        {
+          "name": "multidisc admission Admission",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Admission",
+          "reason": "Current item/draft and MULTI_DISC effective source,enabled/notdeleted platform/defaultcore/nonDISABLED runtimebinding/policy,latest item/source/target validation and status/code/core/provider/runtime"
+        },
+        {
+          "name": "multidisc admission Head",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Head",
+          "reason": "Only when admission row missing: item state/contentkind determines notfound/finalized/modeunavailable/inputstale"
+        },
+        {
+          "name": "multidisc admission Entries",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Entries",
+          "reason": "Ordered source disc entries; expected missing set digest includes only MISSING ordinals+normalized references"
+        },
+        {
+          "name": "multidisc admission Upload",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Upload",
+          "reason": "Current upload session state/sourceType/any session-wide consumption,including released; no purpose check"
+        },
+        {
+          "name": "multidisc admission Activity",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Activity",
+          "reason": "Current sameitem attachments QUEUED/RUNNING count andFAILED_RETRYABLE count"
+        }
+      ],
+      "guards": [
+        {
+          "id": "multidisc-request",
+          "fields": [
+            "item",
+            "version",
+            "upload",
+            "storage",
+            "actor"
+          ],
+          "expected_source": "Nonempty IDs,version1..MaxInt64-1,configured storage,authenticated context nonempty userId; no fresh user authority query",
+          "rejection": "MultiDiscAttachmentErrorInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "multidisc-review",
+          "fields": [
+            "itemState",
+            "draftVersion",
+            "validation",
+            "core",
+            "provider",
+            "target",
+            "policy"
+          ],
+          "expected_source": "REVIEW_PENDING/exactversion; latestvalidation BLOCKED/MULTI_DISC_FILE_MISSING andsamecore/provider/runtime; enabled multidisc capabilities. ValidationPlatformVersion notcompared",
+          "rejection": "FINALIZED / VERSION / INPUT_STALE / MODE_UNAVAILABLE",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "missing-set",
+          "fields": [
+            "entries"
+          ],
+          "expected_source": "AtleastoneMISSING; ExpectedSetDigest validates missingordinal order/range/reference casefold and hashes only missing set,not presentfile closure",
+          "rejection": "CONTENT_INVALID / INPUT_STALE",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "multidisc-upload",
+          "fields": [
+            "state",
+            "type",
+            "consumed",
+            "active",
+            "retryable"
+          ],
+          "expected_source": "COMPLETE FILES upload,no whole-session consumption; noactive sameitem attachment andnoretryable one",
+          "rejection": "INVALID / IN_PROGRESS / RETRY_REQUIRED",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "multidisc-admit-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Job",
+          "affected_records": [
+            "INSERT REVIEW_MULTI_DISC_VALIDATE job scopeIMPORT_ITEM,execution1,QUEUED/max4/cancellable,dedupe SHA(item/base/missingSet/upload),frozeninputJSON/time; require1 and propagate RowsAffected error"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-admit-input",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Input",
+          "affected_records": [
+            "INSERT input snapshot exactschema1 JSON/SHA/execution1/time; require1 and propagate RowsAffected error"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-admit-attachment",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Attachment",
+          "affected_records": [
+            "INSERT QUEUED attachment with frozenactor/base/upload/missingSet/job onlyIFNOTEXISTS active QUEUED/RUNNING/FAILED_RETRYABLE; require1 and propagate RowsAffected error"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-admit-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Event",
+          "affected_records": [
+            "INSERT QUEUED schema1 jobevent; require1 and propagate RowsAffected error"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-admit-draft",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Draft",
+          "affected_records": [
+            "UPDATE exactdraftid/version/item/base/target version+1/time; require1 and propagate RowsAffected error"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "multidisc-admit-audit",
+          "repo_helper": "(retrom/internal/repo/libraryimport.multidiscAdmissionRecords).Audit",
+          "affected_records": [
+            "INSERT DISC_UPLOAD_REQUESTED schema2 USER audit usingpreparedauditID; require1 and propagate RowsAffected error"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Baseline supplies Service Now before Repo BeginTx(nil) except admission noted; target requires one fresh Repo admission sample. Three nonempty IDs attachment/job/audit prepared before writer with errorspropagated; insidewriter read facts then Service Now and canonicalJSON/digest; no MaxNow arithmetic validation.",
+      "after_commit": [
+        {
+          "action": "Facade starts untracked WithoutCancel worker only aftercommit,30minute timeout",
+          "recovery": "Startup queue resume schedules via unowned goroutine/AfterFunc; persisted frozen input used onretry. Admission doesnotcreateBlobrefs.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED multidisc-admit-job: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-admit-input: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-admit-attachment: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-admit-event: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-admit-draft: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED multidisc-admit-audit: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED eachguard drift,currentBIOS/source/uploadchange,stale or expired execution,concurrentattachment/discard/publish/cancel,commitfailure/retryfallback/GC race; unexecuted"
       ],
       "test_ids": [
         "RFA-RF13-format_paths",
@@ -10253,6 +10731,129 @@
         "PLANNED payload-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
         "PLANNED payload-owner: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
         "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.claim-multidisc-attachment",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeMultiDiscAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).claimMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRetryableMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).scheduleMultiDiscAttachmentRun",
+        "(*retrom/internal/transport/httpapi.Server).createReviewMultiDiscAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MultiDiscAttachmentWorkerClaim",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).claimMultiDiscAttachment",
+      "commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentWorker).Claim",
+      "policy_symbols": [
+        "(retrom/internal/repo/libraryimport.multiDiscAttachmentRecord).matches",
+        "retrom/internal/model/libraryimport.ValidMultiDiscAttachmentInput"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current frozen input",
+          "reader_symbol": "retrom/internal/repo/libraryimport.readMultiDiscAttachmentInput",
+          "reason": "Aftertentativeclaim samewriter reads currentexecution inputJSON andstarted; decodes schema shape but doesnotread/check input_digest"
+        },
+        {
+          "name": "current attachment",
+          "reader_symbol": "retrom/internal/repo/libraryimport.readMultiDiscAttachmentRecord",
+          "reason": "Currentattachment id/item/draft/actor/base/upload/expectedMissingDigest/state byjob"
+        }
+      ],
+      "guards": [
+        {
+          "id": "multidisc-claim",
+          "fields": [
+            "jobKind",
+            "state",
+            "available",
+            "attempt",
+            "max",
+            "attachmentState"
+          ],
+          "expected_source": "Exactjob REVIEW_MULTI_DISC_VALIDATE/QUEUED/due/attempt<max; attachmentQUEUED|FAILED_RETRYABLE; require1,RowsAffectederrorsignored; no immutabledeadlineexpiry check",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "multidisc-frozen-input",
+          "fields": [
+            "schema",
+            "IDs",
+            "bounds",
+            "policyDigest",
+            "attachment"
+          ],
+          "expected_source": "Schema1/nonemptyattachment+item+actor/provider/target,maxDiscswithin2..maximum,maxBytes>=1,policyDigestlength64; exact RUNNING attachment fields matchinput. Validator doesnotrequireall other inputIDs/digests/bounds",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "claim-multidisc-job",
+          "repo_helper": "retrom/internal/repo/libraryimport.claimMultiDiscAttachmentRecords",
+          "affected_records": [
+            "UPDATE RUNNING/attempt+1/worker,started/deadline COALESCE(existing,now/now+30m),lease=now+60s,HB,version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "claim-multidisc-attachment",
+          "repo_helper": "retrom/internal/repo/libraryimport.claimMultiDiscAttachmentRecords",
+          "affected_records": [
+            "UPDATE RUNNING,clearerror/finished,version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "claim-multidisc-event",
+          "repo_helper": "retrom/internal/repo/libraryimport.claimMultiDiscAttachmentRecords",
+          "affected_records": [
+            "INSERT STARTED schema1 event; invalidinput/readfailure rollsallbackclaim"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Baseline supplies Service Now before Repo BeginTx(nil) except admission noted; target requires one fresh Repo admission sample. Worker UUID beforewriter,errorignored; preserves existingexecutiondeadline but lease not cappedtoit.",
+      "after_commit": [
+        {
+          "action": "Outsidewriter reads base/upload facts,checks missing set and hashes all discs; heartbeat for each8MiBread andbeforefile",
+          "recovery": "Restart resumes queued jobs; generalRF17 owner recovery handles interruptedRUNNING; no standalone attachment recovery mutation",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED claim-multidisc-job: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED claim-multidisc-attachment: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED claim-multidisc-event: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED eachguard drift,currentBIOS/source/uploadchange,stale or expired execution,concurrentattachment/discard/publish/cancel,commitfailure/retryfallback/GC race; unexecuted"
       ],
       "test_ids": [
         "RFA-RF13-format_paths",
@@ -12714,6 +13315,121 @@
       }
     },
     {
+      "operation_id": "libraryimport.fail-retryable-multidisc-attachment",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeMultiDiscAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRetryableMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).scheduleMultiDiscAttachmentRun",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Retry",
+        "(*retrom/internal/transport/httpapi.Server).createReviewMultiDiscAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MultiDiscAttachmentRetryWrite",
+      "prepare": "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Retry",
+      "commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FailRetryable",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.multiDiscAttachmentDurationMS",
+        "retrom/internal/service/libraryimport.validMultiDiscAttachmentTarget"
+      ],
+      "fresh_facts": [
+        {
+          "name": "terminal fresh predicates",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FailRetryable",
+          "reason": "AttachmentRUNNING andjobRUNNING+worker predicates; TryRetry also reads attempt/max/deadline,othersnofreshSELECT"
+        }
+      ],
+      "guards": [
+        {
+          "id": "terminal-input",
+          "fields": [
+            "attachment",
+            "item",
+            "job",
+            "worker",
+            "code"
+          ],
+          "expected_source": "All4IDs nonempty andcode nonempty; no full frozenexecution identity ortime validity",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "terminal-owner",
+          "fields": [
+            "attachmentState",
+            "jobState",
+            "worker"
+          ],
+          "expected_source": "Requireexactly1 attachmentandjob update; no lease/input/version/attempt/deadline check except retry budget",
+          "rejection": "ErrInvalid; allpriorwritesrollback",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "terminal-multidisc-attachment",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FailRetryable",
+          "affected_records": [
+            "UPDATE RUNNINGattachment FAILED_RETRYABLE/code/diagnostics/finished/version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-multidisc-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FailRetryable",
+          "affected_records": [
+            "UPDATE RUNNINGmatchingworker FAILED/code/retryable1/finished,clearlease+HB,version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-multidisc-events",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FailRetryable",
+          "affected_records": [
+            "INSERT FAILED events"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "Successfulterminal/requeue preventsrepeatviaRUNNINGpredicates andrequire1. Retry service calls FailRetryable after ANY TryRetryerror orunscheduled result,in separate transaction; originalretryerror is discarded iffallbacksucceeds.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Baseline supplies Service Now before Repo BeginTx(nil) except admission noted; target requires one fresh Repo admission sample. Reject preparesauditUUIDthenClock; RetryClock once reusedforTryRetry andfallback FailRetryable.",
+      "after_commit": [
+        {
+          "action": "Scheduledretry usesunowned AfterFunc/Goroutine WithoutCancel; terminalerror ignoredbylegacyfacade",
+          "recovery": "Normal worker timeout/cancellation canmake bothsettlementsfail; need boundedcleanupcausepreservation",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED terminal-multidisc-attachment: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED terminal-multidisc-job: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED terminal-multidisc-events: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED eachguard drift,currentBIOS/source/uploadchange,stale or expired execution,concurrentattachment/discard/publish/cancel,commitfailure/retryfallback/GC race; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.fail-review-bulk",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -13032,6 +13748,110 @@
       }
     },
     {
+      "operation_id": "libraryimport.finish-multidisc-cancellation",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeMultiDiscAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishMultiDiscAttachmentCancellation",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRetryableMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).scheduleMultiDiscAttachmentRun",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).FinishCancellation",
+        "(*retrom/internal/transport/httpapi.Server).createReviewMultiDiscAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MultiDiscAttachmentCancellationWrite",
+      "prepare": "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).FinishCancellation",
+      "commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FinishCancellation",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.multiDiscAttachmentDurationMS",
+        "retrom/internal/service/libraryimport.validMultiDiscAttachmentTarget"
+      ],
+      "fresh_facts": [
+        {
+          "name": "prewriter cancellation",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FinishCancellation",
+          "reason": "Reads jobstate underjobID/workerbeforeBeginTx; nonCANCEL_REQUESTED returnsfalse"
+        }
+      ],
+      "guards": [
+        {
+          "id": "multidisc-cancel-authority",
+          "fields": [
+            "targetIDs",
+            "jobState",
+            "worker",
+            "attachmentState"
+          ],
+          "expected_source": "AlltargetIDsrequired; insidewriter attachmentRUNNING andjobCANCEL_REQUESTED+worker bothrequire1; nofull execution/lease fence",
+          "rejection": "ErrInvalid orreaderror; caller reduceserr tofalse",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cancel-multidisc-attachment",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FinishCancellation",
+          "affected_records": [
+            "UPDATE RUNNING attachmentCANCELLED/code/diagnostics/finished/version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "cancel-multidisc-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FinishCancellation",
+          "affected_records": [
+            "UPDATE CANCEL_REQUESTEDmatchingworker jobCANCELLED/finished/clearlease+HB/version+1/time,workerretained"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "cancel-multidisc-event",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).FinishCancellation",
+          "affected_records": [
+            "INSERT CANCELLED schema1 durationevent"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Baseline supplies Service Now before Repo BeginTx(nil) except admission noted; target requires one fresh Repo admission sample.",
+      "after_commit": [
+        {
+          "action": "Trueonlyafterallwritescommitted,thenworkerdoesnotsettlefurther",
+          "recovery": "Iferror,falsecaller maytryreject/retry usingcancelledcontext; needpreserve cleanupcause",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED cancel-multidisc-attachment: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED cancel-multidisc-job: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED cancel-multidisc-event: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED eachguard drift,currentBIOS/source/uploadchange,stale or expired execution,concurrentattachment/discard/publish/cancel,commitfailure/retryfallback/GC race; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.finish-review-bulk",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -13123,6 +13943,91 @@
       "content_coordination": {
         "required": false,
         "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.heartbeat-multidisc-attachment",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeMultiDiscAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRetryableMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).heartbeatMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).multiDiscAttachmentValidationFiles",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).multiDiscFileForValidation",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).scheduleMultiDiscAttachmentRun",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).validateMultiDiscAttachmentContents",
+        "(*retrom/internal/transport/httpapi.Server).createReviewMultiDiscAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MultiDiscAttachmentWorkerClaim",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).heartbeatMultiDiscAttachment",
+      "commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentWorker).Heartbeat",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "heartbeat job predicate",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentWorker).Heartbeat",
+          "reason": "SingleUPDATE fresh predicate currentRUNNING/sameworker/deadline>preparedNow"
+        }
+      ],
+      "guards": [
+        {
+          "id": "heartbeat-authority",
+          "fields": [
+            "state",
+            "worker",
+            "deadline",
+            "context"
+          ],
+          "expected_source": "Contextalive beforecall; RUNNING sameworker deadline>now. No current lease>now/execution/input/version/kind/scope check",
+          "rejection": "ErrInvalid ifnotexactly1",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "heartbeat-multidisc-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentWorker).Heartbeat",
+          "affected_records": [
+            "Autocommit UPDATE lease=now+60s,heartbeat/updatedtime; jobversionNOTincremented; leasecanextendbeyonddeadline"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Baseline supplies Service Now before Repo BeginTx(nil) except admission noted; target requires one fresh Repo admission sample. SingleSQLimplicittransaction,prewriterclock. Everydatachunk cantriggerheartbeat instead offixedperiod; blockingread mayoutlastlease.",
+      "after_commit": [
+        {
+          "action": "Continue hashing only if heartbeatcommitted; read/closeerrors joinedexceptcleanup.Error onheartbeatfailure",
+          "recovery": "Expiredlease canberevived if deadlinefuture; requiredRF17 authorityfix",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED heartbeat-multidisc-job: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED eachguard drift,currentBIOS/source/uploadchange,stale or expired execution,concurrentattachment/discard/publish/cancel,commitfailure/retryfallback/GC race; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
         "digest_sources": [],
         "acquire_symbol": null,
         "release_symbol": null,
@@ -14098,6 +15003,131 @@
       }
     },
     {
+      "operation_id": "libraryimport.reject-multidisc-attachment",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeMultiDiscAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRejectedMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRetryableMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).scheduleMultiDiscAttachmentRun",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Reject",
+        "(*retrom/internal/transport/httpapi.Server).createReviewMultiDiscAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MultiDiscAttachmentRejectWrite",
+      "prepare": "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Reject",
+      "commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).Reject",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.multiDiscAttachmentDurationMS",
+        "retrom/internal/service/libraryimport.validMultiDiscAttachmentTarget"
+      ],
+      "fresh_facts": [
+        {
+          "name": "terminal fresh predicates",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).Reject",
+          "reason": "AttachmentRUNNING andjobRUNNING+worker predicates; TryRetry also reads attempt/max/deadline,othersnofreshSELECT"
+        }
+      ],
+      "guards": [
+        {
+          "id": "terminal-input",
+          "fields": [
+            "attachment",
+            "item",
+            "job",
+            "worker",
+            "code"
+          ],
+          "expected_source": "All4IDs nonempty andcode nonempty; no full frozenexecution identity ortime validity",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "terminal-owner",
+          "fields": [
+            "attachmentState",
+            "jobState",
+            "worker"
+          ],
+          "expected_source": "Requireexactly1 attachmentandjob update; no lease/input/version/attempt/deadline check except retry budget",
+          "rejection": "ErrInvalid; allpriorwritesrollback",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "terminal-multidisc-attachment",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).Reject",
+          "affected_records": [
+            "UPDATE RUNNINGattachment REJECTED/code/diagnostics/finished/version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-multidisc-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).Reject",
+          "affected_records": [
+            "UPDATE RUNNINGmatchingworker FAILED/code/retryable0/finished,clearlease+HB,version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-multidisc-events",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).Reject",
+          "affected_records": [
+            "INSERT DISC_SET_REJECTED+FAILED events"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "rejected-multidisc-audit",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).Reject",
+          "affected_records": [
+            "INSERT DISC_ATTACHMENT_REJECTED schema2/contextactor/preparednewUUID/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "Successfulterminal/requeue preventsrepeatviaRUNNINGpredicates andrequire1. Retry service calls FailRetryable after ANY TryRetryerror orunscheduled result,in separate transaction; originalretryerror is discarded iffallbacksucceeds.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Baseline supplies Service Now before Repo BeginTx(nil) except admission noted; target requires one fresh Repo admission sample. Reject preparesauditUUIDthenClock; RetryClock once reusedforTryRetry andfallback FailRetryable.",
+      "after_commit": [
+        {
+          "action": "Scheduledretry usesunowned AfterFunc/Goroutine WithoutCancel; terminalerror ignoredbylegacyfacade",
+          "recovery": "Normal worker timeout/cancellation canmake bothsettlementsfail; need boundedcleanupcausepreservation",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED terminal-multidisc-attachment: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED terminal-multidisc-job: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED terminal-multidisc-events: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED rejected-multidisc-audit: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED eachguard drift,currentBIOS/source/uploadchange,stale or expired execution,concurrentattachment/discard/publish/cancel,commitfailure/retryfallback/GC race; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.release-discarded-review-batch",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -14665,6 +15695,135 @@
       }
     },
     {
+      "operation_id": "libraryimport.retry-multidisc-attachment",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeMultiDiscAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRetryableMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runMultiDiscAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).scheduleMultiDiscAttachmentRun",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Retry",
+        "(*retrom/internal/transport/httpapi.Server).createReviewMultiDiscAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MultiDiscAttachmentRetryWrite",
+      "prepare": "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).Retry",
+      "commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).TryRetry",
+      "policy_symbols": [
+        "retrom/internal/repo/libraryimport.multiDiscAttachmentDurationMS",
+        "retrom/internal/repo/libraryimport.multiDiscAttachmentRetryDelay",
+        "retrom/internal/service/libraryimport.multiDiscAttachmentDurationMS",
+        "retrom/internal/service/libraryimport.validMultiDiscAttachmentTarget"
+      ],
+      "fresh_facts": [
+        {
+          "name": "terminal fresh predicates",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).TryRetry",
+          "reason": "AttachmentRUNNING andjobRUNNING+worker predicates; TryRetry also reads attempt/max/deadline,othersnofreshSELECT"
+        }
+      ],
+      "guards": [
+        {
+          "id": "terminal-input",
+          "fields": [
+            "attachment",
+            "item",
+            "job",
+            "worker",
+            "code"
+          ],
+          "expected_source": "All4IDs nonempty andcode nonempty; no full frozenexecution identity ortime validity",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "terminal-owner",
+          "fields": [
+            "attachmentState",
+            "jobState",
+            "worker"
+          ],
+          "expected_source": "Requireexactly1 attachmentandjob update; no lease/input/version/attempt/deadline check except retry budget",
+          "rejection": "ErrInvalid; allpriorwritesrollback",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "retry-budget",
+          "fields": [
+            "attempt",
+            "max",
+            "deadline",
+            "available"
+          ],
+          "expected_source": "Delay250ms doublingto4s bycurrentattempt; attempt<max and now+delay<deadline elseemptyresult androllback/no commit; arithmeticoverflow unchecked",
+          "rejection": "No retry scheduled",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "terminal-multidisc-attachment",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).TryRetry",
+          "affected_records": [
+            "UPDATE RUNNINGattachment FAILED_RETRYABLE/code/diagnostics/finished/version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-multidisc-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).TryRetry",
+          "affected_records": [
+            "UPDATE RUNNINGmatchingworker QUEUED/availableNow+delay/clearworker+errors+finished,clearlease+HB,version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-multidisc-events",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).TryRetry",
+          "affected_records": [
+            "INSERT RETRY_SCHEDULED(attempt/retryAt/duration) events"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "Successfulterminal/requeue preventsrepeatviaRUNNINGpredicates andrequire1. Retry service calls FailRetryable after ANY TryRetryerror orunscheduled result,in separate transaction; originalretryerror is discarded iffallbacksucceeds.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Baseline supplies Service Now before Repo BeginTx(nil) except admission noted; target requires one fresh Repo admission sample. Reject preparesauditUUIDthenClock; RetryClock once reusedforTryRetry andfallback FailRetryable.",
+      "after_commit": [
+        {
+          "action": "Scheduledretry usesunowned AfterFunc/Goroutine WithoutCancel; terminalerror ignoredbylegacyfacade",
+          "recovery": "Normal worker timeout/cancellation canmake bothsettlementsfail; need boundedcleanupcausepreservation",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED terminal-multidisc-attachment: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED terminal-multidisc-job: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED terminal-multidisc-events: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED eachguard drift,currentBIOS/source/uploadchange,stale or expired execution,concurrentattachment/discard/publish/cancel,commitfailure/retryfallback/GC race; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.retry-review-bulk",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -15122,6 +16281,77 @@
         "RFA-RF13-discard_handoff",
         "RFA-RF13-publish_atomic",
         "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.sync-multidisc-cancellation",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).SyncMultiDiscAttachmentCancellation",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).SyncCancellation",
+        "(*retrom/internal/transport/httpapi.Server).cancelJob"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MultiDiscAttachmentTerminalTarget",
+      "prepare": "(*retrom/internal/service/libraryimport.MultiDiscAttachmentTerminals).SyncCancellation",
+      "commit": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).SyncCancellation",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "cancelledjobpredicate",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).SyncCancellation",
+          "reason": "Autocommit UPDATElinkedattachment QUEUED/RUNNING/FAILED_RETRYABLE ifjobCANCELLED"
+        }
+      ],
+      "guards": [
+        {
+          "id": "multidisc-sync",
+          "fields": [
+            "jobId",
+            "jobState",
+            "attachmentState"
+          ],
+          "expected_source": "NonemptyjobID; statepredicateonly,zeroaffectedno-op",
+          "rejection": "ErrInvalid orSQLerror; facadeignoreserror",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "sync-multidisc-cancelled",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.MultiDiscAttachmentFinalization).SyncCancellation",
+          "affected_records": [
+            "Singleautocommit UPDATE CANCELLED/code/diagnostics/finished/version+1/time,noevents"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Baseline supplies Service Now before Repo BeginTx(nil) except admission noted; target requires one fresh Repo admission sample.",
+      "after_commit": [
+        {
+          "action": "Alignsgenericjobcancel withattachmentstate",
+          "recovery": "No extra outerwriteoperation; repeatno-op afterterminal",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED sync-multidisc-cancelled: injectfailureaftereach applicableSQLrow/stage andassertwholetransactionrollback",
+        "PLANNED eachguard drift,currentBIOS/source/uploadchange,stale or expired execution,concurrentattachment/discard/publish/cancel,commitfailure/retryfallback/GC race; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
       ],
       "content_coordination": {
         "required": false,
@@ -26406,6 +27636,7 @@
     "RF13 reviewdraftpatch/previewvalidationrefresh/coverupload source-reviewed. LoadPatchSnapshot isread-only transaction,notfakewriteoperation. Patchandpreview alreadyacceptvalueplans butRepo stillowns domainrules,usespreparedclocks andcopiesprotective validationfiles withoutD22; coverseparateasset+consumption leavesdraftversionunchanged. Fullapproval/discard/bulk/attachments/sourceuploads andformatpolicycensus pending.",
     "RF13 approval,ordinary/source/batch discard,deduplication page and final discarded-batch release source-reviewed. Bulk publication is a nested write set of approve-review,not a second commit. Pending: bulk admission/worker/cancel/retry/recovery,arcade/multidisc attachments,source upload handoff,format policies. New game/variant/media refs require D22; baseline bulk publication can renew expired worker because live lease/execution fence is absent.",
     "RF13 bulk admission plus10claim/item/outcome/finish/failure/cancel/retry/resume operations source-reviewed. Successful publication remains in approve-review owning transaction. Baseline misses complete execution authority and admission Clock,ignores settlement errors/UUID errors,uses untracked WithoutCancel goroutines,and startup resets live RUNNING jobs without expiry guard; RF13/RF17/RF02 must resolve. Attachment/source-handoff/format census still pending.",
-    "RF13 seven arcade-parent admission/claim/accepted/rejected/retryable/cancellation operations source-reviewed. Acceptedcommit copiesprotective references withoutD22; admission performsstatinsidewriter; terminalrejected/retryable omitaffectedrowchecks; clocks/IDs/errorreporting/executionauthority needmigration. Multidisc/sourcehandoff/formatcensus pending."
+    "RF13 seven arcade-parent admission/claim/accepted/rejected/retryable/cancellation operations source-reviewed. Acceptedcommit copiesprotective references withoutD22; admission performsstatinsidewriter; terminalrejected/retryable omitaffectedrowchecks; clocks/IDs/errorreporting/executionauthority needmigration. Multidisc/sourcehandoff/formatcensus pending.",
+    "RF13 nine multidisc attachment admission/claim/heartbeat/accepted/reject/retry/fallback/cancellation operations source-reviewed. Preserves separate retry andfallback transactions. Baseline prepublishedplaylist+new protective references lacksD22; heartbeat canreviveexpiredlease,doesnotincrementversion; completeauthority/fullsourceclosure/errorreporting remainrequired. Sourcehandoff/formatcensus stillpending."
   ]
 }
