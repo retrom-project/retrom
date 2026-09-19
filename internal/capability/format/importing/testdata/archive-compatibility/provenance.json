@@ -1,0 +1,15 @@
+{
+  "byte_identical": true,
+  "sha256": "d3ec7fbf0f83bc84d20a9fe06258203c4daf4f371d8de3ea0d0dcade659be9d4",
+  "cases": 64,
+  "capture_source_sha256": "8baf3080fec007b94ee684626814307b8038fd45553340ce0f7c47693e0b497c",
+  "owner_test_summary": {
+    "exit": 0,
+    "seconds": 0.33,
+    "top_level_pass": 26,
+    "subtest_pass": 25,
+    "failures": [],
+    "skip": []
+  },
+  "head_after_capture": "6cd37e1bbfadd8365a4faca0d1584c01f7d53379"
+}

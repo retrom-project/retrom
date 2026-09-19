@@ -29,7 +29,7 @@ func rpgReviewRuntimeCatalog() runtimecontract.Catalog {
 }
 
 func newRPGReviewLaunchService(
-	t *testing.T, ctx context.Context, database *sql.DB, credentials *retromruntime.Credentials, now func() time.Time,
+	ctx context.Context, t *testing.T, database *sql.DB, credentials *retromruntime.Credentials, now func() time.Time,
 ) *Service {
 	t.Helper()
 	builder, err := testsupport.NewRuntimeBuilder(ctx, database)
@@ -155,7 +155,7 @@ VALUES('01980000-0000-7000-8000-000000000901','RPG2000','RPG2K','RPG2000','MATCH
 
 func mustRPGLaunchSQL(t *testing.T, database *sql.DB, query string, arguments ...any) {
 	t.Helper()
-	if _, err := database.Exec(query, arguments...); err != nil {
+	if _, err := database.ExecContext(t.Context(), query, arguments...); err != nil {
 		t.Fatalf("RPG launch fixture SQL: %v\n%s", err, query)
 	}
 }

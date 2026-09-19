@@ -25,13 +25,12 @@ type asarIntegrity struct {
 }
 
 type asarMember struct {
-	path       string
-	size       int64
-	offset     int64
-	unpacked   bool
-	integrity  *asarIntegrity
-	ordinal    int
-	outerEntry validatedElectronZIPItem
+	path      string
+	size      int64
+	offset    int64
+	unpacked  bool
+	integrity *asarIntegrity
+	ordinal   int
 }
 
 type asarHeaderWalk struct {

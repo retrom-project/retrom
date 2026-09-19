@@ -1,0 +1,40 @@
+{
+  "capturedAt": "2026-09-19T20:53:03.473024+00:00",
+  "head": "d8ca8806fd674cd1581ee11f9f20a13f60eafbdf",
+  "runtime": "go1.26.5",
+  "uid": 1000,
+  "sourceFiles": {
+    "internal/foundation/cleanup/cleanup.go": {
+      "currentSHA256": "0e7ecf6132780e20b82f2f8ed5c15e0c209dd55ceed43c5d76f6666756c79ca1",
+      "baseline6cd37e1bSHA256": "0e7ecf6132780e20b82f2f8ed5c15e0c209dd55ceed43c5d76f6666756c79ca1",
+      "byteIdenticalToBaseline": true
+    },
+    "internal/repo/dbexec/rollback.go": {
+      "currentSHA256": "405233cb09f8eb542033521594df388d0768f4c5132ef12186d97f70246e6ebb",
+      "baseline6cd37e1bSHA256": "405233cb09f8eb542033521594df388d0768f4c5132ef12186d97f70246e6ebb",
+      "byteIdenticalToBaseline": true
+    }
+  },
+  "captureSource": "td/refactor-execution/rf04-cleanup-old-log-capture.go",
+  "captureSourceSHA256": "2ec2594fc2c5863e02d296868186266e11919544f4ee40c7fa35dc9a91c3555a",
+  "goldenSHA256": "70f13dfbf40a4e920c749601a2c155444004e1d5628bec200e2169d1c499c449",
+  "cases": 22,
+  "compatibilityCases": 21,
+  "negativeControls": 1,
+  "normalization": "Only slog time removed with JSONHandler.ReplaceAttr; all message/operation/errorType bytes left to old real Go implementation. Case names and filesystem observations are capture harness values. No synthesized expected log. Custom error concrete type package main intentionally retained in fixture source.",
+  "reproduce": {
+    "workingDirectory": "/home/cgd/workspace/retrom-project/.worktree/retrom-project-structure/project/retrom",
+    "preparation": "Copy recorded capture Go source verbatim into .cache/refactor/cleanup-capture/main.go under this Retrom module. This is ignored; no tracked source change. Capture imports actual production cleanup and dbexec.Rollback.",
+    "command": "PATH=\"$PWD/.cache/tools/go1.26.5-linux-amd64/bin:$PATH\" GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local timeout 30s go run ./.cache/refactor/cleanup-capture",
+    "isolation": "os.MkdirTemp below PFB .cache/refactor/cleanup-capture. No external files touched, no root, no network. Restores 0000 fixture permissions before final recursive cleanup. Only this capture process changes slog.Default."
+  },
+  "assertions": [
+    "nil failure emits zero",
+    "public fixture removal succeeds/missing no log",
+    "PathError wraps private absolute path but emits only type",
+    "fmt %T never calls Error or Format including typed nil",
+    "primary error identity unaffected by deferred reporting",
+    "rollback suppresses wrapped sql.ErrTxDone and after commit",
+    "legacy operation is unsanitized: negative control intentionally exposes private path; new fixed boundary must fallback without dropping event"
+  ]
+}

@@ -9,7 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testkit/testsupport"
+
 	"retrom/internal/bootstrap/config"
+	"retrom/internal/model/diagnostics"
 	model "retrom/internal/model/maintenance"
 )
 
@@ -26,7 +29,7 @@ func TestBackupLockFailurePreventsCheckpoint(t *testing.T) {
 			configuration, output := lockBackupFixture(t)
 			locker := &backupLocker{failure: test.acquire}
 			repository := &backupLockRepository{}
-			_, err := New(repository, time.Now, locker).Backup(t.Context(), configuration, output)
+			_, err := New(repository, time.Now, locker, &testsupport.DiagnosticRecorder{}).Backup(t.Context(), configuration, output)
 			if !errors.Is(err, test.expected) || locker.acquires != 1 || repository.calls != 0 {
 				t.Fatalf("acquisition boundary: err=%v acquire=%d checkpoint=%d", err, locker.acquires, repository.calls)
 			}
@@ -46,7 +49,8 @@ func TestBackupCheckpointFailureReleasesLeaseAndRetainsCause(t *testing.T) {
 		lease := &backupLease{failure: releaseErr, events: &events}
 		locker := &backupLocker{lease: lease, events: &events}
 		repository := &backupLockRepository{failure: checkpointFailure, events: &events}
-		_, err := New(repository, time.Now, locker).Backup(t.Context(), configuration, output)
+		reporter := &testsupport.DiagnosticRecorder{}
+		_, err := New(repository, time.Now, locker, reporter).Backup(t.Context(), configuration, output)
 		if !errors.Is(err, checkpointFailure) || errors.Is(err, closeFailure) ||
 			locker.acquires != 1 || repository.calls != 1 || lease.closes != 1 {
 			t.Fatalf("release boundary: err=%v acquire=%d checkpoint=%d close=%d",
@@ -58,13 +62,21 @@ func TestBackupCheckpointFailureReleasesLeaseAndRetainsCause(t *testing.T) {
 		if !slices.Equal(events, []string{"acquire", "checkpoint", "close"}) {
 			t.Fatalf("lease must enclose checkpoint: events=%v", events)
 		}
+		reports := reporter.Events()
+		if releaseErr == nil {
+			if len(reports) != 0 {
+				t.Fatal("successful close reported a failure")
+			}
+		} else if len(reports) != 1 || reports[0] != diagnostics.CleanupFailure("close", "", "*errors.errorString") {
+			t.Fatalf("secondary failure must be reported exactly once: %+v", reports)
+		}
 	}
 }
 
 func TestInvalidBackupDoesNotAcquireLease(t *testing.T) {
 	locker := &backupLocker{failure: errors.New("must not acquire")}
 	repository := &backupLockRepository{}
-	_, err := New(repository, time.Now, locker).Backup(t.Context(), config.Maintenance{}, "relative")
+	_, err := New(repository, time.Now, locker, &testsupport.DiagnosticRecorder{}).Backup(t.Context(), config.Maintenance{}, "relative")
 	if !errors.Is(err, model.ErrInvalidBundle) || locker.acquires != 0 || repository.calls != 0 {
 		t.Fatalf("validation order: err=%v acquire=%d checkpoint=%d", err, locker.acquires, repository.calls)
 	}
@@ -78,7 +90,7 @@ type backupLocker struct {
 	events   *[]string
 }
 
-func (locker *backupLocker) Acquire(dataRoot string) (model.DataRootLease, error) {
+func (locker *backupLocker) Acquire(_ context.Context, dataRoot string) (model.DataRootLease, error) {
 	locker.acquires++
 	if locker.events != nil {
 		*locker.events = append(*locker.events, "acquire")
@@ -146,4 +158,14 @@ func lockBackupFixture(t *testing.T) (config.Maintenance, string) {
 		DataDir: data, DBPath: filepath.Join(data, "retrom.db"), DependencyRoot: dependencies,
 		DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3",
 	}, filepath.Join(root, "backup")
+}
+
+func TestMaintenanceRequiresAnExplicitDiagnosticReporter(t *testing.T) {
+	t.Parallel()
+	defer func() {
+		if recover() == nil {
+			t.Fatal("missing reporter was deferred until resource cleanup")
+		}
+	}()
+	New(nil, nil, nil, nil)
 }

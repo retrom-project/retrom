@@ -9,8 +9,6 @@ import (
 	payloadcomposition "retrom/internal/bootstrap/composition/payloadrelease"
 	payloadreleasemodel "retrom/internal/model/payloadrelease"
 
-	application "retrom/internal/service/payloadrelease"
-
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
 	payloadservice "retrom/internal/service/payloadrelease"
@@ -87,7 +85,7 @@ func TestLinkedDuplicatePayloadReleaseRequiresRecordedGameMatch(t *testing.T) {
 			for range 16 {
 				worked, err := releases.RunOnce(fixture.ctx)
 				if err != nil {
-					if application.WorkErrorCode(err) != "PAYLOAD_RELEASE_SOURCE_NOT_TERMINAL" {
+					if payloadservice.WorkErrorCode(err) != "PAYLOAD_RELEASE_SOURCE_NOT_TERMINAL" {
 						t.Fatal(err)
 					}
 					assertDuplicatePayloadRetained(t, fixture, itemID)

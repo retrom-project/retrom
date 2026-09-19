@@ -1,5 +1,7 @@
 package maintenance
 
+import "context"
+
 // DataRootLease is an owned operating-system resource, never a transaction value.
 type DataRootLease interface {
 	Close() error
@@ -7,5 +9,5 @@ type DataRootLease interface {
 
 // DataRootLocker acquires the same nonblocking lease used by the server and CLI.
 type DataRootLocker interface {
-	Acquire(dataRoot string) (DataRootLease, error)
+	Acquire(ctx context.Context, dataRoot string) (DataRootLease, error)
 }

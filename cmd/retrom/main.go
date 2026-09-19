@@ -41,6 +41,7 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/adapter/runtime/runtimeprovider"
 	authnadapter "retrom/internal/adapter/security/authn"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 	"retrom/internal/adapter/system/processlock"
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/format/importing"
@@ -158,7 +159,8 @@ func executeBackup(arguments []string) error {
 	manifest, err := maintenance.New(
 		maintenancepersistence.New(),
 		time.Now,
-		processlock.Locker{},
+		processlock.New(cleanupadapter.NewReporter(slog.Default())),
+		cleanupadapter.NewReporter(slog.Default()),
 	).Backup(
 		context.Background(),
 		configuration,
@@ -186,7 +188,8 @@ func executeRestore(arguments []string) error {
 	manifest, err := maintenance.New(
 		maintenancepersistence.New(),
 		time.Now,
-		processlock.Locker{},
+		processlock.New(cleanupadapter.NewReporter(slog.Default())),
+		cleanupadapter.NewReporter(slog.Default()),
 	).Restore(
 		context.Background(),
 		configuration,
@@ -226,7 +229,7 @@ func resetOfflineAdmin(
 	username string,
 	readPassword func(string) (string, error),
 ) error {
-	lock, err := (processlock.Locker{}).Acquire(configuration.DataDir)
+	lock, err := processlock.New(cleanupadapter.NewReporter(slog.Default())).Acquire(ctx, configuration.DataDir)
 	if err != nil {
 		return fmt.Errorf("acquire offline recovery lock: %w", err)
 	}
@@ -386,7 +389,7 @@ func bootstrapServerResources(
 			result.close()
 		}
 	}()
-	lock, err := (processlock.Locker{}).Acquire(configuration.DataDir)
+	lock, err := processlock.New(cleanupadapter.NewReporter(slog.Default())).Acquire(ctx, configuration.DataDir)
 	if err != nil {
 		return result, fmt.Errorf("retrom/main: %w", err)
 	}

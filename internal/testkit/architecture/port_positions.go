@@ -71,5 +71,7 @@ func unnamedSignature(signature *types.Signature) *types.Signature {
 		}
 		return types.NewTuple(values...)
 	}
-	return types.NewSignatureType(nil, nil, nil, copyTuple(signature.Params()), copyTuple(signature.Results()), false)
+	return types.NewSignatureType(
+		nil, nil, nil, copyTuple(signature.Params()), copyTuple(signature.Results()), signature.Variadic(),
+	)
 }

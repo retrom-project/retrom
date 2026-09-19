@@ -1,0 +1,2965 @@
+{
+  "SourceSHA256": {
+    "internal/capability/format/importing/archive.go": "efb6d33fd56b766a43d85538eed3383be816793e23d3c05332bcfc223f619618",
+    "internal/capability/format/importing/archive_worker_linux.go": "d234f34f5c6b26c6ad986de52430cf3b003b809163f38190b7bf9e06183d9ebc",
+    "internal/capability/format/importing/archive_worker_other.go": "28888ffcf586e6deb4fd0c812491fedc1ce383abe589a8d1f1a3dd7ab6fadf27",
+    "internal/capability/format/importing/asar_header.go": "f1e7d51f2464f766027dfcad1912196af3afd36ce6ca2dfa51c744137d82308c",
+    "internal/capability/format/importing/electron_asar_zip.go": "d41e7e65dfd0170cf33962e60c142c59224ebce29d7c87ad0df13024bda11fa2",
+    "internal/capability/format/importing/nwjs_executable.go": "85092abc4660a07625237df25b2296ab0452f4b429e61f9fc952783d83e0c578",
+    "internal/capability/format/importing/path.go": "e7a1c7db6c1c1cad427086b5a7f391439ead1f6ddc3edb4712efb5cd3b85a491",
+    "internal/capability/format/importing/sevenzip.go": "20d68de7c267a426b8626f768c2cd78cc92f17e89947982272b99d9ab3ddca72",
+    "internal/capability/format/importing/sevenzip_batch.go": "b3e4908505259d5997a7da979ffb06a425b966e1246f90b033b443238ecd2751"
+  },
+  "FixtureSHA256": {
+    "asar-block-integrity.zip": "80741893c6339b5c7a2c09f54eb913bfed769ad11debda70c2440da8b97444c2",
+    "asar-footer.zip": "6bccc1634b9f53ae5fa5d0d0ea04520a2e385554fa3ef7be66324d0e1f063880",
+    "asar-missing.zip": "1325b1ccae861e869e4759084b7610ef40fd95fd649158c1b3f9a6f2bae04524",
+    "asar-nested.zip": "96cd4023da85543a4430aaaeaa91477a5915ad6128828082108d0b7b0b09a8ae",
+    "asar-overlap.zip": "dc6e50fb9dcbdb9563c8feef3744a61fba5c38f5fd993fc1e25c0f60e7a920c8",
+    "asar-whole-integrity.zip": "ceb5ac2f5219dacb57b5a59eb497d65189d9e5024c4b7c2ff0b70452845a03c3",
+    "asar.zip": "5ba8b03a4a441b1644ea6b0be3edcf9a73163cf0891ec8b323922b4bdd39d456",
+    "bad-nwjs.exe": "bc1858b9e454b4ff30872131ab7881e1be31d3c1b7843e6ab67f0622a6b5e34a",
+    "casefold.zip": "f91899ae5bc89da3d55136add4f8e128464a8965653f98deb7a83034592789ec",
+    "crc.zip": "2356234d0315581a7dcf2f0786b05e47c1a939252bd758c14949c9f665c4d3a4",
+    "duplicate.zip": "602bf56ae209e1cb333a2810f451cd55e1eba02c2c49baa7f94969dd3aa15805",
+    "empty.zip": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85",
+    "invalid.bin": "6bbf954ab0045bc546f16a6db16c95afef820dccd807348411ea924dabb972e9",
+    "nested.zip": "7feaa2cb84c984c436564f8e636de9c4b0b52a91b3397e8c0c8572c7ca72386f",
+    "normal.zip": "ec972fd29e99f9225c535c22901bdee201b843d88c0295eee935e1d3c79be63a",
+    "nwjs.exe": "577fcd317d665a6c0f51f48416be1604f3c810720506906b6b4954c6fd09e0b6",
+    "sevenzip/ambiguous.7z": "44d629706ce07245882d54cef7705404cb4d2298b11c75d8e677ccea58359a35",
+    "sevenzip/casefold.7z": "bc6fef851f8f79d24e1b6de6c6e1a1536123ef624959b241585910059af57aa1",
+    "sevenzip/encrypted.7z": "6bc4f3520ec2e5c9dd7652d7d01dfb306751c8a279f2b7be38e92976f9e61fd0",
+    "sevenzip/nested.7z": "e8fcf678d21e4058b53f7c85d32311425aa7bc84b4825d9d164abc9559a71a84",
+    "sevenzip/single.7z": "61740ac86bd28f3dfb7846b5b799c53b1c4d6c95f7952b2f3701304f3db9174e",
+    "sevenzip/symlink.7z": "d9582bfc91162057f1518f1a60bfd3ab513931647902a711d248c3a23e05d038",
+    "sevenzip/unsupported-coder.7z": "070574c07e8be53da3a5a1764c22c4efaee112fcb55cf7d08c4b73e7963a9525",
+    "traversal.zip": "4d17a7e9ad4460a074f51bdeb38603b705b7822552d005a5d0f7b6ecee1a05ad"
+  },
+  "Cases": [
+    {
+      "Name": "ZIP scan stable values",
+      "Kind": "zip-scan",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 1,
+          "OriginalPath": "dir/a.txt",
+          "NormalizedPath": "dir/a.txt",
+          "ASCIICasefoldPath": "dir/a.txt",
+          "ArchiveFormat": "ZIP",
+          "CompressionProfile": "STORE",
+          "Size": 4,
+          "CRC32": "9b0d08f1",
+          "MD5": "098890dde069e9abad63f19a0d9e1f32",
+          "SHA1": "e2512172abf8cc9f67fdd49eb6cacf2df71bbad3",
+          "SHA256": "63c1dd951ffedf6f7fd968ad4efa39b8ed584f162f46e715114ee184f8de9201",
+          "NestedArchive": ""
+        },
+        {
+          "Ordinal": 2,
+          "OriginalPath": "z.txt",
+          "NormalizedPath": "z.txt",
+          "ASCIICasefoldPath": "z.txt",
+          "ArchiveFormat": "ZIP",
+          "CompressionProfile": "STORE",
+          "Size": 2,
+          "CRC32": "8a331fcb",
+          "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+          "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+          "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9",
+          "NestedArchive": ""
+        }
+      ],
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP consumer stable values",
+      "Kind": "zip-consume",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 1,
+          "OriginalPath": "dir/a.txt",
+          "NormalizedPath": "dir/a.txt",
+          "ASCIICasefoldPath": "dir/a.txt",
+          "ArchiveFormat": "ZIP",
+          "CompressionProfile": "STORE",
+          "Size": 4,
+          "CRC32": "9b0d08f1",
+          "MD5": "098890dde069e9abad63f19a0d9e1f32",
+          "SHA1": "e2512172abf8cc9f67fdd49eb6cacf2df71bbad3",
+          "SHA256": "63c1dd951ffedf6f7fd968ad4efa39b8ed584f162f46e715114ee184f8de9201",
+          "NestedArchive": ""
+        },
+        {
+          "Ordinal": 2,
+          "OriginalPath": "z.txt",
+          "NormalizedPath": "z.txt",
+          "ASCIICasefoldPath": "z.txt",
+          "ArchiveFormat": "ZIP",
+          "CompressionProfile": "STORE",
+          "Size": 2,
+          "CRC32": "8a331fcb",
+          "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+          "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+          "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9",
+          "NestedArchive": ""
+        }
+      ],
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 1,
+          "Path": "dir/a.txt",
+          "Content": {
+            "Size": 4,
+            "CRC32": "9b0d08f1",
+            "MD5": "098890dde069e9abad63f19a0d9e1f32",
+            "SHA1": "e2512172abf8cc9f67fdd49eb6cacf2df71bbad3",
+            "SHA256": "63c1dd951ffedf6f7fd968ad4efa39b8ed584f162f46e715114ee184f8de9201"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 2,
+            "CRC32": "8a331fcb",
+            "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+            "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+            "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP duplicate rejects before consumer",
+      "Kind": "zip-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP fold collision rejects before consumer",
+      "Kind": "zip-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_CASEFOLD_COLLISION",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": true,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP traversal rejects before consumer",
+      "Kind": "zip-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "UNSAFE_LOGICAL_PATH",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": true,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP empty and canceled",
+      "Kind": "zip-scan",
+      "Mode": "",
+      "Entries": [],
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP invalid precedes cancellation",
+      "Kind": "zip-scan",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE: invalid zip",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP valid canceled",
+      "Kind": "zip-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "importing/archive: context canceled",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": true,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP nil consumer precedes opening",
+      "Kind": "zip-consume",
+      "Mode": "nil",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP consumer failure before reading",
+      "Kind": "zip-consume",
+      "Mode": "fail-before",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 1,
+          "Path": "dir/a.txt",
+          "Content": {
+            "Size": 0,
+            "CRC32": "",
+            "MD5": "",
+            "SHA1": "",
+            "SHA256": ""
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "scan archive entry \"dir/a.txt\": CAPTURE_CONSUMER_FAILURE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": true,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP consumer failure after reading",
+      "Kind": "zip-consume",
+      "Mode": "fail-after",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 1,
+          "Path": "dir/a.txt",
+          "Content": {
+            "Size": 4,
+            "CRC32": "9b0d08f1",
+            "MD5": "098890dde069e9abad63f19a0d9e1f32",
+            "SHA1": "e2512172abf8cc9f67fdd49eb6cacf2df71bbad3",
+            "SHA256": "63c1dd951ffedf6f7fd968ad4efa39b8ed584f162f46e715114ee184f8de9201"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "scan archive entry \"dir/a.txt\": CAPTURE_CONSUMER_FAILURE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": true,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP short consumer",
+      "Kind": "zip-consume",
+      "Mode": "short",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 1,
+          "Path": "dir/a.txt",
+          "Content": {
+            "Size": 1,
+            "CRC32": "d3d99e8b",
+            "MD5": "7fc56270e7a70fa81a5935b72eacbe29",
+            "SHA1": "6dcd4ce23d88e2ee9568ba546c007c63d9131c1b",
+            "SHA256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "scan archive entry \"dir/a.txt\": ARCHIVE_UNSAFE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP metadata CRC mismatch",
+      "Kind": "zip-consume",
+      "Mode": "bad-crc",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 1,
+          "Path": "dir/a.txt",
+          "Content": {
+            "Size": 4,
+            "CRC32": "9b0d08f1",
+            "MD5": "098890dde069e9abad63f19a0d9e1f32",
+            "SHA1": "e2512172abf8cc9f67fdd49eb6cacf2df71bbad3",
+            "SHA256": "63c1dd951ffedf6f7fd968ad4efa39b8ed584f162f46e715114ee184f8de9201"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "scan archive entry \"dir/a.txt\": ARCHIVE_UNSAFE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP empty hashes current acceptance",
+      "Kind": "zip-consume",
+      "Mode": "empty-hashes",
+      "Entries": [
+        {
+          "Ordinal": 1,
+          "OriginalPath": "dir/a.txt",
+          "NormalizedPath": "dir/a.txt",
+          "ASCIICasefoldPath": "dir/a.txt",
+          "ArchiveFormat": "ZIP",
+          "CompressionProfile": "STORE",
+          "Size": 4,
+          "CRC32": "9b0d08f1",
+          "MD5": "",
+          "SHA1": "",
+          "SHA256": "",
+          "NestedArchive": ""
+        },
+        {
+          "Ordinal": 2,
+          "OriginalPath": "z.txt",
+          "NormalizedPath": "z.txt",
+          "ASCIICasefoldPath": "z.txt",
+          "ArchiveFormat": "ZIP",
+          "CompressionProfile": "STORE",
+          "Size": 2,
+          "CRC32": "8a331fcb",
+          "MD5": "",
+          "SHA1": "",
+          "SHA256": "",
+          "NestedArchive": ""
+        }
+      ],
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 1,
+          "Path": "dir/a.txt",
+          "Content": {
+            "Size": 4,
+            "CRC32": "9b0d08f1",
+            "MD5": "098890dde069e9abad63f19a0d9e1f32",
+            "SHA1": "e2512172abf8cc9f67fdd49eb6cacf2df71bbad3",
+            "SHA256": "63c1dd951ffedf6f7fd968ad4efa39b8ed584f162f46e715114ee184f8de9201"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 2,
+            "CRC32": "8a331fcb",
+            "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+            "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+            "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP CRC scan failure",
+      "Kind": "zip-scan",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "scan archive entry \"a\": ARCHIVE_UNSAFE: read entry",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP CRC consumer failure",
+      "Kind": "zip-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 0,
+          "Path": "a",
+          "Content": {
+            "Size": 3,
+            "CRC32": "eac5c577",
+            "MD5": "1a4b5d84a0328c4a33bd669c608a34c3",
+            "SHA1": "3841eeac1c198558bc461d49e9cd17c10d49aad4",
+            "SHA256": "ee4fcdc3401859da4429c49ca305c2c4c4aa8cbc56736bf9a7e0ed76b644f959"
+          },
+          "ReadError": "importing/archive: read member: zip: checksum error"
+        }
+      ],
+      "Error": "scan archive entry \"a\": importing/archive: read member: zip: checksum error",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP nested rejected",
+      "Kind": "zip-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 0,
+          "Path": "inner.zip",
+          "Content": {
+            "Size": 4,
+            "CRC32": "bac62545",
+            "MD5": "10893fd7cff66dca193f658ca9438d15",
+            "SHA1": "fb467bb25be45fcf0c84c03ce5801abd5a28c1fd",
+            "SHA256": "8dcc7e601606217f3b754766511182a916b17e9a26a94c9d887104eba92e9bb2"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "scan archive entry \"inner.zip\": NESTED_ARCHIVE_UNSUPPORTED",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": true,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP opaque nested allowed",
+      "Kind": "zip-consume",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 0,
+          "OriginalPath": "inner.zip",
+          "NormalizedPath": "inner.zip",
+          "ASCIICasefoldPath": "inner.zip",
+          "ArchiveFormat": "ZIP",
+          "CompressionProfile": "STORE",
+          "Size": 4,
+          "CRC32": "bac62545",
+          "MD5": "10893fd7cff66dca193f658ca9438d15",
+          "SHA1": "fb467bb25be45fcf0c84c03ce5801abd5a28c1fd",
+          "SHA256": "8dcc7e601606217f3b754766511182a916b17e9a26a94c9d887104eba92e9bb2",
+          "NestedArchive": "ZIP"
+        }
+      ],
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 0,
+          "Path": "inner.zip",
+          "Content": {
+            "Size": 4,
+            "CRC32": "bac62545",
+            "MD5": "10893fd7cff66dca193f658ca9438d15",
+            "SHA1": "fb467bb25be45fcf0c84c03ce5801abd5a28c1fd",
+            "SHA256": "8dcc7e601606217f3b754766511182a916b17e9a26a94c9d887104eba92e9bb2"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ZIP cancel after first",
+      "Kind": "zip-consume",
+      "Mode": "cancel-after-first",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 1,
+          "Path": "dir/a.txt",
+          "Content": {
+            "Size": 4,
+            "CRC32": "9b0d08f1",
+            "MD5": "098890dde069e9abad63f19a0d9e1f32",
+            "SHA1": "e2512172abf8cc9f67fdd49eb6cacf2df71bbad3",
+            "SHA256": "63c1dd951ffedf6f7fd968ad4efa39b8ed584f162f46e715114ee184f8de9201"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 0,
+            "CRC32": "00000000",
+            "MD5": "d41d8cd98f00b204e9800998ecf8427e",
+            "SHA1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+            "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "ReadError": "importing/archive: context canceled"
+        }
+      ],
+      "Error": "scan archive entry \"z.txt\": importing/archive: context canceled",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": true,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "Flat ZIP directory rejection",
+      "Kind": "flat",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "NESTED_ARCHIVE_UNSUPPORTED",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": true,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "NWJS PE valid",
+      "Kind": "nwjs-validate",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "NWJS scan remains ZIP facts",
+      "Kind": "nwjs-scan",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 0,
+          "OriginalPath": "index.html",
+          "NormalizedPath": "index.html",
+          "ASCIICasefoldPath": "index.html",
+          "ArchiveFormat": "ZIP",
+          "CompressionProfile": "STORE",
+          "Size": 7,
+          "CRC32": "2fb3d0ee",
+          "MD5": "46f86faa6bbf9ac94a7e459509a20ed0",
+          "SHA1": "98f54143ab4e86b28c3afee0f50f2f51cfb2ed38",
+          "SHA256": "244210e48437b6556980a70249a99369934a352429034cef9d7bd253b3bf2c01",
+          "NestedArchive": ""
+        }
+      ],
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "NWJS consume",
+      "Kind": "nwjs-consume",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 0,
+          "OriginalPath": "index.html",
+          "NormalizedPath": "index.html",
+          "ASCIICasefoldPath": "index.html",
+          "ArchiveFormat": "ZIP",
+          "CompressionProfile": "STORE",
+          "Size": 7,
+          "CRC32": "2fb3d0ee",
+          "MD5": "46f86faa6bbf9ac94a7e459509a20ed0",
+          "SHA1": "98f54143ab4e86b28c3afee0f50f2f51cfb2ed38",
+          "SHA256": "244210e48437b6556980a70249a99369934a352429034cef9d7bd253b3bf2c01",
+          "NestedArchive": ""
+        }
+      ],
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 0,
+          "Path": "index.html",
+          "Content": {
+            "Size": 7,
+            "CRC32": "2fb3d0ee",
+            "MD5": "46f86faa6bbf9ac94a7e459509a20ed0",
+            "SHA1": "98f54143ab4e86b28c3afee0f50f2f51cfb2ed38",
+            "SHA256": "244210e48437b6556980a70249a99369934a352429034cef9d7bd253b3bf2c01"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "NWJS invalid before cancellation",
+      "Kind": "nwjs-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "NWJS_EXECUTABLE_INVALID",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": true,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "NWJS nil consumer first",
+      "Kind": "nwjs-consume",
+      "Mode": "nil",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR detect",
+      "Kind": "asar-detect",
+      "Mode": "",
+      "Entries": null,
+      "Detected": true,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR packed offset and final ordinal order",
+      "Kind": "asar-consume",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 0,
+          "OriginalPath": "a.txt",
+          "NormalizedPath": "a.txt",
+          "ASCIICasefoldPath": "a.txt",
+          "ArchiveFormat": "ELECTRON_ASAR",
+          "CompressionProfile": "ELECTRON_ASAR_STORE",
+          "Size": 3,
+          "CRC32": "66a031a7",
+          "MD5": "e1faffb3e614e6c2fba74296962386b7",
+          "SHA1": "606ec6e9bd8a8ff2ad14e5fade3f264471e82251",
+          "SHA256": "cb1ad2119d8fafb69566510ee712661f9f14b83385006ef92aec47f523a38358",
+          "NestedArchive": ""
+        },
+        {
+          "Ordinal": 1,
+          "OriginalPath": "u.node",
+          "NormalizedPath": "u.node",
+          "ASCIICasefoldPath": "u.node",
+          "ArchiveFormat": "ELECTRON_ASAR",
+          "CompressionProfile": "ELECTRON_ASAR_STORE",
+          "Size": 1,
+          "CRC32": "c9034af6",
+          "MD5": "4c614360da93c0a041b22e537de151eb",
+          "SHA1": "b2c7c0caa10a0cca5ea7d69e54018ae0c0389dd6",
+          "SHA256": "a25513c7e0f6eaa80a3337ee18081b9e2ed09e00af8531c8f7bb2542764027e7",
+          "NestedArchive": ""
+        },
+        {
+          "Ordinal": 2,
+          "OriginalPath": "z.txt",
+          "NormalizedPath": "z.txt",
+          "ASCIICasefoldPath": "z.txt",
+          "ArchiveFormat": "ELECTRON_ASAR",
+          "CompressionProfile": "ELECTRON_ASAR_STORE",
+          "Size": 2,
+          "CRC32": "8a331fcb",
+          "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+          "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+          "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9",
+          "NestedArchive": ""
+        }
+      ],
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 2,
+            "CRC32": "8a331fcb",
+            "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+            "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+            "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 0,
+          "Path": "a.txt",
+          "Content": {
+            "Size": 3,
+            "CRC32": "66a031a7",
+            "MD5": "e1faffb3e614e6c2fba74296962386b7",
+            "SHA1": "606ec6e9bd8a8ff2ad14e5fade3f264471e82251",
+            "SHA256": "cb1ad2119d8fafb69566510ee712661f9f14b83385006ef92aec47f523a38358"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 1,
+          "Path": "u.node",
+          "Content": {
+            "Size": 1,
+            "CRC32": "c9034af6",
+            "MD5": "4c614360da93c0a041b22e537de151eb",
+            "SHA1": "b2c7c0caa10a0cca5ea7d69e54018ae0c0389dd6",
+            "SHA256": "a25513c7e0f6eaa80a3337ee18081b9e2ed09e00af8531c8f7bb2542764027e7"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR bind before first consumer",
+      "Kind": "asar-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID",
+      "ErrorIs": {
+        "asar": true,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR final packed CRC before unpacked",
+      "Kind": "asar-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 2,
+            "CRC32": "8a331fcb",
+            "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+            "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+            "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 0,
+          "Path": "a.txt",
+          "Content": {
+            "Size": 3,
+            "CRC32": "66a031a7",
+            "MD5": "e1faffb3e614e6c2fba74296962386b7",
+            "SHA1": "606ec6e9bd8a8ff2ad14e5fade3f264471e82251",
+            "SHA256": "cb1ad2119d8fafb69566510ee712661f9f14b83385006ef92aec47f523a38358"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID",
+      "ErrorIs": {
+        "asar": true,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR overlapping ranges before consumer",
+      "Kind": "asar-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID: overlapping or out-of-bounds file range",
+      "ErrorIs": {
+        "asar": true,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR whole integrity mismatch",
+      "Kind": "asar-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 0,
+          "Path": "a",
+          "Content": {
+            "Size": 1,
+            "CRC32": "d3d99e8b",
+            "MD5": "7fc56270e7a70fa81a5935b72eacbe29",
+            "SHA1": "6dcd4ce23d88e2ee9568ba546c007c63d9131c1b",
+            "SHA256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID: integrity mismatch for \"a\"",
+      "ErrorIs": {
+        "asar": true,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR block hashes only shape checked",
+      "Kind": "asar-consume",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 0,
+          "OriginalPath": "a",
+          "NormalizedPath": "a",
+          "ASCIICasefoldPath": "a",
+          "ArchiveFormat": "ELECTRON_ASAR",
+          "CompressionProfile": "ELECTRON_ASAR_STORE",
+          "Size": 1,
+          "CRC32": "d3d99e8b",
+          "MD5": "7fc56270e7a70fa81a5935b72eacbe29",
+          "SHA1": "6dcd4ce23d88e2ee9568ba546c007c63d9131c1b",
+          "SHA256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+          "NestedArchive": ""
+        }
+      ],
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 0,
+          "Path": "a",
+          "Content": {
+            "Size": 1,
+            "CRC32": "d3d99e8b",
+            "MD5": "7fc56270e7a70fa81a5935b72eacbe29",
+            "SHA1": "6dcd4ce23d88e2ee9568ba546c007c63d9131c1b",
+            "SHA256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR nested fact remains opaque",
+      "Kind": "asar-consume",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 0,
+          "OriginalPath": "inner.zip",
+          "NormalizedPath": "inner.zip",
+          "ASCIICasefoldPath": "inner.zip",
+          "ArchiveFormat": "ELECTRON_ASAR",
+          "CompressionProfile": "ELECTRON_ASAR_STORE",
+          "Size": 4,
+          "CRC32": "bac62545",
+          "MD5": "10893fd7cff66dca193f658ca9438d15",
+          "SHA1": "fb467bb25be45fcf0c84c03ce5801abd5a28c1fd",
+          "SHA256": "8dcc7e601606217f3b754766511182a916b17e9a26a94c9d887104eba92e9bb2",
+          "NestedArchive": "ZIP"
+        }
+      ],
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 0,
+          "Path": "inner.zip",
+          "Content": {
+            "Size": 4,
+            "CRC32": "bac62545",
+            "MD5": "10893fd7cff66dca193f658ca9438d15",
+            "SHA1": "fb467bb25be45fcf0c84c03ce5801abd5a28c1fd",
+            "SHA256": "8dcc7e601606217f3b754766511182a916b17e9a26a94c9d887104eba92e9bb2"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR nil consumer first",
+      "Kind": "asar-consume",
+      "Mode": "nil",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR short consumer",
+      "Kind": "asar-consume",
+      "Mode": "short",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 1,
+            "CRC32": "59bc5767",
+            "MD5": "21c2e59531c8710156d34a3c30ac81d5",
+            "SHA1": "909f99a779adb66a76fc53ab56c7dd1caf35d0fd",
+            "SHA256": "bbeebd879e1dff6918546dc0c179fdde505f2a21591c9a9c96e36b054ec5af83"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID",
+      "ErrorIs": {
+        "asar": true,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR empty hashes rejected",
+      "Kind": "asar-consume",
+      "Mode": "empty-hashes",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 2,
+            "CRC32": "8a331fcb",
+            "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+            "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+            "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID",
+      "ErrorIs": {
+        "asar": true,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR unpacked callback error joins archive sentinel",
+      "Kind": "asar-consume",
+      "Mode": "fail-unpacked",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 2,
+            "CRC32": "8a331fcb",
+            "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+            "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+            "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 0,
+          "Path": "a.txt",
+          "Content": {
+            "Size": 3,
+            "CRC32": "66a031a7",
+            "MD5": "e1faffb3e614e6c2fba74296962386b7",
+            "SHA1": "606ec6e9bd8a8ff2ad14e5fade3f264471e82251",
+            "SHA256": "cb1ad2119d8fafb69566510ee712661f9f14b83385006ef92aec47f523a38358"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 1,
+          "Path": "u.node",
+          "Content": {
+            "Size": 0,
+            "CRC32": "",
+            "MD5": "",
+            "SHA1": "",
+            "SHA256": ""
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "CAPTURE_CONSUMER_FAILURE\nARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID",
+      "ErrorIs": {
+        "asar": true,
+        "canceled": false,
+        "casefold": false,
+        "consumer": true,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR canceled header error precedence",
+      "Kind": "asar-consume",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID: truncated pickle header",
+      "ErrorIs": {
+        "asar": true,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR callback failure",
+      "Kind": "asar-consume",
+      "Mode": "fail-before",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 0,
+            "CRC32": "",
+            "MD5": "",
+            "SHA1": "",
+            "SHA256": ""
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "CAPTURE_CONSUMER_FAILURE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": true,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "ASAR cancellation after packed member",
+      "Kind": "asar-consume",
+      "Mode": "cancel-after-first",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 2,
+          "Path": "z.txt",
+          "Content": {
+            "Size": 2,
+            "CRC32": "8a331fcb",
+            "MD5": "dc18d83abfd9f87d396e8fd6b6ac0fe1",
+            "SHA1": "d308e0b2d36c5d2420869c6bf112e31e8d5b0d52",
+            "SHA256": "099987a5188a32ab07b68b4219a824bb83bfcc10aca0fd4f58e41c99b37f09f9"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 0,
+          "Path": "a.txt",
+          "Content": {
+            "Size": 0,
+            "CRC32": "00000000",
+            "MD5": "d41d8cd98f00b204e9800998ecf8427e",
+            "SHA1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+            "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "ReadError": "importing/archive: context canceled"
+        }
+      ],
+      "Error": "importing/archive: context canceled",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": true,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z single",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 0,
+          "OriginalPath": "game.a26",
+          "NormalizedPath": "game.a26",
+          "ASCIICasefoldPath": "game.a26",
+          "ArchiveFormat": "SEVEN_Z",
+          "CompressionProfile": "SEVEN_Z_DECODER_VALIDATED",
+          "Size": 33,
+          "CRC32": "3026b3a0",
+          "MD5": "52d57067f5ea6fa105cdcd0b26097c5a",
+          "SHA1": "744c41cc81add27218b1b83022d64fedda0393d4",
+          "SHA256": "10a9e87f1d2b987e35aba3682e79828901d526909295fc07c3b01a1d9200a6c6",
+          "NestedArchive": ""
+        }
+      ],
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z ambiguous",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 0,
+          "OriginalPath": "game.a26",
+          "NormalizedPath": "game.a26",
+          "ASCIICasefoldPath": "game.a26",
+          "ArchiveFormat": "SEVEN_Z",
+          "CompressionProfile": "SEVEN_Z_DECODER_VALIDATED",
+          "Size": 33,
+          "CRC32": "3026b3a0",
+          "MD5": "52d57067f5ea6fa105cdcd0b26097c5a",
+          "SHA1": "744c41cc81add27218b1b83022d64fedda0393d4",
+          "SHA256": "10a9e87f1d2b987e35aba3682e79828901d526909295fc07c3b01a1d9200a6c6",
+          "NestedArchive": ""
+        },
+        {
+          "Ordinal": 1,
+          "OriginalPath": "second.a26",
+          "NormalizedPath": "second.a26",
+          "ASCIICasefoldPath": "second.a26",
+          "ArchiveFormat": "SEVEN_Z",
+          "CompressionProfile": "SEVEN_Z_DECODER_VALIDATED",
+          "Size": 38,
+          "CRC32": "c696c32c",
+          "MD5": "7f1fdc4bb0eaedf08b55793d0d9ef038",
+          "SHA1": "07f3b72c1e99b9678722ac420d1454018d334e0e",
+          "SHA256": "a128851aef2fd61c9c935cfede1f60cdd86624e0b307227f95b94f9c0e55e7d6",
+          "NestedArchive": ""
+        }
+      ],
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z nested",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "NESTED_ARCHIVE_UNSUPPORTED",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": true,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z encrypted",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_ENCRYPTED_UNSUPPORTED",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": true,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z casefold",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_CASEFOLD_COLLISION",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": true,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z symlink",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z unsupported-coder",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_METHOD_UNSUPPORTED",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": true,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z exact single extract",
+      "Kind": "7z-extract",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 33,
+        "CRC32": "3026b3a0",
+        "MD5": "52d57067f5ea6fa105cdcd0b26097c5a",
+        "SHA1": "744c41cc81add27218b1b83022d64fedda0393d4",
+        "SHA256": "10a9e87f1d2b987e35aba3682e79828901d526909295fc07c3b01a1d9200a6c6"
+      }
+    },
+    {
+      "Name": "7z batch sorts ordinals",
+      "Kind": "7z-batch",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 0,
+          "Path": "game.a26",
+          "Content": {
+            "Size": 33,
+            "CRC32": "3026b3a0",
+            "MD5": "52d57067f5ea6fa105cdcd0b26097c5a",
+            "SHA1": "744c41cc81add27218b1b83022d64fedda0393d4",
+            "SHA256": "10a9e87f1d2b987e35aba3682e79828901d526909295fc07c3b01a1d9200a6c6"
+          },
+          "ReadError": ""
+        },
+        {
+          "Ordinal": 1,
+          "Path": "second.a26",
+          "Content": {
+            "Size": 38,
+            "CRC32": "c696c32c",
+            "MD5": "7f1fdc4bb0eaedf08b55793d0d9ef038",
+            "SHA1": "07f3b72c1e99b9678722ac420d1454018d334e0e",
+            "SHA256": "a128851aef2fd61c9c935cfede1f60cdd86624e0b307227f95b94f9c0e55e7d6"
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z batch consumer failure wins",
+      "Kind": "7z-batch",
+      "Mode": "fail-before",
+      "Entries": null,
+      "Detected": false,
+      "Calls": [
+        {
+          "Ordinal": 0,
+          "Path": "game.a26",
+          "Content": {
+            "Size": 0,
+            "CRC32": "",
+            "MD5": "",
+            "SHA1": "",
+            "SHA256": ""
+          },
+          "ReadError": ""
+        }
+      ],
+      "Error": "consume 7z entry 0: CAPTURE_CONSUMER_FAILURE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": true,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z empty batch avoids opening even canceled",
+      "Kind": "7z-batch",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z duplicate batch rejects before opening",
+      "Kind": "7z-batch",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_UNSAFE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z deadline maps resource limit",
+      "Kind": "7z-scan",
+      "Mode": "expired",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "ARCHIVE_RESOURCE_LIMIT",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": true,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z valid canceled",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "archive worker: context canceled",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": true,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z invalid precedes cancellation",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "open 7z: ARCHIVE_UNSAFE",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": true,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "7z nested allowed for RPG",
+      "Kind": "7z-scan",
+      "Mode": "",
+      "Entries": [
+        {
+          "Ordinal": 0,
+          "OriginalPath": "nested.zip",
+          "NormalizedPath": "nested.zip",
+          "ASCIICasefoldPath": "nested.zip",
+          "ArchiveFormat": "SEVEN_Z",
+          "CompressionProfile": "SEVEN_Z_DECODER_VALIDATED",
+          "Size": 66,
+          "CRC32": "90e8cd5e",
+          "MD5": "e106df1b9d221ab8497cdfb8e4f9b445",
+          "SHA1": "35a0b12f0938587b3dc687b21d5b02441cced7ba",
+          "SHA256": "42c4b68e8e1f1b8c73aa33c7c0d8164f6367d047d055ec634e88417d0d619746",
+          "NestedArchive": "ZIP"
+        }
+      ],
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "worker scan 20000 8589934592 34359738368 200 false",
+      "Kind": "worker-wire",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "000001927b22656e7472696573223a5b7b224f7264696e616c223a302c224f726967696e616c50617468223a2267616d652e613236222c224e6f726d616c697a656450617468223a2267616d652e613236222c22415343494943617365666f6c6450617468223a2267616d652e613236222c2241726368697665466f726d6174223a22534556454e5f5a222c22436f6d7072657373696f6e50726f66696c65223a22534556454e5f5a5f4445434f4445525f56414c494441544544222c2253697a65223a33332c224352433332223a223330323662336130222c224d4435223a223532643537303637663565613666613130356364636430623236303937633561222c2253484131223a2237343463343163633831616464323732313862316238333032326436346665646461303339336434222c22534841323536223a2231306139653837663164326239383765333561626133363832653739383238393031643532363930393239356663303763336230316131643932303061366336222c224e657374656441726368697665223a22227d5d7d",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "worker extract-batch 0",
+      "Kind": "worker-wire",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "000000177b226f7264696e616c223a302c2273697a65223a33337d526574726f6d2064657465726d696e697374696320377a20666978747572652e0a",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "worker extract-batch 01",
+      "Kind": "worker-wire",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "0000001e7b226572726f72436f6465223a22415243484956455f554e53414645227d",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "worker extract-batch 0,0",
+      "Kind": "worker-wire",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "0000001e7b226572726f72436f6465223a22415243484956455f554e53414645227d",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "worker extract-batch ",
+      "Kind": "worker-wire",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "0000001e7b226572726f72436f6465223a22415243484956455f554e53414645227d",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "worker extract -1",
+      "Kind": "worker-wire",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "0000001e7b226572726f72436f6465223a22415243484956455f554e53414645227d",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "worker scan 20001 8589934592 34359738368 200 false",
+      "Kind": "worker-wire",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "0000001e7b226572726f72436f6465223a22415243484956455f554e53414645227d",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    },
+    {
+      "Name": "worker unknown",
+      "Kind": "worker-wire",
+      "Mode": "",
+      "Entries": null,
+      "Detected": false,
+      "Calls": null,
+      "Error": "",
+      "ErrorIs": {
+        "asar": false,
+        "canceled": false,
+        "casefold": false,
+        "consumer": false,
+        "deadline": false,
+        "encrypted": false,
+        "eof": false,
+        "limit": false,
+        "logicalPath": false,
+        "method": false,
+        "nested": false,
+        "nwjs": false,
+        "resource": false,
+        "sandbox": false,
+        "unsafe": false,
+        "volume": false
+      },
+      "WireHex": "0000001e7b226572726f72436f6465223a22415243484956455f554e53414645227d",
+      "Extracted": {
+        "Size": 0,
+        "CRC32": "",
+        "MD5": "",
+        "SHA1": "",
+        "SHA256": ""
+      }
+    }
+  ],
+  "ChildrenAfter": ""
+}

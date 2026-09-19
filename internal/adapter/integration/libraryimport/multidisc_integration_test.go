@@ -53,8 +53,8 @@ type multiDiscUploadFile struct {
 }
 
 func completeMultiDiscUpload(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	database *store.DB,
 	blobs *blobstore.Store,
 	dataDir string,
@@ -89,20 +89,20 @@ func completeMultiDiscUpload(
 	testassert.False(t, err != nil, err)
 	jobID, _, err := service.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
-	waitParentJob(t, database.SQL, jobID, "SUCCEEDED")
+	waitParentJob(ctx, t, database.SQL, jobID, "SUCCEEDED")
 	return upload.ID
 }
 
 func completeMultiDiscDirectory(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	database *store.DB,
 	blobs *blobstore.Store,
 	dataDir string,
 	files []multiDiscUploadFile,
 ) string {
 	t.Helper()
-	return completeMultiDiscUpload(t, ctx, database, blobs, dataDir, "DIRECTORY", files)
+	return completeMultiDiscUpload(ctx, t, database, blobs, dataDir, "DIRECTORY", files)
 }
 
 func newMultiDiscImportFixture(t *testing.T) (context.Context, string, *store.DB, *blobstore.Store, *Service) {
@@ -188,7 +188,7 @@ func multiDiscSaveRequest(t *testing.T, discIndex int) saves.ManualUpload {
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	request, err := http.NewRequest(http.MethodPost, "/", &body)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/", &body)
 	testassert.False(t, err != nil, err)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	return saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
@@ -197,7 +197,7 @@ func multiDiscSaveRequest(t *testing.T, discIndex int) saves.ManualUpload {
 func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *testing.T) {
 	t.Parallel()
 	ctx, dataDir, database, blobs, importer := newMultiDiscImportFixture(t)
-	uploadID := completeMultiDiscDirectory(t, ctx, database, blobs, dataDir, []multiDiscUploadFile{
+	uploadID := completeMultiDiscDirectory(ctx, t, database, blobs, dataDir, []multiDiscUploadFile{
 		{path: "Alpha/original.m3u", contents: []byte("Disc One.CHD\nDisc Two.chd\n")},
 		{path: "Alpha/disc one.chd", contents: fakeCHD("alpha-one")},
 		{path: "Alpha/Disc Two.chd", contents: fakeCHD("alpha-two")},
@@ -343,7 +343,7 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 func TestMultiDiscMissingDiscIsBlockedWithoutPlaceholderBlob(t *testing.T) {
 	t.Parallel()
 	ctx, dataDir, database, blobs, importer := newMultiDiscImportFixture(t)
-	uploadID := completeMultiDiscDirectory(t, ctx, database, blobs, dataDir, []multiDiscUploadFile{
+	uploadID := completeMultiDiscDirectory(ctx, t, database, blobs, dataDir, []multiDiscUploadFile{
 		{path: "game/game.m3u", contents: []byte("one.chd\ntwo.chd\nthree.chd\n")},
 		{path: "game/one.chd", contents: fakeCHD("one")},
 		{path: "game/two.chd", contents: fakeCHD("two")},
@@ -385,15 +385,14 @@ SELECT effective_source_snapshot_id FROM review_drafts WHERE import_item_id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !hasMultiDisc }, func() bool { return !projectionOK }, func() bool { return initialProjection["discCount"] != 3 }, func() bool { return initialProjection["presentDiscCount"] != 2 }, func() bool { return initialProjection["missingDiscCount"] != 1 }, func() bool { return initialProjection["canAttachMissingDiscs"] != true }), "initial multi-disc review = %#v, present=%v, error=%v", initialReview, hasMultiDisc, err)
 	encodedReview, _ := json.Marshal(initialReview)
 	testassert.Falsef(t, testassert.Any(func() bool { return bytes.Contains(encodedReview, []byte("blobId")) }, func() bool { return !bytes.Contains(encodedReview, []byte("playlist")) }), "initial review leaked storage identity or omitted playlist: %s", encodedReview)
-	attachmentUploadID := completeMultiDiscUpload(
-		t, ctx, database, blobs, dataDir, "FILES",
+	attachmentUploadID := completeMultiDiscUpload(ctx, t, database, blobs, dataDir, "FILES",
 		[]multiDiscUploadFile{{path: "three.chd", contents: fakeCHD("three")}},
 	)
 	attachment, err := importer.CreateMultiDiscAttachment(ctx, itemID, 1, MultiDiscAttachmentRequest{
 		UploadID: attachmentUploadID,
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return attachment.State != "QUEUED" }, func() bool { return attachment.ReviewVersion != 2 }), "CreateMultiDiscAttachment() = %#v, error=%v", attachment, err)
-	waitParentJob(t, database.SQL, attachment.JobID, "SUCCEEDED")
+	waitParentJob(ctx, t, database.SQL, attachment.JobID, "SUCCEEDED")
 	var terminalEventData string
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT data_json FROM job_events WHERE job_id=? AND event_type='SUCCEEDED'
@@ -443,7 +442,7 @@ WHERE attachment.id=?
 func TestMultiDiscAttachmentRejectsNonExactSetWithoutAdvancingDraft(t *testing.T) {
 	t.Parallel()
 	ctx, dataDir, database, blobs, importer := newMultiDiscImportFixture(t)
-	baseUploadID := completeMultiDiscDirectory(t, ctx, database, blobs, dataDir, []multiDiscUploadFile{
+	baseUploadID := completeMultiDiscDirectory(ctx, t, database, blobs, dataDir, []multiDiscUploadFile{
 		{path: "game/game.m3u", contents: []byte("one.chd\ntwo.chd\nthree.chd\n")},
 		{path: "game/one.chd", contents: fakeCHD("one")},
 		{path: "game/two.chd", contents: fakeCHD("two")},
@@ -461,16 +460,15 @@ WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(&itemID, &baseSnapshotID); err != nil {
 		t.Fatal(err)
 	}
-	attachmentUploadID := completeMultiDiscUpload(
-		t, ctx, database, blobs, dataDir, "FILES", []multiDiscUploadFile{
-			{path: "wrong.chd", contents: fakeCHD("wrong")},
-		},
+	attachmentUploadID := completeMultiDiscUpload(ctx, t, database, blobs, dataDir, "FILES", []multiDiscUploadFile{
+		{path: "wrong.chd", contents: fakeCHD("wrong")},
+	},
 	)
 	attachment, err := importer.CreateMultiDiscAttachment(ctx, itemID, 1, MultiDiscAttachmentRequest{
 		UploadID: attachmentUploadID,
 	})
 	testassert.False(t, err != nil, err)
-	waitParentJob(t, database.SQL, attachment.JobID, "FAILED")
+	waitParentJob(ctx, t, database.SQL, attachment.JobID, "FAILED")
 	var state, errorCode, currentSnapshotID string
 	var selectedID sql.NullString
 	if err := database.SQL.QueryRowContext(context.Background(), `
@@ -488,14 +486,13 @@ SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 `, attachmentUploadID).Scan(&consumptions); err != nil || consumptions != 0 {
 		t.Fatalf("rejected upload consumptions = %d, error=%v", consumptions, err)
 	}
-	badUploadID := completeMultiDiscUpload(
-		t, ctx, database, blobs, dataDir, "FILES", []multiDiscUploadFile{
-			{path: "three.chd", contents: []byte("not-a-valid-chd")},
-		},
+	badUploadID := completeMultiDiscUpload(ctx, t, database, blobs, dataDir, "FILES", []multiDiscUploadFile{
+		{path: "three.chd", contents: []byte("not-a-valid-chd")},
+	},
 	)
 	bad, err := importer.CreateMultiDiscAttachment(ctx, itemID, 2, MultiDiscAttachmentRequest{UploadID: badUploadID})
 	testassert.False(t, err != nil, err)
-	waitParentJob(t, database.SQL, bad.JobID, "FAILED")
+	waitParentJob(ctx, t, database.SQL, bad.JobID, "FAILED")
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT state,error_code FROM review_multidisc_attachments WHERE id=?
 `, bad.AttachmentID).Scan(&state, &errorCode); err != nil ||
@@ -507,7 +504,7 @@ SELECT state,error_code FROM review_multidisc_attachments WHERE id=?
 func TestMultiDiscAdmissionRejectsMissingPlaylistAndUnsupportedTargetWithoutConsumption(t *testing.T) {
 	t.Parallel()
 	ctx, dataDir, database, blobs, importer := newMultiDiscImportFixture(t)
-	uploadID := completeMultiDiscDirectory(t, ctx, database, blobs, dataDir, []multiDiscUploadFile{
+	uploadID := completeMultiDiscDirectory(ctx, t, database, blobs, dataDir, []multiDiscUploadFile{
 		{path: "game/one.chd", contents: fakeCHD("one")},
 		{path: "game/two.chd", contents: fakeCHD("two")},
 	})

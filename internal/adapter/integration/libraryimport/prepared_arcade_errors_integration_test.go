@@ -87,7 +87,7 @@ func preparedArcadeErrorFixture(t *testing.T) (*Service, CreateRequest) {
 	}
 	insertArcadeParentCatalog(t, database.SQL)
 	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload := uploadCompleteFile(t, t.Context(), database.SQL, uploader, "a.zip", arcadeZIP(t, "a.bin", []byte("child")))
+	upload := uploadCompleteFile(t.Context(), t, database.SQL, uploader, "a.zip", arcadeZIP(t, "a.bin", []byte("child")))
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	return importer, CreateRequest{UploadID: upload.uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"), MetadataProvider: "NONE"}
 }

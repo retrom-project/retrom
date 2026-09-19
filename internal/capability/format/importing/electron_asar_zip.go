@@ -7,28 +7,16 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"sort"
-	"strings"
 
 	"retrom/internal/foundation/cleanup"
 )
 
 var ErrElectronASARInvalid = fmt.Errorf("%w: ELECTRON_ASAR_INVALID", ErrArchiveUnsafe)
 
-type validatedElectronZIPItem struct {
-	item       *zip.File
-	path       string
-	foldedPath string
-}
-
-type electronZIPLayout struct {
-	appASAR  validatedElectronZIPItem
-	unpacked map[string]validatedElectronZIPItem
-}
-
 type electronZIPArchive struct {
 	file   *os.File
+	reader *zip.Reader
 	layout electronZIPLayout
 }
 
@@ -81,7 +69,12 @@ func openElectronZIP(pathValue string, limits ArchiveLimits) (*electronZIPArchiv
 		cleanup.Error("close", file.Close())
 		return nil, false, fmt.Errorf("%w: invalid Electron ZIP", ErrArchiveUnsafe)
 	}
-	items, err := validateElectronZIPDirectory(reader, limits)
+	headers, err := electronZIPHeaders(reader, limits)
+	if err != nil {
+		cleanup.Error("close", file.Close())
+		return nil, false, err
+	}
+	items, err := validateElectronZIPDirectory(headers, limits)
 	if err != nil {
 		cleanup.Error("close", file.Close())
 		return nil, false, err
@@ -91,99 +84,7 @@ func openElectronZIP(pathValue string, limits ArchiveLimits) (*electronZIPArchiv
 		cleanup.Error("close", file.Close())
 		return nil, false, err
 	}
-	return &electronZIPArchive{file: file, layout: layout}, detected, nil
-}
-
-func validateElectronZIPDirectory(reader *zip.Reader, limits ArchiveLimits) ([]validatedElectronZIPItem, error) {
-	if len(reader.File) > limits.MaxEntries {
-		return nil, ErrArchiveLimitExceeded
-	}
-	seenPath := make(map[string]struct{}, len(reader.File))
-	seenFold := make(map[string]struct{}, len(reader.File))
-	items := make([]validatedElectronZIPItem, 0, len(reader.File))
-	var total int64
-	for _, item := range reader.File {
-		pathValue, directory, err := validateZIPItem(item, limits, total)
-		if err != nil {
-			return nil, err
-		}
-		if directory {
-			continue
-		}
-		expanded, ok := checkedArchiveSize(item.UncompressedSize64)
-		if !ok {
-			return nil, ErrArchiveLimitExceeded
-		}
-		total += expanded
-		folded := ASCIICaseFold(pathValue)
-		if err := recordArchivePath(seenPath, seenFold, pathValue, folded); err != nil {
-			return nil, err
-		}
-		items = append(items, validatedElectronZIPItem{item: item, path: pathValue, foldedPath: folded})
-	}
-	return items, nil
-}
-
-func locateElectronZIPLayout(items []validatedElectronZIPItem) (electronZIPLayout, bool, error) {
-	candidates := make([]validatedElectronZIPItem, 0, 1)
-	for _, item := range items {
-		if strings.EqualFold(path.Base(item.path), "app.asar") &&
-			strings.EqualFold(path.Base(path.Dir(item.path)), "resources") {
-			candidates = append(candidates, item)
-		}
-	}
-	if len(candidates) == 0 {
-		return electronZIPLayout{}, false, nil
-	}
-	for _, candidate := range candidates {
-		root := electronApplicationRoot(candidate.path)
-		if hasElectronExecutable(items, root) {
-			if len(candidates) != 1 {
-				return electronZIPLayout{}, false, ErrElectronASARInvalid
-			}
-			return electronZIPLayout{
-				appASAR: candidate, unpacked: electronUnpackedItems(items, candidate.path),
-			}, true, nil
-		}
-	}
-	return electronZIPLayout{}, false, nil
-}
-
-func electronApplicationRoot(appASARPath string) string {
-	root := path.Dir(path.Dir(appASARPath))
-	if root == "." {
-		return ""
-	}
-	return root
-}
-
-func hasElectronExecutable(items []validatedElectronZIPItem, root string) bool {
-	for _, item := range items {
-		parent := path.Dir(item.path)
-		if parent == "." {
-			parent = ""
-		}
-		if parent == root && strings.EqualFold(path.Ext(item.path), ".exe") {
-			return true
-		}
-	}
-	return false
-}
-
-func electronUnpackedItems(
-	items []validatedElectronZIPItem,
-	appASARPath string,
-) map[string]validatedElectronZIPItem {
-	prefix := ASCIICaseFold(path.Join(path.Dir(appASARPath), "app.asar.unpacked")) + "/"
-	result := make(map[string]validatedElectronZIPItem)
-	for _, item := range items {
-		if !strings.HasPrefix(item.foldedPath, prefix) {
-			continue
-		}
-		relative := strings.TrimPrefix(item.path, item.path[:len(prefix)])
-		result[ASCIICaseFold(relative)] = item
-	}
-	return result
+	return &electronZIPArchive{file: file, reader: reader, layout: layout}, detected, nil
 }
 
 func (archive *electronZIPArchive) scan(
@@ -191,12 +92,12 @@ func (archive *electronZIPArchive) scan(
 	limits ArchiveLimits,
 	consumer ArchiveContentConsumer,
 ) ([]ArchiveEntry, error) {
-	reader, err := archive.layout.appASAR.item.Open()
+	reader, err := archive.reader.File[archive.layout.appASAR.ordinal].Open()
 	if err != nil {
 		return nil, fmt.Errorf("%w: open app.asar", ErrElectronASARInvalid)
 	}
 	defer func() { cleanup.Error("close", reader.Close()) }()
-	appSize, ok := checkedArchiveSize(archive.layout.appASAR.item.UncompressedSize64)
+	appSize, ok := checkedArchiveSize(archive.layout.appASAR.header.UncompressedSize64)
 	if !ok {
 		return nil, ErrArchiveLimitExceeded
 	}
@@ -205,11 +106,11 @@ func (archive *electronZIPArchive) scan(
 	if err != nil {
 		return nil, err
 	}
-	if err := archive.bindUnpackedMembers(members); err != nil {
+	if err := validateUnpackedASARMembers(members, archive.layout); err != nil {
 		return nil, err
 	}
 	entries, position, err := consumePackedASARMembers(
-		ctx, monitor, members, archive.layout.appASAR.item.Method, consumer,
+		ctx, monitor, members, archive.layout.appASAR.header.Method, consumer,
 	)
 	if err != nil {
 		return nil, err
@@ -225,24 +126,6 @@ func (archive *electronZIPArchive) scan(
 		return nil, err
 	}
 	return entries, nil
-}
-
-func (archive *electronZIPArchive) bindUnpackedMembers(members []asarMember) error {
-	for index := range members {
-		if !members[index].unpacked {
-			continue
-		}
-		item, exists := archive.layout.unpacked[ASCIICaseFold(members[index].path)]
-		if !exists {
-			return ErrElectronASARInvalid
-		}
-		size, validSize := checkedArchiveSize(item.item.UncompressedSize64)
-		if !validSize || size != members[index].size {
-			return ErrElectronASARInvalid
-		}
-		members[index].outerEntry = item
-	}
-	return nil
 }
 
 func consumePackedASARMembers(
@@ -283,12 +166,13 @@ func (archive *electronZIPArchive) consumeUnpackedMembers(
 		if !member.unpacked {
 			continue
 		}
-		reader, err := member.outerEntry.item.Open()
+		item := archive.layout.unpacked[ASCIICaseFold(member.path)]
+		reader, err := archive.reader.File[item.ordinal].Open()
 		if err != nil {
 			return ErrElectronASARInvalid
 		}
 		entry, consumeErr := consumeASARMember(
-			ctx, reader, member, electronASARCompressionProfile(member.outerEntry.item.Method), consumer,
+			ctx, reader, member, electronASARCompressionProfile(item.header.Method), consumer,
 		)
 		if consumeErr == nil {
 			consumeErr = expectEOF(reader)
@@ -297,7 +181,7 @@ func (archive *electronZIPArchive) consumeUnpackedMembers(
 		if consumeErr != nil || closeErr != nil {
 			return errors.Join(consumeErr, closeErr, ErrElectronASARInvalid)
 		}
-		if entry.CRC32 != fmt.Sprintf("%08x", member.outerEntry.item.CRC32) {
+		if entry.CRC32 != fmt.Sprintf("%08x", item.header.CRC32) {
 			return ErrElectronASARInvalid
 		}
 		entries[member.ordinal] = entry
@@ -380,4 +264,15 @@ func expectEOF(reader io.Reader) error {
 
 func invalidElectronASAR(reason string) error {
 	return fmt.Errorf("%w: %s", ErrElectronASARInvalid, reason)
+}
+
+func electronZIPHeaders(reader *zip.Reader, limits ArchiveLimits) ([]zipHeaderFacts, error) {
+	if err := validateZIPEntryCount(len(reader.File), limits); err != nil {
+		return nil, err
+	}
+	headers := make([]zipHeaderFacts, len(reader.File))
+	for ordinal, item := range reader.File {
+		headers[ordinal] = zipHeaderFactsFromFile(item)
+	}
+	return headers, nil
 }

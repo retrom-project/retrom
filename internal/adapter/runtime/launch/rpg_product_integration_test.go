@@ -33,7 +33,6 @@ func TestRPGProductLaunchUsesCurrentBundleAfterProviderUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	launcher := newRPGReviewLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
 	approved, err := libraryimport.New(database.SQL, func() time.Time { return now }).Approve(ctx, fixture.itemID, 2)
 	if err != nil {
 		t.Fatalf("approve RPG review: %v", err)
@@ -44,7 +43,7 @@ func TestRPGProductLaunchUsesCurrentBundleAfterProviderUpgrade(t *testing.T) {
 UPDATE runtime_providers SET provider_version='1.1.0',bundle_sha256=?,activated_at_ms=activated_at_ms+1
 WHERE provider_id='retrom-runtime'
 `, upgradedBundle)
-	launcher = newRPGReviewLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now.Add(time.Second) })
+	launcher := newRPGReviewLaunchService(ctx, t, database.SQL, credentials, func() time.Time { return now.Add(time.Second) })
 	created, err := launcher.Create(ctx, "local", CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
 	})
@@ -76,7 +75,7 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := newRPGReviewLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
+	service := newRPGReviewLaunchService(ctx, t, database.SQL, credentials, func() time.Time { return now })
 	mustRPGLaunchSQL(t, database.SQL, `UPDATE review_drafts SET metadata_json='{"title":"RPG content"}' WHERE import_item_id=?`, fixture.itemID)
 	published, err := libraryimport.New(database.SQL, func() time.Time { return now }).Approve(ctx, fixture.itemID, 2)
 	if err != nil {

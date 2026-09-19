@@ -10,7 +10,7 @@ import (
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/diagnostics"
 	model "retrom/internal/model/maintenance"
 )
 
@@ -63,14 +63,18 @@ func (service *Service) Backup(
 	if err := validateBackupConfiguration(configuration, output); err != nil {
 		return Manifest{}, err
 	}
-	lock, err := service.locks.Acquire(configuration.DataDir)
+	lock, err := service.locks.Acquire(ctx, configuration.DataDir)
 	if errors.Is(err, model.ErrDataRootLocked) {
 		return Manifest{}, ErrBackupOffline
 	}
 	if err != nil {
 		return Manifest{}, fmt.Errorf("maintenance/bundle: %w", err)
 	}
-	defer func() { cleanup.Error("close", lock.Close()) }()
+	defer func() {
+		if closeErr := lock.Close(); closeErr != nil {
+			service.reporter.Report(ctx, diagnostics.CleanupFailure("close", "", fmt.Sprintf("%T", closeErr)))
+		}
+	}()
 	if err := service.repository.Checkpoint(ctx, configuration.DBPath); err != nil {
 		return Manifest{}, fmt.Errorf("prepare backup snapshot: %w", err)
 	}

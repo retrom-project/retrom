@@ -38,37 +38,44 @@ func productValidationRows(t *testing.T, fixture reviewCheckpointFixture) map[st
 	t.Helper()
 	result := make(map[string]string)
 	for _, table := range []string{"jobs", "job_input_snapshots", "job_events", "game_variants"} {
-		var value string
-		query := `SELECT COALESCE(json_group_array(json(row_json)),'[]') FROM (SELECT json_object(`
-		columns, err := fixture.database.QueryContext(t.Context(), `SELECT name FROM pragma_table_info(?) ORDER BY cid`, table)
-		if err != nil {
-			t.Fatal(err)
-		}
-		first := true
-		for columns.Next() {
-			var name string
-			if err := columns.Scan(&name); err != nil {
-				t.Fatal(err)
-			}
-			if !first {
-				query += ","
-			}
-			first = false
-			query += "'" + name + "',\"" + name + "\""
-		}
-		if err := columns.Err(); err != nil {
-			t.Fatal(err)
-		}
+		result[table] = productValidationTableRows(t, fixture, table)
+	}
+	return result
+}
+
+func productValidationTableRows(t *testing.T, fixture reviewCheckpointFixture, table string) string {
+	t.Helper()
+	var value string
+	query := `SELECT COALESCE(json_group_array(json(row_json)),'[]') FROM (SELECT json_object(`
+	columns, err := fixture.database.QueryContext(t.Context(), `SELECT name FROM pragma_table_info(?) ORDER BY cid`, table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
 		if err := columns.Close(); err != nil {
 			t.Fatal(err)
 		}
-		query += `) AS row_json FROM ` + table + ` ORDER BY rowid)`
-		if err := fixture.database.QueryRowContext(t.Context(), query).Scan(&value); err != nil {
+	}()
+	first := true
+	for columns.Next() {
+		var name string
+		if err := columns.Scan(&name); err != nil {
 			t.Fatal(err)
 		}
-		result[table] = value
+		if !first {
+			query += ","
+		}
+		first = false
+		query += "'" + name + "',\"" + name + "\""
 	}
-	return result
+	if err := columns.Err(); err != nil {
+		t.Fatal(err)
+	}
+	query += `) AS row_json FROM ` + table + ` ORDER BY rowid)`
+	if err := fixture.database.QueryRowContext(t.Context(), query).Scan(&value); err != nil {
+		t.Fatal(err)
+	}
+	return value
 }
 
 func TestProductValidationQueueRollsBackAllWritesAfterEventFailure(t *testing.T) {

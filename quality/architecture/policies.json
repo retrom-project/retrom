@@ -543,6 +543,24 @@
       ]
     },
     {
+      "id": "diagnostics.CleanupFailure",
+      "owner": "diagnostics",
+      "rf_id": "RF04",
+      "symbol": "retrom/internal/model/diagnostics.CleanupFailure",
+      "consumers": [
+        "(*retrom/internal/adapter/system/cleanup.Reporter).Report",
+        "retrom/internal/adapter/system/processlock.reportClose",
+        "(*retrom/internal/service/maintenance.Service).Backup"
+      ],
+      "invariant": "Nonfatal cleanup events contain bounded ASCII operation, fixed cleanup.failed code, outer named error type only and generated UUID request identity; invalid fields fall back without dropping the event, and no error or resource enters the event.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF04-determinism",
+        "RFA-RF04-bounded_input"
+      ]
+    },
+    {
       "id": "emulationstationimport.BoundedWarnings",
       "owner": "emulationstationimport",
       "rf_id": "RF14",

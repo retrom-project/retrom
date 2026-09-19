@@ -22,6 +22,8 @@ type Content interface {
 	Open(context.Context, string) (io.ReadCloser, error)
 }
 type BadContent interface { Open(context.Context) (struct { Reader io.Reader }, error) }
+type VariadicStream interface { Read(...byte) (int, error) }
+type BadVariadicContent interface { Open(context.Context) (VariadicStream, error) }
 `)
 	writeInventoryFile(t, root, "internal/repo/value/repo.go", `package value
 import ("context"; model "retrom/internal/model/value")
@@ -47,11 +49,11 @@ func Execute(ctx context.Context, port model.Repository) error { return port.Com
 	}
 	ports, violations := inspectPortGraph(root, graph, owners)
 	attachPortConsumers(ports, inspectFunctionGraph(root, graph, owners))
-	if len(ports) != 4 {
+	if len(ports) != 6 {
 		t.Fatalf("missing actual port methods: %+v", ports)
 	}
-	if len(violations) != 3 {
-		t.Fatalf("expected callback AR03/AR04 and nested stream AR03 only: %+v", violations)
+	if len(violations) != 4 {
+		t.Fatalf("expected callback AR03/AR04 and nested/variadic stream AR03 only: %+v", violations)
 	}
 	for _, violation := range violations {
 		if strings.Contains(violation.Symbol, ".Snapshot") || strings.Contains(violation.Symbol, ".Content).Open") {

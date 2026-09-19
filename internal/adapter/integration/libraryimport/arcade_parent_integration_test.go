@@ -72,7 +72,7 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
+	root := uploadCompleteFile(ctx, t, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
 	created, err := importer.Create(ctx, CreateRequest{
@@ -138,7 +138,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 		"clone/c-alt.bin": []byte("safe clone-only extra"),
 	})
 	wrongZIP := arcadeZIP(t, "wrong.bin", []byte("wrong"))
-	child := uploadCompleteFile(t, ctx, database.SQL, uploadService, "a.zip", childZIP)
+	child := uploadCompleteFile(ctx, t, database.SQL, uploadService, "a.zip", childZIP)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
 	created, err := importer.Create(ctx, CreateRequest{
@@ -155,13 +155,13 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	testassert.True(t, found, "arcade dependencies were not projected")
 	viewMap := view.(map[string]any)
 	testassert.Falsef(t, testassert.Any(func() bool { return viewMap["machine"] != "a" }, func() bool { return len(viewMap["nodes"].([]map[string]any)) != 2 }), "initial dependency view = %#v", view)
-	parent := uploadCompleteFile(t, ctx, database.SQL, uploadService, "anything.zip", parentZIP)
+	parent := uploadCompleteFile(ctx, t, database.SQL, uploadService, "anything.zip", parentZIP)
 	acceptedB, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "b",
 		UploadFileID: parent.fileID,
 	})
 	testassert.False(t, err != nil, err)
-	waitParentJob(t, database.SQL, acceptedB.JobID, "SUCCEEDED")
+	waitParentJob(ctx, t, database.SQL, acceptedB.JobID, "SUCCEEDED")
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	testassert.Falsef(t, version != 3, "draft version after b = %d", version)
 	var snapshotCount int
@@ -176,13 +176,13 @@ WHERE snapshot.id=? ORDER BY validation.created_at_ms DESC LIMIT 1
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return snapshotSource != "ARCADE_PARENT_ATTACHMENT" }, func() bool { return snapshotCount != 2 }, func() bool { return validationStatus != "BLOCKED" }, func() bool { return validationCode != "LAUNCH_PARENT_MISSING" }), "after b = source:%s count:%d validation:%s/%s", snapshotSource, snapshotCount, validationStatus, validationCode)
-	wrong := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", wrongZIP)
+	wrong := uploadCompleteFile(ctx, t, database.SQL, uploadService, "c.zip", wrongZIP)
 	rejectedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
 		UploadFileID: wrong.fileID,
 	})
 	testassert.False(t, err != nil, err)
-	waitParentJob(t, database.SQL, rejectedC.JobID, "FAILED")
+	waitParentJob(ctx, t, database.SQL, rejectedC.JobID, "FAILED")
 	var attachmentState, attachmentCode, currentSnapshotID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id
@@ -194,13 +194,13 @@ WHERE attachment.id=?
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return attachmentState != "REJECTED" }, func() bool { return attachmentCode != ParentErrorMismatch }, func() bool { return currentSnapshotID != snapshotID }), "wrong c = %s/%s snapshot=%s", attachmentState, attachmentCode, currentSnapshotID)
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
-	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "renamed-root.zip", rootZIP)
+	root := uploadCompleteFile(ctx, t, database.SQL, uploadService, "renamed-root.zip", rootZIP)
 	acceptedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
 		UploadFileID: root.fileID,
 	})
 	testassert.False(t, err != nil, err)
-	waitParentJob(t, database.SQL, acceptedC.JobID, "SUCCEEDED")
+	waitParentJob(ctx, t, database.SQL, acceptedC.JobID, "SUCCEEDED")
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	testassert.Falsef(t, version != 6, "draft version after c = %d", version)
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -337,8 +337,8 @@ INSERT INTO pegasus_import_items(
 type completedUpload struct{ uploadID, fileID string }
 
 func uploadCompleteFile(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	database *sql.DB,
 	service *uploads.Service,
 	name string,
@@ -359,7 +359,7 @@ func uploadCompleteFile(
 	testassert.False(t, err != nil, err)
 	jobID, _, err := service.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
-	waitParentJob(t, database, jobID, "SUCCEEDED")
+	waitParentJob(ctx, t, database, jobID, "SUCCEEDED")
 	return completedUpload{uploadID: upload.ID, fileID: upload.Files[0].ID}
 }
 
@@ -454,13 +454,13 @@ WHERE item.import_job_id=?
 	return itemID, version, snapshotID, validationID
 }
 
-func waitParentJob(t *testing.T, database *sql.DB, jobID, wanted string) {
+func waitParentJob(ctx context.Context, t *testing.T, database *sql.DB, jobID, wanted string) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		var state, kind string
 		var errorCode sql.NullString
-		if err := database.QueryRowContext(context.Background(),
+		if err := database.QueryRowContext(ctx,
 			`SELECT state,kind,error_code FROM jobs WHERE id=?`, jobID,
 		).Scan(&state, &kind, &errorCode); err != nil {
 			t.Fatal(err)

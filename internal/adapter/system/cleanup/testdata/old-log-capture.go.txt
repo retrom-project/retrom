@@ -1,0 +1,110 @@
+package main
+
+import (
+ "bytes"
+ "context"
+ "database/sql"
+ "database/sql/driver"
+ "encoding/json"
+ "errors"
+ "fmt"
+ "log/slog"
+ "os"
+ "path/filepath"
+ "runtime"
+ "strings"
+ "syscall"
+
+ "retrom/internal/foundation/cleanup"
+ "retrom/internal/repo/dbexec"
+)
+
+const private = "RETROM_PRIVATE_SENTINEL_4a296d"
+type hostileError struct { calls *int }
+func (e *hostileError) Error() string { *e.calls++; panic("Error must not run") }
+func (e *hostileError) Format(fmt.State,rune) { *e.calls++; panic("Format must not run") }
+
+type captureDriver struct{}
+type captureConn struct{ mode string }
+type captureTx struct{ mode string }
+func (captureDriver) Open(name string)(driver.Conn,error){return &captureConn{mode:name},nil}
+func (*captureConn) Prepare(string)(driver.Stmt,error){return nil,errors.New("unsupported")}
+func (*captureConn) Close()error{return nil}
+func (c *captureConn) Begin()(driver.Tx,error){return &captureTx{mode:c.mode},nil}
+func (*captureTx) Commit()error{return nil}
+func (t *captureTx) Rollback()error{
+ switch t.mode {
+ case "ordinary":return errors.New(private)
+ case "wrapped-done":return fmt.Errorf("%s: %w",private,sql.ErrTxDone)
+ default:return nil
+ }
+}
+type observation struct {
+ Name string `json:"name"`
+ Logs []json.RawMessage `json:"logs"`
+ ErrorMethodCalls int `json:"errorMethodCalls"`
+ PrivateTextInLogs bool `json:"privateTextInLogs"`
+ Filesystem []string `json:"filesystem,omitempty"`
+}
+var observations []observation
+func capture(name string, run func()([]string,int)) {
+ var buffer bytes.Buffer
+ old:=slog.Default()
+ handler:=slog.NewJSONHandler(&buffer,&slog.HandlerOptions{
+  ReplaceAttr:func(_ []string,a slog.Attr)slog.Attr{if a.Key==slog.TimeKey{return slog.Attr{}};return a},
+ })
+ slog.SetDefault(slog.New(handler))
+ state,count:=run()
+ slog.SetDefault(old)
+ lines:=[]json.RawMessage{}
+ for _,line:=range bytes.Split(bytes.TrimSpace(buffer.Bytes()),[]byte("\n")){
+  if len(line)>0 {if !json.Valid(line){panic("invalid captured JSON")};lines=append(lines,append(json.RawMessage(nil),line...))}
+ }
+ observations=append(observations,observation{name,lines,count,strings.Contains(buffer.String(),private),state})
+}
+func must(err error){if err!=nil{panic(err)}}
+func exists(path string) bool {_,err:=os.Lstat(path);return err==nil}
+func main(){
+ if os.Geteuid()==0 {panic("permission case must run as non-root")}
+ root,err:=os.MkdirTemp(".cache/refactor/cleanup-capture","private-"+private+"-");must(err)
+ root,err=filepath.Abs(root);must(err)
+ defer func(){must(os.RemoveAll(root))}()
+ capture("nil",func()([]string,int){cleanup.Error("close",nil);return nil,0})
+ capture("plain-error",func()([]string,int){cleanup.Error("close",errors.New(private));return nil,0})
+ capture("wrapped-error",func()([]string,int){cleanup.Error("close",fmt.Errorf("%s: %w",private,os.ErrPermission));return nil,0})
+ capture("path-error",func()([]string,int){cleanup.Error("close",&os.PathError{Op:"close",Path:"/private/"+private,Err:syscall.EBADF});return nil,0})
+ capture("errno",func()([]string,int){cleanup.Error("close",syscall.EIO);return nil,0})
+ capture("joined-errors",func()([]string,int){cleanup.Error("close",errors.Join(errors.New(private),os.ErrPermission));return nil,0})
+ capture("hostile-error",func()([]string,int){calls:=0;cleanup.Error("close",&hostileError{&calls});return nil,calls})
+ capture("typed-nil-error",func()([]string,int){var e *hostileError;cleanup.Error("close",e);return nil,0})
+ capture("nonfatal-return-primary",func()([]string,int){primary:=errors.New("primary");got:=func()error{defer cleanup.Error("close",errors.New(private));return primary}();return []string{fmt.Sprintf("same_primary=%t",got==primary)},0})
+ capture("remove-missing",func()([]string,int){cleanup.Remove(filepath.Join(root,"missing"));return nil,0})
+ capture("remove-file",func()([]string,int){p:=filepath.Join(root,"file");must(os.WriteFile(p,[]byte("public"),0600));cleanup.Remove(p);return []string{fmt.Sprintf("exists=%t",exists(p))},0})
+ capture("remove-nonempty-directory",func()([]string,int){p:=filepath.Join(root,"nonempty");must(os.Mkdir(p,0700));must(os.WriteFile(filepath.Join(p,"child"),[]byte("public"),0600));cleanup.Remove(p);return []string{fmt.Sprintf("exists=%t",exists(p))},0})
+ capture("remove-symlink-only",func()([]string,int){target:=filepath.Join(root,"target");link:=filepath.Join(root,"link");must(os.WriteFile(target,[]byte("public"),0600));must(os.Symlink(target,link));cleanup.Remove(link);return []string{fmt.Sprintf("link_exists=%t",exists(link)),fmt.Sprintf("target_exists=%t",exists(target))},0})
+ capture("remove-all-missing",func()([]string,int){cleanup.RemoveAll(filepath.Join(root,"missing-all"));return nil,0})
+ capture("remove-all-empty-name",func()([]string,int){cleanup.RemoveAll("");return nil,0})
+ capture("remove-all-tree",func()([]string,int){p:=filepath.Join(root,"tree");must(os.Mkdir(p,0700));must(os.WriteFile(filepath.Join(p,"child"),[]byte("public"),0600));cleanup.RemoveAll(p);return []string{fmt.Sprintf("exists=%t",exists(p))},0})
+ capture("remove-all-permission-failure",func()([]string,int){p:=filepath.Join(root,"blocked");must(os.Mkdir(p,0700));must(os.WriteFile(filepath.Join(p,"child"),[]byte("public"),0600));must(os.Chmod(p,0000));cleanup.RemoveAll(p);must(os.Chmod(p,0700));return []string{fmt.Sprintf("exists=%t",exists(p))},0})
+ sql.Register("retrom-cleanup-capture",captureDriver{})
+ for _,mode:=range []string{"success","ordinary","wrapped-done"}{
+  capture("rollback-"+mode,func()([]string,int){
+   db,e:=sql.Open("retrom-cleanup-capture",mode);must(e);defer func(){must(db.Close())}()
+   tx,e:=db.BeginTx(context.Background(),nil);must(e);dbexec.Rollback(tx)
+   return nil,0
+  })
+ }
+ capture("rollback-after-commit",func()([]string,int){
+  db,e:=sql.Open("retrom-cleanup-capture","ordinary");must(e);defer func(){must(db.Close())}()
+  tx,e:=db.BeginTx(context.Background(),nil);must(e);must(tx.Commit());dbexec.Rollback(tx);return nil,0
+ })
+ capture("legacy-unsafe-operation-negative-control",func()([]string,int){
+  cleanup.Error("/private/"+private,errors.New("private"));return nil,0
+ })
+ data,e:=json.MarshalIndent(struct{
+  Runtime string `json:"runtime"`
+  UID int `json:"uid"`
+  Cases []observation `json:"cases"`
+ }{runtime.Version(),os.Geteuid(),observations},"","  ");must(e)
+ os.Stdout.Write(append(data,'\n'))
+}

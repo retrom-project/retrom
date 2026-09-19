@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testkit/testsupport"
+
 	model "retrom/internal/model/maintenance"
 )
 
@@ -85,7 +87,7 @@ func TestRestoreFenceHasOneClockAndOneAtomicScope(t *testing.T) {
 	records := &restoreRecords{}
 	repository := &memoryRepository{records: records}
 	clockCalls := 0
-	service := New(repository, func() time.Time { clockCalls++; return time.UnixMilli(17) }, nil)
+	service := New(repository, func() time.Time { clockCalls++; return time.UnixMilli(17) }, nil, &testsupport.DiagnosticRecorder{})
 	if err := service.fenceRestore(t.Context(), "staged.db"); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +112,7 @@ func TestRestoreDoesNotRevokeAccessBeforeContentValidation(t *testing.T) {
 	sum := sha256.Sum256([]byte("original"))
 	digest := hex.EncodeToString(sum[:])
 	repository := &memoryRepository{records: &restoreRecords{}, snapshot: model.Snapshot{Blobs: []model.Blob{{SHA256: digest, SizeBytes: 8}}}}
-	service := New(repository, func() time.Time { return time.UnixMilli(17) }, nil)
+	service := New(repository, func() time.Time { return time.UnixMilli(17) }, nil, &testsupport.DiagnosticRecorder{})
 	root := t.TempDir()
 	blob := filepath.Join(root, "blobs", "sha256", digest[:2], digest[2:4], digest)
 	if err := os.MkdirAll(filepath.Dir(blob), 0o700); err != nil {

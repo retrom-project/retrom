@@ -1,0 +1,255 @@
+package main
+
+import (
+ "archive/zip"
+ "bytes"
+ "context"
+ "crypto/md5"
+ "crypto/sha1"
+ "crypto/sha256"
+ "encoding/binary"
+ "encoding/hex"
+ "encoding/json"
+ "errors"
+ "fmt"
+ "hash/crc32"
+ "io"
+ "os"
+ "os/exec"
+ "path/filepath"
+ "strings"
+ "time"
+ "sort"
+
+ importing "retrom/internal/capability/format/importing"
+)
+
+var consumerFailure=errors.New("CAPTURE_CONSUMER_FAILURE")
+type zipInput struct { Name string; Bytes []byte; Directory bool; WrongCRC bool }
+type callTrace struct { Ordinal int; Path string; Content importing.ArchiveContent; ReadError string }
+type result struct {
+ Name string
+ Kind string
+ Mode string
+ Entries []importing.ArchiveEntry
+ Detected bool
+ Calls []callTrace
+ Error string
+ ErrorIs map[string]bool
+ WireHex string
+ Extracted importing.ArchiveContent
+}
+type archiveCase struct { Name, Kind, Path, Mode string; Limits importing.ArchiveLimits; Canceled bool; Entries []importing.ArchiveEntry }
+type capture struct { SourceSHA256 map[string]string; FixtureSHA256 map[string]string; Cases []result; ChildrenAfter string }
+func must(err error) { if err!=nil {panic(err)} }
+func sha(body []byte) string {sum:=sha256.Sum256(body); return hex.EncodeToString(sum[:])}
+func errorText(err error)string {if err==nil{return ""};return err.Error()}
+func exactError(err error)map[string]bool {
+ kinds:=map[string]error{
+  "unsafe":importing.ErrArchiveUnsafe,"limit":importing.ErrArchiveLimitExceeded,
+  "encrypted":importing.ErrArchiveEncrypted,"volume":importing.ErrArchiveVolumeUnsupported,
+  "resource":importing.ErrArchiveResourceLimit,"sandbox":importing.ErrArchiveSandboxUnavailable,
+  "nested":importing.ErrNestedArchiveUnsupported,"method":importing.ErrArchiveMethodUnsupported,
+  "casefold":importing.ErrArchiveCasefoldCollision,"logicalPath":importing.ErrUnsafeLogicalPath,
+  "nwjs":importing.ErrNWJSExecutableInvalid,"asar":importing.ErrElectronASARInvalid,
+  "canceled":context.Canceled,"deadline":context.DeadlineExceeded,"consumer":consumerFailure,"eof":io.EOF,
+ }
+ matched:=map[string]bool{}
+ for name,target:=range kinds {matched[name]=errors.Is(err,target)}
+ return matched
+}
+func content(reader io.Reader)(importing.ArchiveContent,error) {
+ md5Hash,sha1Hash,sha256Hash,crcHash:=md5.New(),sha1.New(),sha256.New(),crc32.NewIEEE()
+ count,err:=io.Copy(io.MultiWriter(md5Hash,sha1Hash,sha256Hash,crcHash),reader)
+ return importing.ArchiveContent{Size:count,CRC32:hex.EncodeToString(crcHash.Sum(nil)),MD5:hex.EncodeToString(md5Hash.Sum(nil)),SHA1:hex.EncodeToString(sha1Hash.Sum(nil)),SHA256:hex.EncodeToString(sha256Hash.Sum(nil))},err
+}
+func zipBytes(items []zipInput) []byte {
+ var body bytes.Buffer
+ archive:=zip.NewWriter(&body)
+ for _,item:=range items {
+  header:=&zip.FileHeader{Name:item.Name,Method:zip.Store}
+  if item.Directory {header.SetMode(os.ModeDir|0755)}
+  var writer io.Writer
+  var err error
+  if item.WrongCRC {
+   header.UncompressedSize64=uint64(len(item.Bytes));header.CompressedSize64=header.UncompressedSize64
+   header.CRC32=crc32.ChecksumIEEE(item.Bytes)^1
+   writer,err=archive.CreateRaw(header)
+  } else {writer,err=archive.CreateHeader(header)}
+  must(err); _,err=writer.Write(item.Bytes);must(err)
+ }
+ must(archive.Close());return body.Bytes()
+}
+func asarBytes(header string,body []byte)[]byte {
+ data:=[]byte(header);payloadSize:=4+len(data);payloadSize+=(4-payloadSize%4)%4
+ encoded:=make([]byte,12+payloadSize+len(body))
+ binary.LittleEndian.PutUint32(encoded[0:4],4)
+ binary.LittleEndian.PutUint32(encoded[4:8],uint32(4+payloadSize))
+ binary.LittleEndian.PutUint32(encoded[8:12],uint32(payloadSize))
+ binary.LittleEndian.PutUint32(encoded[12:16],uint32(len(data)))
+ copy(encoded[16:],data);copy(encoded[12+payloadSize:],body);return encoded
+}
+func electronBytes(header string,body []byte,unpacked bool,wrongCRC bool)[]byte {
+ items:=[]zipInput{{Name:"Game/Game.exe",Bytes:[]byte("MZ synthetic text only")},{Name:"Game/resources/app.asar",Bytes:asarBytes(header,body),WrongCRC:wrongCRC}}
+ if unpacked {items=append(items,zipInput{Name:"Game/resources/app.asar.unpacked/u.node",Bytes:[]byte("U")})}
+ return zipBytes(items)
+}
+func peBytes(body []byte)[]byte {
+ prefix:=make([]byte,128);copy(prefix,"MZ");binary.LittleEndian.PutUint32(prefix[60:64],64)
+ copy(prefix[64:68],"PE\x00\x00");binary.LittleEndian.PutUint16(prefix[68:70],0x8664);binary.LittleEndian.PutUint16(prefix[70:72],1)
+ return append(prefix,body...)
+}
+func runCase(test archiveCase) result {
+ ctx,cancel:=context.WithCancel(context.Background());if test.Mode=="expired" {cancel();ctx,cancel=context.WithDeadline(context.Background(),time.Unix(0,0))};defer cancel();if test.Canceled {cancel()}
+ result:=result{Name:test.Name,Kind:test.Kind,Mode:test.Mode}
+ consumer:=importing.ArchiveContentConsumer(func(entry importing.ArchiveEntry,reader io.Reader)(importing.ArchiveContent,error){
+  trace:=callTrace{Ordinal:entry.Ordinal,Path:entry.NormalizedPath}
+  if test.Mode=="fail-before" || test.Mode=="fail-unpacked" && entry.NormalizedPath=="u.node" {result.Calls=append(result.Calls,trace);return importing.ArchiveContent{},consumerFailure}
+  source:=reader
+  if test.Mode=="short" {source=io.LimitReader(reader,1)}
+  facts,err:=content(source);trace.Content=facts;trace.ReadError=errorText(err)
+  result.Calls=append(result.Calls,trace)
+  if test.Mode=="fail-after" {return facts,consumerFailure}
+  if test.Mode=="bad-crc" {facts.CRC32="00000000"}
+  if test.Mode=="empty-hashes" {facts.MD5="";facts.SHA1="";facts.SHA256=""}
+  if test.Mode=="cancel-after-first" && len(result.Calls)==1 {cancel()}
+  return facts,err
+ })
+ if test.Mode=="nil" {consumer=nil}
+ var err error
+ switch test.Kind {
+ case "zip-scan": result.Entries,err=importing.ScanZIP(ctx,test.Path,test.Limits)
+ case "zip-consume": result.Entries,err=importing.ScanZIPWithConsumer(ctx,test.Path,test.Limits,consumer)
+ case "flat": result.Entries,err=importing.ScanFlatZIP(ctx,test.Path,test.Limits)
+ case "nwjs-validate":err=importing.ValidateNWJSExecutable(test.Path)
+ case "nwjs-scan":result.Entries,err=importing.ScanNWJSExecutable(ctx,test.Path,test.Limits)
+ case "nwjs-consume":result.Entries,err=importing.ScanNWJSExecutableWithConsumer(ctx,test.Path,test.Limits,consumer)
+ case "asar-detect":result.Detected,err=importing.DetectElectronASARZIP(test.Path,test.Limits)
+ case "asar-consume":result.Entries,err=importing.ScanElectronASARZIPWithConsumer(ctx,test.Path,test.Limits,consumer)
+ case "7z-scan":result.Entries,err=importing.ScanSevenZip(ctx,test.Path,test.Limits)
+ case "7z-batch":
+  err=importing.ExtractSevenZipEntries(ctx,test.Path,test.Entries,func(entry importing.ArchiveEntry,reader io.Reader)error{_,err:=consumer(entry,reader);return err})
+ case "7z-extract":
+  var output bytes.Buffer
+  err=importing.ExtractSevenZip(ctx,test.Path,test.Entries[0],&output)
+  result.Extracted,_=content(bytes.NewReader(output.Bytes()))
+ }
+ result.Error=errorText(err);result.ErrorIs=exactError(err)
+ return result
+}
+func protocol(executable,path string,args []string)result {
+ input,err:=os.Open(path);must(err);defer input.Close()
+ command:=exec.Command(executable,append([]string{"__archive-worker"},args...)...)
+ command.ExtraFiles=[]*os.File{input}
+ wire,err:=command.Output()
+ return result{Name:"worker "+strings.Join(args," "),Kind:"worker-wire",WireHex:hex.EncodeToString(wire),Error:errorText(err),ErrorIs:exactError(err)}
+}
+func main() {
+ handled,err:=importing.RunArchiveWorker(os.Args[1:])
+ if handled {if err!=nil{os.Exit(1)};return}
+ repo,destination:=os.Args[1],os.Args[2]
+ fixtures,err:=os.MkdirTemp(filepath.Dir(destination),"rf04-archive-old-fixtures-");must(err)
+ capture:=capture{SourceSHA256:map[string]string{},FixtureSHA256:map[string]string{}}
+ sourceRoot:=filepath.Join(repo,"internal/capability/format/importing")
+ sources,err:=filepath.Glob(filepath.Join(sourceRoot,"*.go"));must(err)
+ for _,source:=range sources {if strings.HasSuffix(source,"_test.go"){continue};bytes,err:=os.ReadFile(source);must(err);relative,err:=filepath.Rel(repo,source);must(err);capture.SourceSHA256[relative]=sha(bytes)}
+ write:=func(name string,body []byte)string {file:=filepath.Join(fixtures,name);must(os.WriteFile(file,body,0600));capture.FixtureSHA256[name]=sha(body);return file}
+ normal:=write("normal.zip",zipBytes([]zipInput{{Name:"dir/",Directory:true},{Name:"dir/a.txt",Bytes:[]byte("AAAA")},{Name:"z.txt",Bytes:[]byte("ZZ")}}))
+ empty:=write("empty.zip",zipBytes(nil))
+ duplicate:=write("duplicate.zip",zipBytes([]zipInput{{Name:"a",Bytes:[]byte("A")},{Name:"a",Bytes:[]byte("B")}}))
+ folded:=write("casefold.zip",zipBytes([]zipInput{{Name:"A",Bytes:[]byte("A")},{Name:"a",Bytes:[]byte("B")}}))
+ traversal:=write("traversal.zip",zipBytes([]zipInput{{Name:"a",Bytes:[]byte("A")},{Name:"../escape",Bytes:[]byte("B")}}))
+ nested:=write("nested.zip",zipBytes([]zipInput{{Name:"inner.zip",Bytes:[]byte{'P','K',3,4}}}))
+ crc:=write("crc.zip",zipBytes([]zipInput{{Name:"a",Bytes:[]byte("CRC"),WrongCRC:true}}))
+ invalid:=write("invalid.bin",[]byte("not an archive"))
+ nwjs:=write("nwjs.exe",peBytes(zipBytes([]zipInput{{Name:"index.html",Bytes:[]byte("project")}})))
+ badNWJS:=write("bad-nwjs.exe",append([]byte("MZ invalid"),zipBytes([]zipInput{{Name:"index.html",Bytes:[]byte("project")}})...))
+ header:=`{"files":{"a.txt":{"size":3,"offset":"2"},"z.txt":{"size":2,"offset":"0"},"u.node":{"size":1,"unpacked":true}}}`
+ asar:=write("asar.zip",electronBytes(header,[]byte("ZZAAA"),true,false))
+ missing:=write("asar-missing.zip",electronBytes(header,[]byte("ZZAAA"),false,false))
+ footer:=write("asar-footer.zip",electronBytes(header,[]byte("ZZAAA"),true,true))
+ badRanges:=write("asar-overlap.zip",electronBytes(`{"files":{"a":{"size":2,"offset":"0"},"b":{"size":2,"offset":"1"}}}`,[]byte("AAA"),false,false))
+ nestedASAR:=write("asar-nested.zip",electronBytes(`{"files":{"inner.zip":{"size":4,"offset":"0"}}}`,[]byte{'P','K',3,4},false,false))
+ hash:=sha([]byte("A"));wrongHash:=strings.Repeat("0",64)
+ integrityHeader:=fmt.Sprintf(`{"files":{"a":{"size":1,"offset":"0","integrity":{"algorithm":"SHA256","hash":%q,"blockSize":1,"blocks":[%q]}}}}`,hash,wrongHash)
+ blockIntegrity:=write("asar-block-integrity.zip",electronBytes(integrityHeader,[]byte("A"),false,false))
+ wrongIntegrity:=write("asar-whole-integrity.zip",electronBytes(strings.Replace(integrityHeader,hash,wrongHash,1),[]byte("A"),false,false))
+ limits:=importing.DefaultArchiveLimits()
+ tests:=[]archiveCase{
+  {Name:"ZIP scan stable values",Kind:"zip-scan",Path:normal,Limits:limits},
+  {Name:"ZIP consumer stable values",Kind:"zip-consume",Path:normal,Limits:limits},
+  {Name:"ZIP duplicate rejects before consumer",Kind:"zip-consume",Path:duplicate,Limits:limits},
+  {Name:"ZIP fold collision rejects before consumer",Kind:"zip-consume",Path:folded,Limits:limits},
+  {Name:"ZIP traversal rejects before consumer",Kind:"zip-consume",Path:traversal,Limits:limits},
+  {Name:"ZIP empty and canceled",Kind:"zip-scan",Path:empty,Limits:limits,Canceled:true},
+  {Name:"ZIP invalid precedes cancellation",Kind:"zip-scan",Path:invalid,Limits:limits,Canceled:true},
+  {Name:"ZIP valid canceled",Kind:"zip-consume",Path:normal,Limits:limits,Canceled:true},
+  {Name:"ZIP nil consumer precedes opening",Kind:"zip-consume",Path:filepath.Join(fixtures,"missing"),Limits:limits,Mode:"nil"},
+  {Name:"ZIP consumer failure before reading",Kind:"zip-consume",Path:normal,Limits:limits,Mode:"fail-before"},
+  {Name:"ZIP consumer failure after reading",Kind:"zip-consume",Path:normal,Limits:limits,Mode:"fail-after"},
+  {Name:"ZIP short consumer",Kind:"zip-consume",Path:normal,Limits:limits,Mode:"short"},
+  {Name:"ZIP metadata CRC mismatch",Kind:"zip-consume",Path:normal,Limits:limits,Mode:"bad-crc"},
+  {Name:"ZIP empty hashes current acceptance",Kind:"zip-consume",Path:normal,Limits:limits,Mode:"empty-hashes"},
+  {Name:"ZIP CRC scan failure",Kind:"zip-scan",Path:crc,Limits:limits},
+  {Name:"ZIP CRC consumer failure",Kind:"zip-consume",Path:crc,Limits:limits},
+  {Name:"ZIP nested rejected",Kind:"zip-consume",Path:nested,Limits:limits},
+  {Name:"ZIP opaque nested allowed",Kind:"zip-consume",Path:nested,Limits:importing.RPGMakerArchiveLimits()},
+  {Name:"ZIP cancel after first",Kind:"zip-consume",Path:normal,Limits:limits,Mode:"cancel-after-first"},
+  {Name:"Flat ZIP directory rejection",Kind:"flat",Path:normal,Limits:limits},
+  {Name:"NWJS PE valid",Kind:"nwjs-validate",Path:nwjs,Limits:limits},
+  {Name:"NWJS scan remains ZIP facts",Kind:"nwjs-scan",Path:nwjs,Limits:limits},
+  {Name:"NWJS consume",Kind:"nwjs-consume",Path:nwjs,Limits:limits},
+  {Name:"NWJS invalid before cancellation",Kind:"nwjs-consume",Path:badNWJS,Limits:limits,Canceled:true},
+  {Name:"NWJS nil consumer first",Kind:"nwjs-consume",Path:badNWJS,Limits:limits,Mode:"nil"},
+  {Name:"ASAR detect",Kind:"asar-detect",Path:asar,Limits:limits},
+  {Name:"ASAR packed offset and final ordinal order",Kind:"asar-consume",Path:asar,Limits:limits},
+  {Name:"ASAR bind before first consumer",Kind:"asar-consume",Path:missing,Limits:limits},
+  {Name:"ASAR final packed CRC before unpacked",Kind:"asar-consume",Path:footer,Limits:limits},
+  {Name:"ASAR overlapping ranges before consumer",Kind:"asar-consume",Path:badRanges,Limits:limits},
+  {Name:"ASAR whole integrity mismatch",Kind:"asar-consume",Path:wrongIntegrity,Limits:limits},
+  {Name:"ASAR block hashes only shape checked",Kind:"asar-consume",Path:blockIntegrity,Limits:limits},
+  {Name:"ASAR nested fact remains opaque",Kind:"asar-consume",Path:nestedASAR,Limits:limits},
+  {Name:"ASAR nil consumer first",Kind:"asar-consume",Path:invalid,Limits:limits,Mode:"nil"},
+  {Name:"ASAR short consumer",Kind:"asar-consume",Path:asar,Limits:limits,Mode:"short"},
+  {Name:"ASAR empty hashes rejected",Kind:"asar-consume",Path:asar,Limits:limits,Mode:"empty-hashes"},
+  {Name:"ASAR unpacked callback error joins archive sentinel",Kind:"asar-consume",Path:asar,Limits:limits,Mode:"fail-unpacked"},
+  {Name:"ASAR canceled header error precedence",Kind:"asar-consume",Path:asar,Limits:limits,Canceled:true},
+  {Name:"ASAR callback failure",Kind:"asar-consume",Path:asar,Limits:limits,Mode:"fail-before"},
+  {Name:"ASAR cancellation after packed member",Kind:"asar-consume",Path:asar,Limits:limits,Mode:"cancel-after-first"},
+ }
+ sevenRoot:=filepath.Join(sourceRoot,"testdata/sevenzip")
+ for _,name:=range []string{"single","ambiguous","nested","encrypted","casefold","symlink","unsupported-coder"} {
+  path:=filepath.Join(sevenRoot,name+".7z");body,err:=os.ReadFile(path);must(err);capture.FixtureSHA256["sevenzip/"+name+".7z"]=sha(body)
+  tests=append(tests,archiveCase{Name:"7z "+name,Kind:"7z-scan",Path:path,Limits:limits})
+ }
+ singlePath:=filepath.Join(sevenRoot,"single.7z")
+ scanned,err:=importing.ScanSevenZip(context.Background(),singlePath,limits);must(err)
+ solidPath:=filepath.Join(sevenRoot,"ambiguous.7z")
+ solid,err:=importing.ScanSevenZip(context.Background(),solidPath,limits);must(err)
+ tests=append(tests,
+  archiveCase{Name:"7z exact single extract",Kind:"7z-extract",Path:singlePath,Limits:limits,Entries:scanned},
+  archiveCase{Name:"7z batch sorts ordinals",Kind:"7z-batch",Path:solidPath,Limits:limits,Entries:[]importing.ArchiveEntry{solid[1],solid[0]}},
+  archiveCase{Name:"7z batch consumer failure wins",Kind:"7z-batch",Path:solidPath,Limits:limits,Entries:solid,Mode:"fail-before"},
+  archiveCase{Name:"7z empty batch avoids opening even canceled",Kind:"7z-batch",Path:filepath.Join(fixtures,"missing"),Limits:limits,Canceled:true},
+  archiveCase{Name:"7z duplicate batch rejects before opening",Kind:"7z-batch",Path:filepath.Join(fixtures,"missing"),Limits:limits,Entries:[]importing.ArchiveEntry{solid[0],solid[0]}},
+  archiveCase{Name:"7z deadline maps resource limit",Kind:"7z-scan",Path:singlePath,Limits:limits,Mode:"expired"},
+  archiveCase{Name:"7z valid canceled",Kind:"7z-scan",Path:singlePath,Limits:limits,Canceled:true},
+  archiveCase{Name:"7z invalid precedes cancellation",Kind:"7z-scan",Path:invalid,Limits:limits,Canceled:true},
+  archiveCase{Name:"7z nested allowed for RPG",Kind:"7z-scan",Path:filepath.Join(sevenRoot,"nested.7z"),Limits:importing.RPGMakerArchiveLimits()},
+ )
+ for _,test:=range tests {item:=runCase(test);item.Error=strings.ReplaceAll(item.Error,fixtures,"<fixture>");item.Error=strings.ReplaceAll(item.Error,repo,"<repo>");capture.Cases=append(capture.Cases,item)}
+ executable,err:=os.Executable();must(err)
+ for _,args:=range [][]string{
+  {"scan","20000","8589934592","34359738368","200","false"},
+  {"extract-batch","0"},
+  {"extract-batch","01"},
+  {"extract-batch","0,0"},
+  {"extract-batch",""},
+  {"extract","-1"},
+  {"scan","20001","8589934592","34359738368","200","false"},
+  {"unknown"},
+ } {capture.Cases=append(capture.Cases,protocol(executable,singlePath,args))}
+ tasks,err:=os.ReadDir("/proc/self/task");must(err);childrenSet:=map[string]bool{};for _,task:=range tasks {children,readErr:=os.ReadFile(filepath.Join("/proc/self/task",task.Name(),"children"));if readErr!=nil {continue};for _,child:=range strings.Fields(string(children)) {childrenSet[child]=true}};childrenIDs:=make([]string,0,len(childrenSet));for child:=range childrenSet {childrenIDs=append(childrenIDs,child)};sort.Strings(childrenIDs);capture.ChildrenAfter=strings.Join(childrenIDs," ")
+ encoded,err:=json.MarshalIndent(capture,"","  ");must(err);must(os.WriteFile(destination,append(encoded,'\n'),0600))
+ fmt.Printf("captured %d cases, %d deterministic fixtures, children=%q\n",len(capture.Cases),len(capture.FixtureSHA256),capture.ChildrenAfter)
+}

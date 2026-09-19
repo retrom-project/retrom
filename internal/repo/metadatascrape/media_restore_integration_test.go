@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testkit/testsupport"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/system/processlock"
 	"retrom/internal/bootstrap/config"
@@ -139,7 +141,7 @@ func backupRestoreMedia(t *testing.T, path string) string {
 		DataDir: data, DBPath: path, DependencyRoot: dependencies,
 		DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3",
 	}
-	service := maintenance.New(maintenancepersistence.New(), mediaFixtureNow, processlock.Locker{})
+	service := maintenance.New(maintenancepersistence.New(), mediaFixtureNow, processlock.New(&testsupport.DiagnosticRecorder{}), &testsupport.DiagnosticRecorder{})
 	bundle, restored := filepath.Join(root, "bundle"), filepath.Join(root, "restored")
 	if _, err := service.Backup(t.Context(), configuration, bundle); err != nil {
 		t.Fatal(err)

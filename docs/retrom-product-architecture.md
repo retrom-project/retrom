@@ -84,6 +84,10 @@ ScummVM 原生探测器的目录检查、进程执行、输出限额及清理归
 
 离线维护和服务启动的数据目录互斥由 `adapter/system/processlock.Locker` 提供。`model/maintenance.DataRootLocker` 与 `DataRootLease` 明确描述锁资源获取和释放，维护 Service 通过端口取得锁后才执行数据库 checkpoint；Bootstrap 注入实际 Adapter。锁文件权限、非阻塞 flock、重复释放和错误优先级由旧 Go 对照保持，租约不进入 Command、Snapshot 或持久化数据。此锁用于整棵数据目录的进程互斥，不替代 CAS 发布与回收需要的 blob lease。
 
+非致命清理错误通过 `model/diagnostics.ErrorReporter` 输出，事件只有 operation、code、message、requestID 四个字符串。唯一纯构造器 `CleanupFailure` 限制字段形状和长度，message 仅保存外层错误类型；异常字段使用固定回退值，绝对路径与错误正文不进入日志。`adapter/system/cleanup.Reporter` 持有 Bootstrap 显式注入的 logger，保留 WARN、固定消息和原 operation/errorType 字段，并在输出前再次校验事件。数据根锁内部的关闭失败与维护备份的锁释放采用这一边界；关闭失败仍不替换原始操作错误，取消 context 也不丢弃诊断。Repo 的清理诊断须作为纯值副产物返回，由调用方输出。
+
+ZIP 目录校验和 Electron ASAR 布局校验消费封闭 header、路径和原目录 ordinal 事实；ASAR 成员值不再保存 `zip.File`。现有归档资源拥有者负责将 SDK 信息转换为事实并按 ordinal 读取内容，packed ASAR 的尾部校验仍先于 unpacked 内容读取。64 项旧 Go 对照固定目录校验顺序、CRC、取消、消费顺序、worker wire 和返回错误；归档 I/O 与业务消费闭包的后续会话迁移仍待完成。
+
 Provider manifest、Target/Input/Checkpoint、安装声明及 Launch 输入同样由 `model/runtimecontract` 唯一定义。跨层 schema 和可变 JSON 内容使用 `json.RawMessage` 等封闭字节值；严格 JSON 与 schema dialect 的单一解析闭包位于 `capability/runtime/runtimejson`。解析/组装边界保持原有规范字节、整数精度、nil/empty 和错误阶段，固定旧 Go 输出验证协议兼容。
 
 GameContent、LibraryImport 和 Netplay 的 BIOS 读取依赖消费方 Model 中的窄 facts 接口。事务内直接使用原 scope 绑定的 Repository reader，取得事实后调用唯一的 `model/corevalidation` 规则；输入身份先校验，读取失败保留原原因与前缀。该接线不新开事务或替换为全局 reader，后续原子提交迁移仍需保持相同的新鲜度。

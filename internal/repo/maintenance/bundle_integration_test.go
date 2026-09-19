@@ -322,7 +322,7 @@ func assertObsoleteBackupManifestRejected(
 	if err := os.WriteFile(manifestPath, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maintenance.New(New(), time.Now, processlock.Locker{}).Restore(ctx, configuration, bundle, restorePath); !errors.Is(err, maintenancemodel.ErrInvalidBundle) {
+	if _, err := maintenance.New(New(), time.Now, processlock.New(&testsupport.DiagnosticRecorder{}), &testsupport.DiagnosticRecorder{}).Restore(ctx, configuration, bundle, restorePath); !errors.Is(err, maintenancemodel.ErrInvalidBundle) {
 		t.Fatalf("obsolete backup manifest error = %v", err)
 	}
 }
@@ -393,9 +393,9 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 		DependencyVersions: []string{"4.2.3"},
 		ActiveEJSVersion:   "4.2.3",
 	}
-	lock, err := (processlock.Locker{}).Acquire(dataDir)
+	lock, err := processlock.New(&testsupport.DiagnosticRecorder{}).Acquire(ctx, dataDir)
 	testassert.False(t, err != nil, err)
-	if _, err := maintenance.New(New(), time.Now, processlock.Locker{}).Backup(ctx, configuration, filepath.Join(root, "online-backup")); !errors.Is(
+	if _, err := maintenance.New(New(), time.Now, processlock.New(&testsupport.DiagnosticRecorder{}), &testsupport.DiagnosticRecorder{}).Backup(ctx, configuration, filepath.Join(root, "online-backup")); !errors.Is(
 		err,
 		maintenance.ErrBackupOffline,
 	) {
@@ -405,11 +405,11 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	bundle := filepath.Join(root, "bundle")
-	manifest, err := maintenance.New(New(), time.Now, processlock.Locker{}).Backup(ctx, configuration, bundle)
+	manifest, err := maintenance.New(New(), time.Now, processlock.New(&testsupport.DiagnosticRecorder{}), &testsupport.DiagnosticRecorder{}).Backup(ctx, configuration, bundle)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return manifest.SchemaVersion != 2 }, func() bool { return manifest.DatabaseSchemaVersion != 14 }, func() bool { return len(manifest.MigrationLineageDigest) != 64 }, func() bool { return manifest.Counts.UploadPartCount != 1 }, func() bool { return manifest.Counts.DependencyVersionCount != 1 }), "backup manifest = %#v", manifest)
 	restored := filepath.Join(root, "restored")
-	if _, err := maintenance.New(New(), time.Now, processlock.Locker{}).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); err != nil {
+	if _, err := maintenance.New(New(), time.Now, processlock.New(&testsupport.DiagnosticRecorder{}), &testsupport.DiagnosticRecorder{}).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); err != nil {
 		t.Fatal(err)
 	}
 	restoredDatabase, err := openDatabase(ctx, filepath.Join(restored, "retrom.db"))
@@ -425,7 +425,7 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	restoredTagHash, restoredTagRows := tagBackupSnapshot(t, restoredDatabase)
 	testassert.Falsef(t, testassert.Any(func() bool { return restoredTagRows != tagRows }, func() bool { return restoredTagHash != tagHash }), "tag backup snapshot changed: before=%d/%s after=%d/%s", tagRows, tagHash, restoredTagRows, restoredTagHash)
 	assertRestoreSecurityFences(t, restoredDatabase, importIDs)
-	if _, err := maintenance.New(New(), time.Now, processlock.Locker{}).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(
+	if _, err := maintenance.New(New(), time.Now, processlock.New(&testsupport.DiagnosticRecorder{}), &testsupport.DiagnosticRecorder{}).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(
 		err, maintenancemodel.ErrInvalidBundle,
 	) {
 		t.Fatalf("overwrite restore error = %v", err)

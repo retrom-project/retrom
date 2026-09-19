@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/testkit/testsupport"
+
 	model "retrom/internal/model/maintenance"
 )
 
@@ -61,20 +63,20 @@ func TestProcessLockPreservesOldGoObservations(t *testing.T) {
 
 func recordInvalidRoots(t *testing.T, observer *lockObserver) {
 	t.Helper()
-	_, err := (Locker{}).Acquire("")
+	_, err := New(&testsupport.DiagnosticRecorder{}).Acquire(t.Context(), "")
 	observer.record("empty-root", err, nil)
 	plain := filepath.Join(observer.root, "plain")
 	if err := os.WriteFile(plain, []byte("fixture"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err = (Locker{}).Acquire(plain)
+	_, err = New(&testsupport.DiagnosticRecorder{}).Acquire(t.Context(), plain)
 	observer.record("file-root", err, nil)
 }
 
 func recordLockLifetime(t *testing.T, observer *lockObserver) {
 	t.Helper()
 	data := filepath.Join(observer.root, "data")
-	first, err := (Locker{}).Acquire(data)
+	first, err := New(&testsupport.DiagnosticRecorder{}).Acquire(t.Context(), data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,11 +97,11 @@ func recordLockLifetime(t *testing.T, observer *lockObserver) {
 		"directoryMode": fmt.Sprintf("%04o", directory.Mode().Perm()),
 		"pid":           string(content) == fmt.Sprintf("%d\n", os.Getpid()),
 	})
-	_, err = (Locker{}).Acquire(data)
+	_, err = New(&testsupport.DiagnosticRecorder{}).Acquire(t.Context(), data)
 	observer.record("held", err, nil)
 	observer.record("close", first.Close(), nil)
 	observer.record("double-close", first.Close(), nil)
-	second, err := (Locker{}).Acquire(data)
+	second, err := New(&testsupport.DiagnosticRecorder{}).Acquire(t.Context(), data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,6 +119,6 @@ func recordLockDirectory(t *testing.T, observer *lockObserver) {
 	if err := os.MkdirAll(filepath.Join(blocked, "retrom.lock"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	_, err := (Locker{}).Acquire(blocked)
+	_, err := New(&testsupport.DiagnosticRecorder{}).Acquire(t.Context(), blocked)
 	observer.record("lock-path-directory", err, nil)
 }

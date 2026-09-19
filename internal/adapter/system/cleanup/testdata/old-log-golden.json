@@ -1,0 +1,241 @@
+{
+  "runtime": "go1.26.5",
+  "uid": 1000,
+  "cases": [
+    {
+      "name": "nil",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "plain-error",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "close",
+          "errorType": "*errors.errorString"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "wrapped-error",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "close",
+          "errorType": "*fmt.wrapError"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "path-error",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "close",
+          "errorType": "*fs.PathError"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "errno",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "close",
+          "errorType": "syscall.Errno"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "joined-errors",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "close",
+          "errorType": "*errors.joinError"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "hostile-error",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "close",
+          "errorType": "*main.hostileError"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "typed-nil-error",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "close",
+          "errorType": "*main.hostileError"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "nonfatal-return-primary",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "close",
+          "errorType": "*errors.errorString"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false,
+      "filesystem": [
+        "same_primary=true"
+      ]
+    },
+    {
+      "name": "remove-missing",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "remove-file",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false,
+      "filesystem": [
+        "exists=false"
+      ]
+    },
+    {
+      "name": "remove-nonempty-directory",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "remove",
+          "errorType": "*fs.PathError"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false,
+      "filesystem": [
+        "exists=true"
+      ]
+    },
+    {
+      "name": "remove-symlink-only",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false,
+      "filesystem": [
+        "link_exists=false",
+        "target_exists=true"
+      ]
+    },
+    {
+      "name": "remove-all-missing",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "remove-all-empty-name",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "remove-all-tree",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false,
+      "filesystem": [
+        "exists=false"
+      ]
+    },
+    {
+      "name": "remove-all-permission-failure",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "remove-all",
+          "errorType": "*fs.PathError"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false,
+      "filesystem": [
+        "exists=true"
+      ]
+    },
+    {
+      "name": "rollback-success",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "rollback-ordinary",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "rollback",
+          "errorType": "*errors.errorString"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "rollback-wrapped-done",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "rollback-after-commit",
+      "logs": [],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": false
+    },
+    {
+      "name": "legacy-unsafe-operation-negative-control",
+      "logs": [
+        {
+          "level": "WARN",
+          "msg": "resource cleanup failed",
+          "operation": "/private/RETROM_PRIVATE_SENTINEL_4a296d",
+          "errorType": "*errors.errorString"
+        }
+      ],
+      "errorMethodCalls": 0,
+      "privateTextInLogs": true
+    }
+  ]
+}

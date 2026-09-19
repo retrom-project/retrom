@@ -2027,6 +2027,22 @@
       ]
     },
     {
+      "path": "internal/adapter/system/cleanup",
+      "layer": "adapter",
+      "module": "system",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/system/cleanup/reporter.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/system/cleanup/reporter_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/adapter/system/clock",
       "layer": "adapter",
       "module": "clock",
@@ -2050,6 +2066,10 @@
       "files": [
         {
           "path": "internal/adapter/system/processlock/compatibility_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/system/processlock/diagnostics_test.go",
           "kind": "test"
         },
         {
@@ -2953,6 +2973,22 @@
           "kind": "production"
         },
         {
+          "path": "internal/capability/format/importing/archive_compatibility_fixtures_linux_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/capability/format/importing/archive_compatibility_linux_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/capability/format/importing/archive_compatibility_run_linux_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/capability/format/importing/archive_facts_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/capability/format/importing/archive_test.go",
           "kind": "test"
         },
@@ -2970,6 +3006,10 @@
         },
         {
           "path": "internal/capability/format/importing/asar_header.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/capability/format/importing/electron_asar_layout.go",
           "kind": "production"
         },
         {
@@ -3011,6 +3051,10 @@
         {
           "path": "internal/capability/format/importing/sevenzip_test.go",
           "kind": "test"
+        },
+        {
+          "path": "internal/capability/format/importing/zip_header.go",
+          "kind": "production"
         }
       ]
     },
@@ -3472,6 +3516,14 @@
       "module": "diagnostics",
       "owner": "RF19",
       "files": [
+        {
+          "path": "internal/model/diagnostics/events.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/diagnostics/events_test.go",
+          "kind": "test"
+        },
         {
           "path": "internal/model/diagnostics/repository.go",
           "kind": "production"
@@ -12004,6 +12056,10 @@
       "module": "testsupport",
       "owner": "RF21",
       "files": [
+        {
+          "path": "internal/testkit/testsupport/diagnostics.go",
+          "kind": "production"
+        },
         {
           "path": "internal/testkit/testsupport/platform_instances.go",
           "kind": "production"

@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testkit/testsupport"
+
 	maintenancemodel "retrom/internal/model/maintenance"
 
 	"retrom/internal/bootstrap/composition"
@@ -62,7 +64,7 @@ func TestReadSetupCodeCommandDoesNotModifyDatabase(t *testing.T) {
 func TestResetOfflineAdminRequiresLockAndTTYConfirmation(t *testing.T) {
 	t.Parallel()
 	configuration, _ := accountCommandFixture(t, config.ModeTest)
-	lock, err := (processlock.Locker{}).Acquire(configuration.DataDir)
+	lock, err := processlock.New(&testsupport.DiagnosticRecorder{}).Acquire(t.Context(), configuration.DataDir)
 	testassert.False(t, err != nil, err)
 	readCount := 0
 	if err := resetOfflineAdmin(

@@ -63,7 +63,7 @@ VALUES('reviewer','local','reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	}
 	return reviewCheckpointFixture{
 		database: database.SQL, now: &now, itemID: source.itemID,
-		launcher: newRPGReviewLaunchService(t, t.Context(), database.SQL, credentials, clock),
+		launcher: newRPGReviewLaunchService(t.Context(), t, database.SQL, credentials, clock),
 		saver:    saves.New(savepersistence.New(database.SQL), blobs, clock), releaser: releaser,
 	}
 }
@@ -99,7 +99,7 @@ func reviewCheckpointRequest(t *testing.T, contents string) saves.ManualUpload {
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest(http.MethodPost, "/", &body)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", &body)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	return saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body}
 }

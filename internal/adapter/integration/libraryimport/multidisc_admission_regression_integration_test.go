@@ -35,7 +35,7 @@ func TestMultiDiscAdmissionRejectsUnconfirmedRecords(t *testing.T) {
 		t.Run(point.name, func(t *testing.T) {
 			t.Parallel()
 			ctx, dir, db, blobs, importer := newMultiDiscImportFixture(t)
-			upload := completeMultiDiscDirectory(t, ctx, db, blobs, dir, []multiDiscUploadFile{
+			upload := completeMultiDiscDirectory(ctx, t, db, blobs, dir, []multiDiscUploadFile{
 				{path: "game/game.m3u", contents: []byte("one.chd\ntwo.chd\n")},
 				{path: "game/one.chd", contents: fakeCHD("one")},
 			})
@@ -47,7 +47,7 @@ func TestMultiDiscAdmissionRejectsUnconfirmedRecords(t *testing.T) {
 			if err := db.SQL.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
 				t.Fatal(err)
 			}
-			missing := completeMultiDiscUpload(t, ctx, db, blobs, dir, "FILES", []multiDiscUploadFile{{path: "two.chd", contents: fakeCHD("two")}})
+			missing := completeMultiDiscUpload(ctx, t, db, blobs, dir, "FILES", []multiDiscUploadFile{{path: "two.chd", contents: fakeCHD("two")}})
 			cause := errors.New("attachment admission count failed")
 			if point.zero {
 				cause = nil

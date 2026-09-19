@@ -1,6 +1,7 @@
 package processlock
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -8,25 +9,37 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/model/diagnostics"
 	model "retrom/internal/model/maintenance"
 )
 
 var errDescriptorInvalid = errors.New("PROCESS_LOCK_DESCRIPTOR_INVALID")
 
 type Lock struct {
-	file *os.File
+	ctx      context.Context
+	file     *os.File
+	reporter diagnostics.ErrorReporter
 }
 
 // Locker acquires the application's nonblocking, process-wide data-root lease.
-type Locker struct{}
+type Locker struct {
+	reporter diagnostics.ErrorReporter
+}
+
+// New binds the diagnostic sink before any resource is acquired.
+func New(reporter diagnostics.ErrorReporter) *Locker {
+	if reporter == nil {
+		panic("process locker requires a diagnostic reporter")
+	}
+	return &Locker{reporter: reporter}
+}
 
 var (
-	_ model.DataRootLocker = Locker{}
+	_ model.DataRootLocker = (*Locker)(nil)
 	_ model.DataRootLease  = (*Lock)(nil)
 )
 
-func (Locker) Acquire(dataDir string) (model.DataRootLease, error) {
+func (locker *Locker) Acquire(ctx context.Context, dataDir string) (model.DataRootLease, error) {
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data root for lock: %w", err)
 	}
@@ -41,11 +54,11 @@ func (Locker) Acquire(dataDir string) (model.DataRootLease, error) {
 	}
 	descriptor, err := checkedFileDescriptor(file)
 	if err != nil {
-		cleanup.Error("close", file.Close())
+		reportClose(ctx, locker.reporter, file.Close())
 		return nil, err
 	}
 	if err := syscall.Flock(descriptor, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		cleanup.Error("close", file.Close())
+		reportClose(ctx, locker.reporter, file.Close())
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return nil, model.ErrDataRootLocked
 		}
@@ -55,7 +68,7 @@ func (Locker) Acquire(dataDir string) (model.DataRootLease, error) {
 		_, _ = fmt.Fprintf(file, "%d\n", os.Getpid())
 		_ = file.Sync()
 	}
-	return &Lock{file: file}, nil
+	return &Lock{ctx: ctx, file: file, reporter: locker.reporter}, nil
 }
 
 func (lock *Lock) Close() error {
@@ -64,7 +77,7 @@ func (lock *Lock) Close() error {
 	}
 	descriptor, descriptorErr := checkedFileDescriptor(lock.file)
 	if descriptorErr != nil {
-		cleanup.Error("close", lock.file.Close())
+		reportClose(lock.ctx, lock.reporter, lock.file.Close())
 		return descriptorErr
 	}
 	unlockErr := syscall.Flock(descriptor, syscall.LOCK_UN)
@@ -84,4 +97,11 @@ func checkedFileDescriptor(file *os.File) (int, error) {
 		return 0, errDescriptorInvalid
 	}
 	return int(descriptor), nil
+}
+
+// reportClose preserves the primary failure and never formats an error message.
+func reportClose(ctx context.Context, reporter diagnostics.ErrorReporter, err error) {
+	if err != nil {
+		reporter.Report(ctx, diagnostics.CleanupFailure("close", "", fmt.Sprintf("%T", err)))
+	}
 }

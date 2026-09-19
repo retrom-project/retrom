@@ -83,7 +83,7 @@ func refreshRPGDraft(t *testing.T, importer *Service, itemID string, version int
 	return current
 }
 
-func assertRPGDependencyStatus(t *testing.T, database *sql.DB, itemID, status, code string) string {
+func assertRPGDependencyStatus(t *testing.T, database *sql.DB, itemID, status, code string) {
 	t.Helper()
 	var id, gotStatus, gotCode string
 	if err := database.QueryRowContext(t.Context(), `
@@ -94,7 +94,6 @@ ORDER BY created_at_ms DESC,id DESC LIMIT 1`, itemID).Scan(&id, &gotStatus, &got
 	if gotStatus != status || gotCode != code {
 		t.Fatalf("RPG dependency status=%s/%s want %s/%s", gotStatus, gotCode, status, code)
 	}
-	return id
 }
 
 func requiredRPGPackArchive(t *testing.T) []byte {

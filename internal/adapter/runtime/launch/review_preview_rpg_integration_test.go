@@ -31,7 +31,7 @@ VALUES('rpg-reviewer','local','rpg-reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	launcher := newRPGReviewLaunchService(t, ctx, database.SQL, credentials, now)
+	launcher := newRPGReviewLaunchService(ctx, t, database.SQL, credentials, now)
 	created, err := launcher.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: fixture.itemID, ActorUserID: "rpg-reviewer", IdempotencyKey: "rpg-trial",
 	})
