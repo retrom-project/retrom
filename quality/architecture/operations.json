@@ -5890,6 +5890,479 @@
       }
     },
     {
+      "operation_id": "importdiscard.complete-source-discard",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/importdiscard.Service).RunOnce",
+        "(*retrom/internal/service/importdiscard.Service).Start",
+        "(*retrom/internal/service/importdiscard.Service).discardSourceItems",
+        "(*retrom/internal/service/importdiscard.Service).process",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/importdiscard.ReleaseFacts",
+      "prepare": "(*retrom/internal/service/importdiscard.Service).discardSourceItems",
+      "commit": "(*retrom/internal/repo/importdiscard.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "source payload release facts",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.writes).Releases",
+          "reason": "Count nonterminal items with payload RELEASING/FAILED and separately all linked FAILED release jobs inside writer."
+        },
+        {
+          "name": "unused source uploads",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.writes).UnusedUploads",
+          "reason": "Current source ownership kind/batch joins, no import_jobs and no upload_consumptions of any state."
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer each source item in this batch with RETAINED payload, including already terminal published/skipped items current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "release-settled",
+          "fields": [
+            "releasing",
+            "failed"
+          ],
+          "expected_source": "If Releasing>0: failed>0 errors, otherwise pending/no write. When Releasing==0 the separate failed count is ignored.",
+          "rejection": "ErrReleaseFailed or pending",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "source-completion",
+          "fields": [
+            "key",
+            "source states"
+          ],
+          "expected_source": "Service calls only Pegasus/ES; skip PUBLISHED/SKIPPED_EXISTING/REVIEW_DISCARDED items. Baseline does not recheck parent cancellation/state/version/execution after earlier stopSource.",
+          "rejection": "SQL failure only",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "delete-unused-upload-files",
+          "repo_helper": "(retrom/internal/repo/importdiscard.writes).DeleteUpload",
+          "affected_records": [
+            "DELETE upload_files per currently unconsumed/unowned-by-import session; no count."
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "delete-unused-upload-session",
+          "repo_helper": "(retrom/internal/repo/importdiscard.writes).DeleteUpload",
+          "affected_records": [
+            "DELETE unused upload_sessions, related rows governed by schema foreign keys; no count."
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "discard-source-items",
+          "repo_helper": "(retrom/internal/repo/importdiscard.writes).Complete",
+          "affected_records": [
+            "UPDATE all remaining source items REVIEW_DISCARDED/retryable0/completed COALESCE/time/version+1; no expected version or row count."
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "complete-source-parent",
+          "repo_helper": "(retrom/internal/repo/importdiscard.writes).Complete",
+          "affected_records": [
+            "UPDATE parent COMPLETED,clear phase/cancel reason,retryable0,completion COALESCE/time/version+1,review pending/blocked/failed/cancelled counts0 and fresh discarded count; ES skipped_mapping count0. Published counts retained. No expected state/version/count."
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. Service samples once before writer; nested payload scheduler generates work IDs inside same writer using supplied time.",
+      "after_commit": [
+        {
+          "action": "Return done after durable source closure and release intent commit; new payload release jobs settle asynchronously.",
+          "recovery": "done does not prove physical content is already released; one failed nested release rolls back source/unused-upload changes.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED delete-unused-upload-files: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED delete-unused-upload-session: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED discard-source-items: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED payload-job: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED payload-input: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED payload-event: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED payload-owner: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED complete-source-parent: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED each guard drift, replay/retry, concurrent cancellation/completion/discard/ownership recovery, context cancellation and restart; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Only disposition/ownership bookkeeping, reference removal and nested payload release scheduling; no new Blob/protective Blob FK or physical publication.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "importdiscard.record-discard-progress",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/importdiscard.Service).RunOnce",
+        "(*retrom/internal/service/importdiscard.Service).Start",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/importdiscard.Progress",
+      "prepare": "(*retrom/internal/service/importdiscard.Service).RunOnce",
+      "commit": "(*retrom/internal/repo/importdiscard.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/importdiscard.progressFor"
+      ],
+      "fresh_facts": [
+        {
+          "name": "oldest durable request",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.records).Pending",
+          "reason": "Separate pre-work read transaction selects oldest REQUESTED by updatedAt/kind/id; restores original request user principal. No lease/claim fencing."
+        },
+        {
+          "name": "current disposition predicate",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.writes).Progress",
+          "reason": "Final writer only predicates kind/id and state REQUESTED; no request identity/version or affected count."
+        }
+      ],
+      "guards": [
+        {
+          "id": "request-context",
+          "fields": [
+            "ctx.Err"
+          ],
+          "expected_source": "After process and before progress writer, cancellation returns joined work/context error and leaves durable REQUESTED.",
+          "rejection": "Original causes via errors.Join",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "progress-state",
+          "fields": [
+            "done",
+            "workError"
+          ],
+          "expected_source": "Default REQUESTED; done->COMPLETED/time; any work error overrides FAILED/no completion, special release failure/ambiguous owner codes.",
+          "rejection": "Stored domain error code",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "record-discard-progress",
+          "repo_helper": "(retrom/internal/repo/importdiscard.writes).Progress",
+          "affected_records": [
+            "UPDATE REQUESTED row state/error/completion/time by key; zero affected is success. Multiple workers or stale retry can overwrite a newer REQUESTED attempt."
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "No execution claim; process uses individually registered cancellation/discard/release operations. Final status is separate transaction; cancellation keeps REQUESTED for retry.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Service samples Now after external multi-transaction work but before progress writer; no IDs.",
+      "after_commit": [
+        {
+          "action": "RunOnce joins work and status-write failures; worker reports via cleanup.Error.",
+          "recovery": "Process is orchestration, not a fictional transaction spanning source cancel, ownership, child review discard/release, source completion, and progress.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED record-discard-progress: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED each guard drift, replay/retry, concurrent cancellation/completion/discard/ownership recovery, context cancellation and restart; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Only disposition/ownership bookkeeping, reference removal and nested payload release scheduling; no new Blob/protective Blob FK or physical publication.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "importdiscard.recover-source-ownership",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/importdiscard.Service).RunOnce",
+        "(*retrom/internal/service/importdiscard.Service).Start",
+        "(*retrom/internal/service/importdiscard.Service).process",
+        "(*retrom/internal/service/importdiscard.Service).recoverSourceLinks",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/importdiscard.Envelope",
+      "prepare": "(*retrom/internal/service/importdiscard.Service).recoverSourceLinks",
+      "commit": "(*retrom/internal/repo/importdiscard.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/importdiscard.internalEnvelope"
+      ],
+      "fresh_facts": [
+        {
+          "name": "unlinked source items",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.writes).Unlinked",
+          "reason": "Current source batch items with no library_import_job_id and no source_item_id ownership row; no execution/version predicate."
+        },
+        {
+          "name": "deterministic upload import",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.writes).ImportByUpload",
+          "reason": "Lookup import by UUIDv5 upload derived from server source kind/item identity; missing permits Pegasus-only legacy fallback."
+        },
+        {
+          "name": "legacy candidates",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.writes).LegacyCandidates",
+          "reason": "Pegasus same mapped target, created time within source lifetime, zero import items, unresolved rejected files and RETAINED payload, same file count/path/size, no source-family import link. Ordered envelope files include final Blob/digest; no physical check."
+        },
+        {
+          "name": "unique legacy owner",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.writes).OwnerCount",
+          "reason": "Exactly one unlinked Pegasus item can match chosen import by target/time/file count/path/size."
+        }
+      ],
+      "guards": [
+        {
+          "id": "legacy-envelope",
+          "fields": [
+            "complete",
+            "files",
+            "digest"
+          ],
+          "expected_source": "Legacy candidate requires all final Blob IDs present, nonempty ordered files and exact schema1 canonical JSON SHA256. More than one valid candidate or matching source owner count!=1 rejects.",
+          "rejection": "ErrAmbiguousOwner",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "ownership-conflict",
+          "fields": [
+            "upload owner"
+          ],
+          "expected_source": "INSERT SELECT upload ID from chosen import; ON CONFLICT(upload_session_id) DO NOTHING. Baseline does not compare existing kind/item or require1; no current source cancellation/execution fence.",
+          "rejection": "SQL error only",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "recover-source-owner",
+          "repo_helper": "(retrom/internal/repo/importdiscard.writes).Link",
+          "affected_records": [
+            "Per resolved source item INSERT server_import_upload_owners kind/source item/upload. All items in one writer; no rows-affected checks."
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. No time writes; deterministic UUID and canonical JSON hashing occur inside writer; no random ID.",
+      "after_commit": [
+        {
+          "action": "Recovered ownership allows subsequent ordinary import discard and unused upload collection in separate transactions.",
+          "recovery": "Source cancellation occurred before this writer; failure aborts all links in this batch.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED recover-source-owner: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED each guard drift, replay/retry, concurrent cancellation/completion/discard/ownership recovery, context cancellation and restart; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Only disposition/ownership bookkeeping, reference removal and nested payload release scheduling; no new Blob/protective Blob FK or physical publication.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "importdiscard.request-batch-discard",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/importdiscard.Service).Request",
+        "(*retrom/internal/transport/httpapi.Server).discardImportBatch"
+      ],
+      "snapshot": "retrom/internal/model/importdiscard.Request",
+      "prepare": "(*retrom/internal/service/importdiscard.Service).Request",
+      "commit": "(*retrom/internal/repo/importdiscard.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/importdiscard.available",
+        "retrom/internal/service/importdiscard.retainedImport",
+        "retrom/internal/service/importdiscard.undecided",
+        "retrom/internal/service/importdiscard.validKey"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current batch and item counts",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.records).Batch",
+          "reason": "Current state/version; ordinary import considered started, source started only if import_job_id exists; current rejected/resolved/payload and grouped item states, all inside writer."
+        },
+        {
+          "name": "existing disposition",
+          "reader_symbol": "(retrom/internal/repo/importdiscard.records).Disposition",
+          "reason": "Current state/error overrides computed availability, including FAILED retry."
+        }
+      ],
+      "guards": [
+        {
+          "id": "discard-key",
+          "fields": [
+            "kind",
+            "id"
+          ],
+          "expected_source": "Only IMPORT|PEGASUS|EMULATIONSTATION and uuid.Parse accepted; parse does not require canonical lower-case spelling.",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "discard-availability",
+          "fields": [
+            "batch",
+            "counts",
+            "disposition"
+          ],
+          "expected_source": "Started and not SCANNING/AWAITING_MAPPING; ordinary import active or unresolved retained rejections, or any undecided items. Existing disposition overrides result. UNAVAILABLE rejects; AVAILABLE/FAILED may request; any other disposition returns unchanged without audit.",
+          "rejection": "ErrInvalid or current replay",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "request-cas",
+          "fields": [
+            "existing disposition state"
+          ],
+          "expected_source": "INSERT or UPDATE existing FAILED only; RowsAffected must equal1 and error propagated. No actor authorization reread here.",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "durable-discard-request",
+          "repo_helper": "(retrom/internal/repo/importdiscard.writes).Request",
+          "affected_records": [
+            "INSERT REQUESTED disposition/user/requestedAt/updatedAt; conflict only FAILED -> REQUESTED/clear error/update time, preserving original requestedBy/requestedAt/completedAt; require1."
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "discard-request-audit",
+          "repo_helper": "(retrom/internal/repo/importdiscard.writes).Request",
+          "affected_records": [
+            "INSERT USER IMPORT_BATCH_DISCARD_REQUESTED audit with generated ID/context request user/kind/id/REQUESTED afterJSON/time; no row count."
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "Existing REQUESTED/COMPLETED is returned without new audit; FAILED is retryable and preserves initial requester; no domain receipt.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Service samples Now before writer; audit UUIDv7 generated inside writer after availability, generator errors propagated.",
+      "after_commit": [
+        {
+          "action": "One-second durable reconciliation discovers request after commit.",
+          "recovery": "No synchronous bulk discard; request and audit roll back together.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED durable-discard-request: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED discard-request-audit: fail each SQL stage/row and assert rollback of the owning transaction",
+        "PLANNED each guard drift, replay/retry, concurrent cancellation/completion/discard/ownership recovery, context cancellation and restart; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Only disposition/ownership bookkeeping, reference removal and nested payload release scheduling; no new Blob/protective Blob FK or physical publication.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "isolation.consume-ticket",
       "owner": "isolation",
       "rf_id": "RF10",
@@ -27764,6 +28237,7 @@
     "RF13 bulk admission plus10claim/item/outcome/finish/failure/cancel/retry/resume operations source-reviewed. Successful publication remains in approve-review owning transaction. Baseline misses complete execution authority and admission Clock,ignores settlement errors/UUID errors,uses untracked WithoutCancel goroutines,and startup resets live RUNNING jobs without expiry guard; RF13/RF17/RF02 must resolve. Attachment/source-handoff/format census still pending.",
     "RF13 seven arcade-parent admission/claim/accepted/rejected/retryable/cancellation operations source-reviewed. Acceptedcommit copiesprotective references withoutD22; admission performsstatinsidewriter; terminalrejected/retryable omitaffectedrowchecks; clocks/IDs/errorreporting/executionauthority needmigration. Multidisc/sourcehandoff/formatcensus pending.",
     "RF13 nine multidisc attachment admission/claim/heartbeat/accepted/reject/retry/fallback/cancellation operations source-reviewed. Preserves separate retry andfallback transactions. Baseline prepublishedplaylist+new protective references lacksD22; heartbeat canreviveexpiredlease,doesnotincrementversion; completeauthority/fullsourceclosure/errorreporting remainrequired. Sourcehandoff/formatcensus stillpending.",
-    "RF13 serverupload-envelope transaction nowregistered separatelyfromcreate-import+sourcebinding; allobservedlibraryimport BeginTx/write boundaries haveentriesoridentifiedread-only/helperowners. FinalRF13policy/consumer coverage audit stillpending; D22/Clock/authority/lifecycle/cleanupdefects remainunimplemented."
+    "RF13 serverupload-envelope transaction nowregistered separatelyfromcreate-import+sourcebinding; allobservedlibraryimport BeginTx/write boundaries haveentriesoridentifiedread-only/helperowners. FinalRF13policy/consumer coverage audit stillpending; D22/Clock/authority/lifecycle/cleanupdefects remainunimplemented.",
+    "RF13 importdiscard four real write boundaries inventoried; process remains multiple separately committed operations. Request/progress execution identity, current source fences, row counts, prepared IDs/single post-writer Clock and lifecycle ownership remain implementation work. ReviewValidation.UpdateRPGDependencyDigest has no production caller; remove unused port/helper rather than invent an operation."
   ]
 }

@@ -931,6 +931,103 @@
       ]
     },
     {
+      "id": "importdiscard.available",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/importdiscard.available",
+      "consumers": [
+        "retrom/internal/service/importdiscard.status"
+      ],
+      "invariant": "Require started/not scanning or awaiting mapping, then retained ordinary import or any positive undecided item count.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "importdiscard.internalEnvelope",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/importdiscard.internalEnvelope",
+      "consumers": [
+        "retrom/internal/service/importdiscard.legacyOwner"
+      ],
+      "invariant": "Complete nonempty ordered internal upload file envelope must match canonical schema1 JSON SHA256.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "importdiscard.progressFor",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/importdiscard.progressFor",
+      "consumers": [
+        "(*retrom/internal/service/importdiscard.Service).RunOnce"
+      ],
+      "invariant": "Work error overrides completion, preserves sentinel-specific release/ambiguity code; otherwise pending or completed at supplied time.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "importdiscard.retainedImport",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/importdiscard.retainedImport",
+      "consumers": [
+        "retrom/internal/service/importdiscard.available"
+      ],
+      "invariant": "Active ordinary import retains discard eligibility; terminal batch needs unresolved rejected files and payload not RELEASED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "importdiscard.undecided",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/importdiscard.undecided",
+      "consumers": [
+        "retrom/internal/service/importdiscard.available"
+      ],
+      "invariant": "Ordinary published/discarded and source published/review-discarded/skipped-existing are the only decided states.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "importdiscard.validKey",
+      "owner": "importdiscard",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/importdiscard.validKey",
+      "consumers": [
+        "(*retrom/internal/service/importdiscard.Service).Get",
+        "(*retrom/internal/service/importdiscard.Service).Request"
+      ],
+      "invariant": "Allow only three owned batch kinds with UUID-parseable ID; canonical spelling currently not required.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
       "id": "importprogress.Project",
       "owner": "importprogress",
       "rf_id": "RF13",
