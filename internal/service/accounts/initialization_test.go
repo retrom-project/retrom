@@ -62,7 +62,7 @@ func initializationMint() (model.SessionMaterial, error) {
 func TestInitializationRejectsPartialPendingAndOrphanedCompletedState(t *testing.T) {
 	for _, state := range []model.InitializationState{{State: "PENDING", Users: 1}, {State: "PENDING", Profiles: 1}, {State: "COMPLETED"}, {State: "COMPLETED", EnabledAdmins: 1, OrphanProfiles: 1}, {State: "UNKNOWN"}} {
 		memory := &initializationMemory{state: state}
-		err := NewInitialization(memory, model.InitializationOptions{Mode: config.ModeRelease}).Start(t.Context())
+		err := NewInitialization(memory, InitializationOptions{Mode: config.ModeRelease}).Start(t.Context())
 		if !errors.Is(err, model.ErrInitializationState) || memory.writes != 0 {
 			t.Fatalf("invalid initialization %+v: %v", state, err)
 		}
@@ -71,7 +71,7 @@ func TestInitializationRejectsPartialPendingAndOrphanedCompletedState(t *testing
 
 func TestSetupProofReadNeverWritesInstanceState(t *testing.T) {
 	memory := &initializationMemory{state: model.InitializationState{State: "PENDING"}}
-	service := NewInitialization(memory, model.InitializationOptions{Credentials: setupProof{}})
+	service := NewInitialization(memory, InitializationOptions{Credentials: setupProof{}})
 	proof, err := service.ReadSetupCode(t.Context())
 	if err != nil || proof != "setup-proof" || memory.writes != 0 {
 		t.Fatalf("setup proof: %q / %v", proof, err)
@@ -84,7 +84,7 @@ func TestSetupProofReadNeverWritesInstanceState(t *testing.T) {
 
 func TestInitializationRechecksStateAfterHashing(t *testing.T) {
 	memory := &initializationMemory{state: model.InitializationState{State: "PENDING"}}
-	options := model.InitializationOptions{Mode: config.ModeTest, Hasher: initializationHasher{duringHash: func() { memory.state.State = "COMPLETED" }}, Mint: initializationMint, Now: time.Now}
+	options := InitializationOptions{Mode: config.ModeTest, Hasher: initializationHasher{duringHash: func() { memory.state.State = "COMPLETED" }}, Mint: initializationMint, Now: time.Now}
 	err := NewInitialization(memory, options).Start(t.Context())
 	if !errors.Is(err, model.ErrInitializationDone) || memory.writes != 0 {
 		t.Fatalf("initialized concurrent instance: %v", err)
@@ -93,7 +93,7 @@ func TestInitializationRechecksStateAfterHashing(t *testing.T) {
 
 func TestInitializationCommitFailureReturnsNoSession(t *testing.T) {
 	memory := &initializationMemory{state: model.InitializationState{State: "PENDING"}, lateError: context.Canceled}
-	options := model.InitializationOptions{Mode: config.ModeRelease, Credentials: setupProof{}, Hasher: initializationHasher{}, Blocklist: authn.EmptyBlocklist{}, Mint: initializationMint, Now: func() time.Time { return time.UnixMilli(100) }}
+	options := InitializationOptions{Mode: config.ModeRelease, Credentials: setupProof{}, Hasher: initializationHasher{}, Blocklist: authn.EmptyBlocklist{}, Mint: initializationMint, Now: func() time.Time { return time.UnixMilli(100) }}
 	session, err := NewInitialization(memory, options).Initialize(t.Context(), model.InitializeRequest{SetupCode: "setup-proof", Username: "admin", DisplayName: "Owner", Password: "initial passphrase", PasswordConfirmation: "initial passphrase"})
 	if !errors.Is(err, context.Canceled) || session.Principal.SessionID != "" || memory.writes != 1 || memory.plan.Kind != "RELEASE_SETUP" || memory.plan.ActorLabel != "release-setup" {
 		t.Fatalf("initialization commit: %+v / %v", memory.plan, err)

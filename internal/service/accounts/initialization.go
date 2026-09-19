@@ -3,20 +3,33 @@ package accounts
 import (
 	"context"
 	"fmt"
+	"time"
 
 	model "retrom/internal/model/accounts"
 
 	"retrom/internal/capability/security/authn"
 )
 
+// InitializationOptions contains service-level configuration for account
+// initialization. It is defined here (not in model) because it carries func
+// fields that only the service layer should hold.
+type InitializationOptions struct {
+	Mode        model.Mode
+	Credentials model.SetupCredentials
+	Hasher      model.PasswordHasher
+	Blocklist   authn.Blocklist
+	Mint        model.SessionMinter
+	Now         func() time.Time
+}
+
 type InitializationService struct {
 	repository model.InitializationRepository
-	options    model.InitializationOptions
+	options    InitializationOptions
 }
 
 func NewInitialization(
 	repository model.InitializationRepository,
-	options model.InitializationOptions,
+	options InitializationOptions,
 ) *InitializationService {
 	return &InitializationService{repository: repository, options: options}
 }

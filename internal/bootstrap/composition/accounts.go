@@ -34,12 +34,12 @@ func NewAccounts(
 			accountpersistence.NewInitialization(
 				database,
 			),
-			accountsmodel.InitializationOptions{
-				Mode:        mode,
-				Credentials: credentials,
-				Hasher:      hasher,
-				Blocklist:   blocklist,
-				Mint:        mint,
+		accountsservice.InitializationOptions{
+			Mode:        mode,
+			Credentials: credentials,
+			Hasher:      hasher,
+			Blocklist:   blocklist,
+			Mint:        mint,
 				Now:         now,
 			},
 		),
@@ -64,7 +64,7 @@ func NewAccounts(
 		Issuance:       accountsservice.NewLinkIssuance(links, credentials, now),
 		Consumption: accountsservice.NewLinkConsumption(
 			links,
-			accountsmodel.LinkConsumptionOptions{
+			accountsservice.LinkConsumptionOptions{
 				Tokens:    credentials,
 				Hasher:    hasher,
 				Blocklist: blocklist,
@@ -82,7 +82,7 @@ func ReadAccountSetupCode(ctx context.Context, database *sql.DB, credentials *ru
 		accountpersistence.NewInitialization(
 			database,
 		),
-		accountsmodel.InitializationOptions{
+		accountsservice.InitializationOptions{
 			Credentials: credentials,
 		},
 	).ReadSetupCode(

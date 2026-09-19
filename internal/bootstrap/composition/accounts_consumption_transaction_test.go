@@ -18,7 +18,7 @@ import (
 func failingConsumptionService(fixture accountFixture) *accountsservice.LinkConsumptionService {
 	repo := accountpersistence.NewLinks(fixture.database.SQL)
 	repo.WithPreCommitHook(func() error { return context.Canceled })
-	return accountsservice.NewLinkConsumption(repo, accountsmodel.LinkConsumptionOptions{
+	return accountsservice.NewLinkConsumption(repo, accountsservice.LinkConsumptionOptions{
 		Tokens: fixture.credentials, Hasher: authn.NewPasswordHasher(), Blocklist: authn.EmptyBlocklist{}, Mint: func() (accountsmodel.SessionMaterial, error) { return accountsservice.MintSession(rand.Reader) }, Now: func() time.Time { return *fixture.now },
 	})
 }

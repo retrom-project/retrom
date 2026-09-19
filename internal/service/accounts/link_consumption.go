@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"fmt"
+	"time"
 
 	model "retrom/internal/model/accounts"
 
@@ -11,14 +12,24 @@ import (
 	"github.com/google/uuid"
 )
 
+// LinkConsumptionOptions contains service-level configuration for link
+// consumption. Moved from model because it carries func fields.
+type LinkConsumptionOptions struct {
+	Tokens    model.LinkTokenReader
+	Hasher    model.PasswordHasher
+	Blocklist authn.Blocklist
+	Mint      model.SessionMinter
+	Now       func() time.Time
+}
+
 type LinkConsumptionService struct {
 	repository model.LinkConsumptionRepository
-	options    model.LinkConsumptionOptions
+	options    LinkConsumptionOptions
 }
 
 func NewLinkConsumption(
 	repository model.LinkConsumptionRepository,
-	options model.LinkConsumptionOptions,
+	options LinkConsumptionOptions,
 ) *LinkConsumptionService {
 	return &LinkConsumptionService{repository, options}
 }
