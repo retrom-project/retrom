@@ -11661,6 +11661,18 @@
           "kind": "test"
         },
         {
+          "path": "internal/testkit/architecture/reexport_graph.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/testkit/architecture/reexport_rules_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/reexport_wrappers.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/testkit/architecture/refactor_rf01_unit_test.go",
           "kind": "test"
         },

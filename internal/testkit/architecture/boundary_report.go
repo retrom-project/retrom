@@ -19,6 +19,7 @@ type BoundaryReport struct {
 	Pending             []string            `json:"pendingChecks"`
 	Ports               []PortInventory     `json:"ports"`
 	Functions           []FunctionInventory `json:"functions"`
+	Reexports           []ReexportInventory `json:"reexports"`
 	Violations          []Violation         `json:"violations"`
 }
 
@@ -34,6 +35,7 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 	}
 	ports := make([]PortInventory, 0)
 	functions := make([]FunctionInventory, 0)
+	reexports := make([]ReexportInventory, 0)
 	violations := append([]Violation(nil), inventory.Violations...)
 	violations = append(violations, InspectDependencyRules(inventory.GoSources, registry)...)
 	for _, build := range []string{"default", "integration"} {
@@ -47,6 +49,9 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 		functions = append(functions, nextFunctions...)
 		violations = append(violations, inspectExecutionRules(nextFunctions)...)
 		violations = append(violations, nextViolations...)
+		nextReexports, forwardingViolations := inspectReexports(root, graph, registry)
+		reexports = append(reexports, nextReexports...)
+		violations = append(violations, forwardingViolations...)
 	}
 	if err := verifyUnchangedSourceSet(ctx, root, inventory.Sources); err != nil {
 		return BoundaryReport{}, err
@@ -65,6 +70,11 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 		return left.Symbol == right.Symbol && left.File == right.File
 	})
 	attachPortConsumers(ports, functions)
+	slices.SortFunc(reexports, compareReexports)
+	reexports = slices.CompactFunc(reexports, func(left, right ReexportInventory) bool {
+		return compareReexports(left, right) == 0
+	})
+	attachReexportConsumers(reexports, inventory.GoPackages)
 	slices.SortFunc(violations, compareViolations)
 	violations = slices.CompactFunc(violations, equalViolation)
 	return BoundaryReport{
@@ -73,9 +83,9 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 		ConfigurationSHA256: inventory.Configuration.SHA256,
 		Checks: []string{
 			"source ownership", "compatibility inputs", "layer dependencies", "model port value graphs",
-			"resolved execution graph", "known I/O and SQL execution effects",
+			"resolved execution graph", "known I/O and SQL execution effects", "resolved Model reexports and consumers",
 		},
-		Pending: pendingBoundaryChecks(), Ports: ports, Functions: functions, Violations: violations,
+		Pending: pendingBoundaryChecks(), Ports: ports, Functions: functions, Reexports: reexports, Violations: violations,
 	}, nil
 }
 
@@ -85,7 +95,7 @@ func pendingBoundaryChecks() []string {
 		"direct repository boundaries and constructor injection",
 		"transitive executable purity and SQL capability calls",
 		"construction and lifecycle ownership",
-		"reexports, atomic helper consumers, and policy uniqueness",
+		"atomic helper consumers and policy uniqueness",
 		"technical clock sampling and protocol privacy",
 		"operation, job, dispatcher, test, and evidence registries",
 		"frontend feature and server boundaries",
