@@ -8,47 +8,49 @@ import (
 	"retrom/internal/repo/dbexec"
 )
 
-// crossDomainWriter implements model.CrossDomainWriter using an executor
-// bound to a caller-owned transaction.
-type crossDomainWriter struct{ executor dbexec.Executor }
+// Relations provides atomic tagging operations for callers in other repo
+// packages that hold their own transaction. The executor field is unexported
+// to prevent upper layers from obtaining transaction-bound write capability.
+type Relations struct{ executor dbexec.Executor }
 
-// BindCrossDomain returns a CrossDomainWriter bound to the given executor.
-// The executor is typically a *sql.Tx owned by another repo's transaction.
-func BindCrossDomain(executor dbexec.Executor) model.CrossDomainWriter {
-	return &crossDomainWriter{executor: executor}
+// BindCrossDomain returns a *Relations bound to the given executor. The
+// concrete type satisfies model.CrossDomainWriter via Go's implicit interface
+// matching; callers in repo use the concrete type directly.
+func BindCrossDomain(executor dbexec.Executor) *Relations {
+	return &Relations{executor: executor}
 }
 
-func (w *crossDomainWriter) ValidateActiveReferences(
+func (r *Relations) ValidateActiveReferences(
 	ctx context.Context, tagIDs []string,
 ) ([]model.Reference, error) {
-	return validateActiveReferences(ctx, w.executor, tagIDs)
+	return validateActiveReferences(ctx, r.executor, tagIDs)
 }
 
-func (w *crossDomainWriter) ReplaceOwnerReferences(
+func (r *Relations) ReplaceOwnerReferences(
 	ctx context.Context, owner model.Owner, tagIDs []string,
 	actorUserID string, now int64,
 ) ([]model.Reference, []model.Reference, error) {
-	return replaceOwnerReferences(ctx, w.executor, owner, tagIDs, actorUserID, now)
+	return replaceOwnerReferences(ctx, r.executor, owner, tagIDs, actorUserID, now)
 }
 
-func (w *crossDomainWriter) AssignReferences(
+func (r *Relations) AssignReferences(
 	ctx context.Context, owner model.Owner, refs []model.Reference,
 	actorUserID string, now int64,
 ) error {
-	return assignReferences(ctx, w.executor, owner, refs, actorUserID, now)
+	return assignReferences(ctx, r.executor, owner, refs, actorUserID, now)
 }
 
-func (w *crossDomainWriter) ReadOwnerReferences(
+func (r *Relations) ReadOwnerReferences(
 	ctx context.Context, owner model.Owner,
 ) ([]model.Reference, error) {
-	return readOwnerReferences(ctx, w.executor, owner)
+	return readOwnerReferences(ctx, r.executor, owner)
 }
 
-func (w *crossDomainWriter) CopyOwnerReferences(
+func (r *Relations) CopyOwnerReferences(
 	ctx context.Context, from, to model.Owner,
 	actorUserID string, now int64,
 ) ([]model.Reference, error) {
-	return copyOwnerReferences(ctx, w.executor, from, to, actorUserID, now)
+	return copyOwnerReferences(ctx, r.executor, from, to, actorUserID, now)
 }
 
 // Package-level functions for direct use by repo callers.
