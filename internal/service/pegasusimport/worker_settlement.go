@@ -59,8 +59,8 @@ func (service *WorkerSettlement) settle(
 			return false, nil
 		}
 
-		releaseYearMax := service.now().UTC().Year() + 1
-		batch, err := service.repository.CommitSettlementReviewBatch(ctx, id, func() int64 { return service.now().UnixMilli() }, releaseYearMax)
+		now := service.now()
+		batch, err := service.repository.CommitSettlementReviewBatch(ctx, id, now.UnixMilli(), now.UTC().Year()+1)
 		if err != nil {
 			return false, fmt.Errorf("settle Pegasus worker: %w", err)
 		}

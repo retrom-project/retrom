@@ -20,7 +20,7 @@ func (m *settlementMemory) CurrentSettlement(_ context.Context, _ string) (model
 	return m.before, m.failure
 }
 
-func (m *settlementMemory) CommitSettlementReviewBatch(_ context.Context, _ model.ExecutionIdentity, _ func() int64, _ int) (model.SettlementReviewBatchResult, error) {
+func (m *settlementMemory) CommitSettlementReviewBatch(_ context.Context, _ model.ExecutionIdentity, _ int64, _ int) (model.SettlementReviewBatchResult, error) {
 	if m.failure != nil {
 		return model.SettlementReviewBatchResult{}, m.failure
 	}
@@ -35,7 +35,6 @@ func (m *settlementMemory) CommitSettlement(_ context.Context, change model.Work
 	m.change = change
 	return nil
 }
-
 
 func TestWorkerSettlementRejectsReplacedOwnerAndFailedStorage(t *testing.T) {
 	t.Parallel()

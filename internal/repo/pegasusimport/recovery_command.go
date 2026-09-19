@@ -12,40 +12,40 @@ import (
 	libraryrepo "retrom/internal/repo/libraryimport"
 )
 
-func (repository *WorkerSettlement) CurrentSettlement(ctx context.Context, jobID string) (application.ExecutionSnapshot, error) {
+func (repository *Recovery) CurrentRecovery(ctx context.Context, jobID string) (application.RecoverySnapshot, error) {
 	conn, err := repository.database.Conn(ctx)
 	if err != nil {
-		return application.ExecutionSnapshot{}, fmt.Errorf("acquire Pegasus settlement read: %w", err)
+		return application.RecoverySnapshot{}, fmt.Errorf("acquire Pegasus recovery read: %w", err)
 	}
 	defer conn.Close()
-	return leaseRecords{tx: conn}.Current(ctx, jobID)
+	return recoveryRecords{tx: conn}.Current(ctx, jobID)
 }
 
-func (repository *WorkerSettlement) CommitSettlementReviewBatch(
+func (repository *Recovery) CommitRecoveryReviewBatch(
 	ctx context.Context,
 	id application.ExecutionIdentity,
 	nowMS int64,
 	releaseYearMax int,
-) (application.SettlementReviewBatchResult, error) {
-	var result application.SettlementReviewBatchResult
+) (application.RecoveryReviewBatchResult, error) {
+	var result application.RecoveryReviewBatchResult
 	err := dbexec.Immediate(ctx, repository.database, func(executor dbexec.Executor) error {
-		records := workerSettlementRecords{tx: executor}
+		records := recoveryRecords{tx: executor}
 		before, err := records.Current(ctx, id.JobID)
 		if err != nil {
-			return fmt.Errorf("read Pegasus settlement: %w", err)
+			return fmt.Errorf("read Pegasus recovery: %w", err)
 		}
 		if before.Kind != "SERVER_PEGASUS_IMPORT" {
 			result.Before = before
 			return nil
 		}
-		reviews, err := recoveryRecords{tx: executor}.Reviews(ctx, before.ImportID, 101)
+		reviews, err := records.Reviews(ctx, before.ImportID, 101)
 		if err != nil {
-			return fmt.Errorf("read Pegasus settlement reviews: %w", err)
+			return fmt.Errorf("read Pegasus recovery reviews: %w", err)
 		}
 		for _, review := range reviews[:min(len(reviews), 100)] {
 			current, err := records.Current(ctx, id.JobID)
 			if err != nil {
-				return fmt.Errorf("re-read Pegasus settlement: %w", err)
+				return fmt.Errorf("re-read Pegasus recovery: %w", err)
 			}
 			review.ImportVersion = current.ImportVersion
 
@@ -68,7 +68,7 @@ func (repository *WorkerSettlement) CommitSettlementReviewBatch(
 			}
 			_, warnings, err := libraryrepo.SeedMetadata(ctx, executor, input)
 			if err != nil {
-				return fmt.Errorf("seed Pegasus settlement review metadata: %w", err)
+				return fmt.Errorf("seed Pegasus recovery review metadata: %w", err)
 			}
 			change := application.RecoveryReviewChange{
 				Execution: current,
@@ -78,41 +78,37 @@ func (repository *WorkerSettlement) CommitSettlementReviewBatch(
 					NowMS:    nowMS,
 				},
 			}
-			settlement := workerSettlementRecords{tx: executor}
-			if err := settlement.CompleteReview(ctx, change); err != nil {
-				return fmt.Errorf("retain Pegasus review on settlement: %w", err)
+			if err := records.CompleteReview(ctx, change); err != nil {
+				return fmt.Errorf("retain Pegasus review on recovery: %w", err)
 			}
 		}
 		current, err := records.Current(ctx, id.JobID)
 		if err != nil {
-			return fmt.Errorf("re-read Pegasus settlement after reviews: %w", err)
+			return fmt.Errorf("re-read Pegasus recovery after reviews: %w", err)
 		}
 		result.Before = current
 		result.More = len(reviews) > 100
 		return nil
 	})
 	if err != nil {
-		return application.SettlementReviewBatchResult{}, fmt.Errorf("commit Pegasus settlement review batch: %w", err)
+		return application.RecoveryReviewBatchResult{}, fmt.Errorf("commit Pegasus recovery review batch: %w", err)
 	}
 	return result, nil
 }
 
-func (repository *WorkerSettlement) CommitSettlement(
-	ctx context.Context,
-	change application.WorkerSettlementChange,
-) error {
+func (repository *Recovery) CommitRecovery(ctx context.Context, change application.RecoveryChange) error {
 	err := dbexec.Immediate(ctx, repository.database, func(executor dbexec.Executor) error {
-		records := workerSettlementRecords{tx: executor}
-		if err := records.Close(ctx, change); err != nil {
-			return fmt.Errorf("persist Pegasus worker settlement: %w", err)
+		records := recoveryRecords{tx: executor}
+		if err := records.Apply(ctx, change); err != nil {
+			return fmt.Errorf("persist Pegasus recovery: %w", err)
 		}
-		if err := scheduleTerminalPayloads(ctx, executor, change.Before.ImportID, change.NowMS); err != nil {
-			return err
+		if change.JobState != "QUEUED" {
+			return scheduleTerminalPayloads(ctx, executor, change.Before.ImportID, change.NowMS)
 		}
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("commit Pegasus settlement: %w", err)
+		return fmt.Errorf("commit Pegasus recovery: %w", err)
 	}
 	return nil
 }

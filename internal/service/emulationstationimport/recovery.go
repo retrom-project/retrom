@@ -24,25 +24,18 @@ func (service *Recovery) Recover(ctx context.Context) error {
 		return fmt.Errorf("list expired EmulationStation executions: %w", err)
 	}
 	for _, candidate := range candidates {
-		err := service.repository.WithRecovery(ctx, func(scope model.RecoveryScope) error {
-			return service.recoverInScope(ctx, scope, candidate)
-		})
-		if errors.Is(err, model.ErrVersionConflict) {
-			continue
-		}
-		if err != nil {
+		if err := service.recoverCandidate(ctx, candidate); err != nil {
+			if errors.Is(err, model.ErrVersionConflict) {
+				continue
+			}
 			return fmt.Errorf("recover EmulationStation execution %s: %w", candidate.JobID, err)
 		}
 	}
 	return nil
 }
 
-func (service *Recovery) recoverInScope(
-	ctx context.Context,
-	scope model.RecoveryScope,
-	candidate model.LeaseSnapshot,
-) error {
-	current, found, err := scope.Read.Current(ctx, candidate.JobID)
+func (service *Recovery) recoverCandidate(ctx context.Context, candidate model.LeaseSnapshot) error {
+	current, found, err := service.repository.CurrentRecovery(ctx, candidate.JobID)
 	if err != nil {
 		return fmt.Errorf("read EmulationStation recovery candidate: %w", err)
 	}
@@ -55,26 +48,25 @@ func (service *Recovery) recoverInScope(
 	if _, err := planRecovery(current, service.now().UnixMilli()); err != nil {
 		return err
 	}
-	current, more, err := completeExecutionReviews(ctx, model.ExecutionReviewScope{
-		Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata,
-	}, current, service.now)
+
+	now := service.now()
+	batch, err := service.repository.CommitRecoveryReviewBatch(ctx, current, now.UnixMilli(), now.UTC().Year()+1)
 	if err != nil {
 		return err
 	}
-	if more {
+	if !batch.Found {
 		return nil
 	}
+	current = batch.Before
+	if batch.More {
+		return nil
+	}
+
 	change, err := planRecovery(current, service.now().UnixMilli())
 	if err != nil {
 		return err
 	}
-	if err := scope.Write.Apply(ctx, change); err != nil {
-		return fmt.Errorf("persist EmulationStation recovery: %w", err)
-	}
-	if change.SchedulePayload {
-		return scheduleTerminalPayloads(ctx, scope.Payload, change.Before.ImportID, change.NowMS)
-	}
-	return nil
+	return service.repository.CommitRecovery(ctx, change)
 }
 
 func sameRecoverySnapshot(a, b model.LeaseSnapshot) bool {

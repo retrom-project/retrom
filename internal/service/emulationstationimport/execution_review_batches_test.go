@@ -22,7 +22,7 @@ func (memory *executionReviewMemory) TerminalCount(_ context.Context, _ string) 
 }
 
 func (memory *executionReviewMemory) CommitExecutionReviewBatch(
-	_ context.Context, _ model.Execution, _ func() int64, _ int,
+	_ context.Context, _ model.Execution, _ int64, _ int,
 ) (model.ExecutionReviewBatchResult, error) {
 	batchSize := min(100, memory.remaining)
 	memory.remaining -= batchSize

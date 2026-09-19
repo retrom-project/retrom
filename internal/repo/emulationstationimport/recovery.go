@@ -5,37 +5,14 @@ import (
 	"database/sql"
 	"fmt"
 
-	payload "retrom/internal/repo/payloadrelease"
-
 	"retrom/internal/foundation/cleanup"
 	application "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
-	library "retrom/internal/repo/libraryimport"
 )
 
 type Recovery struct{ database *sql.DB }
 
 func NewRecovery(database *sql.DB) *Recovery { return &Recovery{database: database} }
-func (repository *Recovery) WithRecovery(ctx context.Context, work func(application.RecoveryScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin EmulationStation recovery: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	records := recoveryRecords{transaction: tx, executor: tx}
-	if err := work(
-		application.RecoveryScope{
-			Payload: payload.BindReleases(tx), Read: records, Write: records,
-			Metadata: library.BindMetadata(tx),
-		},
-	); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit EmulationStation recovery: %w", err)
-	}
-	return nil
-}
 
 func (repository *Recovery) Expired(ctx context.Context, now int64, limit int) ([]application.LeaseSnapshot, error) {
 	rows, err := repository.database.QueryContext(ctx, leaseSnapshotSQL+`

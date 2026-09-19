@@ -19,21 +19,19 @@ func TestRecoveryReviewFenceIncludesFrozenSourceIdentity(t *testing.T) {
 		t.Run(mutation, func(t *testing.T) {
 			t.Parallel()
 			db, unit := recoveryDatabase(t, true, false)
+
+			repo := NewRecovery(db)
+			candidate, found, err := repo.CurrentRecovery(t.Context(), unit.JobID)
+			if err != nil || !found {
+				t.Fatalf("current=%v error=%v", found, err)
+			}
+
+			if _, err := db.ExecContext(t.Context(), mutation); err != nil {
+				t.Fatal(err)
+			}
 			before := planRows(t, db)
-			err := NewRecovery(db).WithRecovery(t.Context(), func(scope application.RecoveryScope) error {
-				current, found, err := scope.Read.Current(t.Context(), unit.JobID)
-				if err != nil || !found {
-					t.Fatalf("current=%v error=%v", found, err)
-				}
-				records, ok := scope.Write.(recoveryRecords)
-				if !ok {
-					t.Fatal("unexpected recovery writer")
-				}
-				if _, err := records.executor.ExecContext(t.Context(), mutation); err != nil {
-					t.Fatal(err)
-				}
-				return scope.Write.Fence(t.Context(), current, 1500)
-			})
+
+			_, err = repo.CommitRecoveryReviewBatch(t.Context(), candidate, 1500, candidate.ReleaseYearMax)
 			if !errors.Is(err, application.ErrVersionConflict) {
 				t.Fatalf("changed recovery identity was accepted: %v", err)
 			}

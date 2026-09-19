@@ -35,7 +35,7 @@ WHERE import_id=? AND execution_state NOT IN ('PENDING','COPYING','VALIDATING')`
 func (repository *ExecutionControl) CommitExecutionReviewBatch(
 	ctx context.Context,
 	unit application.Execution,
-	nowFunc func() int64,
+	nowMS int64,
 	releaseYearMax int,
 ) (application.ExecutionReviewBatchResult, error) {
 	var result application.ExecutionReviewBatchResult
@@ -61,8 +61,7 @@ func (repository *ExecutionControl) CommitExecutionReviewBatch(
 			if err != nil {
 				return err
 			}
-			now := nowFunc()
-			if err := records.Fence(ctx, before, now); err != nil {
+			if err := records.Fence(ctx, before, nowMS); err != nil {
 				return fmt.Errorf("fence EmulationStation review: %w", err)
 			}
 			var metadata librarymodel.ServerMetadata
@@ -73,7 +72,7 @@ func (repository *ExecutionControl) CommitExecutionReviewBatch(
 			label := "release-setup"
 			input := librarymodel.MetadataSeedInput{
 				ItemID: review.ReservedItemID, Metadata: metadata,
-				MaximumYear: releaseYearMax, NowMS: now,
+				MaximumYear: releaseYearMax, NowMS: nowMS,
 				AuditID: auditID.String(), ActorKind: "SYSTEM", ActorLabel: &label,
 			}
 			_, additions, err := libraryrepo.SeedMetadata(ctx, executor, input)
@@ -86,7 +85,7 @@ func (repository *ExecutionControl) CommitExecutionReviewBatch(
 			}
 			err = records.CompleteReview(ctx, application.ExecutionReviewCompletion{
 				Before: before, Review: review, WarningsJSON: warningsJSON,
-				Preparation: preparation, NowMS: now,
+				Preparation: preparation, NowMS: nowMS,
 			})
 			if err != nil {
 				return fmt.Errorf("complete EmulationStation review: %w", err)

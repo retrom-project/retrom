@@ -21,6 +21,6 @@ type SettlementReviewBatchResult struct {
 
 type WorkerSettlementRepository interface {
 	CurrentSettlement(context.Context, string) (ExecutionSnapshot, error)
-	CommitSettlementReviewBatch(ctx context.Context, id ExecutionIdentity, nowFunc func() int64, releaseYearMax int) (SettlementReviewBatchResult, error)
+	CommitSettlementReviewBatch(ctx context.Context, id ExecutionIdentity, nowMS int64, releaseYearMax int) (SettlementReviewBatchResult, error)
 	CommitSettlement(ctx context.Context, change WorkerSettlementChange) error
 }

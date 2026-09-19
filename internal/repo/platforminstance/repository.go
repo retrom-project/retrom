@@ -153,7 +153,7 @@ func (repository *Repository) CommitPatch(
 		after := map[string]any{
 			"name": current.Name, "description": current.Description,
 			"sortOrder": current.SortOrder,
-			"enabled": current.Enabled, "version": cmd.ExpectedVersion + 1,
+			"enabled":   current.Enabled, "version": cmd.ExpectedVersion + 1,
 		}
 		if auditErr := bound.RecordAudit(ctx, model.AuditEvent{
 			ID: cmd.AuditID, Action: "PLATFORM_INSTANCE_UPDATED",

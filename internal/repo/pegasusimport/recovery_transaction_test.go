@@ -3,13 +3,16 @@ package pegasusimport
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
+	"retrom/internal/testkit/testsupport"
 )
 
 func recoveryDatabase(t *testing.T) *sql.DB {
@@ -80,15 +83,15 @@ func TestRecoveryTransactionRejectsStaleOwnership(t *testing.T) {
 			t.Parallel()
 			db := recoveryDatabase(t)
 			before := workflowRows(t, db)
-			err := NewRecovery(db).WithRecovery(t.Context(), func(scope pegasusimportmodel.RecoveryScope) error {
-				current, err := scope.Records.Current(t.Context(), "work")
-				if err != nil {
-					return err
-				}
-				change := pegasusimportmodel.RecoveryChange{Before: current, JobState: "QUEUED", ImportState: "QUEUED", ItemState: "PENDING", Event: "RETRY_SCHEDULED", NowMS: 10}
-				invalidateRecovery(&change.Before, field)
-				return scope.Records.Apply(t.Context(), change)
-			})
+
+			repo := NewRecovery(db)
+			current, err := repo.CurrentRecovery(t.Context(), "work")
+			if err != nil {
+				t.Fatal(err)
+			}
+			change := pegasusimportmodel.RecoveryChange{Before: current, JobState: "QUEUED", ImportState: "QUEUED", ItemState: "PENDING", Event: "RETRY_SCHEDULED", NowMS: 10}
+			invalidateRecovery(&change.Before, field)
+			err = repo.CommitRecovery(t.Context(), change)
 			if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 				t.Fatalf("stale %s: %v", field, err)
 			}
@@ -120,23 +123,22 @@ func invalidateRecovery(before *pegasusimportmodel.RecoverySnapshot, field strin
 	}
 }
 
-func TestRecoveryTransactionRollsBackLateFailureIncludingPayloadJobs(t *testing.T) {
+func TestRecoveryCommitFailureRollsBack(t *testing.T) {
 	t.Parallel()
 	db := recoveryDatabase(t)
 	before := workflowRows(t, db)
-	cause := errors.New("late write failed")
-	err := NewRecovery(db).WithRecovery(t.Context(), func(scope pegasusimportmodel.RecoveryScope) error {
-		current, err := scope.Records.Current(t.Context(), "work")
-		if err != nil {
-			return err
-		}
-		if err := scope.Records.Apply(t.Context(), pegasusimportmodel.RecoveryChange{Before: current, JobState: "FAILED", ImportState: "FAILED", ItemState: "COMMIT_FAILED", Code: "PEGASUS_EXECUTION_TIMEOUT", Event: "FAILED", NowMS: 100}); err != nil {
-			return err
-		}
-		return cause
+	cause := errors.New("recovery commit injected")
+	faultDB := testsupport.OpenSQLFaultDatabase(t, db, testsupport.SQLFaultHooks{
+		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+			if strings.TrimSpace(query) == "COMMIT" {
+				return cause
+			}
+			return nil
+		},
 	})
-	if !errors.Is(err, cause) {
-		t.Fatalf("late failure: %v", err)
+	err := pegasusimportservice.NewRecovery(NewRecovery(faultDB), nil, func() time.Time { return time.UnixMilli(10) }).Recover(t.Context())
+	if err == nil {
+		t.Fatal("late recovery failure committed")
 	}
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {
 		t.Fatal("failed recovery committed partial projections or payload jobs")

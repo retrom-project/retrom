@@ -7,40 +7,8 @@ import (
 	"testing"
 	"time"
 
-	librarymodel "retrom/internal/model/libraryimport"
 	model "retrom/internal/model/pegasusimport"
-
-	library "retrom/internal/service/libraryimport"
 )
-
-type recoveryMetadataFake struct {
-	before model.ReviewHandoffSnapshot
-	seeds  int
-}
-
-func (m *recoveryMetadataFake) CurrentMetadata(_ context.Context, _ string) (librarymodel.MetadataDraft, error) {
-	return librarymodel.MetadataDraft{MetadataJSON: `{"Title":"t"}`, Version: 1}, nil
-}
-
-func (m *recoveryMetadataFake) SaveMetadata(_ context.Context, _ librarymodel.MetadataChange) error {
-	m.seeds++
-	return nil
-}
-
-func newRecoveryMetadataFake() *recoveryMetadataFake {
-	return &recoveryMetadataFake{
-		before: model.ReviewHandoffSnapshot{
-			Identity: model.ReviewHandoffRequest{
-				ItemID: "item", ImportID: "import", JobID: "job",
-				LibraryJobID: "lib-job", LibraryItemID: "lib-item",
-				ExecutionNo: 1, Attempt: 1, WorkerID: "worker",
-			},
-			State: "COPYING", ImportState: "RUNNING", JobState: "RUNNING",
-			Version: 1, ImportVersion: 3, LeaseUntilMS: 5, DeadlineMS: 100,
-			Metadata: librarymodel.ServerMetadata{Title: "t"},
-		},
-	}
-}
 
 func recoverySnapshot() model.RecoverySnapshot {
 	return model.RecoverySnapshot{JobID: "job", ImportID: "import", Kind: "SERVER_PEGASUS_IMPORT", JobState: "RUNNING", ImportState: "RUNNING", WorkerID: "lost", JobVersion: 2, ImportVersion: 3, ExecutionNo: 1, Attempt: 1, MaxAttempts: 4, LeaseUntilMS: 5, DeadlineMS: 100}
@@ -112,9 +80,8 @@ type recoveryFake struct {
 	failure   error
 	applied   int
 	limit     int
-	reviews   []model.ReviewHandoffSnapshot
+	remaining int
 	completed int
-	metadata  *recoveryMetadataFake
 }
 
 func (fake *recoveryFake) ExpiredExecutions(_ context.Context, _ int64, limit int) ([]model.RecoverySnapshot, error) {
@@ -122,25 +89,25 @@ func (fake *recoveryFake) ExpiredExecutions(_ context.Context, _ int64, limit in
 	return []model.RecoverySnapshot{fake.before}, nil
 }
 
-func (fake *recoveryFake) WithRecovery(_ context.Context, work func(model.RecoveryScope) error) error {
-	return work(model.RecoveryScope{Payload: emptyPayloadScope(), Records: fake, Metadata: fake.metadata})
+func (fake *recoveryFake) CurrentRecovery(_ context.Context, _ string) (model.RecoverySnapshot, error) {
+	if fake.failure != nil {
+		return model.RecoverySnapshot{}, fake.failure
+	}
+	return fake.current, nil
 }
 
-func (fake *recoveryFake) Current(context.Context, string) (model.RecoverySnapshot, error) {
-	return fake.current, fake.failure
+func (fake *recoveryFake) CommitRecoveryReviewBatch(_ context.Context, _ model.ExecutionIdentity, _ int64, _ int) (model.RecoveryReviewBatchResult, error) {
+	if fake.failure != nil {
+		return model.RecoveryReviewBatchResult{}, fake.failure
+	}
+	batch := min(100, fake.remaining)
+	fake.remaining -= batch
+	fake.completed += batch
+	fake.current.ImportVersion += int64(batch)
+	return model.RecoveryReviewBatchResult{Before: fake.current, More: fake.remaining > 0}, nil
 }
 
-func (fake *recoveryFake) Reviews(context.Context, string, int) ([]model.ReviewHandoffSnapshot, error) {
-	return fake.reviews, nil
-}
-
-func (fake *recoveryFake) CompleteReview(context.Context, model.RecoveryReviewChange) error {
-	fake.completed++
-	fake.current.ImportVersion++
-	return nil
-}
-
-func (fake *recoveryFake) Apply(context.Context, model.RecoveryChange) error {
+func (fake *recoveryFake) CommitRecovery(_ context.Context, _ model.RecoveryChange) error {
 	fake.applied++
 	return nil
 }
@@ -167,25 +134,17 @@ func TestRecoveryBoundsReviewReconciliationBeforeClosingExecution(t *testing.T) 
 	for _, count := range []int{100, 101} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			t.Parallel()
-			metadataFake := newRecoveryMetadataFake()
-			fake := &recoveryFake{before: recoverySnapshot(), current: recoverySnapshot(), metadata: metadataFake}
-			for i := range count {
-				review := newRecoveryMetadataFake().before
-				review.Identity.ItemID = fmt.Sprint(i)
-				review.Identity.ExecutionNo, review.Identity.Attempt = 1, 1
-				review.ImportVersion = fake.current.ImportVersion
-				fake.reviews = append(fake.reviews, review)
-			}
+			fake := &recoveryFake{before: recoverySnapshot(), current: recoverySnapshot(), remaining: count}
 			now := func() time.Time { return time.UnixMilli(10) }
-			if err := NewRecovery(fake, library.NewMetadataSeeder(nil, now), now).Recover(t.Context()); err != nil {
+			if err := NewRecovery(fake, nil, now).Recover(t.Context()); err != nil {
 				t.Fatal(err)
 			}
 			expectedApplies := 0
 			if count == 100 {
 				expectedApplies = 1
 			}
-			if fake.completed != 100 || fake.metadata.seeds != 100 || fake.applied != expectedApplies {
-				t.Fatalf("count=%d completed=%d seeds=%d applies=%d", count, fake.completed, fake.metadata.seeds, fake.applied)
+			if fake.completed != 100 || fake.applied != expectedApplies {
+				t.Fatalf("count=%d completed=%d applies=%d", count, fake.completed, fake.applied)
 			}
 		})
 	}

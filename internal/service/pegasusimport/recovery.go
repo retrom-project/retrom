@@ -12,16 +12,15 @@ import (
 
 type Recovery struct {
 	repository model.RecoveryRepository
-	metadata   model.ReviewMetadataSeeder
 	now        func() time.Time
 }
 
 func NewRecovery(
 	repository model.RecoveryRepository,
-	metadata model.ReviewMetadataSeeder,
+	_ model.ReviewMetadataSeeder,
 	now func() time.Time,
 ) *Recovery {
-	return &Recovery{repository: repository, metadata: metadata, now: now}
+	return &Recovery{repository: repository, now: now}
 }
 
 func (service *Recovery) Recover(ctx context.Context) error {
@@ -30,89 +29,52 @@ func (service *Recovery) Recover(ctx context.Context) error {
 		return fmt.Errorf("list expired Pegasus executions: %w", err)
 	}
 	for _, candidate := range candidates {
-		err := service.repository.WithRecovery(ctx, func(scope model.RecoveryScope) error {
-			return service.recoverExecution(ctx, scope, candidate)
-		})
-		if errors.Is(err, model.ErrVersionConflict) {
-			continue
-		}
-		if err != nil {
+		if err := service.recoverCandidate(ctx, candidate); err != nil {
+			if errors.Is(err, model.ErrVersionConflict) {
+				continue
+			}
 			return fmt.Errorf("recover Pegasus execution %s: %w", candidate.JobID, err)
 		}
 	}
 	return nil
 }
 
-func (service *Recovery) recoverExecution(
-	ctx context.Context,
-	scope model.RecoveryScope,
-	candidate model.RecoverySnapshot,
-) error {
-	before, err := scope.Records.Current(ctx, candidate.JobID)
+func (service *Recovery) recoverCandidate(ctx context.Context, candidate model.RecoverySnapshot) error {
+	current, err := service.repository.CurrentRecovery(ctx, candidate.JobID)
 	if errors.Is(err, model.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("read Pegasus recovery candidate: %w", err)
 	}
-	if before != candidate {
+	if current != candidate {
 		return model.ErrVersionConflict
 	}
 	now := service.now()
-	if _, err := planRecovery(before, now.UnixMilli()); err != nil {
+	if _, err := planRecovery(current, now.UnixMilli()); err != nil {
 		return err
 	}
-	reviews, err := scope.Records.Reviews(ctx, before.ImportID, 101)
+
+	id := model.ExecutionIdentity{
+		JobID: current.JobID, ImportID: current.ImportID,
+		WorkerID: current.WorkerID, ExecutionNo: current.ExecutionNo,
+		Attempt: current.Attempt,
+	}
+
+	batch, err := service.repository.CommitRecoveryReviewBatch(ctx, id, now.UnixMilli(), now.UTC().Year()+1)
 	if err != nil {
-		return fmt.Errorf("read interrupted Pegasus reviews: %w", err)
+		return err
 	}
-	for _, review := range reviews[:min(len(reviews), 100)] {
-		// Every completed review advances the parent version in this transaction.
-		current, err := currentRecovery(ctx, scope.Records, before)
-		if err != nil {
-			return err
-		}
-		review.ImportVersion = current.ImportVersion
-		if err := service.recoverReview(ctx, scope, current, review, now); err != nil {
-			return err
-		}
-	}
-	if len(reviews) > 100 {
+	current = batch.Before
+	if batch.More {
 		return nil
 	}
-	current, err := currentRecovery(ctx, scope.Records, before)
-	if err != nil {
-		return err
-	}
+
 	change, err := planRecovery(current, now.UnixMilli())
 	if err != nil {
 		return err
 	}
-	if err := scope.Records.Apply(ctx, change); err != nil {
-		return fmt.Errorf("persist Pegasus recovery: %w", err)
-	}
-	if change.JobState != "QUEUED" {
-		return scheduleTerminalPayloads(ctx, scope.Payload, current.ImportID, change.NowMS)
-	}
-	return nil
-}
-
-func (service *Recovery) recoverReview(
-	ctx context.Context,
-	scope model.RecoveryScope,
-	execution model.RecoverySnapshot,
-	review model.ReviewHandoffSnapshot,
-	now time.Time,
-) error {
-	change, err := prepareRecoveryReview(ctx, service.metadata, scope.Metadata, execution, review, now)
-	if err != nil {
-		return err
-	}
-	err = scope.Records.CompleteReview(ctx, change)
-	if err != nil {
-		return fmt.Errorf("complete recovered Pegasus review: %w", err)
-	}
-	return nil
+	return service.repository.CommitRecovery(ctx, change)
 }
 
 func planRecovery(before model.RecoverySnapshot, now int64) (model.RecoveryChange, error) {
@@ -170,21 +132,4 @@ func validRecoveryExecution(before model.RecoverySnapshot) bool {
 		before.ExecutionNo > 0 &&
 		before.JobVersion > 0 && before.JobVersion < math.MaxInt64 && before.ImportVersion > 0 &&
 		before.ImportVersion < math.MaxInt64-1
-}
-
-func currentRecovery(
-	ctx context.Context,
-	records model.RecoveryRecords,
-	before model.RecoverySnapshot,
-) (model.RecoverySnapshot, error) {
-	current, err := records.Current(ctx, before.JobID)
-	if err != nil {
-		return model.RecoverySnapshot{}, fmt.Errorf("reread Pegasus recovery execution: %w", err)
-	}
-	expected := before
-	expected.ImportVersion = current.ImportVersion
-	if expected != current {
-		return model.RecoverySnapshot{}, model.ErrVersionConflict
-	}
-	return current, nil
 }

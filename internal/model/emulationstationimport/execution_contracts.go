@@ -48,6 +48,6 @@ type ExecutionReviewBatchResult struct {
 type ExecutionRepository interface {
 	CurrentExecution(context.Context, string) (LeaseSnapshot, bool, error)
 	TerminalCount(context.Context, string) (int64, error)
-	CommitExecutionReviewBatch(ctx context.Context, unit Execution, nowFunc func() int64, releaseYearMax int) (ExecutionReviewBatchResult, error)
+	CommitExecutionReviewBatch(ctx context.Context, unit Execution, nowMS int64, releaseYearMax int) (ExecutionReviewBatchResult, error)
 	CommitExecutionFinish(ctx context.Context, change ExecutionFinish) error
 }

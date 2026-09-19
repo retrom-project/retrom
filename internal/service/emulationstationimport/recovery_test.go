@@ -24,28 +24,25 @@ func (memory *recoveryMemory) Expired(context.Context, int64, int) ([]model.Leas
 	return []model.LeaseSnapshot{memory.candidate}, nil
 }
 
-func (memory *recoveryMemory) WithRecovery(_ context.Context, work func(model.RecoveryScope) error) error {
-	if err := work(model.RecoveryScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
-		return err
-	}
-	if memory.stage == "commit" {
-		return memory.failure
-	}
-	return nil
-}
-
-func (memory *recoveryMemory) Current(context.Context, string) (model.LeaseSnapshot, bool, error) {
+func (memory *recoveryMemory) CurrentRecovery(_ context.Context, _ string) (model.LeaseSnapshot, bool, error) {
 	if memory.stage == "read" {
 		return model.LeaseSnapshot{}, false, memory.failure
 	}
 	return memory.current, true, nil
 }
 
-func (memory *recoveryMemory) Apply(_ context.Context, change model.RecoveryChange) error {
+func (memory *recoveryMemory) CommitRecoveryReviewBatch(_ context.Context, candidate model.LeaseSnapshot, _ int64, _ int) (model.RecoveryReviewBatchResult, error) {
+	return model.RecoveryReviewBatchResult{Before: candidate, Found: true}, nil
+}
+
+func (memory *recoveryMemory) CommitRecovery(_ context.Context, change model.RecoveryChange) error {
 	if memory.stage == "write" {
 		return memory.failure
 	}
 	memory.changes = append(memory.changes, change)
+	if memory.stage == "commit" {
+		return memory.failure
+	}
 	return nil
 }
 
@@ -98,14 +95,4 @@ func TestRecoveryIgnoresReplacedCandidate(t *testing.T) {
 	if err := NewRecovery(memory, func() time.Time { return time.UnixMilli(1000) }).Recover(t.Context()); err != nil || len(memory.changes) != 0 {
 		t.Fatalf("error=%v changes=%#v", err, memory.changes)
 	}
-}
-
-func (*recoveryMemory) Reviews(context.Context, string, int) ([]model.ExecutionReview, error) {
-	return nil, nil
-}
-
-func (*recoveryMemory) Fence(context.Context, model.LeaseSnapshot, int64) error { return nil }
-
-func (*recoveryMemory) CompleteReview(context.Context, model.ExecutionReviewCompletion) error {
-	return nil
 }

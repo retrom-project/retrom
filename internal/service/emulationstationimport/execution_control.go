@@ -59,7 +59,7 @@ func (service *ExecutionControl) closeCancelledAttempt(
 		return false, false, model.ErrVersionConflict
 	}
 	result, err := service.repository.CommitExecutionReviewBatch(
-		ctx, unit, func() int64 { return service.now().UnixMilli() }, before.ReleaseYearMax,
+		ctx, unit, service.now().UnixMilli(), before.ReleaseYearMax,
 	)
 	if err != nil {
 		return false, false, err

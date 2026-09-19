@@ -13,17 +13,17 @@ import (
 )
 
 type mappingMemory struct {
-	tags                                         *mappingTagMemory
-	before                                       model.Summary
-	owner                                        string
-	target                                       *model.MappingTarget
-	readErr, writeErr, commitErr                 error
-	writes                                       []model.CollectionMapping
-	advance                                      *model.MappingAdvance
-	commits                                      int
-	gameCount                                    int64
-	ownerErr, advanceErr, responseErr            error
-	reads                                        int
+	tags                              *mappingTagMemory
+	before                            model.Summary
+	owner                             string
+	target                            *model.MappingTarget
+	readErr, writeErr, commitErr      error
+	writes                            []model.CollectionMapping
+	advance                           *model.MappingAdvance
+	commits                           int
+	gameCount                         int64
+	ownerErr, advanceErr, responseErr error
+	reads                             int
 }
 
 func (m *mappingMemory) LoadImportSummary(_ context.Context, _ string) (model.Summary, error) {

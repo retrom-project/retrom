@@ -1,11 +1,6 @@
 package pegasusimport
 
-import (
-	"context"
-
-	library "retrom/internal/model/libraryimport"
-	payload "retrom/internal/model/payloadrelease"
-)
+import "context"
 
 type RecoverySnapshot = ExecutionSnapshot
 
@@ -20,20 +15,14 @@ type RecoveryReviewChange struct {
 	Handoff   ReviewHandoffChange
 }
 
-type RecoveryRecords interface {
-	Current(context.Context, string) (RecoverySnapshot, error)
-	Reviews(context.Context, string, int) ([]ReviewHandoffSnapshot, error)
-	CompleteReview(context.Context, RecoveryReviewChange) error
-	Apply(context.Context, RecoveryChange) error
-}
-
-type RecoveryScope struct {
-	Payload  payload.ReleaseScope
-	Records  RecoveryRecords
-	Metadata library.MetadataScope
+type RecoveryReviewBatchResult struct {
+	Before RecoverySnapshot
+	More   bool
 }
 
 type RecoveryRepository interface {
 	ExpiredExecutions(context.Context, int64, int) ([]RecoverySnapshot, error)
-	WithRecovery(context.Context, func(RecoveryScope) error) error
+	CurrentRecovery(ctx context.Context, jobID string) (RecoverySnapshot, error)
+	CommitRecoveryReviewBatch(ctx context.Context, id ExecutionIdentity, nowMS int64, releaseYearMax int) (RecoveryReviewBatchResult, error)
+	CommitRecovery(ctx context.Context, change RecoveryChange) error
 }

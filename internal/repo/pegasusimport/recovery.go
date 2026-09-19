@@ -6,36 +6,14 @@ import (
 	"errors"
 	"fmt"
 
-	payload "retrom/internal/repo/payloadrelease"
-
 	"retrom/internal/foundation/cleanup"
 	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
-	library "retrom/internal/repo/libraryimport"
 )
 
 type Recovery struct{ database *sql.DB }
 
 func NewRecovery(database *sql.DB) *Recovery { return &Recovery{database: database} }
-func (repository *Recovery) WithRecovery(ctx context.Context, work func(application.RecoveryScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin Pegasus recovery: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	if err := work(
-		application.RecoveryScope{
-			Payload: payload.BindReleases(tx), Records: recoveryRecords{tx},
-			Metadata: library.BindMetadata(tx),
-		},
-	); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit Pegasus recovery: %w", err)
-	}
-	return nil
-}
 
 const recoverySnapshotSQL = `SELECT job.id,plan.id,job.kind,job.state,plan.state,COALESCE(job.worker_id,''),
 job.version,plan.version,job.execution_no,job.attempt_count,job.max_attempts,
